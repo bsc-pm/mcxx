@@ -125,7 +125,8 @@ namespace Analysis {
                                  std::vector<std::string>& outer_edges,
                                  std::vector<Node*>& outer_nodes,
                                  std::string indent, int& subgraph_id,
-                                 bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                 bool auto_scoping, bool auto_deps );
 
         //! Prints both nodes and edges within a pcfg subgraph
                     //! Prints nodes and relations between them in a string in a recursive way.
@@ -141,7 +142,8 @@ namespace Analysis {
                                std::vector<std::string>& outer_edges,
                                std::vector<Node*>& outer_nodes,
                                std::string indent, int& subgraph_id,
-                               bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                               bool auto_scoping, bool auto_deps );
 
         //! Prints the data of an only node.
         void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
@@ -172,7 +174,7 @@ namespace Analysis {
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                        std::string cluster_name,
-                                       bool usage, bool liveness, bool reaching_defs,
+                                       bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                        bool auto_scoping, bool auto_deps );
 
     public:
@@ -221,11 +223,12 @@ namespace Analysis {
         * \param etype Type of the connection between the two nodes.
         * \param label Label for the connection. It will be used when a Catch or a Case edges
         *              are built.
-        * \param is_back_edge Bool indicating whether the nodes must be connected by a back edge
+        * \param is_task_edge Bool indicating whether the target node is a task.
+        *                     Thus, the edge will have special type _TASK_EDGE
         * \return The new edge created between the two nodes
         */
         Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = ALWAYS, std::string label = "",
-                             bool is_back_edge = false, bool is_task_edge = false );
+                             bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
         //! set of children and each connection may be different from the others.
@@ -248,7 +251,7 @@ namespace Analysis {
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = ALWAYS,
-                            std::string label = "", bool is_back_edge = false );
+                            std::string label = "" );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
         void disconnect_nodes( ObjectList<Node*> parents, Node* child );
@@ -336,14 +339,18 @@ namespace Analysis {
         static void clear_visits_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
+        static void clear_visits_aux_backwards( Node* current );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
 
+        //!Returns true if a given nodecl is not modified in a given context
+        static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
 
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
-        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps );
+        void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                 bool auto_scoping, bool auto_deps );
 
 
         // *** Getters and Setters *** //
@@ -377,7 +384,8 @@ namespace Analysis {
 
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
-
+        static bool node_is_in_loop( Node* current );
+        static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
 
         // *** Printing methods *** //
         void print_global_vars( ) const;

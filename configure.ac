@@ -297,6 +297,21 @@ then
             nanox_mic_lib="${withval}"
            ]
    )
+
+   if test x$nanox_mic_include = x -o x$nanox_mic_lib = x;
+   then
+           nanox_mic_include=$nanox_include
+           nanox_mic_lib=$nanox_lib
+   fi
+   NANOX_MIC_INCLUDES="${nanox_mic_include}"
+   NANOX_MIC_LIBS="${nanox_mic_lib}"
+
+   AC_ARG_WITH([nanox-mic-lib],
+           AS_HELP_STRING([--with-nanox-mic-lib=dir], [Directory of Nanos++ MIC libraries]),
+           [
+            nanox_mic_lib="${withval}"
+           ]
+   )
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
 
@@ -352,17 +367,19 @@ dnl SIMD Support
 AX_EXT
 
 simd_version="no (SSE 4.1 or higher not detected)."
+simd_math_version="(SVML not detected)"
+svml_enabled="no"
 simd_flags=
 simd_includes=
 nanox_sse="no"
 
-  if test "$ax_cv_have_sse42_ext" = yes; 
+  if test "$ax_cv_have_sse42_ext" = yes;
   then
         simd_version="SSE4.2"
         simd_flags="-msse4.2"
         simd_includes="-msse4.2 -include nmmintrin.h"
         nanox_sse="yes"
-  else if test "$ax_cv_have_sse41_ext" = yes; 
+  else if test "$ax_cv_have_sse41_ext" = yes;
   then
         simd_version="SSE4.1"
         simd_flags="-msse4.1"
@@ -371,14 +388,17 @@ nanox_sse="no"
   fi
   fi
 
-AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"], [simd_math_version="(SVML not detected)"])
+AC_CHECK_LIB(svml, __svml_expf4, [simd_math_version="(SVML)"; svml_enabled="yes"], [])
 
 SIMD_FLAGS=$simd_flags
 SIMD_INCLUDES=$simd_includes
+SVML_ENABLED=$svml_enabled
 NANOX_SSE=$nanox_sse
+
 AC_SUBST([SIMD_FLAGS])
 AC_SUBST([SIMD_INCLUDES])
 AC_SUBST([NANOX_SSE])
+AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -456,7 +476,7 @@ AC_SUBST([CUDA_LIBS])
 AC_SUBST([CUDA_RPATH])
 
 
-if test x$gpu_valid = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
@@ -513,7 +533,7 @@ AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler
 
 AC_SUBST([FPGA_CC])
 
-if test x$fpga_enabled = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$fpga_enabled = xyes;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
     COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
@@ -542,7 +562,7 @@ CFLAGS="$CFLAGSBACKUP"
 CPPFLAGS="$CPPFLAGSBACKUP"
 CXXFLAGS="$CXXFLAGSBACKUP"
 
-if test x$opencl_valid = xyes; then
+if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
@@ -551,8 +571,11 @@ fi
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
-INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
-COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+if test x$is_enabled_tl_omp_nanox = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+   COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
@@ -1396,9 +1419,13 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/liveness/Makefile
            src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
+           src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
            src/tl/vectorizer/Makefile
+           src/tl/vector-lowering/Makefile
+           src/tl/vector-lowering/sse/Makefile
+           src/tl/vector-lowering/knc/Makefile
            src/tl/hlt/Makefile
            src/tl/old_hlt/Makefile
            src/tl/codegen/Makefile
@@ -1406,13 +1433,12 @@ AC_CONFIG_FILES([Makefile
            src/tl/codegen/base/Makefile
            src/tl/codegen/base/cxx/Makefile
            src/tl/codegen/base/fortran/Makefile
-           src/tl/codegen/vector/Makefile
-           src/tl/codegen/vector/sse/Makefile
            src/tl/codegen/gpu/Makefile
            src/tl/codegen/gpu/cuda/Makefile
            src/tl/omp/Makefile
            src/tl/omp/core/Makefile
            src/tl/omp/base/Makefile
+           src/tl/omp/auto-scope/Makefile
            src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
            src/tl/omp/ss2omp/Makefile
@@ -1452,6 +1478,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd
+           tests/config/mercurium-serial-simd-svml
            tests/config/mercurium-parallel-simd
            tests/config/mercurium-cuda
            tests/config/bets

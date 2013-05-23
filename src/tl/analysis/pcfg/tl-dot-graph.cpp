@@ -45,14 +45,20 @@ namespace Analysis {
     static std::string print_node_liveness( Node* current, bool analysis_is_performed );
     static std::string print_node_reaching_defs( Node* current, bool analysis_is_performed );
     static std::string print_node_data_sharing( Node* current, bool analysis_is_performed );
+    static std::string print_node_induction_variables( Node* current, bool analysis_is_performed );
     static std::string print_node_deps( Node* current, bool analysis_is_performed );
 
-    void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
+    void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
+                                              bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_pcfg;
 
         char buffer[1024];
-        getcwd(buffer, 1024);
+        char* err = getcwd(buffer, 1024);
+        if( err == NULL )
+        {
+            internal_error ( "An error occurred while getting the path of the current directory", 0 );
+        }
 
         // Create the directory of dot files if it has not been previously created
         struct stat st;
@@ -80,7 +86,7 @@ namespace Analysis {
                 std::vector<std::string> outer_edges;
                 std::vector<Node*> outer_nodes;
                 get_nodes_dot_data( _graph, graph_data, graph_analysis_info, outer_edges, outer_nodes, "\t", subgraph_id,
-                                    usage, liveness, reaching_defs, auto_scoping, auto_deps );
+                                    usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
                 dot_pcfg << graph_data;
                 dot_pcfg << graph_analysis_info;
             dot_pcfg << "}\n";
@@ -103,7 +109,8 @@ namespace Analysis {
     void ExtensibleGraph::get_nodes_dot_data( Node* current, std::string& dot_graph, std::string& dot_analysis_info,
                                               std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
                                               std::string indent, int& subgraph_id,
-                                              bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
+                                              bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                              bool auto_scoping, bool auto_deps )
     {
         if( !current->is_visited( ) )
         {
@@ -124,18 +131,18 @@ namespace Analysis {
                 std::vector<std::string> new_outer_edges;
                 std::vector<Node*> new_outer_nodes;
                 get_dot_subgraph( current, dot_graph, dot_analysis_info, new_outer_edges, new_outer_nodes, indent, subgraph_id,
-                                  usage, liveness, reaching_defs, auto_scoping, auto_deps );
+                                  usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
                 dot_graph += indent + "}\n";
 
                 print_node_analysis_info( current, dot_analysis_info, cluster_name,
-                                          usage, liveness, reaching_defs, auto_scoping, auto_deps );
+                                          usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
 
                 for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
                 {
                     std::vector<std::string> new_outer_edges_2;
                     std::vector<Node*> new_outer_nodes_2;
                     get_nodes_dot_data( *it, dot_graph, dot_analysis_info, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id,
-                                        usage, liveness, reaching_defs, auto_scoping, auto_deps);
+                                        usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
                 }
                 for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
                 {
@@ -153,10 +160,10 @@ namespace Analysis {
                 std::stringstream sss;
                 if( !current->is_graph_node( ) )
                 {
-                    if( (!current->has_key(_OUTER_NODE) ) ||
-                        (current->has_key(_OUTER_NODE) &&
-                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) ) ||
-                            current->is_entry_node( ) ) ) )
+                    if( ( !current->has_key( _OUTER_NODE ) ) ||
+                        ( current->has_key( _OUTER_NODE ) &&
+                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) )
+                              || current->is_entry_node( ) ) ) )
                     {
                         sss << current->get_id( );
                         get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
@@ -172,7 +179,6 @@ namespace Analysis {
                     if( !current->get_entry_edges( ).empty( ) && !exit_node->get_entry_edges( ).empty( ) )
                     {
                         sss << exit_node->get_id( );
-                        ObjectList<Edge*> exit_edges = current->get_exit_edges( );
                     }
                     else
                     {
@@ -203,7 +209,7 @@ namespace Analysis {
                         std::string extra_edge_attrs = "";
                         if( ( *it )->is_task_edge( ) )
                         {
-                            extra_edge_attrs = ", style=dotted";
+                            extra_edge_attrs = ", style=dashed";
                         }
 
                         if( belongs_to_the_same_graph( *it ) )
@@ -212,14 +218,14 @@ namespace Analysis {
                                          " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             get_nodes_dot_data( ( *it )->get_target( ), dot_graph, dot_analysis_info,
                                                 outer_edges, outer_nodes, indent, subgraph_id,
-                                                usage, liveness, reaching_defs, auto_scoping, auto_deps);
+                                                usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
                         }
                         else
                         {
-                            if( !current->is_graph_node( ) )
-                            {
-                                get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
-                            }
+//                             if( !current->is_graph_node( ) )
+//                             {
+//                                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
+//                             }
                             std::string mes = sss.str( ) + " -> " + sst.str( ) +
                                               " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back( mes );
@@ -234,12 +240,50 @@ namespace Analysis {
     void ExtensibleGraph::get_dot_subgraph( Node* current, std::string& dot_graph, std::string& graph_analysis_info,
                                             std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
                                             std::string indent, int& subgraph_id,
-                                            bool usage, bool liveness, bool reaching_defs, bool auto_scoping, bool auto_deps )
+                                            bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                            bool auto_scoping, bool auto_deps )
     {
+        switch( current->get_graph_type( ) )
+        {
+            case ASM_DEF:
+                dot_graph += "color=lightsteelblue;\n";
+                break;
+            case COND_EXPR:
+            case FUNC_CALL:
+            case IF_ELSE:
+            case SPLIT_STMT:
+            case SWITCH:
+                dot_graph += "color=grey45;\n";
+                break;
+            case LOOP_DOWHILE:
+            case LOOP_FOR:
+            case LOOP_WHILE:
+                dot_graph += "color=maroon4;\n";
+                break;
+            case EXTENSIBLE_GRAPH:
+                dot_graph += "color=white;\n";
+                break;
+            case OMP_ATOMIC:
+            case OMP_CRITICAL:
+            case OMP_LOOP:
+            case OMP_PARALLEL:
+            case OMP_SECTION:
+            case OMP_SECTIONS:
+            case OMP_SINGLE:
+            case OMP_TASK:
+                dot_graph += "color=red4;\nstyle=bold;\n";
+                break;
+            case SIMD:
+            case SIMD_FUNCTION:
+                dot_graph += "color=indianred2;\n";
+                break;
+            default:
+                internal_error( "Unexpected node type while printing dot\n", 0 );
+        };
         Node* entry_node = current->get_graph_entry_node( );
         _cluster_to_entry_map[current->get_id( )] = entry_node->get_id( );
         get_nodes_dot_data( entry_node, dot_graph, graph_analysis_info, outer_edges, outer_nodes, indent+"\t", subgraph_id,
-                            usage, liveness, reaching_defs, auto_scoping, auto_deps );
+                            usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
     }
 
     void ExtensibleGraph::get_node_dot_data( Node* current, std::string& dot_graph, std::string& graph_analysis_info, std::string indent,
@@ -252,21 +296,16 @@ namespace Analysis {
         {
             case ENTRY:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY \\n"
-                        + "\", shape=box, fillcolor=lightgray, style=filled];\n";
-//                     dot_graph += indent + ss.str( ) + "[label=\" ENTRY\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
-
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY \\n" + "\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
             case EXIT:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
-//                     dot_graph += indent + ss.str( ) + "[label=\"EXIT\", shape=box, fillcolor=lightgray, style=filled, " + basic_attrs + "];\n";
                 break;
             }
             case UNCLASSIFIED_NODE:
             {
-//                     dot_graph += indent + ss.str( ) + "[label=\"" + ss.str( ) + " UNCLASSIFIED_NODE\"]\n";
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] UNCLASSIFIED_NODE\"]\n";
                 break;
             }
@@ -285,6 +324,11 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
                 break;
             }
+            case OMP_VIRTUAL_TASKSYNC:
+            {
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
+                break;
+            }
             case BREAK:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond]\n";
@@ -295,6 +339,7 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond]\n";
                 break;
             }
+            case ASM_OP:
             case GOTO:
             case NORMAL:
             case LABELED:
@@ -309,15 +354,13 @@ namespace Analysis {
                     if( it->is<Nodecl::ObjectInit>( ) )
                     {
                         Symbol it_s = it->as<Nodecl::ObjectInit>( ).get_symbol( );
-                        aux_str = it_s.get_name( ) + " = " ;
-                        aux_str += codegen_to_str( it_s.get_value( ).get_internal_nodecl( ),
-                                                   nodecl_retrieve_context(it_s.get_value( ).get_internal_nodecl( ) ) );
+                        aux_str = it_s.get_name( ) + " = " + it_s.get_value( ).prettyprint( );
                     }
                     else
                     {
-                        aux_str = codegen_to_str(it->get_internal_nodecl( ),
-                                                    nodecl_retrieve_context(it->get_internal_nodecl( ) ));
+                        aux_str = it->prettyprint( );
                     }
+
                     makeup_dot_block(aux_str);
                     basic_block += aux_str + "\\n";
                 }
@@ -327,7 +370,7 @@ namespace Analysis {
                            + basic_attrs + "];\n";
 
                 print_node_analysis_info( current, graph_analysis_info, /* cluster name */"",
-                                          usage, liveness, reaching_defs,
+                                          usage, liveness, reaching_defs, /* induction_vars */ false,
                                           /* auto_scoping */ false, /* auto_deps */ false );
 
                 break;
@@ -340,7 +383,7 @@ namespace Analysis {
 
     void ExtensibleGraph::print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                                     std::string cluster_name,
-                                                    bool usage, bool liveness, bool reaching_defs,
+                                                    bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                                     bool auto_scoping, bool auto_deps )
     {
         std::stringstream node_id; node_id << current->get_id( );
@@ -352,39 +395,62 @@ namespace Analysis {
         std::string usage_str = print_node_usage( current, usage );
         std::string liveness_str = print_node_liveness( current, liveness );
         std::string reach_defs_str = print_node_reaching_defs( current, reaching_defs );
+        std::string induction_vars_str = print_node_induction_variables( current, induction_vars );
         std::string color;
         std::string common_attrs = "style=dashed";
-        if( !usage_str.empty() )
+        if( !usage_str.empty( ) )
         {
             std::string id = "-0" + node_id.str( );
             color = "blue";
             dot_analysis_info += "\t" + id + "[label=\"" + usage_str + " \", shape=box, color=" + color + "]\n";
-            dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-            if( !cluster_name.empty() )
-                dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-            dot_analysis_info += "\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
         }
-        if( !liveness_str.empty() )
+        if( !liveness_str.empty( ) )
         {
             std::string id = "-00" + node_id.str( );
             color = "green3";
             dot_analysis_info += "\t" + id + "[label=\"" + liveness_str + " \", shape=box, color=" + color + "]\n";
-            dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-            if( !cluster_name.empty() )
-                dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-            dot_analysis_info += "\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
         }
-        if( !reach_defs_str.empty() )
+        if( !reach_defs_str.empty( ) )
         {
             std::string id = "-000" + node_id.str( );
             color = "red2";
             dot_analysis_info += "\t" + id + "[label=\"" + reach_defs_str + " \", shape=box, color=" + color + "]\n";
-            dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-            if( !cluster_name.empty() )
-                dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-            dot_analysis_info += "\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
         }
-        if( current->is_task_node( ) )
+        if( !induction_vars_str.empty( ) )
+        {
+            std::string id = "-0000" + node_id.str( );
+            color = "orange2";
+            dot_analysis_info += "\t" + id + "[label=\"" + induction_vars_str + " \", shape=box, color=" + color + "]\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
+        }
+        if( current->is_omp_task_node( ) )
         {
             std::string auto_scope_str = print_node_data_sharing( current, auto_scoping );
             if( !auto_scope_str.empty() )
@@ -392,10 +458,13 @@ namespace Analysis {
                 std::string id = "-0000" + node_id.str( );
                 color = "darkgoldenrod1";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_scope_str + " \", shape=box, color=" + color + "]\n";
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-                if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                if( !current->is_extended_graph_node( ) )
+                {
+                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                    if( !cluster_name.empty() )
+                        dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                    dot_analysis_info += "\n";
+                }
             }
 
             std::string auto_deps_str = print_node_deps( current, auto_deps );
@@ -404,10 +473,13 @@ namespace Analysis {
                 std::string id = "-00000" + node_id.str( );
                 color = "skyblue3";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_deps_str + " \", shape=box, color=" + color + "]\n";
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
-                if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                if( !current->is_extended_graph_node( ) )
+                {
+                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                    if( !cluster_name.empty() )
+                        dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                    dot_analysis_info += "\n";
+                }
             }
         }
     }
@@ -517,7 +589,7 @@ namespace Analysis {
             std::string gen = prettyprint_ext_sym_map( current->get_generated_stmts( ) );
             std::string defs_in = prettyprint_ext_sym_map( current->get_reaching_definitions_in( ) );
             std::string defs_out = prettyprint_ext_sym_map( current->get_reaching_definitions_out( ) );
-            reaching_defs = ( gen.empty( )        ? "" : "GEN: " +gen + "\\n" )
+            reaching_defs = ( gen.empty( )        ? "" : "GEN: " + gen + "\\n" )
                             + ( defs_in.empty( )  ? "" : "RDI: " + defs_in + "\\n" )
                             + ( defs_out.empty( ) ? "" : "RDO: " + defs_out );
         }
@@ -527,6 +599,28 @@ namespace Analysis {
         return reaching_defs;
     }
 
+    static std::string print_node_induction_variables( Node* current, bool analysis_is_performed )
+    {
+        std::string induction_vars = "";
+        if( analysis_is_performed && ( current->is_loop_node( ) || current->is_omp_loop_node( ) ) )
+        {
+            ObjectList<Utils::InductionVariableData*> ivs = current->get_induction_variables( );
+            for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+            {
+                Utils::InductionVariableData* iv = *it;
+                induction_vars = iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+                                 + " [ " + iv->get_lb( ).prettyprint( ) 
+                                 + ":" + iv->get_ub( ).prettyprint( ) 
+                                 + ":" + iv->get_increment( ).prettyprint( ) 
+                                 + ":" + iv->get_type_as_string( ) + " ]\\n";
+            }
+        }
+        int l_size = induction_vars.size( );
+        if( ( l_size > 3 ) && ( induction_vars.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+            induction_vars = induction_vars.substr( 0, l_size - 2 );
+        return induction_vars;
+    }
+    
     static std::string print_node_data_sharing( Node* current, bool analysis_is_performed )
     {
         std::string auto_scope = "";
@@ -573,21 +667,13 @@ namespace Analysis {
 
         for( Utils::ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
         {
-            if( it->get_nodecl( ).is_null( ) )
-            {
-                result += it->get_name( ) + ", ";
-            }
-            else
-            {
-                nodecl_t n = it->get_nodecl( ).get_internal_nodecl( );
-                result += std::string( codegen_to_str( n, nodecl_retrieve_context( n ) ) ) + ", ";
-            }
+            result += it->get_nodecl( ).prettyprint( ) + ", ";
         }
 
         if( !result.empty( ) )
         {
             result = result.substr( 0, result.size( ) - 2 );
-            makeup_dot_block(result);
+            makeup_dot_block( result );
         }
 
         return result;

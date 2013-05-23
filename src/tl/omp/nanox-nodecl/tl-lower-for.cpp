@@ -46,33 +46,34 @@ namespace TL { namespace Nanox {
         std::string ompss_prefix = "ompss_";
         bool is_ompss_schedule = (schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix);
 
-#if 0
-        if (_lowering->in_ompss_mode() != is_ompss_schedule)
+        std::string openmp_prefix0 = "omp_";
+        std::string openmp_prefix1 = "openmp_";
+        bool is_explicit_openmp_schedule = (schedule_name.substr(0, openmp_prefix0.size()) == openmp_prefix0)
+            || (schedule_name.substr(0, openmp_prefix1.size()) == openmp_prefix1);
+
+        if (!is_ompss_schedule
+                && !is_explicit_openmp_schedule)
         {
+            // If the user just requested 'sched' and we are in OmpSs use 'ompss_sched'
             if (_lowering->in_ompss_mode())
             {
-                std::string fixed_schedule = "ompss_" + schedule_name;
+                std::string fixed_schedule = schedule_name;
+                fixed_schedule = "ompss_" + schedule_name;
+                is_ompss_schedule = true;
                 schedule.set_text(fixed_schedule);
-
-                std::cerr
-                    << construct.get_locus()
-                    << ": warning: schedule(" << schedule_name
-                    << ") is not allowed in OmpSs mode. Assuming schedule(" << fixed_schedule << ")" << std::endl
-                    ;
-            }
-            else
-            {
-                std::string fixed_schedule = schedule_name.substr(ompss_prefix.size());
-                schedule.set_text(fixed_schedule);
-
-                std::cerr
-                    << construct.get_locus()
-                    << ": warning: schedule(" << schedule_name
-                    << ") is not allowed in OpenMP mode. Assuming schedule(" << fixed_schedule << ")" << std::endl
-                    ;
             }
         }
-#endif
+
+        if (is_explicit_openmp_schedule)
+        {
+            // If the user requested 'omp_sched' or 'openmp_sched' use 'sched'
+            std::string fixed_schedule;
+            if (schedule_name.substr(0, openmp_prefix0.size()) == openmp_prefix0)
+                fixed_schedule = schedule_name.substr(openmp_prefix0.size());
+            else if (schedule_name.substr(0, openmp_prefix1.size()) == openmp_prefix1)
+                fixed_schedule = schedule_name.substr(openmp_prefix1.size());
+            schedule.set_text(fixed_schedule);
+        }
 
         if (is_ompss_schedule)
         {

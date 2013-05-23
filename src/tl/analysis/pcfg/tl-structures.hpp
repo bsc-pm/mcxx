@@ -37,6 +37,7 @@ namespace Analysis {
     enum Node_type {
         UNCLASSIFIED_NODE,
         // BASIC
+        ASM_OP,              //! Node containing an ASM operand
         BREAK,               //! Node containing a BreakStatement
         CONTINUE,            //! Node containing a ContinueStatement
         ENTRY,               //! Entry point of a composite node
@@ -50,17 +51,20 @@ namespace Analysis {
         OMP_FLUSH,
         OMP_TASKWAIT,
         OMP_TASKYIELD,
+        OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
+                             //! when the function that creates the task has ended
         // COMPOSITE
         GRAPH                //! Composite node
     };
 
     // Modifications here require modifying Node::get_graph_type_as_string
     enum Graph_type {
-        COND_EXPR,                      //! Conditional expression
-        EXTENSIBLE_GRAPH,               //! Special node containing all nodes in a given graph
-        FUNC_CALL,                      //! Function Call
-        IF_ELSE,                        //! IfElse statement
-        LOOP_DOWHILE,                   //! Set of nodes of a for loopm (but the initialization)
+        ASM_DEF,             //! Node containing an ASM definition
+        COND_EXPR,           //! Conditional expression
+        EXTENSIBLE_GRAPH,    //! Special node containing all nodes in a given graph
+        FUNC_CALL,           //! Function Call
+        IF_ELSE,             //! IfElse statement
+        LOOP_DOWHILE,        //! Set of nodes of a for loop (but the initialization)
         LOOP_FOR,
         LOOP_WHILE,
         OMP_ATOMIC,
@@ -72,17 +76,15 @@ namespace Analysis {
         OMP_SECTIONS,
         OMP_SINGLE,
         OMP_TASK,
-        OTHER,                          //! Generation of an ExtensibleGraph from any other type of construct
         SIMD,
         SIMD_FUNCTION,
-        SPLIT_STMT,                     //! Expression being split because it contains a sub-expression with a separated node
-        SWITCH                          //! Switch statement
+        SPLIT_STMT,          //! Expression being split because it contains a sub-expression with a separated node
+        SWITCH               //! Switch statement
     };
 
     //! Enumeration of the different edge types
     // Modifications here require modifying Edge::get_type_as_string
-    enum Edge_type
-    {
+    enum Edge_type {
         UNCLASSIFIED_EDGE,
         ALWAYS,                 //! Always taken edge
         CASE,                   //! Edge within a Switch statement representing a case/default stmt
@@ -90,6 +92,15 @@ namespace Analysis {
         FALSE_EDGE,             //! Taken when a previous condition is evaluated false
         GOTO_EDGE,              //! Edge between a GotoNode and a LabeledNode containing the label
         TRUE_EDGE               //! Taken when a previous condition is evaluated true
+    };
+
+    enum ASM_node_info {
+        ASM_DEF_TEXT,
+        ASM_DEF_INPUT_OPS,
+        ASM_DEF_OUTPUT_OPS,
+        ASM_DEF_CLOBBERED_REGS,
+        ASM_OP_CONSTRAINT,
+        ASM_OP_EXPRESSION
     };
 
     //! Definitions of the different node attributes
@@ -109,7 +120,7 @@ namespace Analysis {
     /*! \def _NODE_LABEL
     * String containing the label of a node.
     * It may have different meanings depending on the node type:
-    *   - Graph: is the Statement that defines the composition.
+    *   - Graph / ASM_OP: is the Statement that builds the node.
     *   - Goto / Label: label that identifies the source or target of the Statement contained.
     * Mandatory and only available in 'Composite', 'Labeled' or 'Goto' nodes.
     */
@@ -152,6 +163,12 @@ namespace Analysis {
      * Mandatory in all OMP_PRAGMA graph nodes.
      */
     #define _OMP_INFO       "omp_info"
+
+    /*! \def _ASM_INFO
+     * Data indicating which info of the ASM function is contained in the ASM node
+     * Mandatory in all ASM_DEF and ASM_OP nodes.
+     */
+    #define _ASM_INFO       "asm_info"
 
     /*!
     * Nodecl containing the context associated to a task
@@ -286,6 +303,11 @@ namespace Analysis {
     // ************************************************************************************************* //
     // ****************************************** Auto-scoping ***************************************** //
 
+    /*! \def _SC_AUTO
+     * This value is set when a task has the clause default(AUTO)
+     */
+    #define _SC_AUTO                        "sc_auto"
+
     /*! \def _SHARED
     * Set of symbols with shared auto-scoping in a task
     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
@@ -402,12 +424,6 @@ namespace Analysis {
     * Available and mandatory in all edges but those with 'Always' type.
     */
     #define _EDGE_LABEL     "edge_label"
-
-    /*! \def _IS_BACK_EDGE
-    * Boolean indicating whether an edge connects a source with a target with a back edge (loop)
-    * Available and mandatory in all edges.
-    */
-    #define _IS_BACK_EDGE     "is_back_edge"
 
     /*! \def _IS_TASK_EDGE
     * Boolean indicating whether an edge connects a target being a Task

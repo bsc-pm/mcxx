@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
   
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -2409,7 +2409,7 @@ void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
             file << (unsigned long long)v;
         }
     }
-} 
+}
 
 CxxBase::Ret CxxBase::visit(const Nodecl::IntegerLiteral& node)
 {
@@ -4179,7 +4179,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
             }
-            else if (member.is_using_symbol())
+            else if (member.is_using_symbol()
+                    || member.is_using_typename_symbol())
             {
                 indent();
                 ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
@@ -4187,8 +4188,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
 
                 TL::Symbol entry = unresolved[0];
+                file << "using ";
 
-                file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                if (member.is_using_typename_symbol())
+                    file << "typename ";
+
+                file << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
             }
             else if (member.is_enum()
                     || member.is_typedef())
@@ -5294,7 +5299,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             // the symbol will be already called 'struct/union X' in C
             indent();
-            file << symbol.get_name();
+            file << symbol.get_name() << ";\n";
         }
 
         CXX_LANGUAGE()
@@ -5407,10 +5412,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 {
                     file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
                 }
+                file << ";\n";
             }
         }
-
-        file << ";\n";
     }
     else if (symbol.is_enumerator())
     {
@@ -7344,8 +7348,8 @@ TL::Type CxxBase::fix_references(TL::Type t)
         }
 
         TL::Type fixed_function = fixed_result.get_function_returning(
-                fixed_parameters, 
-                nonadjusted_fixed_parameters, 
+                fixed_parameters,
+                nonadjusted_fixed_parameters,
                 has_ellipsis);
 
         fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));

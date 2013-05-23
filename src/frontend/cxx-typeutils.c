@@ -977,6 +977,7 @@ type_t* get_unsigned_int128_type(void)
 static int num_float_types = 0;
 static type_t* float_types[MAX_DIFFERENT_FLOATS];
 
+#if 0
 static char same_floating_info(floating_type_info_t* info1, floating_type_info_t* info2)
 {
     ERROR_CONDITION(info1 == NULL || info2 == NULL, "Invalid floating info", 0);
@@ -988,6 +989,7 @@ static char same_floating_info(floating_type_info_t* info1, floating_type_info_t
         && info1->emin == info2->emin
         && info1->emax == info2->emax;
 }
+#endif
 
 type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
 {
@@ -996,7 +998,7 @@ type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
     {
         type_t* current_type = float_types[i];
 
-        if (same_floating_info(current_type->type->floating_info, info))
+        if (current_type->type->floating_info == info)
         {
             return current_type;
         }
@@ -8289,6 +8291,8 @@ static char is_unknown_dependent_type(type_t* t)
 
 static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
 {
+    if (nodecl_is_null(n))
+        return "<<<unknown>>>";
     if (nodecl_get_kind(n) == NODECL_SYMBOL
             && nodecl_get_symbol(n)->entity_specs.is_saved_expression)
     {
@@ -11277,7 +11281,8 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
     type_t* result = orig;
 
-    if (is_named_type(orig))
+    if (is_named_type(orig)
+            && (is_named_class_type(orig) || is_named_enumerated_type(orig)))
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);

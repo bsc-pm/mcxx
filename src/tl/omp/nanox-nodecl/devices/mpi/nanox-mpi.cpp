@@ -468,38 +468,6 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             unpacked_function_code,
             unpacked_function_body);
     
-    
-    if (IS_FORTRAN_LANGUAGE
-                && current_function.is_in_module())
-    {
-        scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-        unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                unpacked_function.get_internal_symbol());
-
-        unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-        device_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        host_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                device_function.get_internal_symbol());        
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                host_function.get_internal_symbol());
-        device_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-        host_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-    }
-
-    
-    
-    
-    
     TL::Scope host_function_scope(host_function_body.retrieve_context());    
     TL::Symbol structure_symbol = host_function_scope.get_symbol_from_name("args");
     ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
@@ -702,7 +670,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             }
             fun_visitor.insert_extra_symbols(info._task_statements);
 
-            Nodecl::Utils::Fortran::copy_used_modules(
+            Nodecl::Utils::Fortran::append_used_modules(
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
 
@@ -712,6 +680,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         info._called_task.get_related_scope(),
                         unpacked_function_scope);
             }
+
+            // Add also used types
+            add_used_types(data_items, unpacked_function.get_related_scope());
 
             // Now get all the needed internal functions and replicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
@@ -844,8 +815,10 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         {
             TL::Symbol &function(*functions[i]);
 
-            Nodecl::Utils::Fortran::copy_used_modules(original_statements.retrieve_context(),
+            Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                     function.get_related_scope());
+
+            add_used_types(data_items, function.get_related_scope());
         }
 
         // Generate ancillary code in C

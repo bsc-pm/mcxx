@@ -82,15 +82,13 @@ namespace Analysis {
         */
         Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
 
-        //! This a wrapper method of #merge_nodes for the case we are merging an array subscript
-        /*!
-        * Since the subscripts are built form left to right, we may not have a nodecl containing the whole subscript
-        * \param subscripted Pointer to the node containing the subscripted part
-        * \param subscript Pointer to the node containing the actual subscript
-        */
-//         Node* merge_nodes(Node* subscripted, Node* subscript);
+        //! This method creates a virtual synchronization node when tasks are not synchronized
+        //! within the same function they are created, or they are synchronized in conditional situations
+        void synchronize_tasks( );
 
+        bool task_is_surely_synchronized( Node* task );
 
+        bool same_parent_task( Node* task_1, Node* task_2 );
 
         // ************************************************************************************** //
         // ********************************** Visiting methods ********************************** //
@@ -231,6 +229,7 @@ namespace Analysis {
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::Comma& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
+        Ret visit( const Nodecl::CompoundExpression& n );
         Ret visit( const Nodecl::CompoundStatement& n );
         Ret visit( const Nodecl::Concat& n );
         Ret visit( const Nodecl::ConditionalExpression& n );
@@ -253,6 +252,8 @@ namespace Analysis {
         Ret visit( const Nodecl::ForStatement& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::FunctionCode& n );
+        Ret visit( const Nodecl::GccAsmDefinition& n );
+        Ret visit( const Nodecl::GccAsmOperand& n );
         Ret visit( const Nodecl::GotoStatement& n );
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
@@ -296,10 +297,10 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
-        Ret visit( const Nodecl::OpenMP::ForRange& n );
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
+        Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
         Ret visit( const Nodecl::OpenMP::Private& n );
         Ret visit( const Nodecl::OpenMP::Reduction& n );
@@ -309,6 +310,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
         Ret visit( const Nodecl::OpenMP::Simd& n );
+        Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
@@ -318,6 +320,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
         Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );
@@ -334,6 +337,7 @@ namespace Analysis {
         Ret visit( const Nodecl::StructuredValue& n );
         Ret visit( const Nodecl::SwitchStatement& n );
         Ret visit( const Nodecl::Symbol& n );
+        Ret visit( const Nodecl::Text& n );
         Ret visit( const Nodecl::Throw& n );
 //      Ret visit( const Nodecl::TopLevel& n ); // This method is not implemented because PCFGVisitor must visit
                                                 // sections of code creating a unique PCFG.

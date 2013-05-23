@@ -106,8 +106,8 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
-        reduction_map_t::iterator it = _reduction_map.find(red);
-        if (it != _reduction_map.end())
+        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
+        if (it != _reduction_map_openmp.end())
         {
             return it->second;
         }
@@ -171,7 +171,7 @@ namespace TL { namespace Nanox {
         function_body.replace(
                 Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
 
-        _reduction_map[red] = function_sym;
+        _reduction_map_openmp[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
@@ -180,8 +180,8 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
-        reduction_map_t::iterator it = _reduction_map.find(red);
-        if (it != _reduction_map.end())
+        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
+        if (it != _reduction_map_openmp.end())
         {
             return it->second;
         }
@@ -252,7 +252,7 @@ namespace TL { namespace Nanox {
                             expanded_combiner)),
                     Nodecl::NodeclBase::null()));
 
-        _reduction_map[red] = function_sym;
+        _reduction_map_openmp[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
@@ -409,7 +409,7 @@ namespace TL { namespace Nanox {
             Source num_scalars;
 
             TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
-
+            (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
                 << "err = nanos_malloc((void**)&" << nanos_red_name << ", sizeof(nanos_reduction_t), " 

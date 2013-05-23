@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
   
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -177,9 +177,9 @@ namespace TL
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        type_t* array_to = get_array_type_bounds(result_type, 
-                lower_bound.get_internal_nodecl(), 
-                upper_bound.get_internal_nodecl(), 
+        type_t* array_to = get_array_type_bounds(result_type,
+                lower_bound.get_internal_nodecl(),
+                upper_bound.get_internal_nodecl(),
                 decl_context);
 
         return Type(array_to);
@@ -191,16 +191,16 @@ namespace TL
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        type_t* array_to = get_array_type_bounds_with_descriptor(result_type, 
-                lower_bound.get_internal_nodecl(), 
-                upper_bound.get_internal_nodecl(), 
+        type_t* array_to = get_array_type_bounds_with_descriptor(result_type,
+                lower_bound.get_internal_nodecl(),
+                upper_bound.get_internal_nodecl(),
                 decl_context);
 
         return Type(array_to);
     }
 
-    Type Type::get_array_to_with_region(Nodecl::NodeclBase lower_bound, 
-            Nodecl::NodeclBase upper_bound, 
+    Type Type::get_array_to_with_region(Nodecl::NodeclBase lower_bound,
+            Nodecl::NodeclBase upper_bound,
             Nodecl::NodeclBase region_lower_bound,
             Nodecl::NodeclBase region_upper_bound,
             Scope sc)
@@ -219,8 +219,8 @@ namespace TL
 
         type_t* array_to = get_array_type_bounds_with_regions(
                 result_type,
-                lower_bound.get_internal_nodecl(), 
-                upper_bound.get_internal_nodecl(), 
+                lower_bound.get_internal_nodecl(),
+                upper_bound.get_internal_nodecl(),
                 decl_context,
                 range.get_internal_nodecl(),
                 decl_context);
@@ -248,15 +248,15 @@ namespace TL
         return Type(array_to);
     }
 
-    Type Type::get_function_returning(const ObjectList<Type>& type_list, 
+    Type Type::get_function_returning(const ObjectList<Type>& type_list,
             const ObjectList<Type>& nonadjusted_type_list,
             bool has_ellipsis)
     {
         int i;
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
-   
-        parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+
+        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
 
         for (i=0; i<num_parameters; i++)
         {
@@ -331,10 +331,10 @@ namespace TL
         else
             return (fortran_get_rank_of_type(_type_info));
     }
-
+    
     bool Type::is_vector() const
     {
-        return (is_vector_type(_type_info));
+        return (::is_vector_type(_type_info));
     }
 
     bool Type::is_generic_vector() const
@@ -383,7 +383,7 @@ namespace TL
     {
         return is_dependent_type(_type_info);
     }
-    
+
     void Type::dependent_typename_get_components(Symbol& entry_symbol, Nodecl::NodeclBase& parts)
     {
         scope_entry_t* entry = NULL;
@@ -606,7 +606,7 @@ namespace TL
     {
         return Type(::get_void_type());
     }
-    
+
     Type Type::get_bool_type(void)
     {
         return Type(::get_bool_type());
@@ -808,21 +808,21 @@ namespace TL
     Type Type::get_const_type()
     {
         // Might return itself if already const qualified
-        return get_cv_qualified_type(this->_type_info, 
+        return get_cv_qualified_type(this->_type_info,
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_CONST));
     }
 
     Type Type::get_volatile_type()
     {
         // Might return itself if already volatile qualified
-        return get_cv_qualified_type(this->_type_info, 
+        return get_cv_qualified_type(this->_type_info,
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_VOLATILE));
     }
 
     Type Type::get_restrict_type()
     {
         // Might return itself if already restrict qualified
-        return get_cv_qualified_type(this->_type_info, 
+        return get_cv_qualified_type(this->_type_info,
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
     }
 
@@ -965,7 +965,7 @@ namespace TL
     {
         return ::template_specialized_type_get_template_parameters(_type_info);
     }
-    
+
     TemplateParameters Type::template_specialized_type_get_template_arguments() const
     {
         return ::template_specialized_type_get_template_arguments(_type_info);
@@ -1038,7 +1038,7 @@ namespace TL
     ObjectList<Symbol> Type::enum_get_enumerators()
     {
         ObjectList<Symbol> enumerators;
-        
+
         int i;
         for (i = 0; i < enum_type_get_num_enumerators(this->_type_info); i++)
         {
@@ -1090,7 +1090,7 @@ namespace TL
 
         if (is_generic_vector_type(_type_info))
         {
-            result = this->basic_type().get_size(); 
+            result = this->basic_type().get_size();
         }
         else
         {
@@ -1127,7 +1127,7 @@ namespace TL
             char is_virtual = 0, is_dependent = 0;
             access_specifier_t as = AS_UNKNOWN;
 
-            symbol = class_type_get_base_num(_type_info, i, 
+            symbol = class_type_get_base_num(_type_info, i,
                     &is_virtual,
                     &is_dependent,
                     &as);
@@ -1302,7 +1302,7 @@ namespace TL
 
     bool TemplateParameters::has_argument(int n) const
     {
-        return (n < _tpl_params->num_parameters 
+        return (n < _tpl_params->num_parameters
                 && _tpl_params->arguments != NULL
                 && _tpl_params->arguments[n] != NULL);
     }
@@ -1327,7 +1327,7 @@ namespace TL
         return _tpl_params->is_explicit_specialization;
     }
 
-    Type::BaseInfo::BaseInfo(TL::Symbol _base, 
+    Type::BaseInfo::BaseInfo(TL::Symbol _base,
             bool _is_virtual,
             access_specifier_t _access_specifier)
         : base(_base),

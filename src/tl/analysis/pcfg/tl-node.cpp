@@ -96,9 +96,7 @@ namespace Analysis {
         }
         if( it == _entry_edges.end( ) )
         {
-            std::cerr << " ** Node.cpp :: erase_entry_edge( ) ** "
-                      << "Trying to delete an non-existent edge "
-                      << "between nodes '" << source->_id << "' and '" << _id << "'" << std::endl;
+            internal_error( "Trying to delete an non-existent edge between nodes '%d' and '%d'", source->_id, _id );
         }
     }
 
@@ -116,10 +114,7 @@ namespace Analysis {
         }
         if( it == _exit_edges.end( ) )
         {
-            std::cerr << " ** Node.cpp :: exit_entry_edge( ) ** "
-                      << "Trying to delete an non-existent edge "
-                      << "between nodes '" << _id << "' and '" << target->_id << "'" << std::endl;
-
+            internal_error( "Trying to delete an non-existent edge between nodes '%d' and '%d'", _id, target->_id );
         }
     }
 
@@ -266,7 +261,7 @@ namespace Analysis {
     bool Node::node_is_enclosed_by( Node* potential_encloser )
     {
         Node* outer_node = get_outer_node( );
-        while( ( get_outer_node( ) != NULL )
+        while( ( outer_node != NULL )
                && ( outer_node->get_id( ) != potential_encloser->get_id( ) ) )
         {
             outer_node = outer_node->get_outer_node( );
@@ -314,6 +309,16 @@ namespace Analysis {
     bool Node::is_continue_node( )
     {
         return ( get_type( ) == CONTINUE );
+    }
+
+    bool Node::is_ifelse_statement( )
+    {
+        return ( ( get_type( ) == GRAPH ) && get_graph_type( ) == IF_ELSE );
+    }
+
+    bool Node::is_switch_statement( )
+    {
+        return ( ( get_type( ) == GRAPH ) && get_graph_type( ) == SWITCH );
     }
 
     bool Node::is_goto_node( )
@@ -387,9 +392,79 @@ namespace Analysis {
         return ( get_type( ) == FUNCTION_CALL );
     }
 
-    bool Node::is_task_node( )
+    bool Node::is_asm_def_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == ASM_DEF ) );
+    }
+
+    bool Node::is_asm_op_node( )
+    {
+        return ( get_type( ) == ASM_OP );
+    }
+
+    bool Node::is_omp_atomic_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
+    }
+
+    bool Node::is_omp_barrier_node( )
+    {
+        return ( get_type( ) == OMP_BARRIER );
+    }
+
+    bool Node::is_omp_critical_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
+    }
+
+    bool Node::is_omp_flush_node( )
+    {
+        return ( get_type( ) == OMP_FLUSH );
+    }
+
+    bool Node::is_omp_loop_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_LOOP ) );
+    }
+
+    bool Node::is_omp_master_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_MASTER ) );
+    }
+
+    bool Node::is_omp_parallel_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_PARALLEL ) );
+    }
+
+    bool Node::is_omp_section_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTION ) );
+    }
+
+    bool Node::is_omp_sections_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTIONS ) );
+    }
+
+    bool Node::is_omp_single_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
+    }
+
+    bool Node::is_omp_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
+    }
+
+    bool Node::is_omp_taskwait_node( )
+    {
+        return ( get_type( ) == OMP_TASKWAIT );
+    }
+
+    bool Node::is_omp_taskyield_node( )
+    {
+        return ( get_type( ) == OMP_TASKYIELD );
     }
 
     bool Node::is_connected( )
@@ -486,21 +561,23 @@ namespace Analysis {
             Node_type ntype = get_data<Node_type>( _NODE_TYPE );
             switch( ntype )
             {
-                case BREAK:              type = "BREAK";            break;
-                case CONTINUE:           type = "CONTINUE";         break;
-                case ENTRY:              type = "ENTRY";            break;
-                case EXIT:               type = "EXIT";             break;
-                case FUNCTION_CALL:      type = "FUNCTION_CALL";    break;
-                case GOTO:               type = "GOTO";             break;
-                case LABELED:            type = "LABELED";          break;
-                case NORMAL:             type = "NORMAL";           break;
-                case OMP_BARRIER:        type = "OMP_BARRIER";      break;
-                case OMP_FLUSH:          type = "OMP_FLUSH";        break;
-                case OMP_TASKWAIT:       type = "OMP_TASKWAIT";     break;
-                case OMP_TASKYIELD:      type = "OMP_TASKYIELD";    break;
-                case GRAPH:              type = "GRAPH";            break;
-                case UNCLASSIFIED_NODE:  type = "UNCLASSIFIED";     break;
-                default:                 WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
+                case ASM_OP:                type = "ASM_OP";                break;
+                case BREAK:                 type = "BREAK";                 break;
+                case CONTINUE:              type = "CONTINUE";              break;
+                case ENTRY:                 type = "ENTRY";                 break;
+                case EXIT:                  type = "EXIT";                  break;
+                case FUNCTION_CALL:         type = "FUNCTION_CALL";         break;
+                case GOTO:                  type = "GOTO";                  break;
+                case LABELED:               type = "LABELED";               break;
+                case NORMAL:                type = "NORMAL";                break;
+                case OMP_BARRIER:           type = "OMP_BARRIER";           break;
+                case OMP_FLUSH:             type = "OMP_FLUSH";             break;
+                case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
+                case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
+                case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
+                case GRAPH:                 type = "GRAPH";                 break;
+                case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
+                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else
@@ -519,6 +596,7 @@ namespace Analysis {
             Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
             switch( ntype )
             {
+                case ASM_DEF:           graph_type = "ASM_DEF";             break;
                 case COND_EXPR:         graph_type = "COND_EXPR";           break;
                 case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
                 case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
@@ -534,7 +612,6 @@ namespace Analysis {
                 case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
                 case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
                 case OMP_TASK:          graph_type = "OMP_TASK";            break;
-                case OTHER:             graph_type = "OTHER";               break;
                 case SIMD:              graph_type = "SIMD";                break;
                 case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
                 case SWITCH:            graph_type = "SWITCH";              break;
@@ -558,7 +635,7 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
+            internal_error( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
                              get_type_as_string( ).c_str( ) );
         }
         return entry_node;
@@ -591,7 +668,7 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Exit node.",
+            internal_error( "Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Exit node.",
                              get_type_as_string( ).c_str( ) );
         }
         return exit_node;
@@ -762,9 +839,14 @@ namespace Analysis {
         }
         else
         {
-            WARNING_MESSAGE( "Node '%d' with no nodecl related. Retrieving an invalid scope", _id );
+            internal_error( "Node '%d' with no nodecl related. Retrieving an invalid scope", _id );
             return Scope( );
         }
+    }
+
+    bool Node::has_statements( )
+    {
+        return ( has_key( _NODE_STMTS ) );
     }
 
     ObjectList<Nodecl::NodeclBase> Node::get_statements( )
@@ -816,6 +898,36 @@ namespace Analysis {
         else
         {
             internal_error( "Unexpected node type '%s' while setting the label to node '%d'. GOTO or LABELED NODES expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    ASM_node_info Node::get_asm_info( )
+    {
+        Node* outer_node = get_outer_node( );
+        if( get_type( ) == ASM_OP
+            || ( outer_node != NULL && outer_node->get_graph_type( ) == ASM_DEF ) )
+        {
+            return get_data<ASM_node_info>( _ASM_INFO );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting the ASM info from node '%d'. ASM node expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+
+    void Node::set_asm_info( ASM_node_info inf )
+    {
+        Node* outer_node = get_outer_node( );
+        if( get_type( ) == ASM_OP
+            || ( outer_node != NULL && outer_node->get_graph_type( ) == ASM_DEF ) )
+        {
+            set_data( _ASM_INFO, inf );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting the ASM info to node '%d'. ASM node expected.",
                             get_type_as_string( ).c_str( ), _id );
         }
     }
@@ -1250,14 +1362,14 @@ namespace Analysis {
     ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
     {
         ObjectList<Utils::InductionVariableData*> ivs;
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             if( has_key( _INDUCTION_VARS ))
                 ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
         }
         else
         {
-            WARNING_MESSAGE( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
+            internal_error( "Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
                              _id, get_type_as_string( ).c_str( ) );
         }
         return ivs;
@@ -1265,7 +1377,7 @@ namespace Analysis {
 
     void Node::set_induction_variable( Utils::InductionVariableData* iv )
     {
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ) )
@@ -1459,6 +1571,16 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for auto-scoping analysis **************** //
 
+    bool Node::is_auto_scoping_enabled( )
+    {
+        return ( has_key( _SC_AUTO ) );
+    }
+
+    void Node::set_auto_scoping_enabled( )
+    {
+        set_data( _SC_AUTO, true );
+    }
+
     Utils::ext_sym_set Node::get_sc_shared_vars( )
     {
         Utils::ext_sym_set sc_shared_vars;
@@ -1487,7 +1609,7 @@ namespace Analysis {
     Utils::ext_sym_set Node::get_sc_private_vars( )
     {
         Utils::ext_sym_set sc_private_vars;
-        if(has_key(_SC_PRIVATE))
+        if( has_key( _SC_PRIVATE ) )
             sc_private_vars = get_data<Utils::ext_sym_set>( _SC_PRIVATE );
         return sc_private_vars;
     }
@@ -1600,6 +1722,19 @@ namespace Analysis {
             sc_race_vars = get_data<Utils::ext_sym_set>( _SC_RACE );
         sc_race_vars.insert( es );
         set_data( _SC_RACE, sc_race_vars );
+    }
+
+    Utils::AutoScopedVariables Node::get_auto_scoped_variables( )
+    {
+        Utils::ext_sym_set private_vars = get_sc_private_vars( );
+        Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
+        Utils::ext_sym_set race_vars = get_sc_race_vars( );
+        Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
+        Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
+
+        Utils::AutoScopedVariables res( private_vars, firstprivate_vars, race_vars,
+                                        shared_vars, undef_vars );
+        return res;
     }
 
     // ************* END getters and setters for auto-scoping analysis ************** //
@@ -1724,58 +1859,6 @@ namespace Analysis {
     // ****************************************************************************** //
     // *********************************** Utils ************************************ //
 
-    void Node::print_use_def_chains( )
-    {
-        if( VERBOSE )
-        {
-            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
-            std::cerr << std::endl << "      - UE VARS: ";
-            for(Utils::ext_sym_set::iterator it = ue_vars.begin( ); it != ue_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-
-            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-            std::cerr << "      - KILLED VARS: ";
-            for(Utils::ext_sym_set::iterator it = killed_vars.begin( ); it != killed_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-
-            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
-            std::cerr << "      - UNDEF VARS: ";
-            for(Utils::ext_sym_set::iterator it = undef_vars.begin( ); it != undef_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-        }
-    }
-
-    void Node::print_liveness( )
-    {
-        if( VERBOSE )
-        {
-            Utils::ext_sym_set live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
-            std::cerr << std::endl << "      - LIVE IN VARS: ";
-            for(Utils::ext_sym_set::iterator it = live_in_vars.begin( ); it != live_in_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-
-            Utils::ext_sym_set live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
-            std::cerr << "      - LIVE OUT VARS: ";
-            for(Utils::ext_sym_set::iterator it = live_out_vars.begin( ); it != live_out_vars.end( ); ++it)
-            {
-                std::cerr << it->get_nodecl( ).prettyprint( ) << ", ";
-            }
-            std::cerr << std::endl;
-        }
-    }
-
     static std::string print_set( Utils::ext_sym_set es_set )
     {
         std::string result;
@@ -1790,18 +1873,57 @@ namespace Analysis {
         return result;
     }
 
+    void Node::print_use_def_chains( )
+    {
+        if( VERBOSE )
+        {
+            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            std::cerr << " - Upper Exposed: " << print_set( ue_vars ) << std::endl;
+
+            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+            std::cerr << " - Killed: " << print_set( killed_vars );
+
+            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            std::cerr << " - Undefined usage: " << print_set( undef_vars );
+        }
+    }
+
+    void Node::print_liveness( )
+    {
+        if( VERBOSE )
+        {
+            Utils::ext_sym_set live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
+            std::cerr << " - Live in: " << print_set( live_in_vars ) << std::endl;
+
+            Utils::ext_sym_set live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
+            std::cerr << " - Live out: " << print_set( live_out_vars ) << std::endl;
+        }
+    }
+
     void Node::print_auto_scoping( )
     {
         if( VERBOSE )
         {
-            std::string private_s      = "     - Private: "      + print_set( get_sc_private_vars( ) );
-            std::string firstprivate_s = "     - Firstprivate: " + print_set( get_sc_firstprivate_vars( ) );
-            std::string race_s         = "     - Race: "         + print_set( get_sc_race_vars( ) );
-            std::string shared_s       = "     - Shared: "       + print_set( get_sc_shared_vars( ) );
-            std::string undef_s        = "     - Undef: "        + print_set( get_sc_undef_vars( ) );
+            Utils::ext_sym_set private_vars = get_sc_private_vars( );
+            Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars( );
+            Utils::ext_sym_set race_vars = get_sc_race_vars( );
+            Utils::ext_sym_set shared_vars = get_sc_shared_vars( );
+            Utils::ext_sym_set undef_vars = get_sc_undef_vars( );
 
-            std::cerr << private_s << std::endl << firstprivate_s << std::endl << race_s << std::endl
-                      << shared_s << std::endl << undef_s << std::endl;
+            if( !private_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as private: "             << print_set( private_vars )      << std::endl;
+
+            if( !firstprivate_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as firstprivate: "        << print_set( firstprivate_vars ) << std::endl;
+
+            if( !race_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as race: "                << print_set( race_vars )         << std::endl;
+
+            if( !shared_vars.empty( ) )
+                std::cerr << "   Variables autoscoped as shared: "              << print_set( shared_vars )            << std::endl;
+
+            if( !undef_vars.empty( ) )
+                std::cerr << " Variables that cannot be automatically scoped: " << print_set( undef_vars )        << std::endl;
         }
     }
 
@@ -1809,16 +1931,16 @@ namespace Analysis {
     {
         if( VERBOSE )
         {
-            std::string private_s      = "     - Private: "      + print_set( get_deps_private_vars( ) );
-            std::string firstprivate_s = "     - Firstprivate: " + print_set( get_deps_firstprivate_vars( ) );
-            std::string shared_s       = "     - Shared: "       + print_set( get_deps_shared_vars( ) );
-            std::string in_s           = "     - In deps: "      + print_set( get_deps_in_exprs( ) );
-            std::string out_s          = "     - Out deps: "     + print_set( get_deps_out_exprs( ) );
-            std::string inout_s        = "     - Inout deps: "   + print_set( get_deps_inout_exprs( ) );
-            std::string undef_s        = "     - Undef deps: "   + print_set( get_deps_undef_vars( ) );
+            std::string private_s      = " - Private: "      + print_set( get_deps_private_vars( ) )      + "\n";
+            std::string firstprivate_s = " - Firstprivate: " + print_set( get_deps_firstprivate_vars( ) ) + "\n";
+            std::string shared_s       = " - Shared: "       + print_set( get_deps_shared_vars( ) )       + "\n";
+            std::string in_s           = " - In deps: "      + print_set( get_deps_in_exprs( ) )          + "\n";
+            std::string out_s          = " - Out deps: "     + print_set( get_deps_out_exprs( ) )         + "\n";
+            std::string inout_s        = " - Inout deps: "   + print_set( get_deps_inout_exprs( ) )       + "\n";
+            std::string undef_s        = " - Undef deps: "   + print_set( get_deps_undef_vars( ) )        + "\n";
 
-            std::cerr << private_s << std::endl << firstprivate_s << std::endl << shared_s << std::endl
-                      << in_s << std::endl << out_s << std::endl << inout_s << std::endl << undef_s << std::endl;
+            std::cerr << private_s << firstprivate_s << shared_s
+                      << in_s << out_s << inout_s << undef_s << std::endl;
         }
     }
 

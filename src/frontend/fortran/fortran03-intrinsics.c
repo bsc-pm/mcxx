@@ -379,80 +379,6 @@ typedef struct intrinsic_variant_info_tag
     char is_optional[MAX_KEYWORDS_INTRINSICS];
 } intrinsic_variant_info_t;
 
-#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, kind0, compute_code) \
-    static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
-            type_t** argument_types, \
-            nodecl_t *argument_expressions, \
-            int num_arguments, \
-            const_value_t** const_value);
-
-#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
-    static scope_entry_t* compute_intrinsic_##name##_0(scope_entry_t* symbol,  \
-            type_t** argument_types, \
-            nodecl_t *argument_expressions, \
-            int num_arguments, \
-            const_value_t** const_value); \
-static scope_entry_t* compute_intrinsic_##name##_1(scope_entry_t* symbol,  \
-        type_t** argument_types, \
-        nodecl_t *argument_expressions, \
-        int num_arguments, \
-        const_value_t** const_value);
-
-FORTRAN_INTRINSIC_GENERIC_LIST
-#undef FORTRAN_GENERIC_INTRINSIC
-#undef FORTRAN_GENERIC_INTRINSIC_2
-
-#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, _0, _1) \
-    static const char* keywords_for_##name##_[] = { keywords0, NULL };
-#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, _0, _1, keywords1, _2, _3) \
-    static const char* keywords_for_##name##_[] = { keywords0, keywords1 };
-FORTRAN_INTRINSIC_GENERIC_LIST
-#undef FORTRAN_GENERIC_INTRINSIC
-#undef FORTRAN_GENERIC_INTRINSIC_2
-
-#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, _a, _b) \
-{ #name, 1, keywords_for_##name##_, { compute_intrinsic_##name,     NULL } },
-#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, _a, _b, keywords1, _c, _d) \
-{ #name, 2, keywords_for_##name##_, { compute_intrinsic_##name##_0, compute_intrinsic_##name##_1 } },
-
-typedef
-struct keyword_info_tag
-{
-    const char* name;
-    int num_keywords;
-    const char** keyword_set;
-    computed_function_type_t functions[2];
-} keyword_info_t;
-
-static keyword_info_t keyword_set[] = {
-    FORTRAN_INTRINSIC_GENERIC_LIST
-};
-#undef FORTRAN_GENERIC_INTRINSIC
-#undef FORTRAN_GENERIC_INTRINSIC_2
-
-static void get_keywords_of_intrinsic(scope_entry_t* entry, int *num_keywords, 
-        const char*** out_keyword_set,
-        computed_function_type_t functions[2])
-{
-    // FIXME: Improve this using a sorted array
-    int i;
-    int num_elements = sizeof(keyword_set) / sizeof(keyword_set[0]);
-
-    for (i = 0; i < num_elements; i++)
-    {
-        if (strcasecmp(keyword_set[i].name, entry->symbol_name) == 0)
-        {
-            *num_keywords = keyword_set[i].num_keywords;
-            *out_keyword_set = keyword_set[i].keyword_set;
-            functions[0] = keyword_set[i].functions[0];
-            functions[1] = keyword_set[i].functions[1];
-            return;
-        }
-    }
-
-    internal_error("Code unreachable", 0);
-}
-
 static intrinsic_variant_info_t get_variant(const char* keywords)
 {
     int keyword_index = 0;
@@ -489,71 +415,68 @@ static intrinsic_variant_info_t get_variant(const char* keywords)
     return result;
 }
 
-typedef
-struct intrinsic_descr_tag
+static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords, int num_actual_arguments)
 {
-    const char* name;
-    type_t* result_type;
-    int num_types;
-    type_t** parameter_types;
-} intrinsic_descr_t;
+    intrinsic_variant_info_t current_variant = get_variant(keywords);
 
-static int compare_types(type_t* t1, type_t* t2)
-{
-    if (equivalent_types(get_unqualified_type(t1), get_unqualified_type(t2)))
-        return 0;
-    else if (t1 < t2)
-        return -1;
-    else
-        return 1;
-}
-
-static int intrinsic_descr_cmp(const void* i1, const void* i2)
-{
-    const intrinsic_descr_t* d1 = (const intrinsic_descr_t*)i1;
-    const intrinsic_descr_t* d2 = (const intrinsic_descr_t*)i2;
-
-    int c; 
-    if ((c = strcasecmp(d1->name, d2->name)) != 0)
-        return c;
-
-    if (d1->result_type  == NULL
-            && d1->result_type != d2->result_type)
-        return -1;
-
-    if (d2->result_type  == NULL
-            && d1->result_type != d2->result_type)
-        return 1;
-
-    if (d1->result_type != NULL
-            && d2->result_type != NULL
-            && (c = compare_types(d1->result_type, d2->result_type)) != 0)
-        return c;
-
-    if (d1->num_types != d2->num_types)
+    if (entry->entity_specs.related_symbols != 0)
     {
-        if (d1->num_types < d2->num_types)
-            return -1;
-        else
-            return 1;
+        // Already updated
+        return;
     }
 
-    int i;
-    for (i = 0; i < d1->num_types; i++)
+    if (current_variant.num_keywords == 0)
     {
-        if ((c = compare_types(d1->parameter_types[i], d2->parameter_types[i])) != 0)
-            return c;
+        // No arguments at all
     }
+    else if (current_variant.num_keywords < 0)
+    {
+        // Unbounded arguments (like MAX and MIN)
+        int i;
+        for (i = 0; i < num_actual_arguments; i++)
+        {
+            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
+            new_keyword_sym->kind = SK_VARIABLE;
+            uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
+            new_keyword_sym->decl_context = entry->decl_context;
+            new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-    return 0;
+            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+            new_keyword_sym->do_not_print = 1;
+
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    new_keyword_sym);
+        }
+    }
+    else // current_variant.num_keywords > 0
+    {
+        // Usual case with a bounded set of keywords
+        int i;
+        for (i = 0; i < current_variant.num_keywords; i++)
+        {
+            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
+            new_keyword_sym->kind = SK_VARIABLE;
+            new_keyword_sym->symbol_name = current_variant.keyword_names[i];
+            new_keyword_sym->decl_context = entry->decl_context;
+            new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
+
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+
+            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    new_keyword_sym);
+        }
+    }
 }
-
-static rb_red_blk_tree* intrinsic_map = NULL;
 
 static char generic_keyword_check(
         scope_entry_t* symbol,
         int *num_arguments,
-        const char** actual_keywords,
         nodecl_t *argument_expressions,
         const char* keywords,
         type_t** reordered_types,
@@ -580,17 +503,6 @@ static char generic_keyword_check(
 
     if (*num_arguments == 0)
     {
-        // FIXME - ...
-        //
-        // if (argument_types != NULL)
-        // {
-        //     int i;
-        //     for (i = 0; i < current_variant.num_keywords; i++)
-        //     {
-        //         reordered_types[i] = argument_types[i];
-        //     }
-        // }
-
         DEBUG_CODE()
         {
             fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' succeeds trivially because there are no expressions given\n",
@@ -604,9 +516,9 @@ static char generic_keyword_check(
         int i;
         for (i = 0; i < (*num_arguments); i++)
         {
-            reordered_types[i] = nodecl_get_type(argument_expressions[i]);
+            nodecl_t expr = nodecl_get_child(argument_expressions[i], 0);
 
-            nodecl_t expr = argument_expressions[i];
+            reordered_types[i] = nodecl_get_type(expr);
             reordered_exprs[i] = expr;
         }
         DEBUG_CODE()
@@ -623,8 +535,14 @@ static char generic_keyword_check(
     char seen_keywords = 0;
     for (i = 0; i < (*num_arguments) && ok; i++)
     {
-        const char* keyword = actual_keywords[i];
-        nodecl_t expr = argument_expressions[i];
+        const char* keyword = NULL;
+        nodecl_t expr = nodecl_null();
+
+        if (!nodecl_is_null(argument_expressions[i]))
+        {
+            keyword = nodecl_get_text(argument_expressions[i]);
+            expr = nodecl_get_child(argument_expressions[i], 0);
+        }
 
         if (keyword != NULL)
         {
@@ -641,10 +559,6 @@ static char generic_keyword_check(
 
             if (!found)
             {
-                // fprintf(stderr, "%s: warning: no keyword '%s' for intrinsic '%s'\n",
-                //         ast_location(keyword),
-                //         ASTText(keyword),
-                //         intrinsic_info->intrinsic_name);
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "INTRINSICS: Intrinsic '%s' does not have any keyword '%s'\n",
@@ -659,7 +573,7 @@ static char generic_keyword_check(
         else
         {
             if (seen_keywords)
-            {    
+            {
                 ok = 0;
                 break;
             }
@@ -698,10 +612,6 @@ static char generic_keyword_check(
         }
         else
         {
-            // fprintf(stderr, "%s: warning: dummy argument '%d' of intrinsic '%s' already given a value\n",
-            //         ast_location(argument),
-            //         position,
-            //         intrinsic_info->intrinsic_name);
             DEBUG_CODE()
             {
                 fprintf(stderr, "INTRINSICS: Dummy argument '%s' (position %d) of intrinsic '%s' already got an actual argument\n",
@@ -723,10 +633,6 @@ static char generic_keyword_check(
         if (nodecl_is_null(reordered_exprs[j])
                 && !current_variant.is_optional[j])
         {
-            // fprintf(stderr, "%s: warning: no real argument given for dummy argument '%s' of intrinsic '%s'\n",
-            //         ast_location(argument),
-            //         current_variant->keyword_names[j],
-            //         intrinsic_info->intrinsic_name);
             DEBUG_CODE()
             {
                 fprintf(stderr, "INTRINSICS: No real argument given for nonoptional dummy argument '%s' of intrinsic '%s'\n",
@@ -759,10 +665,263 @@ static char generic_keyword_check(
     return ok;
 }
 
+
+#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, kind0, compute_code) \
+static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol, \
+        type_t** argument_types, \
+        nodecl_t *argument_expressions, \
+        int num_arguments, \
+        const_value_t** const_value); \
+static scope_entry_t* keyword_compute_intrinsic_##name(scope_entry_t* symbol, \
+            type_t** argument_types, \
+            nodecl_t *argument_expressions, \
+            int num_arguments, \
+            const_value_t** const_value) \
+{ \
+    ERROR_CONDITION(argument_types != NULL, "This must be NULL as it is unused", 0); \
+    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 }; \
+    nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() }; \
+    int result = generic_keyword_check( \
+            symbol, \
+            &num_arguments, \
+            argument_expressions, \
+            keywords0, \
+            reordered_types, \
+            reordered_exprs); \
+    if (result) \
+    { \
+        scope_entry_t* sym = compute_intrinsic_##name(symbol, reordered_types, reordered_exprs, num_arguments, const_value); \
+        if (sym != NULL) \
+        { \
+            update_keywords_of_intrinsic(sym, keywords0, num_arguments); \
+        } \
+        return sym; \
+    } \
+    else \
+    { \
+        return NULL; \
+    } \
+}
+
+#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
+static scope_entry_t* compute_intrinsic_##name##_0(scope_entry_t* symbol,  \
+        type_t** argument_types, \
+        nodecl_t *argument_expressions, \
+        int num_arguments, \
+        const_value_t** const_value); \
+static scope_entry_t* compute_intrinsic_##name##_1(scope_entry_t* symbol,  \
+        type_t** argument_types, \
+        nodecl_t *argument_expressions, \
+        int num_arguments, \
+        const_value_t** const_value); \
+static scope_entry_t* keyword_compute_intrinsic_##name(scope_entry_t* symbol, \
+            type_t** argument_types, \
+            nodecl_t *argument_expressions, \
+            int num_arguments, \
+            const_value_t** const_value) \
+{ \
+    ERROR_CONDITION(argument_types != NULL, "This must be NULL as it is unused", 0); \
+    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 }; \
+    nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() }; \
+    int keep_nargs = num_arguments; \
+    int result = generic_keyword_check( \
+            symbol, \
+            &num_arguments, \
+            argument_expressions, \
+            keywords0, \
+            reordered_types, \
+            reordered_exprs); \
+    if (result) \
+    { \
+        scope_entry_t* sym = compute_intrinsic_##name##_0(symbol, reordered_types, reordered_exprs, num_arguments, const_value); \
+        if (sym != NULL) \
+        { \
+            update_keywords_of_intrinsic(sym, keywords0, num_arguments); \
+            return sym; \
+        } \
+    } \
+    { \
+        num_arguments = keep_nargs; \
+        memset(reordered_types, 0, sizeof(reordered_types)); \
+        memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
+        result = generic_keyword_check( \
+                symbol, \
+                &num_arguments, \
+                argument_expressions, \
+                keywords1, \
+                reordered_types, \
+                reordered_exprs); \
+        if (result) \
+        { \
+            scope_entry_t* sym = compute_intrinsic_##name##_1(symbol, reordered_types, reordered_exprs, num_arguments, const_value); \
+            if (sym != NULL) \
+            { \
+                update_keywords_of_intrinsic(sym, keywords1, num_arguments); \
+            } \
+            return sym; \
+        } \
+        else \
+        { \
+            return NULL; \
+        } \
+    }\
+}
+
+FORTRAN_INTRINSIC_GENERIC_LIST
+#undef FORTRAN_GENERIC_INTRINSIC
+#undef FORTRAN_GENERIC_INTRINSIC_2
+
+// This is used when serializing
+static struct intrinsic_name_pair_t
+{
+    computed_function_type_t fun;
+} _intrinsic_names[] = {
+    { NULL },
+#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, kind0, compute_code) \
+    { keyword_compute_intrinsic_##name },
+#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
+    { keyword_compute_intrinsic_##name },
+FORTRAN_INTRINSIC_GENERIC_LIST
+#undef FORTRAN_GENERIC_INTRINSIC
+#undef FORTRAN_GENERIC_INTRINSIC_2
+};
+
+int fortran_intrinsic_get_id(computed_function_type_t fun)
+{
+    int num_items = sizeof(_intrinsic_names) / sizeof(_intrinsic_names[0]);
+    for (int i = 0; i < num_items; i++)
+    {
+        if (_intrinsic_names[i].fun == fun)
+            return i;
+    }
+
+    return -1;
+}
+
+computed_function_type_t fortran_intrinsic_get_ptr(int id)
+{
+    int num_items = sizeof(_intrinsic_names) / sizeof(_intrinsic_names[0]);
+    if (id >= num_items)
+    {
+        return NULL;
+    }
+    else
+    {
+        return _intrinsic_names[id].fun;
+    }
+}
+
+// This is used when serializing
+static struct intrinsic_simplify_fun_t
+{
+    simplify_function_t fun;
+} _simplify_functions[] = {
+    { NULL }, /* Reserve the first one for 0 */
+#define FORTRAN_GENERIC_INTRINSIC(module, name, keywords0, kind0, compute_code) \
+    { compute_code },
+#define FORTRAN_GENERIC_INTRINSIC_2(module, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
+    { compute_code0 },
+FORTRAN_INTRINSIC_GENERIC_LIST
+#undef FORTRAN_GENERIC_INTRINSIC
+#undef FORTRAN_GENERIC_INTRINSIC_2
+};
+
+int fortran_simplify_function_get_id(simplify_function_t fun)
+{
+    int num_items = sizeof(_simplify_functions) / sizeof(_simplify_functions[0]);
+    for (int i = 0; i < num_items; i++)
+    {
+        if (_simplify_functions[i].fun == fun)
+            return i;
+    }
+
+    return -1;
+}
+
+simplify_function_t fortran_simplify_function_get_ptr(int id)
+{
+    int num_items = sizeof(_simplify_functions) / sizeof(_simplify_functions[0]);
+    if (id >= num_items)
+    {
+        return NULL;
+    }
+    else
+    {
+        return _simplify_functions[id].fun;
+    }
+}
+
+typedef
+struct intrinsic_descr_tag
+{
+    scope_entry_t* generic_symbol;
+    const char* name;
+    type_t* result_type;
+    int num_types;
+    type_t** parameter_types;
+} intrinsic_descr_t;
+
+static int compare_types(type_t* t1, type_t* t2)
+{
+    if (equivalent_types(get_unqualified_type(t1), get_unqualified_type(t2)))
+        return 0;
+    else if (t1 < t2)
+        return -1;
+    else
+        return 1;
+}
+
+static int intrinsic_descr_cmp(const void* i1, const void* i2)
+{
+    const intrinsic_descr_t* d1 = (const intrinsic_descr_t*)i1;
+    const intrinsic_descr_t* d2 = (const intrinsic_descr_t*)i2;
+
+    if (d1->generic_symbol != d2->generic_symbol)
+    {
+        if (d1->generic_symbol < d2->generic_symbol)
+            return -1;
+        else
+            return 1;
+    }
+
+    int c; 
+    if ((c = strcasecmp(d1->name, d2->name)) != 0)
+        return c;
+
+    if (d1->result_type  == NULL
+            && d1->result_type != d2->result_type)
+        return -1;
+
+    if (d2->result_type  == NULL
+            && d1->result_type != d2->result_type)
+        return 1;
+
+    if (d1->result_type != NULL
+            && d2->result_type != NULL
+            && (c = compare_types(d1->result_type, d2->result_type)) != 0)
+        return c;
+
+    if (d1->num_types != d2->num_types)
+    {
+        if (d1->num_types < d2->num_types)
+            return -1;
+        else
+            return 1;
+    }
+
+    int i;
+    for (i = 0; i < d1->num_types; i++)
+    {
+        if ((c = compare_types(d1->parameter_types[i], d2->parameter_types[i])) != 0)
+            return c;
+    }
+
+    return 0;
+}
+
 static char specific_keyword_check(
         scope_entry_t* symbol,
         int *num_arguments,
-        const char** actual_keywords,
         nodecl_t *argument_expressions,
         nodecl_t* reordered_exprs)
 {
@@ -772,8 +931,14 @@ static char specific_keyword_check(
     char seen_keywords = 0;
     for (i = 0; i < (*num_arguments) && ok; i++)
     {
-        const char* keyword = actual_keywords[i];
-        nodecl_t expr = argument_expressions[i];
+        const char* keyword = NULL;
+        nodecl_t expr = nodecl_null();
+
+        if (!nodecl_is_null(argument_expressions[i]))
+        {
+            keyword = nodecl_get_text(argument_expressions[i]);
+            expr = nodecl_get_child(argument_expressions[i], 0);
+        }
 
         if (keyword != NULL)
         {
@@ -808,7 +973,7 @@ static char specific_keyword_check(
         else
         {
             if (seen_keywords)
-            {    
+            {
                 ok = 0;
                 break;
             }
@@ -924,7 +1089,28 @@ static type_t* fix_type_for_intrinsic_parameters(type_t* t)
     }
 }
 
-static scope_entry_t* get_intrinsic_symbol_(const char* name,
+static rb_red_blk_tree* intrinsic_map = NULL;
+
+// Creates an intrinsic procedure.
+//
+// If generic_symbol is not NULL the newly created intrinsic is a specific
+// intrinsic of a generic intrinsic name
+//
+// If generic_symbol is NULL it is just a specific intrinsic name (for those
+// cases where there is only one specialization and it would be overkill to
+// define it as a generic one)
+//
+// If generic_symbol is not NULL the name of the newly created symbol is taken
+// from the name of generic_symbol, otherwise it is taken from the parameter 'name'.
+//
+//    This is needed for this case
+//
+//       MODULE MOO
+//       END MODULE MOO
+//
+static scope_entry_t* get_intrinsic_symbol_(
+        scope_entry_t* generic_symbol,
+        const char* name,
         type_t* result_type,
         int num_types, type_t** types,
         decl_context_t decl_context,
@@ -935,13 +1121,18 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 {
     ERROR_CONDITION(result_type == NULL, "This should be void", 0);
 
-     int i;
-     for (i = 0; i < num_types; i++)
-     {
-         types[i] = fix_type_for_intrinsic_parameters(types[i]);
-     }
+    if (generic_symbol != NULL
+            && generic_symbol->symbol_name != NULL)
+        name = generic_symbol->symbol_name;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        types[i] = fix_type_for_intrinsic_parameters(types[i]);
+    }
 
     intrinsic_descr_t descr;
+    descr.generic_symbol = generic_symbol;
     descr.name = name;
     descr.result_type = result_type;
     descr.num_types = num_types;
@@ -983,14 +1174,26 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 
         // We do not want it be signed in the scope
         scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+        if (generic_symbol != NULL)
+        {
+            new_entry->locus = generic_symbol->locus;
+        }
+        else
+        {
+            new_entry->locus = make_locus("(fortran-intrinsic)", 0, 0);
+        }
         new_entry->symbol_name = name;
         new_entry->decl_context = new_program_unit_context(decl_context);
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
         new_entry->type_information = function_type;
+        new_entry->entity_specs.emission_template = generic_symbol;
+
+        if (generic_symbol != NULL)
+            new_entry->entity_specs.simplify_function = generic_symbol->entity_specs.simplify_function;
+
         new_entry->entity_specs.is_elemental = is_elemental;
         new_entry->entity_specs.is_pure = (is_pure || is_elemental);
-
         new_entry->entity_specs.is_global_hidden = 1;
         new_entry->entity_specs.is_builtin = 1;
 
@@ -1018,55 +1221,55 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
     }
 }
 
-#define GET_INTRINSIC_ELEMENTAL(name, result, ...) \
+#define GET_INTRINSIC_ELEMENTAL(symbol, name, result, ...) \
     ({ \
      type_t* _types[] = { __VA_ARGS__ }; \
      const int _size = sizeof(_types) / sizeof(*_types) ; \
-     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+     get_intrinsic_symbol_(symbol, name, result, _size, _types, symbol->decl_context, \
          /* is_elemental */ 1, \
          /* is_pure */ 1, \
          /* is_transformational */ 0, \
          /* is_inquiry */ 0); \
      })
 
-#define GET_INTRINSIC_INQUIRY(name, result, ...) \
+#define GET_INTRINSIC_INQUIRY(symbol, name, result, ...) \
     ({ \
      type_t* _types[] = { __VA_ARGS__ }; \
      const int _size = sizeof(_types) / sizeof(*_types) ; \
-     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+     get_intrinsic_symbol_(symbol, name, result, _size, _types, symbol->decl_context, \
          /* is_elemental */ 0, \
          /* is_pure */ 0, \
          /* is_transformational */ 0, \
          /* is_inquiry */ 1); \
      })
 
-#define GET_INTRINSIC_PURE(name, result, ...) \
+#define GET_INTRINSIC_PURE(symbol, name, result, ...) \
     ({ \
      type_t* _types[] = { __VA_ARGS__ }; \
      const int _size = sizeof(_types) / sizeof(*_types) ; \
-     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+     get_intrinsic_symbol_(symbol, name, result, _size, _types, symbol->decl_context, \
          /* is_elemental */ 0, \
          /* is_pure */ 1, \
          /* is_transformational */ 0, \
          /* is_inquiry */ 0); \
      })
 
-#define GET_INTRINSIC_IMPURE(name, result, ...) \
+#define GET_INTRINSIC_IMPURE(symbol, name, result, ...) \
     ({ \
      type_t* _types[] = { __VA_ARGS__ }; \
      const int _size = sizeof(_types) / sizeof(*_types) ; \
-     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+     get_intrinsic_symbol_(symbol, name, result, _size, _types, symbol->decl_context, \
          /* is_elemental */ 0, \
          /* is_pure */ 0, \
          /* is_transformational */ 0, \
          /* is_inquiry */ 0); \
      })
 
-#define GET_INTRINSIC_TRANSFORMATIONAL(name, result, ...) \
+#define GET_INTRINSIC_TRANSFORMATIONAL(symbol, name, result, ...) \
     ({ \
      type_t* _types[] = { __VA_ARGS__ }; \
      const int _size = sizeof(_types) / sizeof(*_types) ; \
-     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+     get_intrinsic_symbol_(symbol, name, result, _size, _types, symbol->decl_context, \
          /* is_elemental */ 0, \
          /* is_pure */ 0, \
          /* is_transformational */ 1, \
@@ -1076,18 +1279,6 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
 static void fortran_init_specific_names(decl_context_t decl_context);
-
-static type_t* fake_computed_function_type = NULL; 
-
-static scope_entry_t* fake_computed_function(scope_entry_t* symbol UNUSED_PARAMETER,
-        type_t** argument_types UNUSED_PARAMETER,
-        nodecl_t* argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER,
-        const_value_t** const_value UNUSED_PARAMETER)
-{
-    internal_error("Code unreachable", 0);
-    return NULL;
-}
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context);
 static void fortran_init_intrinsic_modules(decl_context_t decl_context);
@@ -1100,8 +1291,6 @@ void fortran_init_intrinsics(decl_context_t decl_context)
 
     decl_context_t fortran_intrinsic_context = fortran_get_context_of_intrinsics(decl_context);
 
-    if (fake_computed_function_type == NULL)
-        fake_computed_function_type = get_computed_function_type(fake_computed_function);
 #define FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code) \
     { \
         decl_context_t relevant_decl_context = fortran_intrinsic_context; \
@@ -1114,9 +1303,10 @@ void fortran_init_intrinsics(decl_context_t decl_context)
             relevant_decl_context = module_sym->related_decl_context; \
         } \
         scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, #name); \
+        new_intrinsic->locus = make_locus("(fortran-intrinsic)", 0, 0); \
         new_intrinsic->kind = SK_FUNCTION; \
         new_intrinsic->do_not_print = 1; \
-        new_intrinsic->type_information = fake_computed_function_type; \
+        new_intrinsic->type_information = get_computed_function_type(keyword_compute_intrinsic_##name); \
         new_intrinsic->entity_specs.is_global_hidden = (module_sym == NULL); \
         new_intrinsic->entity_specs.is_builtin = 1; \
         new_intrinsic->entity_specs.is_intrinsic_function = 1; \
@@ -1133,6 +1323,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->entity_specs.simplify_function = compute_code; \
         if (module_sym != NULL) \
         { \
+            new_intrinsic->locus = module_sym->locus; \
             new_intrinsic->entity_specs.in_module = module_sym; \
             new_intrinsic->entity_specs.is_module_procedure = 1; \
             P_LIST_ADD(module_sym->entity_specs.related_symbols, \
@@ -1142,42 +1333,7 @@ void fortran_init_intrinsics(decl_context_t decl_context)
     }
 
 #define FORTRAN_GENERIC_INTRINSIC_2(module_name, name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
-    { \
-        decl_context_t relevant_decl_context = fortran_intrinsic_context; \
-        scope_entry_t* module_sym = NULL; \
-        if (module_name != NULL) \
-        { \
-            rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_file_cache, module_name); \
-            ERROR_CONDITION(query == NULL, "Module '%s' has not been registered", module_name); \
-            module_sym = (scope_entry_t*)rb_node_get_info(query); \
-            relevant_decl_context = module_sym->related_decl_context; \
-        } \
-        scope_entry_t* new_intrinsic = new_symbol(relevant_decl_context, relevant_decl_context.current_scope, #name); \
-        new_intrinsic->kind = SK_FUNCTION; \
-        new_intrinsic->do_not_print = 1; \
-        new_intrinsic->type_information = fake_computed_function_type; \
-        new_intrinsic->entity_specs.is_global_hidden = (module_sym == NULL); \
-        new_intrinsic->entity_specs.is_builtin = 1; \
-        if (kind0 == ES || kind0 == PS || kind0 == S) \
-        { \
-            new_intrinsic->entity_specs.is_intrinsic_function = 0; \
-            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
-        } \
-        else if (kind0 == M) \
-        { \
-            new_intrinsic->entity_specs.is_intrinsic_function = 1; \
-            new_intrinsic->entity_specs.is_intrinsic_subroutine = 1; \
-        } \
-        new_intrinsic->entity_specs.simplify_function = compute_code0; \
-        if (module_sym != NULL) \
-        { \
-            new_intrinsic->entity_specs.in_module = module_sym; \
-            new_intrinsic->entity_specs.is_module_procedure = 1; \
-            P_LIST_ADD(module_sym->entity_specs.related_symbols, \
-                    module_sym->entity_specs.num_related_symbols, \
-                    new_intrinsic); \
-        } \
-    }
+    FORTRAN_GENERIC_INTRINSIC(module_name, name, keywords0, kind0, compute_code0)
 
     FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC
@@ -1191,9 +1347,50 @@ void fortran_init_intrinsics(decl_context_t decl_context)
     fortran_finish_intrinsic_modules(decl_context);
 }
 
+void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic)
+{
+    entry->kind = intrinsic->kind;
+    entry->type_information = intrinsic->type_information;
+
+#define COPY_SPEC(x) \
+    entry->entity_specs.x = intrinsic->entity_specs.x
+
+    COPY_SPEC(is_global_hidden);
+    COPY_SPEC(is_builtin);
+    COPY_SPEC(is_intrinsic_function);
+    COPY_SPEC(is_intrinsic_subroutine);
+    COPY_SPEC(simplify_function);
+
+    entry->entity_specs.num_related_symbols = 0;
+    entry->entity_specs.related_symbols = NULL;
+
+    // Update the keywords
+    int i;
+    for (i = 0; i < intrinsic->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* dummy_arg = intrinsic->entity_specs.related_symbols[i];
+
+        scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
+        new_keyword_sym->kind = SK_VARIABLE;
+        new_keyword_sym->symbol_name = dummy_arg->symbol_name;
+        new_keyword_sym->decl_context = entry->decl_context;
+        new_keyword_sym->type_information = dummy_arg->type_information;
+
+        symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+
+        new_keyword_sym->entity_specs.is_optional = dummy_arg->entity_specs.is_optional;
+
+        P_LIST_ADD(entry->entity_specs.related_symbols,
+                entry->entity_specs.num_related_symbols,
+                new_keyword_sym);
+    }
+}
+
+// Only called when registering specific names of generic intrinsics
+// i.e. ccos as a specific name of cos
 static scope_entry_t* register_specific_intrinsic_name(
         decl_context_t decl_context,
-        const char *generic_name, 
+        const char *generic_name,
         const char *specific_name,
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
@@ -1204,8 +1401,6 @@ static scope_entry_t* register_specific_intrinsic_name(
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
 
     ERROR_CONDITION(num_args > MAX_SPECIFIC_PARAMETERS, "Too many arguments", 0);
-
-    const char* argument_keywords[MAX_SPECIFIC_PARAMETERS] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
     // Sanity check with the input types
     //
@@ -1221,17 +1416,16 @@ static scope_entry_t* register_specific_intrinsic_name(
     }
 
     nodecl_t nodecl_actual_arguments[MAX_SPECIFIC_PARAMETERS] = { 
-        t0 != NULL ? nodecl_make_type(t0, make_locus("", 0, 0)) : nodecl_null(),
-        t1 != NULL ? nodecl_make_type(t1, make_locus("", 0, 0)) : nodecl_null(),
-        t2 != NULL ? nodecl_make_type(t2, make_locus("", 0, 0)) : nodecl_null(),
-        t3 != NULL ? nodecl_make_type(t3, make_locus("", 0, 0)) : nodecl_null(),
-        t4 != NULL ? nodecl_make_type(t4, make_locus("", 0, 0)) : nodecl_null(),
-        t5 != NULL ? nodecl_make_type(t5, make_locus("", 0, 0)) : nodecl_null(),
-        t6 != NULL ? nodecl_make_type(t6, make_locus("", 0, 0)) : nodecl_null() 
+        t0 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t0, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null(),
+        t1 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t1, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null(),
+        t2 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t2, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null(),
+        t3 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t3, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null(),
+        t4 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t4, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null(),
+        t5 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t5, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null(),
+        t6 != NULL ? nodecl_make_fortran_actual_argument(nodecl_make_dummy(t6, make_locus("", 0, 0)), make_locus("", 0, 0)) : nodecl_null() 
     };
 
     scope_entry_t* specific_entry = fortran_solve_generic_intrinsic_call(generic_entry, 
-            argument_keywords, 
             nodecl_actual_arguments,
             num_args, /* is call */ 0);
     
@@ -1268,7 +1462,9 @@ static scope_entry_t* register_specific_intrinsic_name(
             real_num_parameters++;
         }
 
-        scope_entry_t* new_specific_entry = get_intrinsic_symbol_(specific_name,
+        scope_entry_t* new_specific_entry = get_intrinsic_symbol_(
+                generic_entry,
+                specific_name,
                 result_type,
                 real_num_parameters, param_types,
                 generic_entry->decl_context,
@@ -1277,7 +1473,10 @@ static scope_entry_t* register_specific_intrinsic_name(
                 /* is_transformational */ 0,
                 /* is_inquiry */ 0);
 
-        new_specific_entry->entity_specs.simplify_function = generic_entry->entity_specs.simplify_function;
+        // Note that get_intrinsic_symbol_ uses the name in generic_entry
+        // if it is not NULL, and here it will never be null, so overwrite
+        // the name now
+        new_specific_entry->symbol_name = specific_name;
 
         // Add the keywords that are non null
         for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)
@@ -1302,6 +1501,8 @@ static scope_entry_t* register_specific_intrinsic_name(
 #undef MAX_SPECIFIC_PARAMETERS
 }
 
+// Only called when we register intrinsic names that are not strictly generic
+// (so they do not have a generic symbol)
 static scope_entry_t* register_custom_intrinsic(
         decl_context_t decl_context,
         const char* specific_name,
@@ -1311,9 +1512,10 @@ static scope_entry_t* register_custom_intrinsic(
 {
     type_t* types[3] = { t0, t1, t2 };
 
-    scope_entry_t* entry = get_intrinsic_symbol_(specific_name,
-            result_type, 
-            num_types, types, 
+    scope_entry_t* entry = get_intrinsic_symbol_(NULL,
+            specific_name,
+            result_type,
+            num_types, types,
             decl_context,
             0, 0, 0, 0);
 
@@ -1322,54 +1524,12 @@ static scope_entry_t* register_custom_intrinsic(
     return entry;
 }
 
-#if 0
-The macros below have been generated using this shell script
-
-
-for i in `seq 0 7`; 
-do 
-echo -n "#define REGISTER_SPECIFIC_INTRINSIC_$i(_specific_name, _generic_name"; 
-for p in t_ ; 
-do 
-for j in `seq 0 $(($i - 1))`; 
-do 
-echo -n ", ${p}${j}"; 
-done; 
-done; 
-echo ") \\"; 
-echo -n "  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), $i"; 
-for p in t_ ; 
-do 
-for j in `seq 0 $(($i - 1))`; 
-do 
-echo -n ", (${p}${j})"; 
-done; 
-for j in `seq $i 6`; 
-do 
-echo -n ", NULL"; 
-done; 
-done; 
-echo ")"; 
-done;
-
-#endif
-
 #define REGISTER_SPECIFIC_INTRINSIC_0(_specific_name, _generic_name) \
     register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_1(_specific_name, _generic_name, t_0) \
     register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 1, (t_0), NULL, NULL, NULL, NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_2(_specific_name, _generic_name, t_0, t_1) \
     register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 2, (t_0), (t_1), NULL, NULL, NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_3(_specific_name, _generic_name, t_0, t_1, t_2) \
-    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 3, (t_0), (t_1), (t_2), NULL, NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_4(_specific_name, _generic_name, t_0, t_1, t_2, t_3) \
-    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 4, (t_0), (t_1), (t_2), (t_3), NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_5(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4) \
-    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 5, (t_0), (t_1), (t_2), (t_3), (t_4), NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_6(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5) \
-    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 6, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_7(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5, t_6) \
-    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 7, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), (t_6))
 
 #define REGISTER_CUSTOM_INTRINSIC_0(_specific_name, result_type) \
     register_custom_intrinsic(decl_context, (_specific_name), result_type, 0, NULL, NULL, NULL)
@@ -1495,11 +1655,11 @@ scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             || is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("abs", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "abs", t0, t0);
     }
     else if (is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("abs", complex_type_get_base_type(t0), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "abs", complex_type_get_base_type(t0), t0);
     }
 
     return NULL;
@@ -1533,7 +1693,7 @@ static scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAM
             && opt_valid_kind_expr(argument_expressions[1], &dc))
     {
         // We ignore the character kind here
-        return GET_INTRINSIC_ELEMENTAL("achar", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "achar", 
                 get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), 
                 t0,
                 fortran_get_default_integer_type());
@@ -1551,7 +1711,7 @@ scope_entry_t* compute_intrinsic_acos(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("acos", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "acos", t0, t0);
     }
     return NULL;
 }
@@ -1566,7 +1726,7 @@ scope_entry_t* compute_intrinsic_acosh(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("acosh", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "acosh", t0, t0);
     }
     return NULL;
 }
@@ -1580,7 +1740,7 @@ scope_entry_t* compute_intrinsic_adjustl(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (fortran_is_character_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("adjustl", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "adjustl", t0, t0);
     }
     return NULL;
 }
@@ -1594,7 +1754,7 @@ scope_entry_t* compute_intrinsic_adjustr(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (fortran_is_character_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("adjustr", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "adjustr", t0, t0);
     }
     return NULL;
 }
@@ -1608,7 +1768,7 @@ scope_entry_t* compute_intrinsic_aimag(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("aimag", complex_type_get_base_type(t0), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "aimag", complex_type_get_base_type(t0), t0);
     }
     return NULL;
 }
@@ -1625,7 +1785,7 @@ scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
             && (dr = type_get_size(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL("aint", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "aint", 
                 choose_float_type_from_kind(argument_expressions[1], dr), 
                 t0,
                 fortran_get_default_integer_type());
@@ -1652,7 +1812,7 @@ scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
                     symbol->decl_context);
         }
 
-        return GET_INTRINSIC_TRANSFORMATIONAL("all", return_type, t0, 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "all", return_type, t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1));
     }
     return NULL;
@@ -1673,7 +1833,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
         if (entry != NULL
                 && fortran_is_array_type(entry->type_information) && entry->entity_specs.is_allocatable)
         {
-            return GET_INTRINSIC_INQUIRY("allocated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
         }
     }
     return NULL;
@@ -1695,7 +1855,7 @@ scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAME
                 && !fortran_is_array_type(entry->type_information)
                 && entry->entity_specs.is_allocatable)
         {
-            return GET_INTRINSIC_INQUIRY("allocated", fortran_get_default_logical_type(), t0);
+            return GET_INTRINSIC_INQUIRY(symbol, "allocated", fortran_get_default_logical_type(), t0);
         }
     }
     return NULL;
@@ -1713,7 +1873,7 @@ scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
             && (dr = type_get_size(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL("anint", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "anint", 
                 choose_float_type_from_kind(argument_expressions[1], dr), 
                 t0,
                 fortran_get_default_integer_type());
@@ -1740,7 +1900,7 @@ scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
                     symbol->decl_context);
         }
 
-        return GET_INTRINSIC_TRANSFORMATIONAL("any", return_type, t0, 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "any", return_type, t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1));
     }
     return NULL;
@@ -1756,7 +1916,7 @@ scope_entry_t* compute_intrinsic_asin(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("asin", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "asin", t0, t0);
     }
     return NULL;
 }
@@ -1771,7 +1931,7 @@ scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("asinh", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "asinh", t0, t0);
     }
     return NULL;
 }
@@ -1808,7 +1968,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
     {
         if (nodecl_is_null(argument_expressions[1]))
         {
-            return GET_INTRINSIC_INQUIRY("associated",
+            return GET_INTRINSIC_INQUIRY(symbol, "associated",
                     fortran_get_default_logical_type(),
                     get_lvalue_reference_type(ptr_type),
                     get_lvalue_reference_type(ptr_type));
@@ -1822,7 +1982,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
             {
                 if (fortran_equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), pointer_type_get_pointee_type(target_type)))
                 {
-                    return GET_INTRINSIC_INQUIRY("associated", 
+                    return GET_INTRINSIC_INQUIRY(symbol, "associated", 
                             fortran_get_default_logical_type(),
                             get_lvalue_reference_type(ptr_type),
                             get_lvalue_reference_type(target_type));
@@ -1835,7 +1995,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
             {
                 if (fortran_equivalent_tkr_types(pointer_type_get_pointee_type(ptr_type), target_type))
                 {
-                    return GET_INTRINSIC_INQUIRY("associated",
+                    return GET_INTRINSIC_INQUIRY(symbol, "associated",
                             fortran_get_default_logical_type(),
                             get_lvalue_reference_type(ptr_type),
                             get_lvalue_reference_type(target_type));
@@ -1858,7 +2018,7 @@ scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
         if (is_floating_type(t0)
                 || is_complex_type(t0))
         {
-            return GET_INTRINSIC_ELEMENTAL("atan", t0, t0);
+            return GET_INTRINSIC_ELEMENTAL(symbol, "atan", t0, t0);
         }
     }
     else if (num_arguments == 2)
@@ -1869,7 +2029,7 @@ scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
         if (is_floating_type(t0)
                 && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
         {
-            return GET_INTRINSIC_ELEMENTAL("atan2", t1, t1, t0);
+            return GET_INTRINSIC_ELEMENTAL(symbol, "atan2", t1, t1, t0);
         }
     }
     return NULL;
@@ -1906,7 +2066,7 @@ scope_entry_t* compute_intrinsic_atan2d(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
     {
-        return GET_INTRINSIC_ELEMENTAL("atan2d", t1, t1, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "atan2d", t1, t1, t0);
     }
     return NULL;
 }
@@ -1921,7 +2081,7 @@ scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("atanh", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "atanh", t0, t0);
     }
     return NULL;
 }
@@ -1955,7 +2115,7 @@ scope_entry_t* compute_intrinsic_bessel_j0(scope_entry_t* symbol UNUSED_PARAMETE
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bessel_j0", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "bessel_j0", t0, t0);
     }
     return NULL;
 }
@@ -1969,7 +2129,7 @@ scope_entry_t* compute_intrinsic_bessel_j1(scope_entry_t* symbol UNUSED_PARAMETE
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bessel_j1", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "bessel_j1", t0, t0);
     }
     return NULL;
 }
@@ -1987,7 +2147,7 @@ scope_entry_t* compute_intrinsic_bessel_jn_0(scope_entry_t* symbol UNUSED_PARAME
         if (is_integer_type(t0)
                 && is_floating_type(t1))
         {
-            return GET_INTRINSIC_ELEMENTAL("bessel_jn", t1, t0, t1);
+            return GET_INTRINSIC_ELEMENTAL(symbol, "bessel_jn", t1, t0, t1);
         }
     }
     else if (num_arguments == 3)
@@ -2000,7 +2160,7 @@ scope_entry_t* compute_intrinsic_bessel_jn_0(scope_entry_t* symbol UNUSED_PARAME
                 && is_integer_type(t1)
                 && is_floating_type(t2))
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("bessel_jn", t2, t0, t1, t2);
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "bessel_jn", t2, t0, t1, t2);
         }
     }
     return NULL;
@@ -2024,7 +2184,7 @@ scope_entry_t* compute_intrinsic_bessel_y0(scope_entry_t* symbol UNUSED_PARAMETE
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bessel_y0", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "bessel_y0", t0, t0);
     }
     return NULL;
 }
@@ -2038,7 +2198,7 @@ scope_entry_t* compute_intrinsic_bessel_y1(scope_entry_t* symbol UNUSED_PARAMETE
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bessel_y1", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "bessel_y1", t0, t0);
     }
     return NULL;
 }
@@ -2056,7 +2216,7 @@ scope_entry_t* compute_intrinsic_bessel_yn_0(scope_entry_t* symbol UNUSED_PARAME
         if (is_integer_type(t0)
                 && is_floating_type(t1))
         {
-            return GET_INTRINSIC_ELEMENTAL("bessel_yn", t1, t0, t1);
+            return GET_INTRINSIC_ELEMENTAL(symbol, "bessel_yn", t1, t0, t1);
         }
     }
     else if (num_arguments == 3)
@@ -2069,7 +2229,7 @@ scope_entry_t* compute_intrinsic_bessel_yn_0(scope_entry_t* symbol UNUSED_PARAME
                 && is_integer_type(t1)
                 && is_floating_type(t2))
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("bessel_yn", t2, t0, t1, t2);
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "bessel_yn", t2, t0, t1, t2);
         }
     }
     return NULL;
@@ -2093,7 +2253,7 @@ scope_entry_t* compute_intrinsic_bge(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bge", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "bge", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2107,7 +2267,7 @@ scope_entry_t* compute_intrinsic_bgt(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bgt", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "bgt", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2121,7 +2281,7 @@ scope_entry_t* compute_intrinsic_ble(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ble", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ble", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2135,7 +2295,7 @@ scope_entry_t* compute_intrinsic_blt(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("blt", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "blt", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2149,7 +2309,7 @@ scope_entry_t* compute_intrinsic_bit_size(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t0 = no_ref(argument_types[0]);
     if (is_integer_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("bit_size", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "bit_size", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2165,7 +2325,7 @@ scope_entry_t* compute_intrinsic_btest(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("btest", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "btest", fortran_get_default_logical_type(), t0, t1);
     }
     return NULL;
 }
@@ -2181,7 +2341,7 @@ scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL("ceiling", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ceiling", 
                 choose_int_type_from_kind(argument_expressions[1], dr), 
                 t0,
                 fortran_get_default_integer_type());
@@ -2200,7 +2360,7 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("char", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "char", 
                 get_array_type(get_char_type(), 
                     const_value_to_nodecl(
                         const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
@@ -2230,7 +2390,7 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
                     || is_complex_type(t1)
                     || is_integer_type(t1)))
         {
-            return GET_INTRINSIC_ELEMENTAL("cmplx", 
+            return GET_INTRINSIC_ELEMENTAL(symbol, "cmplx", 
                     get_complex_type(choose_float_type_from_kind(argument_expressions[2], dr)), 
                     t0, 
                     t1 == NULL ? t0 : t1,
@@ -2256,7 +2416,7 @@ scope_entry_t* compute_intrinsic_dcmplx(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_complex_type(t1)
                 || is_integer_type(t1)))
     {
-        return GET_INTRINSIC_ELEMENTAL("dcmplx", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dcmplx", 
                 get_complex_type(fortran_get_doubleprecision_type()),
                 t0, 
                 t1 == NULL ? t0 : t1);
@@ -2270,7 +2430,8 @@ scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UN
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-    return get_intrinsic_symbol_("command_argument_count", fortran_get_default_integer_type(), 0, NULL, symbol->decl_context, 
+    return get_intrinsic_symbol_(symbol,
+            "command_argument_count", fortran_get_default_integer_type(), 0, NULL, symbol->decl_context, 
             /* is_elemental */ 0, 
             /* is_pure */ 0, 
             /* is_transformational */ 1, 
@@ -2286,7 +2447,7 @@ scope_entry_t* compute_intrinsic_conjg(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("conjg", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "conjg", t0, t0);
     }
     return NULL;
 }
@@ -2302,7 +2463,7 @@ scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("cos", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "cos", t0, t0);
     }
     return NULL;
 }
@@ -2318,7 +2479,7 @@ scope_entry_t* compute_intrinsic_cosd(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("cosd", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "cosd", t0, t0);
     }
     return NULL;
 }
@@ -2333,7 +2494,7 @@ scope_entry_t* compute_intrinsic_cosh(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("cosh", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "cosh", t0, t0);
     }
     return NULL;
 }
@@ -2353,7 +2514,7 @@ scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t1 == NULL || is_integer_type(t1))
             && opt_valid_kind_expr(argument_expressions[2], &di))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("count", 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "count", 
                 choose_int_type_from_kind(argument_expressions[2], di),
                 t0, 
                 (t1 == NULL ? fortran_get_default_integer_type() : t1),
@@ -2374,7 +2535,7 @@ scope_entry_t* compute_intrinsic_cpu_time(scope_entry_t* symbol UNUSED_PARAMETER
     if (is_floating_type(t0))
     {
         // void because this is a subroutine
-        return GET_INTRINSIC_IMPURE("cpu_time", get_void_type(), t0);
+        return GET_INTRINSIC_IMPURE(symbol, "cpu_time", get_void_type(), t0);
     }
     return NULL;
 }
@@ -2395,7 +2556,7 @@ scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
                 ((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1)))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("cshift", t0, t0, t1,
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "cshift", t0, t0, t1,
                 t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
@@ -2421,7 +2582,7 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
     {
         type_t* char_type = get_array_type(get_char_type(), nodecl_null(), symbol->decl_context);
         type_t* int_array = fortran_get_n_ranked_type(fortran_get_default_integer_type(), 1, symbol->decl_context);
-        return GET_INTRINSIC_IMPURE("date_and_time", get_void_type(), char_type, char_type, char_type, int_array);
+        return GET_INTRINSIC_IMPURE(symbol, "date_and_time", get_void_type(), char_type, char_type, char_type, int_array);
     }
 
     return NULL;
@@ -2439,7 +2600,7 @@ scope_entry_t* compute_intrinsic_dble(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("dble", fortran_get_doubleprecision_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dble", fortran_get_doubleprecision_type(), t0);
     }
     return NULL;
 }
@@ -2455,7 +2616,7 @@ scope_entry_t* compute_intrinsic_digits(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(fortran_get_rank0_type(t0))
             || is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("digits", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "digits", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -2474,7 +2635,7 @@ scope_entry_t* compute_intrinsic_dim(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_floating_type(t0))
             && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
     {
-        return GET_INTRINSIC_ELEMENTAL("dim", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dim", t0, t0, t1);
     }
 
     return NULL;
@@ -2509,7 +2670,7 @@ scope_entry_t* compute_intrinsic_dot_product(scope_entry_t* symbol UNUSED_PARAME
         type_t* res = common_type_of_binary_operation(fortran_get_rank0_type(t0), fortran_get_rank0_type(t1));
         if (res == NULL)
             return NULL;
-        return GET_INTRINSIC_TRANSFORMATIONAL("dot_product", res, t0, t1);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "dot_product", res, t0, t1);
     }
     return NULL;
 }
@@ -2526,7 +2687,7 @@ scope_entry_t* compute_intrinsic_dprod(scope_entry_t* symbol UNUSED_PARAMETER,
     if (equivalent_types(t0, fortran_get_default_real_type())
             && equivalent_types(t1, fortran_get_default_real_type()))
     {
-        return GET_INTRINSIC_ELEMENTAL("dprod", fortran_get_doubleprecision_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dprod", fortran_get_doubleprecision_type(), t0, t1);
     }
 
     return NULL;
@@ -2546,7 +2707,7 @@ scope_entry_t* compute_intrinsic_dshiftl(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && is_integer_type(t2))
     {
-        return GET_INTRINSIC_ELEMENTAL("dshiftl", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dshiftl", t0, t0, t1, t2);
     }
 
     return NULL;
@@ -2566,7 +2727,7 @@ scope_entry_t* compute_intrinsic_dshiftr(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && is_integer_type(t2))
     {
-        return GET_INTRINSIC_ELEMENTAL("dshiftr", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dshiftr", t0, t0, t1, t2);
     }
 
     return NULL;
@@ -2593,7 +2754,7 @@ scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t3 == NULL
                 || (is_integer_type(t3))))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("eoshift", t0, 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "eoshift", t0, 
                 t0,
                 t1,
                 t2 == NULL ? fortran_get_rank0_type(t0) : t2,
@@ -2614,7 +2775,7 @@ scope_entry_t* compute_intrinsic_epsilon(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(fortran_get_rank0_type(t0))
             || is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("epsilon", fortran_get_rank0_type(t0), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "epsilon", fortran_get_rank0_type(t0), t0);
     }
 
     return NULL;
@@ -2629,7 +2790,7 @@ scope_entry_t* compute_intrinsic_erf(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("erf", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "erf", t0, t0);
     }
     return NULL;
 }
@@ -2643,7 +2804,7 @@ scope_entry_t* compute_intrinsic_erfc(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("erfc", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "erfc", t0, t0);
     }
     return NULL;
 }
@@ -2657,7 +2818,7 @@ scope_entry_t* compute_intrinsic_erfc_scaled(scope_entry_t* symbol UNUSED_PARAME
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("erfc_scaled", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "erfc_scaled", t0, t0);
     }
     return NULL;
 }
@@ -2680,7 +2841,7 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
             && (t3 == NULL || is_integer_type(t3))
             && (t4 == NULL || fortran_is_character_type(t4)))
     {
-        return GET_INTRINSIC_IMPURE("execute_command_line", 
+        return GET_INTRINSIC_IMPURE(symbol, "execute_command_line", 
                 get_void_type(), // It is a subroutine
                 t1, 
                 t2 == NULL ? fortran_get_default_integer_type() : t2,
@@ -2702,7 +2863,7 @@ scope_entry_t* compute_intrinsic_exp(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("exp", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "exp", t0, t0);
     }
     return NULL;
 }
@@ -2716,7 +2877,7 @@ scope_entry_t* compute_intrinsic_exponent(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("exponent", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "exponent", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -2757,7 +2918,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
     {
         if (t2 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("findloc", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "findloc", 
                     fortran_get_n_ranked_type(choose_int_type_from_kind(kind, di), fortran_get_rank_of_type(t1) - 1, symbol->decl_context),
                     t0,
                     t1,
@@ -2768,7 +2929,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("findloc", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "findloc", 
                     fortran_get_n_ranked_type(choose_int_type_from_kind(kind, di), fortran_get_rank_of_type(t1) - 1, symbol->decl_context),
                     t0,
                     t1,
@@ -2805,7 +2966,7 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && opt_valid_kind_expr(kind, &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL("floor", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "floor", 
                 choose_int_type_from_kind(kind, dr),
                 t0, fortran_get_default_integer_type());
     }
@@ -2825,7 +2986,7 @@ scope_entry_t* compute_intrinsic_flush(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_IMPURE("flush", get_void_type(), t0);
+        return GET_INTRINSIC_IMPURE(symbol, "flush", get_void_type(), t0);
     }
 
     return NULL;
@@ -2841,7 +3002,7 @@ scope_entry_t* compute_intrinsic_fraction(scope_entry_t* symbol UNUSED_PARAMETER
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("fraction", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "fraction", t0, t0);
     }
 
     return NULL;
@@ -2859,7 +3020,7 @@ scope_entry_t* compute_intrinsic_free(scope_entry_t* symbol UNUSED_PARAMETER,
 
         if(is_integer_type(t0))
         {
-            return GET_INTRINSIC_IMPURE("free",
+            return GET_INTRINSIC_IMPURE(symbol, "free",
                     /* subroutine */ get_void_type(),
                     t0);
         }
@@ -2878,7 +3039,7 @@ scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("gamma", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "gamma", t0, t0);
     }
 
     return NULL;
@@ -2898,13 +3059,13 @@ scope_entry_t* compute_intrinsic_hostnm(scope_entry_t* symbol UNUSED_PARAMETER,
         if (num_arguments == 2
                 && is_integer_type(t1))
         {
-            return GET_INTRINSIC_IMPURE("hostnm",
+            return GET_INTRINSIC_IMPURE(symbol, "hostnm",
                     /* subroutine */ get_void_type(),
                     t0, t1);
         }
         else if (num_arguments == 1)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("hostnm",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "hostnm",
                     fortran_get_default_integer_type(),
                     t0);
         }
@@ -2926,13 +3087,13 @@ scope_entry_t* compute_intrinsic_getcwd(scope_entry_t* symbol UNUSED_PARAMETER,
         if (num_arguments == 2
                 && is_integer_type(t1))
         {
-            return GET_INTRINSIC_IMPURE("getcwd",
+            return GET_INTRINSIC_IMPURE(symbol, "getcwd",
                     /* subroutine */ get_void_type(),
                     t0, t1);
         }
         else if (num_arguments == 1)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("getcwd",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "getcwd",
                     fortran_get_default_integer_type(),
                     t0);
         }
@@ -2952,7 +3113,7 @@ scope_entry_t* compute_intrinsic_getlog(scope_entry_t* symbol UNUSED_PARAMETER,
 
         if(fortran_is_character_type(t0))
         {
-            return GET_INTRINSIC_IMPURE("getlog",
+            return GET_INTRINSIC_IMPURE(symbol, "getlog",
                     /* subroutine */ get_void_type(),
                     t0);
         }
@@ -2975,7 +3136,7 @@ scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAME
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_IMPURE("get_command",
+        return GET_INTRINSIC_IMPURE(symbol, "get_command",
                 get_void_type(), // Is a subroutine
                 t0 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t0,
                 t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -3000,7 +3161,7 @@ scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUS
             && (t2 == NULL || is_integer_type(t2))
             && (t3 == NULL || is_integer_type(t3)))
     {
-        return GET_INTRINSIC_IMPURE("get_command_argument",
+        return GET_INTRINSIC_IMPURE(symbol, "get_command_argument",
                 get_void_type(), // Is a subroutine
                 t0,
                 t1 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
@@ -3029,7 +3190,7 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
             && (t3 == NULL || is_integer_type(t3))
             && (t4 == NULL || is_bool_type(t4)))
     {
-        return GET_INTRINSIC_IMPURE("get_environment_variable", 
+        return GET_INTRINSIC_IMPURE(symbol, "get_environment_variable", 
                 get_void_type(), // is a subroutine
                 t0,
                 t1 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
@@ -3051,7 +3212,7 @@ scope_entry_t* compute_intrinsic_huge(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(fortran_get_rank0_type(t0))
             || is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("huge", fortran_get_rank0_type(t0), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "huge", fortran_get_rank0_type(t0), t0);
     }
     return NULL;
 }
@@ -3068,7 +3229,7 @@ scope_entry_t* compute_intrinsic_hypot(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
     {
-        return GET_INTRINSIC_ELEMENTAL("hypot", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "hypot", t0, t0, t1);
     }
     return NULL;
 }
@@ -3085,7 +3246,7 @@ scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("iachar", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "iachar", 
                 choose_int_type_from_kind(argument_expressions[1], di), 
                 t0, fortran_get_default_integer_type());
     }
@@ -3114,7 +3275,7 @@ scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         if (num_arguments == 3)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("iall",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "iall",
                     return_type,
                     t0, 
                     t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -3122,7 +3283,7 @@ scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         else if (num_arguments == 2)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("iall",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "iall",
                     return_type,
                     t0, 
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
@@ -3156,7 +3317,7 @@ scope_entry_t* compute_intrinsic_iand(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("iand", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "iand", t0, t0, t1);
     }
     return NULL;
 }
@@ -3183,7 +3344,7 @@ scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         if (num_arguments == 3)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("iany",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "iany",
                     return_type,
                     t0,
                     t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -3191,7 +3352,7 @@ scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         else if (num_arguments == 2)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("iany",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "iany",
                     return_type,
                     t0,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
@@ -3225,7 +3386,7 @@ scope_entry_t* compute_intrinsic_ibclr(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ibclr", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ibclr", t0, t0, t1);
     }
     return NULL;
 }
@@ -3244,7 +3405,7 @@ scope_entry_t* compute_intrinsic_ibits(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && is_integer_type(t2))
     {
-        return GET_INTRINSIC_ELEMENTAL("ibits", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ibits", t0, t0, t1, t2);
     }
     return NULL;
 }
@@ -3261,7 +3422,7 @@ scope_entry_t* compute_intrinsic_ibset(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ibset", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ibset", t0, t0, t1);
     }
     return NULL;
 }
@@ -3278,7 +3439,7 @@ scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("ichar",
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ichar",
                 choose_int_type_from_kind(argument_expressions[1], di), 
                 t0, fortran_get_default_integer_type());
     }
@@ -3297,7 +3458,7 @@ scope_entry_t* compute_intrinsic_ieor(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieor", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieor", t0, t0, t1);
     }
     return NULL;
 }
@@ -3330,7 +3491,7 @@ scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t2 == NULL || is_bool_type(t2))
             && opt_valid_kind_expr(argument_expressions[3], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("index", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "index", 
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0, t1, 
                 t2 == NULL ? fortran_get_default_logical_type() : t2,
@@ -3355,7 +3516,7 @@ scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_complex_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("int", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "int", 
                 choose_int_type_from_kind(argument_expressions[1], di),
                 t0,
                 fortran_get_default_integer_type());
@@ -3375,7 +3536,7 @@ scope_entry_t* compute_intrinsic_ior(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ior", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ior", t0, t0, t1);
     }
     return NULL;
 }
@@ -3403,7 +3564,7 @@ scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETE
         }
         if (num_arguments == 3)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("iparity",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "iparity",
                     return_type,
                     t0,
                     t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -3411,7 +3572,7 @@ scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETE
         }
         else if (num_arguments == 2)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("iparity",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "iparity",
                     return_type,
                     t0,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
@@ -3445,7 +3606,7 @@ scope_entry_t* compute_intrinsic_ishft(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ishft", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ishft", t0, t0, t1);
     }
     return NULL;
 }
@@ -3464,7 +3625,7 @@ scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t1)
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_ELEMENTAL("ishftc", t0, t0, t1, t2 == NULL ? fortran_get_default_integer_type() : t2);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ishftc", t0, t0, t1, t2 == NULL ? fortran_get_default_integer_type() : t2);
     }
     return NULL;
 }
@@ -3479,7 +3640,7 @@ scope_entry_t* compute_intrinsic_is_contiguous(scope_entry_t* symbol UNUSED_PARA
 
     if (fortran_is_array_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("is_contiguous", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "is_contiguous", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -3495,7 +3656,7 @@ scope_entry_t* compute_intrinsic_is_iostat_end(scope_entry_t* symbol UNUSED_PARA
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("is_iostat_end", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "is_iostat_end", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -3510,7 +3671,7 @@ scope_entry_t* compute_intrinsic_is_iostat_eor(scope_entry_t* symbol UNUSED_PARA
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("is_iostat_eor", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "is_iostat_eor", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -3525,7 +3686,7 @@ scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_intrinsic_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("kind", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "kind", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -3548,14 +3709,14 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         if (t1 != NULL)
         {
-            return GET_INTRINSIC_INQUIRY("lbound",
+            return GET_INTRINSIC_INQUIRY(symbol, "lbound",
                     choose_int_type_from_kind(argument_expressions[2], di),
                     t0, t1, 
                     fortran_get_default_integer_type());
         }
         else
         {
-            return GET_INTRINSIC_INQUIRY("lbound",
+            return GET_INTRINSIC_INQUIRY(symbol, "lbound",
                     fortran_get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
                         1, 
                         symbol->decl_context),
@@ -3587,7 +3748,7 @@ scope_entry_t* compute_intrinsic_leadz(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("leadz", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "leadz", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -3604,7 +3765,7 @@ scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(fortran_get_rank0_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_INQUIRY("len",
+        return GET_INTRINSIC_INQUIRY(symbol, "len",
                 choose_int_type_from_kind(argument_expressions[1], di),
                 t0, fortran_get_default_integer_type());
     }
@@ -3624,7 +3785,7 @@ scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER
     if (fortran_is_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_INQUIRY("len_trim",
+        return GET_INTRINSIC_INQUIRY(symbol, "len_trim",
                 choose_int_type_from_kind(argument_expressions[1], di),
                 t0, fortran_get_default_integer_type());
     }
@@ -3644,7 +3805,7 @@ scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lge", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "lge", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -3662,7 +3823,7 @@ scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lgt", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "lgt", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -3680,7 +3841,7 @@ scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lle", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "lle", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -3698,7 +3859,7 @@ scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("llt", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "llt", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -3715,7 +3876,7 @@ scope_entry_t* compute_intrinsic_log(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("log", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "log", t0, t0);
     }
     return NULL;
 }
@@ -3731,7 +3892,7 @@ scope_entry_t* compute_intrinsic_log_gamma(scope_entry_t* symbol UNUSED_PARAMETE
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("log_gamma", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "log_gamma", t0, t0);
     }
     return NULL;
 }
@@ -3747,7 +3908,7 @@ scope_entry_t* compute_intrinsic_log10(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("log10", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "log10", t0, t0);
     }
     return NULL;
 }
@@ -3764,7 +3925,7 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_bool_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dl))
     {
-        return GET_INTRINSIC_ELEMENTAL("logical", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "logical", 
                 choose_logical_type_from_kind(argument_expressions[1], dl), 
                 t0, fortran_get_default_integer_type()); 
     }
@@ -3782,7 +3943,7 @@ scope_entry_t* compute_intrinsic_malloc(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("malloc",
+        return GET_INTRINSIC_ELEMENTAL(symbol, "malloc",
                 fortran_get_default_integer_type(),
                 t0, fortran_get_default_integer_type());
     }
@@ -3802,7 +3963,7 @@ scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("maskl", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "maskl", 
                 choose_int_type_from_kind(argument_expressions[1], di), 
                 t0, fortran_get_default_integer_type()); 
     }
@@ -3822,7 +3983,7 @@ scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("maskr", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "maskr", 
                 choose_int_type_from_kind(argument_expressions[1], di), 
                 t0, fortran_get_default_integer_type());
     }
@@ -3864,13 +4025,13 @@ scope_entry_t* compute_intrinsic_matmul(scope_entry_t* symbol UNUSED_PARAMETER,
 
         if (is_rank2_0 && is_rank2_1)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("matmul", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "matmul", 
                     fortran_get_n_ranked_type(result_type, 2, symbol->decl_context),
                     t0, t1);
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("matmul", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "matmul", 
                     fortran_get_n_ranked_type(result_type, 1, symbol->decl_context),
                     t0, t1);
         }
@@ -3883,7 +4044,7 @@ scope_entry_t* compute_intrinsic_max_min_aux(
         const char* name,
         type_t* output_type,
         type_t* input_type,
-        scope_entry_t* symbol UNUSED_PARAMETER,
+        scope_entry_t* symbol,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
@@ -3941,7 +4102,7 @@ scope_entry_t* compute_intrinsic_max_min_aux(
         }
     }
 
-    return get_intrinsic_symbol_(name, 
+    return get_intrinsic_symbol_(symbol, name, 
             output_type == NULL ? t0 : output_type, 
             num_arguments, ranked_0, symbol->decl_context, 
             /* is_elemental */ 1, 
@@ -4038,7 +4199,7 @@ scope_entry_t* compute_intrinsic_maxexponent(scope_entry_t* symbol UNUSED_PARAME
 
     if (is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("maxexponent", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "maxexponent", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4075,7 +4236,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
 
         if (t1 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("maxloc", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "maxloc", 
                     fortran_get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t2 == NULL ? fortran_get_default_logical_type() : t2, 
@@ -4084,7 +4245,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("maxloc", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "maxloc", 
                     fortran_get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t1,
@@ -4126,14 +4287,14 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
         if (t1 == NULL)
         {
             // If DIM is absent this is always a scalar
-            return GET_INTRINSIC_TRANSFORMATIONAL("maxval", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "maxval", 
                     fortran_get_rank0_type(t0),
                     t0,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("maxval",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "maxval",
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
                     t1,
@@ -4167,7 +4328,7 @@ scope_entry_t* compute_intrinsic_merge(scope_entry_t* symbol UNUSED_PARAMETER,
                 get_unqualified_type(t1))
             && is_bool_type(t2))
     {
-        return GET_INTRINSIC_ELEMENTAL("merge", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "merge", t0, t0, t1, t2);
     }
     return NULL;
 }
@@ -4186,7 +4347,7 @@ scope_entry_t* compute_intrinsic_merge_bits(scope_entry_t* symbol UNUSED_PARAMET
             && is_integer_type(t1)
             && is_integer_type(t2))
     {
-        return GET_INTRINSIC_ELEMENTAL("merge_bits", t0, t0, t1, t2);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "merge_bits", t0, t0, t1, t2);
     }
     return NULL;
 }
@@ -4277,7 +4438,7 @@ scope_entry_t* compute_intrinsic_minexponent(scope_entry_t* symbol UNUSED_PARAME
 
     if (is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("minexponent", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "minexponent", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4314,7 +4475,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
 
         if (t1 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("minloc", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "minloc", 
                     fortran_get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t2 == NULL ? fortran_get_default_logical_type() : t2, 
@@ -4323,7 +4484,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("minloc", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "minloc", 
                     fortran_get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t1,
@@ -4365,14 +4526,14 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
         if (t1 == NULL)
         {
             // If DIM is absent this is always a scalar
-            return GET_INTRINSIC_TRANSFORMATIONAL("minval",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "minval",
                     fortran_get_rank0_type(t0),
                     t0,
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("minval",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "minval",
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context),
                     t0,
                     t1,
@@ -4404,7 +4565,7 @@ scope_entry_t* compute_intrinsic_mod(scope_entry_t* symbol UNUSED_PARAMETER,
     if ((is_integer_type(t0) && is_integer_type(t1))
                 || (is_floating_type(t0) && is_floating_type(t1)))
     {
-        return GET_INTRINSIC_ELEMENTAL("mod", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "mod", t0, t0, t1);
     }
     return NULL;
 }
@@ -4421,7 +4582,7 @@ scope_entry_t* compute_intrinsic_modulo(scope_entry_t* symbol UNUSED_PARAMETER,
     if ((is_integer_type(t0) && is_integer_type(t1))
                 || (is_floating_type(t0) && is_floating_type(t1)))
     {
-        return GET_INTRINSIC_ELEMENTAL("modulo", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "modulo", t0, t0, t1);
     }
     return NULL;
 }
@@ -4439,7 +4600,7 @@ scope_entry_t* compute_intrinsic_move_alloc(scope_entry_t* symbol UNUSED_PARAMET
                 get_unqualified_type(fortran_get_rank0_type(t1)))
             && (fortran_get_rank_of_type(t0) == fortran_get_rank_of_type(t1)))
     {
-        return GET_INTRINSIC_PURE("move_alloc", /* subroutine */ get_void_type(), t0, t1);
+        return GET_INTRINSIC_PURE(symbol, "move_alloc", /* subroutine */ get_void_type(), t0, t1);
     }
     return NULL;
 }
@@ -4462,7 +4623,7 @@ scope_entry_t* compute_intrinsic_mvbits(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(t3)
             && is_integer_type(t4))
     {
-        return GET_INTRINSIC_ELEMENTAL("mvbits", /* subroutine */ get_void_type(), t0, t1, t2, t3, t4);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "mvbits", /* subroutine */ get_void_type(), t0, t1, t2, t3, t4);
     }
 
     return NULL;
@@ -4480,7 +4641,7 @@ scope_entry_t* compute_intrinsic_nearest(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("nearest", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "nearest", t0, t0, t1);
     }
 
     return NULL;
@@ -4496,7 +4657,7 @@ scope_entry_t* compute_intrinsic_new_line(scope_entry_t* symbol UNUSED_PARAMETER
 
     if (fortran_is_character_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("new_line", fortran_get_rank0_type(t0), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "new_line", fortran_get_rank0_type(t0), t0);
     }
     return NULL;
 }
@@ -4514,7 +4675,7 @@ scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("nint", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "nint", 
                 choose_int_type_from_kind(argument_expressions[1], di), 
                 t0, fortran_get_default_integer_type());
     }
@@ -4532,7 +4693,7 @@ scope_entry_t* compute_intrinsic_not(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("not", t0, t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "not", t0, t0);
     }
 
     return NULL;
@@ -4553,11 +4714,11 @@ scope_entry_t* compute_intrinsic_norm2(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         if (t1 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("norm2", fortran_get_rank0_type(t0), t0);
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "norm2", fortran_get_rank0_type(t0), t0);
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("norm2", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "norm2", 
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context), 
                     t0, 
                     t1);
@@ -4576,7 +4737,7 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
     if (nodecl_is_null(argument_expressions[0]))
     {
         type_t* p = get_pointer_type(get_void_type());
-        return GET_INTRINSIC_TRANSFORMATIONAL("null", p, p);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "null", p, p);
     }
     else
     {
@@ -4599,7 +4760,7 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
             return NULL;
         }
 
-        return GET_INTRINSIC_TRANSFORMATIONAL("null", relevant_type, get_lvalue_reference_type(relevant_type));
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "null", relevant_type, get_lvalue_reference_type(relevant_type));
     }
 
     return NULL;
@@ -4633,7 +4794,7 @@ scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
                                   get_unqualified_type(fortran_get_rank0_type(t2)))
                  && fortran_get_rank_of_type(t2) == 1)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("pack", 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "pack", 
                 t2 == NULL ? fortran_get_n_ranked_type(fortran_get_rank0_type(t0), 1, symbol->decl_context) : t2,
                 t0,
                 t1,
@@ -4658,11 +4819,11 @@ scope_entry_t* compute_intrinsic_parity(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         if (t1 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("parity", fortran_get_rank0_type(t0), t0);
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "parity", fortran_get_rank0_type(t0), t0);
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("parity", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "parity", 
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) - 1, symbol->decl_context), 
                     t0, t1);
         }
@@ -4682,7 +4843,7 @@ scope_entry_t* compute_intrinsic_popcnt(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("popcnt", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "popcnt", fortran_get_default_integer_type(), t0);
     } 
 
     return NULL;
@@ -4698,7 +4859,7 @@ scope_entry_t* compute_intrinsic_poppar(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("poppar", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "poppar", fortran_get_default_integer_type(), t0);
     } 
 
     return NULL;
@@ -4715,7 +4876,7 @@ scope_entry_t* compute_intrinsic_precision(scope_entry_t* symbol UNUSED_PARAMETE
     if (is_complex_type(fortran_get_rank0_type(t0))
             || is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("precision", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "precision", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -4727,7 +4888,7 @@ scope_entry_t* compute_intrinsic_present(scope_entry_t* symbol UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = no_ref(argument_types[0]);
-    return GET_INTRINSIC_INQUIRY("present", fortran_get_default_logical_type(), t0);
+    return GET_INTRINSIC_INQUIRY(symbol, "present", fortran_get_default_logical_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -4754,7 +4915,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
         }
         if (num_arguments == 3)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("product",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "product",
                     return_type,
                     t0, 
                     t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -4762,7 +4923,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
         }
         else if (num_arguments == 2)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("product",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "product",
                     return_type,
                     t0, 
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
@@ -4796,7 +4957,7 @@ scope_entry_t* compute_intrinsic_radix(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(fortran_get_rank0_type(t0))
             || is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("radix", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "radix", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -4812,7 +4973,7 @@ scope_entry_t* compute_intrinsic_random_number(scope_entry_t* symbol UNUSED_PARA
 
     if (is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_IMPURE("random_number", /* subroutine */ get_void_type(), t0);
+        return GET_INTRINSIC_IMPURE(symbol, "random_number", /* subroutine */ get_void_type(), t0);
     }
 
     return NULL;
@@ -4835,7 +4996,7 @@ scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAME
             && (t1 == NULL || (is_integer_type(fortran_get_rank0_type(t1)) && (fortran_get_rank_of_type(t1) == 1)))
             && (t2 == NULL || (is_integer_type(fortran_get_rank0_type(t2)) && (fortran_get_rank_of_type(t2) == 1))))
     {
-        return GET_INTRINSIC_IMPURE("random_seed", 
+        return GET_INTRINSIC_IMPURE(symbol, "random_seed", 
                 /* subroutine */ get_void_type(),
                 fortran_get_default_integer_type(),
                 fortran_get_n_ranked_type(fortran_get_default_integer_type(), 1, symbol->decl_context),
@@ -4857,7 +5018,7 @@ scope_entry_t* compute_intrinsic_range(scope_entry_t* symbol UNUSED_PARAMETER,
             || is_floating_type(fortran_get_rank0_type(t0))
             || is_complex_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_ELEMENTAL("range", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "range", fortran_get_default_integer_type(), t0);
     }
 
     return NULL;
@@ -4877,7 +5038,7 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_complex_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL("real", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "real", 
                 choose_float_type_from_kind(argument_expressions[1], dr),
                 t0, fortran_get_default_integer_type());
     }
@@ -4894,7 +5055,7 @@ scope_entry_t* compute_intrinsic_float(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("float", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "float", 
                 fortran_get_default_real_type(),
                 t0);
     }
@@ -4917,7 +5078,7 @@ scope_entry_t* compute_intrinsic_access(scope_entry_t* symbol UNUSED_PARAMETER,
     if(fortran_is_character_type(t0)
             && fortran_is_character_type(t1))
     {
-        return GET_INTRINSIC_INQUIRY("access",
+        return GET_INTRINSIC_INQUIRY(symbol, "access",
                 fortran_get_default_integer_type(), t0, t1);
     }
 
@@ -4933,7 +5094,7 @@ scope_entry_t* compute_intrinsic_abort(scope_entry_t* symbol UNUSED_PARAMETER,
     if (num_arguments != 0)
         return NULL;
 
-    return GET_INTRINSIC_IMPURE("abort",
+    return GET_INTRINSIC_IMPURE(symbol, "abort",
             /* subroutine */ get_void_type());
 }
 
@@ -4953,7 +5114,7 @@ scope_entry_t* compute_intrinsic_and(scope_entry_t* symbol UNUSED_PARAMETER,
     if (equivalent_types(t0, t1)
             && (is_integer_type(t0) || is_bool_type(t0)))
     {
-        return GET_INTRINSIC_ELEMENTAL("and", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "and", t0, t0, t1);
     }
 
     return NULL;
@@ -5045,13 +5206,13 @@ scope_entry_t* compute_intrinsic_chdir(scope_entry_t* symbol UNUSED_PARAMETER,
         if (num_arguments == 2
                 && is_integer_type(t1))
         {
-            return GET_INTRINSIC_IMPURE("chdir",
+            return GET_INTRINSIC_IMPURE(symbol, "chdir",
                     /* subroutine */ get_void_type(),
                     t0, t1);
         }
         else if (num_arguments == 1)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("chdir",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "chdir",
                     fortran_get_default_integer_type(),
                     t0);
         }
@@ -5069,7 +5230,7 @@ scope_entry_t* compute_intrinsic_dfloat(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("dfloat", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "dfloat", 
                 fortran_get_doubleprecision_type(),
                 t0);
     }
@@ -5088,7 +5249,7 @@ scope_entry_t* compute_intrinsic_repeat(scope_entry_t* symbol UNUSED_PARAMETER,
     if (fortran_is_character_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("repeat", t0, t0, t1);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "repeat", t0, t0, t1);
     }
 
     return NULL;
@@ -5159,7 +5320,7 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
 
     type_t* r = fortran_get_n_ranked_type(fortran_get_rank0_type(t0), shape_size, symbol->decl_context);
 
-    return GET_INTRINSIC_TRANSFORMATIONAL("reshape", r, t0, t1, t2, t3);
+    return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "reshape", r, t0, t1, t2, t3);
 }
 
 scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -5172,7 +5333,7 @@ scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETE
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("rrspacing", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "rrspacing", t0, t0);
     }
 
     return NULL;
@@ -5200,7 +5361,7 @@ scope_entry_t* compute_intrinsic_scale(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("scale", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "scale", t0, t0, t1);
     }
 
     return NULL;
@@ -5224,7 +5385,7 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t2 == NULL || is_bool_type(t1))
             && opt_valid_kind_expr(argument_expressions[3], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("scan", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "scan", 
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
                 t1, 
@@ -5244,7 +5405,7 @@ scope_entry_t* compute_intrinsic_selected_char_kind(scope_entry_t* symbol UNUSED
     type_t* t0 = no_ref(argument_types[0]);
     if (fortran_is_character_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("selected_char_kind", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "selected_char_kind", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -5258,7 +5419,7 @@ scope_entry_t* compute_intrinsic_selected_int_kind(scope_entry_t* symbol UNUSED_
     type_t* t0 = no_ref(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("selected_int_kind", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "selected_int_kind", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -5280,7 +5441,7 @@ scope_entry_t* compute_intrinsic_selected_real_kind(scope_entry_t* symbol UNUSED
             && (t1 == NULL || is_integer_type(t1))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("selected_real_kind", fortran_get_default_integer_type(), 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "selected_real_kind", fortran_get_default_integer_type(), 
                 t0 == NULL ? fortran_get_default_integer_type() : t0,
                 t1 == NULL ? fortran_get_default_integer_type() : t1,
                 t2 == NULL ? fortran_get_default_integer_type() : t2);
@@ -5300,7 +5461,7 @@ scope_entry_t* compute_intrinsic_set_exponent(scope_entry_t* symbol UNUSED_PARAM
     if (is_floating_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("set_exponent", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "set_exponent", t0, t0, t1);
     }
 
     return NULL;
@@ -5323,7 +5484,7 @@ scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
                     nodecl_make_one(),
                     nodecl_make_int_literal(fortran_get_rank_of_type(t0)),
                     symbol->decl_context);
-        return GET_INTRINSIC_INQUIRY("shape", result_array_type, t0, fortran_get_default_integer_type());
+        return GET_INTRINSIC_INQUIRY(symbol, "shape", result_array_type, t0, fortran_get_default_integer_type());
     }
 
     return NULL;
@@ -5341,7 +5502,7 @@ scope_entry_t* compute_intrinsic_shifta(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("shifta", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "shifta", t0, t0, t1);
     }
 
     return NULL;
@@ -5359,7 +5520,7 @@ scope_entry_t* compute_intrinsic_shiftl(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("shiftl", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "shiftl", t0, t0, t1);
     }
 
     return NULL;
@@ -5377,7 +5538,7 @@ scope_entry_t* compute_intrinsic_shiftr(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("shiftr", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "shiftr", t0, t0, t1);
     }
 
     return NULL;
@@ -5397,7 +5558,7 @@ scope_entry_t* compute_intrinsic_sign(scope_entry_t* symbol UNUSED_PARAMETER,
             && (equivalent_types(get_unqualified_type(t0), 
                     get_unqualified_type(t1))))
     {
-        return GET_INTRINSIC_ELEMENTAL("sign", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "sign", t0, t0, t1);
     }
 
     return NULL;
@@ -5414,7 +5575,7 @@ scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("sin", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "sin", t0, t0);
     }
     return NULL;
 }
@@ -5430,7 +5591,7 @@ scope_entry_t* compute_intrinsic_sind(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("sind", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "sind", t0, t0);
     }
     return NULL;
 }
@@ -5446,7 +5607,7 @@ scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("sinh", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "sinh", t0, t0);
     }
     return NULL;
 }
@@ -5466,7 +5627,7 @@ scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t1 == NULL || is_integer_type(t1))
             && (opt_valid_kind_expr(argument_expressions[2], &di)))
     {
-        return GET_INTRINSIC_INQUIRY("size", 
+        return GET_INTRINSIC_INQUIRY(symbol, "size", 
                 choose_int_type_from_kind(argument_expressions[2], di),
                 t0,
                 t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -5486,7 +5647,7 @@ scope_entry_t* compute_intrinsic_spacing(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("spacing", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "spacing", t0, t0);
     }
     return NULL;
 }
@@ -5504,7 +5665,7 @@ scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
     if( is_integer_type(t1)
             && is_integer_type(t2))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("spread", 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "spread", 
                 fortran_get_n_ranked_type(fortran_get_rank0_type(t0), fortran_get_rank_of_type(t0) + 1, symbol->decl_context),
                 t0, t1, t2);
     }
@@ -5523,7 +5684,7 @@ scope_entry_t* compute_intrinsic_sqrt(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("sqrt", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "sqrt", t0, t0);
     }
     return NULL;
 }
@@ -5539,7 +5700,7 @@ scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAM
     int di = fortran_get_default_integer_type_kind();
     if (opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_INQUIRY("storage_size", 
+        return GET_INTRINSIC_INQUIRY(symbol, "storage_size", 
                 choose_int_type_from_kind(argument_expressions[1], di),
                 t0, fortran_get_default_integer_type());
     }
@@ -5555,7 +5716,7 @@ scope_entry_t* compute_intrinsic_sizeof(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY("sizeof",
+    return GET_INTRINSIC_INQUIRY(symbol, "sizeof",
             get_size_t_type(),
             t0);
 
@@ -5586,7 +5747,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         if (num_arguments == 3)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("sum",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "sum",
                     return_type,
                     t0, 
                     t1 == NULL ? fortran_get_default_integer_type() : t1,
@@ -5594,7 +5755,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
         }
         else if (num_arguments == 2)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("sum",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "sum",
                     return_type,
                     t0, 
                     t2 == NULL ? fortran_get_default_logical_type() : t2);
@@ -5631,7 +5792,7 @@ scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAM
             && (t1 == NULL || is_integer_type(t1) || is_floating_type(t1))
             && (t2 == NULL || is_integer_type(t2)))
     {
-        return GET_INTRINSIC_IMPURE("system_clock", /*subroutine*/ get_void_type(), 
+        return GET_INTRINSIC_IMPURE(symbol, "system_clock", /*subroutine*/ get_void_type(), 
                 t0 == NULL ? fortran_get_default_integer_type() : t0, 
                 t1 == NULL ? fortran_get_default_integer_type() : t1, 
                 t2 == NULL ? fortran_get_default_integer_type() : t2);
@@ -5651,7 +5812,7 @@ scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("tan", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "tan", t0, t0);
     }
     return NULL;
 }
@@ -5667,7 +5828,7 @@ scope_entry_t* compute_intrinsic_tand(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("tand", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "tand", t0, t0);
     }
     return NULL;
 }
@@ -5683,7 +5844,7 @@ scope_entry_t* compute_intrinsic_tanh(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("tanh", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "tanh", t0, t0);
     }
     return NULL;
 }
@@ -5717,7 +5878,7 @@ scope_entry_t* compute_intrinsic_tiny(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = no_ref(argument_types[0]);
     if (is_floating_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("tiny", fortran_get_rank0_type(t0), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "tiny", fortran_get_rank0_type(t0), t0);
     }
     return NULL;
 }
@@ -5731,7 +5892,7 @@ scope_entry_t* compute_intrinsic_trailz(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("trailz", fortran_get_default_integer_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "trailz", fortran_get_default_integer_type(), t0);
     }
     return NULL;
 }
@@ -5751,18 +5912,18 @@ scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER
         if (!fortran_is_array_type(t1) 
                 && t2 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("transfer", t1, t0, t1, fortran_get_default_integer_type());
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "transfer", t1, t0, t1, fortran_get_default_integer_type());
         }
         else if (fortran_is_array_type(t1)
                 && t2 == NULL)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("transfer", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "transfer", 
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t1), 1, symbol->decl_context),
                     t0, t1, fortran_get_default_integer_type());
         }
         else
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("transfer", 
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "transfer", 
                     fortran_get_n_ranked_type(fortran_get_rank0_type(t1), 1, symbol->decl_context),
                     t0, t1, t2);
         }
@@ -5782,7 +5943,7 @@ scope_entry_t* compute_intrinsic_transpose(scope_entry_t* symbol UNUSED_PARAMETE
     if (fortran_is_array_type(t0)
             && fortran_get_rank_of_type(t0) == 2)
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("transpose", t0, t0);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "transpose", t0, t0);
     }
     return NULL;
 }
@@ -5796,7 +5957,7 @@ scope_entry_t* compute_intrinsic_trim(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = no_ref(argument_types[0]);
     if (fortran_is_character_type(t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("trim",
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "trim",
                 get_array_type(fortran_get_default_character_type(),
                     /* whole size */ nodecl_null(),
                     symbol->decl_context),
@@ -5823,14 +5984,14 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         if (t1 != NULL)
         {
-            return GET_INTRINSIC_INQUIRY("ubound",
+            return GET_INTRINSIC_INQUIRY(symbol, "ubound",
                     choose_int_type_from_kind(argument_expressions[2], di),
                     t0, t1, 
                     fortran_get_default_integer_type());
         }
         else
         {
-            return GET_INTRINSIC_INQUIRY("ubound",
+            return GET_INTRINSIC_INQUIRY(symbol, "ubound",
                     fortran_get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
                         1,
                         symbol->decl_context),
@@ -5871,7 +6032,7 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
                 get_unqualified_type(fortran_get_rank0_type(t0)))
             && fortran_are_conformable_types(t2, t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("unpack", t0, t0, t1, t2);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "unpack", t0, t0, t1, t2);
     }
 
     return NULL;
@@ -5893,7 +6054,7 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
             && (t2 == NULL || is_bool_type(t2))
             && opt_valid_kind_expr(argument_expressions[3], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("verify",
+        return GET_INTRINSIC_ELEMENTAL(symbol, "verify",
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
                 t1,
@@ -5915,7 +6076,7 @@ scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
 
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY("loc",
+    return GET_INTRINSIC_INQUIRY(symbol, "loc",
             choose_int_type_from_kind(argument_expressions[0], CURRENT_CONFIGURATION->type_environment->sizeof_pointer),
             t0);
 }
@@ -5936,7 +6097,7 @@ scope_entry_t* compute_intrinsic_lshift(scope_entry_t* symbol UNUSED_PARAMETER,
     if(is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lshift", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "lshift", t0, t0, t1);
     }
 
     return NULL;
@@ -5958,7 +6119,7 @@ scope_entry_t* compute_intrinsic_or(scope_entry_t* symbol UNUSED_PARAMETER,
     if (equivalent_types(t0, t1)
             && (is_integer_type(t0) || is_bool_type(t0)))
     {
-        return GET_INTRINSIC_ELEMENTAL("or", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "or", t0, t0, t1);
     }
 
     return NULL;
@@ -5980,7 +6141,7 @@ scope_entry_t* compute_intrinsic_rshift(scope_entry_t* symbol UNUSED_PARAMETER,
     if(is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("rshift", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "rshift", t0, t0, t1);
     }
 
     return NULL;
@@ -6002,7 +6163,7 @@ scope_entry_t* compute_intrinsic_xor(scope_entry_t* symbol UNUSED_PARAMETER,
     if (equivalent_types(t0, t1)
             && (is_integer_type(t0) || is_bool_type(t0)))
     {
-        return GET_INTRINSIC_ELEMENTAL("xor", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "xor", t0, t0, t1);
     }
 
     return NULL;
@@ -6025,13 +6186,13 @@ scope_entry_t* compute_intrinsic_system(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (solving_call_statement)
     {
-        return GET_INTRINSIC_IMPURE("system", get_void_type(), t0, get_signed_int_type());
+        return GET_INTRINSIC_IMPURE(symbol, "system", get_void_type(), t0, get_signed_int_type());
     }
     else
     {
         if (num_arguments != 1)
             return NULL;
-        return GET_INTRINSIC_IMPURE("system", get_signed_int_type(), t0);
+        return GET_INTRINSIC_IMPURE(symbol, "system", get_signed_int_type(), t0);
     }
 
     return NULL;
@@ -6048,7 +6209,7 @@ scope_entry_t* compute_intrinsic_sleep(scope_entry_t* symbol UNUSED_PARAMETER,
     if (!is_integer_type(t0))
         return NULL;
 
-    return GET_INTRINSIC_TRANSFORMATIONAL("sleep", get_void_type(), t0);
+    return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "sleep", get_void_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -6062,13 +6223,13 @@ scope_entry_t* compute_intrinsic_fdate(scope_entry_t* symbol UNUSED_PARAMETER,
     if (num_arguments == 1
             && fortran_is_character_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("fdate",
+        return GET_INTRINSIC_INQUIRY(symbol, "fdate",
                 /* subroutine */get_void_type(),
                 t0);
     }
     else if (num_arguments == 0)
     {
-        return GET_INTRINSIC_INQUIRY("fdate",
+        return GET_INTRINSIC_INQUIRY(symbol, "fdate",
                 get_array_type(get_char_type(), nodecl_null(), symbol->decl_context));
     }
     return NULL;
@@ -6090,13 +6251,13 @@ scope_entry_t* compute_intrinsic_fgetc(scope_entry_t* symbol UNUSED_PARAMETER,
         if (num_arguments == 3
                 && is_integer_type(t2))
         {
-            return GET_INTRINSIC_IMPURE("fgetc",
+            return GET_INTRINSIC_IMPURE(symbol, "fgetc",
                     /* subroutine */ get_void_type(),
                     t0, t1, t2);
         }
         else if (num_arguments == 2)
         {
-            return GET_INTRINSIC_TRANSFORMATIONAL("fgetc",
+            return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "fgetc",
                     fortran_get_default_integer_type(),
                     t0, t1);
         }
@@ -6118,7 +6279,7 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_float_type(fortran_get_rank0_type(t0))
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_INQUIRY("etime",
+        return GET_INTRINSIC_INQUIRY(symbol, "etime",
                 get_void_type(), // subroutine 
                 t0, t1);
     }
@@ -6126,7 +6287,7 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
             && fortran_get_rank_of_type(t0) == 1
             && is_float_type(fortran_get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("etime",
+        return GET_INTRINSIC_INQUIRY(symbol, "etime",
                 fortran_get_default_real_type(),
                 t0);
     }
@@ -6147,7 +6308,7 @@ scope_entry_t* compute_intrinsic_getarg(scope_entry_t* symbol UNUSED_PARAMETER,
         if (is_integer_type(t0)
                 && fortran_is_character_type(t1))
         {
-            return GET_INTRINSIC_IMPURE("getarg",
+            return GET_INTRINSIC_IMPURE(symbol, "getarg",
                     /* subroutine */ get_void_type(),
                     t0,
                     t1);
@@ -6196,7 +6357,7 @@ scope_entry_t* compute_intrinsic_c_associated(scope_entry_t* symbol UNUSED_PARAM
             && (equivalent_types(t0, get_user_defined_type(c_ptr))
                 || equivalent_types(t0, get_user_defined_type(c_funptr))))
     {
-        return GET_INTRINSIC_INQUIRY("c_associated", 
+        return GET_INTRINSIC_INQUIRY(symbol, "c_associated", 
                 fortran_get_default_logical_type(),
                 t0,
                 t1);
@@ -6239,7 +6400,7 @@ scope_entry_t* compute_intrinsic_c_f_pointer(scope_entry_t* symbol UNUSED_PARAME
                  && fortran_get_rank_of_type(t2) == 1
                  && is_integer_type(fortran_get_rank0_type(t2)))))
     {
-        return GET_INTRINSIC_IMPURE("c_f_pointer",
+        return GET_INTRINSIC_IMPURE(symbol, "c_f_pointer",
                 /* subroutine */ get_void_type(),
                 t0,
                 get_lvalue_reference_type(t1),
@@ -6272,7 +6433,7 @@ scope_entry_t* compute_intrinsic_c_funloc(scope_entry_t* symbol UNUSED_PARAMETER
             && !nodecl_is_null(sym->entity_specs.bind_info)
             && nodecl_get_kind(sym->entity_specs.bind_info) == NODECL_FORTRAN_BIND_C)
     {
-        return GET_INTRINSIC_INQUIRY("c_funloc", get_user_defined_type(c_funptr), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "c_funloc", get_user_defined_type(c_funptr), t0);
     }
 
     return NULL;
@@ -6295,7 +6456,7 @@ scope_entry_t* compute_intrinsic_c_loc(scope_entry_t* symbol,
 
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY("c_loc", get_user_defined_type(c_ptr), t0);
+    return GET_INTRINSIC_INQUIRY(symbol, "c_loc", get_user_defined_type(c_ptr), t0);
 }
 
 scope_entry_t* compute_intrinsic_c_sizeof(scope_entry_t* symbol,
@@ -6306,7 +6467,7 @@ scope_entry_t* compute_intrinsic_c_sizeof(scope_entry_t* symbol,
 {
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY("c_sizeof", get_size_t_type(), t0);
+    return GET_INTRINSIC_INQUIRY(symbol, "c_sizeof", get_size_t_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_mercurium_loc(scope_entry_t* symbol,
@@ -6320,127 +6481,27 @@ scope_entry_t* compute_intrinsic_mercurium_loc(scope_entry_t* symbol,
 
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY("mercurium_loc", get_pointer_type(get_void_type()), t0);
+    return GET_INTRINSIC_INQUIRY(symbol, "mercurium_loc", get_pointer_type(get_void_type()), t0);
 }
 
-static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords, int num_actual_arguments)
-{
-    intrinsic_variant_info_t current_variant = get_variant(keywords);
-
-    if (entry->entity_specs.related_symbols != 0)
-    {
-        // Already updated
-        return;
-    }
-
-    if (current_variant.num_keywords == 0)
-    {
-        // No arguments at all
-    }
-    else if (current_variant.num_keywords < 0)
-    {
-        // Unbounded arguments (like MAX and MIN)
-        int i;
-        for (i = 0; i < num_actual_arguments; i++)
-        {
-            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
-            new_keyword_sym->kind = SK_VARIABLE;
-            uniquestr_sprintf(&new_keyword_sym->symbol_name, "A%d", (i+1));
-            new_keyword_sym->decl_context = entry->decl_context;
-            new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
-
-            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
-            new_keyword_sym->do_not_print = 1;
-
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
-
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    new_keyword_sym);
-        }
-    } 
-    else // current_variant.num_keywords > 0
-    {
-        // Usual case with a bounded set of keywords
-        int i;
-        for (i = 0; i < current_variant.num_keywords; i++)
-        {
-            scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
-            new_keyword_sym->kind = SK_VARIABLE;
-            new_keyword_sym->symbol_name = current_variant.keyword_names[i];
-            new_keyword_sym->decl_context = entry->decl_context;
-            new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
-
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
-
-            new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
-
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    new_keyword_sym);
-        }
-    }
-}
-
-scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol, 
-        const char** actual_arguments_keywords, 
+scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         char is_call)
 {
-    // This is a local variable of this file and is used only in those intrinsics that can be both
-    // used in a CALL statement or a function-reference
+    type_t* t = symbol->type_information;
+    computed_function_type_t fun = computed_function_type_get_computing_function(t);
+
     solving_call_statement = is_call;
 
-    computed_function_type_t functions[2] = { NULL, NULL };
-    const char** current_keyword_set = NULL; 
-    int num_keywords = 0;
-
-    get_keywords_of_intrinsic(symbol, &num_keywords, &current_keyword_set, functions);
-
-    int i;
-    for (i = 0; i < num_keywords; i++)
-    {
-        type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-        nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
-
-        if (generic_keyword_check(symbol,
-                    &num_actual_arguments,
-                    actual_arguments_keywords,
-                    nodecl_actual_arguments,
-                    current_keyword_set[i],
-                    reordered_types,
-                    reordered_exprs))
-        {
-            const_value_t* const_value = NULL;
-            scope_entry_t* entry = (functions[i])(symbol, reordered_types, reordered_exprs,
-                    num_actual_arguments, &const_value);
-
-            if (entry != NULL)
-            {
-                // Update the keywords
-                update_keywords_of_intrinsic(entry, current_keyword_set[i], num_actual_arguments);
-                // Set the simplify function
-                entry->entity_specs.simplify_function = symbol->entity_specs.simplify_function;
-
-                // Note that we do not add it as a proper component of the module
-                // but at least we know where do we belong
-                entry->entity_specs.is_module_procedure = symbol->entity_specs.is_module_procedure;
-                entry->entity_specs.in_module = symbol->entity_specs.in_module;
-                entry->entity_specs.from_module = symbol->entity_specs.from_module;
-                entry->decl_context.current_scope->related_entry =
-                    symbol->decl_context.current_scope->related_entry;
-
-                return entry;
-            }
-        }
-    }
-
-    return NULL;
+    return fun(symbol,
+            /* argument_types */ NULL,
+            nodecl_actual_arguments,
+            num_actual_arguments,
+            /* const value */ NULL);
 }
 
 void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
-        const char** actual_arguments_keywords,
         nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified,
@@ -6448,9 +6509,10 @@ void fortran_simplify_specific_intrinsic_call(scope_entry_t* symbol,
 {
     nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
+    // We need to do this to reorder the arguments
+    // since the simplification function expects them already ordered
     if (specific_keyword_check(symbol,
                 &num_actual_arguments,
-                actual_arguments_keywords,
                 nodecl_actual_arguments,
                 reordered_exprs))
     {
@@ -6480,9 +6542,11 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 {
     // Initialize ISO_C_BINDING
     decl_context_t module_context = new_program_unit_context(decl_context);
+    const locus_t* locus = make_locus("(iso_c_binding)", 0, 0);
 
     scope_entry_t* iso_c_binding = new_symbol(decl_context, decl_context.current_scope, "iso_c_binding");
     iso_c_binding->kind = SK_MODULE;
+    iso_c_binding->locus = locus;
     iso_c_binding->entity_specs.is_builtin = 1;
     iso_c_binding->related_decl_context = module_context;
     iso_c_binding->defined = 1;
@@ -6554,6 +6618,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
     for (i = 0; named_constants[i].name != NULL; i++)
     {
         scope_entry_t* symbol = new_symbol(module_context, module_context.current_scope, named_constants[i].name);
+        symbol->locus = locus;
         symbol->kind = SK_VARIABLE;
         symbol->type_information = get_const_qualified_type(named_constants[i].const_type);
         symbol->entity_specs.in_module = iso_c_binding;
@@ -6575,6 +6640,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 
     {
     scope_entry_t* c_ptr = new_symbol(module_context, module_context.current_scope, "c_ptr");
+    c_ptr->locus = locus;
     c_ptr->kind = SK_CLASS;
     c_ptr->type_information = get_new_class_type(module_context, TT_STRUCT);
     c_ptr->entity_specs.in_module = iso_c_binding;
@@ -6584,6 +6650,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
             c_ptr);
 
     scope_entry_t* c_null_ptr = new_symbol(module_context, module_context.current_scope, "c_null_ptr");
+    c_null_ptr->locus = locus;
     c_null_ptr->kind = SK_VARIABLE;
     c_null_ptr->type_information = get_user_defined_type(c_ptr);
     c_null_ptr->entity_specs.in_module = iso_c_binding;
@@ -6595,6 +6662,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
 
     {
     scope_entry_t* c_funptr = new_symbol(module_context, module_context.current_scope, "c_funptr");
+    c_funptr->locus = locus;
     c_funptr->type_information = get_new_class_type(module_context, TT_STRUCT);
     c_funptr->kind = SK_CLASS;
     c_funptr->entity_specs.in_module = iso_c_binding;
@@ -6605,6 +6673,7 @@ static void fortran_init_intrinsic_module_iso_c_binding(decl_context_t decl_cont
             c_funptr);
 
     scope_entry_t* c_null_funptr = new_symbol(module_context, module_context.current_scope, "c_null_funptr");
+    c_null_funptr->locus = locus;
     c_null_funptr->kind = SK_VARIABLE;
     c_null_funptr->type_information = get_user_defined_type(c_funptr);
     c_null_funptr->entity_specs.in_module = iso_c_binding;
@@ -6620,7 +6689,10 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     // Initialize IEEE_EXCEPTIONS
     decl_context_t module_context = new_program_unit_context(decl_context);
 
+    const locus_t* locus = make_locus("(ieee_exceptions)", 0, 0);
+
     scope_entry_t* ieee_exceptions = new_symbol(decl_context, decl_context.current_scope, "ieee_exceptions");
+    ieee_exceptions->locus = locus;
     ieee_exceptions->kind = SK_MODULE;
     ieee_exceptions->entity_specs.is_builtin = 1;
     ieee_exceptions->related_decl_context = module_context;
@@ -6647,6 +6719,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     {
         scope_entry_t* new_type = NULL;
         new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->locus = locus;
         new_type->kind = SK_CLASS;
         new_type->entity_specs.in_module = ieee_exceptions;
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -6690,6 +6763,7 @@ static void fortran_init_intrinsic_module_ieee_exceptions(decl_context_t decl_co
     {
         scope_entry_t* new_var = NULL;
         new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_exceptions;
         new_var->type_information = global_names[i].type;
@@ -6705,6 +6779,8 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
 {
     // Initialize IEEE_ARITHMETIC
     decl_context_t module_context = new_program_unit_context(decl_context);
+
+    const locus_t* locus = make_locus("(ieee_arithmetic)", 0, 0);
 
     scope_entry_t* ieee_arithmetic = new_symbol(decl_context, decl_context.current_scope, "ieee_arithmetic");
     ieee_arithmetic->kind = SK_MODULE;
@@ -6733,6 +6809,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     {
         scope_entry_t* new_type = NULL;
         new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->locus = locus;
         new_type->kind = SK_CLASS;
         new_type->entity_specs.in_module = ieee_arithmetic;
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -6776,6 +6853,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
     {
         scope_entry_t* new_var = NULL;
         new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_arithmetic;
         new_var->type_information = global_names[i].type;
@@ -6792,7 +6870,10 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     // Initialize IEEE_FEATURES
     decl_context_t module_context = new_program_unit_context(decl_context);
 
+    const locus_t* locus = make_locus("(ieee_features)", 0, 0);
+
     scope_entry_t* ieee_features = new_symbol(decl_context, decl_context.current_scope, "ieee_features");
+    ieee_features->locus = locus;
     ieee_features->kind = SK_MODULE;
     ieee_features->entity_specs.is_builtin = 1;
     ieee_features->related_decl_context = module_context;
@@ -6818,6 +6899,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     {
         scope_entry_t* new_type = NULL;
         new_type = *(private_types[i].p) = new_symbol(module_context, module_context.current_scope, private_types[i].name);
+        new_type->locus = locus;
         new_type->kind = SK_CLASS;
         new_type->entity_specs.in_module = ieee_features;
         new_type->type_information = get_new_class_type(module_context, TT_STRUCT);
@@ -6854,6 +6936,7 @@ static void fortran_init_intrinsic_module_ieee_features(decl_context_t decl_cont
     {
         scope_entry_t* new_var = NULL;
         new_var = new_symbol(module_context, module_context.current_scope, global_names[i].name);
+        new_var->locus = locus;
         new_var->kind = SK_VARIABLE;
         new_var->entity_specs.in_module = ieee_features;
         new_var->type_information = global_names[i].type;
@@ -6917,7 +7000,7 @@ static scope_entry_t* compute_intrinsic_ieee_get_halting_mode(scope_entry_t* sym
     if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
             && is_bool_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_get_halting_mode", get_void_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_get_halting_mode", get_void_type(), t0, t1);
     }
 
     return NULL;
@@ -6935,7 +7018,7 @@ static scope_entry_t* compute_intrinsic_ieee_copy_sign(scope_entry_t* symbol UNU
     if (is_floating_type(t0)
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_copy_sign", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_copy_sign", t0, t0, t1);
     }
 
     return NULL;
@@ -6953,7 +7036,7 @@ static scope_entry_t* compute_intrinsic_ieee_set_halting_mode(scope_entry_t* sym
     if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
             && equivalent_types(get_unqualified_type(t1), fortran_get_default_logical_type()))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_set_halting_mode", get_void_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_set_halting_mode", get_void_type(), t0, t1);
     }
 
     return NULL;
@@ -6973,7 +7056,7 @@ static scope_entry_t* compute_intrinsic_ieee_rem(scope_entry_t* symbol UNUSED_PA
     {
         // FIXME - We should choose the most precise of the both types. Now we
         // return the first one
-        return GET_INTRINSIC_ELEMENTAL("ieee_rem", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_rem", t0, t0, t1);
     }
 
     return NULL;
@@ -6989,7 +7072,7 @@ static scope_entry_t* compute_intrinsic_ieee_set_status(scope_entry_t* symbol UN
 
     if (equivalent_types(get_unqualified_type(t0), get_ieee_status_type()))
     {
-        return GET_INTRINSIC_PURE("ieee_set_status", get_void_type(), t0);
+        return GET_INTRINSIC_PURE(symbol, "ieee_set_status", get_void_type(), t0);
     }
 
     return NULL;
@@ -7007,7 +7090,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_flag(scope_entry_t* symbol 
     if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_flag", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_flag", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -7023,7 +7106,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_inf(scope_entry_t* symbol U
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_inf", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_inf", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7041,7 +7124,7 @@ static scope_entry_t* compute_intrinsic_ieee_value(scope_entry_t* symbol UNUSED_
     if (is_floating_type(t0)
             && equivalent_types(get_unqualified_type(t1), get_ieee_class_type()))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_value", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_value", t0, t0, t1);
     }
 
     return NULL;
@@ -7057,7 +7140,7 @@ static scope_entry_t* compute_intrinsic_ieee_logb(scope_entry_t* symbol UNUSED_P
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_logb", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_logb", t0, t0);
     }
 
     return NULL;
@@ -7075,7 +7158,7 @@ scope_entry_t* compute_intrinsic_ieee_selected_real_kind(scope_entry_t* symbol U
     if (is_integer_type(t0) &&
             is_integer_type(t1))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("ieee_selected_real_kind", fortran_get_default_integer_type(), t0, t1);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "ieee_selected_real_kind", fortran_get_default_integer_type(), t0, t1);
     }
 
     return NULL;
@@ -7091,7 +7174,7 @@ static scope_entry_t* compute_intrinsic_ieee_is_negative(scope_entry_t* symbol U
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_is_negative", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_is_negative", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7107,7 +7190,7 @@ static scope_entry_t* compute_intrinsic_ieee_get_rounding_mode(scope_entry_t* sy
 
     if (equivalent_types(get_unqualified_type(t0), get_ieee_round_type()))
     {
-        return GET_INTRINSIC_PURE("ieee_get_rounding_mode", get_void_type(), t0);
+        return GET_INTRINSIC_PURE(symbol, "ieee_get_rounding_mode", get_void_type(), t0);
     }
 
     return NULL;
@@ -7123,7 +7206,7 @@ static scope_entry_t* compute_intrinsic_ieee_is_finite(scope_entry_t* symbol UNU
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_is_finite", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_is_finite", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7139,7 +7222,7 @@ static scope_entry_t* compute_intrinsic_ieee_is_normal(scope_entry_t* symbol UNU
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_is_normal", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_is_normal", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7155,7 +7238,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_halting(scope_entry_t* symb
 
     if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type()))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_halting", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_halting", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7171,7 +7254,7 @@ static scope_entry_t* compute_intrinsic_ieee_get_status(scope_entry_t* symbol UN
 
     if (equivalent_types(get_unqualified_type(t0), get_ieee_status_type()))
     {
-        return GET_INTRINSIC_PURE("ieee_get_status", get_void_type(), t0);
+        return GET_INTRINSIC_PURE(symbol, "ieee_get_status", get_void_type(), t0);
     }
 
     return NULL;
@@ -7189,7 +7272,7 @@ static scope_entry_t* compute_intrinsic_ieee_set_flag(scope_entry_t* symbol UNUS
     if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
             && equivalent_types(get_unqualified_type(t1), fortran_get_default_logical_type()))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_set_flag", get_void_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_set_flag", get_void_type(), t0, t1);
     }
 
     return NULL;
@@ -7207,7 +7290,7 @@ scope_entry_t* compute_intrinsic_ieee_get_flag(scope_entry_t* symbol UNUSED_PARA
     if (equivalent_types(get_unqualified_type(t0), get_ieee_flag_type())
             && is_bool_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_get_flag", get_void_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_get_flag", get_void_type(), t0, t1);
     }
 
     return NULL;
@@ -7225,7 +7308,7 @@ static scope_entry_t* compute_intrinsic_ieee_unordered(scope_entry_t* symbol UNU
     if (is_floating_type(t0)
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_unordered", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_unordered", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -7241,7 +7324,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_denormal(scope_entry_t* sym
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_denormal", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_denormal", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7257,7 +7340,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_sqrt(scope_entry_t* symbol 
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_sqrt", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_sqrt", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7275,7 +7358,7 @@ static scope_entry_t* compute_intrinsic_ieee_is_next_after(scope_entry_t* symbol
     if (is_floating_type(t0)
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_next_after", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_next_after", t0, t0, t1);
     }
 
     return NULL;
@@ -7291,7 +7374,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_datatype(scope_entry_t* sym
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_datatype", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_datatype", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7307,7 +7390,7 @@ static scope_entry_t* compute_intrinsic_ieee_class(scope_entry_t* symbol UNUSED_
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_class", get_ieee_class_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_class", get_ieee_class_type(), t0);
     }
 
     return NULL;
@@ -7323,7 +7406,7 @@ static scope_entry_t* compute_intrinsic_ieee_rint(scope_entry_t* symbol UNUSED_P
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_rint", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_rint", t0, t0);
     }
 
     return NULL;
@@ -7339,7 +7422,7 @@ static scope_entry_t* compute_intrinsic_ieee_set_rounding_mode(scope_entry_t* sy
 
     if (equivalent_types(get_unqualified_type(t0), get_ieee_round_type()))
     {
-        return GET_INTRINSIC_PURE("ieee_set_rounding_mode", get_void_type(), t0);
+        return GET_INTRINSIC_PURE(symbol, "ieee_set_rounding_mode", get_void_type(), t0);
     }
 
     return NULL;
@@ -7355,7 +7438,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_standard(scope_entry_t* sym
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_standard", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_standard", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7371,7 +7454,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_divide(scope_entry_t* symbo
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_divide", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_divide", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7389,7 +7472,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_rounding(scope_entry_t* sym
     if (equivalent_types(get_unqualified_type(t0), get_ieee_round_type())
             && is_floating_type(t1))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_rounding", fortran_get_default_logical_type(), t0, t1);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_rounding", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -7407,7 +7490,7 @@ static scope_entry_t* compute_intrinsic_ieee_scalb(scope_entry_t* symbol UNUSED_
     if (is_floating_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_scalb", t0, t0, t1);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_scalb", t0, t0, t1);
     }
 
     return NULL;
@@ -7423,7 +7506,7 @@ static scope_entry_t* compute_intrinsic_ieee_support_nan(scope_entry_t* symbol U
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("ieee_support_nan", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_INQUIRY(symbol, "ieee_support_nan", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7439,7 +7522,7 @@ static scope_entry_t* compute_intrinsic_ieee_is_nan(scope_entry_t* symbol UNUSED
 
     if (is_floating_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ieee_is_nan", fortran_get_default_logical_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL(symbol, "ieee_is_nan", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -7498,3 +7581,5 @@ decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
 
     return symbol->related_decl_context;
 }
+
+

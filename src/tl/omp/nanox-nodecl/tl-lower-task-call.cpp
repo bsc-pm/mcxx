@@ -67,12 +67,12 @@ static void fill_map_parameters_to_arguments(
     {
         Nodecl::NodeclBase expression;
         TL::Symbol parameter_sym;
-        if (it->is<Nodecl::FortranNamedPairSpec>())
+        if (it->is<Nodecl::FortranActualArgument>())
         {
             // If this is a Fortran style argument use the symbol
-            Nodecl::FortranNamedPairSpec named_pair(it->as<Nodecl::FortranNamedPairSpec>());
+            Nodecl::FortranActualArgument named_pair(it->as<Nodecl::FortranActualArgument>());
 
-            param_to_arg_expr[named_pair.get_name().get_symbol()] = named_pair.get_argument();
+            param_to_arg_expr[named_pair.get_symbol()] = named_pair.get_argument();
         }
         else
         {
@@ -966,7 +966,7 @@ static TL::Symbol new_function_symbol_adapter(
     insert_entry(function_context.current_scope, called_function.get_internal_symbol());
 
     // Propagate USEd information
-    Nodecl::Utils::Fortran::copy_used_modules(
+    Nodecl::Utils::Fortran::append_used_modules(
             current_function.get_related_scope(),
             new_function_sym->related_decl_context);
 
@@ -1049,7 +1049,9 @@ static Nodecl::NodeclBase fill_adapter_function(
                     argument_seq,
                     /* alternate name */ Nodecl::NodeclBase::null(),
                     /* function form */ Nodecl::NodeclBase::null(),
-                TL::Type::get_void_type()));
+                TL::Type::get_void_type(),
+                original_environment.get_locus()),
+                original_environment.get_locus());
 
     statements_of_task_list.append(call_to_original);
 

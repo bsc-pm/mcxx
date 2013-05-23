@@ -114,6 +114,8 @@ namespace Analysis {
         //! Returns a list of objects that are killed in #n
         Utils::ext_sym_set get_killed( const Nodecl::NodeclBase& n );
 
+        Node* get_autoscoped_task( const Nodecl::NodeclBase& n );
+
     friend class AnalysisSingleton;
     };
 
@@ -192,6 +194,8 @@ namespace Analysis {
          */
         ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+
         ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         // ********************* Utils ******************** //
@@ -200,8 +204,7 @@ namespace Analysis {
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //
-    // ************************************************************************************ //
-
+    // ************************************************************************************ /
 }
 }
 

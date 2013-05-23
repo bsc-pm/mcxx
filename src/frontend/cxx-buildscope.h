@@ -134,6 +134,7 @@ LIBMCXX_EXTERN void introduce_using_entities(
         scope_entry_t* current_class,
         char is_class_scope, 
         access_specifier_t current_access,
+        char is_typename,
         const locus_t* locus);
 
 void build_scope_friend_declarator(decl_context_t decl_context, 

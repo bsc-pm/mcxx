@@ -838,6 +838,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
     RETURN_TOKEN(TYPE_LITERAL_REF);
 }
 
+@SYMBOL-LITERAL-REF@ {
+    parse_token_text();
+    RETURN_TOKEN(SYMBOL_LITERAL_REF);
+}
+
 @EXPRESSION@ {
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_EXPRESSION);
@@ -2274,12 +2279,12 @@ goto {
 	RETURN_TOKEN(TOK_LOGICAL_NOT);
 }
 
-".true." { 
+".true."(_{kind})? {
 	parse_token_text();
 	RETURN_TOKEN(TOK_TRUE);
 }
 
-".false." {
+".false."(_{kind})? {
 	parse_token_text();
 	RETURN_TOKEN(TOK_FALSE);
 }

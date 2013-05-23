@@ -69,6 +69,12 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, pcfg_exit );
         _utils->_return_nodes.clear( );
 
+        // Tasks post-processing
+        // When a task is not synchronized within the function it is created or
+        // it is synchronized in conditional situations, then we create a virtual node
+        // indicating that the synchronization will occur after the finalization of the function
+        synchronize_tasks( );
+
         _pcfg->dress_up_graph( );
 
         return _pcfg;
@@ -308,41 +314,102 @@ namespace Analysis {
         return result;
     }
 
-    Node* PCFGVisitor::merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second)
+    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, Node* first, Node* second )
     {
         ObjectList<Node*> previous_nodes;
 
-        previous_nodes.append(first);
-        if(second != NULL)
+        previous_nodes.append( first );
+        if( second != NULL )
         {   // Only second node must be NULL and it will be the case of unary operations
-            previous_nodes.append(second);
+            previous_nodes.append( second );
         }
 
-        return merge_nodes(n, previous_nodes);
+        return merge_nodes( n, previous_nodes );
     }
 
-//     Node* PCFGVisitor::merge_nodes(Node* subscripted, Node* subscript)
-//     {
-//         if(subscripted->get_data<Node_type>(_NODE_TYPE) || subscript->get_data<Node_type>(_NODE_TYPE))
-//         {
-//
-//         }
-//         else
-//         {
-//             ObjectList<Nodecl::NodeclBase> lhs = subscripted->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-//             ObjectList<Nodecl::NodeclBase> rhs = subscript->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-//             if(lhs.size() != 1)
-//             {
-//                 internal_error("Non graph subscripted value not correct. It must have just one statement", 0);
-//             }
-//             if(rhs.size() != 1)
-//             {
-//                 internal_error("Non graph subscript value not correct. It must have just one statement", 0);
-//             }
-//
-//
-//         }
-//     }
+    void PCFGVisitor::synchronize_tasks( )
+    {
+        Node* virtual_sync = NULL;
+        for( ObjectList<Node*>::iterator it_t = _pcfg->_task_nodes_l.begin( );
+             it_t != _pcfg->_task_nodes_l.end( ); ++it_t )
+        {
+            ObjectList<Node*> children = ( *it_t )->get_children( );
+            if( children.empty( ) )
+            {
+                if( virtual_sync == NULL )
+                {
+                    virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
+                }
+                _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
+            }
+            else
+            {
+                ObjectList<Node*>::iterator it_c;
+                for( it_c = children.begin( ); it_c != children.end( ); it_c++ )
+                {
+                    if( !ExtensibleGraph::node_is_in_conditional_branch( *it_c, ( *it_t )->get_outer_node( ) ) )
+                    {
+                        break;
+                    }
+                }
+                if( it_c == children.end( ) )
+                {   // All children are in conditional branches
+                    if( virtual_sync == NULL )
+                    {
+                        virtual_sync = new Node( _utils->_nid, OMP_VIRTUAL_TASKSYNC, _pcfg->get_graph( ) );
+                    }
+                    _pcfg->connect_nodes( *it_t, virtual_sync, ALWAYS, "", true );
+                }
+            }
+        }
+
+        _utils->_tasks_to_sync.clear( );
+    }
+
+    bool PCFGVisitor::task_is_surely_synchronized( Node* task )
+    {
+        bool res = false;
+
+        ObjectList<Node*> children = task->get_children( );
+        if( !children.empty( ) )
+        {   // Conservative decision: one of the children is not conditional
+            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            {
+                if( !ExtensibleGraph::node_is_in_conditional_branch( *it, task->get_outer_node( ) ) )
+                {
+                    res = true;
+                    break;
+                }
+            }
+        }
+
+        return res;
+    }
+
+    bool PCFGVisitor::same_parent_task( Node* task_1, Node* task_2 )
+    {
+        bool res = false;
+
+        Node* task_1_parent_task = task_1->get_outer_node( );
+        while( ( task_1_parent_task != NULL ) && !task_1_parent_task->is_omp_task_node( ) )
+        {
+            task_1_parent_task = task_1_parent_task->get_outer_node( );
+        }
+        Node* task_2_parent_task = task_2->get_outer_node( );
+        while( ( task_2_parent_task != NULL ) && !task_2_parent_task->is_omp_task_node( ) )
+        {
+            task_2_parent_task = task_2_parent_task->get_outer_node( );
+        }
+
+        if( ( ( task_1_parent_task == NULL) && ( task_2_parent_task == NULL ) )
+            || ( ( task_1_parent_task != NULL) && ( task_2_parent_task != NULL )
+                 && ( task_1_parent_task->get_id( ) == task_2_parent_task->get_id( ) ) ) )
+        {
+            res = true;
+        }
+
+        return res;
+    }
 
     // ************************************************************************************** //
     // ******************************** Non visiting methods ******************************** //
@@ -357,14 +424,21 @@ namespace Analysis {
         Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
 
         // Created with previous tasks in the same level of nesting
-        while( !_utils->_tasks_to_sync.empty( ) )
+        unsigned level = _utils->_task_level;
+        while( level < _utils->_tasks_to_sync.size( ) )
         {
-            ObjectList<Node*> previous_tasks = _utils->_tasks_to_sync.top( );
-            int n_connects = previous_tasks.size( );
-            _pcfg->connect_nodes( previous_tasks, first_flush,
-                                  ObjectList<Edge_type>( n_connects, ALWAYS ),
-                                  ObjectList<std::string>( n_connects, "" ), /* is task edge */ true );
-            _utils->_tasks_to_sync.pop( );
+            for( ObjectList<ObjectList<Node*> >::iterator it = _utils->_tasks_to_sync[level].begin( );
+                 it != _utils->_tasks_to_sync[level].end( ); ++it )
+            {
+                for( ObjectList<Node*>::iterator it_n = it->begin( ); it_n != it->end( ); ++it_n )
+                {
+                    if( !task_is_surely_synchronized( *it_n ) )
+                    {
+                        _pcfg->connect_nodes( *it_n, first_flush, ALWAYS, "", /* is task edge */ true );
+                    }
+                }
+            }
+            level++;
         }
 
         return ObjectList<Node*>( 1, first_flush );
@@ -385,41 +459,33 @@ namespace Analysis {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
 
-        std::string label = "dafault";
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
-            Edge* e = _pcfg->connect_nodes( _utils->_switch_condition_nodes.top( ), case_stmts[0], CASE );
-            if( e != NULL )
-            {   // The edge between the nodes did not exist previously
-                if( !case_val.is_null( ) )
-                {
-                    label = codegen_to_str( case_val.get_internal_nodecl( ),
-                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) );
-                }
-                e->set_label( label );
-
-                if( case_stmts.back( )->get_type( ) != BREAK )
-                {
-                    _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
-                }
+            Edge* e;
+            if( case_stmts[0]->is_break_node( ) )
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, _utils->_switch_nodes.top( )->_exit, CASE );
             }
             else
-            {   // If the nodes where already connected, then the edge must have two labels
-                ObjectList<Edge*> case_entry_edges = case_stmts[0]->get_entry_edges( );
-                for( ObjectList<Edge*>::iterator it = case_entry_edges.begin( ); it != case_entry_edges.end( ); ++it )
-                {
-                    if( ( *it )->get_source( )->get_id( ) == _utils->_switch_condition_nodes.top( )->get_id( ) )
-                    {
-                        e = *it;
-                        break;
-                    }
-                }
+            {
+                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_stmts[0], CASE );
+            }
 
-                label = e->get_label( );
-                label += ", " + std::string(codegen_to_str( case_val.get_internal_nodecl( ),
-                                                            nodecl_retrieve_context( case_val.get_internal_nodecl( ) ) ) );
-                e->set_label( label );
+            std::string label;
+            if( !case_val.is_null( ) )
+            {
+                label = case_val.prettyprint( );
+            }
+            else
+            {
+                label = "dafault";
+            }
+            e->set_label( label );
+
+            if( case_stmts.back( )->get_type( ) != BREAK )
+            {
+                _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
             }
         }
         else
@@ -478,12 +544,19 @@ namespace Analysis {
         // Connect with the last nodes created
         _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
         // Created with previous tasks in the same level of nesting
-        ObjectList<Node*> previous_tasks = _utils->_tasks_to_sync.top( );
-        int n_connects = previous_tasks.size( );
-        _pcfg->connect_nodes( previous_tasks, taskwait_node,
-                              ObjectList<Edge_type>( n_connects, ALWAYS ),
-                              ObjectList<std::string>( n_connects, "" ), /* is task edge */ true );
-        _utils->_tasks_to_sync.pop( );
+        if( _utils->_tasks_to_sync.size( ) > ( _utils->_task_level ) )
+        {   // There is some task to synchronize
+            ObjectList<ObjectList<Node*> > * tasks_in_current_level = &( _utils->_tasks_to_sync[_utils->_task_level] );
+            ObjectList<Node*> * tasks_in_last_nesting_branch = &( ( *tasks_in_current_level )[tasks_in_current_level->size() - 1] );
+            if( same_parent_task( (*tasks_in_last_nesting_branch)[ /*any task in this list is valid for checking*/ 0],
+                                    taskwait_node ) )
+            {
+                int n_connects = tasks_in_last_nesting_branch->size( );
+                _pcfg->connect_nodes( *tasks_in_last_nesting_branch, taskwait_node,
+                                        ObjectList<Edge_type>( n_connects, ALWAYS ),
+                                        ObjectList<std::string>( n_connects, "" ), /* is task edge */ true );
+            }
+        }
 
         _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
         return ObjectList<Node*>();
@@ -607,7 +680,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
     {
-        Node* break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
+        // The only case when '_utils->_last_nodes' can be empy is when a Case Statement has no statements
+        Node* break_node;
+        if( _utils->_last_nodes.empty( ) )
+            break_node = _pcfg->append_new_node_to_parent( _utils->_switch_nodes.top( )->_condition, n, BREAK );
+        else
+            break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, BREAK );
         _pcfg->connect_nodes( break_node, _utils->_break_nodes.top( ) );
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, break_node );
@@ -673,6 +751,11 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ComplexLiteral& n )
     {
         return visit_literal_node( n );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundExpression& n )
+    {
+        return walk( n.get_nest( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundStatement& n )
@@ -920,7 +1003,7 @@ namespace Analysis {
             _utils->_last_nodes = ObjectList<Node*>( 1, _utils->_nested_loop_nodes.top( )->_init );
         }
 
-        // Create the natural loop graph node
+        // Create the loop graph node
         Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_FOR );
         int n_connects = _utils->_last_nodes.size( );
         _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
@@ -939,6 +1022,7 @@ namespace Analysis {
         _utils->_continue_nodes.push( _utils->_nested_loop_nodes.top( )->_next );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );    // This list of nodes returned here will never be used
+
         _utils->_continue_nodes.pop();
         _utils->_break_nodes.pop();
 
@@ -996,6 +1080,61 @@ namespace Analysis {
         _pcfg->_function_sym = n.get_symbol( );
 
         return walk( n.get_statements( ) );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
+    {
+        // Create the asm definition graph node
+        Node* asm_def_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, ASM_DEF );
+        _pcfg->connect_nodes( _utils->_last_nodes, asm_def_graph_node );
+
+        Node* entry_node = asm_def_graph_node->get_graph_entry_node( );
+        Node* exit_node = asm_def_graph_node->get_graph_exit_node( );
+
+        // Build the node containing the asm function text
+        Nodecl::Text text = Nodecl::Text::make( n.get_text( ) );
+        Node* text_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), text );
+        text_node->set_asm_info( ASM_DEF_TEXT );
+        _pcfg->connect_nodes( entry_node, text_node );
+        _utils->_last_nodes = ObjectList<Node*>( 1, text_node );
+
+        // Build the node containing the output operands
+        ObjectList<Node*> op0 = walk( n.get_operands0( ) );
+        if( !op0.empty( ) )
+        {
+            op0[0]->set_asm_info( ASM_DEF_OUTPUT_OPS );
+        }
+
+        // Build the node containing the input operands
+        ObjectList<Node*> op1 = walk( n.get_operands1( ) );
+        op1[0]->set_asm_info( ASM_DEF_INPUT_OPS );
+
+        // Build the node containing the clobbered registers
+        ObjectList<Node*> op2 = walk( n.get_operands2( ) );
+        if( !op2.empty( ) )
+        {
+            op2[0]->set_asm_info( ASM_DEF_CLOBBERED_REGS );
+        }
+
+//         walk( n.get_specs( ) );      // Specs are not used for any analysis
+
+        // Link properly the exit node
+        exit_node->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+        _utils->_outer_nodes.pop( );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, asm_def_graph_node );
+        return ObjectList<Node*>( 1, asm_def_graph_node );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmOperand& n )
+    {
+        Node* asm_op_node = new Node( _utils->_nid, ASM_OP, _utils->_outer_nodes.top( ), n );
+        _pcfg->connect_nodes( _utils->_last_nodes, asm_op_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, asm_op_node );
+
+        return ObjectList<Node*>( 1, asm_op_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GotoStatement& n )
@@ -1304,13 +1443,13 @@ namespace Analysis {
 
         atomic_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, atomic_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set possible implicit flushes
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( atomic_entry, atomic_exit ) );
         walk( n.get_environment( ) );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, atomic_node );
         return ObjectList<Node*>( 1, atomic_node );
     }
@@ -1319,6 +1458,10 @@ namespace Analysis {
     {
         PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+
+        // Set the task related to this clause to have auto-scoping enabled
+        _utils->_environ_entry_exit.top( ).first->get_outer_node( )->set_auto_scoping_enabled( );
+
         return ObjectList<Node*>( );
     }
 
@@ -1399,7 +1542,6 @@ namespace Analysis {
 
         critical_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, critical_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses and possible implicit flushes
         PCFGPragmaInfo current_pragma;
@@ -1410,7 +1552,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, critical_node );
+        
         return ObjectList<Node*>( 1, critical_node );
 
     }
@@ -1461,7 +1605,7 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, environ_entry );
 
         // Create the flush node
-        Node* entry_flush = _pcfg->create_flush_node( environ_entry->get_outer_node( ) );
+        Node* entry_flush = _pcfg->create_flush_node( _utils->_outer_nodes.top( ) );
         int n_connects = entry_children.size( );
         _pcfg->connect_nodes( entry_flush, entry_children,
                               ObjectList<Edge_type>( n_connects, ALWAYS ),
@@ -1485,7 +1629,7 @@ namespace Analysis {
         _utils->_last_nodes = exit_parents;
 
         // Create the flush node
-        Node* exit_flush = _pcfg->create_flush_node( environ_exit->get_outer_node( ) );
+        Node* exit_flush = _pcfg->create_flush_node( _utils->_outer_nodes.top( ) );
         _pcfg->connect_nodes( exit_flush, environ_exit );
 
         // Restore current info
@@ -1501,9 +1645,6 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::For& n )
     {
-        // Not needed
-        // walk( n.get_ranges( ) );
-
         // Create the new graph node containing the for
         Node* for_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_LOOP );
         _pcfg->connect_nodes( _utils->_last_nodes, for_node );
@@ -1513,11 +1654,10 @@ namespace Analysis {
 
         // Traverse the statements of the current sections
         _utils->_last_nodes = ObjectList<Node*>( 1, for_entry );
-        walk( n.get_statements( ) );
+        walk( n.get_loop( ) );
 
         for_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, for_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1528,17 +1668,9 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_node );
         return ObjectList<Node*>( 1, for_node );
-    }
-
-    // Currently not used since we don't traverse OpenMP::For::get_ranges
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ForRange& n )
-    {
-        internal_error( "ForRange not yet implemented", 0 );
-//         walk( n.get_lower( ) );
-//         walk( n.get_upper( ) );
-//         walk( n.get_step( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
@@ -1561,8 +1693,8 @@ namespace Analysis {
         Node* master_exit = master_node->get_graph_exit_node( );
         master_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, master_exit );
+        
         _utils->_outer_nodes.pop( );
-
         _utils->_last_nodes = ObjectList<Node*>( 1, master_node );
         return ObjectList<Node*>( 1, master_node );
 
@@ -1595,10 +1727,15 @@ namespace Analysis {
 
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, parallel_node );
-
         return ObjectList<Node*>( 1, parallel_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ParallelSimdFor& n )
+    {
+        std::cerr << "Ignoring Pragma ParallelSimdFor '" << n.prettyprint( ) << "'" << std::endl;
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
     {
         PCFGClause current_clause( PRIORITY, n.get_priority( ) );
@@ -1676,7 +1813,6 @@ namespace Analysis {
 
         sections_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, sections_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1687,6 +1823,7 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, sections_node );
         return ObjectList<Node*>( 1, sections_node );
     }
@@ -1717,6 +1854,12 @@ namespace Analysis {
         return ObjectList<Node*>( 1, simd_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFor& n )
+    {
+        std::cerr << "Ignoring Pragma SimdFor '" << n.prettyprint( ) << "'" << std::endl;
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
         Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD_FUNCTION );
@@ -1763,7 +1906,6 @@ namespace Analysis {
 
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, single_node );
-
         return ObjectList<Node*>( 1, single_node );
     }
 
@@ -1791,9 +1933,24 @@ namespace Analysis {
         // Traverse the statements of the current task
         _utils->_task_level++;
         if( _utils->_task_level > _utils->_tasks_to_sync.size( ) )
-            _utils->_tasks_to_sync.push( ObjectList<Node*>( 1, task_node ) );
+        {
+            _utils->_tasks_to_sync.push_back( ObjectList<ObjectList<Node*> >( 1, ObjectList<Node*>( 1, task_node ) ) );
+        }
         else
-            _utils->_tasks_to_sync.top( ).append( task_node );
+        {
+            ObjectList<ObjectList<Node*> > * tasks_in_current_level = &( _utils->_tasks_to_sync[_utils->_tasks_to_sync.size( ) - 1] );
+            ObjectList<Node*> * tasks_in_last_nesting_branch = &( ( *tasks_in_current_level )[tasks_in_current_level->size() - 1] );
+
+            if( same_parent_task( ( *tasks_in_last_nesting_branch )[/*any task in this list is valid for checking*/ 0],
+                                  task_node ) )
+            {
+                tasks_in_last_nesting_branch->push_back( task_node );
+            }
+            else
+            {
+                tasks_in_current_level->push_back( ObjectList<Node*>( 1, task_node ) );
+            }
+        }
         _utils->_last_nodes = ObjectList<Node*>( 1, task_entry );
         walk( n.get_statements( ) );
         _utils->_task_level--;
@@ -1811,6 +1968,7 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _pcfg->_task_nodes_l.insert( task_node );
         _pcfg->_utils->_last_nodes = task_parents;
         return ObjectList<Node*>( 1, task_node );
     }
@@ -1844,6 +2002,15 @@ namespace Analysis {
         PCFGClause current_clause( WAITON, n.get_environment( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )
+    {
+        ObjectList<Node*> current_last_nodes = _utils->_last_nodes;
+        ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
+        Node* parenthesized_node = merge_nodes( n, expression_nodes );
+        _pcfg->connect_nodes( current_last_nodes, parenthesized_node );
+        return ObjectList<Node*>( 1, parenthesized_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Plus& n )
@@ -1959,10 +2126,11 @@ namespace Analysis {
 
         // Compose the statements nodes
         _utils->_last_nodes.clear( );
-        _utils->_switch_condition_nodes.push( cond_node_l[0] );
+        _utils->_switch_nodes.push( new PCFGSwitch( cond_node_l[0], exit_node ) );
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
+        _utils->_switch_nodes.pop( );
 
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );
@@ -1997,6 +2165,11 @@ namespace Analysis {
         }
 
         // Create the node
+        return visit_literal_node( n );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Text& n )
+    {
         return visit_literal_node( n );
     }
 

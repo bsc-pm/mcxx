@@ -33,9 +33,37 @@ namespace TL {
 namespace Analysis {
 
         TestAnalysisPhase::TestAnalysisPhase( )
+            : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ),
+              _reaching_defs_enabled( false ), _induction_vars_enabled( false ),
+              _auto_scope_enabled( false )
         {
             set_phase_name("Experimental phase for testing compiler analysis");
             set_phase_description("This is a temporal phase called with code testing purposes.");
+
+            register_parameter("pcfg_enabled",
+                               "If set to '1' enables pcfg analysis, otherwise it is disabled",
+                               _pcfg_enabled_str,
+                               "0").connect(functor(&TestAnalysisPhase::set_pcfg, *this));
+
+            register_parameter("use_def_enabled",
+                               "If set to '1' enables pcfg analysis, otherwise it is disabled",
+                               _use_def_enabled_str,
+                               "0").connect(functor(&TestAnalysisPhase::set_use_def, *this));
+
+            register_parameter("liveness_enabled",
+                               "If set to '1' enables pcfg analysis, otherwise it is disabled",
+                               _liveness_enabled_str,
+                               "0").connect(functor(&TestAnalysisPhase::set_liveness, *this));
+
+            register_parameter("reaching_defs_enabled",
+                               "If set to '1' enables pcfg analysis, otherwise it is disabled",
+                               _reaching_defs_enabled_str,
+                               "0").connect(functor(&TestAnalysisPhase::set_reaching_defs, *this));
+
+            register_parameter("induction_vars_enabled",
+                               "If set to '1' enables pcfg analysis, otherwise it is disabled",
+                               _induction_vars_enabled_str,
+                               "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
         }
 
         void TestAnalysisPhase::run( TL::DTO& dto )
@@ -45,27 +73,43 @@ namespace Analysis {
 
             Nodecl::NodeclBase ast = dto["nodecl"];
 
+            ObjectList<ExtensibleGraph*> pcfgs;
+
             // Test PCFG creation
-            if( VERBOSE )
-                std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
-            ObjectList<ExtensibleGraph*> pcfgs =
-                    analysis.parallel_control_flow_graph( memento, ast );
+            if( _pcfg_enabled )
+            {
+                if( VERBOSE )
+                    std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
+                pcfgs = analysis.parallel_control_flow_graph( memento, ast );
+            }
 
-            if( VERBOSE )
-                std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
-            analysis.use_def( memento, ast );
+            if( _use_def_enabled )
+            {
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
+                pcfgs = analysis.use_def( memento, ast );
+            }
 
-            if( VERBOSE )
-                std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
-            analysis.liveness( memento, ast );
+            if( _liveness_enabled )
+            {
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
+                pcfgs = analysis.liveness( memento, ast );
+            }
 
-            if( VERBOSE )
-                std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
-            analysis.reaching_definitions( memento, ast );
+            if( _reaching_defs_enabled )
+            {
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
+                pcfgs = analysis.reaching_definitions( memento, ast );
+            }
 
-            if( VERBOSE )
-                std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
-            analysis.induction_variables( memento, ast );
+            if( _induction_vars_enabled )
+            {
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
+                pcfgs = analysis.induction_variables( memento, ast );
+            }
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
@@ -76,6 +120,42 @@ namespace Analysis {
                     analysis.print_pcfg( memento, (*it)->get_name( ) );
                 }
             }
+        }
+
+        void TestAnalysisPhase::set_pcfg( const std::string pcfg_enabled_str )
+        {
+            if( pcfg_enabled_str == "1" )
+                _pcfg_enabled = true;
+        }
+
+        void TestAnalysisPhase::set_use_def( const std::string use_def_enabled_str )
+        {
+            if( use_def_enabled_str == "1" )
+                _use_def_enabled = true;
+        }
+
+        void TestAnalysisPhase::set_liveness( const std::string liveness_enabled_str )
+        {
+            if( liveness_enabled_str == "1" )
+                _liveness_enabled = true;
+        }
+
+        void TestAnalysisPhase::set_reaching_defs( const std::string reaching_defs_enabled_str )
+        {
+            if( reaching_defs_enabled_str == "1" )
+                _reaching_defs_enabled = true;
+        }
+
+        void TestAnalysisPhase::set_induction_vars( const std::string induction_vars_enabled_str )
+        {
+            if( induction_vars_enabled_str == "1" )
+                _induction_vars_enabled = true;
+        }
+
+        void TestAnalysisPhase::set_auto_scope( const std::string auto_scope_enabled_str )
+        {
+            if( auto_scope_enabled_str == "1" )
+                _auto_scope_enabled = true;
         }
 }
 }

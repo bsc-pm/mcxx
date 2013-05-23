@@ -751,62 +751,71 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::StringLiteral& node)
     {
-        const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
-
-        int length = 0;
-        int *bytes = NULL;
-        const_value_string_unpack_to_int(v, &bytes, &length);
-
-        if (length == 0
-                || (::isprint(bytes[0])))
+        // If there is a string for that, just use it
+        if (nodecl_get_text(node.get_internal_nodecl()) != NULL)
         {
-            file << "\"";
+            file << node.get_text();
         }
-
-        int i;
-
-        for (i = 0; i < length; i++)
+        // Otherwise use the constant kept in the node
+        else
         {
-            int current = bytes[i];
-            if (::isprint(current))
+            const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
+
+            int length = 0;
+            int *bytes = NULL;
+            const_value_string_unpack_to_int(v, &bytes, &length);
+
+            if (length == 0
+                    || (::isprint(bytes[0])))
             {
-                if (current == '\"')
+                file << "\"";
+            }
+
+            int i;
+
+            for (i = 0; i < length; i++)
+            {
+                int current = bytes[i];
+                if (::isprint(current))
                 {
-                    file << "\"\"";
+                    if (current == '\"')
+                    {
+                        file << "\"\"";
+                    }
+                    else
+                    {
+                        file << (char)current;
+                    }
                 }
                 else
                 {
-                    file << (char)current;
-                }
-            }
-            else
-            {
-                
-                if (i > 0 && ::isprint(bytes[i-1]))
-                {
-                    file << "\" // ";
-                }
-                unsigned char current_char = current;
-                
-                file << "char(" << (unsigned int) current_char << ")";
-                if ((i+1) < length)
-                {
-                    file << " // ";
-                    if (::isprint(bytes[i+1]))
+
+                    if (i > 0 && ::isprint(bytes[i-1]))
                     {
-                        file << "\"";
+                        file << "\" // ";
+                    }
+                    unsigned char current_char = current;
+
+                    file << "char(" << (unsigned int) current_char << ")";
+                    if ((i+1) < length)
+                    {
+                        file << " // ";
+                        if (::isprint(bytes[i+1]))
+                        {
+                            file << "\"";
+                        }
                     }
                 }
             }
-        }
 
-        if (length == 0
-                || (::isprint(bytes[length - 1])))
-        {
-            file << "\"";
-        }
+            if (length == 0
+                    || (::isprint(bytes[length - 1])))
+            {
+                file << "\"";
+            }
 
-        xfree(bytes);
+            xfree(bytes);
+        }
     }
 
     namespace {
@@ -1015,6 +1024,8 @@ OPERATOR_TABLE
     {
         const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
+        int kind = node.get_type().get_size();
+
         if (const_value_is_zero(val))
         {
             file << ".FALSE.";
@@ -1022,6 +1033,11 @@ OPERATOR_TABLE
         else
         {
             file << ".TRUE.";
+        }
+
+        if (kind != fortran_get_default_logical_type_kind())
+        {
+            file << "_" << kind;
         }
     }
 
@@ -1384,20 +1400,19 @@ OPERATOR_TABLE
             if (pos > 0)
                 file << ", ";
 
-            Nodecl::NodeclBase keyword;
+            TL::Symbol keyword_symbol;
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
-            if (it->is<Nodecl::FortranNamedPairSpec>())
+            if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword = it->as<Nodecl::FortranNamedPairSpec>().get_name();
-                arg = it->as<Nodecl::FortranNamedPairSpec>().get_argument();
+                keyword_symbol = it->as<Nodecl::FortranActualArgument>().get_symbol();
+                arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (!keyword.is_null()
+            if (keyword_symbol.is_valid()
                     && !called_symbol.is_statement_function_statement())
             {
-                TL::Symbol keyword_symbol = keyword.get_symbol();
                 parameter_type = keyword_symbol.get_type();
                 if (!keywords_are_mandatory)
                 {
@@ -1550,14 +1565,14 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::visit(const Nodecl::FortranNamedPairSpec& node)
+    void FortranBase::visit(const Nodecl::FortranActualArgument& node)
     {
-        Nodecl::NodeclBase name = node.get_name();
+        TL::Symbol name = node.get_symbol();
         Nodecl::NodeclBase argument = node.get_argument();
 
-        if (!name.is_null())
+        if (name.is_valid())
         {
-            file << name.get_symbol().get_name() << " = ";
+            file << name.get_name() << " = ";
         }
 
         walk(argument);
@@ -3839,6 +3854,7 @@ OPERATOR_TABLE
             std::string real_name = rename(entry);
             real_name = fix_class_name(real_name);
 
+            TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
             push_declaring_entity(entry);
 
             // We do this because we want the type fully laid out if there is any bitfield
@@ -3867,13 +3883,17 @@ OPERATOR_TABLE
 
             if (!_deduce_use_statements)
             {
-                if (entry.get_access_specifier() == AS_PRIVATE)
+                if (entry.in_module().is_valid()
+                        && entry.in_module() == enclosing_declaring_symbol)
                 {
-                    file << ", PRIVATE";
-                }
-                else if (entry.get_access_specifier() == AS_PUBLIC)
-                {
-                    file << ", PUBLIC";
+                    if (entry.get_access_specifier() == AS_PRIVATE)
+                    {
+                        file << ", PRIVATE";
+                    }
+                    else if (entry.get_access_specifier() == AS_PUBLIC)
+                    {
+                        file << ", PUBLIC";
+                    }
                 }
             }
 

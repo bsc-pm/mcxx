@@ -68,9 +68,10 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************** Class to retrieve analysis info about one specific nodecl ****************** //
 
-    NodeclStaticInfo::NodeclStaticInfo( ObjectList<Analysis::Utils::InductionVariableData*> induction_variables,
-                                        Utils::ext_sym_set killed )
-            : _induction_variables( induction_variables ), _killed( killed )
+    NodeclStaticInfo::NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
+                                        Utils::ext_sym_set killed, Node* autoscoped_task )
+            : _induction_variables( induction_variables ), _killed( killed ),
+              _autoscoped_task( autoscoped_task )
     {}
 
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
@@ -174,78 +175,37 @@ namespace Analysis {
         return _induction_variables;
     }
 
-    bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n ) const
+    void NodeclStaticInfo::print_auto_scoping_results( ) const
     {
-        bool result = true;
-
-        if( n.is<Nodecl::ArraySubscript>( ) )
+        if( _autoscoped_task != NULL )
         {
-            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
-            Nodecl::List::iterator it = subscript.begin( );
-            for( ; it != subscript.end( ) - 1; ++it )
-            {   // All dimensions but the less significant must be constant
-                if( !it->is_constant( ) )
-                {
-                    result = false;
-                    break;
-                }
-            }
-            // The less significant dimension must be accessed by an (+/-)c +/- IV, where c is a constant
-            if( it == subscript.end( ) - 1 )
-            {
-                Nodecl::Utils::ReduceExpressionVisitor v;
-                Nodecl::NodeclBase s = it->shallow_copy( );
-                v.walk( s );
-
-
-                if( !is_induction_variable( s ) )
-                {
-                    if( s.is<Nodecl::Add>( ) )
-                    {
-                        Nodecl::NodeclBase lhs = s.as<Nodecl::Add>( ).get_lhs( );
-                        Nodecl::NodeclBase rhs = s.as<Nodecl::Add>( ).get_rhs( );
-                        if( !lhs.is_constant( ) || !is_induction_variable( rhs )
-                            || ( is_induction_variable( rhs ) && !get_induction_variable( rhs )->is_increment_one( ) ) )
-                        {
-                            result = false;
-                        }
-                    }
-                    else if ( s.is<Nodecl::Minus>( ) )
-                    {
-                        Nodecl::NodeclBase lhs = s.as<Nodecl::Minus>( ).get_lhs( );
-                        Nodecl::NodeclBase rhs = s.as<Nodecl::Minus>( ).get_rhs( );
-                        if( !lhs.is_constant( ) || !is_induction_variable( rhs )
-                            || ( is_induction_variable( rhs ) && !get_induction_variable( rhs )->is_increment_one( ) ) )
-                        {
-                            result = false;
-                        }
-                    }
-                    else
-                    {
-                        result = false;
-                    }
-                }
-                else if ( /*is_induction_variable( s )*/ !get_induction_variable( s )->is_increment_one( ) )
-                {
-                    result = false;
-                }
-            }
+            _autoscoped_task->print_auto_scoping( );
         }
+    }
 
-        return result;
+    Utils::AutoScopedVariables NodeclStaticInfo::get_auto_scoped_variables( )
+    {
+        Utils::AutoScopedVariables autosc_vars;
+        if( _autoscoped_task != NULL )
+        {
+            autosc_vars = _autoscoped_task->get_auto_scoped_variables( );
+        }
+        return autosc_vars;
     }
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
     // ********************************************************************************************* //
-
-
-
+    
+    
+    
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                             WhereAnalysis nested_analysis_mask, int nesting_level)
     {
+        _node = n;
+
         TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis( );
 
         TL::Analysis::PCFGAnalysis_memento analysis_state;
@@ -274,7 +234,11 @@ namespace Analysis {
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            ObjectList<ExtensibleGraph*> pcfgs = analysis.induction_variables( analysis_state, n );
+            analysis.induction_variables( analysis_state, n );
+        }
+        if( analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
+        {
+            analysis.auto_scoping( analysis_state, n );
         }
 
         // Save static analysis
@@ -287,6 +251,11 @@ namespace Analysis {
     static_info_map_t AnalysisStaticInfo::get_static_info_map( ) const
     {
         return _static_info_map;
+    }
+
+    Nodecl::NodeclBase AnalysisStaticInfo::get_nodecl_origin( ) const
+    {
+        return _node;
     }
 
     bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
@@ -431,6 +400,61 @@ namespace Analysis {
         return result;
     }
 
+    bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                                     ObjectList<Symbol> suitable_syms, int unroll_factor, int alignment ) const 
+    {
+        bool result = false;
+        
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether the memory access '%s' aligned.'",
+            scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_simd_aligned_access( n, suitable_syms, unroll_factor, alignment );
+        }
+        
+        return result;
+    }
+    
+    void AnalysisStaticInfo::print_auto_scoping_results( const Nodecl::NodeclBase& scope )
+    {
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot print its auto-scoping results.'",
+                             scope.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            current_info.print_auto_scoping_results( );
+        }
+    }
+
+    Utils::AutoScopedVariables AnalysisStaticInfo::get_auto_scoped_variables( const Nodecl::NodeclBase scope )
+    {
+        Utils::AutoScopedVariables res;
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot print its auto-scoping results.'",
+                             scope.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            res = current_info.get_auto_scoped_variables( );
+        }
+        return res;
+    }
+
     // ************************** END User interface for static analysis *************************** //
     // ********************************************************************************************* //
 
@@ -463,18 +487,24 @@ namespace Analysis {
     void NestedBlocksStaticInfoVisitor::retrieve_current_node_static_info( Nodecl::NodeclBase n )
     {
         // The queries to the analysis info depend on the mask
-        Utils::ext_sym_set cs;
-        ObjectList<Analysis::Utils::InductionVariableData*> ivs;
-        if( _analysis_mask._which_analysis & WhichAnalysis::CONSTANTS_ANALYSIS )
-        {
-            cs = _state.get_killed( n );
-        }
+        ObjectList<Analysis::Utils::InductionVariableData*> induction_variables;
+        Utils::ext_sym_set constants;
+        Node* autoscoped_task;
         if( _analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
-            ivs = _state.get_induction_variables( n );
+            induction_variables = _state.get_induction_variables( n );
+        }
+        if( _analysis_mask._which_analysis & WhichAnalysis::CONSTANTS_ANALYSIS )
+        {
+            constants = _state.get_killed( n );
+        }
+        if( ( _analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
+            && n.is<Nodecl::OpenMP::Task>( ) )
+        {
+            autoscoped_task = _state.get_autoscoped_task( n );
         }
 
-        NodeclStaticInfo static_info( ivs, cs );
+        NodeclStaticInfo static_info( induction_variables, constants, autoscoped_task );
         _analysis_info.insert( static_info_pair_t( n, static_info ) );
     }
 
@@ -490,23 +520,6 @@ namespace Analysis {
 
                 // Nested nodes info
                 walk( n.get_statement( ) );
-            }
-        }
-    }
-
-    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::IfElseStatement& n )
-    {
-        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_IF_STATIC_INFO )
-        {
-            _current_level++;
-            if( _current_level <= _nesting_level )
-            {
-                // Current nodecl info
-                retrieve_current_node_static_info( n );
-
-                // Nested nodes info
-                walk( n.get_then( ) );
-                walk( n.get_else( ) );
             }
         }
     }
@@ -538,6 +551,39 @@ namespace Analysis {
 
             // Nested nodecl info
             walk( n.get_statements( ) );
+        }
+    }
+
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::IfElseStatement& n )
+    {
+        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_IF_STATIC_INFO )
+        {
+            _current_level++;
+            if( _current_level <= _nesting_level )
+            {
+                // Current nodecl info
+                retrieve_current_node_static_info( n );
+
+                // Nested nodes info
+                walk( n.get_then( ) );
+                walk( n.get_else( ) );
+            }
+        }
+    }
+
+    void NestedBlocksStaticInfoVisitor::visit( const Nodecl::OpenMP::Task& n )
+    {
+        if( _nested_analysis_mask._where_analysis & WhereAnalysis::NESTED_OPENMP_TASK_STATIC_INFO )
+        {
+            _current_level++;
+            if( _current_level <= _nesting_level )
+            {
+                // Current nodecl info
+                retrieve_current_node_static_info( n );
+
+                // Nested nodecl info
+                walk( n.get_statements( ) );
+            }
         }
     }
 

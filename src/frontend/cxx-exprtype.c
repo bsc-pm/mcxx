@@ -5884,6 +5884,25 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     }
 }
 
+
+static char check_builtin_subscript_type(nodecl_t subscript,
+        type_t* subscript_type,
+        decl_context_t decl_context)
+{
+    if (!is_integral_type(no_ref(subscript_type)) &&
+            !is_enum_type(no_ref(subscript_type)))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid type '%s' for subscript\n",
+                    locus_to_str(nodecl_get_locus(subscript)),
+                    print_type_str(no_ref(subscript_type), decl_context));
+        }
+        return false;
+    }
+    return true;
+}
+
 static void check_nodecl_array_subscript_expression(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
@@ -5933,6 +5952,12 @@ static void check_nodecl_array_subscript_expression(
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
 
+        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+        {
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
         if (nodecl_get_kind(nodecl_subscripted) != NODECL_ARRAY_SUBSCRIPT)
         {
             *nodecl_output = nodecl_make_array_subscript(
@@ -5958,6 +5983,12 @@ static void check_nodecl_array_subscript_expression(
     else if (is_pointer_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(pointer_type_get_pointee_type(no_ref(subscripted_type)));
+
+        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+        {
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
 
         *nodecl_output = nodecl_make_array_subscript(
                 nodecl_subscripted,

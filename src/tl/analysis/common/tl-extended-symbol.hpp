@@ -48,12 +48,6 @@ namespace Utils {
         private:
             Nodecl::NodeclBase _n;
 
-            //! Returns the symbol contained in a nodecl which is an Extensible Symbol or
-            //! a part of a nodecl which is an Extensible Symbol
-            ObjectList<Symbol> get_nodecl_symbols( const Nodecl::NodeclBase& n ) const;
-
-            Symbol get_nodecl_symbol( const Nodecl::NodeclBase& n ) const;
-
         public:
             // *** Constructors *** //
 
@@ -80,17 +74,13 @@ namespace Utils {
 
             Symbol get_symbol( ) const;
 
-            //! Returns the name of the wrapped symbol.
-            std::string get_name( ) const;
-
-            //! Returns the type of the wrapped symbol.
-            Type get_type( ) const;
-
             //! Returns the nodecl associated with the wrapped symbol.
             Nodecl::NodeclBase get_nodecl( ) const;
 
+            //! Returns all nodecl bases of a given nodecl
             static ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
 
+            //!Returns the nodecl base of a nodecl when it only has one ( a nodecl base has always a related symbol)
             static Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
 
             //! Returns true when the extensible symbol contains a symbols which do not represents

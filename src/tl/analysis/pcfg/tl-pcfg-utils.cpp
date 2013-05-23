@@ -37,12 +37,12 @@ namespace Analysis {
         : _init( NULL ), _cond( NULL ), _next( NULL )
     {}
 
-    PCFGLoopControl::PCFGLoopControl( const PCFGLoopControl& loop_ctrl )
-    {
-        _init = loop_ctrl._init;
-        _cond = loop_ctrl._cond;
-        _next = loop_ctrl._next;
-    }
+//     PCFGLoopControl::PCFGLoopControl( const PCFGLoopControl& loop_ctrl )
+//     {
+//         _init = loop_ctrl._init;
+//         _cond = loop_ctrl._cond;
+//         _next = loop_ctrl._next;
+//     }
 
     PCFGLoopControl::~PCFGLoopControl( )
     {
@@ -63,12 +63,12 @@ namespace Analysis {
         : _handler_parents( ), _handler_exits( ), _nhandlers( -1 )
     {}
 
-    PCFGTryBlock::PCFGTryBlock( const PCFGTryBlock& try_block )
-    {
-        _handler_parents = try_block._handler_parents;
-        _handler_exits = try_block._handler_exits;
-        _nhandlers = try_block._nhandlers;
-    }
+//     PCFGTryBlock::PCFGTryBlock( const PCFGTryBlock& try_block )
+//     {
+//         _handler_parents = try_block._handler_parents;
+//         _handler_exits = try_block._handler_exits;
+//         _nhandlers = try_block._nhandlers;
+//     }
 
     PCFGTryBlock::~PCFGTryBlock( )
     {}
@@ -76,6 +76,22 @@ namespace Analysis {
     // ****************************** END PCFG Try block class ****************************** //
     // ************************************************************************************** //
 
+
+    PCFGSwitch::PCFGSwitch( Node* condition, Node* exit  )
+        : _condition( condition ), _exit( exit )
+    {}
+
+//     PCFGSwitch::PCFGSwitch( const PCFGSwitch& switch_block )
+//     {
+//         _condition = switch_block._condition;
+//         _exit = switch_block._exit;
+//     }
+
+    PCFGSwitch::~PCFGSwitch( )
+    {
+        delete _condition;
+        delete _exit;
+    }
 
 
     // ************************************************************************************** //
@@ -154,7 +170,7 @@ namespace Analysis {
     PCFGVisitUtils::PCFGVisitUtils( )
         : _last_nodes( ), _return_nodes( ), _outer_nodes( ),
           _continue_nodes( ), _break_nodes( ), _labeled_nodes( ), _goto_nodes( ),
-          _switch_condition_nodes( ), _nested_loop_nodes( ), _tryblock_nodes( ),
+          _switch_nodes( ), _nested_loop_nodes( ), _tryblock_nodes( ),
           _pragma_nodes( ), _context_nodecl( ), _section_nodes( ), _environ_entry_exit( ),
           _tasks_to_sync( ), _task_level( 0 ), _nid( -1 )
     {}

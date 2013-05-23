@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef SSE_MODULE_HPP
-#define SSE_MODULE_HPP
+#ifndef KNC_MODULE_HPP
+#define KNC_MODULE_HPP
 
 #include "codegen-common.hpp"
 #include "tl-nodecl-base.hpp"
@@ -33,11 +33,15 @@
 
 namespace Codegen
 {
-    class SSEModuleVisitor : public CodegenModuleVisitor
+    class KNCModuleVisitor : public CodegenModuleVisitor
     {
+        private:
+            bool is_int_gather_func_defined;
+            bool is_float_gather_func_defined;
+
         public:
 
-            SSEModuleVisitor(CodegenVisitor* base_codegen);
+            KNCModuleVisitor(CodegenVisitor* base_codegen);
 
             void visit(const Nodecl::VectorAdd& node);
             void visit(const Nodecl::VectorMinus& node);
@@ -56,10 +60,13 @@ namespace Codegen
             
             void visit(const Nodecl::VectorConversion& node);
             void visit(const Nodecl::VectorConditionalExpression& node);
-            void visit(const Nodecl::ConstantVectorPromotion& node);
+            void visit(const Nodecl::VectorPromotion& node);
+            void visit(const Nodecl::VectorLiteral& node);
             void visit(const Nodecl::VectorAssignment& node);
             void visit(const Nodecl::VectorLoad& node);
             void visit(const Nodecl::VectorStore& node);
+            void visit(const Nodecl::VectorGather& node);
+            void visit(const Nodecl::VectorScatter& node);
            
             void visit(const Nodecl::VectorFunctionCall& node);
             void visit(const Nodecl::VectorFabs& node);
@@ -68,4 +75,4 @@ namespace Codegen
     };
 }
 
-#endif // SSE_MODULE_HPP
+#endif // KNC_MODULE_HPP

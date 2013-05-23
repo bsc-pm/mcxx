@@ -164,6 +164,7 @@ struct decl_context_tag
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend function") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend class") \
     SYMBOL_KIND(SK_USING, "using declared name") \
+    SYMBOL_KIND(SK_USING_TYPENAME, "using typename declared name") \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
 
 #define SYMBOL_KIND_TABLE_FORTRAN \

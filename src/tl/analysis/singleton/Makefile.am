@@ -34,14 +34,15 @@ libanalysis_singleton_la_CFLAGS= $(tl_cflags)
 libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				    -I $(srcdir)/../.. -I $(srcdir)/../common -I $(srcdir)/../pcfg \
 				    -I $(srcdir)/../use_def -I $(srcdir)/../liveness -I $(srcdir)/../reach_defs \
-				    -I $(srcdir)/../loops
+				    -I $(srcdir)/../loops -I $(srcdir)/../auto-scope
 libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
 libanalysis_singleton_la_LIBADD= $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la \
 					        ../use_def/libuse_def.la ../liveness/libliveness.la ../reach_defs/libreaching_definitions.la \
-					        ../loops/libloops_analysis.la
+					        ../loops/libloops_analysis.la ../auto-scope/libauto_scope.la
 
 libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \
                                   tl-analysis-static-info.hpp \
-				   tl-analysis-singleton.hpp \
+                                  tl-vectorization-analysis.cpp \
+                                  tl-analysis-singleton.hpp \
                                   tl-analysis-singleton.cpp \
                                   $(END)

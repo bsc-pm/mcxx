@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,17 +24,27 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CODEGEN_VECTOR_PHASE_HPP
-#define CODEGEN_VECTOR_PHASE_HPP
 
-#include "tl-compilerphase.hpp"
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+void s(void *);
 
-namespace Codegen
+void f(int n)
 {
-    class CodegenVectorPhase : public TL::CompilerPhase
-    {
-        virtual void run(TL::DTO& dto);
-    };
-}
+    if (1)
+        s((int (*)[n])0);
+    else
+        s((int (*)[n])0);
 
-#endif // CODEGEN_VECTOR_PHASE_HPP
+    while (1)
+        s((int (*)[n])0);
+
+    for(;;)
+        s((int (*)[n])0);
+
+    switch (0)
+        s((int (*)[n])0);
+}

@@ -24,19 +24,44 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "codegen-vector-phase.hpp"
-#include "codegen-phase.hpp"
-#include "codegen-sse-module.hpp"
-//#include "tl-vectorizer.hpp"
 
-namespace Codegen
+
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+
+template <typename T>
+struct A
 {
-    void CodegenVectorPhase::run(TL::DTO& dto)
-    {
-        // Set Codegen Vector Module
-        CodegenPhase& current_codegen = Codegen::get_current();
-        current_codegen.set_module_vector(new SSEModuleVisitor(&current_codegen)); // TODO
-    }
-}
+    void foo(int*);
 
-EXPORT_PHASE(Codegen::CodegenVectorPhase);
+    struct MyStruct
+    {
+    };
+};
+
+template <typename T>
+struct B : A<T>
+{
+    using typename A<T>::MyStruct;
+
+     MyStruct bar();
+
+    using A<T>::foo;
+    void foo(float*);
+};
+
+void g()
+{
+    B<int> b;
+
+     A<int>::MyStruct m = b.bar();
+
+    float r;
+    b.foo(&r);
+
+    int i;
+    b.foo(&i);
+}

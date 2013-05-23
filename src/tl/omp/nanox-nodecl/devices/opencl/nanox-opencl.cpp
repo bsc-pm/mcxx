@@ -409,6 +409,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
 
     output_statements = task_statements;
 
@@ -606,7 +607,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         }
         fun_visitor.insert_extra_symbols(task_statements);
 
-        Nodecl::Utils::Fortran::copy_used_modules(
+        Nodecl::Utils::Fortran::append_used_modules(
                 original_statements.retrieve_context(),
                 unpacked_function_scope);
 
@@ -616,6 +617,9 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                     info._called_task.get_related_scope(),
                     unpacked_function_scope);
         }
+
+        // Add also used types
+        add_used_types(data_items, unpacked_function.get_related_scope());
 
         // Now get all the needed internal functions and replicate them in the outline
         Nodecl::Utils::Fortran::InternalFunctions internal_functions;
@@ -668,27 +672,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             structure_name,
             structure_type);
 
-    if (IS_FORTRAN_LANGUAGE
-            && current_function.is_in_module())
-    {
-        scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-        unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                unpacked_function.get_internal_symbol());
-
-        unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-        outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                outline_function.get_internal_symbol());
-        outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-    }
-
     Nodecl::NodeclBase outline_function_code, outline_function_body;
     build_empty_body_for_function(outline_function,
             outline_function_code,
@@ -702,8 +685,6 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     Source unpacked_arguments, cleanup_code;
 
-    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
             it++)
@@ -873,8 +854,10 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         {
             TL::Symbol &function(*functions[i]);
 
-            Nodecl::Utils::Fortran::copy_used_modules(original_statements.retrieve_context(),
+            Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                     function.get_related_scope());
+
+            add_used_types(data_items, function.get_related_scope());
         }
 
         // Generate ancillary code in C
