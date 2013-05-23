@@ -12815,6 +12815,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             nodecl_make_expression_statement(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(class_type_get_destructor(entry->type_information), make_locus("", 0, 0)),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_make_symbol(entry, make_locus("", 0, 0))),
                         /* function_form */ nodecl_null(),
                         get_void_type(),
@@ -12992,7 +12993,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 {
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
                             "I expected a conversion function!", 0);
-                    *nodecl_output = cxx_nodecl_make_function_call(nodecl_make_symbol(conversor, ast_get_locus(initializer)),
+                    *nodecl_output = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversor, ast_get_locus(initializer)),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(*nodecl_output),
                             /* function_form */ nodecl_null(),
                             function_type_get_return_type(conversor->type_information), ast_get_locus(initializer));

@@ -2246,6 +2246,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
                     *lhs = cxx_nodecl_make_function_call(
                             nodecl_conversor,
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(*lhs),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*lhs)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(*lhs));
@@ -2310,6 +2311,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
                 *rhs = cxx_nodecl_make_function_call(
                         nodecl_conversor,
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(*rhs),
                         nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*rhs)),
                         actual_type_of_conversor(conversors[1]), nodecl_get_locus(*rhs));
@@ -2478,6 +2480,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
                     *op = cxx_nodecl_make_function_call(
                             nodecl_conversor,
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(*op),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*op)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(*op));
@@ -2856,6 +2859,7 @@ void compute_bin_operator_generic(
 
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_selected_op,
+                    /* called name */ nodecl_null(),
                     nodecl_make_list_2(*lhs, *rhs),
                     nodecl_make_cxx_function_form_binary_infix(locus),
                     result, locus);
@@ -4231,6 +4235,7 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
             *nodecl_output = 
                 cxx_nodecl_make_function_call(
                         nodecl_selected_op,
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_2(*lhs, *rhs),
                         nodecl_make_cxx_function_form_binary_infix(nodecl_get_locus(*lhs)),
                         result, locus);
@@ -4637,6 +4642,7 @@ static void compute_unary_operator_generic(
             *nodecl_output = 
                 cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, locus),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(*op),
                         nodecl_make_cxx_function_form_unary_prefix(locus),
                         result, locus);
@@ -6100,6 +6106,7 @@ static void check_nodecl_array_subscript_expression(
 
                 nodecl_subscript = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[1], locus),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_subscript),
                         nodecl_make_cxx_function_form_implicit(locus),
                         actual_type_of_conversor(conversors[1]), locus);
@@ -6140,6 +6147,7 @@ static void check_nodecl_array_subscript_expression(
         // a[b] becomes a.operator[](b)
         *nodecl_output = cxx_nodecl_make_function_call(
                 nodecl_make_symbol(overloaded_call, locus),
+                /* called name */ nodecl_null(),
                 nodecl_make_list_2(nodecl_subscripted, nodecl_subscript),
                 // Ideally this should have a specific function form
                 /* function-form */ nodecl_null(),
@@ -6702,6 +6710,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
 
                     nodecl_conditional[k] = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[k], locus),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(nodecl_conditional[k]),
                             nodecl_make_cxx_function_form_implicit(locus),
                             actual_type_of_conversor(conversors[k]),
@@ -6942,6 +6951,7 @@ UNUSED_PARAMETER static void check_default_constructor(type_t* t,
 
         *nodecl_output = cxx_nodecl_make_function_call(
                 nodecl_make_symbol(chosen_constructor, locus),
+                /* called name */ nodecl_null(),
                 /* args */ nodecl_null(),
                 nodecl_make_cxx_function_form_implicit(locus),
                 actual_type_of_conversor(chosen_constructor),
@@ -7198,6 +7208,7 @@ static void check_new_expression_impl(
 
                     nodecl_expr = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[j], nodecl_get_locus(nodecl_expr)),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(nodecl_expr),
                             nodecl_make_cxx_function_form_implicit(
                                 nodecl_get_locus(nodecl_expr)),
@@ -8389,6 +8400,7 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
     // Everything else seems fine
     *nodecl_output = cxx_nodecl_make_function_call(
             nodecl_called,
+            /* called name */ nodecl_null(),
             nodecl_argument_list_output,
             /* function_form */ nodecl_null(), // We don't need a function form in C language
             return_type,
@@ -8609,6 +8621,7 @@ void check_nodecl_function_call(
             // Everything seems fine here
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_called,
+                    /* called name */ nodecl_null(),
                     nodecl_argument_list_output,
                     function_form,
                     return_type,
@@ -8849,6 +8862,7 @@ void check_nodecl_function_call(
 
         nodecl_called = cxx_nodecl_make_function_call(
                 nodecl_called_surrogate,
+                /* called name */ nodecl_null(),
                 nodecl_make_list_1(nodecl_implicit_argument),
                 nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_implicit_argument)),
                 function_type_get_return_type(overloaded_call->entity_specs.alias_to->type_information),
@@ -8965,6 +8979,7 @@ void check_nodecl_function_call(
 
                         nodecl_arg = cxx_nodecl_make_function_call(
                                 nodecl_conversor,
+                                /* called name */ nodecl_null(),
                                 nodecl_make_list_1(nodecl_arg),
                                 nodecl_make_cxx_function_form_implicit(
                                     nodecl_get_locus(nodecl_arg)),
@@ -8983,6 +8998,7 @@ void check_nodecl_function_call(
 
     // Everything seems fine here
     *nodecl_output = cxx_nodecl_make_function_call(nodecl_called, 
+            nodecl_called_name,
             nodecl_argument_list_output, 
             function_form,
             return_type,
@@ -9211,6 +9227,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
             *nodecl_output = 
                 cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, locus),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_2(nodecl_lhs, nodecl_rhs),
                         // This should be a binary infix but comma breaks everything
                         /* function form */ nodecl_null(),
@@ -9632,6 +9649,7 @@ static void check_nodecl_member_access(
             nodecl_make_dereference(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator_arrow, nodecl_get_locus(nodecl_accessed)),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_accessed),
                         // Ideally this should be binary infix but this call does not fit in any cathegory
                         /* function form */ nodecl_null(), 
@@ -9920,6 +9938,7 @@ static void check_postoperator_user_defined(
                     cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[0], 
                                 nodecl_get_locus(postoperated_expr)),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(postoperated_expr),
                             nodecl_make_cxx_function_form_implicit(
                                 nodecl_get_locus(postoperated_expr)),
@@ -9942,6 +9961,7 @@ static void check_postoperator_user_defined(
             cxx_nodecl_make_function_call(
                     nodecl_make_symbol(overloaded_call, 
                         nodecl_get_locus(postoperated_expr)),
+                    /* called name */ nodecl_null(),
                     nodecl_make_list_2(/* 0 */
                         postoperated_expr,
                         const_value_to_nodecl(const_value_get_zero(type_get_size(get_signed_int_type()), /* signed */ 1))),
@@ -10061,6 +10081,7 @@ static void check_preoperator_user_defined(AST operator,
                 preoperated_expr = 
                     cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[0], nodecl_get_locus(preoperated_expr)),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(preoperated_expr),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(preoperated_expr)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(preoperated_expr));
@@ -10081,6 +10102,7 @@ static void check_preoperator_user_defined(AST operator,
         *nodecl_output = 
             cxx_nodecl_make_function_call(
                     nodecl_make_symbol(overloaded_call, nodecl_get_locus(preoperated_expr)),
+                    /* called name */ nodecl_null(),
                     nodecl_make_list_1(preoperated_expr),
                     nodecl_make_cxx_function_form_unary_prefix(nodecl_get_locus(preoperated_expr)),
                     function_type_get_return_type(overloaded_call->type_information), 
@@ -11252,6 +11274,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             cxx_nodecl_make_function_call(
                                     nodecl_make_symbol(conversors[i],
                                         nodecl_get_locus(nodecl_current)),
+                                    /* called name */ nodecl_null(),
                                     nodecl_make_list_1(nodecl_current),
                                     nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_current)),
                                     actual_type_of_conversor(conversors[i]),
@@ -11265,6 +11288,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor,
                             locus),
+                        /* called name */ nodecl_null(),
                         nodecl_arguments_output,
                         nodecl_make_cxx_function_form_implicit(locus),
                         declared_type,
@@ -11368,6 +11392,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             cxx_nodecl_make_function_call(
                                     nodecl_make_symbol(conversors[i], 
                                         nodecl_get_locus(nodecl_current)),
+                                    /* called name */ nodecl_null(),
                                     nodecl_make_list_1(nodecl_current),
                                     nodecl_make_cxx_function_form_implicit(
                                         nodecl_get_locus(nodecl_current)),
@@ -11381,6 +11406,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
                 *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_make_structured_value(nodecl_arguments_output,
                                 specialized_std_initializer,
                                 locus)),
@@ -11694,6 +11720,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 {
                     nodecl_arg = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[i], nodecl_get_locus(nodecl_arg)),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(nodecl_arg),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_arg)),
                             actual_type_of_conversor(conversors[i]), nodecl_get_locus(nodecl_arg));
@@ -11704,6 +11731,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(chosen_constructor, locus),
+                    /* called name */ nodecl_null(),
                     argument_list,
                     is_explicit ? nodecl_null() : nodecl_make_cxx_function_form_implicit(locus),
                     actual_type_of_conversor(chosen_constructor),
@@ -11986,6 +12014,7 @@ static void check_nodecl_pointer_to_pointer_member(
             *nodecl_output =
                     cxx_nodecl_make_function_call(
                         nodecl_rhs,
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_lhs),
                         nodecl_make_cxx_function_form_unary_prefix(locus),
                         function_type_get_return_type(selected_operator->type_information),
@@ -12469,6 +12498,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(conversor,
                         nodecl_get_locus(nodecl_expr)),
+                    /* called name */ nodecl_null(),
                     nodecl_make_list_1(nodecl_expr),
                     nodecl_make_cxx_function_form_implicit(
                         nodecl_get_locus(nodecl_expr)),
@@ -12565,6 +12595,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         {
             nodecl_expr = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(conversor, nodecl_get_locus(nodecl_expr)),
+                    /* called name */ nodecl_null(),
                     nodecl_make_list_1(nodecl_expr),
                     nodecl_make_cxx_function_form_implicit(
                         nodecl_get_locus(nodecl_expr)),
@@ -12575,6 +12606,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         // Remember a call to the constructor here
         *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(chosen_constructor, nodecl_get_locus(nodecl_expr)),
+                    /* called name */ nodecl_null(),
                     nodecl_make_list_1(nodecl_expr),
                     nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_expr)),
                     declared_type_no_cv,
@@ -14614,7 +14646,9 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
     return result;
 }
 
-nodecl_t cxx_nodecl_make_function_call(nodecl_t called,
+nodecl_t cxx_nodecl_make_function_call(
+        nodecl_t called,
+        nodecl_t called_name,
         nodecl_t arg_list,
         nodecl_t function_form,
         type_t* t,
@@ -14735,7 +14769,10 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called,
             }
 
             if (called_symbol->entity_specs.is_member
-                    && called_symbol->entity_specs.is_virtual)
+                    && called_symbol->entity_specs.is_virtual
+                    && (nodecl_is_null(called_name)
+                        || (nodecl_get_kind(called_name) != NODECL_CXX_DEP_NAME_NESTED
+                            && nodecl_get_kind(called_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED)))
             {
                 return nodecl_make_virtual_function_call(called,
                         converted_arg_list,
