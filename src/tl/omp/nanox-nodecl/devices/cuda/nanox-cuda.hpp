@@ -41,6 +41,8 @@ namespace TL
             private:
 
                 Nodecl::List _cuda_file_code;
+                bool _cuda_tasks_processed;
+                Nodecl::NodeclBase _root;
 
                 void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 

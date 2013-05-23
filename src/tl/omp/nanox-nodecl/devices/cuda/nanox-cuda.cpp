@@ -259,6 +259,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for CUDA devices is not supported yet\n");
 
+    _cuda_tasks_processed=true;
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -570,7 +571,21 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
 }
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
-{
+{    
+    if (_cuda_tasks_processed){
+        Source nanox_device_enable_section;
+        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";
+        if (IS_FORTRAN_LANGUAGE)
+           Source::source_language = SourceLanguage::C;
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+        Source::source_language = SourceLanguage::Current;
+        if (IS_FORTRAN_LANGUAGE){
+           //_extra_c_code.prepend(functions_section_tree); 
+        } else {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+        }
+        _cuda_tasks_processed = false;
+    }
     if (!_cuda_file_code.is_null())
     {
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
@@ -617,6 +632,8 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
 void DeviceCUDA::pre_run(DTO& dto)
 {
+    _root = dto["nodecl"];
+    _cuda_tasks_processed = false;
 }
 
 void DeviceCUDA::run(DTO& dto)

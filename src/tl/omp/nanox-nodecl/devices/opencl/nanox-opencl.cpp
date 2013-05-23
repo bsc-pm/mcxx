@@ -402,6 +402,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
+    _opencl_tasks_processed=true;
     // Unpack DTO
     const std::string& outline_name = ocl_outline_name(info._outline_name);
     const Nodecl::NodeclBase& task_statements = info._task_statements;
@@ -1076,7 +1077,22 @@ void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::Nodecl
 }
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
-{
+{    
+    if (_opencl_tasks_processed){
+        Source nanox_device_enable_section;
+        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_opencl = 1;";
+        if (IS_FORTRAN_LANGUAGE)
+           Source::source_language = SourceLanguage::C;
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+        Source::source_language = SourceLanguage::Current;
+        if (IS_FORTRAN_LANGUAGE){
+           _extra_c_code.prepend(functions_section_tree); 
+        } else {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+        }
+        _opencl_tasks_processed = false;
+    }
+    
     if (_extra_c_code.is_null())
         return;
 
@@ -1116,6 +1132,8 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 
 void DeviceOpenCL::pre_run(DTO& dto)
 {
+    _root = dto["nodecl"];
+    _opencl_tasks_processed = false;
 }
 
 void DeviceOpenCL::run(DTO& dto)
