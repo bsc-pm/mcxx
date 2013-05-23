@@ -13024,6 +13024,52 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
 }
 
+static nodecl_t normalize_multiple_statements(nodecl_t multiple_statements,
+        decl_context_t context_of_stmts UNUSED_PARAMETER)
+{
+    if (nodecl_is_null(multiple_statements))
+        return multiple_statements;
+
+    if (!nodecl_is_list(multiple_statements))
+        return multiple_statements;
+
+    if (nodecl_list_length(multiple_statements) == 1
+            && nodecl_get_kind(nodecl_list_head(multiple_statements)) == NODECL_COMPOUND_STATEMENT)
+        return multiple_statements;
+
+    // We simplify
+    //
+    // if (E)
+    //    S1
+    //
+    //    into
+    //
+    // if (E)
+    // {
+    //   S1
+    // }
+    nodecl_t nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_compound_statement(
+                    multiple_statements,
+                    /* finalize */ nodecl_null(),
+                    nodecl_get_locus(multiple_statements))
+                );
+
+    // Note: We are not creating a context for now, but if we have to simply
+    // enable the following code
+    decl_context_t block_context = new_block_context(context_of_stmts);
+    nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_context(
+                    nodecl_result,
+                    block_context,
+                    nodecl_get_locus(multiple_statements)));
+
+    return nodecl_result;
+}
+
+
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
@@ -13039,6 +13085,7 @@ static void build_scope_while_statement(AST a,
         build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
 
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13139,6 +13186,8 @@ static void build_scope_if_else_statement(AST a,
     nodecl_t nodecl_then = nodecl_null();
     build_scope_statement(then_branch, block_context, &nodecl_then);
 
+    // Normalize multiple statements
+
     nodecl_t nodecl_else = nodecl_null();
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
@@ -13146,6 +13195,8 @@ static void build_scope_if_else_statement(AST a,
         build_scope_statement(else_branch, block_context, &nodecl_else);
     }
 
+    nodecl_then = normalize_multiple_statements(nodecl_then, block_context);
+    nodecl_else = normalize_multiple_statements(nodecl_else, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13249,6 +13300,7 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, block_context, &nodecl_statement);
 
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ast_get_locus(a));
@@ -13279,6 +13331,7 @@ static void build_scope_switch_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, block_context, &nodecl_statement);
 
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13574,6 +13627,9 @@ static void build_scope_do_statement(AST a,
 
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, decl_context);
+
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(expression, decl_context, &nodecl_expr))
     {
