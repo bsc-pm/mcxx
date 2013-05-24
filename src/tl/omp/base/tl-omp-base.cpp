@@ -227,17 +227,19 @@ namespace TL { namespace OpenMP {
                                 get_assignment_expressions<Nodecl::ModAssignment>(expr, lhs_expr, rhs_expr);
                             else if (expr.is<Nodecl::MulAssignment>())
                                 get_assignment_expressions<Nodecl::MulAssignment>(expr, lhs_expr, rhs_expr);
-                            else
-                                internal_error("Unexpected '%s' node\n", ast_print_node_type(expr.get_kind()));
+                            else rhs_expr = expr;
 
-                            // Create the output depedence
-                            if (expr.is<Nodecl::Assignment>())
+                            // Create the output depedence if needed
+                            if (!lhs_expr.is_null())
                             {
-                                output_dependences.append(lhs_expr.shallow_copy());
-                            }
-                            else
-                            {
-                                inout_dependences.append(lhs_expr.shallow_copy());
+                                if (expr.is<Nodecl::Assignment>())
+                                {
+                                    output_dependences.append(lhs_expr.shallow_copy());
+                                }
+                                else
+                                {
+                                    inout_dependences.append(lhs_expr.shallow_copy());
+                                }
                             }
 
                             // Obtain the nonlocal symbols from the right expression
