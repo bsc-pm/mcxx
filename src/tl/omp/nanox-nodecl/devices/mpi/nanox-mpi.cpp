@@ -44,6 +44,7 @@
 #include "cxx-cexpr.h"
 #include "filename.h"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 //#include "codegen-fortran.hpp"
 
 //#include <iostream>
@@ -90,7 +91,7 @@ static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items)
             }
              //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
             if ((*it)->get_symbol().is_allocatable()){
-                if ((*it)->get_symbol().is_from_module()){
+                if ((*it)->get_symbol().is_from_module()){  
 //                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
                     (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
                     (*it)->get_copies().clear();
@@ -398,7 +399,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     ObjectList<std::string> structure_name;
     ObjectList<TL::Type> structure_type;
     // Create the new unpacked function
-    TL::Symbol device_function = new_function_symbol(
+    TL::Symbol device_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name + "_device",
             TL::Type::get_void_type(),
@@ -406,7 +407,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             structure_type);
     
     Nodecl::NodeclBase device_function_code, device_function_body;
-    build_empty_body_for_function(device_function,
+    SymbolUtils::build_empty_body_for_function(device_function,
             device_function_code,
             device_function_body);
     
@@ -420,7 +421,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             get_user_defined_type(
             info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
-    TL::Symbol host_function = new_function_symbol(
+    TL::Symbol host_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name + "_host",
             TL::Type::get_void_type(),
@@ -428,7 +429,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             structure_type);
     
     Nodecl::NodeclBase host_function_code, host_function_body;
-    build_empty_body_for_function(host_function,
+    SymbolUtils::build_empty_body_for_function(host_function,
             host_function_code,
             host_function_body);
     
@@ -464,7 +465,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     }
     
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
     
@@ -910,8 +911,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
                "extern void " << device_outline_name << "_device"  << append << "(void);";
     }
-    _sectionCodeHost.append_with_separator("(void*)" + device_outline_name + "_host" + append,",");
-    _sectionCodeDevice.append_with_separator("(void(*)())" + device_outline_name + "_device" + append,",");
+    
+    _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
+    _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
     
 }
 
