@@ -248,6 +248,9 @@ namespace TL { namespace OpenMP {
                         else if (enclosing_stmt.is<Nodecl::ObjectInit>())
                         {
                             TL::Symbol sym = enclosing_stmt.as<Nodecl::ObjectInit>().get_symbol();
+
+                            sym.get_internal_symbol()->type_information = sym.get_type().get_unqualified_type().get_internal_type();
+
                             Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                             sym_nodecl.set_type(sym.get_type());
 
