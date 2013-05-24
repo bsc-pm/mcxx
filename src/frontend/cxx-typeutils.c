@@ -11281,7 +11281,8 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
     type_t* result = orig;
 
-    if (is_named_type(orig))
+    if (is_named_type(orig)
+            && (is_named_class_type(orig) || is_named_enumerated_type(orig)))
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);

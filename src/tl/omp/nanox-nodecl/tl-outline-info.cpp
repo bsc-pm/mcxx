@@ -314,6 +314,8 @@ namespace TL { namespace Nanox {
             {
                 outline_data_item->set_allocation_policy(
                         OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                outline_data_item->set_field_type(
+                        TL::Type::get_void_type().get_pointer_to());
             }
         }
         else

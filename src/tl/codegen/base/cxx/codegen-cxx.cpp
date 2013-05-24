@@ -5299,7 +5299,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             // the symbol will be already called 'struct/union X' in C
             indent();
-            file << symbol.get_name();
+            file << symbol.get_name() << ";\n";
         }
 
         CXX_LANGUAGE()
@@ -5412,10 +5412,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 {
                     file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
                 }
+                file << ";\n";
             }
         }
-
-        file << ";\n";
     }
     else if (symbol.is_enumerator())
     {
