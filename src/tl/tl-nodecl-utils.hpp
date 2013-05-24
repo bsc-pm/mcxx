@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NODECL_ALG_HPP
-#define TL_NODECL_ALG_HPP
+#ifndef TL_NODECL_UTILS_HPP
+#define TL_NODECL_UTILS_HPP
 
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-calc.hpp"
@@ -318,4 +318,4 @@ namespace TL
     };
 }
 
-#endif // TL_NODECL_ALG_HPP
+#endif // TL_NODECL_UTILS_HPP
