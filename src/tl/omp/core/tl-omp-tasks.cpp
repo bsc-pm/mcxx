@@ -486,6 +486,11 @@ namespace TL
         {
         }
 
+        const std::map<Symbol, FunctionTaskInfo>& FunctionTaskSet::get_task_map() const
+        {
+            return _map;
+        }
+
         bool FunctionTaskSet::is_function_task(Symbol sym) const
         {
             return (_map.find(sym) != _map.end());
@@ -563,7 +568,7 @@ namespace TL
             module_map_t module_map;
 
             // First group everyone by module
-            for (map_t::iterator it = _map.begin();
+            for (std::map<Symbol, FunctionTaskInfo>::iterator it = _map.begin();
                     it != _map.end();
                     it++)
             {

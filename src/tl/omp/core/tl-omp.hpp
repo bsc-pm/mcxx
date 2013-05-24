@@ -539,10 +539,12 @@ namespace TL
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
         {
             private:
-                typedef std::map<Symbol, FunctionTaskInfo> map_t;
-                map_t _map;
+                std::map<Symbol, FunctionTaskInfo> _map;
+
             public:
                 FunctionTaskSet();
+
+                const std::map<Symbol, FunctionTaskInfo>& get_task_map() const;
 
                 bool is_function_task(Symbol sym) const;
 
