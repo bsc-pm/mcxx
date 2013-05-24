@@ -43,12 +43,8 @@ type : NODECL_TYPE() type
 function-code: regular-function-code
              | template-function-code
 
-internal-function-code: regular-function-code
-                      | template-function-code
-                      | pragma-declaration
-
-regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]internal-function-code-seq-opt) symbol
-template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]internal-function-code-seq-opt) symbol
+regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 
 object-init : NODECL_OBJECT_INIT() symbol
 

@@ -488,7 +488,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                     );
         }
 
-        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+        // unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
     }
 
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
@@ -626,18 +626,10 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::Utils::Fortran::InternalFunctions internal_functions;
         internal_functions.walk(info._original_statements);
 
-        Nodecl::List l;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
-                it2 = internal_functions.function_codes.begin();
-                it2 != internal_functions.function_codes.end();
-                it2++)
-        {
-            l.append(
-                    Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
-                    );
-        }
-
-        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+        duplicate_internal_subprograms(internal_functions.function_codes,
+                unpacked_function.get_related_scope(),
+                symbol_map,
+                output_statements);
 
         extra_declarations
             << "IMPLICIT NONE\n";

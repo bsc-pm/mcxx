@@ -212,6 +212,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> block_declaration
 %type<ast> non_empty_block_declaration
 %type<ast> common_block_declaration
+%type<ast> nested_block_declaration
+%type<ast> nested_function_definition
 %type<ast> builtin_types
 %type<ast> cast_expression
 %type<ast> class_head
@@ -410,6 +412,26 @@ non_empty_block_declaration : non_empty_simple_declaration
     $$ = $1;
 }
 | common_block_declaration
+{
+    $$ = $1;
+}
+| nested_block_declaration
+{
+    $$ = $1;
+}
+;
+
+nested_block_declaration : EXTENSION nested_block_declaration
+{
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| nested_function_definition
+{
+    $$ = $1;
+}
+;
+
+nested_function_definition : function_definition
 {
     $$ = $1;
 }

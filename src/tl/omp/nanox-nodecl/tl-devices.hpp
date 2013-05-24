@@ -245,6 +245,12 @@ namespace TL { namespace Nanox {
     };
 
     void add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc);
+    void duplicate_internal_subprograms(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            );
 } }
 
 #endif // NANOX_DEVICES_H
