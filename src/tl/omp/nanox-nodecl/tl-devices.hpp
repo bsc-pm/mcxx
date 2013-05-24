@@ -220,17 +220,6 @@ namespace TL { namespace Nanox {
                      Source &initial_statements,
                      Source &final_statements);
 
-             TL::Symbol new_function_symbol(
-                     TL::Symbol current_function,
-                     const std::string& name,
-                     TL::Type return_type,
-                     ObjectList<std::string> parameter_names,
-                     ObjectList<TL::Type> parameter_types);
-
-             void build_empty_body_for_function(
-                     TL::Symbol function_symbol,
-                     Nodecl::NodeclBase &function_code,
-                     Nodecl::NodeclBase &empty_stmt);
 
              TL::Type rewrite_type_of_vla_in_outline(
                      TL::Type t,

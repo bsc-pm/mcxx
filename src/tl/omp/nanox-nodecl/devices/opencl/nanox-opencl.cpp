@@ -36,6 +36,7 @@
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 
 #include "codegen-phase.hpp"
 
@@ -466,7 +467,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
 
@@ -665,7 +666,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             TL::Type(get_user_defined_type(info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
             );
 
-    TL::Symbol outline_function = new_function_symbol(
+    TL::Symbol outline_function = SymbolUtils::new_function_symbol(
             current_function,
             outline_name,
             TL::Type::get_void_type(),
@@ -673,7 +674,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             structure_type);
 
     Nodecl::NodeclBase outline_function_code, outline_function_body;
-    build_empty_body_for_function(outline_function,
+    SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_body);
     Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
