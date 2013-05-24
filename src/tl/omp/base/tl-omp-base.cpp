@@ -871,7 +871,7 @@ namespace TL { namespace OpenMP {
                 Nodecl::List argument_list;
                 TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
                 unsigned int new_function_num_related_symbols = new_function.get_num_related_symbols();
-                for (int i = 0; i < (new_function_num_related_symbols - 1); ++i)
+                for (unsigned int i = 0; i < (new_function_num_related_symbols - 1); ++i)
                 {
                     Nodecl::NodeclBase new_arg =
                         Nodecl::Symbol::make(new_function_related_symbols[i],
