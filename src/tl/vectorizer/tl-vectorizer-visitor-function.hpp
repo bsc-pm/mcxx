@@ -36,10 +36,10 @@ namespace TL
         class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const VectorizerEnvironment& _environment;
+                VectorizerEnvironment& _environment;
 
             public:
-                VectorizerVisitorFunction(const VectorizerEnvironment& environment);
+                VectorizerVisitorFunction(VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::FunctionCode& function_code);
 

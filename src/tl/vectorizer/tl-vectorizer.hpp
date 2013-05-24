@@ -45,15 +45,17 @@ namespace TL
                 const unsigned int _unroll_factor;
 
                 const TL::Type& _target_type;
-                const TL::Scope& _simd_body_scope;
                 const Nodecl::List& _suitable_expr_list;
+                std::list<TL::Scope> _local_scope_list;
 
             public:
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type,
-                        const TL::Scope& simd_body_scope, 
+                        const TL::Scope& local_scope, 
                         const Nodecl::List& suitable_expr_list);
+
+                ~VectorizerEnvironment();
 
             friend class Vectorizer;
             friend class VectorizerVisitorFor;
@@ -84,9 +86,9 @@ namespace TL
                 static Vectorizer& get_vectorizer();
 
                 Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
-                        const VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment);
                 void vectorize(const Nodecl::FunctionCode& func_code,
-                        const VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment);
 
                 void add_vector_function_version(const std::string& func_name, 
                         const Nodecl::NodeclBase& func_version, const std::string& device, 

@@ -33,7 +33,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFunction::VectorizerVisitorFunction(const VectorizerEnvironment& environment) :
+        VectorizerVisitorFunction::VectorizerVisitorFunction(VectorizerEnvironment& environment) :
             _environment(environment)
         {
         }

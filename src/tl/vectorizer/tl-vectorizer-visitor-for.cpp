@@ -33,7 +33,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFor::VectorizerVisitorFor(const VectorizerEnvironment& environment) :
+        VectorizerVisitorFor::VectorizerVisitorFor(VectorizerEnvironment& environment) :
             _environment(environment)
         {
         }
@@ -56,7 +56,7 @@ namespace TL
                         enclosing_func.as<Nodecl::FunctionCode>(),
                         Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                         Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
             }
 
             // Push ForStatement as scope for analysis

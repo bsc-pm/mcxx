@@ -636,6 +636,8 @@ namespace TL
         void VectorizerVisitorExpression::visit(const Nodecl::Symbol& n)
         {
             TL::Type sym_type = n.get_type();
+            TL::Symbol tl_sym = n.get_symbol();
+            TL::Type tl_sym_type = tl_sym.get_type();
 
             //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
@@ -691,7 +693,7 @@ namespace TL
                 }
                 // Vectorize symbols declared in the SIMD scope
                 else if (is_declared_in_scope(
-                            _environment._simd_body_scope.get_decl_context().current_scope,
+                            _environment._local_scope_list.back().get_decl_context().current_scope,
                             n.get_symbol().get_scope().get_decl_context().current_scope))
                 {
                     DEBUG_CODE()
@@ -702,15 +704,30 @@ namespace TL
 
                     //std::cerr << "NS scalar_type: " << n.prettyprint() << std::endl;
 
-                    TL::Symbol tl_sym = n.get_symbol();
-                    TL::Type tl_sym_type = tl_sym.get_type();
-
                     //TL::Symbol
                     if (tl_sym_type.is_scalar_type())
                     {
                         //std::cerr << "TS scalar_type: " << n.prettyprint() << std::endl;
                         tl_sym.set_type(get_qualified_vector_to(tl_sym_type, _environment._vector_length));
                         tl_sym_type = tl_sym.get_type();
+                    }
+
+                    //Nodecl::Symbol
+                    Nodecl::Symbol new_sym =
+                        Nodecl::Symbol::make(tl_sym,
+                                n.get_locus());
+
+                    new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
+
+                    n.replace(new_sym);
+                }
+                // Non local Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
+                else if(tl_sym_type.is_vector())
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr,"VECTORIZER: '%s' is a scalar NON-LOCAL Nodecl::Symbol whose TL::Symbol has vector type. Its Nodecl TYPE will be vectorized\n", 
+                                n.prettyprint().c_str()); 
                     }
 
                     //Nodecl::Symbol

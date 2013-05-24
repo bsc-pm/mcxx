@@ -37,7 +37,7 @@ namespace TL
         class VectorizerVisitorFor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
         {
             private:
-                const VectorizerEnvironment& _environment;
+                VectorizerEnvironment& _environment;
 
                 unsigned int _remain_iterations;
 
@@ -45,7 +45,7 @@ namespace TL
                 Nodecl::ForStatement get_epilog(const Nodecl::ForStatement& for_statement);
 
             public:
-                VectorizerVisitorFor(const VectorizerEnvironment& environment);
+                VectorizerVisitorFor(VectorizerEnvironment& environment);
 
                 virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
 

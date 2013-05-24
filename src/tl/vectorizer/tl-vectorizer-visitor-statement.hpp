@@ -38,10 +38,10 @@ namespace TL
         class VectorizerVisitorStatement : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const VectorizerEnvironment& _environment;
+                VectorizerEnvironment& _environment;
 
             public:
-                VectorizerVisitorStatement(const VectorizerEnvironment& environment);
+                VectorizerVisitorStatement(VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::Context& n);
                 virtual void visit(const Nodecl::CompoundStatement& n);

@@ -32,7 +32,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorStatement::VectorizerVisitorStatement(const VectorizerEnvironment& environment)
+        VectorizerVisitorStatement::VectorizerVisitorStatement(VectorizerEnvironment& environment)
             : _environment(environment)
         {
         }
@@ -50,7 +50,9 @@ namespace TL
         // Nested ForStatement
         void VectorizerVisitorStatement::visit(const Nodecl::ForStatement& n)
         {
+            _environment._local_scope_list.push_back(n.get_statement().as<Nodecl::List>().front().retrieve_context());
             walk(n.get_statement());
+            _environment._local_scope_list.pop_back();
         }
 
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
