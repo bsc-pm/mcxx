@@ -1518,14 +1518,14 @@ void LoweringVisitor::fill_copies_region(
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
 
-            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, region_sizes;
+            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
 
             int num_dimensions_count = copy_type.get_num_dimensions();
             if (num_dimensions_count == 0)
             {
                 lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
                 upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                region_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+                total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
                 num_dimensions_count++;
             }
             else
@@ -1539,7 +1539,7 @@ void LoweringVisitor::fill_copies_region(
                     if (t.array_is_region())
                     {
                         t.array_get_region_bounds(lower, upper);
-                        region_size = t.array_get_region_size();
+                        region_size = t.array_get_size();
                     }
                     else
                     {
@@ -1560,13 +1560,13 @@ void LoweringVisitor::fill_copies_region(
                         }
                         if (region_size.is_null())
                         {
-                            region_size = get_size_of_fortran_array(data_ref, rank);
+                            region_size = get_size_for_dimension(t, rank, data_ref);
                         }
                     }
 
                     lower_bounds.append(lower);
                     upper_bounds.append(upper);
-                    region_sizes.append(region_size);
+                    total_sizes.append(region_size);
 
                     t = t.array_element();
 
@@ -1578,7 +1578,7 @@ void LoweringVisitor::fill_copies_region(
                 // Sanity check
                 ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
                         || num_dimensions_count != (signed)upper_bounds.size()
-                        || num_dimensions_count != (signed)region_sizes.size(),
+                        || num_dimensions_count != (signed)total_sizes.size(),
                         "Mismatch between dimensions", 0);
 
             }
@@ -1598,7 +1598,7 @@ void LoweringVisitor::fill_copies_region(
                     // In bytes
                     ol_dimension_descriptors
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1607,7 +1607,7 @@ void LoweringVisitor::fill_copies_region(
                         ;
                     imm_dimension_descriptors
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1620,7 +1620,7 @@ void LoweringVisitor::fill_copies_region(
                     // In elements
                     ol_dimension_descriptors
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1629,7 +1629,7 @@ void LoweringVisitor::fill_copies_region(
                         ;
                     imm_dimension_descriptors
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -2442,20 +2442,6 @@ Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr,
     }
 
     src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
-
-    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-}
-
-Nodecl::NodeclBase LoweringVisitor::get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num)
-{
-    Source src;
-    Nodecl::NodeclBase expr = dep_expr;
-    if (dep_expr.is<Nodecl::ArraySubscript>())
-    {
-        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
-    }
-
-    src << "SIZE(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
 }
