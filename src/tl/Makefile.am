@@ -117,6 +117,8 @@ libtl_la_SOURCES = \
     tl-symbol-fwd.hpp \
     tl-symbol.hpp \
     tl-symbol.cpp \
+    tl-symbol-utils.hpp \
+    tl-symbol-utils.cpp \
     tl-compilerphase.hpp \
     tl-compilerphase.cpp \
     tl-lexer.hpp \

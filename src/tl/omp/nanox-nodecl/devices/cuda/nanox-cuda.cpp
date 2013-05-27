@@ -39,6 +39,8 @@
 #include <errno.h>
 #include "cxx-driver-utils.h"
 
+#include "tl-symbol-utils.hpp"
+
 using namespace TL;
 using namespace TL::Nanox;
 
@@ -370,14 +372,19 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // Add the user function to the intermediate file if It is a function task
-    // (This action must be done always after the update of the kernel configurations
-    // because the code of the user function may be changed if It contains one or more cuda function calls)
+    // and It has not been added to the file previously (This action must be
+    // done always after the update of the kernel configurations because the
+    // code of the user function may be changed if It contains one or more cuda
+    // function calls)
     if (is_function_task
-            && !called_task.get_function_code().is_null())
+            && !called_task.get_function_code().is_null()
+            && !_cuda_functions.contains(called_task.get_function_code()))
     {
         _cuda_file_code.append(Nodecl::Utils::deep_copy(
                     called_task.get_function_code(),
                     called_task.get_scope()));
+
+        _cuda_functions.append(called_task.get_function_code());
     }
 
     // Create the new unpacked function
@@ -409,7 +416,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
 
@@ -459,7 +466,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 get_user_defined_type(
                     info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
-    TL::Symbol outline_function = new_function_symbol(
+    TL::Symbol outline_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name,
             TL::Type::get_void_type(),
@@ -467,7 +474,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             structure_type);
 
     Nodecl::NodeclBase outline_function_code, outline_function_body;
-    build_empty_body_for_function(outline_function,
+    SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_body);
 
@@ -501,7 +508,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")) //, _cudaFilename(""), _cudaHeaderFilename("")
+    : DeviceProvider(/* device_name */ std::string("cuda")), _cuda_functions()
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -627,6 +634,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         // Do not forget the clear the code for next files
         _cuda_file_code.get_internal_nodecl() = nodecl_null();
+        _cuda_functions.clear();
     }
 }
 

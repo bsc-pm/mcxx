@@ -41,6 +41,10 @@ namespace TL
             private:
 
                 Nodecl::List _cuda_file_code;
+
+                // This list is used to store the set of functions that are in the intermediate file
+                TL::ObjectList<Nodecl::NodeclBase> _cuda_functions;
+
                 bool _cuda_tasks_processed;
                 Nodecl::NodeclBase _root;
 

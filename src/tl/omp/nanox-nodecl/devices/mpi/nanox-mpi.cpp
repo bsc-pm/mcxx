@@ -44,6 +44,7 @@
 #include "cxx-cexpr.h"
 #include "filename.h"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 //#include "codegen-fortran.hpp"
 
 //#include <iostream>
@@ -398,7 +399,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     ObjectList<std::string> structure_name;
     ObjectList<TL::Type> structure_type;
     // Create the new unpacked function
-    TL::Symbol device_function = new_function_symbol(
+    TL::Symbol device_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name + "_device",
             TL::Type::get_void_type(),
@@ -406,7 +407,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             structure_type);
     
     Nodecl::NodeclBase device_function_code, device_function_body;
-    build_empty_body_for_function(device_function,
+    SymbolUtils::build_empty_body_for_function(device_function,
             device_function_code,
             device_function_body);
     
@@ -420,7 +421,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             get_user_defined_type(
             info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
-    TL::Symbol host_function = new_function_symbol(
+    TL::Symbol host_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name + "_host",
             TL::Type::get_void_type(),
@@ -428,7 +429,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             structure_type);
     
     Nodecl::NodeclBase host_function_code, host_function_body;
-    build_empty_body_for_function(host_function,
+    SymbolUtils::build_empty_body_for_function(host_function,
             host_function_code,
             host_function_body);
     
@@ -464,7 +465,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     }
     
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
     
