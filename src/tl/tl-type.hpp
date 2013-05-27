@@ -243,7 +243,7 @@ namespace TL
              * \param vector_size The size of the vector in bytes.
              */
             Type get_vector_to(unsigned int vector_size);
-
+       
             //! Returns a generic vector to the current type
             Type get_generic_vector_to();
 
@@ -582,6 +582,8 @@ namespace TL
 
             //! States whether current type is a vector-type
             bool is_vector() const;
+            //! States whether current type is a mask-type
+            bool is_mask() const;
             //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type
@@ -845,6 +847,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'double'
             static Type get_double_type(void);
+
+            //! Convenience function that returns a wrapped vector mask
+            static Type get_mask_type(unsigned int mask_size);
     };
 
     //! @}
