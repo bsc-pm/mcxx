@@ -372,14 +372,19 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // Add the user function to the intermediate file if It is a function task
-    // (This action must be done always after the update of the kernel configurations
-    // because the code of the user function may be changed if It contains one or more cuda function calls)
+    // and It has not been added to the file previously (This action must be
+    // done always after the update of the kernel configurations because the
+    // code of the user function may be changed if It contains one or more cuda
+    // function calls)
     if (is_function_task
-            && !called_task.get_function_code().is_null())
+            && !called_task.get_function_code().is_null()
+            && !_cuda_functions.contains(called_task.get_function_code()))
     {
         _cuda_file_code.append(Nodecl::Utils::deep_copy(
                     called_task.get_function_code(),
                     called_task.get_scope()));
+
+        _cuda_functions.append(called_task.get_function_code());
     }
 
     // Create the new unpacked function
@@ -503,7 +508,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")) //, _cudaFilename(""), _cudaHeaderFilename("")
+    : DeviceProvider(/* device_name */ std::string("cuda")), _cuda_functions()
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -629,6 +634,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         // Do not forget the clear the code for next files
         _cuda_file_code.get_internal_nodecl() = nodecl_null();
+        _cuda_functions.clear();
     }
 }
 
