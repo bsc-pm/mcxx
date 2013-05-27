@@ -1068,14 +1068,7 @@ namespace TL { namespace Nanox {
        _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange(TL::Symbol function_symbol)
-    {
-        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
-                "Function symbol '%s' not found in outline info implementation table",
-                function_symbol.get_name().c_str());
 
-        return _implementation_table[function_symbol].get_ndrange();
-    }
 
     void OutlineInfo::append_to_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
@@ -1084,15 +1077,6 @@ namespace TL { namespace Nanox {
                 function_symbol.get_name().c_str());
 
         _implementation_table[function_symbol].append_to_onto(onto_exprs);
-    }
-
-    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_onto(TL::Symbol function_symbol)
-    {
-        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
-                "Function symbol '%s' not found in outline info implementation table",
-                function_symbol.get_name().c_str());
-
-       return _implementation_table[function_symbol].get_onto();
     }
 
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
