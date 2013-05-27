@@ -540,7 +540,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                                 TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
                                 TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
 
-                                argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                argument << "*(" <</*(" << as_type(cast_type) << ")*/"args." << (*it)->get_field_name() << ")";
                             }
                         }
                         // Any other parameter is bound to the storage of the struct
@@ -553,7 +553,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                             else
                             {
                                 TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
-                                argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                argument << /*"(" << as_type(cast_type) << ")*/"args." << (*it)->get_field_name();
                             }
                         }
 
@@ -1170,7 +1170,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                Nodecl::Utils::append_to_top_level_nodecl(newompss_main); 
                Nodecl::Utils::append_to_top_level_nodecl(new_main); 
                main.set_name("ompss___user_main");
-               _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");
+               _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
             }
     }
     
