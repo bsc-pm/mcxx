@@ -50,14 +50,21 @@ namespace TL
 
                 void update_all_kernel_configurations(Nodecl::NodeclBase task_code);
 
-                void generate_ndrange_additional_code(
+                void update_ndrange_and_shmem_arguments(
                         const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
+                        const TargetInformation& target_info,
+                        // out
+                        TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
+                        TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args);
+
+                void generate_ndrange_additional_code(
                         const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
                         TL::Source& code_ndrange);
 
                 void generate_ndrange_kernel_call(
                         const TL::Scope& scope,
+                        const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
                         const Nodecl::NodeclBase& task_statements,
                         Nodecl::NodeclBase& output_statements);
 
