@@ -1183,10 +1183,17 @@ namespace TL { namespace OpenMP {
                 {
                     enclosing_stmt = func_call;
                     while (!enclosing_stmt.is_null()
+                            && !enclosing_stmt.is<Nodecl::ReturnStatement>()
                             && !enclosing_stmt.is<Nodecl::ExpressionStatement>())
                     {
                         enclosing_stmt = enclosing_stmt.get_parent();
                     }
+
+                    ERROR_CONDITION(enclosing_stmt.is<Nodecl::ReturnStatement>(),
+                            "%s: The task call '%s' cannot be in a return statement of a non-task function",
+                            func_call.get_locus_str().c_str(),
+                            func_call.prettyprint().c_str());
+
                     ERROR_CONDITION(enclosing_stmt.is_null(), "The enclosing expression cannot be a NULL node", 0);
                 }
                 else
