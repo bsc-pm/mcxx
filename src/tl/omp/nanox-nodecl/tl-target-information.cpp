@@ -88,6 +88,16 @@ namespace TL { namespace Nanox {
         return _ndrange_exprs;
     }
 
+    void TargetInformation::append_to_shmem(const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
+    {
+        _shmem_exprs.append(shmem_exprs);
+    }
+
+    ObjectList<Nodecl::NodeclBase>& TargetInformation::get_shmem()
+    {
+        return _shmem_exprs;
+    }
+
     void TargetInformation::append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto_exprs)
     {
         _onto_exprs.append(onto_exprs);

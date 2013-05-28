@@ -418,9 +418,10 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 ++it2)
         {
                 arguments_outline_info.add_implementation(*it2, it->first);
-                arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
-                arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
-                arguments_outline_info.set_file(it->first,it->second.get_file());
+                arguments_outline_info.append_to_ndrange(it->first, it->second.get_ndrange());
+                arguments_outline_info.append_to_shmem(it->first, it->second.get_shmem());
+                arguments_outline_info.append_to_onto(it->first, it->second.get_onto());
+                arguments_outline_info.set_file(it->first, it->second.get_file());
         }
     }
 

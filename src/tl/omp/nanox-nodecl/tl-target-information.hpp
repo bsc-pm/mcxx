@@ -53,7 +53,7 @@ namespace TL
                 std::string _outline_name;
 
                 ObjectList<Nodecl::NodeclBase> _ndrange_exprs;
-
+                ObjectList<Nodecl::NodeclBase> _shmem_exprs;
                 ObjectList<Nodecl::NodeclBase> _onto_exprs;
 
                 // The value of the 'file' clause
@@ -85,6 +85,9 @@ namespace TL
 
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& ndrange);
                 ObjectList<Nodecl::NodeclBase>& get_ndrange();
+
+                void append_to_shmem(const ObjectList<Nodecl::NodeclBase>& shmem);
+                ObjectList<Nodecl::NodeclBase>& get_shmem();
 
                 void append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto);
                 ObjectList<Nodecl::NodeclBase>& get_onto();
