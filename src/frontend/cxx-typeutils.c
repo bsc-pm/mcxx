@@ -8819,6 +8819,18 @@ static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
 
 }
 
+static char mask_to_integral(type_t* orig, type_t* dest)
+{
+    orig = no_ref(orig);
+    dest = no_ref(dest);
+
+    return (is_mask_type(orig)
+            && is_integral_type(dest)
+            // Since we do not register any conversion we force their bit
+            // representation size be the same
+            && ((type_get_size(dest) * 8) == mask_type_get_num_bits(orig)));
+}
+
 char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
 {
     DEBUG_CODE()
@@ -9394,6 +9406,16 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (CURRENT_CONFIGURATION->enable_intel_vector_types
                 && (vector_type_to_vector_struct_type(orig, dest)
                     || vector_type_to_vector_struct_type(dest, orig)))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
+        // Mask conversions
+        // mask type -> integral type
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && (mask_to_integral(orig, dest)
+                    || mask_to_integral(dest, orig)))
         {
             // We do not account this as a conversion of any kind, we just let
             // these types be transparently compatible
