@@ -53,7 +53,7 @@ static std::string ocl_outline_name(const std::string & name)
 void DeviceOpenCL::generate_ndrange_code(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
-        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+        const TargetInformation& target_info,
         const std::string filename,
         const std::string kernel_name,
         const TL::ObjectList<OutlineDataItem*>& data_items,
@@ -80,8 +80,11 @@ void DeviceOpenCL::generate_ndrange_code(
 
     // The arguments of the clause 'ndrange' must be updated because they are not
     // expressed in terms of the unpacked arguments
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
-    int num_args_ndrange = ndrange_args.size();
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
+    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+    int num_args_ndrange = ndrange_args.size(),
+        num_args_shmem = shmem_args.size();
     if (IS_FORTRAN_LANGUAGE)
     {
         for (int i = 0; i < num_args_ndrange; ++i)
@@ -96,6 +99,19 @@ void DeviceOpenCL::generate_ndrange_code(
                         unpacked_function.get_related_scope(),
                         *outline_data_to_unpacked_fun_map));
         }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
+                    shmem_args[i],
+                    unpacked_function.get_related_scope(),
+                    *called_fun_to_outline_data_map);
+
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        argument,
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
     }
     else
     {
@@ -103,6 +119,14 @@ void DeviceOpenCL::generate_ndrange_code(
         {
             new_ndrange.append(Nodecl::Utils::deep_copy(
                         ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        called_fun_to_unpacked_fun_map));
+        }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        shmem_args[i],
                         unpacked_function.get_related_scope(),
                         called_fun_to_unpacked_fun_map));
         }
@@ -141,6 +165,7 @@ void DeviceOpenCL::generate_ndrange_code(
                      <<         compiler_opts << "\");";
 
     //Prepare setArgs
+    unsigned int index_local = 0;
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     for (unsigned int i = 0; i < parameters_called.size(); ++i)
     {
@@ -172,6 +197,8 @@ void DeviceOpenCL::generate_ndrange_code(
             }
         }
 
+        bool is_local = !is_global && unpacked_argument.get_type().is_pointer();
+
         if (is_global)
         {
             code_ndrange_aux
@@ -179,6 +206,29 @@ void DeviceOpenCL::generate_ndrange_code(
                 <<      "ompss_kernel_ocl, "
                 <<      i << ", "
                 <<      as_symbol(unpacked_argument) <<");";
+        }
+        else if (is_local)
+        {
+            TL::Source sizeof_arg;
+            if (index_local <= new_shmem.size())
+            {
+                std::cerr << unpacked_function.get_locus_str()
+                    << ": warning: The size of the local symbol '"
+                    << unpacked_argument.get_name() << "' has not been specified in the 'shmem' clause, assuming zero" << std::endl;
+
+                sizeof_arg << "0";
+            }
+            else
+            {
+                sizeof_arg << as_expression(new_shmem[index_local]);
+            }
+
+            code_ndrange_aux << "err = nanos_opencl_set_arg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      sizeof_arg << ", "
+                <<      "NULL);";
+            ++index_local;
         }
         else
         {
@@ -562,7 +612,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
         generate_ndrange_code(called_task,
                 unpacked_function,
-                info._target_info.get_ndrange(),
+                info._target_info,
                 file,
                 kernel_name,
                 info._data_items,
