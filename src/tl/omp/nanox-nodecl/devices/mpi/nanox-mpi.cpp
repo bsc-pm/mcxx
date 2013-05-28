@@ -365,6 +365,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = called_task.is_valid();
+
+    output_statements = original_statements;
     
     //OutlineInfo& outline_info = info._outline_info;
     
@@ -633,27 +635,6 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             code_device_pre,
             code_device_post);
 
-        
-    if (IS_FORTRAN_LANGUAGE)
-    {        
-
-        // Now get all the needed internal functions and replicate them in the outline
-        Nodecl::Utils::Fortran::InternalFunctions internal_functions;
-        internal_functions.walk(info._original_statements);
-
-        Nodecl::List l;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
-                it2 != internal_functions.function_codes.end();
-                it2++)
-        {
-            l.append(
-                    Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
-                    );
-        }
-
-        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
-    }
-
     Source extra_declarations;
     // Add a declaration of the unpacked function symbol in the original source
      // Fortran may require more symbols
@@ -689,18 +670,10 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
             internal_functions.walk(info._original_statements);
 
-            Nodecl::List l;
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
-                    it2 = internal_functions.function_codes.begin();
-                    it2 != internal_functions.function_codes.end();
-                    it2++)
-            {
-                l.append(
-                        Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
-                        );
-            }
-
-            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+            duplicate_internal_subprograms(internal_functions.function_codes,
+                    unpacked_function.get_related_scope(),
+                    symbol_map,
+                    output_statements);
     }
     else if (IS_CXX_LANGUAGE) {
        if (!unpacked_function.is_member())
@@ -899,7 +872,6 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     device_function_body.replace(new_device_body);
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, device_function_code);
         
-    output_statements = original_statements;
     
     
     std::string append;

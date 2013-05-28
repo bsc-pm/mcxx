@@ -170,22 +170,14 @@ namespace TL { namespace Nanox {
             // Add also used types
             add_used_types(data_items, unpacked_function.get_related_scope());
 
-            // Now get all the needed internal functions and replicate them in the outline
+            // Now get all the needed internal functions and duplicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
             internal_functions.walk(info._original_statements);
 
-            Nodecl::List l;
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
-                    it2 = internal_functions.function_codes.begin();
-                    it2 != internal_functions.function_codes.end();
-                    it2++)
-            {
-                l.append(
-                        Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
-                        );
-            }
-
-            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+            duplicate_internal_subprograms(internal_functions.function_codes,
+                    unpacked_function.get_related_scope(),
+                    symbol_map,
+                    output_statements);
 
             extra_declarations
                 << "IMPLICIT NONE\n";

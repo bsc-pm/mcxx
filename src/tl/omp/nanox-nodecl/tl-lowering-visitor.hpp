@@ -362,7 +362,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
         static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
-        static Nodecl::NodeclBase get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num);
 
         void visit_task(
                 const Nodecl::OpenMP::Task& construct,

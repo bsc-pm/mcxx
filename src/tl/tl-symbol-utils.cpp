@@ -195,8 +195,6 @@ namespace SymbolUtils
             function_code = Nodecl::TemplateFunctionCode::make(context,
                     // Initializers
                     Nodecl::NodeclBase::null(),
-                    // Internal functions
-                    Nodecl::NodeclBase::null(),
                     function_symbol,
                     make_locus("", 0, 0));
         }
@@ -204,8 +202,6 @@ namespace SymbolUtils
         {
             function_code = Nodecl::FunctionCode::make(context,
                     // Initializers
-                    Nodecl::NodeclBase::null(),
-                    // Internal functions
                     Nodecl::NodeclBase::null(),
                     function_symbol,
                     make_locus("", 0, 0));

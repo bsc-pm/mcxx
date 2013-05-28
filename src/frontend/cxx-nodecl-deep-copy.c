@@ -344,9 +344,8 @@ nodecl_t nodecl_deep_copy_function_code(nodecl_t n,
             /* create_new_function_context */ 1);
 
     nodecl_t child_1 = nodecl_deep_copy_rec(nodecl_get_child(n, 1), new_decl_context, (*synth_symbol_map), synth_symbol_map);
-    nodecl_t child_2 = nodecl_deep_copy_rec(nodecl_get_child(n, 2), new_decl_context, (*synth_symbol_map), synth_symbol_map);
     const locus_t* location = nodecl_get_locus(n);
-    nodecl_t result = nodecl_make_function_code(child_0, child_1, child_2, symbol, location);
+    nodecl_t result = nodecl_make_function_code(child_0, child_1, symbol, location);
     if (new_function_)
     {
         symbol_deep_copy(symbol, orig_symbol, symbol->decl_context, (*synth_symbol_map));
