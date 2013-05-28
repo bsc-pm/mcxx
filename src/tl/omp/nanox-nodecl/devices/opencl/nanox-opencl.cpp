@@ -197,7 +197,7 @@ void DeviceOpenCL::generate_ndrange_code(
             }
         }
 
-        bool is_local = !is_global && unpacked_argument.get_type().is_pointer();
+        bool is_local = !is_global && unpacked_argument.get_type().no_ref().is_pointer();
 
         if (is_global)
         {
@@ -212,7 +212,7 @@ void DeviceOpenCL::generate_ndrange_code(
             TL::Source sizeof_arg;
             if (index_local <= new_shmem.size())
             {
-                std::cerr << unpacked_function.get_locus_str()
+                std::cerr << called_task.get_locus_str()
                     << ": warning: The size of the local symbol '"
                     << unpacked_argument.get_name() << "' has not been specified in the 'shmem' clause, assuming zero" << std::endl;
 
@@ -227,7 +227,7 @@ void DeviceOpenCL::generate_ndrange_code(
                 <<      "ompss_kernel_ocl, "
                 <<      i << ", "
                 <<      sizeof_arg << ", "
-                <<      "NULL);";
+                <<      "0);";
             ++index_local;
         }
         else
