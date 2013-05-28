@@ -861,7 +861,6 @@ namespace TL { namespace Nanox {
         return new_function_sym;
     }
 
-
     // Rewrite inline
     struct RewriteExprOfVla : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -947,27 +946,39 @@ namespace TL { namespace Nanox {
         else return t;
     }
 
-    void add_used_types_rec(TL::Type t, TL::Scope sc)
-    {
-        if (t.is_named_class() && t.get_symbol().is_from_module())
-        {
-            Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
-        }
-        else if (t.is_lvalue_reference())
-        {
-            add_used_types_rec(t.references_to(), sc);
-        }
-        else if (t.is_pointer())
-        {
-            add_used_types_rec(t.points_to(), sc);
-        }
-        else if (t.is_array())
-        {
-            add_used_types_rec(t.array_element(), sc);
+} }
+
+namespace TL
+{
+    namespace Nanox {
+
+        namespace {
+
+            void add_used_types_rec(TL::Type t, TL::Scope sc)
+            {
+                if (t.is_named_class() && t.get_symbol().is_from_module())
+                {
+                    Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                }
+                else if (t.is_lvalue_reference())
+                {
+                    add_used_types_rec(t.references_to(), sc);
+                }
+                else if (t.is_pointer())
+                {
+                    add_used_types_rec(t.points_to(), sc);
+                }
+                else if (t.is_array())
+                {
+                    add_used_types_rec(t.array_element(), sc);
+                }
+            }
+
         }
     }
 
-    void add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc)
+    // We rely on qualification to detect undefined references
+    void Nanox::add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc)
     {
         for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
                 it != data_items.end();
@@ -977,5 +988,51 @@ namespace TL { namespace Nanox {
         }
     }
 
+    void Nanox::duplicate_internal_subprograms(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            )
+    {
+        if (internal_function_codes.empty())
+            return;
 
-} }
+        ERROR_CONDITION(!output_statements.is<Nodecl::List>(), "Invalid node", 0);
+
+        Nodecl::Utils::SimpleSymbolMap* new_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                it2 = internal_function_codes.begin();
+                it2 != internal_function_codes.end();
+                it2++)
+        {
+            ERROR_CONDITION(!it2->is<Nodecl::FunctionCode>(), "Invalid node", 0);
+
+            TL::Symbol orig_sym = it2->get_symbol();
+
+            Nodecl::NodeclBase copied_node
+                = Nodecl::Utils::deep_copy(*it2, scope_of_unpacked, *symbol_map);
+
+            TL::Symbol new_sym = copied_node.get_symbol();
+            new_map->add_map(orig_sym, new_sym);
+
+            // Also map the related symbols as well
+            TL::ObjectList<TL::Symbol> orig_related_syms = orig_sym.get_related_symbols();
+            TL::ObjectList<TL::Symbol> new_related_syms = new_sym.get_related_symbols();
+            TL::ObjectList<TL::Symbol>::iterator it_orig_sym = orig_related_syms.begin();
+            TL::ObjectList<TL::Symbol>::iterator it_new_sym = new_related_syms.begin();
+            for (;
+                    it_orig_sym != orig_related_syms.end() && it_new_sym != new_related_syms.end();
+                    it_orig_sym++, it_new_sym++)
+            {
+                new_map->add_map(*it_orig_sym, *it_new_sym);
+            }
+
+            output_statements.as<Nodecl::List>().append(copied_node);
+        }
+
+        symbol_map = new_map;
+    }
+
+}

@@ -46,6 +46,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> copy_inout;
 
             ObjectList<Nodecl::NodeclBase> ndrange;
+            ObjectList<Nodecl::NodeclBase> shmem; // shared memory
             ObjectList<Nodecl::NodeclBase> onto;
 
             bool has_implements;
@@ -60,14 +61,9 @@ namespace TL
             bool copy_deps;
 
             TargetContext()
-                : device_list(),
-                copy_in(),
-                copy_out(),
-                has_implements(),
-                implements(),
-                file(),
-                name(),
-                copy_deps()
+                : device_list(), copy_in(), copy_out(), copy_inout(),
+                ndrange(), shmem(), onto(), has_implements(), implements(),
+                file(), name(), copy_deps()
             {
             }
         };

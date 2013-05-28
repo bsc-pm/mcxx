@@ -299,6 +299,16 @@ namespace TL { namespace OpenMP {
                                 locus));
                 }
 
+                ObjectList<Nodecl::NodeclBase> shmem_exprs = target_info.get_shallow_copy_of_shmem();
+                if (!shmem_exprs.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::ShMem::make(
+                                Nodecl::List::make(shmem_exprs),
+                                Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                                locus));
+                }
+
                 ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
                 if (!onto_exprs.empty())
                 {
@@ -1618,7 +1628,6 @@ namespace TL { namespace OpenMP {
                         locus));
         }
 
-
         // Build the tree which contains the target information
         TargetInfo target_info = data_sharing_env.get_target_info();
 
@@ -1631,6 +1640,16 @@ namespace TL { namespace OpenMP {
             target_items.append(
                     Nodecl::OpenMP::NDRange::make(
                         Nodecl::List::make(ndrange_exprs),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
+                        locus));
+        }
+
+        ObjectList<Nodecl::NodeclBase> shmem_exprs = target_info.get_shallow_copy_of_shmem();
+        if (!shmem_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::ShMem::make(
+                        Nodecl::List::make(shmem_exprs),
                         Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
                         locus));
         }
@@ -1818,6 +1837,16 @@ namespace TL { namespace OpenMP {
                         Nodecl::List::make(ndrange_exprs),
                         //Build symbol from enclosing function, since it's the one which we use to identify inline tasks
                         Nodecl::Symbol::make(Nodecl::Utils::get_enclosing_function(pragma_line), locus),
+                        locus));
+        }
+
+        ObjectList<Nodecl::NodeclBase> shmem_exprs = target_info.get_shallow_copy_of_shmem();
+        if (!shmem_exprs.empty())
+        {
+            target_items.append(
+                    Nodecl::OpenMP::ShMem::make(
+                        Nodecl::List::make(shmem_exprs),
+                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
                         locus));
         }
 

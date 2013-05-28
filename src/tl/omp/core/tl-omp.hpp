@@ -255,6 +255,7 @@ namespace TL
                 ObjectList<CopyItem> _copy_inout;
 
                 ObjectList<Nodecl::NodeclBase> _ndrange;
+                ObjectList<Nodecl::NodeclBase> _shmem;
                 ObjectList<Nodecl::NodeclBase> _onto;
 
                 ObjectList<std::string> _device_list;
@@ -277,6 +278,10 @@ namespace TL
                 void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
                 ObjectList<Nodecl::NodeclBase> get_ndrange() const;
                 ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_ndrange() const;
+
+                void append_to_shmem(const ObjectList<Nodecl::NodeclBase>& expressions);
+                ObjectList<Nodecl::NodeclBase> get_shmem() const;
+                ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_shmem() const;
 
                 void append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions);
                 ObjectList<Nodecl::NodeclBase> get_onto() const;

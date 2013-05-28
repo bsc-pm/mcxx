@@ -1769,12 +1769,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -2003,12 +1997,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -5528,6 +5516,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
+        }
+
+        if (symbol.is_nested_function())
+        {
+            decl_spec_seq += "auto ";
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
