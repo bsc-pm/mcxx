@@ -40,41 +40,43 @@ namespace TL
 
                 SSEVectorLowering();
 
-                void visit(const Nodecl::ObjectInit& node);
+                virtual void visit(const Nodecl::ObjectInit& node);
                 
-                void visit(const Nodecl::VectorAdd& node);
-                void visit(const Nodecl::VectorMinus& node);
-                void visit(const Nodecl::VectorMul& node);
-                void visit(const Nodecl::VectorDiv& node);
-                void visit(const Nodecl::VectorNeg& node);
+                virtual void visit(const Nodecl::VectorAdd& node);
+                virtual void visit(const Nodecl::VectorMinus& node);
+                virtual void visit(const Nodecl::VectorMul& node);
+                virtual void visit(const Nodecl::VectorDiv& node);
+                virtual void visit(const Nodecl::VectorNeg& node);
 
-                void visit(const Nodecl::VectorLowerThan& node);
-                void visit(const Nodecl::VectorGreaterThan& node);
-                void visit(const Nodecl::VectorEqual& node);
+                virtual void visit(const Nodecl::VectorLowerThan& node);
+                virtual void visit(const Nodecl::VectorGreaterThan& node);
+                virtual void visit(const Nodecl::VectorEqual& node);
 
-                void visit(const Nodecl::VectorBitwiseAnd& node);
-                void visit(const Nodecl::VectorBitwiseOr& node);
-                void visit(const Nodecl::VectorBitwiseXor& node);
-                void visit(const Nodecl::VectorLogicalOr& node);
+                virtual void visit(const Nodecl::VectorBitwiseAnd& node);
+                virtual void visit(const Nodecl::VectorBitwiseOr& node);
+                virtual void visit(const Nodecl::VectorBitwiseXor& node);
+                virtual void visit(const Nodecl::VectorLogicalOr& node);
 
-                void visit(const Nodecl::VectorConversion& node);
-                void visit(const Nodecl::VectorConditionalExpression& node);
-                void visit(const Nodecl::VectorPromotion& node);
-                void visit(const Nodecl::VectorLiteral& node);
-                void visit(const Nodecl::VectorAssignment& node);
-                void visit(const Nodecl::VectorLoad& node);
-                void visit(const Nodecl::UnalignedVectorLoad& node);
-                void visit(const Nodecl::VectorStore& node);
-                void visit(const Nodecl::UnalignedVectorStore& node);
-                void visit(const Nodecl::VectorGather& node);
-                void visit(const Nodecl::VectorScatter& node);
+                virtual void visit(const Nodecl::VectorConversion& node);
+                virtual void visit(const Nodecl::VectorConditionalExpression& node);
+                virtual void visit(const Nodecl::VectorPromotion& node);
+                virtual void visit(const Nodecl::VectorLiteral& node);
+                virtual void visit(const Nodecl::VectorAssignment& node);
+                virtual void visit(const Nodecl::VectorLoad& node);
+                virtual void visit(const Nodecl::UnalignedVectorLoad& node);
+                virtual void visit(const Nodecl::VectorStore& node);
+                virtual void visit(const Nodecl::UnalignedVectorStore& node);
+                virtual void visit(const Nodecl::VectorGather& node);
+                virtual void visit(const Nodecl::VectorScatter& node);
 
-                void visit(const Nodecl::VectorFunctionCall& node);
-                void visit(const Nodecl::VectorFabs& node);
+                virtual void visit(const Nodecl::VectorFunctionCall& node);
+                virtual void visit(const Nodecl::VectorFabs& node);
                 
-                void visit(const Nodecl::ParenthesizedExpression& node);
+                virtual void visit(const Nodecl::ParenthesizedExpression& node);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual void visit(const Nodecl::VectorMaskAssignment& node);
+
+                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }
 }

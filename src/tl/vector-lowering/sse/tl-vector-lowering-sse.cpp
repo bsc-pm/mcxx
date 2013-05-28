@@ -1405,16 +1405,18 @@ namespace TL
             n.set_type(node.get_nest().get_type());
         }
 
-        Nodecl::NodeclVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
+        void SSEVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
+        {
+            running_error("SSE Lowering: Vector masks are not supported in SSE.");
+        }
+
+
+        Nodecl::ExhaustiveVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            fprintf(stderr, "SSE Lowering: Unknown node %s at %s.\n",
+            running_error("SSE Lowering: Unknown node %s at %s.",
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
-            /*
-               running_error("SSE Lowering: Unknown node %s at %s.",
-               ast_print_node_type(n.get_kind()),
-               locus_to_str(n.get_locus())); 
-             */
+
             return Ret(); 
         }
     }

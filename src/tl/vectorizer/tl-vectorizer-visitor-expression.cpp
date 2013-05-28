@@ -45,6 +45,7 @@ namespace TL
                 Nodecl::VectorAdd::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
+                        Nodecl::NodeclBase::null(),
                         get_qualified_vector_to(n.get_type(), _environment._vector_length),
                         n.get_locus());
             
@@ -60,6 +61,7 @@ namespace TL
                 Nodecl::VectorMinus::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
+                        Nodecl::NodeclBase::null(),
                         get_qualified_vector_to(n.get_type(), _environment._vector_length),
                         n.get_locus());
 
@@ -75,6 +77,7 @@ namespace TL
                 Nodecl::VectorMul::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
+                        Nodecl::NodeclBase::null(),
                         get_qualified_vector_to(n.get_type(), _environment._vector_length),
                         n.get_locus());
 
@@ -90,6 +93,7 @@ namespace TL
                 Nodecl::VectorDiv::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
+                        Nodecl::NodeclBase::null(),
                         get_qualified_vector_to(n.get_type(), _environment._vector_length),
                         n.get_locus());
 
@@ -684,6 +688,7 @@ namespace TL
                                         offset,
                                         offset_type,
                                         n.get_locus()),
+                                    Nodecl::NodeclBase::null(),
                                     get_qualified_vector_to(n.get_type(), _environment._vector_length),
                                     n.get_locus()),
                                 get_qualified_vector_to(n.get_type(), _environment._vector_length),

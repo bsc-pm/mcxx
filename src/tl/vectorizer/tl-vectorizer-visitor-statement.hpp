@@ -46,6 +46,7 @@ namespace TL
                 virtual void visit(const Nodecl::Context& n);
                 virtual void visit(const Nodecl::CompoundStatement& n);
                 virtual void visit(const Nodecl::ForStatement& n);
+                virtual void visit(const Nodecl::IfElseStatement& n);
                 virtual void visit(const Nodecl::ExpressionStatement& n);
                 virtual void visit(const Nodecl::ObjectInit& n);
                 virtual void visit(const Nodecl::ReturnStatement& n);
