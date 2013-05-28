@@ -974,12 +974,13 @@ namespace TL
                 return;
             }
 
-            // if (!function_type.returns().is_void())
-            // {
-            //     std::cerr << construct.get_locus_str()
-            //         << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
-            //     return;
-            // }
+            if (IS_FORTRAN_LANGUAGE
+                    && !function_type.returns().is_void())
+            {
+                std::cerr << construct.get_locus_str()
+                    << ": warning: non-void tasks are not currently supported in Fortran, skipping" << std::endl;
+                return;
+            }
 
             ObjectList<FunctionTaskDependency> dependence_list;
 
