@@ -5,6 +5,8 @@
 #include "cxx-process.h"
 #include <string.h>
 
+extern struct node_str_t * ast_node_name_to_kind_ (register const char *str, register unsigned int len);
+
 #include "cxx-asttype-str-internal.h"
 
 node_t ast_node_name_to_kind(const char* name)
