@@ -2782,6 +2782,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomClause& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
+    Nodecl::NodeclBase nested_pragma = node.get_nested_pragma();
     TL::Symbol symbol = node.get_symbol();
 
     indent();
@@ -2789,7 +2790,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     // FIXME  parallel|for must be printed as parallel for
     file << "/* decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
-    file << "'" << this->get_qualified_name(symbol) << "' */\n";
+    file << "' " << this->get_qualified_name(symbol) << "' */\n";
+    walk(nested_pragma);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDirective& node)
