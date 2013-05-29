@@ -73,7 +73,7 @@ libmcxx_la_SOURCES = \
   cxx-asttype.c \
   cxx-asttype-str.c \
   cxx-asttype-str.h \
-  cxx-asttype-str-internal.c \
+  cxx-asttype-str-internal.h \
   cxx-ast.c \
   cxx-ast.h \
   cxx-ast-fwd.h \
@@ -361,11 +361,6 @@ cxx-asttype-str.gperf : cxx-asttype.def cxx-asttype.h
 	$(AM_V_GEN)( \
 	echo "%{" >> cxx-asttype-str.gperf; \
 	echo "/* This file has been generated. Every time you change $+ it will be regenerated */" >> cxx-asttype-str.gperf; \
-	echo "#include \"libmcxx-common.h\"" >> cxx-asttype-str.gperf; \
-	echo "#include \"cxx-macros.h\"" >> cxx-asttype-str.gperf; \
-	echo "#include \"cxx-asttype-str.h\"" >> cxx-asttype-str.gperf; \
-	echo "#include \"cxx-asttype.h\"" >> cxx-asttype-str.gperf; \
-	echo "#include <string.h>" >> cxx-asttype-str.gperf; \
 	echo "%}" >> cxx-asttype-str.gperf; \
 	echo "struct node_str_t;" >> cxx-asttype-str.gperf; \
 	echo "%%" >> cxx-asttype-str.gperf; \
@@ -375,12 +370,12 @@ cxx-asttype-str.gperf : cxx-asttype.def cxx-asttype.h
 	echo "%%" >> cxx-asttype-str.gperf; \
     )
 
-BUILT_SOURCES += cxx-asttype-str-internal.c
-CLEANFILES += cxx-asttype-str-internal.c
-cxx-asttype-str-internal.c: cxx-asttype-str.gperf
+BUILT_SOURCES += cxx-asttype-str-internal.h
+CLEANFILES += cxx-asttype-str-internal.h
+cxx-asttype-str-internal.h: cxx-asttype-str.gperf
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=ast_node_kind_hash --struct-type \
-      --lookup-function-name=ast_node_name_to_kind_ --output=cxx-asttype-str-internal.c \
+      --lookup-function-name=ast_node_name_to_kind_ --output=cxx-asttype-str-internal.h \
       --initializer-suffix=,AST_INVALID_NODE cxx-asttype-str.gperf
 else
 	@echo "*** ERROR: file cxx-asttype-str.gperf was modified but no suitable gperf was found during configure ***"
