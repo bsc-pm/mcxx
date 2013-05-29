@@ -43,12 +43,8 @@ type : NODECL_TYPE() type
 function-code: regular-function-code
              | template-function-code
 
-internal-function-code: regular-function-code
-                      | template-function-code
-                      | pragma-declaration
-
-regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]internal-function-code-seq-opt) symbol
-template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]internal-function-code-seq-opt) symbol
+regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 
 object-init : NODECL_OBJECT_INIT() symbol
 
@@ -485,6 +481,7 @@ target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_INOUT([inout_copies]expression-seq)
                  | NODECL_OPEN_M_P*N_D_RANGE([ndrange_expressions]expression-seq, [function_name]name)
+                 | NODECL_OPEN_M_P*SH_MEM([shmem_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*FILE([filename]text, [function_name]name)
                  | NODECL_OPEN_M_P*NAME([name]text, [function_name]name)
                  | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)

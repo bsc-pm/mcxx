@@ -52,7 +52,7 @@ namespace TL
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
-                        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                        const TargetInformation& target_info,
                         const std::string filename,
                         const std::string kernel_name,
                         const TL::ObjectList<OutlineDataItem*>& data_items,

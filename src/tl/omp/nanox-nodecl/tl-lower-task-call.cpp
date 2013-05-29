@@ -418,9 +418,10 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 ++it2)
         {
                 arguments_outline_info.add_implementation(*it2, it->first);
-                arguments_outline_info.append_to_ndrange(it->first,it->second.get_ndrange());
-                arguments_outline_info.append_to_onto(it->first,it->second.get_onto());
-                arguments_outline_info.set_file(it->first,it->second.get_file());
+                arguments_outline_info.append_to_ndrange(it->first, it->second.get_ndrange());
+                arguments_outline_info.append_to_shmem(it->first, it->second.get_shmem());
+                arguments_outline_info.append_to_onto(it->first, it->second.get_onto());
+                arguments_outline_info.set_file(it->first, it->second.get_file());
         }
     }
 
@@ -1089,7 +1090,6 @@ static Nodecl::NodeclBase fill_adapter_function(
     Nodecl::NodeclBase function_code =
         Nodecl::FunctionCode::make(context,
                 /* initializers */ Nodecl::NodeclBase::null(),
-                /* internal_functions */ Nodecl::NodeclBase::null(),
                 adapter_function);
 
     adapter_function.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();

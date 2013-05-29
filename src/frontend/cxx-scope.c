@@ -3676,6 +3676,26 @@ const char* symbol_kind_name(scope_entry_t* entry)
         return symbol_kind_table_str[entry->kind];
 }
 
+const char* symbol_kind_to_str(enum cxx_symbol_kind symbol_kind)
+{
+    ERROR_CONDITION (symbol_kind >= SK_LAST_KIND, "Invalid kind", 0);
+    return symbol_kind_table_str[symbol_kind];
+}
+
+enum cxx_symbol_kind symbol_str_to_kind(const char* str)
+{
+    ERROR_CONDITION(str == NULL, "Invalid string", 0);
+
+    if (0);
+#define SYMBOL_KIND(x, _) \
+    else if (strcmp(#x, str) == 0) return x;
+    SYMBOL_KIND_TABLE
+    SYMBOL_KIND_TABLE_FORTRAN
+#undef SYMBOL_KIND
+
+    return SK_UNDEFINED;
+}
+
 struct fun_adaptor_data_tag
 {
     void *data;

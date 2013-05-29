@@ -54,46 +54,62 @@ bool DeviceCUDA::is_gpu_device() const
     return true;
 }
 
-void DeviceCUDA::generate_ndrange_additional_code(
+void DeviceCUDA::update_ndrange_and_shmem_arguments(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
-        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-        TL::Source& code_ndrange)
+        const TargetInformation& target_info,
+        // out
+        TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
+        TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args)
 {
-    int num_args_ndrange = ndrange_args.size();
-    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
-
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
     ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
 
-    int num_params = parameters_called.size();
-    for (int i = 0; i < num_params; ++i)
+    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
+    for (unsigned int i = 0; i < parameters_called.size(); ++i)
     {
         translate_parameters_map.add_map(
                 parameters_called[i],
                 parameters_unpacked[i]);
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
-    for (int i = 0; i < num_args_ndrange; ++i)
+    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+    for (unsigned int i = 0; i < ndrange_args.size(); ++i)
     {
 
-        new_ndrange.append(Nodecl::Utils::deep_copy(
+        new_ndrange_args.append(Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
                     translate_parameters_map));
     }
 
-    ERROR_CONDITION(!new_ndrange[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
 
-    int num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
+    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+    for (unsigned int i = 0; i < shmem_args.size(); ++i)
+    {
+
+        new_shmem_args.append(Nodecl::Utils::deep_copy(
+                    shmem_args[i],
+                    unpacked_function.get_related_scope(),
+                    translate_parameters_map));
+    }
+}
+
+void DeviceCUDA::generate_ndrange_additional_code(
+        const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
+        TL::Source& code_ndrange)
+{
+    ERROR_CONDITION(!new_ndrange_args[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
+
+    int num_args_ndrange = new_ndrange_args.size();
+    int num_dim = const_value_cast_to_4(new_ndrange_args[0].get_constant());
 
     ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
 
-    bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
-            && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+    bool check_dim = !(new_ndrange_args[num_args_ndrange - 1].is_constant()
+            && const_value_is_string(new_ndrange_args[num_args_ndrange - 1].get_constant())
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
 
     ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
 
@@ -108,19 +124,19 @@ void DeviceCUDA::generate_ndrange_additional_code(
             {
                 code_ndrange << "dimBlock." << field[i-1] << " = "
                     << "(("
-                    << as_expression(new_ndrange[i])
-                    << " < " << as_expression(new_ndrange[num_dim + i])
-                    << ") ? (" << as_expression(new_ndrange[i])
-                    << ") : (" << as_expression(new_ndrange[num_dim + i])
+                    << as_expression(new_ndrange_args[i])
+                    << " < " << as_expression(new_ndrange_args[num_dim + i])
+                    << ") ? (" << as_expression(new_ndrange_args[i])
+                    << ") : (" << as_expression(new_ndrange_args[num_dim + i])
                     << "));";
 
                 code_ndrange << "dimGrid."  << field[i-1] << " = "
                     << "(("
-                    << as_expression(new_ndrange[i])
-                    << " < " << as_expression(new_ndrange[num_dim + i])
+                    << as_expression(new_ndrange_args[i])
+                    << " < " << as_expression(new_ndrange_args[num_dim + i])
                     << ") ? 1 : (("
-                    << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i])
-                    << ") + ((" << as_expression(new_ndrange[i]) << " %  " << as_expression(new_ndrange[num_dim + i])
+                    << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i])
+                    << ") + ((" << as_expression(new_ndrange_args[i]) << " %  " << as_expression(new_ndrange_args[num_dim + i])
                     << " == 0) ? 0 : 1)));";
             }
             else
@@ -133,8 +149,8 @@ void DeviceCUDA::generate_ndrange_additional_code(
         {
             if (i <= num_dim)
             {
-                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange[num_dim + i]) << ";";
-                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i]) << ";";
+                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange_args[num_dim + i]) << ";";
+                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i]) << ";";
             }
             else
             {
@@ -143,14 +159,16 @@ void DeviceCUDA::generate_ndrange_additional_code(
             }
         }
     }
-
 }
 
 void DeviceCUDA::generate_ndrange_kernel_call(
         const Scope& scope,
+        const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
         const Nodecl::NodeclBase& task_statements,
         Nodecl::NodeclBase& output_statements)
 {
+    ERROR_CONDITION(shmem_args.size() > 0 && shmem_args.size() != 1, "Unexpected number of arguments in the 'shmem' clause", 0);
+
     Nodecl::NodeclBase function_call_nodecl =
         task_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
 
@@ -168,11 +186,18 @@ void DeviceCUDA::generate_ndrange_kernel_call(
             Nodecl::Symbol::make(dim_block,
                 task_statements.get_locus()));
 
-    cuda_kernel_config.append(
-            Nodecl::IntegerLiteral::make(
-                TL::Type::get_int_type(),
-                const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                task_statements.get_locus()));
+    if (shmem_args.size() == 1)
+    {
+        cuda_kernel_config.append(shmem_args[0]);
+    }
+    else
+    {
+        cuda_kernel_config.append(
+                Nodecl::IntegerLiteral::make(
+                    TL::Type::get_int_type(),
+                    const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
+                    task_statements.get_locus()));
+    }
 
     cuda_kernel_config.append(
             Nodecl::FunctionCall::make(
@@ -398,13 +423,14 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             dummy_final_statements);
 
     Source ndrange_code;
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args, new_shmem_args;
     if (is_function_task
             && info._target_info.get_ndrange().size() > 0)
     {
-        generate_ndrange_additional_code(called_task,
-                unpacked_function,
-                info._target_info.get_ndrange(),
-                ndrange_code);
+        update_ndrange_and_shmem_arguments(called_task, unpacked_function,
+                info._target_info, new_ndrange_args, new_shmem_args);
+
+        generate_ndrange_additional_code(new_ndrange_args, ndrange_code);
     }
 
     // The unpacked function must not be static and must have external linkage because
@@ -438,6 +464,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         generate_ndrange_kernel_call(
                 outline_placeholder.retrieve_context(),
+                new_shmem_args,
                 task_statements,
                 output_statements);
     }

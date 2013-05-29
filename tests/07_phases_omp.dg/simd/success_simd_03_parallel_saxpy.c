@@ -27,6 +27,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-parallel-simd
+test_ignore=yes
 </testinfo>
 */
 

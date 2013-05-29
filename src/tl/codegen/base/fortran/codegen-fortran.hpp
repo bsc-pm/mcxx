@@ -303,7 +303,9 @@ namespace Codegen
             int get_indent_level();
             void set_indent_level(int);
 
-            void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, bool lacks_result);
+            void codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq,
+                   TL::ObjectList<Nodecl::NodeclBase>& internal_subprograms,
+                   bool lacks_result);
 
             void codegen_procedure_declaration_header(TL::Symbol entry, bool& lacks_result);
             void codegen_procedure_declaration_footer(TL::Symbol entry);
@@ -340,9 +342,12 @@ namespace Codegen
             void do_declare_symbol_from_module(TL::Symbol entry, Nodecl::NodeclBase node, void *data);
             void declare_use_statements(Nodecl::NodeclBase statement_seq, UseStmtInfo&);
             void declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo&);
+            void declare_use_statements(TL::ObjectList<Nodecl::NodeclBase> node,
+                    TL::Scope sc, UseStmtInfo& use_stmt_info);
             void declare_use_statements_of_procedure(
                     TL::Symbol entry,
-                    Nodecl::List statement_seq, Nodecl::List internal_subprograms);
+                    Nodecl::List statement_seq,
+                    TL::ObjectList<Nodecl::NodeclBase> &internal_subprograms);
             void emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo&);
 
             void declare_module_level_entities(Nodecl::NodeclBase node);

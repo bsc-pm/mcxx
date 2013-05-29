@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "codegen-cxx.hpp"
+#include "codegen-prune.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
@@ -1769,12 +1770,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -1999,16 +1994,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
+    if (_prune_saved_variables)
+    {
+        PruneVLAVisitor prune_vla;
+        prune_vla.walk(node);
+    }
+
     //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -5045,6 +5040,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     if (!state.in_condition)
         indent();
 
+    if (_emit_saved_variables_as_unused
+            && symbol.is_saved_expression())
+    {
+        gcc_attributes += "__attribute__((unused)) ";
+    }
+
     file << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
@@ -5528,6 +5529,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
+        }
+
+        if (symbol.is_nested_function())
+        {
+            decl_spec_seq += "auto ";
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
@@ -7378,6 +7384,28 @@ CxxBase::CxxBase()
 {
     set_phase_name("C/C++ codegen");
     set_phase_description("This phase emits in C/C++ the intermediate representation of the compiler");
+
+    _emit_saved_variables_as_unused = false;
+    register_parameter("emit_saved_variables_as_unused",
+            "Emits saved-expression variables as __attribute__((unused))",
+            _emit_saved_variables_as_unused_str,
+            "0").connect(functor(&CxxBase::set_emit_saved_variables_as_unused, *this));
+
+    _prune_saved_variables = true;
+    register_parameter("prune_saved_variables",
+            "Disables removal of unused saved-expression variables. If you need to enable this, please report a ticket",
+            _prune_saved_variables_str,
+            "1").connect(functor(&CxxBase::set_prune_saved_variables, *this));
+}
+
+void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)
+{
+    TL::parse_boolean_option("emit_saved_variables_as_unused", str, _emit_saved_variables_as_unused, "Assuming false.");
+}
+
+void CxxBase::set_prune_saved_variables(const std::string& str)
+{
+    TL::parse_boolean_option("prune_saved_variables", str, _prune_saved_variables, "Assuming true.");
 }
 
 } // Codegen

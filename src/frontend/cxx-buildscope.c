@@ -1641,6 +1641,14 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
             }
 
+            if (entry->kind == SK_FUNCTION
+                    && decl_context.current_scope->kind == BLOCK_SCOPE
+                    && !entry->entity_specs.is_nested_function)
+            {
+                // Ensure that the symbol is marked as extern
+                entry->entity_specs.is_extern = 1;
+            }
+
             if (entry->kind == SK_VARIABLE)
             {
                 if (decl_context.current_scope->kind == BLOCK_SCOPE)
@@ -4031,7 +4039,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     AST enum_name = ASTSon0(a);
 
-    scope_entry_t* new_enum;
+    scope_entry_t* new_enum = NULL;
 
     // If it has name, we register this type name in the symbol table
     // but only if it has not been declared previously
@@ -8644,7 +8652,79 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.is_inline = gather_info->is_inline;
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
 
-        new_entry->entity_specs.linkage_spec = linkage_current_get_name();
+        if (gather_info->is_static && gather_info->is_extern
+                && !gather_info->is_auto)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: conflicting linkage specifiers extern and static\n",
+                        ast_location(declarator_id));
+            }
+        }
+
+        if (gather_info->is_virtual && gather_info->is_extern)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a virtual function is member, so it cannot have extern linkage\n",
+                        ast_location(declarator_id));
+            }
+        }
+
+        if (gather_info->is_virtual && gather_info->is_static)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a virtual function must be a nonstatic member\n",
+                        ast_location(declarator_id));
+            }
+        }
+
+        if (gather_info->is_auto)
+        {
+            if (!gather_info->is_static
+                    && !gather_info->is_extern)
+            {
+                if (decl_context.current_scope->kind != BLOCK_SCOPE)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid auto linkage specifier for functions in non block scope\n",
+                                ast_location(declarator_id));
+                    }
+                }
+                // This is the gcc way to declare (not define) a nested function
+                new_entry->entity_specs.is_nested_function = 1;
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: conflicting linkage specifiers auto %s specified\n",
+                            ast_location(declarator_id),
+                            (gather_info->is_static && gather_info->is_extern)
+                            ?  ", extern and static"
+                            : (gather_info->is_static ? "and static" : "and extern"));
+                }
+            }
+        }
+
+        if (decl_context.current_scope->kind == BLOCK_SCOPE)
+        {
+            if (gather_info->is_static)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid static linkage specifier for a function declared in block scope\n",
+                            ast_location(declarator_id));
+                }
+            }
+        }
+
+        if (decl_context.current_scope->kind != BLOCK_SCOPE)
+        {
+            new_entry->entity_specs.linkage_spec = linkage_current_get_name();
+        }
 
         // "is_pure" of a function is computed in "build_scope_member_simple_declaration"
 
@@ -8654,8 +8734,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         new_entry->entity_specs.num_parameters = gather_info->num_parameters;
 
-        new_entry->entity_specs.default_argument_info = 
-            counted_xcalloc(gather_info->num_parameters, 
+        new_entry->entity_specs.default_argument_info =
+            counted_xcalloc(gather_info->num_parameters,
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
         
@@ -10885,7 +10965,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // This does not modify block_context.current_scope, it simply adds a function_scope to the context
     block_context = new_function_context(block_context);
-    
+
     if(previous_symbol != NULL
             && previous_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
@@ -10955,6 +11035,16 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 locus_to_str(entry->locus),
                 print_declarator(entry->type_information)
                 );
+    }
+
+    if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        if (entry->entity_specs.is_extern)
+        {
+            error_printf("%s: error: definition of a nested function already declared as an extern\n",
+                    ast_location(function_header));
+        }
+        entry->entity_specs.is_nested_function = 1;
     }
 
     if (entry->defined
@@ -11181,7 +11271,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     linkage_pop();
 
-    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
 
     ptr_nodecl_make_func_code = is_dependent_function(entry)
         ? &nodecl_make_template_function_code : &nodecl_make_function_code;
@@ -11193,7 +11283,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 block_context,
                 ast_get_locus(a)),
             nodecl_initializers,
-            /* internal_functions */ nodecl_null(),
             entry,
             ast_get_locus(a));
 

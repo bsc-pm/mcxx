@@ -236,7 +236,7 @@ static scope_entry_t* get_or_create_untyped_symbols_info(decl_context_t decl_con
     return get_or_create_special_symbol(decl_context, ".untyped_symbols");
 }
 
-scope_entry_t* get_data_symbol_info(decl_context_t decl_context)
+scope_entry_t* fortran_get_data_symbol_info(decl_context_t decl_context)
 {
     return get_special_symbol(decl_context, ".data");
 }
@@ -246,7 +246,7 @@ static scope_entry_t* get_or_create_data_symbol_info(decl_context_t decl_context
     return get_or_create_special_symbol(decl_context, ".data");
 }
 
-scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
+scope_entry_t* fortran_get_equivalence_symbol_info(decl_context_t decl_context)
 {
     return get_special_symbol(decl_context, ".equivalence");
 }
@@ -839,10 +839,13 @@ static void build_scope_main_program_unit(AST program_unit,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
-    if (nodecl_is_null(nodecl_body))
+    if (nodecl_is_null(nodecl_body) && nodecl_is_null(nodecl_internal_subprograms))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ast_get_locus(program_unit)));
-
+    }
+    else
+    {
+        nodecl_body = nodecl_concat_lists(nodecl_body, nodecl_internal_subprograms);
     }
 
     nodecl_t function_code = nodecl_make_function_code(
@@ -851,7 +854,6 @@ static void build_scope_main_program_unit(AST program_unit,
                     program_unit_context,
                     ast_get_locus(program_unit)),
                 /* initializers */ nodecl_null(),
-                nodecl_internal_subprograms,
                 program_sym,
                 ast_get_locus(program_unit));
 
@@ -934,9 +936,13 @@ static void build_scope_function_program_unit(AST program_unit,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
-    if (nodecl_is_null(nodecl_body))
+    if (nodecl_is_null(nodecl_body) && nodecl_is_null(nodecl_internal_subprograms))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ast_get_locus(program_unit)));
+    }
+    else
+    {
+        nodecl_body = nodecl_concat_lists(nodecl_body, nodecl_internal_subprograms);
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -958,7 +964,6 @@ static void build_scope_function_program_unit(AST program_unit,
                 program_unit_context,
                 ast_get_locus(program_unit)),
             /* initializers */ nodecl_null(),
-            nodecl_internal_subprograms,
             new_entry,
             ast_get_locus(program_unit));
 
@@ -1041,9 +1046,13 @@ static void build_scope_subroutine_program_unit(AST program_unit,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
-    if (nodecl_is_null(nodecl_body))
+    if (nodecl_is_null(nodecl_body) && nodecl_is_null(nodecl_internal_subprograms))
     {
         nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ast_get_locus(program_unit)));
+    }
+    else
+    {
+        nodecl_body = nodecl_concat_lists(nodecl_body, nodecl_internal_subprograms);
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -1065,7 +1074,6 @@ static void build_scope_subroutine_program_unit(AST program_unit,
                 program_unit_context,
                 ast_get_locus(program_unit)),
             /* initializers */ nodecl_null(),
-            nodecl_internal_subprograms,
             new_entry,
             ast_get_locus(program_unit));
 
@@ -2342,11 +2350,15 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
             }
 
             nodecl_t nodecl_statements = internal_subprograms_info[i].nodecl_output;
-            if (nodecl_is_null(nodecl_statements))
+            if (nodecl_is_null(nodecl_statements) && nodecl_is_null(nodecl_internal_subprograms))
             {
                 nodecl_statements = nodecl_make_list_1(
                         nodecl_make_empty_statement(
                             internal_subprograms_info[i].locus));
+            }
+            else
+            {
+                nodecl_statements = nodecl_concat_lists(nodecl_statements, nodecl_internal_subprograms);
             }
 
             nodecl_t function_code = 
@@ -2356,7 +2368,6 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                             internal_subprograms_info[i].decl_context,
                             internal_subprograms_info[i].locus),
                         /* initializers */ nodecl_null(),
-                        nodecl_internal_subprograms,
                         internal_subprograms_info[i].symbol,
                         internal_subprograms_info[i].locus);
 
