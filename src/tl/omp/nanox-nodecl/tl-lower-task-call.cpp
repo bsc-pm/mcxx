@@ -294,6 +294,16 @@ static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
             it != deps.end();
             it++)
     {
+//         If the current outline data item has a parameter with an input value
+//         dependence, this parameter must be involved in another clause
+//         because the SHARING_SHARED_WITH_CAPTURE outline data items are not
+//         handled here (this kind of outline data item only has an input value
+//         dependence).
+//         The value of this parameter is needed during the task instantiation
+//         and, for this reason, the input value dependence is not added.
+        if (it->directionality == OutlineDataItem::DEP_IN_VALUE)
+            continue;
+
         Nodecl::NodeclBase copy = it->expression.shallow_copy();
         Nodecl::NodeclBase rewritten = rewrite_expression_in_dependency_c(copy, map);
 
@@ -608,14 +618,18 @@ namespace InputValueUtils
                 it != data_items.end() && !depended_by_other_clause;
                 it++)
         {
-            if (current_item == *it)
-                continue;
+            bool is_current_item = current_item == *it;
 
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
                     dep_it != deps.end() && !depended_by_other_clause;
                     dep_it++)
             {
+
+                if (is_current_item
+                        && dep_it->directionality == OutlineDataItem::DEP_IN_VALUE)
+                    continue;
+
                 TL::DataReference dep_expr(dep_it->expression);
                 TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
                 depended_by_other_clause = dep_expr_syms.contains(parameter);
@@ -784,6 +798,10 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     initializations_src);
 
             new_arguments.append(new_updated_argument);
+
+            // Note that the current argument may create more than one
+            // SHARING_SHARED_WITH_CAPTURE outline data items and They are not
+            // associated with the current parameter in the param_sym_to_arg_sym map.
         }
         else
         {
@@ -941,6 +959,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             it != param_to_arg_expr.end();
             it++)
     {
+        //The SHARING_SHARED_WITH_CAPTURE outline data items are skipped at this point
         if (param_sym_to_arg_sym.find(it->first) == param_sym_to_arg_sym.end())
             continue;
 

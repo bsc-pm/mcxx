@@ -419,9 +419,6 @@ namespace TL
                         has_input_value = current_item.directionality == DEP_IN_VALUE;
                     }
 
-                    ERROR_CONDITION(has_input_value && _dependences.size() > 1,
-                            "Invalid number of input dependencies passed by value", 0);
-
                     return has_input_value;
                 }
 
