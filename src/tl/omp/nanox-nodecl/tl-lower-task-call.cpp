@@ -608,14 +608,18 @@ namespace InputValueUtils
                 it != data_items.end() && !depended_by_other_clause;
                 it++)
         {
-            if (current_item == *it)
-                continue;
+            bool is_current_item = current_item == *it;
 
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
                     dep_it != deps.end() && !depended_by_other_clause;
                     dep_it++)
             {
+
+                if (is_current_item
+                        && dep_it->directionality == OutlineDataItem::DEP_IN_VALUE)
+                    continue;
+
                 TL::DataReference dep_expr(dep_it->expression);
                 TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
                 depended_by_other_clause = dep_expr_syms.contains(parameter);
