@@ -58,6 +58,15 @@
 
 #define CVAL_HASH_SIZE (37)
 
+/*
+IMPORTANT: incompatible changes to enum const_value_kind_tag requires
+increasing the value of CURRENT_MODULE_VERSION in fortran03-modules.c.
+
+It is safe to add new enumerator values after the last.
+
+Any other change is an incompatible one. In particular, removing
+or reordering the enumerator values are incompatible changes.
+*/
 typedef enum const_value_kind_tag
 {
     CVK_NONE = 0,
@@ -65,16 +74,14 @@ typedef enum const_value_kind_tag
     CVK_FLOAT,
     CVK_DOUBLE,
     CVK_LONG_DOUBLE,
-#ifdef HAVE_QUADMATH_H
     CVK_FLOAT128,
-#endif
     CVK_COMPLEX,
     CVK_ARRAY,
     CVK_STRUCT,
     CVK_VECTOR,
     CVK_STRING,
     CVK_RANGE,
-    CVK_MASK
+    CVK_MASK,
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -84,6 +91,15 @@ typedef struct const_multi_value_tag
     const_value_t* elements[];
 } const_multi_value_t;
 
+/*
+IMPORTANT: incompatible changes to memory layout of struct const_value_tag
+requires increasing the value of CURRENT_MODULE_VERSION in fortran03-modules.c.
+
+It is safe to add new fields inside the union value.
+
+Any other change should be assumed to be incompatible. In particular, adding
+fields before or after the union are incompatible changes.
+*/
 struct const_value_tag
 {
     const_value_kind_t kind;
