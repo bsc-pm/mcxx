@@ -109,7 +109,7 @@ interface_specification : unknown_pragma
 // ****************************
 
 /*!ifnot FORTRAN2003*/
-no_if_statement : pragma_custom_construct_statement
+nondeclarating_statement : pragma_custom_construct_statement
 {
     $$ = $1;
 }
