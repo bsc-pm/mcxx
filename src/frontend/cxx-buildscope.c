@@ -4039,7 +4039,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     AST enum_name = ASTSon0(a);
 
-    scope_entry_t* new_enum;
+    scope_entry_t* new_enum = NULL;
 
     // If it has name, we register this type name in the symbol table
     // but only if it has not been declared previously
