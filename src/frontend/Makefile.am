@@ -71,6 +71,9 @@ libmcxx_la_SOURCES = \
   cxx-locus.c \
   cxx-asttype.h \
   cxx-asttype.c \
+  cxx-asttype-str.c \
+  cxx-asttype-str.h \
+  cxx-asttype-str-internal.c \
   cxx-ast.c \
   cxx-ast.h \
   cxx-ast-fwd.h \
@@ -310,6 +313,10 @@ TPP_verbose_0 = @echo "  TPP   " $@;
 PYTHON_verbose = $(PYTHON_verbose_$(V))
 PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
 PYTHON_verbose_0 = @echo "  PYTHON" $@;
+
+GPERF_verbose = $(GPERF_verbose_$(V))
+GPERF_verbose_ = $(GPERF_verbose_$(AM_DEFAULT_VERBOSITY))
+GPERF_verbose_0 = @echo "  GPERF " $@;
 endif
 
 CLEANFILES += cxx-asttype.h
@@ -347,6 +354,38 @@ cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 CLEANFILES += cxx-asttype.def
 cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYPE_FILES_GEN)
 	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) -I $(builddir) $(srcdir)/cxx-asttype-all.def
+
+BUILT_SOURCES += cxx-asttype-str.gperf
+CLEANFILES += cxx-asttype-str.gperf
+cxx-asttype-str.gperf : cxx-asttype.def cxx-asttype.h
+	$(AM_V_GEN)( \
+	echo "%{" >> cxx-asttype-str.gperf; \
+	echo "/* This file has been generated. Every time you change $+ it will be regenerated */" >> cxx-asttype-str.gperf; \
+	echo "#include \"libmcxx-common.h\"" >> cxx-asttype-str.gperf; \
+	echo "#include \"cxx-macros.h\"" >> cxx-asttype-str.gperf; \
+	echo "#include \"cxx-asttype-str.h\"" >> cxx-asttype-str.gperf; \
+	echo "#include \"cxx-asttype.h\"" >> cxx-asttype-str.gperf; \
+	echo "#include <string.h>" >> cxx-asttype-str.gperf; \
+	echo "%}" >> cxx-asttype-str.gperf; \
+	echo "struct node_str_t;" >> cxx-asttype-str.gperf; \
+	echo "%%" >> cxx-asttype-str.gperf; \
+	echo "\"AST_INVALID_NODE\", AST_INVALID_NODE" >> cxx-asttype-str.gperf; \
+	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/^[[:blank:]]*\([^[:blank:]]\+\)[[:blank:]]*$$/\"\1\", \1/" < cxx-asttype.def >> cxx-asttype-str.gperf; \
+	echo "\"AST_LAST_NODE\", AST_LAST_NODE" >> cxx-asttype-str.gperf; \
+	echo "%%" >> cxx-asttype-str.gperf; \
+    )
+
+BUILT_SOURCES += cxx-asttype-str-internal.c
+CLEANFILES += cxx-asttype-str-internal.c
+cxx-asttype-str-internal.c: cxx-asttype-str.gperf
+if GPERF_BUILDING
+	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=ast_node_kind_hash --struct-type \
+      --lookup-function-name=ast_node_name_to_kind_ --output=cxx-asttype-str-internal.c \
+      --initializer-suffix=,AST_INVALID_NODE cxx-asttype-str.gperf
+else
+	@echo "*** ERROR: file cxx-asttype-str.gperf was modified but no suitable gperf was found during configure ***"
+	@exit 1
+endif
 
 if FLEX_BUILDING
 CLEANFILES += cxx-scanner.c
