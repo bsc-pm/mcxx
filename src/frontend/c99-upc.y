@@ -107,7 +107,7 @@ upc_layout_qualifier_element : '[' ']'
 }
 ;
 
-no_if_statement : upc_synchronization_statement
+nondeclarating_statement : upc_synchronization_statement
 {
     $$ = $1;
 }

@@ -13776,53 +13776,109 @@ static void build_scope_pragma_custom_directive(AST a,
     *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
-void build_scope_statement_pragma(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_output, 
-        void* info UNUSED_PARAMETER)
-{
-    build_scope_statement(a, decl_context, nodecl_output);
-}
-
-static void build_scope_pragma_custom_construct_statement(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_output)
-{
-    nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_statement_pragma, NULL);
-
-    // We expect lists of statements at statement level
-    *nodecl_output = nodecl_make_list_1(*nodecl_output);
-}
-
 typedef
 struct declaration_pragma_info_tag
 {
     scope_entry_list_t** declared_symbols;
     gather_decl_spec_list_t *gather_decl_spec_list;
+
+    int num_pragma_lines;
+    nodecl_t *pragma_lines;
+    int num_pragma_texts;
+    const char** pragma_texts;
 } declaration_pragma_info_t;
 
-static void build_scope_declaration_pragma(AST a,
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output,
-        void *p)
+typedef
+struct pragma_block_level_info_tag
 {
-    declaration_pragma_info_t *i = (declaration_pragma_info_t*)p;
+    char is_declaration;
+    declaration_pragma_info_t declaration_pragma;
+} pragma_block_level_info_t;
 
-    build_scope_declaration(a, decl_context, nodecl_output, i->declared_symbols, i->gather_decl_spec_list);
+static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma,
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output, 
+        pragma_block_level_info_t* info)
+{
+    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+
+    AST pragma_line = ASTSon0(pragma);
+    AST pragma_stmt = ASTSon1(pragma);
+    AST end_clauses = ASTSon2(pragma);
+
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
+
+    if (ASTType(pragma_stmt) == AST_AMBIGUITY)
+        solve_ambiguous_statement(pragma_stmt, decl_context);
+
+    nodecl_t nodecl_statement = nodecl_null();
+
+    switch (ASTType(pragma_stmt))
+    {
+        case AST_AMBIGUITY:
+            {
+                internal_error("This should not happen", 0);
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid nesting of #pragma\n",
+                            ast_location(pragma_stmt));
+                }
+                *nodecl_output = nodecl_make_err_statement(ast_get_locus(pragma_stmt));
+                return;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                build_scope_pragma_custom_construct_statement_or_decl_rec(pragma_stmt,
+                        decl_context, &nodecl_statement, info);
+                break;
+            }
+        case AST_DECLARATION_STATEMENT:
+            {
+                // FIXME
+                info->is_declaration = 1;
+
+                AST declaration = ASTSon0(pragma_stmt);
+                // Note that here we use nodecl_output instead of nodecl_statement
+                build_scope_declaration(declaration, decl_context, nodecl_output,
+                        info->declaration_pragma.declared_symbols,
+                        info->declaration_pragma.gather_decl_spec_list);
+                break;
+            }
+        case AST_FUNCTION_DEFINITION:
+            {
+                internal_error("Not implemented yet", 0);
+                break;
+            }
+        default:
+            {
+                build_scope_statement(pragma_stmt, decl_context, &nodecl_statement);
+                break;
+            }
+    }
+
+    if (!info->is_declaration)
+    {
+        *nodecl_output = nodecl_make_list_1(
+            nodecl_make_pragma_custom_statement(
+                nodecl_pragma_line,
+                nodecl_statement,
+                ASTText(pragma),
+                ast_get_locus(pragma)));
+    }
+    else
+    {
+        P_LIST_ADD(info->declaration_pragma.pragma_lines,
+                info->declaration_pragma.num_pragma_lines,
+                nodecl_pragma_line);
+        P_LIST_ADD(info->declaration_pragma.pragma_texts,
+                info->declaration_pragma.num_pragma_texts,
+                ASTText(pragma));
+    }
 }
-
-// It seems unavoidable to keep some state here, otherwise the flow will
-// become unnecessarily complex. This is used only in
-//
-//     build_scope_pragma_custom_construct_declaration
-//     build_scope_pragma_custom_construct_member_declaration
-//     finish_pragma_declaration
-//
-// - State for pragmas declaration -
-static int pragma_nesting = 0;
-static nodecl_t nodecl_pragma_output = NODECL_STATIC_NULL;
-// - End of state for pragma declaration processing -
 
 // Picks the context of the first non null parameter
 static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
@@ -13848,85 +13904,128 @@ static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
 }
 
 static void finish_pragma_declaration(
-        scope_entry_list_t* declared_symbols,
-        gather_decl_spec_list_t gather_decl_spec_list,
         decl_context_t decl_context,
-        nodecl_t nodecl_pragma_line,
-        nodecl_t nodecl_decl,
-        const char* text,
-        const locus_t* locus,
-        nodecl_t *nodecl_output)
+        nodecl_t *nodecl_output,
+        declaration_pragma_info_t* info)
 {
-    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
-    //         nodecl_get_text(nodecl_pragma_line),
-    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" :
-    //         (nodecl_is_list(nodecl_decl) ?
-    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) :
-    //         ast_print_node_type(nodecl_get_kind(nodecl_decl))));
+    ERROR_CONDITION(info->num_pragma_lines == 0, "This cannot happen", 0);
 
-    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) &&
-            entry_list_size(declared_symbols) != 0, "This should not happen", 0);
-
-    if (entry_list_size(declared_symbols) > 0)
+    nodecl_t nodecl_pragma_declarations = nodecl_null();
+    scope_entry_list_iterator_t* it = NULL;
+    int i;
+    for (it = entry_list_iterator_begin(*info->declared_symbols), i = 0;
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it), i++)
     {
-        scope_entry_list_iterator_t* it = NULL;
-        int i = 0;
-        for (it = entry_list_iterator_begin(declared_symbols);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it), i++)
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        gather_decl_spec_t gather_info = info->gather_decl_spec_list->items[i];
+
+        nodecl_t nodecl_single_pragma_declaration = nodecl_null();
+        int j;
+        for (j = 0; j < info->num_pragma_lines; j++)
         {
-            scope_entry_t* entry = entry_list_iterator_current(it);
-            ERROR_CONDITION(gather_decl_spec_list.num_items <= i, "Invalid list of gather_decl_spec", 0);
-
-            gather_decl_spec_t gather_spec = gather_decl_spec_list.items[i];
-
-            nodecl_pragma_output = nodecl_append_to_list(
-                    nodecl_pragma_output,
-                    nodecl_make_pragma_custom_declaration(
-                        nodecl_shallow_copy(nodecl_pragma_line), 
-                        nodecl_null(), 
-                        nodecl_make_pragma_context(decl_context, entry->locus),
-                        nodecl_make_pragma_context(
-                            get_prototype_context_if_any(decl_context, entry, gather_spec), 
-                            entry->locus),
-                        entry, 
-                        text, locus));
+            nodecl_single_pragma_declaration = nodecl_make_pragma_custom_declaration(
+                    nodecl_shallow_copy(info->pragma_lines[j]),
+                    nodecl_single_pragma_declaration,
+                    nodecl_make_pragma_context(decl_context, entry->locus),
+                    nodecl_make_pragma_context(
+                        get_prototype_context_if_any(decl_context, entry, gather_info),
+                        entry->locus),
+                    entry,
+                    info->pragma_texts[j],
+                    nodecl_get_locus(info->pragma_lines[j]));
         }
-    }
-    else
-    {
-        int num_items = 0, i;
-        nodecl_t nodecl_old_pragma_output = nodecl_pragma_output;
-        nodecl_t* list = nodecl_unpack_list(nodecl_old_pragma_output, &num_items);
 
-        nodecl_pragma_output = nodecl_null();
-
-        for (i = 0; i < num_items; i++)
-        {
-            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION,
-                    "Invalid node in nodecl_pragma_output", 0);
-
-            nodecl_t pragma_context = nodecl_get_child(list[i], 2);
-            nodecl_t prototype_context = nodecl_get_child(list[i], 3);
-
-            nodecl_pragma_output = nodecl_append_to_list(
-                    nodecl_pragma_output,
-                    nodecl_make_pragma_custom_declaration(
-                        nodecl_shallow_copy(nodecl_pragma_line), 
-                        list[i], 
-                        nodecl_shallow_copy(pragma_context),
-                        nodecl_shallow_copy(prototype_context),
-                        nodecl_get_symbol(list[i]), 
-                        text, locus));
-        }
-        xfree(list);
+        nodecl_pragma_declarations = nodecl_append_to_list(nodecl_pragma_declarations,
+                nodecl_single_pragma_declaration);
     }
 
-    entry_list_free(declared_symbols);
+    entry_list_iterator_free(it);
+    entry_list_free(*info->declared_symbols);
 
-    nodecl_free(nodecl_pragma_line);
+    xfree(info->pragma_texts);
+    xfree(info->pragma_lines);
 
-    *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
+    *nodecl_output = nodecl_concat_lists(*nodecl_output,
+            nodecl_pragma_declarations);
+}
+
+static void build_scope_pragma_custom_construct_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    pragma_block_level_info_t info;
+    memset(&info, 0, sizeof(info));
+
+    scope_entry_list_t* declared_symbols = NULL;
+    gather_decl_spec_list_t gather_decl_spec_list;
+    memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
+
+    info.declaration_pragma.declared_symbols = &declared_symbols;
+    info.declaration_pragma.gather_decl_spec_list = &gather_decl_spec_list;
+
+    build_scope_pragma_custom_construct_statement_or_decl_rec(a, decl_context, nodecl_output, &info);
+
+    if (info.is_declaration)
+    {
+        finish_pragma_declaration(decl_context, nodecl_output, &info.declaration_pragma);
+    }
+}
+
+static void build_scope_pragma_custom_construct_declaration_rec(
+        AST pragma,
+        decl_context_t decl_context,
+        nodecl_t *nodecl_output,
+        declaration_pragma_info_t* info)
+{
+    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+
+    AST pragma_line = ASTSon0(pragma);
+    AST pragma_decl = ASTSon1(pragma);
+    AST end_clauses = ASTSon2(pragma);
+
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
+
+    if (ASTType(pragma_decl) == AST_AMBIGUITY)
+        solve_ambiguous_declaration(pragma_decl, decl_context);
+
+    switch (ASTType(pragma_decl))
+    {
+        case AST_AMBIGUITY:
+            {
+                internal_error("This should not happen", 0);
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid nesting of #pragma\n",
+                            ast_location(pragma_decl));
+                }
+                return;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                build_scope_pragma_custom_construct_declaration_rec(pragma_decl, decl_context, nodecl_output, info);
+                break;
+            }
+        default:
+            {
+                // FIXME
+                build_scope_declaration(pragma_decl, decl_context, nodecl_output,
+                        info->declared_symbols,
+                        info->gather_decl_spec_list);
+                break;
+            }
+    }
+
+    P_LIST_ADD(info->pragma_lines,
+            info->num_pragma_lines,
+            nodecl_pragma_line);
+    P_LIST_ADD(info->pragma_texts,
+            info->num_pragma_texts,
+            ASTText(pragma));
 }
 
 static void build_scope_pragma_custom_construct_declaration(AST a,
@@ -13937,52 +14036,82 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     gather_decl_spec_list_t gather_decl_spec_list;
     memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
 
-    nodecl_t nodecl_pragma_line = nodecl_null();
-    nodecl_t nodecl_decl = nodecl_null();
-
-    pragma_nesting++;
-
     declaration_pragma_info_t info;
+    memset(&info, 0, sizeof(info));
+
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    common_build_scope_pragma_custom_declaration(a, decl_context,
-            &nodecl_pragma_line, &nodecl_decl,
-            build_scope_declaration_pragma,
-            &info);
+    build_scope_pragma_custom_construct_declaration_rec(a, decl_context, nodecl_output, &info);
 
-    pragma_nesting--;
-    ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
-
-    finish_pragma_declaration(declared_symbols,
-            gather_decl_spec_list,
-            decl_context,
-            nodecl_pragma_line, nodecl_decl,
-            ASTText(a), ast_get_locus(a),
-            nodecl_output);
-
-    if (pragma_nesting == 0)
-    {
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_pragma_output);
-        nodecl_pragma_output = nodecl_null();
-    }
+    finish_pragma_declaration(decl_context, nodecl_output, &info);
 }
 
-struct declaration_pragma_member_info_tag
+typedef
+struct member_declaration_pragma_info_tag
 {
     type_t* class_info;
     access_specifier_t current_access;
-    scope_entry_list_t** declared_symbols;
-    gather_decl_spec_list_t* gather_decl_spec_list;
-};
+    declaration_pragma_info_t declaration_pragma;
+} member_declaration_pragma_info_t;
 
-static void build_scope_member_declaration_pragma(AST a, decl_context_t decl_context, nodecl_t* nodecl_output, void* info)
+static void build_scope_pragma_custom_construct_member_declaration_rec(
+        AST pragma,
+        decl_context_t decl_context,
+        nodecl_t *nodecl_output,
+        member_declaration_pragma_info_t* info)
 {
-    struct declaration_pragma_member_info_tag* mem = (struct declaration_pragma_member_info_tag*)info;
-    build_scope_member_declaration(decl_context, a, mem->current_access, mem->class_info, 
-            nodecl_output,
-            mem->declared_symbols, 
-            mem->gather_decl_spec_list);
+    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+
+    AST pragma_line = ASTSon0(pragma);
+    AST pragma_decl = ASTSon1(pragma);
+    AST end_clauses = ASTSon2(pragma);
+
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
+
+    if (ASTType(pragma_decl) == AST_AMBIGUITY)
+        solve_ambiguous_declaration(pragma_decl, decl_context);
+
+    switch (ASTType(pragma_decl))
+    {
+        case AST_AMBIGUITY:
+            {
+                internal_error("This should not happen", 0);
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid nesting of #pragma %s\n",
+                            ast_location(pragma_decl),
+                            ast_get_text(pragma_decl));
+                }
+                return;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                build_scope_pragma_custom_construct_member_declaration_rec(pragma_decl, decl_context, nodecl_output, info);
+                break;
+            }
+        default:
+            {
+                build_scope_member_declaration(decl_context, pragma_decl,
+                        info->current_access,
+                        info->class_info, 
+                        nodecl_output,
+                        info->declaration_pragma.declared_symbols, 
+                        info->declaration_pragma.gather_decl_spec_list);
+                break;
+            }
+    }
+
+    P_LIST_ADD(info->declaration_pragma.pragma_lines,
+            info->declaration_pragma.num_pragma_lines,
+            nodecl_pragma_line);
+    P_LIST_ADD(info->declaration_pragma.pragma_texts,
+            info->declaration_pragma.num_pragma_texts,
+            ASTText(pragma));
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
@@ -13995,37 +14124,16 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     gather_decl_spec_list_t gather_decl_spec_list;
     memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
 
-    struct declaration_pragma_member_info_tag mem_info = { 
-        .class_info = class_info, 
-        .current_access = current_access, 
-        .declared_symbols = &declared_symbols,
-        .gather_decl_spec_list = &gather_decl_spec_list,
-    };
+    member_declaration_pragma_info_t info;
+    memset(&info, 0, sizeof(info));
+    info.class_info = class_info;
+    info.current_access = current_access;
+    info.declaration_pragma.declared_symbols = &declared_symbols;
+    info.declaration_pragma.gather_decl_spec_list = &gather_decl_spec_list;
 
-    nodecl_t nodecl_pragma_line = nodecl_null();
-    nodecl_t nodecl_member_decl = nodecl_null();
+    build_scope_pragma_custom_construct_member_declaration_rec(a, decl_context, nodecl_output, &info);
 
-    pragma_nesting++;
-
-    common_build_scope_pragma_custom_declaration(a, decl_context, 
-            &nodecl_pragma_line, &nodecl_member_decl,
-            build_scope_member_declaration_pragma, &mem_info);
-
-    pragma_nesting--;
-    ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
-
-    finish_pragma_declaration(declared_symbols,
-            gather_decl_spec_list,
-            decl_context,
-            nodecl_pragma_line, nodecl_member_decl,
-            ASTText(a), ast_get_locus(a),
-            nodecl_output);
-
-    if (pragma_nesting == 0)
-    {
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_pragma_output);
-        nodecl_pragma_output = nodecl_null();
-    }
+    finish_pragma_declaration(decl_context, nodecl_output, &info.declaration_pragma);
 }
 
 

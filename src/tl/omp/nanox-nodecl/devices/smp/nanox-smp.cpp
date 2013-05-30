@@ -35,6 +35,7 @@
 #include "tl-replace.hpp"
 #include "tl-compilerpipeline.hpp"
 
+#include "tl-nodecl-utils-c.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
 #include "tl-symbol-utils.hpp"
 
@@ -141,7 +142,6 @@ namespace TL { namespace Nanox {
                 << "}";
         }
 
-        // Fortran may require more symbols
         if (IS_FORTRAN_LANGUAGE)
         {
             // Insert extra symbols
@@ -182,15 +182,32 @@ namespace TL { namespace Nanox {
             extra_declarations
                 << "IMPLICIT NONE\n";
         }
-        else if (IS_CXX_LANGUAGE)
+        else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            if (!unpacked_function.is_member())
+            // Insert extra symbols
+            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+
+            Nodecl::Utils::C::ExtraDeclsVisitor fun_visitor(symbol_map,
+                    unpacked_function_scope,
+                    current_function);
+
+            if (is_function_task
+                    && info._called_task.get_scope().is_block_scope())
             {
-                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                        /* optative context */ nodecl_null(),
-                        unpacked_function,
-                        original_statements.get_locus());
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+                fun_visitor.insert_extra_symbol(info._called_task);
+            }
+            fun_visitor.insert_extra_symbols(task_statements);
+
+            if (IS_CXX_LANGUAGE)
+            {
+                if (!unpacked_function.is_member())
+                {
+                    Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                            /* optative context */ nodecl_null(),
+                            unpacked_function,
+                            original_statements.get_locus());
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+                }
             }
         }
 
