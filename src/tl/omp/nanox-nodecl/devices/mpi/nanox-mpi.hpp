@@ -55,7 +55,7 @@ namespace TL
                   unsigned int _currTaskId;
 
                   void generate_additional_mpi_code(
-                    const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+                    const TL::ObjectList<OutlineDataItem*>& data_items,
                     const TL::Symbol& struct_args,
                     const std::string& outline_name,
                     TL::Source& code_host,
