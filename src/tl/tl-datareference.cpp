@@ -967,18 +967,25 @@ namespace TL
                         get_ptrdiff_t_type(),
                         expr.get_locus());
             }
+            // ([N]p)[X:Y]
             else if (subscripted.is<Nodecl::Shaping>())
             {
                 Nodecl::Shaping shaping = subscripted.as<Nodecl::Shaping>();
+                DataReference shaped_data_ref = shaping.get_postfix();
+
+                if (!shaped_data_ref.is_valid())
+                    return Nodecl::NodeclBase::null();
+
+                Nodecl::NodeclBase shaped_offset = compute_offsetof(
+                        shaping.get_postfix(),
+                        shaped_data_ref,
+                        scope);
+
                 result = Nodecl::Add::make(
                         result,
-                        Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Cast::make(
-                                shaping.get_postfix().shallow_copy(),
-                                get_ptrdiff_t_type(),
-                                "C"),
-                            get_ptrdiff_t_type()),
-                        get_ptrdiff_t_type());
+                        shaped_offset,
+                        get_ptrdiff_t_type(),
+                        expr.get_locus());
             }
             // a[e]
             else if (subscripted.is<Nodecl::Symbol>())

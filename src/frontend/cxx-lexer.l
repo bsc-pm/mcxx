@@ -828,7 +828,7 @@ type {
     char start_of_new_file = 0;
     char return_of_a_file = 0;
     char system_header_file = 0;
-    char extern_c_block = 0;
+    char extern_c_block UNUSED_PARAMETER = 1;
     while (*directive == ' '
             || isdigit(*directive))
     {
