@@ -393,14 +393,14 @@ namespace Codegen
         }
 
         // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
         // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -4332,8 +4332,16 @@ OPERATOR_TABLE
             declare_module_level_entities(node);
         }
 
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        if (data_symbol.is_valid())
+        {
+            walk(data_symbol.get_value());
+        }
+
+
         // EQUIVALENCE
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -4599,15 +4607,16 @@ OPERATOR_TABLE
             TL::Symbol &sym(*it);
             declare_symbol(sym, sym.get_scope());
         }
-        
-        // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());

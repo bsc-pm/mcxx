@@ -7781,12 +7781,16 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     {
                         whole_size = uniquestr("[]");
                     }
-                    // If this is a saved expression and it is NOT a parameter we use its saved symbol instead
+                    // A saved expression that is not user declared means that we have to ignore it
+                    // when printing it
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
+                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression
+                            && !nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_user_declared)
                     {
-                        scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
-                        whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
+                        scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
+                        const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
+
+                        whole_size = strappend("[", whole_size_str);
                         whole_size = strappend(whole_size, "]");
                     }
                     else
@@ -8815,6 +8819,18 @@ static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
 
 }
 
+static char mask_to_integral(type_t* orig, type_t* dest)
+{
+    orig = no_ref(orig);
+    dest = no_ref(dest);
+
+    return (is_mask_type(orig)
+            && is_integral_type(dest)
+            // Since we do not register any conversion we force their bit
+            // representation size be the same
+            && ((type_get_size(dest) * 8) == mask_type_get_num_bits(orig)));
+}
+
 char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
 {
     DEBUG_CODE()
@@ -9390,6 +9406,16 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (CURRENT_CONFIGURATION->enable_intel_vector_types
                 && (vector_type_to_vector_struct_type(orig, dest)
                     || vector_type_to_vector_struct_type(dest, orig)))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
+        // Mask conversions
+        // mask type -> integral type
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && (mask_to_integral(orig, dest)
+                    || mask_to_integral(dest, orig)))
         {
             // We do not account this as a conversion of any kind, we just let
             // these types be transparently compatible

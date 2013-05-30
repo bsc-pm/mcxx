@@ -113,17 +113,6 @@ void common_build_scope_pragma_custom_line(
             ast_get_locus(start_clauses));
 }
 
-void common_build_scope_pragma_custom_declaration(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_pragma_line,
-        nodecl_t* nodecl_nested_decl,
-        void (*function_for_child)(AST, decl_context_t decl_context, nodecl_t*, void* info),
-        void* info)
-{
-    common_build_scope_pragma_custom_line(ASTSon0(a), /* end clauses */ NULL, decl_context, nodecl_pragma_line);
-    function_for_child(ASTSon1(a), decl_context, nodecl_nested_decl, info);
-}
-
 void common_build_scope_pragma_custom_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output,

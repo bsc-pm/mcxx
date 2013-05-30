@@ -56,8 +56,8 @@ LIBMF03_EXTERN void build_scope_program_unit_seq(AST program_unit_seq,
 
 LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);
 
-LIBMF03_EXTERN scope_entry_t* get_data_symbol_info(decl_context_t decl_context_t);
-LIBMF03_EXTERN scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context);
+LIBMF03_EXTERN scope_entry_t* fortran_get_data_symbol_info(decl_context_t decl_context_t);
+LIBMF03_EXTERN scope_entry_t* fortran_get_equivalence_symbol_info(decl_context_t decl_context);
 
 LIBMF03_EXTERN scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context);
 

@@ -530,6 +530,14 @@ namespace Codegen
             virtual bool cuda_print_special_attributes();
 
             virtual bool cuda_emit_always_extern_linkage();
+
+            std::string _emit_saved_variables_as_unused_str;
+            bool _emit_saved_variables_as_unused;
+            void set_emit_saved_variables_as_unused(const std::string& str);
+
+            std::string _prune_saved_variables_str;
+            bool _prune_saved_variables;
+            void set_prune_saved_variables(const std::string& str);
     };
 }
 
