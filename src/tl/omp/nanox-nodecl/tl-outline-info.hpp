@@ -177,7 +177,6 @@ namespace TL
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
-                TaskwaitOnNode* _taskwait_on_before_wd_creation;
                 TaskwaitOnNode* _taskwait_on_after_wd_creation;
 
                 bool _is_lastprivate;
@@ -200,7 +199,6 @@ namespace TL
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    _taskwait_on_before_wd_creation(NULL),
                     _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
@@ -209,7 +207,6 @@ namespace TL
 
                 ~OutlineDataItem()
                 {
-                    delete _taskwait_on_before_wd_creation;
                     delete _taskwait_on_after_wd_creation;
                 }
 
@@ -420,16 +417,6 @@ namespace TL
                     }
 
                     return has_input_value;
-                }
-
-                TaskwaitOnNode* get_taskwait_on_before_wd_creation() const
-                {
-                    return _taskwait_on_before_wd_creation;
-                }
-
-                void set_taskwait_on_before_wd_creation(TaskwaitOnNode* taskwait_on)
-                {
-                    _taskwait_on_before_wd_creation = taskwait_on;
                 }
 
                 TaskwaitOnNode* get_taskwait_on_after_wd_creation() const

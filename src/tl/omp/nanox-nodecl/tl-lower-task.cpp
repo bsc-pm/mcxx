@@ -200,10 +200,8 @@ void LoweringVisitor::check_pendant_writes_on_subexpressions(OutlineDataItem::Ta
 
 void LoweringVisitor::generate_mandatory_taskwaits(
         OutlineInfo& outline_info,
-        TL::Source& taskwait_on_before_wd_creation_opt,
         TL::Source& taskwait_on_after_wd_creation_opt)
 {
-    taskwait_on_before_wd_creation_opt << comment("Check pendant writes on subexpressions");
     taskwait_on_after_wd_creation_opt << comment("Check pendant writes on subexpressions");
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
@@ -240,35 +238,7 @@ void LoweringVisitor::generate_mandatory_taskwaits(
                     << as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";";
             }
         }
-
-        toplevel_lvalue = (*it)->get_taskwait_on_before_wd_creation();
-        if (toplevel_lvalue != NULL)
-        {
-            check_pendant_writes_on_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
-            TL::Source update_outline_data_item;
-            taskwait_on_before_wd_creation_opt
-                <<"{"
-                <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
-                <<      "nanos_err_t err;"
-                <<      lvalue_subexpressions_code
-                <<      update_outline_data_item
-                <<"}"
-                ;
-
-            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
-            {
-                update_outline_data_item
-                    << as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");";
-            }
-            else
-            {
-                update_outline_data_item
-                    << as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";";
-            }
-        }
-
     }
-    taskwait_on_before_wd_creation_opt << comment("End check pendant writes on subexpressions");
     taskwait_on_after_wd_creation_opt << comment("End check pendant writes on subexpressions");
 }
 
@@ -552,8 +522,7 @@ void LoweringVisitor::emit_async_common(
            const_wd_info,
            dynamic_wd_info,
            xlate_function_name,
-           taskwait_on_after_wd_creation_opt,
-           taskwait_on_before_wd_creation_opt;
+           taskwait_on_after_wd_creation_opt;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
@@ -751,7 +720,6 @@ void LoweringVisitor::emit_async_common(
         << "{"
         // Devices related to this task
         <<     const_wd_info
-        <<     taskwait_on_before_wd_creation_opt
         <<     dynamic_wd_info
         <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
@@ -792,7 +760,7 @@ void LoweringVisitor::emit_async_common(
         << "}"
         ;
 
-    generate_mandatory_taskwaits(outline_info, taskwait_on_before_wd_creation_opt, taskwait_on_after_wd_creation_opt);
+    generate_mandatory_taskwaits(outline_info, taskwait_on_after_wd_creation_opt);
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);

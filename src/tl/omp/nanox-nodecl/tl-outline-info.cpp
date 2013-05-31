@@ -818,13 +818,6 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
     }
 
-    void OutlineInfoRegisterEntities::set_taskwait_on_before_wd_creation(TL::Symbol symbol,
-            OutlineDataItem::TaskwaitOnNode* taskwait_on)
-    {
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-        outline_info.set_taskwait_on_before_wd_creation(taskwait_on);
-    }
-
     void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
             OutlineDataItem::TaskwaitOnNode* taskwait_on)
     {
