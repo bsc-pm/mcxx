@@ -236,6 +236,34 @@ static Nodecl::NodeclBase rewrite_expression_in_dependency_c(Nodecl::NodeclBase 
     return node;
 }
 
+static Nodecl::NodeclBase rewrite_expression_in_terms_of_arguments(Nodecl::NodeclBase node, const sym_to_argument_expr_t& param_to_arg_expr)
+{
+    if (node.is_null())
+        return node;
+
+    TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+            it != children.end();
+            it++)
+    {
+        *it = rewrite_expression_in_terms_of_arguments(*it, param_to_arg_expr);
+    }
+
+    TL::Symbol sym = node.get_symbol();
+    if (sym.is_valid())
+    {
+        sym_to_argument_expr_t::const_iterator it_param = param_to_arg_expr.find(sym);
+        if (it_param != param_to_arg_expr.end())
+        {
+                Nodecl::NodeclBase expr = it_param->second;
+                node.replace(expr.shallow_copy());
+        }
+    }
+
+    return node;
+}
+
+
 static TL::Type rewrite_dependency_type_c(TL::Type t, const param_sym_to_arg_sym_t& map)
 {
     if (!t.is_valid())
@@ -584,45 +612,49 @@ namespace InputValueUtils
         return update_expr;
     }
 
-    static bool any_clause_depends_on_this_input_value_parameter(
+    static bool any_dependence_depends_on_this_input_value_parameter(
             const TL::ObjectList<OutlineDataItem*>& data_items,
             const TaskEnvironmentVisitor& task_environment,
-            OutlineDataItem* current_item,
-            bool& depended_by_priority)
+            OutlineDataItem* current_item)
     {
-        bool depended_by_other_clause = false;
+        bool depended_by_other_dep = false;
         TL::Symbol parameter = current_item->get_symbol();
 
         if (!task_environment.priority.is_null())
         {
             TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.priority);
-            depended_by_other_clause = dep_expr_syms.contains(parameter);
-
-            if (depended_by_other_clause)
+            if (dep_expr_syms.contains(parameter))
             {
-                depended_by_priority = true;
-                return true;
+                std::cerr
+                    << task_environment.priority.get_locus_str()
+                    << ": warning: the argument of the 'priority' clause depends on an input value dependence, "
+                    << "It's value may be wrong computed"
+                    << std::endl;
             }
         }
 
         if (!task_environment.if_condition.is_null())
         {
             TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.if_condition);
-            depended_by_other_clause = dep_expr_syms.contains(parameter);
-
-            if (depended_by_other_clause)
-                return true;
+            if (dep_expr_syms.contains(parameter))
+            {
+                std::cerr
+                    << task_environment.if_condition.get_locus_str()
+                    << ": warning: the argument of the 'if' clause depends on an input value dependence, "
+                    << "It's value may be wrong computed"
+                    << std::endl;
+            }
         }
 
         for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
-                it != data_items.end() && !depended_by_other_clause;
+                it != data_items.end() && !depended_by_other_dep;
                 it++)
         {
             bool is_current_item = current_item == *it;
 
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
             for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
-                    dep_it != deps.end() && !depended_by_other_clause;
+                    dep_it != deps.end() && !depended_by_other_dep;
                     dep_it++)
             {
 
@@ -632,10 +664,10 @@ namespace InputValueUtils
 
                 TL::DataReference dep_expr(dep_it->expression);
                 TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
-                depended_by_other_clause = dep_expr_syms.contains(parameter);
+                depended_by_other_dep = dep_expr_syms.contains(parameter);
             }
         }
-        return depended_by_other_clause;
+        return depended_by_other_dep;
     }
 }
 
@@ -768,7 +800,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
         OutlineDataItem* current_item = found[0];
 
-        bool depended_by_other_clause = false, depended_by_priority = false;
+        bool depended_by_other_dep = false;
         bool has_input_value_dep = current_item->has_an_input_value_dependence();
         if (has_input_value_dep)
         {
@@ -783,13 +815,13 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             //      void foo(int n, int* v) { ... }
             //
             // We need the value of 'n' to calculate the inout dependence over the array 'v'.
-            depended_by_other_clause =
-                InputValueUtils::any_clause_depends_on_this_input_value_parameter(data_items,
-                        task_environment, current_item, depended_by_priority);
+            depended_by_other_dep =
+                InputValueUtils::any_dependence_depends_on_this_input_value_parameter(data_items,
+                        task_environment, current_item);
         }
 
         if (has_input_value_dep
-                && !depended_by_other_clause)
+                && !depended_by_other_dep)
         {
             Nodecl::NodeclBase new_updated_argument = InputValueUtils::handle_input_value_dependence(
                     outline_register_entities,
@@ -874,7 +906,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
             }
 
-            if (depended_by_other_clause)
+            if (depended_by_other_dep)
             {
                 // The current parameter has an input value dependence and It appears in another clause
 
@@ -884,14 +916,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
 
                 OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(argument);
-                if (depended_by_priority)
-                {
-                    outline_register_entities.set_taskwait_on_before_wd_creation(new_symbol, new_dependence);
-                }
-                else
-                {
-                    outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
-                }
+                outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
 
                 InputValueUtils::generate_dependences_of_expression(outline_register_entities,
                         new_block_context_sc,
@@ -969,10 +994,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         copy_outline_data_item_c(argument_outline_data_item, parameter_outline_data_item, param_sym_to_arg_sym);
     }
 
-    // Prepend the assignments
-    Nodecl::NodeclBase enclosing_expression_stmt = construct.get_parent();
-    ERROR_CONDITION(!enclosing_expression_stmt.is<Nodecl::ExpressionStatement>(), "Invalid tree", 0);
-
     Nodecl::NodeclBase initializations_tree;
     if (!initializations_src.empty())
     {
@@ -1041,14 +1062,14 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     if (!task_environment.if_condition.is_null())
     {
-        Nodecl::NodeclBase expr_direct_call_to_function = 
+        Nodecl::NodeclBase expr_direct_call_to_function =
             Nodecl::ExpressionStatement::make(
                     function_call.shallow_copy(),
                     function_call.get_locus());
 
-        Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
+        Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_terms_of_arguments(task_environment.if_condition, param_to_arg_expr);
 
-        Nodecl::NodeclBase if_then_else_statement = 
+        Nodecl::NodeclBase if_then_else_statement =
             Nodecl::IfElseStatement::make(
                     updated_if_condition,
                     Nodecl::List::make(
@@ -1069,7 +1090,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
-        Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_priority = rewrite_expression_in_terms_of_arguments(task_environment.priority, param_to_arg_expr);
+
 
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
