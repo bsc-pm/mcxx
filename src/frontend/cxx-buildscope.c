@@ -13848,11 +13848,6 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
                         info->declaration_pragma.gather_decl_spec_list);
                 break;
             }
-        case AST_FUNCTION_DEFINITION:
-            {
-                internal_error("Not implemented yet", 0);
-                break;
-            }
         default:
             {
                 build_scope_statement(pragma_stmt, decl_context, &nodecl_statement);
