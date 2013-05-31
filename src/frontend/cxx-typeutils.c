@@ -4634,6 +4634,8 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             break;
         case STK_VECTOR:
             return equivalent_vector_type(p_t1, p_t2, decl_context);
+        case STK_MASK:
+            return mask_type_get_num_bits(p_t1) == mask_type_get_num_bits(p_t2);
         case STK_TYPE_DEP_EXPR:
             // Always different
             return 0;

@@ -29,8 +29,8 @@ linker_options = -Xlinker --add-needed
 {svml} linker_options = -lsvml
 {mmic} linker_options = -mmic
 {ffast-math} options = --variable=ffast_math_enabled:1
-{mic} options = --variable=mic_enabled:1
-{mic} preprocessor_options = -include immintrin.h
+{mmic} options = --variable=mic_enabled:1
+{mmic} preprocessor_options = -include immintrin.h
 {ompss} options = --variable=ompss_mode:1
 linker_options = -Xlinker --enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance

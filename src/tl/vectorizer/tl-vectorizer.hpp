@@ -47,6 +47,7 @@ namespace TL
                 const TL::Type& _target_type;
                 const Nodecl::List& _suitable_expr_list;
                 std::list<TL::Scope> _local_scope_list;
+                std::list<Nodecl::NodeclBase> _mask_list;
 
             public:
                 VectorizerEnvironment(const std::string& device,
@@ -54,6 +55,13 @@ namespace TL
                         const TL::Type& target_type,
                         const TL::Scope& local_scope, 
                         const Nodecl::List& suitable_expr_list);
+
+                VectorizerEnvironment(const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type,
+                        const TL::Scope& local_scope, 
+                        const Nodecl::List& suitable_expr_list,
+                        const Nodecl::NodeclBase& mask);
 
                 ~VectorizerEnvironment();
 

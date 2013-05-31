@@ -684,6 +684,8 @@ namespace TL
 
             Nodecl::Symbol make_nodecl(const locus_t* locus = ::make_locus("", 0, 0)) const;
 
+            Nodecl::Symbol make_nodecl(bool set_ref_type, const locus_t* locus = ::make_locus("", 0, 0)) const;
+
             /*!
              * States whether this symbol has a parameter i with a default argument
              */

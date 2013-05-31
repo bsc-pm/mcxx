@@ -29,6 +29,7 @@
 
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include <list>
 
 namespace TL
 {
@@ -36,6 +37,9 @@ namespace TL
     {
         class KNCVectorLowering : public Nodecl::ExhaustiveVisitor<void>
         {
+            private:
+                std::list<Nodecl::NodeclBase> _old_m512;
+
             public:
 
                 KNCVectorLowering();
@@ -43,9 +47,13 @@ namespace TL
                 void visit(const Nodecl::ObjectInit& node);
                 
                 void visit(const Nodecl::VectorAdd& node);
+                void visit(const Nodecl::VectorAddMask& node);
                 void visit(const Nodecl::VectorMinus& node);
+                void visit(const Nodecl::VectorMinusMask& node);
                 void visit(const Nodecl::VectorMul& node);
+                void visit(const Nodecl::VectorMulMask& node);
                 void visit(const Nodecl::VectorDiv& node);
+                void visit(const Nodecl::VectorDivMask& node);
                 void visit(const Nodecl::VectorNeg& node);
 
                 void visit(const Nodecl::VectorLowerThan& node);
@@ -62,13 +70,30 @@ namespace TL
                 void visit(const Nodecl::VectorPromotion& node);
                 void visit(const Nodecl::VectorLiteral& node);
                 void visit(const Nodecl::VectorAssignment& node);
+                void visit(const Nodecl::VectorAssignmentMask& node);
                 void visit(const Nodecl::VectorLoad& node);
+                void visit(const Nodecl::VectorLoadMask& node);
+                //void visit(const Nodecl::UnalignedVectorLoad& node);
+                //void visit(const Nodecl::UnalignedVectorLoadMask& node);
                 void visit(const Nodecl::VectorStore& node);
+                void visit(const Nodecl::VectorStoreMask& node);
+                //void visit(const Nodecl::UnalignedVectorStore& node);
+                //void visit(const Nodecl::UnalignedVectorStoreMask& node);
                 void visit(const Nodecl::VectorGather& node);
+                void visit(const Nodecl::VectorGatherMask& node);
                 void visit(const Nodecl::VectorScatter& node);
+                void visit(const Nodecl::VectorScatterMask& node);
 
                 void visit(const Nodecl::VectorFunctionCall& node);
                 void visit(const Nodecl::VectorFabs& node);
+
+                virtual void visit(const Nodecl::ParenthesizedExpression& node);
+
+                virtual void visit(const Nodecl::VectorMaskAssignment& node);
+                virtual void visit(const Nodecl::VectorMaskAnd& node);
+                virtual void visit(const Nodecl::VectorMaskNot& node);
+                virtual void visit(const Nodecl::VectorMaskAnd1Not& node);
+                virtual void visit(const Nodecl::VectorMaskAnd2Not& node);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

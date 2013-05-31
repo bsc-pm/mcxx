@@ -829,7 +829,21 @@ namespace TL
 
     Nodecl::Symbol Symbol::make_nodecl(const locus_t* locus) const
     {
-        return Nodecl::Symbol::make(*this, locus);
+        return this->make_nodecl(false, locus);
+    }
+
+    Nodecl::Symbol Symbol::make_nodecl(bool set_ref_type, const locus_t* locus) const
+    {
+        Nodecl::Symbol sym = Nodecl::Symbol::make(*this, locus);
+        if (set_ref_type)
+        {
+            TL::Type t = this->get_type();
+            if (!t.is_any_reference())
+                t = t.get_lvalue_reference_to();
+
+            sym.set_type(t);
+        }
+        return sym;
     }
 
     intent_kind_t Symbol::get_intent_kind() const
