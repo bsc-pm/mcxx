@@ -211,7 +211,9 @@ argument : expression
          | default-arg
          | fortran-actual-argument
 
-fortran-actual-argument: NODECL_FORTRAN_ACTUAL_ARGUMENT([argument]fortran-argument) text-opt symbol-opt
+fortran-actual-argument: NODECL_FORTRAN_ACTUAL_ARGUMENT([argument]fortran-argument) text-opt
+                       | NODECL_FORTRAN_NOT_PRESENT()
+
 fortran-argument: expression
                 | alt-return
 

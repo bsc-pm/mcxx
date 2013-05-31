@@ -1425,33 +1425,34 @@ OPERATOR_TABLE
 
         int pos = 0;
         bool keywords_are_mandatory = false;
-        for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
+        for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
         {
+            if (it->is<Nodecl::FortranNotPresent>())
+            {
+                keywords_are_mandatory = true;
+                continue;
+            }
+
             if (pos > 0)
                 file << ", ";
 
-            TL::Symbol keyword_symbol;
+            std::string keyword_name;
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
             if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword_symbol = it->as<Nodecl::FortranActualArgument>().get_symbol();
+                keyword_name = it->as<Nodecl::FortranActualArgument>().get_text();
                 arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (keyword_symbol.is_valid()
+            if (keyword_name != ""
                     && !called_symbol.is_statement_function_statement())
             {
-                parameter_type = keyword_symbol.get_type();
-                if (!keywords_are_mandatory)
+#warning Get the parameter type from the function type, not the keyword symbol
+                if (keywords_are_mandatory)
                 {
-                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
-                }
-                if (keywords_are_mandatory
-                        && !keyword_symbol.not_to_be_printed())
-                {
-                    file << keyword_symbol.get_name() << " = ";
+                    file << keyword_name << " = ";
                 }
             }
             else if (pos < (signed int)parameter_types.size())
@@ -1504,6 +1505,9 @@ OPERATOR_TABLE
                     walk(arg);
                 }
             }
+
+            // Cant't move it to the loop header due to FortranNotPresent arguments
+            pos++;
         }
     }
 
