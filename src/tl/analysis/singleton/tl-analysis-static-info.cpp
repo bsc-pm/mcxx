@@ -76,17 +76,17 @@ namespace Analysis {
 
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
-        bool is_constant = true;
+        bool result = true;
         ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses( n );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = n_mem_accesses.begin( ); it != n_mem_accesses.end( ); ++it )
         {
             if( _killed.find( Utils::ExtendedSymbol( *it ) ) != _killed.end( ) )
             {    
-                is_constant = false;
+                result = false;
                 break;
             }
         }
-        return is_constant;
+        return result;
     }
 
     bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n ) const
