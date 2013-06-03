@@ -121,6 +121,8 @@ namespace Analysis {
             // *** Queries for Vectorization *** //
             
             bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
+            
+            bool is_IV_dependent_access( const Nodecl::NodeclBase& n ) const;
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
@@ -193,6 +195,9 @@ namespace Analysis {
 
             //! Returns true if the given nodecl is an array accessed by adjacent positions
             bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+
+            //! Returns true if the given nodecl is an array accessed by an IV
+            bool is_IV_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             //! Returns true if the given nodecl is an array accessed by a constant expression
             bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
