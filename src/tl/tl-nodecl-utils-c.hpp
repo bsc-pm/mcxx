@@ -35,34 +35,34 @@
 
 namespace Nodecl { namespace Utils { namespace C {
 
-    // struct InternalFunctions : Nodecl::ExhaustiveVisitor<void>
-    // {
-    //     private:
-    //         std::set<TL::Symbol> _already_visited;
-    //     public:
-    //         TL::ObjectList<Nodecl::NodeclBase> function_codes;
+    struct NestedFunctions : Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            std::set<TL::Symbol> _already_visited;
+        public:
+            TL::ObjectList<Nodecl::NodeclBase> function_codes;
 
-    //         InternalFunctions()
-    //             : _already_visited(), function_codes()
-    //         {
-    //         }
+            NestedFunctions()
+                : _already_visited(), function_codes()
+            {
+            }
 
-    //         virtual void visit(const Nodecl::Symbol& node_sym)
-    //         {
-    //             TL::Symbol sym = node_sym.get_symbol();
+            virtual void visit(const Nodecl::Symbol& node_sym)
+            {
+                TL::Symbol sym = node_sym.get_symbol();
 
-    //             if (sym.is_function()
-    //                     && sym.is_nested_function())
-    //             {
-    //                 if (_already_visited.find(sym) == _already_visited.end())
-    //                 {
-    //                     _already_visited.insert(sym);
-    //                     function_codes.append(sym.get_function_code());
-    //                     walk(sym.get_function_code());
-    //                 }
-    //             }
-    //         }
-    // };
+                if (sym.is_function()
+                        && sym.is_nested_function())
+                {
+                    if (_already_visited.find(sym) == _already_visited.end())
+                    {
+                        _already_visited.insert(sym);
+                        function_codes.append(sym.get_function_code());
+                        walk(sym.get_function_code());
+                    }
+                }
+            }
+    };
 
     struct ExtraDeclsVisitor : Nodecl::ExhaustiveVisitor<void>
     {
@@ -122,7 +122,9 @@ namespace Nodecl { namespace Utils { namespace C {
                 {
                     if (sym.is_function())
                     {
-                        _extra_new_sym.insert(sym);
+                        if (!sym.is_nested_function())
+                            _extra_new_sym.insert(sym);
+
                         if (sym.is_nested_function())
                         {
                             std::pair<std::set<TL::Symbol>::iterator, bool> p = _functions_visited.insert(sym);
