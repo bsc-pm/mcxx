@@ -320,7 +320,7 @@ GPERF_verbose_0 = @echo "  GPERF " $@;
 endif
 
 CLEANFILES += cxx-asttype.h
-cxx-asttype.h : cxx-asttype.def
+cxx-asttype.h : cxx-asttype.def nodecl-generator.py
 	$(AM_V_GEN)( \
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h; \
 	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h; \
