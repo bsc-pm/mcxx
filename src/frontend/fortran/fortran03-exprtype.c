@@ -3077,7 +3077,7 @@ static void check_called_symbol_list(
                 if (!symbol_is_parameter_of_function(related_sym, symbol))
                     continue;
 
-                if (strcasecmp(related_sym->symbol_name, nodecl_get_text(nodecl_actual_arguments[i])) == 0)
+                if (strcasecmp(related_sym->symbol_name, keyword_name) == 0)
                 {
                     position = j;
                 }
