@@ -38,6 +38,7 @@ namespace TL
         class KNCVectorLowering : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
+                const unsigned int _vector_length;
                 std::list<Nodecl::NodeclBase> _old_m512;
 
             public:
@@ -73,12 +74,12 @@ namespace TL
                 void visit(const Nodecl::VectorAssignmentMask& node);
                 void visit(const Nodecl::VectorLoad& node);
                 void visit(const Nodecl::VectorLoadMask& node);
-                //void visit(const Nodecl::UnalignedVectorLoad& node);
-                //void visit(const Nodecl::UnalignedVectorLoadMask& node);
+                void visit(const Nodecl::UnalignedVectorLoad& node);
+                void visit(const Nodecl::UnalignedVectorLoadMask& node);
                 void visit(const Nodecl::VectorStore& node);
                 void visit(const Nodecl::VectorStoreMask& node);
-                //void visit(const Nodecl::UnalignedVectorStore& node);
-                //void visit(const Nodecl::UnalignedVectorStoreMask& node);
+                void visit(const Nodecl::UnalignedVectorStore& node);
+                void visit(const Nodecl::UnalignedVectorStoreMask& node);
                 void visit(const Nodecl::VectorGather& node);
                 void visit(const Nodecl::VectorGatherMask& node);
                 void visit(const Nodecl::VectorScatter& node);
@@ -99,4 +100,41 @@ namespace TL
         };
     }
 }
+
+#define _CMP_EQ_OQ     0x00 
+#define _CMP_LT_OS     0x01 
+#define _CMP_LE_OS     0x02 
+#define _CMP_UNORD_Q   0x03 
+#define _CMP_NEQ_UQ    0x04 
+#define _CMP_NLT_US    0x05 
+#define _CMP_NLE_US    0x06 
+#define _CMP_ORD_Q     0x07 
+#define _CMP_EQ_UQ     0x08 
+#define _CMP_NGE_US    0x09 
+#define _CMP_NGT_US    0x0A 
+#define _CMP_FALSE_OQ  0x0B 
+#define _CMP_NEQ_OQ    0x0C 
+#define _CMP_GE_OS     0x0D 
+#define _CMP_GT_OS     0x0E 
+#define _CMP_TRUE_UQ   0x0F 
+#define _CMP_EQ_OS     0x10 
+#define _CMP_LT_OQ     0x11 
+#define _CMP_LE_OQ     0x12 
+#define _CMP_UNORD_S   0x13 
+#define _CMP_NEQ_US    0x14 
+#define _CMP_NLT_UQ    0x15 
+#define _CMP_NLE_UQ    0x16 
+#define _CMP_ORD_S     0x17 
+#define _CMP_EQ_US     0x18 
+#define _CMP_NGE_UQ    0x19 
+#define _CMP_NGT_UQ    0x1A 
+#define _CMP_FALSE_OS  0x1B 
+#define _CMP_NEQ_OS    0x1C 
+#define _CMP_GE_OQ     0x1D 
+#define _CMP_GT_OQ     0x1E  
+#define _CMP_TRUE_US   0x1F  
+
+#define _MM_HINT_NONE 0x0
+#define _MM_HINT_NT   0x1 
+
 #endif // KNC_VECTOR_LOWERING_HPP

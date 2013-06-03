@@ -611,12 +611,12 @@ namespace TL
             }
 
             // Vector Promotion from ArraySubscript
-            if (Vectorizer::_analysis_info->is_constant_access(
+            if (!Vectorizer::_analysis_info->is_IV_dependent_access(
                         Vectorizer::_analysis_scopes->back(),
                         n))
             {
 
-                std::cerr << "Constant access: " << n.prettyprint() << "\n";
+                std::cerr << "No IV dependent access: " << n.prettyprint() << "\n";
 
                 const Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
