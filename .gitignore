@@ -141,4 +141,4 @@ test.log
 test.log.xml
 config/50.config.omp.fpga
 config/57.config.omp.all
-
+config/55.config.omp.intel.fortran
