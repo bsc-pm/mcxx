@@ -1421,11 +1421,13 @@ OPERATOR_TABLE
         if (l.empty())
             return;
 
+        TL::ObjectList<TL::Symbol> parameter_symbols = called_symbol.get_related_symbols();
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
-        int pos = 0;
+        // Explicit pos is the position of explicit arguments (skipping non present ones)
+        int explicit_pos = 0, pos = 0;
         bool keywords_are_mandatory = false;
-        for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+        for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
             if (it->is<Nodecl::FortranNotPresent>())
             {
@@ -1433,29 +1435,37 @@ OPERATOR_TABLE
                 continue;
             }
 
-            if (pos > 0)
+            if (explicit_pos > 0)
                 file << ", ";
+            explicit_pos++;
 
-            std::string keyword_name;
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
             if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword_name = it->as<Nodecl::FortranActualArgument>().get_text();
                 arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (keyword_name != ""
-                    && !called_symbol.is_statement_function_statement())
+            if (!called_symbol.is_statement_function_statement())
             {
 #warning Get the parameter type from the function type, not the keyword symbol
                 if (keywords_are_mandatory)
                 {
+                    ERROR_CONDITION (pos >= (signed int)parameter_symbols.size(),
+                            "This should not happen if some argument has been omitted", 0);
+
+                    ERROR_CONDITION(parameter_symbols[pos].is_result_variable(),
+                            "Invalid argument", 0);
+                    std::string keyword_name = parameter_symbols[pos].get_name();
+
+                    ERROR_CONDITION(keyword_name == "", "Invalid name for parameter\n", 0);
+
                     file << keyword_name << " = ";
                 }
             }
-            else if (pos < (signed int)parameter_types.size())
+
+            if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -1505,9 +1515,6 @@ OPERATOR_TABLE
                     walk(arg);
                 }
             }
-
-            // Cant't move it to the loop header due to FortranNotPresent arguments
-            pos++;
         }
     }
 

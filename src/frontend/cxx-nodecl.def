@@ -211,6 +211,8 @@ argument : expression
          | default-arg
          | fortran-actual-argument
 
+# Note, the text in NODECL_FORTRAN_ACTUAL_ARGUMENT is only used by the
+# frontend. Any other part of the compiler should not use it
 fortran-actual-argument: NODECL_FORTRAN_ACTUAL_ARGUMENT([argument]fortran-argument) text-opt
                        | NODECL_FORTRAN_NOT_PRESENT()
 
