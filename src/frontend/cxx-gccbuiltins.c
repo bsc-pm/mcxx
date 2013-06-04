@@ -2346,8 +2346,10 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 sign_in_sse_builtins(global_context);
 }
 
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, 
-        type_t** types, 
+// Old __sync_XXX
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(
+        scope_entry_t* overloaded_function,
+        type_t** types,
         nodecl_t *arguments UNUSED_PARAMETER,
         int num_arguments,
         const_value_t** const_value UNUSED_PARAMETER)
@@ -2382,10 +2384,10 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
     }
 
     int i;
-    int current_bit_size = 1;
+    int current_byte_size = 1;
     for (i = 0; (i < max_valid_overloads) && !found_match; i++)
     {
-        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_bit_size);
+        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_byte_size);
         name[255] = '\0';
         scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name);
 
@@ -2425,16 +2427,11 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
             type_t* argument_type = types[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
-            if (is_pointer_type(argument_type)
-                    && is_pointer_type(parameter_type))
+            if (is_pointer_to_void_type(parameter_type)
+                    && is_pointer_type(argument_type))
             {
-                // Use sizes instead of types
                 argument_type = pointer_type_get_pointee_type(argument_type);
-                parameter_type = pointer_type_get_pointee_type(parameter_type);
-
-                all_arguments_matched = is_integral_type(argument_type)
-                    && is_integral_type(parameter_type)
-                    && (type_get_size(argument_type) == type_get_size(parameter_type));
+                all_arguments_matched = (type_get_size(argument_type) == (unsigned int)current_byte_size);
             }
             else
             {
@@ -2465,7 +2462,7 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
             }
         }
 
-        current_bit_size = 2*current_bit_size;
+        current_byte_size = 2*current_byte_size;
     }
 
     return result;
