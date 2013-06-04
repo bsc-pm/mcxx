@@ -251,6 +251,13 @@ namespace TL { namespace Nanox {
             Nodecl::Utils::SymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             );
+
+    void duplicate_nested_functions(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            );
 } }
 
 #endif // NANOX_DEVICES_H

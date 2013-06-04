@@ -31,6 +31,7 @@
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
+
 namespace TL { namespace Nanox {
 
     static DeviceHandler* _nanox_handler = 0;
@@ -1012,23 +1013,10 @@ namespace TL
 
             TL::Symbol orig_sym = it2->get_symbol();
 
-            Nodecl::NodeclBase copied_node
-                = Nodecl::Utils::deep_copy(*it2, scope_of_unpacked, *symbol_map);
+            Nodecl::NodeclBase copied_node = it2->shallow_copy();
 
-            TL::Symbol new_sym = copied_node.get_symbol();
+            TL::Symbol new_sym = scope_of_unpacked.new_symbol(orig_sym.get_name());
             new_map->add_map(orig_sym, new_sym);
-
-            // Also map the related symbols as well
-            TL::ObjectList<TL::Symbol> orig_related_syms = orig_sym.get_related_symbols();
-            TL::ObjectList<TL::Symbol> new_related_syms = new_sym.get_related_symbols();
-            TL::ObjectList<TL::Symbol>::iterator it_orig_sym = orig_related_syms.begin();
-            TL::ObjectList<TL::Symbol>::iterator it_new_sym = new_related_syms.begin();
-            for (;
-                    it_orig_sym != orig_related_syms.end() && it_new_sym != new_related_syms.end();
-                    it_orig_sym++, it_new_sym++)
-            {
-                new_map->add_map(*it_orig_sym, *it_new_sym);
-            }
 
             output_statements.as<Nodecl::List>().append(copied_node);
         }
@@ -1036,4 +1024,16 @@ namespace TL
         symbol_map = new_map;
     }
 
+    void Nanox::duplicate_nested_functions(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            )
+    {
+        duplicate_internal_subprograms(internal_function_codes,
+                scope_of_unpacked,
+                symbol_map,
+                output_statements);
+    }
 }

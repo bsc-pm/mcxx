@@ -118,7 +118,7 @@ namespace TL { namespace Nanox {
         }
 
         Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-       SymbolUtils::build_empty_body_for_function(unpacked_function,
+        SymbolUtils::build_empty_body_for_function(unpacked_function,
                 unpacked_function_code,
                 unpacked_function_body);
 
@@ -142,10 +142,12 @@ namespace TL { namespace Nanox {
                 << "}";
         }
 
+        // Aftere this we can use outline_placeholder
+        Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
+
         if (IS_FORTRAN_LANGUAGE)
         {
-            // Insert extra symbols
-            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+            TL::Scope unpacked_function_scope = unpacked_function.get_related_scope();
 
             Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
                     unpacked_function_scope,
@@ -175,7 +177,7 @@ namespace TL { namespace Nanox {
             internal_functions.walk(info._original_statements);
 
             duplicate_internal_subprograms(internal_functions.function_codes,
-                    unpacked_function.get_related_scope(),
+                    unpacked_function_scope,
                     symbol_map,
                     output_statements);
 
@@ -184,15 +186,15 @@ namespace TL { namespace Nanox {
         }
         else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            // Insert extra symbols
-            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+            TL::Scope scope_in_outline = outline_placeholder.retrieve_context();
 
             Nodecl::Utils::C::ExtraDeclsVisitor fun_visitor(symbol_map,
-                    unpacked_function_scope,
+                    scope_in_outline,
                     current_function);
 
             if (is_function_task
-                    && info._called_task.get_scope().is_block_scope())
+                    && info._called_task.get_scope().is_block_scope()
+                    && !info._called_task.is_nested_function())
             {
                 fun_visitor.insert_extra_symbol(info._called_task);
             }
@@ -209,9 +211,20 @@ namespace TL { namespace Nanox {
                     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
                 }
             }
+
+            if (IS_C_LANGUAGE)
+            {
+                // Now get all the needed nested functions and duplicate them in the outline
+                Nodecl::Utils::C::NestedFunctions nested_functions;
+                nested_functions.walk(info._original_statements);
+
+                duplicate_nested_functions(nested_functions.function_codes,
+                        scope_in_outline,
+                        symbol_map,
+                        output_statements);
+            }
         }
 
-        Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.replace(new_unpacked_body);
 
         // **** Outline function *****
