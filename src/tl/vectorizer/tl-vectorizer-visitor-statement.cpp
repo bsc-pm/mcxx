@@ -67,7 +67,8 @@ namespace TL
                 _environment._mask_list.back();
 
             // IF Mask
-            TL::Symbol if_mask_sym = scope.new_symbol("__mask1");
+            TL::Symbol if_mask_sym = scope.new_symbol("__mask_" + 
+                    Vectorizer::_vectorizer->get_var_counter());
             if_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
             if_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
             if_mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
@@ -97,7 +98,8 @@ namespace TL
 
             // Visit Then
             _environment._mask_list.push_back(if_mask_nodecl_sym.shallow_copy());
-            _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().front().retrieve_context());
+            _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
+                    front().retrieve_context());
             walk(n.get_then());
             _environment._local_scope_list.pop_back();
             _environment._mask_list.pop_back();
@@ -107,7 +109,8 @@ namespace TL
             if (!n.get_else().is_null())
             {
                 // ELSE Mask
-                TL::Symbol else_mask_sym = scope.new_symbol("__mask2");
+                TL::Symbol else_mask_sym = scope.new_symbol("__mask_" + 
+                        Vectorizer::_vectorizer->get_var_counter());
                 else_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 else_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 else_mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));

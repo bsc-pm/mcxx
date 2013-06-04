@@ -49,7 +49,7 @@ namespace TL
                 std::list<TL::Scope> _local_scope_list;
                 std::list<Nodecl::NodeclBase> _mask_list;
 
-            public:
+           public:
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& target_type,
@@ -87,8 +87,12 @@ namespace TL
                 bool _svml_knc_enabled;
                 bool _ffast_math_enabled;
 
+                unsigned int _var_counter;
+
                 Vectorizer();
 
+                std::string get_var_counter();
+ 
             public:
                 ~Vectorizer();
                 static Vectorizer& get_vectorizer();

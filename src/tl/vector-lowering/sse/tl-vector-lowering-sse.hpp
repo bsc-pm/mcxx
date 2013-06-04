@@ -43,9 +43,13 @@ namespace TL
                 virtual void visit(const Nodecl::ObjectInit& node);
                 
                 virtual void visit(const Nodecl::VectorAdd& node);
+                virtual void visit(const Nodecl::VectorAddMask& node);
                 virtual void visit(const Nodecl::VectorMinus& node);
+                virtual void visit(const Nodecl::VectorMinusMask& node);
                 virtual void visit(const Nodecl::VectorMul& node);
+                virtual void visit(const Nodecl::VectorMulMask& node);
                 virtual void visit(const Nodecl::VectorDiv& node);
+                virtual void visit(const Nodecl::VectorDivMask& node);
                 virtual void visit(const Nodecl::VectorNeg& node);
 
                 virtual void visit(const Nodecl::VectorLowerThan& node);
@@ -75,6 +79,7 @@ namespace TL
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
 
                 virtual void visit(const Nodecl::VectorMaskAssignment& node);
+                virtual void visit(const Nodecl::VectorMaskNot& node);
 
                 virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

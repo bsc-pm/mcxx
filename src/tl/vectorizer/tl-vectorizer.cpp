@@ -63,6 +63,7 @@ namespace TL
             _local_scope_list.pop_back();
         }
 
+
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
         Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;
@@ -78,10 +79,21 @@ namespace TL
 
         Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _ffast_math_enabled(false)
         {
+            _var_counter = 0;
         }
 
         Vectorizer::~Vectorizer()
         {
+        }
+
+        std::string Vectorizer::get_var_counter()
+        {
+            std::stringstream result;
+
+            result << _var_counter;
+            _var_counter++;
+
+            return result.str();
         }
 
         Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,

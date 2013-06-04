@@ -131,6 +131,7 @@ namespace TL
 
             walk(node.get_lhs());
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             if (_old_m512.empty())
             {
@@ -235,6 +236,7 @@ namespace TL
 
             walk(node.get_lhs());
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             if (_old_m512.empty())
             {
@@ -382,6 +384,7 @@ namespace TL
 
             walk(node.get_rhs());
             walk(node.get_lhs());
+            walk(node.get_mask());
 
             if (_old_m512.empty())
             {
@@ -485,6 +488,7 @@ namespace TL
 
             walk(node.get_lhs());
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             if (_old_m512.empty())
             {
@@ -1082,7 +1086,7 @@ namespace TL
         { 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, swizzle;
 
             Nodecl::NodeclBase true_node = node.get_true();
             Nodecl::NodeclBase false_node = node.get_false();
@@ -1092,38 +1096,22 @@ namespace TL
             TL::Type false_type = false_node.get_type().basic_type();
             TL::Type condiition_type = condition_node.get_type();
 
-            std::string casting;
-
-            // Intrinsic name
-            intrin_src << "_mm512_blend";
-
             // Postfix
-            if (true_type.is_integral_type()
-                    && false_type.is_integral_type())
-            {
-                // TODO _epi16
-                intrin_src << "v_epi8";
-            }
-            else if (true_type.is_float()
+            if (true_type.is_float()
                     && false_type.is_float())
             {
-                // TODO _ps
-                intrin_src << "v_ps";
-
-                casting = "(";
-                casting += print_type_str(TL::Type::get_float_type().get_vector_to(16).get_internal_type(),
-                        node.retrieve_context().get_decl_context());
-                casting += ")";
+                intrin_src << "_mm512_mask_mov_ps";
             }
             else if (true_type.is_double()
                     && false_type.is_double())
             {
-                // TODO _pd
-                intrin_src << "v_pd";
-                casting = "(";
-                casting += print_type_str(TL::Type::get_double_type().get_vector_to(16).get_internal_type(),
-                        node.retrieve_context().get_decl_context());
-                casting += ")";
+                intrin_src << "_mm512_mask_mov_pd";
+            }
+            else if (true_type.is_integral_type()
+                    && false_type.is_integral_type())
+            {
+                intrin_src << "_mm512_mask_swizzle_epi32";
+                swizzle << ", _MM_SWIZ_REG_NONE";
             }
             else
             {
@@ -1136,14 +1124,14 @@ namespace TL
             walk(true_node);
             walk(condition_node);
 
-            intrin_src << "("; 
-            intrin_src << as_expression(false_node); // False first!
-            intrin_src << ", ";
-            intrin_src << as_expression(true_node);
-            intrin_src << ", "
-                << casting;
-            intrin_src << as_expression(condition_node);
-            intrin_src << ")"; 
+            intrin_src << "(" 
+                << as_expression(false_node) // False first!
+                << ", "
+                << as_expression(condition_node)
+                << ", "
+                << as_expression(true_node)
+                << swizzle
+                << ")"; 
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1228,8 +1216,9 @@ namespace TL
             }
 
             walk(node.get_rhs());
+            
             args << as_expression(node.get_rhs());
-            std::cout << args.get_source() << "\n";
+
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
             
@@ -2052,9 +2041,10 @@ namespace TL
         void KNCVectorLowering::visit(const Nodecl::ParenthesizedExpression& node)
         {
             walk(node.get_nest());
-            Nodecl::NodeclBase n(node);
-        
+
+            Nodecl::NodeclBase n(node.shallow_copy());
             n.set_type(node.get_nest().get_type());
+            node.replace(n);
         }
 
         void KNCVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)

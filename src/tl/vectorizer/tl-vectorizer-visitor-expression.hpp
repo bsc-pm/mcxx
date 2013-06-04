@@ -38,13 +38,13 @@ namespace TL
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const VectorizerEnvironment& _environment;
+                VectorizerEnvironment& _environment;
 
                 bool is_declared_in_scope(const scope_t *const target_scope , 
                         const scope_t *const symbol_scope) const;
 
             public:
-                VectorizerVisitorExpression(const VectorizerEnvironment& environment);
+                VectorizerVisitorExpression(VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);

@@ -31,7 +31,7 @@ namespace TL
     namespace Vectorization
     {
         VectorizerVisitorExpression::VectorizerVisitorExpression(
-                const VectorizerEnvironment& environment) :
+                VectorizerEnvironment& environment) :
             _environment(environment)
         {
         }
@@ -293,19 +293,39 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::ConditionalExpression& n)
         {
-            walk(n.get_condition());
-            walk(n.get_true());
-            walk(n.get_false());
+            Nodecl::NodeclBase condition = n.get_condition();
 
-            const Nodecl::VectorConditionalExpression vector_cond =
-                Nodecl::VectorConditionalExpression::make(
-                        n.get_condition().shallow_copy(),
-                        n.get_true().shallow_copy(),
-                        n.get_false().shallow_copy(),
-                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                        n.get_locus());
+            walk(condition);
 
-            n.replace(vector_cond);
+            if(_environment._mask_list.back().is_null())
+            {
+                _environment._mask_list.push_back(condition);
+                walk(n.get_true());
+                _environment._mask_list.pop_back();
+                
+                Nodecl::VectorMaskNot neg_condition =
+                    Nodecl::VectorMaskNot::make(condition,
+                            condition.get_type(),
+                            condition.get_locus());
+
+                _environment._mask_list.push_back(neg_condition);
+                walk(n.get_false());
+                _environment._mask_list.pop_back();
+
+                const Nodecl::VectorConditionalExpression vector_cond =
+                    Nodecl::VectorConditionalExpression::make(
+                            n.get_condition().shallow_copy(),
+                            n.get_true().shallow_copy(),
+                            n.get_false().shallow_copy(),
+                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus());
+
+                n.replace(vector_cond);
+            }
+            else
+            {
+                running_error("Vectorizer: Unsupported. Conditional operator cannot be nested in a region with masks. Ask for support.");
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Assignment& n)
