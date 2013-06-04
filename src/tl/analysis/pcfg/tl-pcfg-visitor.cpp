@@ -1814,7 +1814,7 @@ namespace Analysis {
         ObjectList<Node*> predecessors = _utils->_last_nodes;
         Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_TASK, _utils->_context_nodecl.top( ) );
         Edge* edge = _pcfg->connect_nodes( task_creation, task_node, ALWAYS, "", /* is task */ true );
-        edge->set_label("creat");
+        edge->set_label("create");
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
@@ -1855,7 +1855,7 @@ namespace Analysis {
         ObjectList<Node*> predecessors = _utils->_last_nodes;
         Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_TASK, _utils->_context_nodecl.top( ) );
         Edge* edge = _pcfg->connect_nodes( task_creation, task_node, ALWAYS, "", /* is task */ true );
-        edge->set_label("creat");
+        edge->set_label("create");
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
