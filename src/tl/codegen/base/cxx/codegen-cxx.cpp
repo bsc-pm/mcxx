@@ -6374,6 +6374,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_SIZEOF:
         case NODECL_NEW:
         case NODECL_DELETE:
+        case NODECL_DELETE_ARRAY:
         case NODECL_PREINCREMENT:
         case NODECL_PREDECREMENT:
         case NODECL_REAL_PART:
