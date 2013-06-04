@@ -567,7 +567,7 @@ namespace Analysis {
 
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
-                printf( "Task sync of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                // printf( "Task sync of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 TaskSynchronizations task_sync_analysis(*it);
                 task_sync_analysis.compute_task_synchronizations();
             }

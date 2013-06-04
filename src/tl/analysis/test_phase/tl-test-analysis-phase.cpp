@@ -87,9 +87,10 @@ namespace Analysis {
 
             // if (_task_sync_enabled)
             {
-                // if( VERBOSE )
+                if( VERBOSE )
                 std::cerr << "========= Task Sync analysis =========" << std::endl;
                 pcfgs = analysis.task_sync( memento, ast );
+                if( VERBOSE )
                 std::cerr << "========= Task Sync analysis done =========" << std::endl;
             }
 
@@ -131,13 +132,13 @@ namespace Analysis {
 
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Printing PCFG to dot file  =========" << std::endl;
                 for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
                 {
                     analysis.print_pcfg( memento, (*it)->get_name( ) );
                 }
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Printing PCFG to dot file done =========" << std::endl;
             }
         }
