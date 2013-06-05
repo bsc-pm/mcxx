@@ -33,6 +33,28 @@
 
 namespace SymbolUtils
 {
+    TL::Symbol new_function_symbol(TL::Symbol function)
+    {
+        TL::ObjectList<TL::Type> parameter_types = function.get_type().parameters();
+
+        TL::ObjectList<std::string> parameter_names;
+        TL::ObjectList<TL::Symbol> function_related_symbols = function.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = function_related_symbols.begin();
+                it != function_related_symbols.end();
+                it++)
+        {
+            parameter_names.append(it->get_name());
+        }
+
+        TL::Symbol new_function = SymbolUtils::new_function_symbol(
+                function,
+                function.get_name(),
+                function.get_type().returns(),
+                parameter_names,
+                parameter_types);
+
+        return new_function;
+    }
 
     TL::Symbol new_function_symbol(
             TL::Symbol current_function,

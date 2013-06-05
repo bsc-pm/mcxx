@@ -32,6 +32,8 @@
 
 namespace SymbolUtils
 {
+    TL::Symbol new_function_symbol(TL::Symbol function);
+
     TL::Symbol new_function_symbol(
             TL::Symbol current_function,
             const std::string& name,
