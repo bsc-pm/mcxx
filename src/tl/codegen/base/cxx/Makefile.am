@@ -44,4 +44,6 @@ libcodegen_cxx_la_LIBADD = ../../common/libcodegen-common.la \
 libcodegen_cxx_la_SOURCES = \
 	 codegen-cxx.hpp \
 	 codegen-cxx.cpp \
+	 codegen-prune.cpp \
+	 codegen-prune.hpp \
   	 $(END)

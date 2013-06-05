@@ -447,6 +447,9 @@ namespace TL { namespace OpenMP {
     {
         _core.run(dto);
 
+        if (diagnostics_get_error_count() != 0)
+            return;
+
         // Do nothing once we have analyzed everything
         if (_openmp_dry_run != "0")
             return;

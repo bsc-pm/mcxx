@@ -236,7 +236,7 @@ static scope_entry_t* get_or_create_untyped_symbols_info(decl_context_t decl_con
     return get_or_create_special_symbol(decl_context, ".untyped_symbols");
 }
 
-scope_entry_t* get_data_symbol_info(decl_context_t decl_context)
+scope_entry_t* fortran_get_data_symbol_info(decl_context_t decl_context)
 {
     return get_special_symbol(decl_context, ".data");
 }
@@ -246,7 +246,7 @@ static scope_entry_t* get_or_create_data_symbol_info(decl_context_t decl_context
     return get_or_create_special_symbol(decl_context, ".data");
 }
 
-scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
+scope_entry_t* fortran_get_equivalence_symbol_info(decl_context_t decl_context)
 {
     return get_special_symbol(decl_context, ".equivalence");
 }

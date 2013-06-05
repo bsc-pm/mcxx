@@ -262,9 +262,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> function_definition_header
 %type<ast> function_specifier
 %type<ast> id_expression
-%type<ast> if_else_eligible_statements
-%type<ast> if_else_statement
-%type<ast> if_statement
 %type<ast> inclusive_or_expression
 %type<ast> init_declarator
 %type<ast> init_declarator_list
@@ -285,7 +282,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> member_declarator_list
 %type<ast> member_specification_seq
 %type<ast> multiplicative_expression
-%type<ast> no_if_statement
+%type<ast> if_statement
 %type<ast> parameter_type_list
 %type<ast> identifier_list
 %type<ast> identifier_list_kr
@@ -302,6 +299,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> simple_type_specifier
 %type<ast> statement
 %type<ast> statement_seq
+%type<ast> nondeclarating_statement
 %type<ast> storage_class_specifier
 %type<ast> string_literal
 %type<ast> translation_unit
@@ -1780,25 +1778,21 @@ constant_initializer : '=' constant_expression
 // A.5. - Statements
 // *********************************************************
 
-statement : no_if_statement
+statement: nondeclarating_statement %merge<ambiguityHandler>
 {
-	$$ = $1;
+    $$ = $1;
 }
-| if_statement %dprec 2
-{
-	$$ = $1;
-}
-| if_else_statement %dprec 1
+| declaration_statement %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
 ;
 
-no_if_statement : labeled_statement
+nondeclarating_statement : labeled_statement
 {
 	$$ = $1;
 }
-| expression_statement %merge<ambiguityHandler>
+| expression_statement
 {
 	$$ = $1;
 }
@@ -1818,12 +1812,11 @@ no_if_statement : labeled_statement
 {
 	$$ = $1;
 }
-| declaration_statement %merge<ambiguityHandler>
+| if_statement
 {
-	$$ = $1;
+    $$ = $1;
 }
 ;
-
 
 labeled_statement : IDENTIFIER ':' statement
 {
@@ -1884,28 +1877,21 @@ statement_seq : statement
 ;
 
 // If ambiguity
-// We can generate anything here
-if_statement : IF '(' condition ')' statement
+// Note the precedence seems weird but makes sense.
+// When faced with the ambiguity
+//
+//            IF ( e1 ) IF ( e2 )  s1 ELSE s2
+//
+// we want the case where "IF ( condition ) statement" where statement will be
+// "IF ( e2 ) s1 ELSE s2". This is why the first rule has higher priority
+// (although it seems it should be the other way round)
+if_statement : IF '(' condition ')' statement %dprec 2
 {
 	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-;
-
-// Here only if with an else inside
-if_else_statement : IF '(' condition ')' if_else_eligible_statements ELSE statement
+| IF '(' condition ')' statement ELSE statement %dprec 1
 {
 	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-;
-
-// Here only if without an else inside
-if_else_eligible_statements : no_if_statement
-{
-	$$ = $1;
-}
-| if_else_statement
-{
-	$$ = $1;
 }
 ;
 

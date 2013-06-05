@@ -393,14 +393,14 @@ namespace Codegen
         }
 
         // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
         // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -1421,40 +1421,51 @@ OPERATOR_TABLE
         if (l.empty())
             return;
 
+        TL::ObjectList<TL::Symbol> parameter_symbols = called_symbol.get_related_symbols();
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
-        int pos = 0;
+        // Explicit pos is the position of explicit arguments (skipping non present ones)
+        int explicit_pos = 0, pos = 0;
         bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
-            if (pos > 0)
-                file << ", ";
+            if (it->is<Nodecl::FortranNotPresent>())
+            {
+                keywords_are_mandatory = true;
+                continue;
+            }
 
-            TL::Symbol keyword_symbol;
+            if (explicit_pos > 0)
+                file << ", ";
+            explicit_pos++;
+
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
             if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword_symbol = it->as<Nodecl::FortranActualArgument>().get_symbol();
                 arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (keyword_symbol.is_valid()
-                    && !called_symbol.is_statement_function_statement())
+            if (!called_symbol.is_statement_function_statement())
             {
-                parameter_type = keyword_symbol.get_type();
-                if (!keywords_are_mandatory)
+#warning Get the parameter type from the function type, not the keyword symbol
+                if (keywords_are_mandatory)
                 {
-                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
-                }
-                if (keywords_are_mandatory
-                        && !keyword_symbol.not_to_be_printed())
-                {
-                    file << keyword_symbol.get_name() << " = ";
+                    ERROR_CONDITION (pos >= (signed int)parameter_symbols.size(),
+                            "This should not happen if some argument has been omitted", 0);
+
+                    ERROR_CONDITION(parameter_symbols[pos].is_result_variable(),
+                            "Invalid argument", 0);
+                    std::string keyword_name = parameter_symbols[pos].get_name();
+
+                    ERROR_CONDITION(keyword_name == "", "Invalid name for parameter\n", 0);
+
+                    file << keyword_name << " = ";
                 }
             }
-            else if (pos < (signed int)parameter_types.size())
+
+            if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -4332,8 +4343,16 @@ OPERATOR_TABLE
             declare_module_level_entities(node);
         }
 
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        if (data_symbol.is_valid())
+        {
+            walk(data_symbol.get_value());
+        }
+
+
         // EQUIVALENCE
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -4599,15 +4618,16 @@ OPERATOR_TABLE
             TL::Symbol &sym(*it);
             declare_symbol(sym, sym.get_scope());
         }
-        
-        // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());

@@ -14521,8 +14521,10 @@ static void diagnostic_single_candidate(scope_entry_t* entry,
     info_printf("%s: note:    %s%s",
             locus_to_str(entry->locus),
             (entry->entity_specs.is_member && entry->entity_specs.is_static) ? "static " : "",
-            print_decl_type_str(entry->type_information, entry->decl_context, 
-                get_qualified_symbol_name(entry, entry->decl_context)));
+            !is_computed_function_type(entry->type_information)
+            ?  print_decl_type_str(entry->type_information, entry->decl_context,
+                get_qualified_symbol_name(entry, entry->decl_context)) 
+            : " <<generic function>>");
 
     if (entry->entity_specs.is_builtin)
     {

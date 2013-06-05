@@ -24,68 +24,55 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 /*
 <testinfo>
-test_generator=config/mercurium-parallel-simd
-test_ignore=yes
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#include <stdio.h>
+#include <stdlib.h>
 
-#define VECTOR_SIZE 16
-
-void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int N)
+void f1(void)
 {
-    int j;
-#pragma omp parallel
-    {
-#pragma omp simd for
-        for (j=0; j<N; j++)
-        {
-            z[j] = a * x[j] + y[j];
-        }
-    }
+  void g(int *x)
+  {
+     (*x)++;
+  }
+
+  int y;
+  y = 1;
+
+#pragma omp task inout(y)
+  {
+  g(&y);
+  }
+#pragma omp taskwait
+  if (y != 2) abort();
 }
 
-
-int main (int argc, char * argv[])
+void f2(void)
 {
-    const int N = 16;
-    const int iters = 1;
+#pragma omp task inout(*x)
+  void g(int *x)
+  {
+     (*x)++;
+  }
 
-    float *x, *y, *z; 
-    
-    posix_memalign((void **)&x, VECTOR_SIZE, N*sizeof(float));
-    posix_memalign((void **)&y, VECTOR_SIZE, N*sizeof(float));
-    posix_memalign((void **)&z, VECTOR_SIZE, N*sizeof(float));
-    
-    float a = 0.93f;
+  int y;
+  y = 1;
 
-    int i, j;
+  g(&y);
 
-    for (i=0; i<N; i++)
-    {
-        x[i] = i+1;
-        y[i] = i-1;
-        z[i] = 0.0f;
-    }
+#pragma omp taskwait
+  if (y != 2) abort();
+}
 
-    for (i=0; i<iters; i++)
-    {
-        saxpy(x, y, z, a, N);
-    }
+int main(int argc, char *argv[])
+{
+    f1();
+    f2();
 
-    for (i=0; i<N; i++)
-    {
-        if (z[i] != (a * x[i] + y[i]))
-        {
-            printf("Error\n");
-            return (1);
-        }
-    }
-
-    printf("SUCCESS!\n");
     return 0;
 }
-
