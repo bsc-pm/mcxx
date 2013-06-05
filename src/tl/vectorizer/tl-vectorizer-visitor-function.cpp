@@ -53,8 +53,7 @@ namespace TL
             }
 
             // Push FunctionCode as scope for analysis
-            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
-            Vectorizer::_analysis_scopes->push_back(function_code);
+            _environment._analysis_scopes.push_back(function_code);
 
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
@@ -86,9 +85,7 @@ namespace TL
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(function_code.get_statements());
 
-            Vectorizer::_analysis_scopes->pop_back();
-            delete Vectorizer::_analysis_scopes;
-            Vectorizer::_analysis_scopes = 0;
+            _environment._analysis_scopes.pop_back();
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 

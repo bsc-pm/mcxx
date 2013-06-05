@@ -69,6 +69,7 @@ namespace TL
 
                 unsigned int _vector_length;
                 std::string _device_name;
+                bool _support_masking;
 
             public:
                 SimdVisitor(bool ffast_math_enabled, bool svml_enabled, bool mic_enabled);

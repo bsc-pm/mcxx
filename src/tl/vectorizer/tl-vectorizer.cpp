@@ -33,18 +33,20 @@ namespace TL
 {
     namespace Vectorization
     {
+        
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
+                const bool support_masking,
                 const TL::Type& target_type,
                 const TL::Scope& local_scope,
                 const Nodecl::List& suitable_expr_list) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
-            _target_type(target_type), _suitable_expr_list(suitable_expr_list)
+           _support_masking(support_masking), _target_type(target_type), _suitable_expr_list(suitable_expr_list)
         {
             _local_scope_list.push_back(local_scope);
             _mask_list.push_back(Nodecl::NodeclBase::null());
         }
-
+/*
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
                 const TL::Type& target_type,
@@ -57,7 +59,7 @@ namespace TL
             _local_scope_list.push_back(local_scope);
             _mask_list.push_back(mask);
         }
-
+*/
         VectorizerEnvironment::~VectorizerEnvironment()
         {
             _local_scope_list.pop_back();
@@ -67,7 +69,6 @@ namespace TL
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
         Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;
-        std::list<Nodecl::NodeclBase>* Vectorizer::_analysis_scopes = 0;
 
         Vectorizer& Vectorizer::get_vectorizer()
         {
@@ -109,6 +110,13 @@ namespace TL
         {
             VectorizerVisitorFunction visitor_function(environment);
             visitor_function.walk(func_code);
+        }
+
+        void Vectorizer::process_epilog(const Nodecl::ForStatement& for_statement, 
+                VectorizerEnvironment& environment)
+        {
+            VectorizerVisitorForEpilog visitor_epilog(environment);
+            visitor_epilog.walk(for_statement);
         }
 
         void Vectorizer::add_vector_function_version(const std::string& func_name, const Nodecl::NodeclBase& func_version,

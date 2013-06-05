@@ -342,7 +342,7 @@ namespace TL
             {
                 // Vector Store
                 if(Vectorizer::_analysis_info->is_adjacent_access(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             lhs))
                 {
                     TL::Type basic_type = lhs.get_type();
@@ -353,7 +353,7 @@ namespace TL
 
                     // Aligned
                     if(Vectorizer::_analysis_info->is_simd_aligned_access(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             lhs,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
@@ -632,7 +632,7 @@ namespace TL
 
             // Vector Promotion from ArraySubscript
             if (!Vectorizer::_analysis_info->is_IV_dependent_access(
-                        Vectorizer::_analysis_scopes->back(),
+                        _environment._analysis_scopes.back(),
                         n))
             {
 
@@ -648,12 +648,12 @@ namespace TL
             }
             // Vector Load
             else if (Vectorizer::_analysis_info->is_adjacent_access(
-                        Vectorizer::_analysis_scopes->back(),
+                        _environment._analysis_scopes.back(),
                         n))
             {
                 // Aligned
                 if(Vectorizer::_analysis_info->is_simd_aligned_access(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             n,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
@@ -748,7 +748,6 @@ namespace TL
 
                 Nodecl::NodeclBase strides = *subscripts.begin();
                 walk(strides);
-
 
                 if(_environment._mask_list.back().is_null())
                 {
@@ -855,7 +854,7 @@ namespace TL
             {
                // Vectorize BASIC induction variable
                 if (Vectorizer::_analysis_info->is_basic_induction_variable(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             n))
                 {
                     DEBUG_CODE()
@@ -867,7 +866,7 @@ namespace TL
                     TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
                     const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
-                            Vectorizer::_analysis_scopes->back(), n);
+                            _environment._analysis_scopes.back(), n);
 
                     for(const_value_t *i = const_value_get_zero(4, 0);
                             const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_environment._unroll_factor)));
@@ -950,7 +949,7 @@ namespace TL
                 }
                 // Vectorize constants
                 else if (Vectorizer::_analysis_info->is_constant(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             n))
                 {
                     DEBUG_CODE()

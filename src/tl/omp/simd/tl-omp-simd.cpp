@@ -123,6 +123,7 @@ namespace TL {
             {
                 _vector_length = 64;
                 _device_name = "knc";
+                _support_masking = false;//true;
 
                 if (svml_enabled)
                     _vectorizer.enable_svml_knc();
@@ -131,6 +132,7 @@ namespace TL {
             {
                 _vector_length = 16;
                 _device_name = "smp";
+                _support_masking = false;
 
                 if (svml_enabled)
                     _vectorizer.enable_svml_sse();
@@ -151,20 +153,34 @@ namespace TL {
             }
 
             // Vectorize for
-            VectorizerEnvironment vectorizer_environment(
+            VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length, 
+                    _support_masking,
                     NULL,
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
                     suitable_expresions);
             
             Nodecl::NodeclBase epilog = 
-                    _vectorizer.vectorize(for_statement, vectorizer_environment); 
+                    _vectorizer.vectorize(for_statement, for_environment); 
 
             // Add epilog
             if (!epilog.is_null())
             {
                 simd_node.append_sibling(epilog);
+
+                Nodecl::ForStatement epilog_for_stmt =
+                    epilog.as<Nodecl::ForStatement>();
+
+                VectorizerEnvironment epilog_environment(
+                        _device_name,
+                        _vector_length, 
+                        _support_masking,
+                        NULL,
+                        epilog_for_stmt.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                        suitable_expresions);
+
+                _vectorizer.process_epilog(epilog_for_stmt, epilog_environment);
             }
 
             // Remove Simd node
@@ -196,7 +212,8 @@ namespace TL {
             // Vectorize for
             VectorizerEnvironment vectorizer_environment(
                     _device_name,
-                    _vector_length, 
+                    _vector_length,
+                    _support_masking, 
                     NULL,
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
                     suitable_expresions);
@@ -264,6 +281,7 @@ namespace TL {
             VectorizerEnvironment vectorizer_environment(
                     _device_name,
                     _vector_length, 
+                    _support_masking,
                     NULL,
                     vectorized_func_code.get_statements().retrieve_context(),
                     suitable_expresions);
