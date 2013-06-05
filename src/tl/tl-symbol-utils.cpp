@@ -175,6 +175,13 @@ namespace SymbolUtils
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
         }
+
+        if (current_function.is_inline())
+            new_function_sym->entity_specs.is_inline = 1;
+
+        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
+        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
             scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
@@ -228,5 +235,8 @@ namespace SymbolUtils
                     function_symbol,
                     make_locus("", 0, 0));
         }
+
+        function_symbol.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
+
     }
 }

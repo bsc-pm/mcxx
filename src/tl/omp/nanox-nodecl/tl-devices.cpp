@@ -811,7 +811,6 @@ namespace TL { namespace Nanox {
             new_function_sym->entity_specs.is_static = 0;
         }
 
-
         // Finally, we update the parameters of the new function symbol
         for (ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
                 it2 != parameter_symbols.end();
@@ -840,6 +839,12 @@ namespace TL { namespace Nanox {
                     new_function_sym->type_information,
                     get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
+
+        if (current_function.is_inline())
+            new_function_sym->entity_specs.is_inline = 1;
+
+        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
+        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
 
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
