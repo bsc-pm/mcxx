@@ -409,6 +409,7 @@ void LoweringVisitor::emit_async_common(
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
+        Nodecl::NodeclBase if_condition,
         Nodecl::NodeclBase task_label,
         bool is_untied,
 
@@ -601,8 +602,14 @@ void LoweringVisitor::emit_async_common(
     Source err_name;
     err_name << "err";
 
-    Source num_dependences;
+    Source if_condition_begin_opt, if_condition_end_opt;
+    if (!if_condition.is_null())
+    {
+        if_condition_begin_opt << "if (" << as_expression(if_condition) << ") {";
+        if_condition_end_opt << "}";
+    }
 
+    Source num_dependences;
     // Spawn code
     spawn_code
         << "{"
@@ -615,10 +622,12 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
-        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
+        <<     if_condition_begin_opt
+        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
+        <<     if_condition_end_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -764,6 +773,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             called_task_dummy,
             statements,
             task_environment.priority,
+            task_environment.if_condition,
             task_environment.task_label,
             task_environment.is_untied,
 

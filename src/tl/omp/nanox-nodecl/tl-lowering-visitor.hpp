@@ -75,6 +75,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol called_task,
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority_expr,
+                Nodecl::NodeclBase if_condition,
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,

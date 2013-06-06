@@ -757,40 +757,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
 
-    Nodecl::NodeclBase new_construct, new_code;
-    new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+    Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+    Nodecl::NodeclBase new_code = new_construct;
 
-    if (!task_environment.if_condition.is_null())
-    {
-        Nodecl::NodeclBase expr_direct_call_to_function = 
-            Nodecl::ExpressionStatement::make(
-                    function_call.shallow_copy(),
-                    function_call.get_locus());
-
-        Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
-
-        Nodecl::NodeclBase if_then_else_statement = 
-            Nodecl::IfElseStatement::make(
-                    updated_if_condition,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(new_construct),
-                            Nodecl::NodeclBase::null(),
-                            function_call.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(expr_direct_call_to_function),
-                            Nodecl::NodeclBase::null(),
-                            function_call.get_locus())));
-
-        new_code = if_then_else_statement;
-    }
-    else
-    {
-        new_code = new_construct;
-    }
-
-        Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
 
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
@@ -823,6 +794,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             called_symbol,
             statements,
             updated_priority,
+            updated_if_condition,
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
@@ -1114,19 +1086,7 @@ static Nodecl::NodeclBase fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    if (!task_environment.if_condition.is_null())
-    {
-        Nodecl::NodeclBase if_else = Nodecl::IfElseStatement::make(
-                task_environment.if_condition.shallow_copy(),
-                Nodecl::List::make(task_construct),
-                Nodecl::List::make(call_to_original.shallow_copy()));
-
-        statements_of_function.append(if_else);
-    }
-    else
-    {
-        statements_of_function.append(task_construct);
-    }
+    statements_of_function.append(task_construct);
 
     Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
 
@@ -1306,6 +1266,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             called_task_function,
             new_statements,
             task_environment.priority,
+            task_environment.if_condition,
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
