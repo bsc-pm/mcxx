@@ -766,12 +766,22 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+        if (if_clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                running_error("%s: error: clause 'if' requires just one argument\n",
+                        directive.get_locus_str().c_str());
+            }
+            execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
+        }
+
         Nodecl::NodeclBase async_code =
                     Nodecl::OpenMP::Task::make(execution_environment,
                         directive.get_statements().shallow_copy(),
                         directive.get_locus());
-
-        async_code = honour_if_clause(pragma_line, directive, async_code);
 
         pragma_line.diagnostic_unused_clauses();
         directive.replace(async_code);
