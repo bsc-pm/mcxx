@@ -1118,13 +1118,25 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_locus())
         );
-        
+
         // Set implicit barrier at the exit of the combined worksharing
         execution_environment.append(
                 Nodecl::OpenMP::BarrierAtEnd::make(
                     directive.get_locus()));
-        
+
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
+
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+        if (if_clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                running_error("%s: error: clause 'if' requires just one argument\n",
+                        directive.get_locus_str().c_str());
+            }
+            execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
+        }
 
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
@@ -1132,8 +1144,6 @@ namespace TL { namespace OpenMP {
                 num_threads,
                 code,
                 directive.get_locus());
-
-        parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
         pragma_line.diagnostic_unused_clauses();
         directive.replace(parallel_code);
@@ -1485,8 +1495,20 @@ namespace TL { namespace OpenMP {
         execution_environment.append(
                 Nodecl::OpenMP::BarrierAtEnd::make(
                     directive.get_locus()));
-        
+
         Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
+
+        PragmaCustomClause if_clause = pragma_line.get_clause("if");
+        if (if_clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                running_error("%s: error: clause 'if' requires just one argument\n",
+                        directive.get_locus_str().c_str());
+            }
+            execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
+        }
 
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
@@ -1494,8 +1516,6 @@ namespace TL { namespace OpenMP {
                     num_threads,
                     code,
                     directive.get_locus());
-
-        parallel_code = honour_if_clause(pragma_line, directive, parallel_code);
 
         pragma_line.diagnostic_unused_clauses();
         directive.replace(parallel_code);
