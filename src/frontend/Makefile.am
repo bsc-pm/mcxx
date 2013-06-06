@@ -357,9 +357,9 @@ cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYP
 
 BUILT_SOURCES += cxx-asttype-str.gperf
 CLEANFILES += cxx-asttype-str.gperf
-cxx-asttype-str.gperf : cxx-asttype.def cxx-asttype.h
+cxx-asttype-str.gperf : cxx-asttype.def
 	$(AM_V_GEN)( \
-	echo "%{" >> cxx-asttype-str.gperf; \
+	echo "%{" > cxx-asttype-str.gperf; \
 	echo "/* This file has been generated. Every time you change $+ it will be regenerated */" >> cxx-asttype-str.gperf; \
 	echo "%}" >> cxx-asttype-str.gperf; \
 	echo "struct node_str_t;" >> cxx-asttype-str.gperf; \

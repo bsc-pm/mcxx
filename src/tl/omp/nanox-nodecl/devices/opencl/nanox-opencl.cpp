@@ -210,7 +210,7 @@ void DeviceOpenCL::generate_ndrange_code(
         else if (is_local)
         {
             TL::Source sizeof_arg;
-            if (index_local <= new_shmem.size())
+            if (index_local >= new_shmem.size())
             {
                 std::cerr << called_task.get_locus_str()
                     << ": warning: The size of the local symbol '"
