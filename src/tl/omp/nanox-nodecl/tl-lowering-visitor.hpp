@@ -214,6 +214,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase num_replicas,
+                Nodecl::NodeclBase if_condition,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 
