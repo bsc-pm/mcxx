@@ -334,7 +334,7 @@ void DeviceMPI::generate_additional_mpi_code(
         code_host << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
     
-    if (IS_CXX_LANGUAGE){
+    if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
         int counter=0;
         for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
                     it != data_items.end();
@@ -371,12 +371,13 @@ void DeviceMPI::generate_additional_mpi_code(
                 if (input==0){
                     std::cerr << data_sym.get_locus_str() << ": warning: when serializing an object it must be declared as copy_in, skipping serialization "  << std::endl;
                 } else {
-                    code_device_pre << "void*" << " " << "buff_" << data_sym.get_name() << counter << " = (void*)args." << data_sym.get_name() << ";";
+                    if (output!=0) code_device_pre << "nanos::omemstream " << " " << "outbuff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";   
+                    code_device_pre << "nanos::imemstream " << " " << "buff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";                    
                     code_device_pre << sym_serializer.get_qualified_name() << " " << "tmp_" << data_sym.get_name() << counter << "(buff_" << data_sym.get_name() << counter << ");";
                     code_device_pre << "args." << data_sym.get_name() << "=&tmp_" << data_sym.get_name() << counter << ";";
                     //If there is an output, serialize the object after the task, so when nanox comes back to the device, the buffer is updated
                     if (output!=0){
-                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(buff_" << data_sym.get_name() << counter << ");";
+                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(outbuff_" << data_sym.get_name() << counter << ");";
                     }
                 }
                 ++counter;

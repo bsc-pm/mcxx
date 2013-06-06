@@ -1667,11 +1667,20 @@ void LoweringVisitor::fill_copies_region(
                     Source serialize_adapters;
 
                     serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
-                            << "{  return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); } ;";
+                            << "{  "
+                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
+                            << "} ;";
                     serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
-                            << "{  (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(buff); } ;";
+                            << "{ "
+                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
+                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
+                            << "} ;";
+                    
                     serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
-                            << "{  (*("<< sym_serializer.get_qualified_name() << "*)this_)=buff;} ;";
+                            << "{"
+                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
+                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
+                            << "} ;";
 
                     copy_ol_setup
                         << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
