@@ -735,6 +735,11 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
     }
 
+    void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
+    {
+        _outline_info.add_copy_of_outline_data_item(data_item);
+    }
+
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
     {
         private:
@@ -1158,6 +1163,11 @@ namespace TL { namespace Nanox {
     OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
     {
         return _implementation_table;
+    }
+
+    void OutlineInfo::add_copy_of_outline_data_item(const OutlineDataItem& ol)
+    {
+        _data_env_items.append(new OutlineDataItem(ol));
     }
 
     namespace
