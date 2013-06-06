@@ -32,6 +32,8 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
+#ifdef __GNUC__
+
 #include <assert.h>
 
 void h(void)
@@ -57,3 +59,12 @@ int main(int argc, char *argv[])
     h();
     return 0;
 }
+
+#else
+
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+
+#endif
