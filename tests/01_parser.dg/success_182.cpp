@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,62 +28,12 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator=config/mercurium
 </testinfo>
 */
 
-#ifdef __GNUC__
-
-#include <stdlib.h>
-
-void f1(void)
+void f(int *v, int *w)
 {
-  void g(int *x)
-  {
-     (*x)++;
-  }
-
-  int y;
-  y = 1;
-
-#pragma omp task inout(y)
-  {
-  g(&y);
-  }
-#pragma omp taskwait
-  if (y != 2) abort();
+    delete (w + 2);
+    delete[] (v + 2);
 }
-
-void f2(void)
-{
-#pragma omp task inout(*x)
-  void g(int *x)
-  {
-     (*x)++;
-  }
-
-  int y;
-  y = 1;
-
-  g(&y);
-
-#pragma omp taskwait
-  if (y != 2) abort();
-}
-
-int main(int argc, char *argv[])
-{
-    f1();
-    f2();
-
-    return 0;
-}
-
-#else
-
-int main(int argc, char *argv[])
-{
-    return 0;
-}
-
-#endif

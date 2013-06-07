@@ -33,6 +33,28 @@
 
 namespace SymbolUtils
 {
+    TL::Symbol new_function_symbol(TL::Symbol function)
+    {
+        TL::ObjectList<TL::Type> parameter_types = function.get_type().parameters();
+
+        TL::ObjectList<std::string> parameter_names;
+        TL::ObjectList<TL::Symbol> function_related_symbols = function.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = function_related_symbols.begin();
+                it != function_related_symbols.end();
+                it++)
+        {
+            parameter_names.append(it->get_name());
+        }
+
+        TL::Symbol new_function = SymbolUtils::new_function_symbol(
+                function,
+                function.get_name(),
+                function.get_type().returns(),
+                parameter_names,
+                parameter_types);
+
+        return new_function;
+    }
 
     TL::Symbol new_function_symbol(
             TL::Symbol current_function,
@@ -153,6 +175,13 @@ namespace SymbolUtils
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
         }
+
+        if (current_function.is_inline())
+            new_function_sym->entity_specs.is_inline = 1;
+
+        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
+        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
             scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
@@ -206,5 +235,8 @@ namespace SymbolUtils
                     function_symbol,
                     make_locus("", 0, 0));
         }
+
+        function_symbol.get_internal_symbol()->entity_specs.function_code = function_code.get_internal_nodecl();
+
     }
 }

@@ -43,6 +43,7 @@ struct A
             {
                 this->f(n-1);
             }
+#pragma omp taskwait
         }
     }
 

@@ -35,6 +35,7 @@ namespace TL { namespace Nanox {
             OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::NodeclBase num_replicas,
+            Nodecl::NodeclBase if_condition,
             const std::string& outline_name,
             TL::Symbol structure_symbol)
     {
@@ -115,8 +116,7 @@ namespace TL { namespace Nanox {
                 outline_info,
                 construct);
 
-        Source num_threads;
-
+        Source num_threads, if_condition_code_opt;
         if (Nanos::Version::interface_is_at_least("openmp", 7))
         {
             num_threads << "nanos_omp_get_num_threads_next_parallel("
@@ -133,6 +133,11 @@ namespace TL { namespace Nanox {
             {
                 num_threads << as_expression(num_replicas);
             }
+        }
+
+        if (!if_condition.is_null())
+        {
+            if_condition_code_opt << "if (!" << as_expression(if_condition) << ")  nanos_num_threads = 1;";
         }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
@@ -155,6 +160,7 @@ namespace TL { namespace Nanox {
             <<   const_wd_info
             <<   immediate_decl
             <<   "unsigned int nanos_num_threads = " << num_threads << ";"
+            <<   if_condition_code_opt
             <<   "nanos_err_t err;"
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"

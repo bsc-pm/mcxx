@@ -34,48 +34,29 @@ test_generator=config/mercurium-ompss
 
 #ifdef __GNUC__
 
-#include <stdlib.h>
+#include <assert.h>
 
-void f1(void)
+void h(void)
 {
-  void g(int *x)
-  {
-     (*x)++;
-  }
+    int orig_x, x, z;
+    orig_x = x = 1;
+    z = 2;
 
-  int y;
-  y = 1;
+#pragma omp task inout(*y, z)
+    void f(int *y)
+    {
+        (*y) += z;
+    }
 
-#pragma omp task inout(y)
-  {
-  g(&y);
-  }
+    f(&x);
 #pragma omp taskwait
-  if (y != 2) abort();
-}
 
-void f2(void)
-{
-#pragma omp task inout(*x)
-  void g(int *x)
-  {
-     (*x)++;
-  }
-
-  int y;
-  y = 1;
-
-  g(&y);
-
-#pragma omp taskwait
-  if (y != 2) abort();
+    assert(x == (orig_x + z));
 }
 
 int main(int argc, char *argv[])
 {
-    f1();
-    f2();
-
+    h();
     return 0;
 }
 
