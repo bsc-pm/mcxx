@@ -405,9 +405,15 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             && !called_task.get_function_code().is_null()
             && !_cuda_functions.contains(called_task.get_function_code()))
     {
+        TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task);
+
+        Nodecl::Utils::SimpleSymbolMap map;
+        map.add_map(called_task, new_function);
+
         _cuda_file_code.append(Nodecl::Utils::deep_copy(
                     called_task.get_function_code(),
-                    called_task.get_scope()));
+                    called_task.get_scope(),
+                    map));
 
         _cuda_functions.append(called_task.get_function_code());
     }
@@ -600,12 +606,26 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
             it != stuff_to_be_copied.end();
             ++it)
     {
-        _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
+        if (it->is<Nodecl::FunctionCode>()
+                || it->is<Nodecl::TemplateFunctionCode>())
+        {
+            TL::Symbol function = it->get_symbol();
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(function);
+
+            Nodecl::Utils::SimpleSymbolMap map;
+            map.add_map(function, new_function);
+
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, map));
+        }
+        else
+        {
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
+        }
     }
 }
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
-{    
+{
     if (_cuda_tasks_processed){
         Source nanox_device_enable_section;
         nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";

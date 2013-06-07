@@ -42,6 +42,7 @@ void f(int n, int v[n][n])
     if (n > 0)
     {
         f(n-1, v);
+#pragma omp taskwait
     }
 }
 

@@ -75,6 +75,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol called_task,
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority_expr,
+                Nodecl::NodeclBase if_condition,
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
@@ -232,6 +233,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase num_replicas,
+                Nodecl::NodeclBase if_condition,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 

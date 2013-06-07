@@ -726,6 +726,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     // If the current function is a non-static function and It is member of a
     // class, the first argument of the arguments list represents the object of
     // this class
+    std::set<TL::Symbol> seen_parameters;
+
     if (IS_CXX_LANGUAGE
             && !called_sym.is_static()
             && called_sym.is_member())
@@ -733,6 +735,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::NodeclBase class_object = *(arguments.begin());
         TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+        seen_parameters.insert(this_symbol);
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         std::stringstream ss;
@@ -799,6 +803,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         ERROR_CONDITION(found.size() > 1, "unreachable code", 0);
 
         OutlineDataItem* current_item = found[0];
+
+        seen_parameters.insert(parameter);
 
         bool depended_by_other_dep = false;
         bool has_input_value_dep = current_item->has_an_input_value_dependence();
@@ -973,6 +979,24 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         }
     }
 
+    // Register extra variables that might not be parameters of the function
+    // task but are in context
+    data_items = parameters_outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::Symbol sym = (*it)->get_symbol();
+        if (!sym.is_valid() || sym.is_saved_expression())
+            continue;
+
+        if (seen_parameters.find(sym) != seen_parameters.end())
+            continue;
+
+        outline_register_entities.add_copy_of_outline_data_item(**it);
+    }
+
+
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
     //
@@ -1057,41 +1081,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
 
-    Nodecl::NodeclBase new_construct, new_code;
-    new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+    Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+    Nodecl::NodeclBase new_code = new_construct;
 
-    if (!task_environment.if_condition.is_null())
-    {
-        Nodecl::NodeclBase expr_direct_call_to_function =
-            Nodecl::ExpressionStatement::make(
-                    function_call.shallow_copy(),
-                    function_call.get_locus());
-
-        Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_terms_of_arguments(task_environment.if_condition, param_to_arg_expr);
-
-        Nodecl::NodeclBase if_then_else_statement =
-            Nodecl::IfElseStatement::make(
-                    updated_if_condition,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(new_construct),
-                            Nodecl::NodeclBase::null(),
-                            function_call.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(expr_direct_call_to_function),
-                            Nodecl::NodeclBase::null(),
-                            function_call.get_locus())));
-
-        new_code = if_then_else_statement;
-    }
-    else
-    {
-        new_code = new_construct;
-    }
-
-    Nodecl::NodeclBase updated_priority = rewrite_expression_in_terms_of_arguments(task_environment.priority, param_to_arg_expr);
-
+    Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
 
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
@@ -1124,6 +1118,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             called_symbol,
             statements,
             updated_priority,
+            updated_if_condition,
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
@@ -1203,6 +1198,7 @@ static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
+        const TL::ObjectList<TL::Symbol> &free_vars,
         // out
         Nodecl::Utils::SimpleSymbolMap &symbol_map,
         TL::ObjectList<TL::Symbol> &save_expressions)
@@ -1227,6 +1223,23 @@ static TL::Symbol new_function_symbol_adapter(
             = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
+
+        parameters_of_new_function.append(new_parameter_symbol);
+        symbol_map.add_map(*it, new_parameter_symbol);
+    }
+
+    // Free symbols
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = free_vars.begin();
+            it != free_vars.end();
+            it++)
+    {
+        scope_entry_t* new_parameter_symbol
+            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+        new_parameter_symbol->kind = SK_VARIABLE;
+        TL::Type t = it->get_type();
+        if (!t.is_lvalue_reference())
+            t = t.get_lvalue_reference_to();
+        new_parameter_symbol->type_information = t.get_internal_type();
 
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
@@ -1351,13 +1364,18 @@ static Nodecl::NodeclBase fill_adapter_function(
 
     // Create the arguments of the call
     TL::ObjectList<Nodecl::NodeclBase> argument_list;
-    TL::ObjectList<TL::Symbol> parameters_of_adapter_function = adapter_function.get_related_symbols();
-    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_adapter_function.begin();
-            it != parameters_of_adapter_function.end();
+    TL::ObjectList<TL::Symbol> parameters_of_called_function = called_function.get_related_symbols();
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_called_function.begin();
+            it != parameters_of_called_function.end();
             it++)
     {
-        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(*it);
-        TL::Type t = it->get_type();
+        TL::Symbol &sym(*it);
+        // We map from the parameter of the called function task to the
+        // parameter of the adapter function
+        sym = symbol_map.map(sym);
+
+        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(sym);
+        TL::Type t = sym.get_type();
         if (!t.is_lvalue_reference())
             t = t.get_lvalue_reference_to();
 
@@ -1392,19 +1410,7 @@ static Nodecl::NodeclBase fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    if (!task_environment.if_condition.is_null())
-    {
-        Nodecl::NodeclBase if_else = Nodecl::IfElseStatement::make(
-                task_environment.if_condition.shallow_copy(),
-                Nodecl::List::make(task_construct),
-                Nodecl::List::make(call_to_original.shallow_copy()));
-
-        statements_of_function.append(if_else);
-    }
-    else
-    {
-        statements_of_function.append(task_construct);
-    }
+    statements_of_function.append(task_construct);
 
     Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
 
@@ -1419,6 +1425,30 @@ static Nodecl::NodeclBase fill_adapter_function(
 
     return function_code;
 }
+
+struct FreeVariablesVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    private:
+        TL::Symbol _function;
+        TL::ObjectList<TL::Symbol>& _free_vars;
+    public:
+
+        FreeVariablesVisitor(TL::Symbol function, TL::ObjectList<TL::Symbol>& free_vars)
+            : _function(function), _free_vars(free_vars)
+        {
+        }
+
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+
+            if (sym.get_scope().is_block_scope()
+                    && sym.get_scope().get_related_symbol() != _function)
+            {
+                _free_vars.insert(sym);
+            }
+        }
+};
 
 void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct)
 {
@@ -1447,11 +1477,19 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     TL::ObjectList<Symbol> save_expressions;
 
+    TL::ObjectList<TL::Symbol> free_vars;
+    if (called_task_function.is_nested_function())
+    {
+        FreeVariablesVisitor free_vars_visitor(called_task_function, free_vars);
+        free_vars_visitor.walk(called_task_function.get_function_code());
+    }
+
     Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
             current_function,
             called_task_function,
             ss.str(),
+            free_vars,
             *symbol_map,
             save_expressions);
 
@@ -1552,6 +1590,7 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             called_task_function,
             new_statements,
             task_environment.priority,
+            task_environment.if_condition,
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
@@ -1561,13 +1600,33 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
      symbol_map->add_map(called_task_function, adapter_function);
 
     // Now call the adapter function instead of the original
+    Nodecl::FunctionCall new_function_call = function_call.shallow_copy().as<Nodecl::FunctionCall>();
+
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
-    adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
+    new_function_call.get_called().replace(adapter_sym_ref);
+
+    if (!free_vars.empty())
+    {
+        Nodecl::List arguments = new_function_call.get_arguments().as<Nodecl::List>();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = free_vars.begin();
+                it != free_vars.end();
+                it++)
+        {
+            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(*it);
+            TL::Type t = it->get_type();
+            if (!t.is_lvalue_reference())
+                t = t.get_lvalue_reference_to();
+            sym_ref.set_type(t);
+
+            arguments.append(sym_ref);
+        }
+
+        new_function_call.set_arguments(arguments);
+    }
 
     // And replace everything with a call to the adapter function
-    construct.replace(
-            Nodecl::Utils::deep_copy(function_call, construct, *symbol_map)
-            );
+    construct.replace(new_function_call);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)

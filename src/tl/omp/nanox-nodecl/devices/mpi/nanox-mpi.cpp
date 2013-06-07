@@ -235,7 +235,7 @@ void DeviceMPI::add_forward_code_to_extra_c_code(
 }
 
 void DeviceMPI::generate_additional_mpi_code(
-        const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+        const TL::ObjectList<OutlineDataItem*>& data_items,
         const TL::Symbol& struct_args,
         const std::string& outline_name,
         TL::Source& code_host,
@@ -273,9 +273,6 @@ void DeviceMPI::generate_additional_mpi_code(
     Source typelist_src, blocklen_src, displ_src;
     //Source parameter_call;
     
-
-    code_device_post << "int ompss_id_func=" << _currTaskId << ";";
-    code_device_post << "err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
 
     //If there are parameters, add/build the structures 
     if (num_params>0){
@@ -336,6 +333,60 @@ void DeviceMPI::generate_additional_mpi_code(
         code_host << " err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         code_host << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
+    
+    if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
+        int counter=0;
+        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                    it != data_items.end();
+                    it++)
+        {
+            OutlineDataItem& data_item=(*(*it));
+            TL::ObjectList<OutlineDataItem::CopyItem> copies = data_item.get_copies();
+            TL::Symbol data_sym= data_item.get_symbol();
+
+            //Only serialize when there are no copies and the symbol is serializable
+            if (!copies.empty() && is_serializable(data_sym)){
+                TL::Type ser_type = data_sym.get_type();
+                TL::Symbol sym_serializer = ser_type.get_symbol();
+                if (sym_serializer.get_type().is_pointer_to_class()){
+                    ser_type= sym_serializer.get_type().get_pointer_to();
+                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+                }
+                int input=0;
+                int output=0;
+                for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+                        copy_it != copies.end();
+                        copy_it++)
+                {
+                    TL::DataReference data_ref(copy_it->expression);
+                    OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
+
+                    Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
+
+                    input += (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+                    output += (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+                }
+
+                //If no input, warning (a serializable object MUST be input)
+                if (input==0){
+                    std::cerr << data_sym.get_locus_str() << ": warning: when serializing an object it must be declared as copy_in, skipping serialization "  << std::endl;
+                } else {
+                    if (output!=0) code_device_pre << "nanos::omemstream " << " " << "outbuff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";   
+                    code_device_pre << "nanos::imemstream " << " " << "buff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";                    
+                    code_device_pre << sym_serializer.get_qualified_name() << " " << "tmp_" << data_sym.get_name() << counter << "(buff_" << data_sym.get_name() << counter << ");";
+                    code_device_pre << "args." << data_sym.get_name() << "=&tmp_" << data_sym.get_name() << counter << ";";
+                    //If there is an output, serialize the object after the task, so when nanox comes back to the device, the buffer is updated
+                    if (output!=0){
+                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(outbuff_" << data_sym.get_name() << counter << ");";
+                    }
+                }
+                ++counter;
+            }
+        }
+    }
+    code_device_post << "int ompss_id_func=" << _currTaskId << ";";
+    code_device_post << "err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
+
 
 }
 
@@ -628,7 +679,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     Source code_device_post;
     
     generate_additional_mpi_code(
-            info._target_info.get_onto(),
+            data_items,
             info._arguments_struct,
             info._outline_name,
             code_host,

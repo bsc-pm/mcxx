@@ -510,6 +510,8 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 
@@ -548,8 +550,9 @@ namespace TL
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
 
-                void set_taskwait_on_before_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
                 void set_taskwait_on_after_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
+
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };
     }
 }

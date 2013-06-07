@@ -812,7 +812,6 @@ namespace TL { namespace Nanox {
             new_function_sym->entity_specs.is_static = 0;
         }
 
-
         // Finally, we update the parameters of the new function symbol
         for (ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
                 it2 != parameter_symbols.end();
@@ -841,6 +840,12 @@ namespace TL { namespace Nanox {
                     new_function_sym->type_information,
                     get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
+
+        if (current_function.is_inline())
+            new_function_sym->entity_specs.is_inline = 1;
+
+        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
+        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
 
         if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
         {
@@ -945,6 +950,26 @@ namespace TL { namespace Nanox {
         }
         // Do nothing
         else return t;
+    }
+    
+    
+    bool DeviceProvider::is_serializable(TL::Symbol& sym){
+        bool serializable=false;
+        TL::Type ser_type = sym.get_type();
+        //If the object is a class, generate everything so nanox can it
+        if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
+                TL::Symbol sym_serializer = ser_type.get_symbol();
+                if (sym_serializer.get_type().is_pointer_to_class()){
+                    ser_type= sym_serializer.get_type().get_pointer_to();
+                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+                }
+                ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
+                ObjectList<TL::Symbol>::iterator ser_it;
+                for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !serializable; ++ser_it){
+                    if (ser_it->get_name()=="serialize") serializable=true;
+                }    
+        }
+        return serializable;
     }
 
 } }
