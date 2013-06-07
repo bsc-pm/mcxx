@@ -1345,18 +1345,17 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorFunctionCall& node) 
         {
-            walk(node.get_arguments());
-
             Nodecl::FunctionCall function_call =
-                Nodecl::FunctionCall::make(
-                        node.get_called(),
-                        node.get_arguments(),
-                        node.get_alternate_name(),
-                        node.get_function_form(),
-                        node.get_type(),
-                        node.get_locus());
+                node.get_function_call().as<Nodecl::FunctionCall>();
+
+            walk(function_call.get_arguments());
 
             node.replace(function_call);
+        }
+
+        void SSEVectorLowering::visit(const Nodecl::VectorFunctionCallMask& node) 
+        {
+            running_error("SSE Lowering: VectorFuctionCallMask is not supported in SSE.");
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorFabs& node) 

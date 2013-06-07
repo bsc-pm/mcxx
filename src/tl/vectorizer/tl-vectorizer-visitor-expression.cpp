@@ -788,57 +788,126 @@ namespace TL
             walk(n.get_arguments());
 
             // Special functions
-            if (called_sym.get_symbol().get_name() == "fabsf")
+            if(_environment._mask_list.back().is_null())
             {
-                const Nodecl::VectorFabs vector_fabs_call =
-                    Nodecl::VectorFabs::make(
-                            n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
-                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                            n.get_locus());
+                if (called_sym.get_symbol().get_name() == "fabsf")
+                {
+                    const Nodecl::VectorFabs vector_fabs_call =
+                        Nodecl::VectorFabs::make(
+                                n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
+                                get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                n.get_locus());
 
-                n.replace(vector_fabs_call);
+                    n.replace(vector_fabs_call);
+                }
+                else //Common functions
+                {
+                    // Get the best vector version of the function available
+                    Nodecl::NodeclBase best_version =
+                        TL::Vectorization::Vectorizer::_function_versioning.get_best_version(
+                                called_sym.get_symbol().get_name(), 
+                                _environment._device, 
+                                _environment._vector_length, 
+                                _environment._target_type,
+                                false);
+
+                    ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best vector function for '%s' is null",
+                            called_sym.get_symbol().get_name().c_str());
+
+                    // Create new called symbol
+                    Nodecl::Symbol new_called;
+                    if (best_version.is<Nodecl::FunctionCode>())
+                    {
+                        new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
+                            make_nodecl(true, n.get_locus());
+                    }
+                    else if (best_version.is<Nodecl::Symbol>())
+                    {
+                        new_called = best_version.as<Nodecl::Symbol>().get_symbol().
+                            make_nodecl(true, n.get_locus());
+                    }
+                    else
+                    {
+                        running_error("Vectorizer: %s found as vector function version in function versioning.",
+                                ast_print_node_type(best_version.get_kind()));
+                    }
+
+                    const Nodecl::VectorFunctionCall vector_function_call =
+                        Nodecl::VectorFunctionCall::make(
+                                Nodecl::FunctionCall::make(
+                                    new_called,
+                                    n.get_arguments().shallow_copy(),
+                                    n.get_alternate_name().shallow_copy(),
+                                    n.get_function_form().shallow_copy(),
+                                    get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                    n.get_locus()),
+                                get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                n.get_locus());
+
+                    n.replace(vector_function_call);
+                }
             }
-            else //Common functions
+            else
             {
-                // Get the best vector version of the function available
-                Nodecl::NodeclBase best_version =
-                    TL::Vectorization::Vectorizer::_function_versioning.get_best_version(
-                            called_sym.get_symbol().get_name(), 
-                            _environment._device, 
-                            _environment._vector_length, 
-                            _environment._target_type);
 
-                ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best vector function for '%s' is null",
-                        called_sym.get_symbol().get_name().c_str());
-
-                // Create new called symbol
-                Nodecl::Symbol new_called;
-                if (best_version.is<Nodecl::FunctionCode>())
+                if (called_sym.get_symbol().get_name() == "fabsf")
                 {
-                    new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
-                        make_nodecl(true, n.get_locus());
-                }
-                else if (best_version.is<Nodecl::Symbol>())
-                {
-                    new_called = best_version.as<Nodecl::Symbol>().get_symbol().
-                        make_nodecl(true, n.get_locus());
-                }
-                else
-                {
-                    running_error("Vectorizer: %s found as vector function version in function versioning.",
-                            ast_print_node_type(best_version.get_kind()));
-                }
+                    const Nodecl::VectorFabsMask vector_fabs_call =
+                        Nodecl::VectorFabsMask::make(
+                                n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
+                                _environment._mask_list.back().shallow_copy(),
+                                get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                n.get_locus());
 
-                const Nodecl::VectorFunctionCall vector_function_call =
-                    Nodecl::VectorFunctionCall::make(
-                            new_called,
-                            n.get_arguments().shallow_copy(),
-                            n.get_alternate_name().shallow_copy(),
-                            n.get_function_form().shallow_copy(),
-                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                            n.get_locus());
+                    n.replace(vector_fabs_call);
+                }
+                else //Common functions
+                {
+                    // Get the best vector version of the function available
+                    Nodecl::NodeclBase best_version =
+                        TL::Vectorization::Vectorizer::_function_versioning.get_best_version(
+                                called_sym.get_symbol().get_name(), 
+                                _environment._device, 
+                                _environment._vector_length, 
+                                _environment._target_type,
+                                true);
 
-                n.replace(vector_function_call);
+                    ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best vector function for '%s' is null",
+                            called_sym.get_symbol().get_name().c_str());
+
+                    // Create new called symbol
+                    Nodecl::Symbol new_called;
+                    if (best_version.is<Nodecl::FunctionCode>())
+                    {
+                        new_called = best_version.as<Nodecl::FunctionCode>().get_symbol().
+                            make_nodecl(true, n.get_locus());
+                    }
+                    else if (best_version.is<Nodecl::Symbol>())
+                    {
+                        new_called = best_version.as<Nodecl::Symbol>().get_symbol().
+                            make_nodecl(true, n.get_locus());
+                    }
+                    else
+                    {
+                        running_error("Vectorizer: %s found as vector function version in function versioning.",
+                                ast_print_node_type(best_version.get_kind()));
+                    }
+
+                    const Nodecl::VectorFunctionCallMask vector_function_call =
+                        Nodecl::VectorFunctionCallMask::make(
+                                Nodecl::FunctionCall::make(
+                                    new_called,
+                                    n.get_arguments().shallow_copy(),
+                                    n.get_alternate_name().shallow_copy(),
+                                    n.get_function_form().shallow_copy(),
+                                    get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                    n.get_locus()),
+                                _environment._mask_list.back().shallow_copy(),
+                                get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                n.get_locus());
+
+                    n.replace(vector_function_call);
+                }
             }
         }
 

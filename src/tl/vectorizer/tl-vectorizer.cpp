@@ -46,20 +46,7 @@ namespace TL
             _local_scope_list.push_back(local_scope);
             _mask_list.push_back(Nodecl::NodeclBase::null());
         }
-/*
-        VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
-                const unsigned int vector_length,
-                const TL::Type& target_type,
-                const TL::Scope& local_scope,
-                const Nodecl::List& suitable_expr_list,
-                const Nodecl::NodeclBase& mask) : 
-           _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
-            _target_type(target_type), _suitable_expr_list(suitable_expr_list)
-        {
-            _local_scope_list.push_back(local_scope);
-            _mask_list.push_back(mask);
-        }
-*/
+        
         VectorizerEnvironment::~VectorizerEnvironment()
         {
             _local_scope_list.pop_back();
@@ -97,7 +84,7 @@ namespace TL
             return result.str();
         }
 
-        Nodecl::NodeclBase Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
+        bool Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
             VectorizerVisitorFor visitor_for(environment);
@@ -121,7 +108,7 @@ namespace TL
 
         void Vectorizer::add_vector_function_version(const std::string& func_name, const Nodecl::NodeclBase& func_version,
                 const std::string& device, const unsigned int vector_length, 
-                const TL::Type& target_type, const FunctionPriority priority )
+                const TL::Type& target_type, const bool masked, const FunctionPriority priority )
         {
             DEBUG_CODE()
             {
@@ -130,7 +117,7 @@ namespace TL
             }
 
             _function_versioning.add_version(func_name,
-                    VectorFunctionVersion(func_version, device, vector_length, target_type, priority));
+                    VectorFunctionVersion(func_version, device, vector_length, target_type, masked, priority));
         }
 
         void Vectorizer::enable_svml_sse()
@@ -165,27 +152,27 @@ namespace TL
                 _function_versioning.add_version("expf", 
                         VectorFunctionVersion(
                             global_scope.get_symbol_from_name("__svml_expf4").make_nodecl(true),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("sqrtf", 
                         VectorFunctionVersion(
                             global_scope.get_symbol_from_name("__svml_sqrtf4").make_nodecl(true),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("logf", 
                         VectorFunctionVersion(
                             global_scope.get_symbol_from_name("__svml_logf4").make_nodecl(true),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("sinf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_sinf4").make_nodecl(true),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("sincosf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_sincosf4").make_nodecl(true),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("floorf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_floorf4").make_nodecl(true),
-                            "smp", 16, NULL, DEFAULT_FUNC_PRIORITY));
+                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY));
             }
         }
 
@@ -205,12 +192,22 @@ namespace TL
                 // SVML SSE
                 TL::Source svml_sse_vector_math;
 
+                // No mask
                 svml_sse_vector_math << "__m512 __svml_expf16(__m512);\n"
                     << "__m512 __svml_sqrtf16(__m512);\n"
                     << "__m512 __svml_logf16(__m512);\n"
                     << "__m512 __svml_sinf16(__m512);\n"
                     << "__m512 __svml_sincosf16(__m512, __m512*, __m512*);\n"
                     << "__m512 __svml_floorf16(__m512);\n"
+                    ;
+
+                // Mask
+                svml_sse_vector_math << "__m512 __svml_mask_expf16(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_mask_sqrtf16(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_mask_logf16(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_mask_sinf16(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_mask_sincosf16(__m512, __mmask16, __m512*, __m512*);\n"
+                    << "__m512 __svml_mask_floorf16(__m512, __mmask16, __m512);\n"
                     ;
 
                 // Parse SVML declarations
@@ -221,27 +218,53 @@ namespace TL
                 _function_versioning.add_version("expf", 
                         VectorFunctionVersion(
                             global_scope.get_symbol_from_name("__svml_expf16").make_nodecl(true),
-                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("sqrtf", 
                         VectorFunctionVersion(
                             global_scope.get_symbol_from_name("__svml_sqrtf16").make_nodecl(true),
-                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("logf", 
                         VectorFunctionVersion(
                             global_scope.get_symbol_from_name("__svml_logf16").make_nodecl(true),
-                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("sinf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_sinf16").make_nodecl(true),
-                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("sincosf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_sincosf16").make_nodecl(true),
-                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY));
                 _function_versioning.add_version("floorf",
                         VectorFunctionVersion( 
                             global_scope.get_symbol_from_name("__svml_floorf16").make_nodecl(true),
-                            "knc", 64, NULL, DEFAULT_FUNC_PRIORITY));
+                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY));
+                
+                // Add SVML math masked function as vector version of the scalar one
+                _function_versioning.add_version("expf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_mask_expf16").make_nodecl(true),
+                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sqrtf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_mask_sqrtf16").make_nodecl(true),
+                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("logf", 
+                        VectorFunctionVersion(
+                            global_scope.get_symbol_from_name("__svml_mask_logf16").make_nodecl(true),
+                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sinf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_mask_sinf16").make_nodecl(true),
+                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("sincosf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_mask_sincosf16").make_nodecl(true),
+                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY));
+                _function_versioning.add_version("floorf",
+                        VectorFunctionVersion( 
+                            global_scope.get_symbol_from_name("__svml_mask_floorf16").make_nodecl(true),
+                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY));
             }
         }
 

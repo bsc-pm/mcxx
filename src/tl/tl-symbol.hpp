@@ -667,6 +667,9 @@ namespace TL
              */
             ObjectList<TL::Symbol> get_related_symbols() const;
 
+            //! Sets the symbols related to this one
+            void set_related_symbols(ObjectList<TL::Symbol> related_sym_list)  const;
+
             //! Returns the symbols of the parameters of a function
             ObjectList<TL::Symbol> get_function_parameters() const;
 

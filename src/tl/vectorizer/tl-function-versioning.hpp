@@ -45,18 +45,21 @@ namespace TL
                 const std::string _device;
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
+                const bool _masked;
 
             public:
                 VectorFunctionVersion(const Nodecl::NodeclBase& func_version, 
                         const std::string& device, 
                         const unsigned int vector_length, 
                         const TL::Type& _target_type,
+                        const bool masked,
                         const FunctionPriority priority);
 
                 const Nodecl::NodeclBase get_version() const;
                 bool has_kind(const std::string& device,
                         const unsigned int vector_length,
-                        const TL::Type& target_type) const;
+                        const TL::Type& target_type,
+                        const bool masked) const;
                 bool is_better_than(const VectorFunctionVersion& func_version) const;
         };
 
@@ -74,7 +77,8 @@ namespace TL
                 const Nodecl::NodeclBase get_best_version(const std::string& func_name, 
                         const std::string& device,
                         const unsigned int vector_length,
-                        const TL::Type& _target_type) const;
+                        const TL::Type& _target_type,
+                        const bool masked) const;
         };
 
 

@@ -34,7 +34,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        class VectorizerVisitorFor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
+        class VectorizerVisitorFor : public Nodecl::NodeclVisitor<bool>
         {
             private:
                 VectorizerEnvironment& _environment;
@@ -45,10 +45,12 @@ namespace TL
 
             public:
                 VectorizerVisitorFor(VectorizerEnvironment& environment);
+                
+                virtual bool join_list(ObjectList<bool>& list);
 
-                virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
+                virtual bool visit(const Nodecl::ForStatement& for_statement);
 
-                Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                Nodecl::NodeclVisitor<bool>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>

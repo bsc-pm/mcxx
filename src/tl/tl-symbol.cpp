@@ -759,6 +759,20 @@ namespace TL
         return result;
     }
 
+    void Symbol::set_related_symbols(ObjectList<Symbol> related_symbol_list) const
+    {
+        _symbol->entity_specs.num_related_symbols = 0;
+
+        for (ObjectList<Symbol>::iterator it = related_symbol_list.begin();
+                it != related_symbol_list.end();
+                it++)
+        {
+            P_LIST_ADD(_symbol->entity_specs.related_symbols, 
+                    _symbol->entity_specs.num_related_symbols,
+                    it->get_internal_symbol());
+        }
+    }
+
     ObjectList<TL::Symbol> Symbol::get_function_parameters() const
     {
         ObjectList<Symbol> result;

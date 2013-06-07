@@ -1080,6 +1080,11 @@ namespace TL
             }
 
             intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
         }        
 
         void KNCVectorLowering::visit(const Nodecl::VectorConditionalExpression& node) 
@@ -1265,6 +1270,7 @@ namespace TL
 
 
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             if (_old_m512.empty())
             {
@@ -1428,6 +1434,7 @@ namespace TL
 
 
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             if (_old_m512.empty())
             {
@@ -1546,6 +1553,7 @@ namespace TL
 
             walk(node.get_lhs());
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             intrin_src << as_expression(node.get_lhs())
                 << ", " 
@@ -1701,6 +1709,7 @@ namespace TL
 
 
             walk(node.get_rhs());
+            walk(node.get_mask());
 
             tmp_var << "__vtmp = "
                 << as_expression(node.get_rhs())
@@ -1827,6 +1836,7 @@ namespace TL
 
             walk(node.get_base());
             walk(node.get_strides());
+            walk(node.get_mask());
 
             intrin_src << "("; 
 
@@ -1943,6 +1953,7 @@ namespace TL
             walk(node.get_base());
             walk(node.get_strides());
             walk(node.get_source());
+            walk(node.get_mask());
 
             intrin_src << "(";
 
@@ -1965,16 +1976,10 @@ namespace TL
  
         void KNCVectorLowering::visit(const Nodecl::VectorFunctionCall& node) 
         {
-            walk(node.get_arguments());
-
             Nodecl::FunctionCall function_call =
-                Nodecl::FunctionCall::make(
-                        node.get_called(),
-                        node.get_arguments(),
-                        node.get_alternate_name(),
-                        node.get_function_form(),
-                        node.get_type(),
-                        node.get_locus());
+                node.get_function_call().as<Nodecl::FunctionCall>();
+
+            walk(function_call.get_arguments());
 
             node.replace(function_call);
         }

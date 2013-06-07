@@ -59,14 +59,6 @@ namespace TL
                         const TL::Scope& local_scope, 
                         const Nodecl::List& suitable_expr_list);
 
-/*                VectorizerEnvironment(const std::string& device,
-                        const unsigned int vector_length,
-                        const bool support_masking,
-                        const TL::Type& target_type,
-                        const TL::Scope& local_scope, 
-                        const Nodecl::List& suitable_expr_list,
-                        const Nodecl::NodeclBase& mask);
-*/
                 ~VectorizerEnvironment();
 
             friend class Vectorizer;
@@ -101,7 +93,7 @@ namespace TL
                 ~Vectorizer();
                 static Vectorizer& get_vectorizer();
 
-                Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
+                bool vectorize(const Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
                 void vectorize(const Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment);
@@ -112,7 +104,7 @@ namespace TL
                 void add_vector_function_version(const std::string& func_name, 
                         const Nodecl::NodeclBase& func_version, const std::string& device, 
                         const unsigned int vector_length, const TL::Type& target_type, 
-                        const FunctionPriority priority);
+                        const bool masked, const FunctionPriority priority);
 
                 void enable_svml_sse();
                 void enable_svml_knc();

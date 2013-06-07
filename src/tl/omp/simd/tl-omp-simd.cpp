@@ -123,7 +123,7 @@ namespace TL {
             {
                 _vector_length = 64;
                 _device_name = "knc";
-                _support_masking = false;//true;
+                _support_masking = true;
 
                 if (svml_enabled)
                     _vectorizer.enable_svml_knc();
@@ -152,6 +152,13 @@ namespace TL {
                 suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
             }
 
+          
+            // Add epilog before vectorization
+            Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
+                    for_statement, for_statement).as<Nodecl::ForStatement>();
+
+            simd_node.append_sibling(epilog);
+
             // Vectorize for
             VectorizerEnvironment for_environment(
                     _device_name,
@@ -160,27 +167,26 @@ namespace TL {
                     NULL,
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
                     suitable_expresions);
-            
-            Nodecl::NodeclBase epilog = 
+ 
+            bool needs_epilog = 
                     _vectorizer.vectorize(for_statement, for_environment); 
 
-            // Add epilog
-            if (!epilog.is_null())
+            // Process epilog
+            if (needs_epilog)
             {
-                simd_node.append_sibling(epilog);
-
-                Nodecl::ForStatement epilog_for_stmt =
-                    epilog.as<Nodecl::ForStatement>();
-
                 VectorizerEnvironment epilog_environment(
                         _device_name,
                         _vector_length, 
                         _support_masking,
                         NULL,
-                        epilog_for_stmt.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                        epilog.get_statement().as<Nodecl::List>().front().retrieve_context(),
                         suitable_expresions);
 
-                _vectorizer.process_epilog(epilog_for_stmt, epilog_environment);
+                _vectorizer.process_epilog(epilog, epilog_environment);
+            }
+            else // Remove epilog
+            {
+                Nodecl::Utils::remove_from_enclosing_list(epilog);
             }
 
             // Remove Simd node
@@ -209,8 +215,36 @@ namespace TL {
                 suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
             }
 
+            // Add epilog with single before vectorization
+            Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
+                    for_statement, for_statement).as<Nodecl::ForStatement>();
+
+            Nodecl::List single_environment;
+
+            Nodecl::NodeclBase barrier = omp_for_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
+            Nodecl::NodeclBase flush = omp_for_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
+
+            if (!barrier.is_null())
+            {
+                // Move barrier from omp for to single
+                single_environment.append(barrier.shallow_copy());
+                Nodecl::Utils::remove_from_enclosing_list(barrier);
+            }
+            if (!flush.is_null())
+            {
+                // Move flush from omp for to single
+                single_environment.append(flush.shallow_copy());
+                Nodecl::Utils::remove_from_enclosing_list(flush);
+            }
+
+            Nodecl::OpenMP::Single single_epilog =
+                Nodecl::OpenMP::Single::make(single_environment,
+                        epilog, epilog.get_locus());
+
+            simd_node.append_sibling(single_epilog);
+
             // Vectorize for
-            VectorizerEnvironment vectorizer_environment(
+            VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length,
                     _support_masking, 
@@ -218,37 +252,33 @@ namespace TL {
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
                     suitable_expresions);
 
-            Nodecl::NodeclBase epilog = _vectorizer.vectorize(for_statement,
-                    vectorizer_environment); 
+            bool needs_epilog = 
+                    _vectorizer.vectorize(for_statement, for_environment); 
+
+            // Process epilog
+            if (needs_epilog)
+            {
+                VectorizerEnvironment epilog_environment(
+                        _device_name,
+                        _vector_length, 
+                        _support_masking,
+                        NULL,
+                        epilog.get_statement().as<Nodecl::List>().front().retrieve_context(),
+                        suitable_expresions);
+
+                _vectorizer.process_epilog(epilog, epilog_environment);
+            }
+            else // Remove epilog
+            {
+                Nodecl::Utils::remove_from_enclosing_list(single_epilog);
+            }
+
+
 
             // Add epilog
             if (!epilog.is_null())
             {
-                Nodecl::List single_environment;
-
-                Nodecl::NodeclBase barrier = omp_for_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
-                Nodecl::NodeclBase flush = omp_for_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
-
-                if (!barrier.is_null())
-                {
-                    // Move barrier from omp for to single
-                    single_environment.append(barrier.shallow_copy());
-                    Nodecl::Utils::remove_from_enclosing_list(barrier);
-                }
-                if (!flush.is_null())
-                {
-                    // Move flush from omp for to single
-                    single_environment.append(flush.shallow_copy());
-                    Nodecl::Utils::remove_from_enclosing_list(flush);
-                }
-
-
-                Nodecl::OpenMP::Single single_epilog =
-                    Nodecl::OpenMP::Single::make(single_environment,
-                            epilog, epilog.get_locus());
-
-                simd_node.append_sibling(single_epilog);
-            }
+           }
 
             // Remove Simd node
             simd_node.replace(omp_for);
@@ -265,9 +295,6 @@ namespace TL {
 
             TL::Symbol sym = function_code.get_symbol();
 
-            Nodecl::FunctionCode vectorized_func_code = 
-                Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
-
             Nodecl::List suitable_expresions;
 
             Nodecl::OpenMP::VectorSuitable omp_suitable = omp_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
@@ -276,36 +303,96 @@ namespace TL {
                 suitable_expresions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
             }
 
+            Nodecl::OpenMP::VectorMask omp_mask = omp_environment.find_first<Nodecl::OpenMP::VectorMask>();
+            Nodecl::OpenMP::VectorNoMask omp_nomask = omp_environment.find_first<Nodecl::OpenMP::VectorNoMask>();
 
-            // Vectorize function
-            VectorizerEnvironment vectorizer_environment(
-                    _device_name,
-                    _vector_length, 
-                    _support_masking,
-                    NULL,
-                    vectorized_func_code.get_statements().retrieve_context(),
-                    suitable_expresions);
+            if(!omp_mask.is_null() && !omp_nomask.is_null())
+            {
+                running_error("SIMD: 'mask' and 'nomask' clauses are now allowed at the same time\n");
+            } 
 
-            _vectorizer.vectorize(vectorized_func_code, vectorizer_environment); 
+            if(!omp_mask.is_null() && !_support_masking)
+            {
+                running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
+            } 
+ 
+            // MASK Version
+            if (_support_masking && 
+                    (!omp_mask.is_null() || omp_nomask.is_null()))
+            {
+//TODO          vectorizer_environment.push_back(
+                Nodecl::FunctionCode masked_func_code = 
+                    Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
 
-            // Set new name
-            std::stringstream vectorized_func_name; 
+                // Vectorize function
+                VectorizerEnvironment mask_environment(
+                        _device_name,
+                        _vector_length, 
+                        _support_masking,
+                        NULL,
+                        masked_func_code.get_statements().retrieve_context(),
+                        suitable_expresions);
+
+                _vectorizer.vectorize(masked_func_code, mask_environment); 
+
+                // Set new name
+                std::stringstream vectorized_func_name; 
+
+                vectorized_func_name <<"__" 
+                    << sym.get_name() 
+                    << "_" 
+                    << _device_name 
+                    << "_" 
+                    << _vector_length
+                    << "_mask";
+
+                masked_func_code.get_symbol().set_name(vectorized_func_name.str());
+
+                // Add SIMD version to vector function versioning
+                _vectorizer.add_vector_function_version(sym.get_name(), masked_func_code, 
+                        _device_name, _vector_length, NULL, true, TL::Vectorization::SIMD_FUNC_PRIORITY);
+
+                // Append vectorized function code to scalar function
+                simd_node.append_sibling(masked_func_code);
+
+//TODO          vectorizer_environment.pop_back();
+            }
             
-            vectorized_func_name <<"__" 
-                << sym.get_name() 
-                << "_" 
-                << _device_name 
-                << "_" 
-                << _vector_length;
+            if (!omp_nomask.is_null() || omp_mask.is_null())
+            {
+                Nodecl::FunctionCode nomasked_func_code = 
+                    Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
 
-            vectorized_func_code.get_symbol().set_name(vectorized_func_name.str());
+                // Vectorize function
+                VectorizerEnvironment nomask_environment(
+                        _device_name,
+                        _vector_length, 
+                        _support_masking,
+                        NULL,
+                        nomasked_func_code.get_statements().retrieve_context(),
+                        suitable_expresions);
 
-            // Add SIMD version to vector function versioning
-            _vectorizer.add_vector_function_version(sym.get_name(), vectorized_func_code, 
-                    _device_name, _vector_length, NULL, TL::Vectorization::SIMD_FUNC_PRIORITY);
+                _vectorizer.vectorize(nomasked_func_code, nomask_environment); 
 
-            // Append vectorized function code to scalar function
-            simd_node.append_sibling(vectorized_func_code);
+                // Set new name
+                std::stringstream vectorized_func_name; 
+
+                vectorized_func_name <<"__" 
+                    << sym.get_name() 
+                    << "_" 
+                    << _device_name 
+                    << "_" 
+                    << _vector_length;
+
+                nomasked_func_code.get_symbol().set_name(vectorized_func_name.str());
+
+                // Add SIMD version to vector function versioning
+                _vectorizer.add_vector_function_version(sym.get_name(), nomasked_func_code, 
+                        _device_name, _vector_length, NULL, false, TL::Vectorization::SIMD_FUNC_PRIORITY);
+
+                // Append vectorized function code to scalar function
+                simd_node.append_sibling(nomasked_func_code);
+            }
         }
     } 
 }

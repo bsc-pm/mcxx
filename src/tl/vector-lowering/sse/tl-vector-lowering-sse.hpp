@@ -74,6 +74,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorScatter& node);
 
                 virtual void visit(const Nodecl::VectorFunctionCall& node);
+                virtual void visit(const Nodecl::VectorFunctionCallMask& node);
                 virtual void visit(const Nodecl::VectorFabs& node);
                 
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
