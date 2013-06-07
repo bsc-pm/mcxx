@@ -43,6 +43,7 @@ namespace TL
                 const std::string& _device;
                 const unsigned int _vector_length;
                 const unsigned int _unroll_factor;
+                const unsigned int _mask_size;
                 const bool _support_masking;
 
                 const TL::Type& _target_type;
@@ -55,6 +56,7 @@ namespace TL
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,
                         const bool support_masking,
+                        const unsigned int mask_size,
                         const TL::Type& target_type,
                         const TL::Scope& local_scope, 
                         const Nodecl::List& suitable_expr_list);
@@ -96,7 +98,8 @@ namespace TL
                 bool vectorize(const Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
                 void vectorize(const Nodecl::FunctionCode& func_code,
-                        VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment,
+                        const bool masked_version);
  
                 void process_epilog(const Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);

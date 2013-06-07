@@ -68,6 +68,7 @@ namespace TL
                 TL::Vectorization::Vectorizer& _vectorizer;
 
                 unsigned int _vector_length;
+                unsigned int _mask_size;
                 std::string _device_name;
                 bool _support_masking;
 
@@ -77,6 +78,9 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
+                virtual Nodecl::FunctionCode common_simd_function(const Nodecl::FunctionCode& function_code,
+                        const Nodecl::List& suitable_expresions,
+                        const bool masked_version);
         };
     }
 }

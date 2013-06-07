@@ -37,9 +37,11 @@ namespace TL
         {
             private:
                 VectorizerEnvironment& _environment;
+                const bool _masked_version;
 
             public:
-                VectorizerVisitorFunction(VectorizerEnvironment& environment);
+                VectorizerVisitorFunction(VectorizerEnvironment& environment,
+                        const bool masked_version);
 
                 virtual void visit(const Nodecl::FunctionCode& function_code);
 

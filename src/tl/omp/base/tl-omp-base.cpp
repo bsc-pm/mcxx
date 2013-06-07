@@ -1277,7 +1277,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::SimdFunction simd_func =
                 Nodecl::OpenMP::SimdFunction::make(
                         node.shallow_copy(),
-                        Nodecl::List(),
+                        environment,
                         node.get_locus());
 
             node.replace(simd_func);
@@ -1344,7 +1344,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::SimdFor omp_simd_for_node =
                Nodecl::OpenMP::SimdFor::make(
                        omp_for,
-                       Nodecl::List(),
+                       environment,
                        for_statement.get_locus());
 
             // Removing #pragma

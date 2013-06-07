@@ -116,9 +116,11 @@ namespace TL
                 // Append
             }
 
-            ERROR_CONDITION(best_version == _versions.end(), 
-                    "There is no version of function '%s' for '%s' '%d' mask=%d", 
+            if (best_version == _versions.end())
+            {
+                running_error("Error: There is no vector version of function '%s' for '%s' '%d' 'mask=%d'", 
                     func_name.c_str(), device.c_str(), vector_length, masked);
+            }
 
             return best_version->second.get_version();
         }

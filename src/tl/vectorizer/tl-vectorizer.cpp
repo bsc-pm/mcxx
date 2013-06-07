@@ -37,11 +37,13 @@ namespace TL
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
                 const bool support_masking,
+                const unsigned int mask_size,
                 const TL::Type& target_type,
                 const TL::Scope& local_scope,
                 const Nodecl::List& suitable_expr_list) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
-           _support_masking(support_masking), _target_type(target_type), _suitable_expr_list(suitable_expr_list)
+           _mask_size(mask_size), _support_masking(support_masking), _target_type(target_type), 
+           _suitable_expr_list(suitable_expr_list)
         {
             _local_scope_list.push_back(local_scope);
             _mask_list.push_back(Nodecl::NodeclBase::null());
@@ -93,9 +95,10 @@ namespace TL
         }
 
         void Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
-                VectorizerEnvironment& environment)
+                VectorizerEnvironment& environment,
+                const bool masked_version)
         {
-            VectorizerVisitorFunction visitor_function(environment);
+            VectorizerVisitorFunction visitor_function(environment, masked_version);
             visitor_function.walk(func_code);
         }
 
@@ -106,7 +109,8 @@ namespace TL
             visitor_epilog.walk(for_statement);
         }
 
-        void Vectorizer::add_vector_function_version(const std::string& func_name, const Nodecl::NodeclBase& func_version,
+        void Vectorizer::add_vector_function_version(const std::string& func_name, 
+                const Nodecl::NodeclBase& func_version,
                 const std::string& device, const unsigned int vector_length, 
                 const TL::Type& target_type, const bool masked, const FunctionPriority priority )
         {
