@@ -32,7 +32,7 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#ifdef __GNUC__
+#if !defined(__ICC) || (__ICC >= 1300)
 
 #include <assert.h>
 
