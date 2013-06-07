@@ -311,9 +311,7 @@ namespace TL
             private:
                 int *_num_refs;
                 typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
-                typedef std::map<Symbol, DataReference> map_symbol_data_ref_t;
                 map_symbol_data_t  *_map;
-                map_symbol_data_ref_t  *_map_data_ref;
                 DataSharingEnvironment *_enclosing;
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
@@ -367,12 +365,6 @@ namespace TL
                  * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                  */
                 DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
-
-                //! States whether the symbol has associated an extended reference
-                bool is_extended_reference(Symbol sym);
-
-                //! Returns the extended reference of a Symbol
-                DataReference get_extended_reference(Symbol sym, bool check_enclosing = true);
 
                 //! Returns the enclosing data sharing
                 DataSharingEnvironment* get_enclosing();

@@ -396,31 +396,6 @@ namespace TL
             get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols, copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
-
-            // // Internal clauses created by fun-tasks phase
-            // ObjectList<DataReference> fp_input_references;
-            // get_clause_symbols(construct.get_clause("__fp_input"), nonlocal_symbols, fp_input_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_input_references.begin(), fp_input_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_output_references;
-            // get_clause_symbols(construct.get_clause("__fp_output"), nonlocal_symbols, fp_output_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_output_references.begin(), fp_output_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_inout_references;
-            // get_clause_symbols(construct.get_clause("__fp_inout"), nonlocal_symbols, fp_inout_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_reduction_references;
-            // get_clause_symbols(construct.get_clause("__fp_reduction"), nonlocal_symbols, fp_reduction_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
