@@ -644,7 +644,7 @@ void LoweringVisitor::emit_async_common(
         <<          fill_dependences_immediate
         <<          copy_imm_setup
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
-        <<                  struct_size << ", " 
+        <<                  struct_size << ", "
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
         <<                  copy_imm_arg << ", "
@@ -656,7 +656,7 @@ void LoweringVisitor::emit_async_common(
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
-    
+
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
 
@@ -696,7 +696,7 @@ void LoweringVisitor::emit_async_common(
             outline_info, 
             /* accessor */ Source("imm_args."),
             fill_dependences_immediate);
-    
+
     FORTRAN_LANGUAGE()
     {
         // Parse in C
