@@ -154,6 +154,10 @@ namespace Nodecl
         void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 
         TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
+        //! Returns the first list node that encloses n
+        Nodecl::NodeclBase get_enclosing_list(Nodecl::NodeclBase n);
+        //! Returns the first node enclosing n whose parent is a list
+        Nodecl::NodeclBase get_enclosing_node_in_list(Nodecl::NodeclBase n);
 
         void prepend_to_top_level_nodecl(Nodecl::NodeclBase n);
         void append_to_top_level_nodecl(Nodecl::NodeclBase n);

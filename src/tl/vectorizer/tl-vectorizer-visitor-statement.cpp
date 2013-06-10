@@ -71,7 +71,7 @@ namespace TL
                     Vectorizer::_vectorizer->get_var_counter());
             if_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
             if_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-            if_mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+            if_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
             
             Nodecl::Symbol if_mask_nodecl_sym = if_mask_sym.make_nodecl(true, n.get_locus());
             Nodecl::NodeclBase if_mask_value;
@@ -113,7 +113,7 @@ namespace TL
                         Vectorizer::_vectorizer->get_var_counter());
                 else_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 else_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                else_mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+                else_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
 
                 Nodecl::Symbol else_mask_nodecl_sym = else_mask_sym.make_nodecl(true, n.get_locus());
 
