@@ -759,6 +759,20 @@ namespace TL
         return result;
     }
 
+    void Symbol::set_related_symbols(ObjectList<Symbol> related_symbol_list) const
+    {
+        _symbol->entity_specs.num_related_symbols = 0;
+
+        for (ObjectList<Symbol>::iterator it = related_symbol_list.begin();
+                it != related_symbol_list.end();
+                it++)
+        {
+            P_LIST_ADD(_symbol->entity_specs.related_symbols, 
+                    _symbol->entity_specs.num_related_symbols,
+                    it->get_internal_symbol());
+        }
+    }
+
     ObjectList<TL::Symbol> Symbol::get_function_parameters() const
     {
         ObjectList<Symbol> result;
@@ -829,7 +843,21 @@ namespace TL
 
     Nodecl::Symbol Symbol::make_nodecl(const locus_t* locus) const
     {
-        return Nodecl::Symbol::make(*this, locus);
+        return this->make_nodecl(false, locus);
+    }
+
+    Nodecl::Symbol Symbol::make_nodecl(bool set_ref_type, const locus_t* locus) const
+    {
+        Nodecl::Symbol sym = Nodecl::Symbol::make(*this, locus);
+        if (set_ref_type)
+        {
+            TL::Type t = this->get_type();
+            if (!t.is_any_reference())
+                t = t.get_lvalue_reference_to();
+
+            sym.set_type(t);
+        }
+        return sym;
     }
 
     intent_kind_t Symbol::get_intent_kind() const

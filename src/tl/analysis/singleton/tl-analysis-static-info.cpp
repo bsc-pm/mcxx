@@ -76,17 +76,17 @@ namespace Analysis {
 
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
-        bool is_constant = true;
+        bool result = true;
         ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses( n );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = n_mem_accesses.begin( ); it != n_mem_accesses.end( ); ++it )
         {
             if( _killed.find( Utils::ExtendedSymbol( *it ) ) != _killed.end( ) )
             {    
-                is_constant = false;
+                result = false;
                 break;
             }
         }
-        return is_constant;
+        return result;
     }
 
     bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n ) const
@@ -405,6 +405,26 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_adjacent_access( n );
+        }
+
+        return result;
+    }
+
+    bool AnalysisStaticInfo::is_IV_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether the accesses to '%s' are adjacent.'",
+                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_IV_dependent_access( n );
         }
 
         return result;

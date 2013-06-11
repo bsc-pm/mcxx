@@ -337,6 +337,11 @@ namespace TL
         return (::is_vector_type(_type_info));
     }
 
+    bool Type::is_mask() const
+    {
+        return (::is_mask_type(_type_info));
+    }
+
     bool Type::is_generic_vector() const
     {
         return (is_generic_vector_type(_type_info));
@@ -669,6 +674,11 @@ namespace TL
     Type Type::get_double_type(void)
     {
         return Type(::get_double_type());
+    }
+
+    Type Type::get_mask_type(unsigned int mask_size)
+    {
+        return Type(::get_mask_type(mask_size));
     }
 
     bool Type::is_integral_type() const

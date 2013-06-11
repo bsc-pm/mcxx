@@ -75,7 +75,53 @@ namespace Analysis {
         
         return result;
     }
- 
+
+    bool NodeclStaticInfo::is_IV_dependent_access( const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+        
+        std::cout << "Access: " << n.prettyprint() << "\n";
+
+        if( n.is<Nodecl::ArraySubscript>( ) )
+        {
+            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+
+            for(Nodecl::List::iterator it = subscript.begin( );
+                    it != subscript.end( ); 
+                    it++)
+            { 
+                Nodecl::Utils::ReduceExpressionVisitor v;
+                Nodecl::NodeclBase s = it->shallow_copy( );
+                v.walk( s );
+                
+                AdjacentAccessVisitor iv_v( _induction_variables, _killed );
+                bool has_iv = iv_v.walk( s );
+                if( !has_iv )
+                {
+                    std::cout << "-> " << s.prettyprint() << " does NOT have iv" << "\n";
+                    continue;
+                }
+                else
+                {
+                    std::cout << "-> " << s.prettyprint() << " has iv" << "\n";
+                    Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
+                    if( iv != NULL )
+                    {
+                        std::cout << "-> IV NOT NULL => " << iv->get_variable().get_nodecl().prettyprint() <<  "\n";
+                        result = true;
+                        break;
+                    }
+                    else
+                    {
+                        std::cout << "-> IV NULL" << "\n";
+                    }
+                }
+            }
+        }
+        
+        return result;
+    }
+
     bool NodeclStaticInfo::is_constant_access( const Nodecl::NodeclBase& n ) const
     {
         bool result = true;
@@ -197,7 +243,23 @@ namespace Analysis {
         
         return -1;
     }
- 
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+
+        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+            return lhs_mod * rhs_mod;
+
+        return -1;
+    }
+
     int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
         return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;

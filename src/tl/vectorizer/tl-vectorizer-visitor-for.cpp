@@ -27,20 +27,35 @@
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-vectorizer-visitor-expression.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFor::VectorizerVisitorFor(const VectorizerEnvironment& environment) :
+        VectorizerVisitorFor::VectorizerVisitorFor(VectorizerEnvironment& environment) :
             _environment(environment)
         {
         }
 
-        Nodecl::NodeclBase VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
+        bool VectorizerVisitorFor::join_list(ObjectList<bool>& list)
         {
-            Nodecl::ForStatement epilog;
+            /*
+            for(ObjectList<bool>::iterator it = list.begin( ); 
+                    it != list.end( );  
+                    ++it)
+            {
+                running_error("VectorizerVisitorFor: Error join_list");
+            }
+            */
+
+            running_error("VectorizerVisitorFor: Error join_list");
+        }
+
+        bool VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
+        {
+            bool needs_epilog = false;
 
             // Get analysis info
             Nodecl::NodeclBase enclosing_func = 
@@ -56,48 +71,31 @@ namespace TL
                         enclosing_func.as<Nodecl::FunctionCode>(),
                         Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                         Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, /* nesting level */ 100);
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
             }
 
             // Push ForStatement as scope for analysis
-            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
-            Vectorizer::_analysis_scopes->push_back(for_statement);
-
+            _environment._analysis_scopes.push_back(for_statement);
 
             // TODO: ???
             analyze_loop(for_statement);
 
-
             if (_remain_iterations)
             {
-                // Save original ForStatement as Epilog
-                epilog = get_epilog(for_statement);
+                needs_epilog = true;
             }
 
-            // Vectorizing Loop Header
+            // Vectorize Loop Header
             VectorizerVisitorLoopHeader visitor_loop_header(_environment);
-            visitor_loop_header.walk(for_statement.get_loop_header());
+            visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
-            // Loop Body Vectorization
-            TL::Scope inner_scope_of_for = for_statement.get_statement().retrieve_context();
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-            {
-                inner_scope_of_for = for_statement.get_statement().as<Nodecl::List>().front().retrieve_context();
-            }
-
+            // Vectorize Loop Body
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(for_statement.get_statement());
 
-            Vectorizer::_analysis_scopes->pop_back();
-            delete Vectorizer::_analysis_scopes;
-            Vectorizer::_analysis_scopes = 0;
+            _environment._analysis_scopes.pop_back();
 
-            if (_remain_iterations)
-            {
-                return epilog;
-            }
-
-            return Nodecl::NodeclBase::null();
+            return needs_epilog;
         }
 
         void VectorizerVisitorFor::analyze_loop(const Nodecl::ForStatement& for_statement)
@@ -106,21 +104,7 @@ namespace TL
             _remain_iterations = 2;
         }
 
-        Nodecl::ForStatement VectorizerVisitorFor::get_epilog(const Nodecl::ForStatement& for_statement)
-        {
-            Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
-                    for_statement, for_statement).as<Nodecl::ForStatement>();
-
-            Nodecl::LoopControl loop_control =
-                epilog.get_loop_header().as<Nodecl::LoopControl>();
-
-            loop_control.set_init(Nodecl::NodeclBase::null());
-
-            return epilog;
-        }
-
-
-        Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<bool>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "For Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -232,9 +216,9 @@ namespace TL
             Nodecl::NodeclBase rhs = condition.get_rhs();
 
             bool lhs_const_flag = Vectorizer::_analysis_info->is_constant(
-                    Vectorizer::_analysis_scopes->back(), lhs);
+                    _environment._analysis_scopes.back(), lhs);
             bool rhs_const_flag = Vectorizer::_analysis_info->is_constant(
-                    Vectorizer::_analysis_scopes->back(), rhs);
+                    _environment._analysis_scopes.back(), rhs);
 
             if (!lhs_const_flag && rhs_const_flag)
             {
@@ -246,12 +230,12 @@ namespace TL
                 Nodecl::ParenthesizedExpression new_step;
 
                 if (Vectorizer::_analysis_info->is_induction_variable(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             lhs))
                 {
                     step = const_value_to_nodecl(
                         Vectorizer::_analysis_info->get_induction_variable_increment(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             lhs));
 
                     new_step = Nodecl::ParenthesizedExpression::make(
@@ -309,12 +293,12 @@ namespace TL
                 Nodecl::ParenthesizedExpression new_step;
 
                 if (Vectorizer::_analysis_info->is_induction_variable(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             rhs))
                 {
                     step = const_value_to_nodecl(
                         Vectorizer::_analysis_info->get_induction_variable_increment(
-                            Vectorizer::_analysis_scopes->back(),
+                            _environment._analysis_scopes.back(),
                             rhs));
 
                     new_step = Nodecl::ParenthesizedExpression::make(
@@ -404,7 +388,7 @@ namespace TL
             const Nodecl::NodeclBase lhs = node.get_lhs();
 
             if (Vectorizer::_analysis_info->is_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
+                        _environment._analysis_scopes.back(),
                         lhs))
             {
                 const Nodecl::AddAssignment new_node =
@@ -418,7 +402,7 @@ namespace TL
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        Vectorizer::_analysis_scopes->back(),
+                                        _environment._analysis_scopes.back(),
                                         lhs),
                                     node.get_locus()),
                                 node.get_type(),
@@ -439,7 +423,7 @@ namespace TL
         void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
         {
             if (Vectorizer::_analysis_info->is_induction_variable(
-                        Vectorizer::_analysis_scopes->back(),
+                        _environment._analysis_scopes.back(),
                         lhs))
             {
                 const Nodecl::AddAssignment new_node =
@@ -453,7 +437,7 @@ namespace TL
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        Vectorizer::_analysis_scopes->back(),
+                                        _environment._analysis_scopes.back(),
                                         lhs),
                                     node.get_locus()),
                                 node.get_type(),
@@ -464,6 +448,7 @@ namespace TL
                 node.replace(new_node);
             }
         }
+
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Next Visitor: Unknown node "
@@ -473,5 +458,113 @@ namespace TL
 
             return Ret();
         }
+
+
+        VectorizerVisitorForEpilog::VectorizerVisitorForEpilog(VectorizerEnvironment& environment) :
+            _environment(environment)
+        {
+        }
+
+        void VectorizerVisitorForEpilog::visit(const Nodecl::ForStatement& for_statement)
+        {
+            if(_environment._support_masking)
+            {
+                visit_vector_epilog(for_statement);
+            }
+            else
+            {
+                visit_scalar_epilog(for_statement);
+            }
+        }
+
+        void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement)
+        {
+            // Get analysis info
+            Nodecl::NodeclBase enclosing_func = 
+                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
+
+            Nodecl::CompoundStatement comp_statement = for_statement.get_statement().as<Nodecl::List>().
+                front().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().
+                as<Nodecl::CompoundStatement>();
+
+            // Get analysis info
+/*            Nodecl::NodeclBase enclosing_func = 
+                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
+
+            if ((Vectorizer::_analysis_info == 0) || 
+                (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
+            {
+                if (Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                        enclosing_func.as<Nodecl::FunctionCode>(),
+                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, 100);
+            }
+*/
+            // Push ForStatement as scope for analysis
+            _environment._analysis_scopes.push_back(for_statement);
+
+            // Get mask for epilog instructions
+            Nodecl::NodeclBase mask_value = for_statement.get_loop_header().
+                as<Nodecl::LoopControl>().get_cond();
+           
+            VectorizerVisitorExpression visitor_mask(_environment);
+            visitor_mask.walk(mask_value);
+            
+            TL::Symbol mask_sym = comp_statement.retrieve_context().
+                new_symbol("__mask_" + Vectorizer::_vectorizer->get_var_counter());
+            mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+            
+            Nodecl::Symbol mask_nodecl_sym = mask_sym.make_nodecl(true, for_statement.get_locus());
+
+            Nodecl::ExpressionStatement mask_exp =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                            mask_value,
+                            mask_sym.get_type(),
+                            for_statement.get_locus()));
+
+            comp_statement.as<Nodecl::CompoundStatement>().
+                get_statements().as<Nodecl::List>().prepend(mask_exp); 
+
+                // Vectorize Loop Body
+            _environment._mask_list.push_back(mask_nodecl_sym);
+
+            VectorizerVisitorStatement visitor_stmt(_environment);
+            visitor_stmt.walk(comp_statement);
+
+            _environment._mask_list.pop_back();
+
+            // Remove loop header
+            for_statement.replace(for_statement.get_statement());
+
+            _environment._analysis_scopes.pop_back();
+        }
+
+
+        void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement)
+        {
+            Nodecl::LoopControl loop_control =
+                for_statement.get_loop_header().as<Nodecl::LoopControl>();
+
+            loop_control.set_init(Nodecl::NodeclBase::null());
+        }
+
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorForEpilog::unhandled_node(const Nodecl::NodeclBase& n)
+        {
+            std::cerr << "VectorizerVisitorForEpilog: Unknown node "
+                << ast_print_node_type(n.get_kind())
+                << " at " << n.get_locus_str()
+                << std::endl;
+
+            return Ret();
+        }
+
+
     }
 }

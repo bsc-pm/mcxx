@@ -162,9 +162,13 @@ expression : literal
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
            | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_ADD_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_MINUS_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_MUL_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_DIV_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_NEG([rhs]expression) type const-value-opt 
            | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression) type const-value-opt 
@@ -179,17 +183,31 @@ expression : literal
            | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_ASSIGNMENT_MASK([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_STORE_MASK([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
            | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_UNALIGNED_VECTOR_STORE_MASK([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression) type const-value-opt 
+           | NODECL_VECTOR_SCATTER_MASK([base] expression, [strides] expression, [source] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_LOAD([rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_LOAD_MASK([rhs] expression, [mask] expression) type const-value-opt 
            | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression) type const-value-opt 
+           | NODECL_UNALIGNED_VECTOR_LOAD_MASK([rhs] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_GATHER([base] expression, [strides] expression) type const-value-opt 
+           | NODECL_VECTOR_GATHER_MASK([base] expression, [strides] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_PROMOTION([rhs] expression) type const-value-opt 
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq) type const-value-opt 
            | NODECL_VECTOR_CONVERSION([nest] expression) type const-value-opt 
-           | NODECL_VECTOR_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt 
+           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression) type const-value-opt 
+           | NODECL_VECTOR_FUNCTION_CALL_MASK([function_call] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_FABS([argument] argument) type const-value-opt 
+           | NODECL_VECTOR_FABS_MASK([argument] argument, [mask] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt 
            | c-cxx-expressions
            | fortran-expressions
            | object-init
@@ -486,9 +504,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*VECTOR_SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*VECTOR_DEVICE([device] text)
                  | NODECL_OPEN_M_P*VECTOR_MASK()
-                 | NODECL_OPEN_M_P*VECTOR_IN_BRANCH()
                  | NODECL_OPEN_M_P*VECTOR_NO_MASK()
-                 | NODECL_OPEN_M_P*VECTOR_NOT_IN_BRANCH()
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)

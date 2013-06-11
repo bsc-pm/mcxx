@@ -24,14 +24,13 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core base simd @TL_OMP_EXTENSIONS@
+SUBDIRS = core base simd auto-scope @TL_OMP_EXTENSIONS@
 
 END=
 
-# FALTA AUTO-SCOPE!!
-
 DIST_SUBDIRS=base \
              core \
+             auto-scope \
              simd \
              nanos-common \
              nanox-nodecl \

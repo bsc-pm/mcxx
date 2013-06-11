@@ -43,20 +43,29 @@ namespace TL
                 const std::string& _device;
                 const unsigned int _vector_length;
                 const unsigned int _unroll_factor;
+                const unsigned int _mask_size;
+                const bool _support_masking;
 
                 const TL::Type& _target_type;
-                const TL::Scope& _simd_body_scope;
                 const Nodecl::List& _suitable_expr_list;
+                std::list<TL::Scope> _local_scope_list;
+                std::list<Nodecl::NodeclBase> _mask_list;
+                std::list<Nodecl::NodeclBase> _analysis_scopes;
 
-            public:
+           public:
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,
+                        const bool support_masking,
+                        const unsigned int mask_size,
                         const TL::Type& target_type,
-                        const TL::Scope& simd_body_scope, 
+                        const TL::Scope& local_scope, 
                         const Nodecl::List& suitable_expr_list);
+
+                ~VectorizerEnvironment();
 
             friend class Vectorizer;
             friend class VectorizerVisitorFor;
+            friend class VectorizerVisitorForEpilog;
             friend class VectorizerVisitorLoopCond;
             friend class VectorizerVisitorLoopNext;
             friend class VectorizerVisitorFunction;
@@ -71,33 +80,41 @@ namespace TL
                 static FunctionVersioning _function_versioning;
 
                 static Analysis::AnalysisStaticInfo *_analysis_info;
-                static std::list<Nodecl::NodeclBase> *_analysis_scopes;
 
                 bool _svml_sse_enabled;
                 bool _svml_knc_enabled;
                 bool _ffast_math_enabled;
 
+                unsigned int _var_counter;
+
                 Vectorizer();
 
+                std::string get_var_counter();
+ 
             public:
                 ~Vectorizer();
                 static Vectorizer& get_vectorizer();
 
-                Nodecl::NodeclBase vectorize(const Nodecl::ForStatement& for_statement, 
-                        const VectorizerEnvironment& environment);
+                bool vectorize(const Nodecl::ForStatement& for_statement, 
+                        VectorizerEnvironment& environment);
                 void vectorize(const Nodecl::FunctionCode& func_code,
-                        const VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment,
+                        const bool masked_version);
+ 
+                void process_epilog(const Nodecl::ForStatement& for_statement, 
+                        VectorizerEnvironment& environment);
 
                 void add_vector_function_version(const std::string& func_name, 
                         const Nodecl::NodeclBase& func_version, const std::string& device, 
                         const unsigned int vector_length, const TL::Type& target_type, 
-                        const FunctionPriority priority);
+                        const bool masked, const FunctionPriority priority);
 
                 void enable_svml_sse();
                 void enable_svml_knc();
                 void enable_ffast_math();
 
                 friend class VectorizerVisitorFor;
+                friend class VectorizerVisitorForEpilog;
                 friend class VectorizerVisitorLoopCond;
                 friend class VectorizerVisitorLoopNext;
                 friend class VectorizerVisitorFunction;

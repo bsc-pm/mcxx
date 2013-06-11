@@ -34,22 +34,23 @@ namespace TL
 {
     namespace Vectorization
     {
-        class VectorizerVisitorFor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
+        class VectorizerVisitorFor : public Nodecl::NodeclVisitor<bool>
         {
             private:
-                const VectorizerEnvironment& _environment;
+                VectorizerEnvironment& _environment;
 
                 unsigned int _remain_iterations;
 
                 void analyze_loop(const Nodecl::ForStatement& for_statement);
-                Nodecl::ForStatement get_epilog(const Nodecl::ForStatement& for_statement);
 
             public:
-                VectorizerVisitorFor(const VectorizerEnvironment& environment);
+                VectorizerVisitorFor(VectorizerEnvironment& environment);
+                
+                virtual bool join_list(ObjectList<bool>& list);
 
-                virtual Nodecl::NodeclBase visit(const Nodecl::ForStatement& for_statement);
+                virtual bool visit(const Nodecl::ForStatement& for_statement);
 
-                Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                Nodecl::NodeclVisitor<bool>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
 
         class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
@@ -113,6 +114,24 @@ namespace TL
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);
         };
+
+        class VectorizerVisitorForEpilog : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+                VectorizerEnvironment& _environment;
+
+            public:
+                VectorizerVisitorForEpilog(VectorizerEnvironment& environment);
+
+                virtual void visit(const Nodecl::ForStatement& for_statement);
+                
+                void visit_scalar_epilog(const Nodecl::ForStatement& for_statement);
+                void visit_vector_epilog(const Nodecl::ForStatement& for_statement);
+
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+        };
+
+
     }
 }
 
