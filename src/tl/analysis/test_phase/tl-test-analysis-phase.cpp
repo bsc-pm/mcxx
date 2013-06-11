@@ -83,19 +83,19 @@ namespace Analysis {
             // Test PCFG creation
             if( _pcfg_enabled )
             {
-                if( VERBOSE )
+                //if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
                 pcfgs = analysis.parallel_control_flow_graph( memento, ast );
-                if( VERBOSE )
+                //if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation done =========" << std::endl;
             }
 
             if (_task_sync_enabled)
             {
-                if( VERBOSE )
+                //if( VERBOSE )
                 std::cerr << "========= Task Sync analysis =========" << std::endl;
                 pcfgs = analysis.task_sync( memento, ast );
-                if( VERBOSE )
+                //if( VERBOSE )
                 std::cerr << "========= Task Sync analysis done =========" << std::endl;
             }
 

@@ -259,10 +259,8 @@ namespace Analysis {
 
                         std::string mes = sss.str( ) + " -> " + sst.str( ) +
                             " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
-                        std::cerr << "MES0 -> " << mes;
                         if( belongs_to_the_same_graph( *it ) )
                         {
-                            std::cerr << "DOES BELONG\n" << std::endl;
                             dot_graph += mes;
 
                             get_nodes_dot_data( ( *it )->get_target( ), dot_graph, dot_analysis_info,
@@ -271,11 +269,6 @@ namespace Analysis {
                         }
                         else
                         {
-                            std::cerr << "DOES NOT BELONG\n" << std::endl;
-//                             if( !current->is_graph_node( ) )
-//                             {
-//                                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
-//                             }
                             outer_edges.push_back( mes );
                             outer_nodes.push_back( ( *it )->get_target( ) );
                         }
