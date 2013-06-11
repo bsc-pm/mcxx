@@ -46,6 +46,7 @@ namespace TL
                 const unsigned int _vector_length;
                 const TL::Type _target_type;
                 const bool _masked;
+                const bool _is_svml;
 
             public:
                 VectorFunctionVersion(const Nodecl::NodeclBase& func_version, 
@@ -53,7 +54,8 @@ namespace TL
                         const unsigned int vector_length, 
                         const TL::Type& _target_type,
                         const bool masked,
-                        const FunctionPriority priority);
+                        const FunctionPriority priority,
+                        const bool is_svml);
 
                 const Nodecl::NodeclBase get_version() const;
                 bool has_kind(const std::string& device,
@@ -61,6 +63,7 @@ namespace TL
                         const TL::Type& target_type,
                         const bool masked) const;
                 bool is_better_than(const VectorFunctionVersion& func_version) const;
+                bool is_svml_function() const;
         };
 
 
@@ -70,6 +73,12 @@ namespace TL
                 typedef std::multimap<const std::string, const VectorFunctionVersion> versions_map_t;
                 versions_map_t _versions;
 
+                const VectorFunctionVersion get_best_function_version(const std::string& func_name, 
+                        const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& _target_type,
+                        const bool masked) const;
+ 
             public:
                 FunctionVersioning();
 
@@ -79,9 +88,13 @@ namespace TL
                         const unsigned int vector_length,
                         const TL::Type& _target_type,
                         const bool masked) const;
+
+                bool is_svml_function(const std::string& func_name, 
+                        const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& _target_type,
+                        const bool masked) const;
         };
-
-
     }
 }
 

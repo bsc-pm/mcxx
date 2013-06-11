@@ -236,14 +236,30 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            const Nodecl::VectorBitwiseAnd vector_ba =
-                Nodecl::VectorBitwiseAnd::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                        n.get_locus());
+            if(_environment._mask_list.back().is_null())
+            {
+                const Nodecl::VectorBitwiseAnd vector_ba =
+                    Nodecl::VectorBitwiseAnd::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus());
 
-            n.replace(vector_ba);
+                n.replace(vector_ba);
+            }
+            else
+            {
+                const Nodecl::VectorBitwiseAndMask vector_ba =
+                    Nodecl::VectorBitwiseAndMask::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            _environment._mask_list.back().shallow_copy(),
+                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus());
+
+                n.replace(vector_ba);
+            }
+
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::BitwiseOr& n)
@@ -251,14 +267,29 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            const Nodecl::VectorBitwiseOr vector_bo =
-                Nodecl::VectorBitwiseOr::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                        n.get_locus());
+            if(_environment._mask_list.back().is_null())
+            {
+                const Nodecl::VectorBitwiseOr vector_bo =
+                    Nodecl::VectorBitwiseOr::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus());
 
-            n.replace(vector_bo);
+                n.replace(vector_bo);
+            }
+            else
+            {
+                const Nodecl::VectorBitwiseOrMask vector_bo =
+                    Nodecl::VectorBitwiseOrMask::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            _environment._mask_list.back().shallow_copy(),
+                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus());
+
+                n.replace(vector_bo);
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::LogicalAnd& n)
@@ -318,16 +349,6 @@ namespace TL
                 walk(n.get_false());
                 _environment._local_scope_list.pop_back();
                 _environment._mask_list.pop_back();
-
-                const Nodecl::VectorConditionalExpression vector_cond =
-                    Nodecl::VectorConditionalExpression::make(
-                            condition.shallow_copy(),
-                            n.get_true().shallow_copy(),
-                            n.get_false().shallow_copy(),
-                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                            n.get_locus());
-
-                n.replace(vector_cond);
             }
             else
             {
@@ -361,7 +382,7 @@ namespace TL
                 _environment._local_scope_list.pop_back();
                 _environment._mask_list.pop_back();
 
-                n.append_sibling(true_mask_exp);
+                n.prepend_sibling(true_mask_exp);
 
                     
                 // False Mask
@@ -394,8 +415,18 @@ namespace TL
                 _environment._local_scope_list.pop_back();
                 _environment._mask_list.pop_back();
 
-                n.append_sibling(else_mask_exp);
+                n.prepend_sibling(else_mask_exp);
             }
+
+            const Nodecl::VectorConditionalExpression vector_cond =
+                Nodecl::VectorConditionalExpression::make(
+                        condition.shallow_copy(),
+                        n.get_true().shallow_copy(),
+                        n.get_false().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_cond);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Assignment& n)
@@ -911,6 +942,7 @@ namespace TL
                                     n.get_function_form().shallow_copy(),
                                     get_qualified_vector_to(n.get_type(), _environment._vector_length),
                                     n.get_locus()),
+                                called_sym.shallow_copy(),
                                 get_qualified_vector_to(n.get_type(), _environment._vector_length),
                                 n.get_locus());
 
@@ -972,6 +1004,7 @@ namespace TL
                                     n.get_function_form().shallow_copy(),
                                     get_qualified_vector_to(n.get_type(), _environment._vector_length),
                                     n.get_locus()),
+                                called_sym.shallow_copy(),
                                 _environment._mask_list.back().shallow_copy(),
                                 get_qualified_vector_to(n.get_type(), _environment._vector_length),
                                 n.get_locus());

@@ -31,13 +31,23 @@ phases_LTLIBRARIES = libtlvector-lowering-knc.la
 END=
 
 libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags) \
+    -I $(top_srcdir)/src/tl/analysis/singleton/ \
+    -I $(top_srcdir)/src/tl/analysis/common/ \
+    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+    -I $(top_srcdir)/src/tl/vectorizer/ \
     $(END)
 
 libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
+    -I $(top_srcdir)/src/tl/analysis/singleton/ \
+    -I $(top_srcdir)/src/tl/analysis/common/ \
+    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+    -I $(top_srcdir)/src/tl/vectorizer/ \
     $(END)
 
 libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
-libtlvector_lowering_knc_la_LIBADD = $(END)
+libtlvector_lowering_knc_la_LIBADD = \
+	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+$(END)
 
 libtlvector_lowering_knc_la_SOURCES = \
      tl-vector-lowering-knc.hpp \

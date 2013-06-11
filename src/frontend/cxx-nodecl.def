@@ -183,9 +183,13 @@ expression : literal
            | NODECL_VECTOR_LOGICAL_AND([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_LOGICAL_OR([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_BITWISE_NOT([rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_BITWISE_NOT_MASK([rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_BITWISE_AND_MASK([lhs] expression, [rhs] expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_BITWISE_OR_MASK([lhs] expression, [rhs] expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_BITWISE_XOR_MASK([lhs] expression, [rhs] expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_ASSIGNMENT_MASK([lhs] expression, [rhs] expression, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression) type const-value-opt 
@@ -203,8 +207,8 @@ expression : literal
            | NODECL_VECTOR_PROMOTION([rhs] expression) type const-value-opt 
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq) type const-value-opt 
            | NODECL_VECTOR_CONVERSION([nest] expression) type const-value-opt 
-           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression) type const-value-opt 
-           | NODECL_VECTOR_FUNCTION_CALL_MASK([function_call] expression, [mask] expression) type const-value-opt 
+           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name) type const-value-opt 
+           | NODECL_VECTOR_FUNCTION_CALL_MASK([function_call] expression, [scalar_symbol] name, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_FABS([argument] argument) type const-value-opt 
            | NODECL_VECTOR_FABS_MASK([argument] argument, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 

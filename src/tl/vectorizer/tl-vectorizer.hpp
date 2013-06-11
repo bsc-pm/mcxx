@@ -107,7 +107,13 @@ namespace TL
                 void add_vector_function_version(const std::string& func_name, 
                         const Nodecl::NodeclBase& func_version, const std::string& device, 
                         const unsigned int vector_length, const TL::Type& target_type, 
-                        const bool masked, const FunctionPriority priority);
+                        const bool masked, const FunctionPriority priority,
+                        bool const is_svml_function);
+                bool is_svml_function(const std::string& func_name, 
+                        const std::string& device, 
+                        const unsigned int vector_length, 
+                        const TL::Type& target_type, 
+                        const bool masked) const;
 
                 void enable_svml_sse();
                 void enable_svml_knc();

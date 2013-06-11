@@ -384,7 +384,8 @@ namespace TL {
 
             // Add SIMD version to vector function versioning
             _vectorizer.add_vector_function_version(orig_func_name, vector_func_code, 
-                    _device_name, _vector_length, NULL, masked_version, TL::Vectorization::SIMD_FUNC_PRIORITY);
+                    _device_name, _vector_length, NULL, masked_version, 
+                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
 
             return vector_func_code;
        }
