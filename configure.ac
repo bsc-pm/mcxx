@@ -476,7 +476,7 @@ AC_SUBST([CUDA_LIBS])
 AC_SUBST([CUDA_RPATH])
 
 
-if test x$gpu_valid = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
@@ -533,7 +533,7 @@ AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler
 
 AC_SUBST([FPGA_CC])
 
-if test x$fpga_enabled = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$fpga_enabled = xyes;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
     COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
@@ -562,7 +562,7 @@ CFLAGS="$CFLAGSBACKUP"
 CPPFLAGS="$CPPFLAGSBACKUP"
 CXXFLAGS="$CXXFLAGSBACKUP"
 
-if test x$opencl_valid = xyes; then
+if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
@@ -571,8 +571,11 @@ fi
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
-INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
-COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+if test x$is_enabled_tl_omp_nanox = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+   COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
@@ -1121,7 +1124,7 @@ then
     AC_MSG_CHECKING([bison version])
     bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
-       x2.@<:@345@:>@*)
+       x2.@<:@34567@:>@*)
           AC_MSG_RESULT([${bison_ver}])
           if test x${bison_ver} = x2.4;
           then

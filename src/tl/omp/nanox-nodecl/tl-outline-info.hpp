@@ -437,10 +437,8 @@ namespace TL
                 std::string get_name(TL::Symbol function_symbol);
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
-
+                void append_to_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
                 void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
-                ObjectList<Nodecl::NodeclBase> get_onto(TL::Symbol function_symbol);
 
                 /**
                  * Adds implementation, if already exists, it adds device name to that symbol
@@ -455,6 +453,8 @@ namespace TL
 
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
+
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
 
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
@@ -492,6 +492,8 @@ namespace TL
                         OutlineDataItem* outline_data_item,
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
+
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };
     }
 }

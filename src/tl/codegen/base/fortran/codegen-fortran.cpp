@@ -311,7 +311,8 @@ namespace Codegen
         else return c;
     }
 
-    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, 
+    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq,
+            TL::ObjectList<Nodecl::NodeclBase> &internal_subprograms, 
             bool lacks_result)
     {
         inc_indent();
@@ -354,13 +355,21 @@ namespace Codegen
             state.emit_interoperable_types = keep_emit_interop;
         }
 
-        declare_everything_needed(statement_seq);
+        for (Nodecl::List::iterator it = statement_seq.begin();
+                it != statement_seq.end();
+                it++)
+        {
+            if (!it->is<Nodecl::FunctionCode>())
+            {
+                declare_everything_needed(*it);
+            }
+        }
 
-        if (!internal_subprograms.is_null())
+        if (!internal_subprograms.empty())
         {
             // Early pass to declare everything that might be needed by the
             // dummy arguments of the internal subprograms
-            for (Nodecl::List::iterator it = internal_subprograms.begin();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_subprograms.begin();
                     it != internal_subprograms.end();
                     it++)
             {
@@ -384,14 +393,14 @@ namespace Codegen
         }
 
         // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
         // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -409,16 +418,24 @@ namespace Codegen
             file << "\n";
         }
 
-        walk(statement_seq);
+        for (Nodecl::List::iterator it = statement_seq.begin();
+                it != statement_seq.end();
+                it++)
+        {
+            if (!it->is<Nodecl::FunctionCode>())
+            {
+                walk(*it);
+            }
+        }
         dec_indent();
 
-        if (!internal_subprograms.is_null())
+        if (!internal_subprograms.empty())
         {
             indent();
             file << "CONTAINS\n";
 
             inc_indent();
-            for (Nodecl::List::iterator it = internal_subprograms.begin();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_subprograms.begin();
                     it != internal_subprograms.end();
                     it++)
             {
@@ -438,7 +455,20 @@ namespace Codegen
         TL::Symbol entry = node.get_symbol();
         Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
         Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
-        Nodecl::List internal_subprograms = node.get_internal_functions().as<Nodecl::List>();
+        TL::ObjectList<Nodecl::NodeclBase> internal_subprograms;
+
+        if (!statement_seq.is_null())
+        {
+            for (Nodecl::List::iterator it = statement_seq.begin();
+                    it != statement_seq.end();
+                    it++)
+            {
+                if (it->is<Nodecl::FunctionCode>())
+                {
+                    internal_subprograms.append(*it);
+                }
+            }
+        }
 
         // Module procedures are only printed if we are in the current module
         if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
@@ -1391,40 +1421,50 @@ OPERATOR_TABLE
         if (l.empty())
             return;
 
+        TL::ObjectList<TL::Symbol> parameter_symbols = called_symbol.get_related_symbols();
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
-        int pos = 0;
+        // Explicit pos is the position of explicit arguments (skipping non present ones)
+        int explicit_pos = 0, pos = 0;
         bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
-            if (pos > 0)
-                file << ", ";
+            if (it->is<Nodecl::FortranNotPresent>())
+            {
+                keywords_are_mandatory = true;
+                continue;
+            }
 
-            TL::Symbol keyword_symbol;
+            if (explicit_pos > 0)
+                file << ", ";
+            explicit_pos++;
+
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
             if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword_symbol = it->as<Nodecl::FortranActualArgument>().get_symbol();
                 arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (keyword_symbol.is_valid()
-                    && !called_symbol.is_statement_function_statement())
+            if (!called_symbol.is_statement_function_statement())
             {
-                parameter_type = keyword_symbol.get_type();
-                if (!keywords_are_mandatory)
+                if (keywords_are_mandatory)
                 {
-                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
-                }
-                if (keywords_are_mandatory
-                        && !keyword_symbol.not_to_be_printed())
-                {
-                    file << keyword_symbol.get_name() << " = ";
+                    ERROR_CONDITION (pos >= (signed int)parameter_symbols.size(),
+                            "This should not happen if some argument has been omitted", 0);
+
+                    ERROR_CONDITION(parameter_symbols[pos].is_result_variable(),
+                            "Invalid argument", 0);
+                    std::string keyword_name = parameter_symbols[pos].get_name();
+
+                    ERROR_CONDITION(keyword_name == "", "Invalid name for parameter\n", 0);
+
+                    file << keyword_name << " = ";
                 }
             }
-            else if (pos < (signed int)parameter_types.size())
+
+            if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -4302,8 +4342,16 @@ OPERATOR_TABLE
             declare_module_level_entities(node);
         }
 
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        if (data_symbol.is_valid())
+        {
+            walk(data_symbol.get_value());
+        }
+
+
         // EQUIVALENCE
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -4357,7 +4405,7 @@ OPERATOR_TABLE
     void FortranBase::declare_use_statements_of_procedure(
             TL::Symbol entry,
             Nodecl::List statement_seq,
-            Nodecl::List internal_subprograms)
+            TL::ObjectList<Nodecl::NodeclBase> &internal_subprograms)
     {
         // Notet that we only emit automatic USE statements if .used_modules has a NULL
         // value, otherwise just blindly believe that value
@@ -4370,7 +4418,15 @@ OPERATOR_TABLE
         {
             // Note that we traverse the tree even if we are going to discard this info
             // because we want the symbols be appropiately marked as defined
-            declare_use_statements(statement_seq, use_stmt_info);
+            for (Nodecl::List::iterator it = statement_seq.begin();
+                    it != statement_seq.end();
+                    it++)
+            {
+                if (!it->is<Nodecl::FunctionCode>())
+                {
+                    declare_use_statements(*it, use_stmt_info);
+                }
+            }
             // Declare USEs that may affect internal subprograms but appear at the
             // enclosing program unit
             declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
@@ -4411,6 +4467,16 @@ OPERATOR_TABLE
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo& use_stmt_info)
     {
         declare_symbols_from_modules_rec(node, sc, use_stmt_info);
+    }
+
+    void FortranBase::declare_use_statements(TL::ObjectList<Nodecl::NodeclBase> node, TL::Scope sc, UseStmtInfo& use_stmt_info)
+    {
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = node.begin();
+                it != node.end();
+                it++)
+        {
+            declare_use_statements(*it, sc, use_stmt_info);
+        }
     }
 
     void FortranBase::do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
@@ -4551,15 +4617,16 @@ OPERATOR_TABLE
             TL::Symbol &sym(*it);
             declare_symbol(sym, sym.get_scope());
         }
-        
-        // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());

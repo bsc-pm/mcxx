@@ -409,6 +409,7 @@ void LoweringVisitor::emit_async_common(
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
+        Nodecl::NodeclBase if_condition,
         Nodecl::NodeclBase task_label,
         bool is_untied,
 
@@ -601,8 +602,14 @@ void LoweringVisitor::emit_async_common(
     Source err_name;
     err_name << "err";
 
-    Source num_dependences;
+    Source if_condition_begin_opt, if_condition_end_opt;
+    if (!if_condition.is_null())
+    {
+        if_condition_begin_opt << "if (" << as_expression(if_condition) << ") {";
+        if_condition_end_opt << "}";
+    }
 
+    Source num_dependences;
     // Spawn code
     spawn_code
         << "{"
@@ -615,10 +622,12 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
-        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
+        <<     if_condition_begin_opt
+        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
+        <<     if_condition_end_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -635,7 +644,7 @@ void LoweringVisitor::emit_async_common(
         <<          fill_dependences_immediate
         <<          copy_imm_setup
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
-        <<                  struct_size << ", " 
+        <<                  struct_size << ", "
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
         <<                  copy_imm_arg << ", "
@@ -647,7 +656,7 @@ void LoweringVisitor::emit_async_common(
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
-    
+
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
 
@@ -687,7 +696,7 @@ void LoweringVisitor::emit_async_common(
             outline_info, 
             /* accessor */ Source("imm_args."),
             fill_dependences_immediate);
-    
+
     FORTRAN_LANGUAGE()
     {
         // Parse in C
@@ -764,6 +773,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             called_task_dummy,
             statements,
             task_environment.priority,
+            task_environment.if_condition,
             task_environment.task_label,
             task_environment.is_untied,
 
@@ -1518,14 +1528,14 @@ void LoweringVisitor::fill_copies_region(
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
 
-            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, region_sizes;
+            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
 
             int num_dimensions_count = copy_type.get_num_dimensions();
             if (num_dimensions_count == 0)
             {
                 lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
                 upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                region_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+                total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
                 num_dimensions_count++;
             }
             else
@@ -1539,7 +1549,7 @@ void LoweringVisitor::fill_copies_region(
                     if (t.array_is_region())
                     {
                         t.array_get_region_bounds(lower, upper);
-                        region_size = t.array_get_region_size();
+                        region_size = t.array_get_size();
                     }
                     else
                     {
@@ -1560,13 +1570,13 @@ void LoweringVisitor::fill_copies_region(
                         }
                         if (region_size.is_null())
                         {
-                            region_size = get_size_of_fortran_array(data_ref, rank);
+                            region_size = get_size_for_dimension(t, rank, data_ref);
                         }
                     }
 
                     lower_bounds.append(lower);
                     upper_bounds.append(upper);
-                    region_sizes.append(region_size);
+                    total_sizes.append(region_size);
 
                     t = t.array_element();
 
@@ -1578,7 +1588,7 @@ void LoweringVisitor::fill_copies_region(
                 // Sanity check
                 ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
                         || num_dimensions_count != (signed)upper_bounds.size()
-                        || num_dimensions_count != (signed)region_sizes.size(),
+                        || num_dimensions_count != (signed)total_sizes.size(),
                         "Mismatch between dimensions", 0);
 
             }
@@ -1598,7 +1608,7 @@ void LoweringVisitor::fill_copies_region(
                     // In bytes
                     ol_dimension_descriptors
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1607,7 +1617,7 @@ void LoweringVisitor::fill_copies_region(
                         ;
                     imm_dimension_descriptors
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1620,7 +1630,7 @@ void LoweringVisitor::fill_copies_region(
                     // In elements
                     ol_dimension_descriptors
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1629,7 +1639,7 @@ void LoweringVisitor::fill_copies_region(
                         ;
                     imm_dimension_descriptors
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1639,9 +1649,80 @@ void LoweringVisitor::fill_copies_region(
                 }
                 current_dimension_descriptor++;
             }
+            
+
+            if (Nanos::Version::interface_is_at_least("copies_api", 1003))
+            {
+                bool has_serializer=false;
+                TL::Type ser_type = copy_type;
+                //If the object is a class, generate everything so nanox can it
+                if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
+                        TL::Symbol sym_serializer = ser_type.get_symbol();
+                        if (sym_serializer.get_type().is_pointer_to_class()){
+                            ser_type= sym_serializer.get_type().get_pointer_to();
+                            sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+                        }
+                        ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
+                        ObjectList<TL::Symbol>::iterator ser_it;
+                        for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !has_serializer; ++ser_it){
+                            if (ser_it->get_name()=="serialize") has_serializer=true;
+                        }    
+                }
+                //If its serializable and input, create serialization adapters and fill copy info
+                //if it's not input, the device should warn the programmer in case it's needed
+                if (has_serializer && input) {
+                    TL::Symbol sym_serializer = ser_type.get_symbol();
+                    std::string serialize_prefix_name= outline_info.get_implementation_table().begin()->second.get_outline_name() + sym_serializer.get_name() + data_ref.get_base_symbol().get_name();
+
+                    Source serialize_adapters;
+
+                    serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
+                            << "{  "
+                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
+                            << "} ;";
+                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
+                            << "{ "
+                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
+                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
+                            << "} ;";
+                    
+                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
+                            << "{"
+                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
+                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
+                            << "} ;";
+
+                    copy_ol_setup
+                        << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+                        << "ol_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+                        << "ol_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+                        ;
+
+                    copy_imm_setup
+                        << "imm_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+                        << "imm_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+                        << "imm_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+                        ;
+
+                    Nodecl::NodeclBase serialize_tree = serialize_adapters.parse_global(ctr);
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr,serialize_tree);
+                } else {
+                    copy_ol_setup
+                        << "ol_copy_data[" << i << "].serialize_size_adapter = 0;"
+                        << "ol_copy_data[" << i << "].serialize_adapter = 0;"
+                        << "ol_copy_data[" << i << "].serialize_assign_adapter = 0;"
+                        ;
+
+                    copy_imm_setup
+                        << "imm_copy_data[" << i << "].serialize_size_adapter = 0;"
+                        << "imm_copy_data[" << i << "].serialize_adapter = 0;"
+                        << "imm_copy_data[" << i << "].serialize_assign_adapter = 0;"
+                        ;
+                }
+            }
         }
     }
-
+    
     if (IS_FORTRAN_LANGUAGE)
     {
         copy_ol_setup
@@ -2442,20 +2523,6 @@ Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr,
     }
 
     src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
-
-    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-}
-
-Nodecl::NodeclBase LoweringVisitor::get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num)
-{
-    Source src;
-    Nodecl::NodeclBase expr = dep_expr;
-    if (dep_expr.is<Nodecl::ArraySubscript>())
-    {
-        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
-    }
-
-    src << "SIZE(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
 }

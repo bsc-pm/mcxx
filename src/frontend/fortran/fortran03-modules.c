@@ -37,6 +37,7 @@
 #include "cxx-driver-utils.h"
 #include "cxx-driver-fortran.h"
 #include "cxx-entrylist.h"
+#include "cxx-asttype-str.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -205,7 +206,7 @@ struct module_info_tag
 {
     const char* module_name;
     const char* date;
-    const char* version;
+    int version;
     const char* build;
     sqlite3_uint64 module_oid;
 };
@@ -415,6 +416,8 @@ static void load_storage(sqlite3** handle, const char* filename)
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
+enum { CURRENT_MODULE_VERSION = 3 };
+
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
     DEBUG_CODE()
@@ -465,6 +468,12 @@ void load_module_info(const char* module_name, scope_entry_t** module)
     memset(&minfo, 0, sizeof(minfo));
 
     get_module_info(handle, &minfo);
+
+    if (minfo.version != CURRENT_MODULE_VERSION)
+    {
+        running_error("Module file '%s' is not compatible with this version of Mercurium (got version %d but expected version %d)\n",
+                filename, minfo.version, CURRENT_MODULE_VERSION);
+    }
 
     module_oid_being_loaded = minfo.module_oid;
     *module = load_symbol(handle, minfo.module_oid);
@@ -720,9 +729,9 @@ static void prepare_statements(sqlite3* handle)
     } while (0)
 
     char* load_symbol_stmt_str = sqlite3_mprintf(
-            "SELECT s.oid, decl_context, str1.string AS name, kind, type, str2.string AS file, line,"
+            "SELECT s.oid, decl_context, str1.string AS name, str2.string AS kind, type, str3.string AS file, line,"
             " value, bit_entity_specs, related_decl_context, %s "
-            "FROM symbol s, string_table str1, string_table str2 WHERE s.oid = $OID AND str1.oid = s.name AND str2.oid = s.file;", 
+            "FROM symbol s, string_table str1, string_table str2, string_table str3 WHERE s.oid = $OID AND str1.oid = s.name AND str2.oid = s.kind AND str3.oid = s.file;", 
             attr_field_names);
     DO_PREPARE_STATEMENT(_load_symbol_stmt, load_symbol_stmt_str);
     sqlite3_free(load_symbol_stmt_str);
@@ -816,9 +825,9 @@ static void prepare_statements(sqlite3* handle)
 
     DO_PREPARE_STATEMENT(_select_decl_context_stmt, "SELECT " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = $OID;");
 
-    DO_PREPARE_STATEMENT(_select_ast_stmt, "SELECT a.oid, a.kind, str1.string AS file, a.line, str2.string AS text, a.ast0, a.ast1, a.ast2, a.ast3, "
+    DO_PREPARE_STATEMENT(_select_ast_stmt, "SELECT a.oid, str0.string AS kind, str1.string AS file, a.line, str2.string AS text, a.ast0, a.ast1, a.ast2, a.ast3, "
             "a.type, a.symbol, a.is_lvalue, a.is_const_val, a.const_val, a.is_value_dependent "
-            "FROM ast a, string_table str1, string_table str2 WHERE a.oid = $OID AND file = str1.oid AND text = str2.oid;");
+            "FROM ast a, string_table str0, string_table str1, string_table str2 WHERE a.oid = $OID AND a.kind = str0.oid AND a.file = str1.oid AND a.text = str2.oid;");
 
     DO_PREPARE_STATEMENT(_select_type_stmt, "SELECT oid, kind, cv_qualifier, kind_size, ast0, ast1, ref_type, "
             "types, symbols FROM type WHERE oid = $OID;");
@@ -863,7 +872,7 @@ static int get_module_info_(void *datum,
     module_info_t* p = (module_info_t*)datum;
     p->module_name = values[0];
     p->date = values[1];
-    p->version = values[2];
+    p->version = safe_atoull(values[2]);
     p->build = values[3];
     p->module_oid = safe_atoull(values[4]);
 
@@ -884,7 +893,7 @@ static void get_module_info(sqlite3* handle, module_info_t* minfo)
 static void finish_module_file(sqlite3* handle, const char* module_name, sqlite3_uint64 module_symbol)
 {
     char* insert_info = sqlite3_mprintf("INSERT INTO info(module, date, version, build, root_symbol) "
-            "VALUES(" Q ", DATE(), " Q ", " Q ", %llu);", module_name, VERSION, MCXX_BUILD_VERSION, 
+            "VALUES(" Q ", DATE(), %d, " Q ", %llu);", module_name, CURRENT_MODULE_VERSION, MCXX_BUILD_VERSION, 
             (long long int)module_symbol);
     run_query(handle, insert_info);
     sqlite3_free(insert_info);
@@ -1217,7 +1226,7 @@ static sqlite3_uint64 insert_ast(sqlite3* handle, AST a)
 
     // 1
     sqlite3_bind_int64(_insert_ast_stmt, 1, P2ULL(a));
-    sqlite3_bind_int  (_insert_ast_stmt, 2, ast_get_type(a));
+    sqlite3_bind_int64(_insert_ast_stmt, 2, get_oid_from_string_table(handle, ast_print_node_type(ast_get_type(a))));
     sqlite3_bind_int64(_insert_ast_stmt, 3, get_oid_from_string_table(handle, ast_get_filename(a)));
     sqlite3_bind_int  (_insert_ast_stmt, 4, ast_get_line(a));
     sqlite3_bind_int64(_insert_ast_stmt, 5, get_oid_from_string_table(handle, ast_get_text(a)));
@@ -1914,12 +1923,12 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     // FIXME - Devise ways to make this a prepared statement
     char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
             "bit_entity_specs, related_decl_context, %s) "
-            "VALUES (%llu, %llu, %llu, %d, %llu, %llu, %d, %llu, " Q ", %llu, %s);",
+            "VALUES (%llu, %llu, %llu, %llu, %llu, %llu, %d, %llu, " Q ", %llu, %s);",
             attr_field_names,
             P2ULL(symbol), // oid
             decl_context_oid, // decl_context
             get_oid_from_string_table(handle, symbol->symbol_name), // name
-            symbol->kind, // kind
+            get_oid_from_string_table(handle, symbol_kind_to_str(symbol->kind)), // kind
             type_id, // type
             get_oid_from_string_table(handle, locus_get_filename(symbol->locus)), // file
             locus_get_line(symbol->locus), // line
@@ -1984,13 +1993,16 @@ static int get_symbol(void *datum,
     sqlite3_uint64 oid = safe_atoull(values[0]);
     sqlite3_uint64 decl_context_oid = safe_atoull(values[1]);
     const char* name = uniquestr(values[2]);
-    int symbol_kind = safe_atoi(values[3]);
+    const char* symbol_kind_str = uniquestr(values[3]);
     sqlite3_uint64 type_oid = safe_atoull(values[4]);
     const char* filename = uniquestr(values[5]);
     int line = safe_atoi(values[6]);
     sqlite3_uint64 value_oid = safe_atoull(values[7]);
     const char* bitfield_pack_str = uniquestr(values[8]);
     sqlite3_uint64 related_decl_context_oid = safe_atoull(values[9]);
+
+    int symbol_kind = symbol_str_to_kind(symbol_kind_str);
+    ERROR_CONDITION(symbol_kind == SK_UNDEFINED, "Invalid symbol '%s' loaded from module\n", symbol_kind_str);
 
     (*result) = NULL;
 
@@ -2390,7 +2402,7 @@ static int get_ast(void *datum,
     sqlite3* handle = p->handle;
 
     sqlite3_uint64 oid = safe_atoull(values[0]);
-    node_t node_kind = safe_atoull(values[1]);
+    const char* node_kind_str = uniquestr(values[1]);
     const char *filename = uniquestr(values[2]);
     int line = safe_atoull(values[3]);
     const char* text = uniquestr(values[4]);
@@ -2401,6 +2413,10 @@ static int get_ast(void *datum,
     char is_const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 3]);
     sqlite3_uint64 const_val = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
     // char is_value_dependent = safe_atoull(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
+
+    node_t node_kind = ast_node_name_to_kind(node_kind_str);
+    ERROR_CONDITION(node_kind == AST_INVALID_NODE, "Invalid node '%s' loaded from module\n", 
+            node_kind_str);
 
     p->a = ASTLeaf(node_kind, make_locus(filename, line, 0), text);
     AST a = p->a;

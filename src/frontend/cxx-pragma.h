@@ -31,13 +31,6 @@
 #include "cxx-scope-decls.h"
 #include "cxx-nodecl.h"
 
-void common_build_scope_pragma_custom_declaration(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_pragma_line,
-        nodecl_t* nodecl_nested_decl,
-        void (*function_for_child)(AST, decl_context_t decl_context, nodecl_t*, void* info),
-        void* info);
-
 void common_build_scope_pragma_custom_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output,

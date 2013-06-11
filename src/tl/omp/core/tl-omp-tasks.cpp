@@ -126,6 +126,28 @@ namespace TL
             return result;
         }
 
+        void TargetInfo::append_to_shmem(const ObjectList<Nodecl::NodeclBase>& expressions)
+        {
+            _shmem.append(expressions);
+        }
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_shmem() const
+        {
+            return _shmem;
+        }
+
+        ObjectList<Nodecl::NodeclBase> TargetInfo::get_shallow_copy_of_shmem() const
+        {
+            ObjectList<Nodecl::NodeclBase> result;
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = _shmem.begin();
+                    it != _shmem.end();
+                    ++it)
+            {
+                result.append(it->shallow_copy());
+            }
+            return result;
+        }
+
         void TargetInfo::append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions)
         {
             _onto.append(expressions);
@@ -870,6 +892,7 @@ namespace TL
                 target_info.set_file(target_context.file);
                 target_info.set_name(target_context.name);
                 target_info.append_to_ndrange(update_clauses(target_context.ndrange, function_sym));
+                target_info.append_to_shmem(update_clauses(target_context.shmem, function_sym));
                 target_info.append_to_onto(update_clauses(target_context.onto, function_sym));
 
                 target_info.append_to_device_list(target_context.device_list);

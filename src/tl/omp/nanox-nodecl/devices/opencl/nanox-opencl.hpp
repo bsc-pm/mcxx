@@ -41,6 +41,8 @@ namespace TL
             private:
 
                 Nodecl::List _extra_c_code;
+                bool _opencl_tasks_processed;
+                Nodecl::NodeclBase _root;
 
                 void add_forward_code_to_extra_c_code(
                         const std::string& outline_name,
@@ -50,7 +52,7 @@ namespace TL
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
-                        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                        const TargetInformation& target_info,
                         const std::string filename,
                         const std::string kernel_name,
                         const TL::ObjectList<OutlineDataItem*>& data_items,

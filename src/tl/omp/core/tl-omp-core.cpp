@@ -396,31 +396,6 @@ namespace TL
             get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols, copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
-
-            // // Internal clauses created by fun-tasks phase
-            // ObjectList<DataReference> fp_input_references;
-            // get_clause_symbols(construct.get_clause("__fp_input"), nonlocal_symbols, fp_input_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_input_references.begin(), fp_input_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_output_references;
-            // get_clause_symbols(construct.get_clause("__fp_output"), nonlocal_symbols, fp_output_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_output_references.begin(), fp_output_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_inout_references;
-            // get_clause_symbols(construct.get_clause("__fp_inout"), nonlocal_symbols, fp_inout_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_reduction_references;
-            // get_clause_symbols(construct.get_clause("__fp_reduction"), nonlocal_symbols, fp_reduction_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
@@ -506,6 +481,112 @@ namespace TL
                     else
                     {
                         Nodecl::ExhaustiveVisitor<void>::visit(construct);
+                    }
+                }
+        };
+
+        class SavedExpressions : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+
+                bool is_local_to_current_function(TL::Symbol sym)
+                {
+                    return (sym.get_scope().is_block_scope()
+                            && sym.get_scope().get_related_symbol() == _sc.get_related_symbol());
+                }
+
+                void walk_type(TL::Type t)
+                {
+                    if (t.is_any_reference())
+                        walk_type(t.references_to());
+                    else if (t.is_pointer())
+                        walk_type(t.points_to());
+                    else if (t.is_array())
+                    {
+                        walk_type(t.array_element());
+
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            Nodecl::NodeclBase lower, upper;
+                            t.array_get_bounds(lower, upper);
+
+                            if (!lower.is_null()
+                                    && lower.is<Nodecl::Symbol>()
+                                    && lower.get_symbol().is_saved_expression())
+                            {
+                                TL::Symbol sym(lower.get_symbol());
+                                if (is_local_to_current_function(sym))
+                                {
+                                    symbols.insert(sym);
+                                }
+                            }
+
+                            if (!upper.is_null()
+                                    && upper.is<Nodecl::Symbol>()
+                                    && upper.get_symbol().is_saved_expression())
+                            {
+                                TL::Symbol sym(upper.get_symbol());
+                                if (is_local_to_current_function(sym))
+                                {
+                                    symbols.insert(sym);
+                                }
+                            }
+                        }
+                        else if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                        {
+                            Nodecl::NodeclBase size = t.array_get_size();
+
+                            if (!size.is_null()
+                                    && size.is<Nodecl::Symbol>()
+                                    && size.get_symbol().is_saved_expression())
+                            {
+                                TL::Symbol sym(size.get_symbol());
+                                if (is_local_to_current_function(sym))
+                                {
+                                    symbols.insert(sym);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                    }
+                }
+
+                TL::Scope _sc;
+
+            public :
+                TL::ObjectList<TL::Symbol> symbols;
+
+                SavedExpressions(TL::Scope sc)
+                     : _sc(sc)
+                {
+                }
+
+                virtual Ret visit(const Nodecl::Symbol &n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+                    if (sym.is_saved_expression())
+                    {
+                        symbols.insert(sym);
+                    }
+                }
+
+                virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
+                {
+                    TL::Type t = n.get_type();
+                    if (t.is_valid())
+                    {
+                        walk_type(t);
+                    }
+
+                    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                            it != children.end();
+                            it++)
+                    {
+                        walk(*it);
                     }
                 }
         };
@@ -1139,10 +1220,9 @@ namespace TL
                 DataSharingEnvironment& data_sharing,
                 ObjectList<Nodecl::Symbol>& nonlocal_symbols)
         {
+            Nodecl::NodeclBase statement = construct.get_statements();
             FORTRAN_LANGUAGE()
             {
-                Nodecl::NodeclBase statement = construct.get_statements();
-
                 // Other symbols that may be used indirectly are made shared
                 TL::ObjectList<Nodecl::Symbol> other_symbols;
 
@@ -1193,6 +1273,25 @@ namespace TL
                         data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                         data_sharing.set_data_sharing(sym, data_attr);
                     }
+                }
+            }
+
+            // Saved expressions from VLAs
+            SavedExpressions saved_expressions(statement.retrieve_context());
+            saved_expressions.walk(statement);
+
+            // Make them firstprivate if not already set
+            for (ObjectList<TL::Symbol>::iterator it = saved_expressions.symbols.begin();
+                    it != saved_expressions.symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+                if (data_attr == DS_UNDEFINED)
+                {
+                    data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
+                    data_sharing.set_data_sharing(sym, data_attr);
                 }
             }
         }

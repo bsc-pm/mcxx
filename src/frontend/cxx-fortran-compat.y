@@ -8,7 +8,7 @@
 
 /*!if GRAMMAR_RULES*/
 
-no_if_statement : fortran_allocate_statement
+nondeclarating_statement : fortran_allocate_statement
 {
     $$ = $1;
 }

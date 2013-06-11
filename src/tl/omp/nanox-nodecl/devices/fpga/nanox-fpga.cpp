@@ -43,8 +43,7 @@
 #include "cxx-graphviz.h"
 
 #include "tl-nanos.hpp"
-
-
+#include "tl-symbol-utils.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -189,9 +188,14 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         //if function is in the list, do not add it again
         if (!found)
         {
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task);
+
+            Nodecl::Utils::SimpleSymbolMap map;
+            map.add_map(called_task, new_function);
             Nodecl::NodeclBase tmp_task = Nodecl::Utils::deep_copy(
-                        called_task.get_function_code(),
-                        called_task.get_scope());
+                    called_task.get_function_code(),
+                    called_task.get_scope(),
+                    map);
 
             if (_dump_ast != "0")
             {
@@ -237,7 +241,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
 
@@ -284,7 +288,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 get_user_defined_type(
                     arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
-    TL::Symbol outline_function = new_function_symbol(
+    TL::Symbol outline_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name,
             TL::Type::get_void_type(),
@@ -292,7 +296,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
             structure_type);
 
     Nodecl::NodeclBase outline_function_code, outline_function_body;
-    build_empty_body_for_function(outline_function,
+    SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_body);
 

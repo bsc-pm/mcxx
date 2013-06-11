@@ -2,8 +2,8 @@
 language = C
 options= --variable=allow_shared_without_copies:1
 preprocessor_name = @MPICC@
-{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH
-{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH
+{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DX86_ARCH
+{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DMIC_ARCH
 compiler_name = @MPICC@
 compiler_options=  -mt_mpi
 linker_name = @MPICC@
@@ -15,8 +15,8 @@ compiler_phase = libtlnanox-mpi.so
 language = C++
 options= --variable=allow_shared_without_copies:1
 preprocessor_name = @MPICXX@
-{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH -DMPICH_IGNORE_CXX_SEEK
-{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH -DMPICH_IGNORE_CXX_SEEK
+{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DX86_ARCH -DMPICH_IGNORE_CXX_SEEK
+{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DMIC_ARCH -DMPICH_IGNORE_CXX_SEEK
 compiler_name = @MPICXX@
 compiler_options=  -mt_mpi
 linker_name = @MPICXX@
