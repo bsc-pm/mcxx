@@ -41,27 +41,31 @@ namespace Analysis {
     private:
         std::string _pcfg_enabled_str;
         bool _pcfg_enabled;
-        void set_pcfg( const std::string pcfg_enabled_str );
+        void set_pcfg( const std::string& pcfg_enabled_str );
 
         std::string _use_def_enabled_str;
         bool _use_def_enabled;
-        void set_use_def( const std::string use_def_enabled_str );
+        void set_use_def( const std::string& use_def_enabled_str);
 
         std::string _liveness_enabled_str;
         bool _liveness_enabled;
-        void set_liveness( const std::string liveness_enabled_str );
+        void set_liveness( const std::string& liveness_enabled_str );
 
         std::string _reaching_defs_enabled_str;
         bool _reaching_defs_enabled;
-        void set_reaching_defs( const std::string reaching_defs_enabled_str );
+        void set_reaching_defs( const std::string& reaching_defs_enabled_str );
 
         std::string _induction_vars_enabled_str;
         bool _induction_vars_enabled;
-        void set_induction_vars( const std::string induction_vars_enabled_str );
+        void set_induction_vars( const std::string& induction_vars_enabled_str );
 
         std::string _auto_scope_enabled_str;
         bool _auto_scope_enabled;
-        void set_auto_scope( const std::string auto_scope_enabled_str );
+        void set_auto_scope( const std::string& auto_scope_enabled_str );
+
+        std::string _task_sync_enabled_str;
+        bool _task_sync_enabled;
+        void set_task_sync( const std::string& task_sync_enabled_str );
 
     public:
         //! Constructor of this phase
