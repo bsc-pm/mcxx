@@ -165,17 +165,34 @@ namespace Analysis {
                 print_node_analysis_info( current, dot_analysis_info, cluster_name,
                                           usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
 
-                for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
+                std::vector<std::string> new_outer_edges_inner;
+                std::vector<Node*> new_outer_nodes_inner;
+                // This is a bit awkward
+                do
                 {
-                    std::vector<std::string> new_outer_edges_2;
-                    std::vector<Node*> new_outer_nodes_2;
-                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id,
-                                        usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
-                }
-                for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
-                {
-                    dot_graph += indent + ( *it );
-                }
+                    for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
+                    {
+                        std::vector<std::string> new_outer_edges_current;
+                        std::vector<Node*> new_outer_nodes_current;
+                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, new_outer_edges_current,
+                                new_outer_nodes_current, indent, subgraph_id,
+                                usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
+
+                        new_outer_edges_inner.insert(new_outer_edges_inner.end(),
+                                new_outer_edges_current.begin(), new_outer_edges_current.end());
+                        new_outer_nodes_inner.insert(new_outer_nodes_inner.end(),
+                                new_outer_nodes_current.begin(), new_outer_nodes_current.end());
+                    }
+                    for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
+                    {
+                        dot_graph += indent + ( *it );
+                    }
+                    new_outer_edges = new_outer_edges_inner;
+                    new_outer_nodes = new_outer_nodes_inner;
+
+                    new_outer_edges_inner.clear();
+                    new_outer_nodes_inner.clear();
+                } while (!new_outer_edges.empty() || !new_outer_nodes.empty());
             }
 
             if( current->is_exit_node( ) )
@@ -240,22 +257,25 @@ namespace Analysis {
                             extra_edge_attrs = ", style=dashed";
                         }
 
+                        std::string mes = sss.str( ) + " -> " + sst.str( ) +
+                            " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                        std::cerr << "MES0 -> " << mes;
                         if( belongs_to_the_same_graph( *it ) )
                         {
-                            dot_graph += indent + sss.str( ) + " -> " + sst.str( ) +
-                                         " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                            std::cerr << "DOES BELONG\n" << std::endl;
+                            dot_graph += mes;
+
                             get_nodes_dot_data( ( *it )->get_target( ), dot_graph, dot_analysis_info,
                                                 outer_edges, outer_nodes, indent, subgraph_id,
                                                 usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
                         }
                         else
                         {
+                            std::cerr << "DOES NOT BELONG\n" << std::endl;
 //                             if( !current->is_graph_node( ) )
 //                             {
 //                                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
 //                             }
-                            std::string mes = sss.str( ) + " -> " + sst.str( ) +
-                                              " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back( mes );
                             outer_nodes.push_back( ( *it )->get_target( ) );
                         }

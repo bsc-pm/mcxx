@@ -86,6 +86,7 @@ namespace Analysis {
             }
 
             // if (_task_sync_enabled)
+            if (0)
             {
                 if( VERBOSE )
                 std::cerr << "========= Task Sync analysis =========" << std::endl;
