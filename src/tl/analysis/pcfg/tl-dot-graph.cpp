@@ -365,6 +365,11 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
                 break;
             }
+            case OMP_WAITON_DEPS:
+            {
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] WAITON_DEPS\", shape=ellipse]\n";
+                break;
+            }
             case OMP_VIRTUAL_TASKSYNC:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
@@ -422,7 +427,7 @@ namespace Analysis {
                 break;
             }
             default:
-                internal_error( "Undefined type of node '%s' founded while printing the graph.",
+                internal_error( "Undefined type of node '%s' found while printing the graph.",
                                 current->get_type_as_string( ).c_str( ) );
         };
     }

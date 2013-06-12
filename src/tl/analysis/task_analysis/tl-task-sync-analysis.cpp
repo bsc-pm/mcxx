@@ -84,7 +84,7 @@ void TaskSynchronizations::compute_task_synchronizations()
                 jt != it->second.end();
                 jt++)
         {
-//            std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
+            std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
             Edge* edge = _graph->connect_nodes(it->first, (*jt).first, ALWAYS, "", /*is task edge*/ true);
             edge->set_label(sync_kind_to_str((*jt).second));
         }
@@ -100,7 +100,7 @@ void TaskSynchronizations::compute_task_synchronizations()
     {
         if (get_static_sync_in(exit).find(*it) == get_static_sync_in(exit).end())
         {
-//            std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+            std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
             Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
             edge->set_label(sync_kind_to_str(Sync_post));
         }
@@ -283,16 +283,28 @@ TaskSyncRel may_have_dependence_list(Nodecl::List out_deps_source, Nodecl::List 
 
 TaskSyncRel compute_taskwait_sync_relationship(Node* source, Node* target)
 {
-    Nodecl::NodeclBase taskwait_node_source = source->get_graph_label();
-    ERROR_CONDITION(taskwait_node_source.is_null(), "Invalid target task tree", 0);
-    ERROR_CONDITION(!taskwait_node_source.is<Nodecl::OpenMP::WaitOnDependences>(),
-            "Expecting an OpenMP::WaitOnDependences source node here got a %s", 
-            ast_print_node_type(taskwait_node_source.get_kind()));
-
-    Nodecl::List task_source_env = taskwait_node_source
-        .as<Nodecl::OpenMP::WaitOnDependences>()
-        .get_environment()
-        .as<Nodecl::List>();
+    // Source (task)
+    Nodecl::NodeclBase task_node_source = source->get_graph_label();
+    ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
+    ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
+            && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
+            "Expecting an OpenMP::Task or OpenMP::TaskCall source node here got a %s", 
+            ast_print_node_type(task_node_source.get_kind()));
+    Nodecl::List task_source_env;
+    if (task_node_source.is<Nodecl::OpenMP::Task>())
+    {
+        Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
+        task_source_env = task_source.get_environment().as<Nodecl::List>();
+    }
+    else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
+    {
+        Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
+        task_source_env = task_source.get_site_environment().as<Nodecl::List>();
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 
     Nodecl::NodeclBase source_dep_in;
     Nodecl::NodeclBase source_dep_out;
@@ -301,35 +313,28 @@ TaskSyncRel compute_taskwait_sync_relationship(Node* source, Node* target)
             it != task_source_env.end();
             it++)
     {
-        ERROR_CONDITION((it->is<Nodecl::OpenMP::DepIn>()) || (it->is<Nodecl::OpenMP::DepOut>()), 
-                "Unexpected tree in a taskwait", 0);
-        if (it->is<Nodecl::OpenMP::DepInout>())
+        if (it->is<Nodecl::OpenMP::DepIn>())
+            source_dep_in = *it;
+        else if (it->is<Nodecl::OpenMP::DepOut>())
+            source_dep_out = *it;
+        else if (it->is<Nodecl::OpenMP::DepInout>())
             source_dep_inout = *it;
     }
 
-    // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
-    // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
-    Nodecl::NodeclBase task_node_target = target->get_graph_label();
-    ERROR_CONDITION(task_node_target.is_null(), "Invalid target task tree", 0);
-    ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
-            && !task_node_target.is<Nodecl::OpenMP::TaskCall>(),
-            "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
-            ast_print_node_type(task_node_target.get_kind()));
-    Nodecl::List task_target_env;
-    if (task_node_target.is<Nodecl::OpenMP::Task>())
-    {
-        Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
-        task_target_env = task_target.get_environment().as<Nodecl::List>();
-    }
-    else if (task_node_target.is<Nodecl::OpenMP::TaskCall>())
-    {
-        Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
-        task_target_env = task_target.get_site_environment().as<Nodecl::List>();
-    }
-    else
-    {
-        internal_error("Code unreachable", 0);
-    }
+    // Target (taskwait)
+    ERROR_CONDITION(target->get_type() != OMP_WAITON_DEPS, "Invalid node", 0);
+    TL::ObjectList<Nodecl::NodeclBase> task_node_target_stmts = target->get_statements();
+    ERROR_CONDITION(task_node_target_stmts.size() != 1, "Invalid list of statements", 0);
+    Nodecl::NodeclBase taskwait_node_target = task_node_target_stmts[0];
+    ERROR_CONDITION(taskwait_node_target.is_null(), "Invalid target task tree", 0);
+    ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OpenMP::WaitOnDependences>(),
+            "Expecting an OpenMP::WaitOnDependences target node here got a %s", 
+            ast_print_node_type(taskwait_node_target.get_kind()));
+
+    Nodecl::List task_target_env = taskwait_node_target
+        .as<Nodecl::OpenMP::WaitOnDependences>()
+        .get_environment()
+        .as<Nodecl::List>();
 
     Nodecl::NodeclBase target_dep_in;
     Nodecl::NodeclBase target_dep_out;
@@ -338,11 +343,9 @@ TaskSyncRel compute_taskwait_sync_relationship(Node* source, Node* target)
             it != task_target_env.end();
             it++)
     {
-        if (it->is<Nodecl::OpenMP::DepIn>())
-            target_dep_in = *it;
-        else if (it->is<Nodecl::OpenMP::DepOut>())
-            target_dep_out = *it;
-        else if (it->is<Nodecl::OpenMP::DepInout>())
+        ERROR_CONDITION((it->is<Nodecl::OpenMP::DepIn>()) || (it->is<Nodecl::OpenMP::DepOut>()), 
+                "Unexpected tree in a taskwait", 0);
+        if (it->is<Nodecl::OpenMP::DepInout>())
             target_dep_inout = *it;
     }
 
@@ -520,6 +523,67 @@ static std::string print_set(AliveTaskSet& t)
 }
 #endif
 
+void set_sync_relationship(TaskSyncRel& task_sync_rel,
+        AliveTaskSet::iterator& alive_tasks_it,
+        PointsOfSync& points_of_sync,
+        Node* current,
+        Node* current_sync_point)
+{
+    switch (task_sync_rel)
+    {
+        case TaskSync_Unknown :
+        case TaskSync_Yes :
+            {
+                SyncKind sync_kind = Sync_maybe;
+                if (task_sync_rel == TaskSync_Yes)
+                    sync_kind = Sync_static;
+
+                if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
+                {
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
+                    //                            std::cerr << __FILE__ << ":" << __LINE__
+                    //                                << " task (among others) maybe synchronizes in this task execution" << std::endl;
+                }
+                else
+                {
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
+                    //                            std::cerr << __FILE__ << ":" << __LINE__
+                    //                                << " task maybe synchronizes in this task execution" << std::endl;
+                }
+
+                std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
+                if (res.second)
+                {
+                    //                            std::cerr << __FILE__ << ":" << __LINE__
+                    //                                << " task is (potentially) still alive after execution" << std::endl;
+                }
+
+                if (task_sync_rel == TaskSync_Yes)
+                {
+                    //                            std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
+                    get_static_sync_out(current).insert(*alive_tasks_it);
+                }
+                break;
+            }
+        case TaskSync_No :
+            {
+                // We positively know that the task does not synchronize here
+                std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
+                if (res.second)
+                {
+                    //                            std::cerr << __FILE__ << ":" << __LINE__
+                    //                                << " task is (for sure) still alive after execution" << std::endl;
+                }
+                break;
+            }
+        default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+    }
+
+}
+
 void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
         bool &changed,
         PointsOfSync& points_of_sync,
@@ -666,7 +730,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 continue;
 
             TaskSyncRel task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
-// #warning FIXME
+            set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, current);
         }
     }
     else if (current->is_omp_barrier_node())
@@ -715,58 +779,7 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
                 continue;
 
             TaskSyncRel task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
-            switch (task_sync_rel)
-            {
-                case TaskSync_Unknown :
-                case TaskSync_Yes :
-                    {
-                        SyncKind sync_kind = Sync_maybe;
-                        if (task_sync_rel == TaskSync_Yes)
-                            sync_kind = Sync_static;
-
-                        if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
-                        {
-                            points_of_sync[alive_tasks_it->node].insert(std::make_pair(task, sync_kind));
-//                            std::cerr << __FILE__ << ":" << __LINE__
-//                                << " task (among others) maybe synchronizes in this task execution" << std::endl;
-                        }
-                        else
-                        {
-                            points_of_sync[alive_tasks_it->node].insert(std::make_pair(task, sync_kind));
-//                            std::cerr << __FILE__ << ":" << __LINE__
-//                                << " task maybe synchronizes in this task execution" << std::endl;
-                        }
-
-                        std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
-                        if (res.second)
-                        {
-//                            std::cerr << __FILE__ << ":" << __LINE__
-//                                << " task is (potentially) still alive after execution" << std::endl;
-                        }
-
-                        if (task_sync_rel == TaskSync_Yes)
-                        {
-//                            std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
-                            get_static_sync_out(current).insert(*alive_tasks_it);
-                        }
-                        break;
-                    }
-                case TaskSync_No :
-                    {
-                        // We positively know that the task does not synchronize here
-                        std::pair<AliveTaskSet::iterator, bool> res = get_alive_out(current).insert(*alive_tasks_it);
-                        if (res.second)
-                        {
-//                            std::cerr << __FILE__ << ":" << __LINE__
-//                                << " task is (for sure) still alive after execution" << std::endl;
-                        }
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Code unreachable", 0);
-                    }
-            }
+            set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, task);
         }
 
         // Add the newly created task as well
