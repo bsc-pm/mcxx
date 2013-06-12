@@ -1811,7 +1811,6 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
 
         // Create the new graph node containing the task
-        ObjectList<Node*> predecessors = _utils->_last_nodes;
         Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_TASK, _utils->_context_nodecl.top( ) );
         Edge* edge = _pcfg->connect_nodes( task_creation, task_node, ALWAYS, "", /* is task */ true );
         edge->set_label("create");
@@ -1839,8 +1838,8 @@ namespace Analysis {
 
         _utils->_outer_nodes.pop( );
         _pcfg->_task_nodes_l.insert( task_node );
-        _pcfg->_utils->_last_nodes = task_parents;
-        return ObjectList<Node*>( 1, task_node );
+        _pcfg->_utils->_last_nodes = ObjectList<Node*>( 1, task_creation );
+        return ObjectList<Node*>( 1, task_creation );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
@@ -1852,7 +1851,6 @@ namespace Analysis {
 
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
         // Create the new graph node containing the task
-        ObjectList<Node*> predecessors = _utils->_last_nodes;
         Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_TASK, _utils->_context_nodecl.top( ) );
         Edge* edge = _pcfg->connect_nodes( task_creation, task_node, ALWAYS, "", /* is task */ true );
         edge->set_label("create");
