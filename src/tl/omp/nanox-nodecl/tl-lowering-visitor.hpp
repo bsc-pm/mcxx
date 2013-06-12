@@ -365,7 +365,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Nodecl::NodeclBase fill_adapter_function(
                 TL::Symbol adapter_function,
                 TL::Symbol called_function,
-                Nodecl::Utils::SymbolMap &symbol_map,
+                Nodecl::Utils::SimpleSymbolMap* &symbol_map,
+                Nodecl::NodeclBase original_function_call,
                 Nodecl::NodeclBase original_environment,
                 TL::ObjectList<TL::Symbol> &save_expressions,
                 // out

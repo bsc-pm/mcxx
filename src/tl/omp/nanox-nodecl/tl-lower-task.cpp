@@ -778,7 +778,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         argument_outline_data_item.set_base_address_expression(sym_ref);
     }
     Nodecl::NodeclBase new_construct;
-    if (Nanos::Version::interface_is_at_least("master", 5024))
+    if (Nanos::Version::interface_is_at_least("master", 5024)
+            && outline_info.only_has_smp_or_mpi_implementations())
     {
         new_construct = construct.shallow_copy();
 

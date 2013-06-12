@@ -826,7 +826,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
 
     Nodecl::NodeclBase new_code;
-    if (Nanos::Version::interface_is_at_least("master", 5024))
+    if (Nanos::Version::interface_is_at_least("master", 5024)
+            && arguments_outline_info.only_has_smp_or_mpi_implementations())
     {
         Nodecl::NodeclBase enclosing_expr_stmt = construct.get_parent();
         ERROR_CONDITION(!enclosing_expr_stmt.is<Nodecl::ExpressionStatement>(),
@@ -1119,10 +1120,10 @@ static TL::Symbol new_function_symbol_adapter(
 Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
         TL::Symbol adapter_function,
         TL::Symbol called_function,
-        Nodecl::Utils::SymbolMap &symbol_map,
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map,
+        Nodecl::NodeclBase original_function_call,
         Nodecl::NodeclBase original_environment,
         TL::ObjectList<TL::Symbol> &save_expressions,
-
         // out
         Nodecl::NodeclBase& task_construct,
         Nodecl::NodeclBase& statements_of_task_seq,
@@ -1154,7 +1155,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
         TL::Symbol &sym(*it);
         // We map from the parameter of the called function task to the
         // parameter of the adapter function
-        sym = symbol_map.map(sym);
+        sym = symbol_map->map(sym);
 
         Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(sym);
         TL::Type t = sym.get_type();
@@ -1184,7 +1185,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Update the environment of pragma omp task
     new_environment = Nodecl::Utils::deep_copy(original_environment,
             TL::Scope(CURRENT_COMPILED_FILE->global_decl_context),
-            symbol_map);
+            *symbol_map);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
@@ -1192,7 +1193,10 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    if (Nanos::Version::interface_is_at_least("master", 5024))
+    OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
+
+    if (Nanos::Version::interface_is_at_least("master", 5024)
+            && dummy_outline_info.only_has_smp_or_mpi_implementations())
     {
         Nodecl::NodeclBase is_in_final_nodecl;
         TL::ObjectList<Nodecl::NodeclBase> items;
@@ -1223,6 +1227,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     }
 
     Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
+
 
     Nodecl::NodeclBase context = Nodecl::Context::make(in_context, adapter_function.get_related_scope());
 
@@ -1315,7 +1320,8 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
-            *symbol_map,
+            symbol_map,
+            function_call,
             parameters_environment,
             save_expressions,
             // Out
