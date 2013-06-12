@@ -154,7 +154,6 @@ namespace TL {
                 suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
             }
 
-
             // Add epilog before vectorization
             Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
                     for_statement, for_statement).as<Nodecl::ForStatement>();
@@ -243,7 +242,7 @@ namespace TL {
 
             Nodecl::OpenMP::Single single_epilog =
                 Nodecl::OpenMP::Single::make(single_environment,
-                        epilog, epilog.get_locus());
+                        Nodecl::List::make(epilog), epilog.get_locus());
 
             simd_node.append_sibling(single_epilog);
 
@@ -277,12 +276,6 @@ namespace TL {
             else // Remove epilog
             {
                 Nodecl::Utils::remove_from_enclosing_list(single_epilog);
-            }
-
-
-            // Add epilog
-            if (!epilog.is_null())
-            {
             }
 
             // Remove Simd node

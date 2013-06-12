@@ -80,7 +80,7 @@ namespace Analysis {
     {
         bool result = false;
         
-//         std::cout << "Access: " << n.prettyprint() << "\n";
+//        std::cout << "Access: " << n.prettyprint() << "\n";
 
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
@@ -94,24 +94,18 @@ namespace Analysis {
                 
                 AdjacentAccessVisitor iv_v( _induction_variables, _killed );
                 bool constant = iv_v.walk( s );
-                if( !constant )
+                
+                Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
+                if( iv != NULL )
                 {
-                    Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
-                    if( iv != NULL )
-                    {
-//                         std::cout << "-> " << s.prettyprint() << " has iv '" << iv->get_variable().get_nodecl().prettyprint() <<  "'\n";
-                        result = true;
-                        break;
-                    }
-//                     else
-//                     {
-//                         std::cout << "-> " << s.prettyprint() << " has no iv" << "\n";
-//                     }
+//                    std::cout << "-> " << s.prettyprint() << " has iv '" << iv->get_variable().get_nodecl().prettyprint() <<  "'\n";
+                    result = true;
+                    break;
                 }
-//                 else
-//                 {
-//                     std::cout << "-> " << s.prettyprint() << " is a constant access" << "\n";
-//                 }
+                else
+                {
+//                    std::cout << "-> " << s.prettyprint() << " has no iv" << "\n";
+                }
             }
         }
         
