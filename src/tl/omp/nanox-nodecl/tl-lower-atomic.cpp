@@ -289,17 +289,17 @@ namespace TL { namespace Nanox {
                         //         intrinsic_function_name = "__sync_div_and_fetch";
                         //         break;
                         //     }
-                    case NODECL_BITWISE_AND : // x &= y
+                    case NODECL_BITWISE_AND_ASSIGNMENT : // x &= y
                         {
                             intrinsic_function_name = "__sync_and_and_fetch";
                             break;
                         }
-                    case NODECL_BITWISE_OR : // x |= y
+                    case NODECL_BITWISE_OR_ASSIGNMENT : // x |= y
                         {
                             intrinsic_function_name = "__sync_or_and_fetch";
                             break;
                         }
-                    case NODECL_BITWISE_XOR : // x ^= y
+                    case NODECL_BITWISE_XOR_ASSIGNMENT : // x ^= y
                         {
                             intrinsic_function_name = "__sync_xor_and_fetch";
                             break;

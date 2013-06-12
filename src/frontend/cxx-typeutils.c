@@ -8900,13 +8900,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
                 }
             }
+
             if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
-            }
-            else
-            {
-                (*result) = identity_scs(t_orig, t_dest);
             }
 
             return 1;

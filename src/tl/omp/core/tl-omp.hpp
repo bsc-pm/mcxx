@@ -311,9 +311,7 @@ namespace TL
             private:
                 int *_num_refs;
                 typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
-                typedef std::map<Symbol, DataReference> map_symbol_data_ref_t;
                 map_symbol_data_t  *_map;
-                map_symbol_data_ref_t  *_map_data_ref;
                 DataSharingEnvironment *_enclosing;
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
@@ -367,12 +365,6 @@ namespace TL
                  * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                  */
                 DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
-
-                //! States whether the symbol has associated an extended reference
-                bool is_extended_reference(Symbol sym);
-
-                //! Returns the extended reference of a Symbol
-                DataReference get_extended_reference(Symbol sym, bool check_enclosing = true);
 
                 //! Returns the enclosing data sharing
                 DataSharingEnvironment* get_enclosing();
@@ -471,6 +463,7 @@ namespace TL
                 RealTimeInfo _real_time_info;
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
+                Nodecl::NodeclBase _final_clause_cond_expr;
 
                 implementation_table_t get_implementation_table() const;
 
@@ -511,6 +504,9 @@ namespace TL
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
 
+                void set_final_clause_conditional_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_final_clause_conditional_expression() const;
+
                 void set_priority_clause_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_priority_clause_expression() const;
 
@@ -529,10 +525,11 @@ namespace TL
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
         {
             private:
-                typedef std::map<Symbol, FunctionTaskInfo> map_t;
-                map_t _map;
+                std::map<Symbol, FunctionTaskInfo> _map;
             public:
                 FunctionTaskSet();
+
+                std::map<Symbol, FunctionTaskInfo> get_function_task_set() const;
 
                 bool is_function_task(Symbol sym) const;
 

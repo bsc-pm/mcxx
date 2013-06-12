@@ -30,6 +30,7 @@
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 #include "tl-predicateutils.hpp"
+#include "tl-counters.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -140,6 +141,7 @@ namespace TL { namespace OpenMP {
             }
 
         private:
+
             Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call,
                     TL::Symbol function_sym,
                     FunctionTaskInfo& function_task_info)
@@ -367,6 +369,13 @@ namespace TL { namespace OpenMP {
                 {
                     result_list.append(
                         Nodecl::OpenMP::If::make(function_task_info.get_if_clause_conditional_expression().shallow_copy())
+                       );
+                }
+
+                if (!function_task_info.get_final_clause_conditional_expression().is_null())
+                {
+                    result_list.append(
+                        Nodecl::OpenMP::Final::make(function_task_info.get_final_clause_conditional_expression().shallow_copy())
                        );
                 }
 
@@ -706,6 +715,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
+
     // Inline tasks
     void Base::task_handler_pre(TL::PragmaCustomStatement) { }
     void Base::task_handler_post(TL::PragmaCustomStatement directive)
@@ -746,11 +756,11 @@ namespace TL { namespace OpenMP {
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
                     directive.get_locus())
-        );
+                );
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtExit::make(
                     directive.get_locus())
-        );
+                );
 
         // Label task (this is used only for instrumentation)
         PragmaCustomClause label_clause = pragma_line.get_clause("label");
@@ -784,12 +794,23 @@ namespace TL { namespace OpenMP {
             execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
         }
 
-        Nodecl::NodeclBase async_code =
-                    Nodecl::OpenMP::Task::make(execution_environment,
-                        directive.get_statements().shallow_copy(),
-                        directive.get_locus());
+        PragmaCustomClause final_clause = pragma_line.get_clause("final");
+        if (final_clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(directive);
+            if (expr_list.size() != 1)
+            {
+                running_error("%s: error: clause 'final' requires just one argument\n",
+                        directive.get_locus_str().c_str());
+            }
+            execution_environment.append(Nodecl::OpenMP::Final::make(expr_list[0].shallow_copy()));
+        }
 
-        pragma_line.diagnostic_unused_clauses();
+        Nodecl::NodeclBase async_code =
+            Nodecl::OpenMP::Task::make(execution_environment,
+                    directive.get_statements().shallow_copy(),
+                    directive.get_locus());
+
         directive.replace(async_code);
     }
 
@@ -918,7 +939,7 @@ namespace TL { namespace OpenMP {
             execution_environment.append(
                     Nodecl::OpenMP::FlushAtExit::make(
                         directive.get_locus())
-            );
+                    );
             execution_environment.append(
                     Nodecl::OpenMP::BarrierAtEnd::make(
                         directive.get_locus()));

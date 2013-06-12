@@ -76,6 +76,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority_expr,
                 Nodecl::NodeclBase if_condition,
+                Nodecl::NodeclBase final_condition,
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
@@ -379,6 +380,25 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
+        Nodecl::NodeclBase fill_adapter_function(
+                TL::Symbol adapter_function,
+                TL::Symbol called_function,
+                Nodecl::Utils::SimpleSymbolMap* &symbol_map,
+                Nodecl::NodeclBase original_function_call,
+                Nodecl::NodeclBase original_environment,
+                TL::ObjectList<TL::Symbol> &save_expressions,
+                // out
+                Nodecl::NodeclBase& task_construct,
+                Nodecl::NodeclBase& statements_of_task_seq,
+                Nodecl::NodeclBase& new_environment);
+
+        void get_nanos_in_final_condition(
+                TL::ReferenceScope scope,
+                const locus_t* locus,
+                // out
+                Nodecl::NodeclBase& is_in_final_nodecl,
+                TL::ObjectList<Nodecl::NodeclBase>& items);
 };
 
 } }

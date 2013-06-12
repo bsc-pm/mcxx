@@ -32,58 +32,21 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#if !defined(__ICC) || (__ICC >= 1300)
-
-#include <stdlib.h>
-
-void f1(void)
+int main(int argc, char* argv[])
 {
-  void g(int *x)
-  {
-     (*x)++;
-  }
+    int a = 0xFE70, b = 0x07EF;
 
-  int y;
-  y = 1;
+#pragma omp parallel
+    {
+#pragma omp atomic
+        a &= b;
 
-#pragma omp task inout(y)
-  {
-  g(&y);
-  }
-#pragma omp taskwait
-  if (y != 2) abort();
-}
+#pragma omp atomic
+        a |= b;
 
-void f2(void)
-{
-#pragma omp task inout(*x)
-  void g(int *x)
-  {
-     (*x)++;
-  }
-
-  int y;
-  y = 1;
-
-  g(&y);
-
-#pragma omp taskwait
-  if (y != 2) abort();
-}
-
-int main(int argc, char *argv[])
-{
-    f1();
-    f2();
+#pragma omp atomic
+        a ^= b;
+    }
 
     return 0;
 }
-
-#else
-
-int main(int argc, char *argv[])
-{
-    return 0;
-}
-
-#endif

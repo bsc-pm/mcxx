@@ -14628,7 +14628,7 @@ static void error_message_overload_failed(candidate_t* candidates,
     if (there_are_nonstatic_members
             && implicit_argument != NULL)
     {
-        info_printf("%s: info: the implicit argument for nonstatic member candidates is '%s'\n", 
+        info_printf("%s: info: the type of the implicit argument for nonstatic member candidates is '%s'\n", 
                 locus_to_str(locus),
                 print_type_str(implicit_argument, decl_context));
     }
