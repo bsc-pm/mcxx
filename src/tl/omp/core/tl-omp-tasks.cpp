@@ -489,6 +489,16 @@ namespace TL
             _priority_clause_expr = expr;
         }
 
+        void FunctionTaskInfo::set_final_clause_conditional_expression(Nodecl::NodeclBase expr)
+        {
+            _final_clause_cond_expr = expr;
+        }
+
+        Nodecl::NodeclBase FunctionTaskInfo::get_final_clause_conditional_expression() const
+        {
+            return _final_clause_cond_expr;
+        }
+
         Nodecl::NodeclBase FunctionTaskInfo::get_priority_clause_expression() const
         {
             return _priority_clause_expr;
@@ -508,7 +518,7 @@ namespace TL
         {
         }
 
-        const std::map<Symbol, FunctionTaskInfo>& FunctionTaskSet::get_task_map() const
+        std::map<Symbol, FunctionTaskInfo> FunctionTaskSet::get_function_task_set() const
         {
             return _map;
         }
@@ -1084,7 +1094,7 @@ namespace TL
             //Add real time information to the task
             task_info.set_real_time_info(rt_info);
 
-            // Support if clause 
+            // Support if clause
             PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())
             {
@@ -1095,6 +1105,19 @@ namespace TL
                             construct.get_locus_str().c_str());
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
+            }
+
+            // Support final clause
+            PragmaCustomClause final_clause = pragma_line.get_clause("final");
+            if (final_clause.is_defined())
+            {
+                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(param_ref_tree);
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'final' requires just one argument\n",
+                            construct.get_locus_str().c_str());
+                }
+                task_info.set_final_clause_conditional_expression(expr_list[0]);
             }
 
             // Support priority clause

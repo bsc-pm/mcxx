@@ -518,6 +518,8 @@ namespace TL
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 
+                bool only_has_smp_or_mpi_implementations() const;
+
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
         };

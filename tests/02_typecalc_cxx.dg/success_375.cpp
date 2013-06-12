@@ -28,62 +28,40 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
+test_generator=config/mercurium
 </testinfo>
 */
 
-#if !defined(__ICC) || (__ICC >= 1300)
-
-#include <stdlib.h>
-
-void f1(void)
+class A
 {
-  void g(int *x)
-  {
-     (*x)++;
-  }
 
-  int y;
-  y = 1;
+public:
 
-#pragma omp task inout(y)
-  {
-  g(&y);
-  }
-#pragma omp taskwait
-  if (y != 2) abort();
-}
+   A();
 
-void f2(void)
+   A(const char*);
+
+   A& arg( const int& , const int& =0 );
+   A& arg( const unsigned& , const int& =0 );
+   A& arg( const unsigned long& , const int& =0 );
+   A& arg( const double& , const int& =0, const int& =-1, const int& =0 );
+   A& arg( const char& , const int& =1);
+   A& arg( const A& );
+};
+
+A f(const A& str);
+
+struct B
 {
-#pragma omp task inout(*x)
-  void g(int *x)
-  {
-     (*x)++;
-  }
+    unsigned f1;
+    unsigned f2;
+    unsigned f3;
+    unsigned f4;
+    unsigned f5;
 
-  int y;
-  y = 1;
+    void g() const
+    {
+        f("%1.%2.%3 %4:%5").arg(f1).arg(f2).arg(f3).arg(f4).arg(f5);
+    }
+};
 
-  g(&y);
-
-#pragma omp taskwait
-  if (y != 2) abort();
-}
-
-int main(int argc, char *argv[])
-{
-    f1();
-    f2();
-
-    return 0;
-}
-
-#else
-
-int main(int argc, char *argv[])
-{
-    return 0;
-}
-
-#endif

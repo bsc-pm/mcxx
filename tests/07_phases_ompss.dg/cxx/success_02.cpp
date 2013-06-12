@@ -31,59 +31,31 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<assert.h>
 
-#if !defined(__ICC) || (__ICC >= 1300)
-
-#include <stdlib.h>
-
-void f1(void)
+void foo(int* n)
 {
-  void g(int *x)
-  {
-     (*x)++;
-  }
-
-  int y;
-  y = 1;
-
-#pragma omp task inout(y)
-  {
-  g(&y);
-  }
-#pragma omp taskwait
-  if (y != 2) abort();
+    *n = 2;
 }
 
-void f2(void)
+#pragma omp task inout(*n) final(1)
+void bar(int* n)
 {
-#pragma omp task inout(*x)
-  void g(int *x)
-  {
-     (*x)++;
-  }
-
-  int y;
-  y = 1;
-
-  g(&y);
-
-#pragma omp taskwait
-  if (y != 2) abort();
+    *n = 4;
 }
 
-int main(int argc, char *argv[])
+int main()
 {
-    f1();
-    f2();
+    int x = -1;
+#pragma omp task inout(x) final(1)
+    {
+        foo(&x);
+    }
 
-    return 0;
+#pragma omp taskwait on(x)
+    assert(x == 2);
+
+    bar(&x);
+#pragma omp taskwait on(x)
+    assert(x == 4);
 }
-
-#else
-
-int main(int argc, char *argv[])
-{
-    return 0;
-}
-
-#endif

@@ -107,7 +107,7 @@ namespace TL { namespace Nanox {
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     "nanos_wd_dyn_props_t nanos_dyn_props;"
         <<     "nanos_dyn_props.tie_to = (nanos_thread_t)0;"
-        <<     "nanos_dyn_props.priority = 0;"
+        <<     "nanos_dyn_props.flags.is_final = 0;"
         <<     const_wd_info
         <<     schedule_setup
         <<     "err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "

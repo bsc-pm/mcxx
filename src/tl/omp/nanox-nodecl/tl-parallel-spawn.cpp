@@ -170,6 +170,7 @@ namespace TL { namespace Nanox {
             <<   "nanos_wd_dyn_props_t dyn_props;"
             <<   "dyn_props.tie_to = (nanos_thread_t)0;"
             <<   "dyn_props.priority = 0;"
+            <<   "dyn_props.flags.is_final = 0;"
             <<   "unsigned int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"
