@@ -76,46 +76,42 @@ namespace Analysis {
         return result;
     }
 
-    bool NodeclStaticInfo::is_IV_dependent_access( const Nodecl::NodeclBase& n ) const
+    bool NodeclStaticInfo::is_induction_variable_dependent_access( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
         
-        std::cout << "Access: " << n.prettyprint() << "\n";
+//         std::cout << "Access: " << n.prettyprint() << "\n";
 
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
             Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
 
-            for(Nodecl::List::iterator it = subscript.begin( );
-                    it != subscript.end( ); 
-                    it++)
+            for( Nodecl::List::iterator it = subscript.begin( ); it != subscript.end( ); it++ )
             { 
                 Nodecl::Utils::ReduceExpressionVisitor v;
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
                 
                 AdjacentAccessVisitor iv_v( _induction_variables, _killed );
-                bool has_iv = iv_v.walk( s );
-                if( !has_iv )
+                bool constant = iv_v.walk( s );
+                if( !constant )
                 {
-                    std::cout << "-> " << s.prettyprint() << " does NOT have iv" << "\n";
-                    continue;
-                }
-                else
-                {
-                    std::cout << "-> " << s.prettyprint() << " has iv" << "\n";
                     Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
                     if( iv != NULL )
                     {
-                        std::cout << "-> IV NOT NULL => " << iv->get_variable().get_nodecl().prettyprint() <<  "\n";
+//                         std::cout << "-> " << s.prettyprint() << " has iv '" << iv->get_variable().get_nodecl().prettyprint() <<  "'\n";
                         result = true;
                         break;
                     }
-                    else
-                    {
-                        std::cout << "-> IV NULL" << "\n";
-                    }
+//                     else
+//                     {
+//                         std::cout << "-> " << s.prettyprint() << " has no iv" << "\n";
+//                     }
                 }
+//                 else
+//                 {
+//                     std::cout << "-> " << s.prettyprint() << " is a constant access" << "\n";
+//                 }
             }
         }
         
@@ -351,15 +347,15 @@ namespace Analysis {
     {
         Utils::InductionVariableData* res = NULL;
         for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
-            it != _induction_variables.end( ); ++it )
+             it != _induction_variables.end( ); ++it )
+        {
+            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
-                {
-                    res = *it;
-                    break;
-                }
+                res = *it;
+                break;
             }
-            return res;
+        }
+        return res;
     }
     
     bool AdjacentAccessVisitor::visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )

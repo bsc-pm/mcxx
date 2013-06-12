@@ -631,7 +631,7 @@ namespace TL
             }
 
             // Vector Promotion from ArraySubscript
-            if (!Vectorizer::_analysis_info->is_IV_dependent_access(
+            if (!Vectorizer::_analysis_info->is_induction_variable_dependent_access(
                         _environment._analysis_scopes.back(),
                         n))
             {
