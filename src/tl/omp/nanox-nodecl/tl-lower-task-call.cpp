@@ -1228,6 +1228,28 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
 
     Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
 
+    // Now get all the needed internal functions and duplicate them in the adapter function
+    Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+    internal_functions.walk(original_function_call);
+
+    // FIXME: this code is copied from 'duplicate_internal_subprograms' function
+    Nodecl::Utils::SimpleSymbolMap* new_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
+            it2 != internal_functions.function_codes.end();
+            it2++)
+    {
+        ERROR_CONDITION(!it2->is<Nodecl::FunctionCode>(), "Invalid node", 0);
+
+        TL::Symbol orig_sym = it2->get_symbol();
+
+        Nodecl::NodeclBase copied_node = it2->shallow_copy();
+
+        TL::Symbol new_sym = adapter_function.get_related_scope().new_symbol(orig_sym.get_name());
+        new_map->add_map(orig_sym, new_sym);
+
+        in_context.as<Nodecl::List>().append(copied_node);
+    }
+    symbol_map = new_map;
 
     Nodecl::NodeclBase context = Nodecl::Context::make(in_context, adapter_function.get_related_scope());
 
