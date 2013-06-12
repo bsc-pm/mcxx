@@ -913,7 +913,15 @@ void LoweringVisitor::visit_task(
         Nodecl::NodeclBase is_in_final_nodecl;
         get_nanos_in_final_condition(construct, construct.get_locus(), is_in_final_nodecl, items);
 
-        Nodecl::Utils::prepend_items_before(construct, Nodecl::List::make(items));
+        Nodecl::NodeclBase enclosing_expr = construct;
+        while (!enclosing_expr.is_null()
+                && !enclosing_expr.is<Nodecl::ExpressionStatement>())
+        {
+            enclosing_expr = enclosing_expr.get_parent();
+        }
+        ERROR_CONDITION(enclosing_expr.is_null(), "Unreachable code", 0);
+
+        Nodecl::Utils::prepend_items_before(enclosing_expr, Nodecl::List::make(items));
 
         Nodecl::NodeclBase if_else_stmt =
             Nodecl::IfElseStatement::make(
