@@ -281,6 +281,98 @@ TaskSyncRel may_have_dependence_list(Nodecl::List out_deps_source, Nodecl::List 
     return result;
 }
 
+TaskSyncRel compute_taskwait_sync_relationship(Node* source, Node* target)
+{
+    Nodecl::NodeclBase taskwait_node_source = source->get_graph_label();
+    ERROR_CONDITION(taskwait_node_source.is_null(), "Invalid target task tree", 0);
+    ERROR_CONDITION(!taskwait_node_source.is<Nodecl::OpenMP::WaitOnDependences>(),
+            "Expecting an OpenMP::WaitOnDependences source node here got a %s", 
+            ast_print_node_type(taskwait_node_source.get_kind()));
+
+    Nodecl::List task_source_env = taskwait_node_source
+        .as<Nodecl::OpenMP::WaitOnDependences>()
+        .get_environment()
+        .as<Nodecl::List>();
+
+    Nodecl::NodeclBase source_dep_in;
+    Nodecl::NodeclBase source_dep_out;
+    Nodecl::NodeclBase source_dep_inout;
+    for (Nodecl::List::iterator it = task_source_env.begin();
+            it != task_source_env.end();
+            it++)
+    {
+        ERROR_CONDITION((it->is<Nodecl::OpenMP::DepIn>()) || (it->is<Nodecl::OpenMP::DepOut>()), 
+                "Unexpected tree in a taskwait", 0);
+        if (it->is<Nodecl::OpenMP::DepInout>())
+            source_dep_inout = *it;
+    }
+
+    // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
+    // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
+    Nodecl::NodeclBase task_node_target = target->get_graph_label();
+    ERROR_CONDITION(task_node_target.is_null(), "Invalid target task tree", 0);
+    ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
+            && !task_node_target.is<Nodecl::OpenMP::TaskCall>(),
+            "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
+            ast_print_node_type(task_node_target.get_kind()));
+    Nodecl::List task_target_env;
+    if (task_node_target.is<Nodecl::OpenMP::Task>())
+    {
+        Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
+        task_target_env = task_target.get_environment().as<Nodecl::List>();
+    }
+    else if (task_node_target.is<Nodecl::OpenMP::TaskCall>())
+    {
+        Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
+        task_target_env = task_target.get_site_environment().as<Nodecl::List>();
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    Nodecl::NodeclBase target_dep_in;
+    Nodecl::NodeclBase target_dep_out;
+    Nodecl::NodeclBase target_dep_inout;
+    for (Nodecl::List::iterator it = task_target_env.begin();
+            it != task_target_env.end();
+            it++)
+    {
+        if (it->is<Nodecl::OpenMP::DepIn>())
+            target_dep_in = *it;
+        else if (it->is<Nodecl::OpenMP::DepOut>())
+            target_dep_out = *it;
+        else if (it->is<Nodecl::OpenMP::DepInout>())
+            target_dep_inout = *it;
+    }
+
+    TaskSyncRel may_have_dep = TaskSync_No;
+
+    // DRY
+    Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
+    int num_sources = sizeof(sources)/sizeof(sources[0]);
+    Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout };
+    int num_targets = sizeof(targets)/sizeof(targets[0]);
+
+    for (int n_source = 0; n_source < num_sources; n_source++)
+    {
+        for (int n_target = 0; n_target < num_targets; n_target++)
+        {
+            if (sources[n_source].is_null()
+                    || targets[n_target].is_null())
+                continue;
+
+            // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
+            // same physical layout
+            may_have_dep = may_have_dep || may_have_dependence_list(
+                    sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+                    targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
+        }
+    }
+
+    return may_have_dep;
+}
+
 // Computes if task source will synchronize with the creation of the task target
 TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
 {
@@ -566,7 +658,16 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
     }
     else if (current->is_ompss_taskwait_on_node())
     {
-        internal_error("Not yet implemented", 0);
+        for (AliveTaskSet::iterator alive_tasks_it = get_alive_in(current).begin();
+                alive_tasks_it != get_alive_in(current).end();
+                alive_tasks_it++)
+        {
+            if (alive_tasks_it->domain != current_domain_id)
+                continue;
+
+            TaskSyncRel task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
+// #warning FIXME
+        }
     }
     else if (current->is_omp_barrier_node())
     {
