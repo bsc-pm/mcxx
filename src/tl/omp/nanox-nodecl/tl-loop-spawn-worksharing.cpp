@@ -157,6 +157,7 @@ namespace TL { namespace Nanox {
         <<             "nanos_wd_dyn_props_t dyn_props;"
         <<             "dyn_props.tie_to = (nanos_thread_t)0;"
         <<             "dyn_props.priority = 0;"
+        <<             "dyn_props.flags.is_final = 0;"
 
         <<             "static nanos_slicer_t replicate = (nanos_slicer_t)0;"
         <<             "if (replicate == (nanos_slicer_t)0)"
