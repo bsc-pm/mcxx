@@ -410,7 +410,7 @@ namespace Analysis {
         return result;
     }
 
-    bool AnalysisStaticInfo::is_IV_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    bool AnalysisStaticInfo::is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
 
@@ -424,7 +424,7 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.is_IV_dependent_access( n );
+            result = current_info.is_induction_variable_dependent_access( n );
         }
 
         return result;
