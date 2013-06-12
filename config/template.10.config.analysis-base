@@ -46,6 +46,7 @@ options = --openmp
 {induction-vars} options = --variable=induction_vars_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
+{task-sync} options = --variable=task_sync_enabled:1
 {openmp} compiler_phase = libtlomp-simd.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
@@ -76,6 +77,7 @@ preprocessor_options = -E
 {induction-vars} options = --variable=induction_vars_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
+{task-sync} options = --variable=task_sync_enabled:1
 {openmp} compiler_phase = libtlomp-simd.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp} linker_options = -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
