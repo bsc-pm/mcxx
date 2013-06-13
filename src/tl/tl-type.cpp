@@ -523,6 +523,11 @@ namespace TL
         return is_named_type(_type_info);
     }
 
+    bool Type::is_indirect() const
+    {
+        return is_indirect_type(_type_info);
+    }
+
     Symbol Type::get_symbol() const
     {
         return named_type_get_symbol(_type_info);

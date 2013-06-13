@@ -5902,6 +5902,15 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
 
         (this->*symbol_to_define)(t.get_symbol());
     }
+    else if (t.is_indirect())
+    {
+        walk_type_for_symbols(
+                t.get_symbol().get_type(),
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree,
+                needs_definition);
+    }
     else if (t.is_pointer())
     {
         walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
