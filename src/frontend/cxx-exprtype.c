@@ -7837,7 +7837,10 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                         || (entry->kind == SK_VARIABLE
                             && (is_class_type(type)
                                 || is_pointer_to_function_type(type)
-                                || is_dependent_type(type))))
+                                || is_dependent_type(type)))
+                        // Or It's a local function
+                        || (entry->kind == SK_FUNCTION
+                            &&  entry->decl_context.current_scope->kind == BLOCK_SCOPE))
                 {
                     still_requires_koenig = 0;
                 }
