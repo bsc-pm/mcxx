@@ -11309,7 +11309,14 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);
-        result = get_user_defined_type(symbol);
+        if (is_indirect_type(orig))
+        {
+            result = get_indirect_type(symbol);
+        }
+        else
+        {
+            result = get_user_defined_type(symbol);
+        }
     }
     else if (is_pointer_type(orig))
     {
