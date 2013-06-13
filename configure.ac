@@ -1453,7 +1453,9 @@ AC_CONFIG_FILES([Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
            src/tl/examples/Makefile
-           src/tl/examples/basic_phase/Makefile
+           src/tl/examples/01_basic_phase/Makefile
+           src/tl/examples/02_parameters/Makefile
+           src/tl/examples/03_visitor/Makefile
            src/tl/old_examples/Makefile
            src/tl/old_examples/basic_phase/Makefile
            src/tl/old_examples/parameters/Makefile
