@@ -1,0 +1,98 @@
+Basic Phase
+===========
+
+This example shows the skeleton of a phase. This phase does nothing but print
+messages when it is loaded, pre_run, run and unloaded. It also describes itself
+as a 'Basic phase which does nothing'.
+
+This phase can be used as a starting point for a generic phase. Remember that
+any compiler phase must inherit from CompilerPhase and export the fully
+qualified name of the phase using EXPORT_PHASE.
+
+The key for creating a phase in the compiler without too much effort is using
+Makefile.phases, which add the required magic to compilation and linking
+commands.
+
+Since we are using Automake plus Libtool, phases must be listed in LTLIBRARIES
+and end with ".la" ("la" stands for "libtool archive"). Source of the phase must
+be listed in name_of_phase_la (where every character not valid in a Makefile variable
+name has been replaced by a '_').
+
+-- Makefile.am --
+
+ # This file will do most of the magic for TL phases
+ include $(top_srcdir)/src/tl/Makefile.phases
+
+ phases_LTLIBRARIES = << your phases ended in .la here >>
+
+ # Convenience variable for common flags between C and C++
+ COMMON_CFLAGS= -Wall $(tl_cflags)
+
+ # Phases are in C++ most of the time
+ libtlbasic_test_la_CXXFLAGS = $(COMMON_CFLAGS)
+ # If you use C in a phase, uncoment the following line
+ # libtlbasic_test_la_CFLAGS = $(COMMON_CFLAGS)
+
+ # List here both .hpp, .h, .cpp and .c files
+ libtlbasic_test_la_SOURCES = \
+ 						tl-basic_test.hpp \
+ 						tl-basic_test.cpp
+
+
+ # Do not forget these link time flags
+ libtlbasic_test_la_LIBADD = $(tl_libadd)
+ libtlbasic_test_la_LDFLAGS = $(tl_ldflags)
+
+-- End of Makefile.am --
+
+
+A phase can describe itself using set_phase_name and set_phase_description. This
+information is used by the driver when --help is requested. This must be done in the
+constructor of the phase.
+
+-- tl-basic_test.cpp --
+ set_phase_name("Basic Test");
+ set_phase_description("This is a basic phase test which does nothing but printing some messages");
+--
+
+Testing
+-------
+
+To test this phase, compile it (make) and install it (make install). Modify a profile of the compiler,
+for instance "plaincc" to include a line like
+
+  compiler_phase = libtlbasic_test
+
+And every time you run the compiler you should see the following messages
+
+--
+ $ plaincc -c test.c
+ Basic test phase created
+ Basic test phase pre_run
+ Basic test phase run
+ Basic test phase destroyed
+--
+
+If you run help you will see the following text at the end
+
+--
+ $ plaincc --help
+ [... Lots of help text ommitted...]
+ Basic test phase created
+
+ Loaded compiler phases in this profile (in the order they will be run)
+
+ Phase: Basic Test
+
+    This is a basic phase test which does nothing but printing some messages
+
+    No parameters registered by the phase
+--
+
+Note that the message 'Basic test phase created' appears in the middle of the
+help because our example phase prints such message when being loaded (phases
+usually do not do this)
+
+In the example 'parameters' you will see how to register parameters in the
+phase which can be passed as command line flags. This phase has none, as the
+help message states.
