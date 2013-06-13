@@ -1190,9 +1190,10 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         new_code = new_construct;
     }
 
-    Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
-    Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
-    Nodecl::NodeclBase updated_final_condition = rewrite_expression_in_dependency_c(task_environment.final_condition, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_priority, updated_if_condition, updated_final_condition;
+    updated_priority = rewrite_expression_in_terms_of_arguments(task_environment.priority, param_to_arg_expr);
+    updated_if_condition = rewrite_expression_in_terms_of_arguments(task_environment.if_condition, param_to_arg_expr);
+    updated_final_condition = rewrite_expression_in_terms_of_arguments(task_environment.final_condition, param_to_arg_expr);
 
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
