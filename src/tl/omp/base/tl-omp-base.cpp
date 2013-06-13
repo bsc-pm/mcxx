@@ -822,15 +822,15 @@ namespace TL { namespace OpenMP {
                     if (original_function_code.is_null())
                     {
                         new_function_stmts = create_a_wrapper_to_the_original_function(original_function, new_function);
+                        Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
                     }
                     else
                     {
                         new_function_stmts = copy_and_transform_the_original_function_code(new_function, original_function_code, translation_map);
-                        // Remove the nonvoid function code from the tree and append the new function code
-                        Nodecl::Utils::remove_from_enclosing_list(original_function_code);
+                        // Replace the nonvoid function code by the new function code
+                        original_function_code.replace(new_function_code);
                     }
                     new_function_body.replace(new_function_stmts);
-                    Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
 
                     // Finally, we should add the new void function task into the task set
                     add_the_new_task_to_the_function_task_set(new_function, original_function_task_info, translation_map);

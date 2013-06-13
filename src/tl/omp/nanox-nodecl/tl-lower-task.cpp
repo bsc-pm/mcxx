@@ -869,6 +869,9 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
+    bool is_join_task_of_task_expression =
+        (placeholder_task_expr_transformation != NULL);
+
     walk(statements);
 
     // Get the new statements
@@ -913,15 +916,20 @@ void LoweringVisitor::visit_task(
         Nodecl::NodeclBase is_in_final_nodecl;
         get_nanos_in_final_condition(construct, construct.get_locus(), is_in_final_nodecl, items);
 
-        Nodecl::NodeclBase enclosing_expr = construct;
-        while (!enclosing_expr.is_null()
-                && !enclosing_expr.is<Nodecl::ExpressionStatement>())
+        // The enclosing statement of a usual inline task is the Nodecl::OpenMP::Task node
+        Nodecl::NodeclBase enclosing_stmt = construct;
+        if (is_join_task_of_task_expression)
         {
-            enclosing_expr = enclosing_expr.get_parent();
+            // The enclosing statement is the first parent that is a Nodecl::ExpressionStatement
+            while (!enclosing_stmt.is_null()
+                    && !enclosing_stmt.is<Nodecl::ExpressionStatement>())
+            {
+                enclosing_stmt = enclosing_stmt.get_parent();
+            }
+            ERROR_CONDITION(enclosing_stmt.is_null(), "Unreachable code", 0);
         }
-        ERROR_CONDITION(enclosing_expr.is_null(), "Unreachable code", 0);
 
-        Nodecl::Utils::prepend_items_before(enclosing_expr, Nodecl::List::make(items));
+        Nodecl::Utils::prepend_items_before(enclosing_stmt, Nodecl::List::make(items));
 
         Nodecl::NodeclBase if_else_stmt =
             Nodecl::IfElseStatement::make(
