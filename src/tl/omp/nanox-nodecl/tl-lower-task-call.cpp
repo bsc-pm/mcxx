@@ -1523,7 +1523,8 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
 
     if (Nanos::Version::interface_is_at_least("master", 5024)
-            && dummy_outline_info.only_has_smp_or_mpi_implementations())
+            && dummy_outline_info.only_has_smp_or_mpi_implementations()
+            && !inside_task_expression)
     {
         Nodecl::NodeclBase is_in_final_nodecl;
         TL::ObjectList<Nodecl::NodeclBase> items;
