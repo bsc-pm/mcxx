@@ -36,7 +36,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
     Nodecl::OpenMP::Task join_task = task_expr.get_join_task().as<Nodecl::OpenMP::Task>();
     Nodecl::List task_calls = task_expr.get_task_calls().as<Nodecl::List>();
 
-    if (Nanos::Version::interface_is_at_least("master", 5024))
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024))
     {
         ERROR_CONDITION(!task_expr.get_parent().is<Nodecl::ExpressionStatement>(), "Unexpected node", 0);
         Nodecl::NodeclBase expr_stmt = task_expr.get_parent();
