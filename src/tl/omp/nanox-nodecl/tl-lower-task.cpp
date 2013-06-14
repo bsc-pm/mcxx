@@ -519,7 +519,8 @@ void LoweringVisitor::emit_async_common(
         << "nanos_wd_dyn_props.priority = " << as_expression(priority_expr) << ";"
         ;
 
-    if (Nanos::Version::interface_is_at_least("master", 5024))
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024))
     {
         dynamic_wd_info
             << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
@@ -778,7 +779,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         argument_outline_data_item.set_base_address_expression(sym_ref);
     }
     Nodecl::NodeclBase new_construct;
-    if (Nanos::Version::interface_is_at_least("master", 5024)
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
             && outline_info.only_has_smp_or_mpi_implementations())
     {
         new_construct = construct.shallow_copy();
