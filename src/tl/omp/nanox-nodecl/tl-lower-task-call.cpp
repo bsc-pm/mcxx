@@ -1150,7 +1150,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
 
     Nodecl::NodeclBase new_code;
-    if (Nanos::Version::interface_is_at_least("master", 5024)
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
             && arguments_outline_info.only_has_smp_or_mpi_implementations())
     {
         Nodecl::NodeclBase enclosing_expr_stmt = construct.get_parent();
@@ -1520,7 +1521,8 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
 
     OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
 
-    if (Nanos::Version::interface_is_at_least("master", 5024)
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
             && dummy_outline_info.only_has_smp_or_mpi_implementations())
     {
         Nodecl::NodeclBase is_in_final_nodecl;
