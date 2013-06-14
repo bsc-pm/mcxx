@@ -367,10 +367,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void visit_task(
                 const Nodecl::OpenMP::Task& construct,
+                bool inside_task_expression,
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
-        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
-        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
+        void visit_task_call(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
 
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
@@ -394,6 +396,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase original_function_call,
                 Nodecl::NodeclBase original_environment,
                 TL::ObjectList<TL::Symbol> &save_expressions,
+                bool inside_task_expression,
                 // out
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,

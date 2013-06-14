@@ -858,19 +858,17 @@ void LoweringVisitor::emit_async_common(
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 {
-    visit_task(construct, /* placeholder_task_expr_transformation */ NULL);
+    visit_task(construct, /* inside_task_expression */ false, /* placeholder_task_expr_transformation */ NULL);
 }
 
 // This function is called by the visitors of a OpenMP::Task and OpenMP::TaskExpression
 void LoweringVisitor::visit_task(
         const Nodecl::OpenMP::Task& construct,
+        bool inside_task_expression,
         Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
-
-    bool is_join_task_of_task_expression =
-        (placeholder_task_expr_transformation != NULL);
 
     walk(statements);
 
@@ -908,7 +906,8 @@ void LoweringVisitor::visit_task(
     }
     Nodecl::NodeclBase new_construct;
     if (Nanos::Version::interface_is_at_least("master", 5024)
-            && outline_info.only_has_smp_or_mpi_implementations())
+            && outline_info.only_has_smp_or_mpi_implementations()
+            && !inside_task_expression)
     {
         new_construct = construct.shallow_copy();
 
@@ -918,22 +917,11 @@ void LoweringVisitor::visit_task(
 
         // The enclosing statement of a usual inline task is the Nodecl::OpenMP::Task node
         Nodecl::NodeclBase enclosing_stmt = construct;
-        if (is_join_task_of_task_expression)
-        {
-            // The enclosing statement is the first parent that is a Nodecl::ExpressionStatement
-            while (!enclosing_stmt.is_null()
-                    && !enclosing_stmt.is<Nodecl::ExpressionStatement>())
-            {
-                enclosing_stmt = enclosing_stmt.get_parent();
-            }
-            ERROR_CONDITION(enclosing_stmt.is_null(), "Unreachable code", 0);
-        }
-
         Nodecl::Utils::prepend_items_before(enclosing_stmt, Nodecl::List::make(items));
 
         Nodecl::NodeclBase if_else_stmt =
             Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl.shallow_copy(),
+                    is_in_final_nodecl,
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
                             statements.shallow_copy(),
