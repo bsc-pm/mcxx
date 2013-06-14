@@ -8554,7 +8554,7 @@ void check_nodecl_function_call(
         return;
     }
 
-    // This 1+ is room for the implicit argument
+    // This 1+ is room for the implicit argument at the 0-th position
     int num_arguments = 1 + nodecl_list_length(nodecl_argument_list);
     type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { NULL };
 
@@ -8904,6 +8904,25 @@ void check_nodecl_function_call(
     {
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
+    }
+
+    if (overloaded_call->entity_specs.is_member
+            && !overloaded_call->entity_specs.is_static)
+    {
+        // Make sure we got an object
+        if (nodecl_is_null(nodecl_implicit_argument))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: cannot call '%s' without an object\n", 
+                        locus_to_str(locus),
+                        print_decl_type_str(overloaded_call->type_information,
+                            decl_context,
+                            get_qualified_symbol_name(overloaded_call, decl_context)));
+            }
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
     }
 
     DEBUG_CODE()
