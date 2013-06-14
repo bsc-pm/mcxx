@@ -10967,6 +10967,10 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             }
                             xfree(type_stack[type_stack_idx].fields);
                             type_stack_idx--;
+
+                            // We have filled an item of the enclosing aggregate
+                            ERROR_CONDITION(type_stack_idx < 0, "Stack overflow", 0);
+                            type_stack[type_stack_idx].item++;
                         }
                         else
                         {
@@ -11070,10 +11074,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     // Now we have to initialize an aggregate but the syntax lacks braces, so we have to push this item
                     // to the type stack and continue from here
 
-                    // When we come back to the previous type (if any) it will be to fill the next subaggregate, not the current one
-                    if (type_stack_idx > 0)
-                        type_stack[type_stack_idx - 1].item++;
-
                     type_stack_idx++;
                     ERROR_CONDITION(type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
 
@@ -11129,12 +11129,10 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             // Deallocate nodecl list
             xfree(list);
 
-
             initializer_type = declared_type;
             if (is_array_type(declared_type)
                     && type_stack[0].num_items == -1)
             {
-
                 nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
                         const_value_get_unsigned_int(type_stack[0].max_item + 1),
                         locus);
