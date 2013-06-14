@@ -4219,20 +4219,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 bool member_declaration_does_define = true;
 
                 // If we are declaring a static member it is not a definition
-                // unless it is const integral type or const enum type
+                // unless it has been declared inside the class
                 if (member.is_variable()
-                        && member.is_static()
-                        && (!member.get_type().is_const()
-                            || (!member.get_type().is_integral_type()
-                                && !member.get_type().is_enum())))
+                        && member.is_static())
                 {
-                    member_declaration_does_define = false;
-                }
-
-                // Override whatever we might have deduced so far
-                if (member.is_defined_inside_class())
-                {
-                    member_declaration_does_define = true;
+                    member_declaration_does_define = member.is_defined_inside_class();
                 }
 
                 if (member_declaration_does_define)
@@ -4722,12 +4713,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
     char emit_initializer = 0;
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
-                || ((symbol.is_static()
-                        && (!state.in_member_declaration
-                            || ((symbol.get_type().is_integral_type()
-                                    || symbol.get_type().is_enum())
-                                && symbol.get_type().is_const())))
-                    || symbol.is_defined_inside_class())))
+                || (state.in_member_declaration == symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;
     }

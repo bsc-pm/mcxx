@@ -46,6 +46,8 @@ namespace TL { namespace Nanox {
 
             bool in_ompss_mode() const;
             bool instrumentation_enabled() const;
+            bool final_clause_transformation_disabled() const;
+
         private:
             Nodecl::List _extra_c_code;
 
@@ -64,12 +66,15 @@ namespace TL { namespace Nanox {
             bool _instrumentation_enabled;
             void set_instrumentation(const std::string& str);
 
+            std::string _final_clause_transformation_str;
+            bool _final_clause_transformation_disabled;
+            void set_disable_final_clause_transformation(const std::string& str);
+
             void finalize_phase(Nodecl::NodeclBase global_node);
             void set_openmp_programming_model(Nodecl::NodeclBase global_node);
 
             std::string _openmp_dry_run;
     };
-
 } }
 
 #endif // TL_NANOX_NODECL_HPP
