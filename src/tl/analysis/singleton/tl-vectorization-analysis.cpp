@@ -360,6 +360,15 @@ namespace Analysis {
         return !_ivs.empty( );
     }
     
+    bool ArrayAccessInfoVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    {
+        std::cerr << "Unhandled node while parsing Array Subscript '"
+                  << codegen_to_str( n.get_internal_nodecl( ),
+                                    nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
+                  << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        return false;
+    }
+    
     bool ArrayAccessInfoVisitor::join_list( ObjectList<bool>& list )
     {
         _is_adjacent_access = false;

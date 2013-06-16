@@ -294,6 +294,7 @@ namespace Analysis {
         bool depends_on_induction_vars( );
         
         // *** Visiting methods *** //
+        Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret join_list( ObjectList<bool>& list );
         
         Ret visit( const Nodecl::Add& n );
