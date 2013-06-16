@@ -88,36 +88,35 @@ namespace Utils {
         walk( n );
     }
 
-    TopLevelVisitor::Ret TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    void TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         nodecl_t intern_n = n.get_internal_nodecl( );
         WARNING_MESSAGE( "Unhandled node '%s' while PCFG construction of type '%s''",
                          codegen_to_str( intern_n, nodecl_retrieve_context( intern_n ) ),
                          ast_print_node_type( n.get_kind( ) ) );
-        return Ret( );
     }
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccBuiltinVaArg& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GccBuiltinVaArg& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxDecl& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxDecl& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxDef& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxDef& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiation& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiation& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxUsingNamespace& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxUsingNamespace& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxUsingDecl& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxUsingDecl& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
+    void TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
     {
         if( _filename == n.get_filename( ) )
         {
@@ -132,25 +131,41 @@ namespace Utils {
         }
     }
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::ObjectInit& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::ObjectInit& n ) {}
+    
+    void TopLevelVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
+    {
+        if( _filename == n.get_filename( ) )
+        {
+            _functions.append( n );
+        }
+    }
+    
+    void TopLevelVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
+    {
+        if( _filename == n.get_filename( ) )
+        {
+            _functions.append( n );
+        }
+    }
+    
+    void TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::PragmaCustomDirective& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PragmaCustomDirective& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::PreprocessorLine& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PreprocessorLine& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::SourceComment& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::SourceComment& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::Text& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Text& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::UnknownPragma& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::UnknownPragma& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::UpcSyncStatement& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::UpcSyncStatement& n ) {}
-
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
 
     // **************************** END visitor for Top Level nodes ****************************** //
     // ******************************************************************************************* //

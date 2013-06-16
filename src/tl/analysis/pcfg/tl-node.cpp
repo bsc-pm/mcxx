@@ -596,26 +596,29 @@ namespace Analysis {
             Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
             switch( ntype )
             {
-                case ASM_DEF:           graph_type = "ASM_DEF";             break;
-                case COND_EXPR:         graph_type = "COND_EXPR";           break;
-                case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
-                case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
-                case IF_ELSE:           graph_type = "IF_ELSE";             break;
-                case LOOP_DOWHILE:      graph_type = "LOOP_DOWHILE";        break;
-                case LOOP_FOR:          graph_type = "LOOP_FOR";            break;
-                case LOOP_WHILE:        graph_type = "LOOP_WHILE";          break;
-                case OMP_ATOMIC:        graph_type = "OMP_ATOMIC";          break;
-                case OMP_CRITICAL:      graph_type = "OMP_CRITICAL";        break;
-                case OMP_LOOP:          graph_type = "OMP_LOOP";            break;
-                case OMP_PARALLEL:      graph_type = "OMP_PARALLEL";        break;
-                case OMP_SECTION:       graph_type = "OMP_SECTION";         break;
-                case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
-                case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
-                case OMP_TASK:          graph_type = "OMP_TASK";            break;
-                case SIMD:              graph_type = "SIMD";                break;
-                case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
-                case SWITCH:            graph_type = "SWITCH";              break;
-                default:                WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
+                case ASM_DEF:               graph_type = "ASM_DEF";                 break;
+                case COND_EXPR:             graph_type = "COND_EXPR";               break;
+                case EXTENSIBLE_GRAPH:      graph_type = "EXTENSIBLE_GRAPH";        break;
+                case FUNC_CALL:             graph_type = "FUNC_CALL";               break;
+                case IF_ELSE:               graph_type = "IF_ELSE";                 break;
+                case LOOP_DOWHILE:          graph_type = "LOOP_DOWHILE";            break;
+                case LOOP_FOR:              graph_type = "LOOP_FOR";                break;
+                case LOOP_WHILE:            graph_type = "LOOP_WHILE";              break;
+                case OMP_ATOMIC:            graph_type = "OMP_ATOMIC";              break;
+                case OMP_CRITICAL:          graph_type = "OMP_CRITICAL";            break;
+                case OMP_LOOP:              graph_type = "OMP_LOOP";                break;
+                case OMP_PARALLEL:          graph_type = "OMP_PARALLEL";            break;
+                case OMP_SECTION:           graph_type = "OMP_SECTION";             break;
+                case OMP_SECTIONS:          graph_type = "OMP_SECTIONS";            break;
+                case OMP_SIMD:              graph_type = "OMP_SIMD";                break;
+                case OMP_SIMD_FOR:          graph_type = "OMP_SIMD_FOR";            break;
+                case OMP_SIMD_FUNCTION:     graph_type = "OMP_SIMD_FUNCTION";       break;
+                case OMP_SIMD_PARALLEL_FOR: graph_type = "OMP_SIMD_PARALLEL_FOR";   break;
+                case OMP_SINGLE:            graph_type = "OMP_SINGLE";              break;
+                case OMP_TASK:              graph_type = "OMP_TASK";                break;
+                case SPLIT_STMT:            graph_type = "SPLIT_STMT";              break;
+                case SWITCH:                graph_type = "SWITCH";                  break;
+                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else

@@ -1732,8 +1732,31 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ParallelSimdFor& n )
     {
-        std::cerr << "Ignoring Pragma ParallelSimdFor '" << n.prettyprint( ) << "'" << std::endl;
-        return ObjectList<Node*>( );
+        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SIMD_PARALLEL_FOR );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
+        
+        Node* simd_entry = simd_node->get_graph_entry_node( );
+        Node* simd_exit = simd_node->get_graph_exit_node( );
+        
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_entry );
+        walk( n.get_statement( ) );
+        
+        // Link properly the exit node
+        simd_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_entry, simd_exit ) );
+        walk( n.get_environment( ) );
+        simd_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
+        return ObjectList<Node*>( 1, simd_node );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
@@ -1837,46 +1860,66 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Simd& n )
     {
-        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD );
+        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SIMD );
         _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
-        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node->get_graph_entry_node( ) );
 
+        Node* simd_entry = simd_node->get_graph_entry_node( );
+        Node* simd_exit = simd_node->get_graph_exit_node( );
+        
         // Compose the statements nodes
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_entry );
         walk( n.get_statement( ) );
 
         // Link properly the exit node
-        Node* exit_node = simd_node->get_graph_exit_node( );
-        exit_node->set_id( ++( _utils->_nid ) );
-        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+        simd_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_exit );
 
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_entry, simd_exit ) );
+        walk( n.get_environment( ) );
+        simd_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
         return ObjectList<Node*>( 1, simd_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFor& n )
     {
-        std::cerr << "Ignoring Pragma SimdFor '" << n.prettyprint( ) << "'" << std::endl;
-        return ObjectList<Node*>( );
+        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_SIMD_FOR );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
+
+        Node* simd_entry = simd_node->get_graph_entry_node( );
+        Node* simd_exit = simd_node->get_graph_exit_node( );
+        
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_entry );
+        walk( n.get_openmp_for( ) );
+        
+        // Link properly the exit node
+        simd_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_entry, simd_exit ) );
+        walk( n.get_environment( ) );
+        simd_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
+        return ObjectList<Node*>( 1, simd_node );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
-        Node* simd_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, SIMD_FUNCTION );
-        _pcfg->connect_nodes( _utils->_last_nodes, simd_node );
-        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node->get_graph_entry_node( ) );
-
-        // Compose the statements nodes
-        walk( n.get_statement( ) );
-
-        // Link properly the exit node
-        Node* exit_node = simd_node->get_graph_exit_node( );
-        exit_node->set_id( ++( _utils->_nid ) );
-        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
-
-        _utils->_last_nodes = ObjectList<Node*>( 1, simd_node );
-        return ObjectList<Node*>( 1, simd_node );
+        return walk( n.get_statement( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Single& n )
@@ -1975,9 +2018,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
-        internal_error( "TaskCall not yet implemented", 0 );
-        walk( n.get_environment( ) );
-        walk( n.get_call( ) );
+        return walk( n.get_call( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
