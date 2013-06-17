@@ -35,7 +35,7 @@ namespace Analysis {
         TestAnalysisPhase::TestAnalysisPhase( )
             : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ),
               _reaching_defs_enabled( false ), _induction_vars_enabled( false ),
-              _auto_scope_enabled( false ), _task_sync_enabled( false )
+              _auto_scope_enabled( false )
         {
             set_phase_name("Experimental phase for testing compiler analysis");
             set_phase_description("This is a temporal phase called with code testing purposes.");
@@ -64,11 +64,6 @@ namespace Analysis {
                                "If set to '1' enables pcfg analysis, otherwise it is disabled",
                                _induction_vars_enabled_str,
                                "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
-
-            register_parameter("task_sync_enabled",
-                               "If set to '1' enables task sync analysis, otherwise it is disabled",
-                               _task_sync_enabled_str,
-                               "0").connect(functor(&TestAnalysisPhase::set_task_sync, *this));
         }
 
         void TestAnalysisPhase::run( TL::DTO& dto )
@@ -88,15 +83,6 @@ namespace Analysis {
                 pcfgs = analysis.parallel_control_flow_graph( memento, ast );
                 //if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation done =========" << std::endl;
-            }
-
-            if (_task_sync_enabled)
-            {
-                //if( VERBOSE )
-                std::cerr << "========= Task Sync analysis =========" << std::endl;
-                pcfgs = analysis.task_sync( memento, ast );
-                //if( VERBOSE )
-                std::cerr << "========= Task Sync analysis done =========" << std::endl;
             }
 
             if( _use_def_enabled )
@@ -134,14 +120,7 @@ namespace Analysis {
                 // if( VERBOSE )
                     std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
             }
-
-            // if (_task_sync_enabled)
-            {
-                // if( VERBOSE )
-                    std::cerr << "========= Task Sync analysis =========" << std::endl;
-                pcfgs = analysis.task_sync( memento, ast );
-            }
-
+            
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
                 if( VERBOSE )
@@ -189,12 +168,6 @@ namespace Analysis {
         {
             if( auto_scope_enabled_str == "1" )
                 _auto_scope_enabled = true;
-        }
-
-        void TestAnalysisPhase::set_task_sync( const std::string& task_sync_enabled_str )
-        {
-            if( task_sync_enabled_str == "1" )
-                _task_sync_enabled = true;
         }
 }
 }

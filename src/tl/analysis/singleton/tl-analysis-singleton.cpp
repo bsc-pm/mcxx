@@ -32,13 +32,13 @@
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-task-sync.hpp"
 #include "tl-use-def.hpp"
 #include "tl-liveness.hpp"
 #include "tl-reaching-definitions.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-loop-analysis.hpp"
 #include "tl-auto-scope.hpp"
-#include "tl-task-sync-analysis.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -157,17 +157,7 @@ namespace Analysis {
     {
         _auto_deps = true;
     }
-
-    bool PCFGAnalysis_memento::is_task_sync_computed( ) const
-    {
-        return _task_sync;
-    }
-
-    void PCFGAnalysis_memento::set_task_sync_computed( )
-    {
-        _task_sync = true;
-    }
-
+    
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
@@ -363,6 +353,12 @@ namespace Analysis {
                 PCFGVisitor v( pcfg_name, *it );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
+                // Synchronize the tasks, if applies
+                if( VERBOSE )
+                    printf( "Task sync of PCFG '%s'\n", pcfg_name.c_str( ) );
+                TaskSynchronizations task_sync_analysis( pcfg );
+                task_sync_analysis.compute_task_synchronizations( );
+                
                 // Store the pcfg in the singleton
                 memento.set_pcfg( pcfg_name, pcfg );
                 result.append( pcfg );
@@ -516,25 +512,6 @@ namespace Analysis {
 
                 AutoScoping as( *it );
                 as.compute_auto_scoping( );
-            }
-        }
-
-        return pcfgs;
-    }
-
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::task_sync( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
-    {
-        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
-
-        if( !memento.is_task_sync_computed( ) )
-        {
-            memento.set_task_sync_computed( );
-
-            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
-            {
-                printf( "Task sync of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                TaskSynchronizations task_sync_analysis(*it);
-                task_sync_analysis.compute_task_synchronizations();
             }
         }
 

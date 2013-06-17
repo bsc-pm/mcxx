@@ -63,10 +63,6 @@ namespace Analysis {
         bool _auto_scope_enabled;
         void set_auto_scope( const std::string& auto_scope_enabled_str );
 
-        std::string _task_sync_enabled_str;
-        bool _task_sync_enabled;
-        void set_task_sync( const std::string& task_sync_enabled_str );
-
     public:
         //! Constructor of this phase
         TestAnalysisPhase();

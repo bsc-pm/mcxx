@@ -67,7 +67,6 @@ namespace Analysis {
         bool _induction_variables;  //!<True when induction variable analysis has been applied
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
-        bool _task_sync;            //!<True when tasks sync has been calculated
 
         /*!Returns the PCFG node enclosed in a PCFG node containing th flow of a nodecl
          * @param current PCFG node where to search the nodecl
@@ -107,9 +106,7 @@ namespace Analysis {
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
-        bool is_task_sync_computed( ) const;
-        void set_task_sync_computed( );
-
+        
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
 
@@ -199,8 +196,6 @@ namespace Analysis {
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
-
-        ObjectList<ExtensibleGraph*> task_sync( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         // ********************* Utils ******************** //
 
