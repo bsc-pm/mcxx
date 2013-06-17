@@ -406,8 +406,22 @@ namespace Analysis {
             // ******** END Getters and setters for PCFG structural nodes and types ********* //
             // ****************************************************************************** //
 
+            
+            
+            // ****************************************************************************** //
+            // ****************** Getters and setters for PCFG analysis ********************* //
+            
+            //! Returns the set of tasks that are alive at the entry of the node
+            AliveTaskSet& get_live_in_tasks( );
+            
+            //! Returns the set of tasks that are alive at the exit of the node
+            AliveTaskSet& get_live_out_tasks( );
 
-
+            // **************** END getters and setters for PCFG analysis ******************* //
+            // ****************************************************************************** //
+            
+            
+            
             // ****************************************************************************** //
             // **************** Getters and setters for constants analysis ****************** //
 
