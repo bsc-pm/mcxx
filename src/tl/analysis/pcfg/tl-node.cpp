@@ -957,12 +957,12 @@ namespace Analysis {
     
     AliveTaskSet& Node::get_live_in_tasks( )
     {
-        return get_data<AliveTaskSet>( "alive_tasks_in" );
+        return get_data<AliveTaskSet>( "live_tasks_in" );
     }
     
     AliveTaskSet& Node::get_live_out_tasks( )
     {
-        return get_data<AliveTaskSet>( "alive_tasks_out" );
+        return get_data<AliveTaskSet>( "live_tasks_out" );
     }
     
     // **************** END getters and setters for PCFG analysis ******************* //

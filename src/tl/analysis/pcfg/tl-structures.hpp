@@ -210,19 +210,19 @@ namespace Analysis {
     // ************************************************************************************************* //
     // ***************************************** PCFG analysis ***************************************** //
     
-    /*! \def _TASKS_LIVE_IN
+    /*! \def _LIVE_IN_TASKS
      * Set of tasks that are alive at the Entry of a node
      * Available in all nodes during PCFG construction
      * FIXME Think about deleting this data after PCFG construction
      */
-    #define _TASKS_LIVE_IN      "tasks_live_in"
+    #define _LIVE_IN_TASKS      "live_in_tasks"
     
-    /*! \def _TASKS_LIVE_OUT
+    /*! \def _LIVE_OUT_TASKS
      * Set of tasks that are alive at the Exit of a node
      * Available in all nodes during PCFG construction
      * FIXME Think about deleting this data after PCFG construction
      */
-    #define _TASKS_LIVE_OUT      "tasks_live_out"
+    #define _LIVE_OUT_TASKS      "live_out_tasks"
     
     // *************************************** End PCFG analysis *************************************** //
     // ************************************************************************************************* //
