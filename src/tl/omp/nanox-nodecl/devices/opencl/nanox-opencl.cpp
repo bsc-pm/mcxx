@@ -36,6 +36,7 @@
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 
 #include "codegen-phase.hpp"
 
@@ -52,7 +53,7 @@ static std::string ocl_outline_name(const std::string & name)
 void DeviceOpenCL::generate_ndrange_code(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
-        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+        const TargetInformation& target_info,
         const std::string filename,
         const std::string kernel_name,
         const TL::ObjectList<OutlineDataItem*>& data_items,
@@ -79,8 +80,11 @@ void DeviceOpenCL::generate_ndrange_code(
 
     // The arguments of the clause 'ndrange' must be updated because they are not
     // expressed in terms of the unpacked arguments
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
-    int num_args_ndrange = ndrange_args.size();
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange, new_shmem;
+    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+    int num_args_ndrange = ndrange_args.size(),
+        num_args_shmem = shmem_args.size();
     if (IS_FORTRAN_LANGUAGE)
     {
         for (int i = 0; i < num_args_ndrange; ++i)
@@ -95,6 +99,19 @@ void DeviceOpenCL::generate_ndrange_code(
                         unpacked_function.get_related_scope(),
                         *outline_data_to_unpacked_fun_map));
         }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
+                    shmem_args[i],
+                    unpacked_function.get_related_scope(),
+                    *called_fun_to_outline_data_map);
+
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        argument,
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
     }
     else
     {
@@ -102,6 +119,14 @@ void DeviceOpenCL::generate_ndrange_code(
         {
             new_ndrange.append(Nodecl::Utils::deep_copy(
                         ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        called_fun_to_unpacked_fun_map));
+        }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        shmem_args[i],
                         unpacked_function.get_related_scope(),
                         called_fun_to_unpacked_fun_map));
         }
@@ -140,6 +165,7 @@ void DeviceOpenCL::generate_ndrange_code(
                      <<         compiler_opts << "\");";
 
     //Prepare setArgs
+    unsigned int index_local = 0;
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     for (unsigned int i = 0; i < parameters_called.size(); ++i)
     {
@@ -171,6 +197,8 @@ void DeviceOpenCL::generate_ndrange_code(
             }
         }
 
+        bool is_local = !is_global && unpacked_argument.get_type().no_ref().is_pointer();
+
         if (is_global)
         {
             code_ndrange_aux
@@ -178,6 +206,29 @@ void DeviceOpenCL::generate_ndrange_code(
                 <<      "ompss_kernel_ocl, "
                 <<      i << ", "
                 <<      as_symbol(unpacked_argument) <<");";
+        }
+        else if (is_local)
+        {
+            TL::Source sizeof_arg;
+            if (index_local >= new_shmem.size())
+            {
+                std::cerr << called_task.get_locus_str()
+                    << ": warning: The size of the local symbol '"
+                    << unpacked_argument.get_name() << "' has not been specified in the 'shmem' clause, assuming zero" << std::endl;
+
+                sizeof_arg << "0";
+            }
+            else
+            {
+                sizeof_arg << as_expression(new_shmem[index_local]);
+            }
+
+            code_ndrange_aux << "err = nanos_opencl_set_arg("
+                <<      "ompss_kernel_ocl, "
+                <<      i << ", "
+                <<      sizeof_arg << ", "
+                <<      "0);";
+            ++index_local;
         }
         else
         {
@@ -402,12 +453,14 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SymbolMap* &symbol_map)
 {
+    _opencl_tasks_processed=true;
     // Unpack DTO
     const std::string& outline_name = ocl_outline_name(info._outline_name);
     const Nodecl::NodeclBase& task_statements = info._task_statements;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
 
     output_statements = task_statements;
 
@@ -421,12 +474,12 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
 
 
         if (IS_FORTRAN_LANGUAGE)
             running_error("%s: error: internal subprograms are not supported\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
     }
 
 
@@ -464,7 +517,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
 
@@ -485,7 +538,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                     );
         }
 
-        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+        // unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
     }
 
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
@@ -511,7 +564,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         if (!found)
         {
             running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
-                    original_statements.get_locus().c_str());
+                    original_statements.get_locus_str().c_str());
         }
     }
     else
@@ -537,7 +590,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         if (ocl_files == 0)
         {
             running_error("%s: error: No file specified for kernel '%s'\n",
-                    original_statements.get_locus().c_str(),
+                    original_statements.get_locus_str().c_str(),
                     called_task.get_name().c_str());
         }
     }
@@ -559,7 +612,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
         generate_ndrange_code(called_task,
                 unpacked_function,
-                info._target_info.get_ndrange(),
+                info._target_info,
                 file,
                 kernel_name,
                 info._data_items,
@@ -605,7 +658,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         }
         fun_visitor.insert_extra_symbols(task_statements);
 
-        Nodecl::Utils::Fortran::copy_used_modules(
+        Nodecl::Utils::Fortran::append_used_modules(
                 original_statements.retrieve_context(),
                 unpacked_function_scope);
 
@@ -616,22 +669,17 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                     unpacked_function_scope);
         }
 
+        // Add also used types
+        add_used_types(data_items, unpacked_function.get_related_scope());
+
         // Now get all the needed internal functions and replicate them in the outline
         Nodecl::Utils::Fortran::InternalFunctions internal_functions;
         internal_functions.walk(info._original_statements);
 
-        Nodecl::List l;
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
-                it2 = internal_functions.function_codes.begin();
-                it2 != internal_functions.function_codes.end();
-                it2++)
-        {
-            l.append(
-                    Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
-                    );
-        }
-
-        unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+        duplicate_internal_subprograms(internal_functions.function_codes,
+                unpacked_function.get_related_scope(),
+                symbol_map,
+                output_statements);
 
         extra_declarations
             << "IMPLICIT NONE\n";
@@ -643,8 +691,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                     /* optative context */ nodecl_null(),
                     unpacked_function,
-                    original_statements.get_filename(),
-                    original_statements.get_line());
+                    original_statements.get_locus());
             Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
         }
     }
@@ -661,36 +708,15 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             TL::Type(get_user_defined_type(info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
             );
 
-    TL::Symbol outline_function = new_function_symbol(
+    TL::Symbol outline_function = SymbolUtils::new_function_symbol(
             current_function,
             outline_name,
             TL::Type::get_void_type(),
             structure_name,
             structure_type);
 
-    if (IS_FORTRAN_LANGUAGE
-            && current_function.is_in_module())
-    {
-        scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-        unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                unpacked_function.get_internal_symbol());
-
-        unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-        outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-        P_LIST_ADD(
-                module_sym->entity_specs.related_symbols,
-                module_sym->entity_specs.num_related_symbols,
-                outline_function.get_internal_symbol());
-        outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-    }
-
     Nodecl::NodeclBase outline_function_code, outline_function_body;
-    build_empty_body_for_function(outline_function,
+    SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_body);
     Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
@@ -702,19 +728,14 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     Source unpacked_arguments, cleanup_code;
 
-    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-    if (IS_CXX_LANGUAGE
-            && !is_function_task
-            && current_function.is_member()
-            && !current_function.is_static()
-            && it != data_items.end())
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
     {
-        ++it;
-    }
+        if (!is_function_task
+                && (*it)->get_is_cxx_this())
+            continue;
 
-    for (; it != data_items.end(); it++)
-    {
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:
@@ -847,8 +868,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                         /* optative context */ nodecl_null(),
                         outline_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
+                        original_statements.get_locus());
                 Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
         }
@@ -877,8 +897,10 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         {
             TL::Symbol &function(*functions[i]);
 
-            Nodecl::Utils::Fortran::copy_used_modules(original_statements.retrieve_context(),
+            Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                     function.get_related_scope());
+
+            add_used_types(data_items, function.get_related_scope());
         }
 
         // Generate ancillary code in C
@@ -896,8 +918,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
                 outline_function,
                 outline_function_body,
                 info._task_label,
-                original_statements.get_filename(),
-                original_statements.get_line(),
+                original_statements.get_locus(),
                 instrument_before,
                 instrument_after);
     }
@@ -1082,7 +1103,22 @@ void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::Nodecl
 }
 
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
-{
+{    
+    if (_opencl_tasks_processed){
+        Source nanox_device_enable_section;
+        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_opencl = 1;";
+        if (IS_FORTRAN_LANGUAGE)
+           Source::source_language = SourceLanguage::C;
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+        Source::source_language = SourceLanguage::Current;
+        if (IS_FORTRAN_LANGUAGE){
+           _extra_c_code.prepend(functions_section_tree); 
+        } else {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+        }
+        _opencl_tasks_processed = false;
+    }
+    
     if (_extra_c_code.is_null())
         return;
 
@@ -1122,6 +1158,8 @@ void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 
 void DeviceOpenCL::pre_run(DTO& dto)
 {
+    _root = dto["nodecl"];
+    _opencl_tasks_processed = false;
 }
 
 void DeviceOpenCL::run(DTO& dto)

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -189,11 +189,14 @@ DEF_PRIMITIVE_TYPE(BT_CONST_STRING, get_pointer_type(get_const_qualified_type(ge
 DEF_PRIMITIVE_TYPE(BT_VALIST_REF, get_gcc_builtin_va_list_type())
 DEF_PRIMITIVE_TYPE(BT_VALIST_ARG, get_gcc_builtin_va_list_type())
 
-// FIXME - These depend on the exact environment
 DEF_PRIMITIVE_TYPE(BT_I1, get_signed_char_type())
 DEF_PRIMITIVE_TYPE(BT_I2, get_signed_short_int_type())
 DEF_PRIMITIVE_TYPE(BT_I4, get_signed_int_type())
-DEF_PRIMITIVE_TYPE(BT_I8, get_signed_long_long_int_type())
+DEF_PRIMITIVE_TYPE(BT_I8,
+        (CURRENT_CONFIGURATION->type_environment->sizeof_signed_long == 8
+         ?  get_signed_long_int_type()
+         : get_signed_long_long_int_type()))
+// This may not be available...
 DEF_PRIMITIVE_TYPE(BT_I16, get_signed_long_long_int_type())
 
 DEF_PRIMITIVE_TYPE(BT_UNWINDWORD, get_signed_int_type())
@@ -214,12 +217,12 @@ DEF_PRIMITIVE_TYPE(BT_UINT32, get_unsigned_int_type())
 DEF_PRIMITIVE_TYPE(BT_UINT64, get_unsigned_long_long_int_type())
 
 // Volatile pointers to basic integers (used in sync functions)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I1, BT_I1)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I2, BT_I2)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I4, BT_I4)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_INT, BT_INT)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I8, BT_I8)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I16, BT_I16)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I1, BT_VOID)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I2, BT_VOID)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I4, BT_VOID)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I8, BT_VOID)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I16, BT_VOID)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_INT, BT_VOID)
 
 static type_t* adjust_type_for_parameter_type(type_t* orig)
 {
@@ -673,6 +676,7 @@ DEF_FUNCTION_TYPE_1 (BT_FN_COMPLEX_LONGDOUBLE_LONGDOUBLE,
 DEF_FUNCTION_TYPE_1 (BT_FN_PTR_UINT, BT_PTR, BT_UINT)
 DEF_FUNCTION_TYPE_1 (BT_FN_PTR_SIZE, BT_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_INT, BT_INT, BT_INT)
+DEF_FUNCTION_TYPE_1 (BT_FN_INT_UINT16, BT_INT, BT_UINT16)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_UINT, BT_INT, BT_UINT)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_LONG, BT_INT, BT_LONG)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_ULONG, BT_INT, BT_ULONG)
@@ -1116,8 +1120,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       new_builtin->entity_specs.is_builtin = 1; \
       new_builtin->do_not_print = 1; \
-      new_builtin->file = "(builtin-function)"; \
-      new_builtin->line = 0; \
+      new_builtin->locus = make_locus("(builtin-function)", 0, 0); \
       if (is_function_type(new_builtin->type_information)) \
       { \
       new_builtin->entity_specs.num_parameters = function_type_get_num_parameters(new_builtin->type_information); \
@@ -1689,6 +1692,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_CLZ, "clz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_
 DEF_GCC_BUILTIN        (BUILT_IN_CLZIMAX, "clzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZL, "clzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZLL, "clzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_GCC_BUILTIN        (BUILT_IN_CLZS, "clzs", BT_FN_INT_UINT16, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CONSTANT_P, "constant_p", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZ, "ctz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZIMAX, "ctzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST)
@@ -2342,8 +2346,10 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 sign_in_sse_builtins(global_context);
 }
 
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, 
-        type_t** types, 
+// Old __sync_XXX
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(
+        scope_entry_t* overloaded_function,
+        type_t** types,
         nodecl_t *arguments UNUSED_PARAMETER,
         int num_arguments,
         const_value_t** const_value UNUSED_PARAMETER)
@@ -2378,10 +2384,10 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
     }
 
     int i;
-    int current_bit_size = 1;
+    int current_byte_size = 1;
     for (i = 0; (i < max_valid_overloads) && !found_match; i++)
     {
-        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_bit_size);
+        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_byte_size);
         name[255] = '\0';
         scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name);
 
@@ -2421,16 +2427,11 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
             type_t* argument_type = types[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
-            if (is_pointer_type(argument_type)
-                    && is_pointer_type(parameter_type))
+            if (is_pointer_to_void_type(parameter_type)
+                    && is_pointer_type(argument_type))
             {
-                // Use sizes instead of types
                 argument_type = pointer_type_get_pointee_type(argument_type);
-                parameter_type = pointer_type_get_pointee_type(parameter_type);
-
-                all_arguments_matched = is_integral_type(argument_type)
-                    && is_integral_type(parameter_type)
-                    && (type_get_size(argument_type) == type_get_size(parameter_type));
+                all_arguments_matched = (type_get_size(argument_type) == (unsigned int)current_byte_size);
             }
             else
             {
@@ -2461,7 +2462,7 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
             }
         }
 
-        current_bit_size = 2*current_bit_size;
+        current_byte_size = 2*current_byte_size;
     }
 
     return result;
@@ -2608,8 +2609,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             scope_entry_t* return_symbol = new_symbol(overloaded_function->decl_context, 
                     overloaded_function->decl_context.current_scope,
                     builtin_name);
-
-            // Fix the name
+            return_symbol->locus = overloaded_function->locus;
             return_symbol->symbol_name = overloaded_function->symbol_name;
             return_symbol->kind = SK_FUNCTION;
             return_symbol->type_information = current_function_type;
@@ -2680,6 +2680,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
             }
 
             scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+            sym->locus = make_locus("(builtin-simd-type)", 0, 0);
             sym->kind = SK_CLASS;
             sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
 

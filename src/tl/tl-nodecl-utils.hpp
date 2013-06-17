@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NODECL_ALG_HPP
-#define TL_NODECL_ALG_HPP
+#ifndef TL_NODECL_UTILS_HPP
+#define TL_NODECL_UTILS_HPP
 
 #include "tl-nodecl.hpp"
 #include "tl-nodecl-calc.hpp"
@@ -318,4 +318,4 @@ namespace TL
     };
 }
 
-#endif // TL_NODECL_ALG_HPP
+#endif // TL_NODECL_UTILS_HPP

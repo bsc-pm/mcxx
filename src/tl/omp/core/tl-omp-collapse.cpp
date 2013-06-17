@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -28,6 +28,8 @@
 
 
 #include "tl-omp-core.hpp"
+#include "cxx-diagnostic.h"
+#include "cxx-cexpr.h"
 // #include "hlt-collapse.hpp"
 // #include "tl-ast.hpp"
 
@@ -35,117 +37,38 @@ namespace TL
 {
     namespace OpenMP
     {
-#if 0
-        AST_t::callback_result remove_collapse_clause(const AST_t& a)
+        void Core::collapse_check_loop(TL::PragmaCustomStatement construct)
         {
-            // Filter collapse clauses
-            if ((a.internal_ast_type_() == AST_PRAGMA_CUSTOM_CLAUSE)
-                    && a.get_text() == "collapse")
-            {
-                return AST_t::callback_result(true, "");
-            }
-            else
-            {
-                return AST_t::callback_result(false, "");
-            }
-        }
-#endif
-
-        void Core::collapse_loop_first(Nodecl::NodeclBase& construct)
-        {
-            internal_error("Not implemented yet", 0);
-#if 0
-            PragmaCustomClause collapse = construct.get_clause("collapse");
-
+            TL::PragmaCustomClause collapse = construct.get_pragma_line().get_clause("collapse");
             if (!collapse.is_defined())
                 return;
 
-            ObjectList<Expression> expr_list = collapse.get_expression_list();
+            TL::ObjectList<Nodecl::NodeclBase> expr_list = collapse.get_arguments_as_expressions(construct);
+
             if (expr_list.size() != 1)
             {
-                running_error("%s: error: 'collapse' clause must have one argument\n",
-                        construct.get_ast().get_locus().c_str());
+                error_printf("%s: error: collapse clause needs exactly one argument\n", 
+                        locus_to_str(construct.get_locus()));
+                return;
             }
 
-            Expression &expr = expr_list.front();
-            if (!expr.is_constant())
+            Nodecl::NodeclBase expr = expr_list[0];
+            if (!expr.is_constant()
+                    || !is_any_int_type(expr.get_type().get_internal_type()))
             {
-                running_error("%s: error: 'collapse' clause argument '%s' is not a constant expression\n",
-                        expr.get_ast().get_locus().c_str(),
-                        expr.prettyprint().c_str());
+                error_printf("%s: error: collapse clause requires an integer constant expression\n",
+                        locus_to_str(construct.get_locus()));
+                return;
             }
 
-            bool valid;
-            int nest_level = expr.evaluate_constant_int_expression(valid);
-            if (!valid)
+            const_value_t* cval = expr.get_constant();
+
+            if (!const_value_is_one(cval))
             {
-                running_error("%s: error: 'collapse' clause argument '%s' is not a constant expression\n",
-                        expr.get_ast().get_locus().c_str(),
-                        expr.prettyprint().c_str());
+                error_printf("%s: error: only collapse(1) is supported\n",
+                        locus_to_str(construct.get_locus()));
+                return;
             }
-
-            if (nest_level <= 0)
-            {
-                running_error("%s: error: nesting level of 'collapse' clause must be a nonzero positive integer\n",
-                        expr.get_ast().get_locus().c_str());
-            }
-
-            if (!ForStatement::predicate(construct.get_statement().get_ast()))
-            {
-                running_error("%s: error: collapsed '#pragma omp for' or '#pragma omp parallel for' require a for-statement\n",
-                        construct.get_statement().get_ast().get_locus().c_str());
-            }
-
-            ForStatement for_stmt(construct.get_statement().get_ast(), 
-                    construct.get_scope_link());
-            HLT::LoopCollapse loop_collapse(for_stmt);
-
-            ObjectList<std::string> ancillary_names;
-
-            Source header;
-            loop_collapse
-                .set_nesting_level(nest_level)
-                .set_split_transform(header)
-                .set_induction_private(true)
-                .keep_ancillary_names(ancillary_names);
-
-            Source collapsed_for = loop_collapse;
-
-            Source transformed_code;
-            AST_t pragma_placeholder;
-            transformed_code
-                << "{"
-                << header
-                << statement_placeholder(pragma_placeholder)
-                << "}"
-                ;
-
-            AST_t tree = transformed_code.parse_statement(construct.get_ast(), construct.get_scope_link());
-
-            Source new_firstprivate_entities;
-            Source pragma_line;
-            Source omp_part_src;
-            omp_part_src
-                << "#pragma omp " << pragma_line << new_firstprivate_entities << "\n"
-                << collapsed_for
-                ;
-
-            new_firstprivate_entities << "firstprivate(" << concat_strings(ancillary_names, ",") << ")";
-
-            pragma_line << construct.get_pragma_line().prettyprint_with_callback(functor(remove_collapse_clause));
-
-            AST_t omp_part_tree = omp_part_src.parse_statement(pragma_placeholder, 
-                    construct.get_scope_link());
-
-            // Replace the pragma part
-            pragma_placeholder.replace(omp_part_tree);
-
-            // Replace the whole construct
-            construct.get_ast().replace(tree);
-
-            // Now overwrite the old construct with this new one
-            construct = PragmaCustomConstruct(pragma_placeholder, construct.get_scope_link());
-#endif
         }
     }
 }

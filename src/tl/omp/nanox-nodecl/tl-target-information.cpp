@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -83,9 +83,19 @@ namespace TL { namespace Nanox {
         _ndrange_exprs.append(ndrange_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase>& TargetInformation::get_ndrange()
+    ObjectList<Nodecl::NodeclBase> TargetInformation::get_ndrange() const
     {
         return _ndrange_exprs;
+    }
+
+    void TargetInformation::append_to_shmem(const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
+    {
+        _shmem_exprs.append(shmem_exprs);
+    }
+
+    ObjectList<Nodecl::NodeclBase> TargetInformation::get_shmem() const
+    {
+        return _shmem_exprs;
     }
 
     void TargetInformation::append_to_onto(const ObjectList<Nodecl::NodeclBase>& onto_exprs)
@@ -93,7 +103,7 @@ namespace TL { namespace Nanox {
         _onto_exprs.append(onto_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase>& TargetInformation::get_onto()
+    ObjectList<Nodecl::NodeclBase> TargetInformation::get_onto() const
     {
         return _onto_exprs;
     }

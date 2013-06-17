@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -24,8 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef SSE_MODULE_HPP
-#define SSE_MODULE_HPP
+#ifndef KNC_MODULE_HPP
+#define KNC_MODULE_HPP
 
 #include "codegen-common.hpp"
 #include "tl-nodecl-base.hpp"
@@ -33,7 +33,7 @@
 
 namespace Codegen
 {
-    class SSEModuleVisitor : public CodegenModuleVisitor
+    class KNCModuleVisitor : public CodegenModuleVisitor
     {
         private:
             bool is_int_gather_func_defined;
@@ -41,7 +41,7 @@ namespace Codegen
 
         public:
 
-            SSEModuleVisitor(CodegenVisitor* base_codegen);
+            KNCModuleVisitor(CodegenVisitor* base_codegen);
 
             void visit(const Nodecl::VectorAdd& node);
             void visit(const Nodecl::VectorMinus& node);
@@ -75,4 +75,4 @@ namespace Codegen
     };
 }
 
-#endif // SSE_MODULE_HPP
+#endif // KNC_MODULE_HPP

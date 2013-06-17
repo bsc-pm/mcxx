@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -36,12 +36,28 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)
     {
-        if (IS_FORTRAN_LANGUAGE)
+        Nodecl::List stmts = function_code.get_statements().as<Nodecl::List>();
+
+        // First, traverse nested functions
+        for (Nodecl::List::iterator it = stmts.begin();
+                it != stmts.end();
+                it++)
         {
-            // Visit first the internal functions
-            walk(function_code.get_internal_functions());
+            if (it->is<Nodecl::FunctionCode>())
+            {
+                walk(*it);
+            }
         }
-        walk(function_code.get_statements());
+        // Second, remaining statements
+        for (Nodecl::List::iterator it = stmts.begin();
+                it != stmts.end();
+                it++)
+        {
+            if (!it->is<Nodecl::FunctionCode>())
+            {
+                walk(*it);
+            }
+        }
     }
 
     LoweringVisitor::~LoweringVisitor() { }

@@ -31,6 +31,7 @@ test_generator=config/mercurium-serial-simd
 */
 
 #include <stdio.h>
+#include <math.h>
 
 #define PI 3.141592653589793238462643f
 
@@ -159,45 +160,84 @@ int main ()
 
     int i, j, k;
 
+    for (i=0; i<26; i++)
+    {
+        for(j=0; j<28; j++)
+        {
+            X[i][j] = 0.0f;
+            X_sc[i][j] = 0.0f;
+        }
+    }
+   
+    for (i=0; i<16; i++)
+    {
+        for(j=0; j<28; j++)
+        {
+            H[i][j] = 0.0f;
+            H_sc[i][j] = 0.0f;
+        }
+    }
+
     for (i = 0; i < 16; i++)
     {
         for (j = 0; j < 16; j++)
         {
             output[i][j] = 0.0f;
             output_sc[i][j] = 0.0f;
+            K[i][j] = 0.0f;
+            K_sc[i][j] = 0.0f;
+            Y[i][j] = 0.0f;
+            Y_sc[i][j] = 0.0f;
+ 
         }
     }
 
     h264(X, H, K, Y, output);
     h264_sc(X_sc, H_sc, K_sc, Y_sc, output_sc);
 
-
-    for (i=0; i<16*16; i++)
+    for (i=0; i<26; i++)
     {
-        if(X[i] != X_sc[i])
+        for(j=0; j<28; j++)
         {
-            printf("ERROR\n");
-            exit(1);
+            if(X[i][j] != X_sc[i][j])
+            {
+                printf("ERROR X[%d][%d] %f != %f\n", i, j, X[i][j], X_sc[i][j]);
+                return 1;
+            }
         }
-        if(H[i] != H_sc[i])
+    }
+   
+    for (i=0; i<16; i++)
+    {
+        for(j=0; j<28; j++)
         {
-            printf("ERROR\n");
-            exit(1);
+            if(H[i][j] - H_sc[i][j])
+            {
+                printf("ERROR H[%d][%d] %f != %f\n", i, j, H[i][j], H_sc[i][j]);
+                return 1;
+            }
         }
-        if(K[i] != K_sc[i])
+    }
+
+    for (i=0; i<16; i++)
+    {
+        for(j=0; j<16; j++)
         {
-            printf("ERROR\n");
-            exit(1);
-        }
-        if(Y[i] != Y_sc[i])
-        {
-            printf("ERROR\n");
-            exit(1);
-        }
-        if(output[i] != output_sc[i])
-        {
-            printf("ERROR\n");
-            exit(1);
+            if(K[i][j] != K_sc[i][j])
+            {
+                printf("ERROR K[%d][%d] %f != %f\n", i, j, K[i][j], K_sc[i][j]);
+                return 1;
+            }
+            if(Y[i][j] != Y_sc[i][j])
+            {
+                printf("ERROR Y[%d][%d] %f != %f\n", i, j, Y[i][j], Y_sc[i][j]);
+                return 1;
+            }
+            if(output[i][j] != output_sc[i][j])
+            {
+                printf("ERROR output[%d][%d] %f != %f\n", i, j, output[i][j], output_sc[i][j]);
+                return 1;
+            }
         }
     }
 

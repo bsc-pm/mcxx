@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -73,12 +73,6 @@ namespace Utils {
             ObjectList<Symbol> get_symbols( ) const;
 
             Symbol get_symbol( ) const;
-
-//             //! Returns the name of the wrapped symbol.
-//             std::string get_name( ) const;
-
-//             //! Returns the type of the wrapped symbol.
-//             Type get_type( ) const;
 
             //! Returns the nodecl associated with the wrapped symbol.
             Nodecl::NodeclBase get_nodecl( ) const;

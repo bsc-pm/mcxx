@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -27,17 +27,21 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <stdio.h>
 
-// This is a tiny library used for tests so they kill themselves after 30 min
-// lest they hanged
+// This is a tiny library used for tests so they kill themselves after some minutes
+// lest they hang
+
+#define MINUTES 3
 
 static void terminating_signal_handler(int sig)
 {
     // Kill ourselves
+    fprintf(stderr, "[%d] PROCESS HAS LASTED MORE THAN %d MINUTES. KILLING ITSELF\n", getpid(), MINUTES);
     raise(SIGKILL);
 }
 
-__attribute__((constructor)) static void perish_init(void)
+__attribute__((constructor(10000))) static void perish_init(void)
 {
     struct sigaction terminating_sigaction;
     memset(&terminating_sigaction, 0, sizeof(terminating_sigaction));
@@ -49,6 +53,6 @@ __attribute__((constructor)) static void perish_init(void)
 
     sigaction(SIGALRM, &terminating_sigaction, /* old_sigaction */ NULL);
 
-    // Set a timer for 10 minutes
-    alarm(600);
+    // Set timer
+    alarm(60 * (MINUTES));
 }

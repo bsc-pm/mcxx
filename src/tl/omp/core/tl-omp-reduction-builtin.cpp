@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -75,13 +75,8 @@ namespace TL { namespace OpenMP {
                 "short, unsigned short,"
                 "long, unsigned long,"
                 "long long, unsigned long long,"
-                "float, double,"
-                "_Complex float, _Complex double";
-
-            if (!equivalent_types(get_double_type(), get_long_double_type()))
-            {
-                arithmetic_types += ", long double, _Complex long double";
-            }
+                "float, double, long double,"
+                "_Complex float, _Complex double, _Complex long double";
 
             if (IS_C_LANGUAGE)
             {
@@ -176,14 +171,11 @@ namespace TL { namespace OpenMP {
                     "double",
                     "omp_priv = mercurium_dbl_min",
                     max_combiner);
-            if (!equivalent_types(get_double_type(), get_long_double_type()))
-            {
-                parse_declare_reduction(sc,
-                        "max",
-                        "long double",
-                        "omp_priv = mercurium_ldbl_min",
-                        max_combiner);
-            }
+            parse_declare_reduction(sc,
+                    "max",
+                    "long double",
+                    "omp_priv = mercurium_ldbl_min",
+                    max_combiner);
 
             // min
             std::string min_combiner = "omp_out = omp_in < omp_out ? omp_in : omp_out";
@@ -249,14 +241,12 @@ namespace TL { namespace OpenMP {
                     "double",
                     "omp_priv = mercurium_dbl_max",
                     min_combiner);
-            if (!equivalent_types(get_double_type(), get_long_double_type()))
-            {
-                parse_declare_reduction(sc,
-                        "min",
-                        "long double",
-                        "omp_priv = mercurium_ldbl_max",
-                        min_combiner);
-            }
+            parse_declare_reduction(sc,
+                    "min",
+                    "long double",
+                    "omp_priv = mercurium_ldbl_max",
+                    min_combiner);
+
         }
         else if (IS_FORTRAN_LANGUAGE)
         {

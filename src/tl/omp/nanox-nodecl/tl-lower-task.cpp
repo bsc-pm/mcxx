@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -83,8 +83,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = ::get_user_defined_type(base_class.get_internal_symbol());
             class_type_add_member(new_class_type, field.get_internal_symbol());
@@ -105,8 +104,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
 
             field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
 
-            field.get_internal_symbol()->file = "";
-            field.get_internal_symbol()->line = 0;
+            field.get_internal_symbol()->locus = make_locus("", 0, 0);
 
             field.get_internal_symbol()->type_information = 
                 ::get_array_type(
@@ -121,7 +119,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
         finish_class_type(new_class_type, 
                 ::get_user_defined_type(new_class_symbol.get_internal_symbol()),
                 sc.get_decl_context(), 
-                "", 0,
+                make_locus("", 0, 0),
                 // construct.get_filename().c_str(),
                 // construct.get_line(),
                 &nodecl_output);
@@ -138,8 +136,7 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
             Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDef::make(
                     /* optative context */ nodecl_null(),
                     new_class_symbol,
-                    construct.get_filename(),
-                    construct.get_line());
+                    construct.get_locus());
 
             TL::ObjectList<Nodecl::NodeclBase> defs =
                 Nodecl::Utils::get_declarations_or_definitions_of_entity_at_top_level(base_class);
@@ -183,7 +180,16 @@ Source LoweringVisitor::fill_const_wd_info(
     int num_copies_dimensions = count_copies_dimensions(outline_info);
     OutlineInfo::implementation_table_t implementation_table = outline_info.get_implementation_table();
 
-    int num_implementations = implementation_table.size();
+    int num_implementations = 0;
+    {
+        for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
+                it != implementation_table.end();
+                ++it)
+        {
+            TargetInformation target_info = it->second;
+            num_implementations += target_info.get_device_names().size();
+        }
+    }
     TL::Symbol const_wd_type = declare_const_wd_type(num_implementations, construct);
 
     Source alignment, props_init;
@@ -403,6 +409,7 @@ void LoweringVisitor::emit_async_common(
         TL::Symbol called_task,
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
+        Nodecl::NodeclBase if_condition,
         Nodecl::NodeclBase task_label,
         bool is_untied,
 
@@ -595,8 +602,14 @@ void LoweringVisitor::emit_async_common(
     Source err_name;
     err_name << "err";
 
-    Source num_dependences;
+    Source if_condition_begin_opt, if_condition_end_opt;
+    if (!if_condition.is_null())
+    {
+        if_condition_begin_opt << "if (" << as_expression(if_condition) << ") {";
+        if_condition_end_opt << "}";
+    }
 
+    Source num_dependences;
     // Spawn code
     spawn_code
         << "{"
@@ -609,10 +622,12 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
-        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, " 
+        <<     if_condition_begin_opt
+        <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
+        <<     if_condition_end_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -629,7 +644,7 @@ void LoweringVisitor::emit_async_common(
         <<          fill_dependences_immediate
         <<          copy_imm_setup
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
-        <<                  struct_size << ", " 
+        <<                  struct_size << ", "
         <<                  "&imm_args,"
         <<                  num_dependences << ", dependences, "
         <<                  copy_imm_arg << ", "
@@ -641,7 +656,7 @@ void LoweringVisitor::emit_async_common(
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
-    
+
     // Fill dependences for outline
     num_dependences << count_dependences(outline_info);
 
@@ -681,7 +696,7 @@ void LoweringVisitor::emit_async_common(
             outline_info, 
             /* accessor */ Source("imm_args."),
             fill_dependences_immediate);
-    
+
     FORTRAN_LANGUAGE()
     {
         // Parse in C
@@ -743,9 +758,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         OutlineDataItem& argument_outline_data_item =
             outline_info.get_entity_for_symbol(this_symbol);
 
-        // We must ensure that this OutlineDataItem is moved to the
-        // first position of the list of OutlineDataItems.
-        outline_info.move_at_begin(argument_outline_data_item);
+        argument_outline_data_item.set_is_cxx_this(true);
 
         // This is a special kind of shared
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
@@ -760,6 +773,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
             called_task_dummy,
             statements,
             task_environment.priority,
+            task_environment.if_condition,
             task_environment.task_label,
             task_environment.is_untied,
 
@@ -989,8 +1003,7 @@ void LoweringVisitor::fill_arguments(
                             base_expr = Nodecl::Reference::make(
                                     (*it)->get_base_address_expression().shallow_copy(),
                                     t,
-                                    base_expr.get_filename(),
-                                    base_expr.get_line());
+                                    base_expr.get_locus());
                         }
                         else
                         {
@@ -1510,19 +1523,19 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
 
-            copy_offset << as_expression(data_ref.get_offsetof());
+            copy_offset << as_expression(data_ref.get_offsetof(data_ref, ctr.retrieve_context()));
 
             TL::Type copy_type = data_ref.get_data_type();
             TL::Type base_type = copy_type;
 
-            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, region_sizes;
+            ObjectList<Nodecl::NodeclBase> lower_bounds, upper_bounds, total_sizes;
 
             int num_dimensions_count = copy_type.get_num_dimensions();
             if (num_dimensions_count == 0)
             {
                 lower_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
                 upper_bounds.append(const_value_to_nodecl(const_value_get_signed_int(0)));
-                region_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
+                total_sizes.append(const_value_to_nodecl(const_value_get_signed_int(1)));
                 num_dimensions_count++;
             }
             else
@@ -1536,7 +1549,7 @@ void LoweringVisitor::fill_copies_region(
                     if (t.array_is_region())
                     {
                         t.array_get_region_bounds(lower, upper);
-                        region_size = t.array_get_region_size();
+                        region_size = t.array_get_size();
                     }
                     else
                     {
@@ -1557,13 +1570,13 @@ void LoweringVisitor::fill_copies_region(
                         }
                         if (region_size.is_null())
                         {
-                            region_size = get_size_of_fortran_array(data_ref, rank);
+                            region_size = get_size_for_dimension(t, rank, data_ref);
                         }
                     }
 
                     lower_bounds.append(lower);
                     upper_bounds.append(upper);
-                    region_sizes.append(region_size);
+                    total_sizes.append(region_size);
 
                     t = t.array_element();
 
@@ -1575,7 +1588,7 @@ void LoweringVisitor::fill_copies_region(
                 // Sanity check
                 ERROR_CONDITION(num_dimensions_count != (signed)lower_bounds.size()
                         || num_dimensions_count != (signed)upper_bounds.size()
-                        || num_dimensions_count != (signed)region_sizes.size(),
+                        || num_dimensions_count != (signed)total_sizes.size(),
                         "Mismatch between dimensions", 0);
 
             }
@@ -1595,7 +1608,7 @@ void LoweringVisitor::fill_copies_region(
                     // In bytes
                     ol_dimension_descriptors
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1604,7 +1617,7 @@ void LoweringVisitor::fill_copies_region(
                         ;
                     imm_dimension_descriptors
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << "(" << as_expression(region_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
+                        << "(" << as_expression(total_sizes[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << "(" << as_expression(lower_bounds[dim].shallow_copy()) << ") * sizeof(" << as_type(base_type) << ");"
                         <<  "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1617,7 +1630,7 @@ void LoweringVisitor::fill_copies_region(
                     // In elements
                     ol_dimension_descriptors
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                         << "ol_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1626,7 +1639,7 @@ void LoweringVisitor::fill_copies_region(
                         ;
                     imm_dimension_descriptors
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].size = "
-                        << as_expression(region_sizes[dim].shallow_copy()) << ";"
+                        << as_expression(total_sizes[dim].shallow_copy()) << ";"
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].lower_bound = "
                         << as_expression(lower_bounds[dim].shallow_copy()) << ";"
                         << "imm_copy_dimensions[" << current_dimension_descriptor  << "].accessed_length = "
@@ -1636,9 +1649,80 @@ void LoweringVisitor::fill_copies_region(
                 }
                 current_dimension_descriptor++;
             }
+            
+
+            if (Nanos::Version::interface_is_at_least("copies_api", 1003))
+            {
+                bool has_serializer=false;
+                TL::Type ser_type = copy_type;
+                //If the object is a class, generate everything so nanox can it
+                if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
+                        TL::Symbol sym_serializer = ser_type.get_symbol();
+                        if (sym_serializer.get_type().is_pointer_to_class()){
+                            ser_type= sym_serializer.get_type().get_pointer_to();
+                            sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+                        }
+                        ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
+                        ObjectList<TL::Symbol>::iterator ser_it;
+                        for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !has_serializer; ++ser_it){
+                            if (ser_it->get_name()=="serialize") has_serializer=true;
+                        }    
+                }
+                //If its serializable and input, create serialization adapters and fill copy info
+                //if it's not input, the device should warn the programmer in case it's needed
+                if (has_serializer && input) {
+                    TL::Symbol sym_serializer = ser_type.get_symbol();
+                    std::string serialize_prefix_name= outline_info.get_implementation_table().begin()->second.get_outline_name() + sym_serializer.get_name() + data_ref.get_base_symbol().get_name();
+
+                    Source serialize_adapters;
+
+                    serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
+                            << "{  "
+                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
+                            << "} ;";
+                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
+                            << "{ "
+                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
+                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
+                            << "} ;";
+                    
+                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
+                            << "{"
+                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
+                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
+                            << "} ;";
+
+                    copy_ol_setup
+                        << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+                        << "ol_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+                        << "ol_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+                        ;
+
+                    copy_imm_setup
+                        << "imm_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+                        << "imm_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+                        << "imm_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+                        ;
+
+                    Nodecl::NodeclBase serialize_tree = serialize_adapters.parse_global(ctr);
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr,serialize_tree);
+                } else {
+                    copy_ol_setup
+                        << "ol_copy_data[" << i << "].serialize_size_adapter = 0;"
+                        << "ol_copy_data[" << i << "].serialize_adapter = 0;"
+                        << "ol_copy_data[" << i << "].serialize_assign_adapter = 0;"
+                        ;
+
+                    copy_imm_setup
+                        << "imm_copy_data[" << i << "].serialize_size_adapter = 0;"
+                        << "imm_copy_data[" << i << "].serialize_adapter = 0;"
+                        << "imm_copy_data[" << i << "].serialize_assign_adapter = 0;"
+                        ;
+                }
+            }
         }
     }
-
+    
     if (IS_FORTRAN_LANGUAGE)
     {
         copy_ol_setup
@@ -1849,7 +1933,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         {
             info_printf("%s: info: more than one copy specified for '%s' but the runtime does not support it. "
                     "Only the first copy (%s) will be translated\n",
-                    ctr.get_locus().c_str(),
+                    ctr.get_locus_str().c_str(),
                     (*it)->get_symbol().get_name().c_str(),
                     copies[0].expression.prettyprint().c_str());
         }
@@ -2074,7 +2158,7 @@ void LoweringVisitor::fill_dependences_internal(
 
                 ERROR_CONDITION(!dep_expr.is_valid(),
                         "%s: Invalid dependency detected '%s'. Reason: %s\n",
-                        dep_expr.get_locus().c_str(),
+                        dep_expr.get_locus_str().c_str(),
                         dep_expr.prettyprint().c_str(),
                         dep_expr.get_error_log().c_str());
 
@@ -2235,6 +2319,10 @@ void LoweringVisitor::fill_dependences_internal(
                             array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
                         }
 
+                        // Meaning that in this context A(:) is OK
+                        if (region_lb.is_null())
+                            region_lb = array_lb;
+
                         Source diff;
                         diff
                             << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
@@ -2242,6 +2330,9 @@ void LoweringVisitor::fill_dependences_internal(
                         lb = diff.parse_expression(ctr);
 
                         size = contiguous_array_type.array_get_region_size();
+
+                        if (size.is_null())
+                            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
                     }
                     else
                     {
@@ -2333,7 +2424,7 @@ void LoweringVisitor::fill_dependences_internal(
     }
     else
     {
-        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus().c_str());
+        running_error("%s: error: please update your runtime version. deps_api < 1001 not supported\n", ctr.get_locus_str().c_str());
     }
 }
 
@@ -2432,20 +2523,6 @@ Nodecl::NodeclBase LoweringVisitor::get_upper_bound(Nodecl::NodeclBase dep_expr,
     }
 
     src << "UBOUND(" << as_expression(dep_expr) << ", " << dimension_num << ")";
-
-    return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
-}
-
-Nodecl::NodeclBase LoweringVisitor::get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num)
-{
-    Source src;
-    Nodecl::NodeclBase expr = dep_expr;
-    if (dep_expr.is<Nodecl::ArraySubscript>())
-    {
-        dep_expr = dep_expr.as<Nodecl::ArraySubscript>().get_subscripted();
-    }
-
-    src << "SIZE(" << as_expression(dep_expr) << ", " << dimension_num << ")";
 
     return src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
 }

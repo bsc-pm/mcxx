@@ -26,13 +26,13 @@
 
 #include "tl-task-sync-analysis.hpp"
 
-namespace TL { namespace Analysis {
+namespace TL { 
+namespace Analysis {
 
 TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph)
     : _graph(graph)
 {
 }
-
 
 #if 0
 
@@ -216,7 +216,6 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
     // Propagate predecessors
     {
         AliveTaskSet tmp_alive_tasks_of_current = get_alive_in(current);
-
         ObjectList<Edge*> predecessors = current->get_entry_edges();
         for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
                 predecessor_it != predecessors.end();
@@ -490,4 +489,5 @@ void TaskSynchronizations::compute_task_synchronizations_rec(Node* current,
     }
 }
 
-} }
+} 
+}

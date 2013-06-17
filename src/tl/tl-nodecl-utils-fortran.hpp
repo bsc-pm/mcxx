@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -241,11 +241,11 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             }
     };
 
-    void copy_used_modules(TL::Scope orig_scope,
-            TL::Scope new_scope);
-
     void append_used_modules(TL::Scope orig_scope,
             TL::Scope new_scope);
+
+    void append_module_to_scope(TL::Symbol module,
+            TL::Scope scope);
 } } }
 
 #endif // TL_NODECL_UTILS_FORTRAN_HPP

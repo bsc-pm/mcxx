@@ -1,9 +1,9 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -115,7 +115,7 @@ namespace TL
     {
         if (!IS_FORTRAN_LANGUAGE)
         {
-            running_error("This function cannot be called if we are not in Fortran", 0);
+            running_error("This function cannot be called if we are not in Fortran");
         }
 
         Codegen::FortranBase &codegen_phase = static_cast<Codegen::FortranBase&>(Codegen::get_current());
@@ -215,8 +215,7 @@ namespace TL
                 region_upper_bound,
                 const_value_to_nodecl(const_value_get_one(4, 1)),
                 region_lower_bound.get_type(),
-                region_lower_bound.get_filename(),
-                region_lower_bound.get_line());
+                region_lower_bound.get_locus());
 
         type_t* array_to = get_array_type_bounds_with_regions(
                 result_type,
@@ -257,7 +256,7 @@ namespace TL
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
 
-        parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
 
         for (i=0; i<num_parameters; i++)
         {
@@ -332,7 +331,7 @@ namespace TL
         else
             return (fortran_get_rank_of_type(_type_info));
     }
-
+    
     bool Type::is_vector() const
     {
         return (::is_vector_type(_type_info));

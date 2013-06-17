@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -58,20 +58,22 @@ public:
    void foo();
    int bar()
    {
+       int x;
        #pragma omp declare reduction( * : myInt : omp_out *= omp_in)
        myInt a;
        #pragma omp parallel reduction(* : a)
-       int x = rand();
+       x = rand();
        return x;
    }
 };
 
 void myInt::foo()
 {
+   int x;
    #pragma omp declare reduction(- : myInt : omp_out -= omp_in)
    myInt a;
    #pragma omp parallel reduction(- :a)
-   int x = rand();
+   x = rand();
 }
 
 int main (int argc, char **argv)

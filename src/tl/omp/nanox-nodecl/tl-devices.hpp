@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -175,8 +175,7 @@ namespace TL { namespace Nanox {
                      const TL::Symbol& outline_function,
                      Nodecl::NodeclBase outline_function_body,
                      Nodecl::NodeclBase task_label,
-                     std::string filename,
-                     int line,
+                     const locus_t* locus,
                      /* output parameters */
                      Source& instrumentation_before,
                      Source& instrumentation_after);
@@ -221,22 +220,21 @@ namespace TL { namespace Nanox {
                      Source &initial_statements,
                      Source &final_statements);
 
-             TL::Symbol new_function_symbol(
-                     TL::Symbol current_function,
-                     const std::string& name,
-                     TL::Type return_type,
-                     ObjectList<std::string> parameter_names,
-                     ObjectList<TL::Type> parameter_types);
-
-             void build_empty_body_for_function(
-                     TL::Symbol function_symbol,
-                     Nodecl::NodeclBase &function_code,
-                     Nodecl::NodeclBase &empty_stmt);
 
              TL::Type rewrite_type_of_vla_in_outline(
                      TL::Type t,
                      const TL::ObjectList<OutlineDataItem*> &data_items,
                      TL::Symbol &arguments_symbol);
+             
+             /**
+              * Returns if the symbol(sym) is serializable or not
+              * in case it's serializable and the device has a separate
+              * memory address space (non-smp), it should take care of-deserializing
+              * inside the outline function
+              * @param sym
+              * @return 
+              */
+             bool is_serializable(TL::Symbol &sym);
     };
 
     class DeviceHandler
@@ -255,6 +253,21 @@ namespace TL { namespace Nanox {
             typedef std::map<std::string, DeviceProvider*> nanox_devices_map_t;
             nanox_devices_map_t _nanox_devices;
     };
+
+    void add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc);
+    void duplicate_internal_subprograms(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            );
+
+    void duplicate_nested_functions(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            );
 } }
 
 #endif // NANOX_DEVICES_H

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -41,6 +41,22 @@ namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_field_name(std::string name)
     {
+        // Adjust names first
+        if (IS_CXX_LANGUAGE
+                && name == "this")
+            name = "this_";
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            // Builtin identifiers that became reserved names in later versions
+            // of gcc
+            if (name == "__PRETTY_FUNCTION__" // g++
+                    || name == "__FUNCTION__") // gcc
+                name = strtolower(name.c_str());
+            else if (name == "__func__") // C99
+                name = "__function__";
+        }
+
         int times_name_appears = 0;
         for (ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
                 it != _data_env_items.end();
@@ -52,10 +68,6 @@ namespace TL { namespace Nanox {
                 times_name_appears++;
             }
         }
-
-        if (IS_CXX_LANGUAGE
-                && name == "this")
-            name = "this_";
 
         std::stringstream ss;
         ss << name;
@@ -233,12 +245,12 @@ namespace TL { namespace Nanox {
         new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
 
-        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, "", 0);
+        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
         sym_ref.set_type(t.get_lvalue_reference_to());
 
         this->add_capture_with_value(
                 new_addr_symbol,
-                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), "", 0));
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), make_locus("", 0, 0)));
     }
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t)
@@ -264,6 +276,8 @@ namespace TL { namespace Nanox {
             {
                 outline_data_item->set_allocation_policy(
                         OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                outline_data_item->set_field_type(
+                        TL::Type::get_void_type().get_pointer_to());
             }
         }
         else
@@ -346,7 +360,7 @@ namespace TL { namespace Nanox {
                 is_allocated_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 is_allocated_sym.get_internal_symbol()->type_information = fortran_get_default_logical_type();
 
-                Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                 TL::Type sym_type = sym.get_type();
 
                 if (!sym_type.is_any_reference())
@@ -392,7 +406,7 @@ namespace TL { namespace Nanox {
 
                     int dim = fortran_get_rank_of_type(t.get_internal_type());
 
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                     TL::Type sym_type = sym.get_type();
                     if (!sym_type.no_ref().is_pointer())
                     {
@@ -410,12 +424,12 @@ namespace TL { namespace Nanox {
 
                     Source lbound_src;
                     lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-
+                    
                     Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
 
                     this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
 
-                    result_lower = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_lower = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
                     result_lower.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
@@ -452,7 +466,7 @@ namespace TL { namespace Nanox {
 
                     int dim = fortran_get_rank_of_type(t.get_internal_type());
 
-                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, "", 0);
+                    Nodecl::NodeclBase symbol_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                     TL::Type sym_type = sym.get_type();
                     if (!sym_type.no_ref().is_pointer())
                     {
@@ -475,7 +489,7 @@ namespace TL { namespace Nanox {
 
                     this->add_capture_with_value(bound_sym, ubound_tree, conditional_bound);
 
-                    result_upper = Nodecl::Symbol::make(bound_sym, "", 0);
+                    result_upper = Nodecl::Symbol::make(bound_sym, make_locus("", 0, 0));
                     result_upper.set_type(bound_sym.get_type().get_lvalue_reference_to());
 
                     make_allocatable = !sym_type.no_ref().is_pointer();
@@ -565,7 +579,7 @@ namespace TL { namespace Nanox {
         else
         {
             internal_error("%s: data reference '%s' must be valid at this point!\n",
-                    node.get_locus().c_str(),
+                    node.get_locus_str().c_str(),
                     Codegen::get_current().codegen_to_str(node, node.retrieve_context()).c_str()
                     );
         }
@@ -598,7 +612,7 @@ namespace TL { namespace Nanox {
             else
             {
                 internal_error("%s: data reference '%s' must be valid at this point!\n",
-                        it->get_locus().c_str(),
+                        it->get_locus_str().c_str(),
                         Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str()
                         );
             }
@@ -721,6 +735,11 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
     }
 
+    void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
+    {
+        _outline_info.add_copy_of_outline_data_item(data_item);
+    }
+
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
     {
         private:
@@ -741,12 +760,12 @@ namespace TL { namespace Nanox {
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
                     error_printf("%s: error: entity '%s' with unresolved 'auto' data sharing\n",
-                            it->get_locus().c_str(),
+                            it->get_locus_str().c_str(),
                             sym.get_name().c_str());
                 }
                 if (!l.empty())
                 {
-                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus().c_str());
+                    running_error("%s: error: unresolved auto data sharings\n", shared.get_locus_str().c_str());
                 }
             }
 
@@ -820,12 +839,20 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::NDRange& ndrange)
             {
-                _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
+                _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
+            }
+
+            void visit(const Nodecl::OpenMP::ShMem& shmem)
+            {
+                _outline_info.append_to_shmem(shmem.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        shmem.get_shmem_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Onto& onto)
             {
-                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
+                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::File& file)
@@ -974,22 +1001,6 @@ namespace TL { namespace Nanox {
         return *(_data_env_items.back());
     }
 
-    void OutlineInfo::move_at_begin(OutlineDataItem& item)
-    {
-        TL::ObjectList<OutlineDataItem*> new_list;
-        new_list.append(&item);
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = _data_env_items.begin();
-                it != _data_env_items.end();
-                it++)
-        {
-            if (*it != &item)
-            {
-                new_list.append(*it);
-            }
-        }
-        std::swap(_data_env_items, new_list);
-    }
-
     void OutlineInfo::move_at_end(OutlineDataItem& item)
     {
         TL::ObjectList<OutlineDataItem*> new_list;
@@ -1070,13 +1081,13 @@ namespace TL { namespace Nanox {
        _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange(TL::Symbol function_symbol)
+    void OutlineInfo::append_to_shmem(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
     {
-        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
-                "Function symbol '%s' not found in outline info implementation table",
-                function_symbol.get_name().c_str());
+       ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+               "Function symbol '%s' not found in outline info implementation table",
+               function_symbol.get_name().c_str());
 
-        return _implementation_table[function_symbol].get_ndrange();
+       _implementation_table[function_symbol].append_to_shmem(shmem_exprs);
     }
 
     void OutlineInfo::append_to_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto_exprs)
@@ -1086,15 +1097,6 @@ namespace TL { namespace Nanox {
                 function_symbol.get_name().c_str());
 
         _implementation_table[function_symbol].append_to_onto(onto_exprs);
-    }
-
-    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_onto(TL::Symbol function_symbol)
-    {
-        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
-                "Function symbol '%s' not found in outline info implementation table",
-                function_symbol.get_name().c_str());
-
-       return _implementation_table[function_symbol].get_onto();
     }
 
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
@@ -1129,6 +1131,7 @@ namespace TL { namespace Nanox {
             {
                 set_file(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
                 append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
+                append_to_shmem(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_shmem());
                 append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
             }
         }
@@ -1160,6 +1163,11 @@ namespace TL { namespace Nanox {
     OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
     {
         return _implementation_table;
+    }
+
+    void OutlineInfo::add_copy_of_outline_data_item(const OutlineDataItem& ol)
+    {
+        _data_env_items.append(new OutlineDataItem(ol));
     }
 
     namespace

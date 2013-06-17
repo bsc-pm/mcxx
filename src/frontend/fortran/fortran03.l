@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -836,6 +836,11 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 @TYPE-LITERAL-REF@ {
     parse_token_text();
     RETURN_TOKEN(TYPE_LITERAL_REF);
+}
+
+@SYMBOL-LITERAL-REF@ {
+    parse_token_text();
+    RETURN_TOKEN(SYMBOL_LITERAL_REF);
 }
 
 @EXPRESSION@ {
@@ -2274,12 +2279,12 @@ goto {
 	RETURN_TOKEN(TOK_LOGICAL_NOT);
 }
 
-".true." { 
+".true."(_{kind})? {
 	parse_token_text();
 	RETURN_TOKEN(TOK_TRUE);
 }
 
-".false." {
+".false."(_{kind})? {
 	parse_token_text();
 	RETURN_TOKEN(TOK_FALSE);
 }

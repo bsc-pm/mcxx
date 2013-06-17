@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -26,6 +26,7 @@
 
 
 #include "tl-source.hpp"
+#include "tl-nanos.hpp"
 #include "tl-lowering-visitor.hpp"
 
 namespace TL { namespace Nanox {
@@ -34,6 +35,7 @@ namespace TL { namespace Nanox {
             OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::NodeclBase num_replicas,
+            Nodecl::NodeclBase if_condition,
             const std::string& outline_name,
             TL::Symbol structure_symbol)
     {
@@ -114,14 +116,28 @@ namespace TL { namespace Nanox {
                 outline_info,
                 construct);
 
-        Source num_threads;
-        if (num_replicas.is_null())
+        Source num_threads, if_condition_code_opt;
+        if (Nanos::Version::interface_is_at_least("openmp", 7))
         {
-            num_threads << "nanos_omp_get_max_threads()";
+            num_threads << "nanos_omp_get_num_threads_next_parallel("
+                << (num_replicas.is_null() ? "0" : as_expression(num_replicas))
+                << ")";
         }
         else
         {
-            num_threads << as_expression(num_replicas);
+            if (num_replicas.is_null())
+            {
+                num_threads << "nanos_omp_get_max_threads()";
+            }
+            else
+            {
+                num_threads << as_expression(num_replicas);
+            }
+        }
+
+        if (!if_condition.is_null())
+        {
+            if_condition_code_opt << "if (!" << as_expression(if_condition) << ")  nanos_num_threads = 1;";
         }
 
         Nodecl::NodeclBase fill_outline_arguments_tree,
@@ -144,6 +160,7 @@ namespace TL { namespace Nanox {
             <<   const_wd_info
             <<   immediate_decl
             <<   "unsigned int nanos_num_threads = " << num_threads << ";"
+            <<   if_condition_code_opt
             <<   "nanos_err_t err;"
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"

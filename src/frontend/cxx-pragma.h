@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -30,13 +30,6 @@
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-nodecl.h"
-
-void common_build_scope_pragma_custom_declaration(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_pragma_line,
-        nodecl_t* nodecl_nested_decl,
-        void (*function_for_child)(AST, decl_context_t decl_context, nodecl_t*, void* info),
-        void* info);
 
 void common_build_scope_pragma_custom_statement(AST a, 
         decl_context_t decl_context, 

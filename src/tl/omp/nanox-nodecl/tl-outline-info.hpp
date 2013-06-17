@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -133,6 +133,8 @@ namespace TL
 
                 // Reductions
                 OpenMP::Reduction *_reduction;
+                TL::Symbol _basic_reduction_function;
+                TL::Symbol _shared_symbol_in_outline;
 
                 TL::ObjectList<DependencyItem> _dependences;
 
@@ -149,6 +151,10 @@ namespace TL
                 TL::Symbol _base_symbol_of_argument;
 
                 bool _is_lastprivate;
+
+                // This outline data item represents the C++ this object
+                bool _is_cxx_this;
+
             public:
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol),
@@ -159,9 +165,13 @@ namespace TL
                     _private_type(TL::Type::get_void_type()),
                     _sharing(),
                     _base_address_expression(),
+                    _reduction(NULL),
+                    _basic_reduction_function(),
+                    _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
-                    _is_lastprivate()
+                    _is_lastprivate(),
+                    _is_cxx_this(false)
                 {
                 }
 
@@ -300,6 +310,26 @@ namespace TL
                     return _reduction;
                 }
 
+                TL::Symbol reduction_get_basic_function() const
+                {
+                    return _basic_reduction_function;
+                }
+
+                void reduction_set_basic_function(TL::Symbol sym)
+                {
+                    _basic_reduction_function = sym;
+                }
+
+                TL::Symbol reduction_get_shared_symbol_in_outline() const
+                {
+                    return _shared_symbol_in_outline;
+                }
+
+                void reduction_set_shared_symbol_in_outline(TL::Symbol sym)
+                {
+                    _shared_symbol_in_outline = sym;
+                }
+
                 void set_captured_value(Nodecl::NodeclBase captured_value)
                 {
                     _captured_value = captured_value;
@@ -338,6 +368,16 @@ namespace TL
                 TL::Symbol get_base_symbol_of_argument() const
                 {
                     return _base_symbol_of_argument;
+                }
+
+                void set_is_cxx_this(bool b)
+                {
+                    _is_cxx_this = b;
+                }
+
+                bool get_is_cxx_this() const
+                {
+                    return _is_cxx_this;
                 }
         };
 
@@ -397,10 +437,8 @@ namespace TL
                 std::string get_name(TL::Symbol function_symbol);
 
                 void append_to_ndrange(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& ndrange);
-                ObjectList<Nodecl::NodeclBase> get_ndrange(TL::Symbol function_symbol);
-
+                void append_to_shmem(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& shmem);
                 void append_to_onto(TL::Symbol function_symbol,const ObjectList<Nodecl::NodeclBase>& onto);
-                ObjectList<Nodecl::NodeclBase> get_onto(TL::Symbol function_symbol);
 
                 /**
                  * Adds implementation, if already exists, it adds device name to that symbol
@@ -416,8 +454,8 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
-                // This is needed for the 'this' object
-                void move_at_begin(OutlineDataItem&);
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 
@@ -454,6 +492,8 @@ namespace TL
                         OutlineDataItem* outline_data_item,
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
+
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };
     }
 }

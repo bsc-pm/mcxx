@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -58,6 +58,7 @@ namespace Analysis {
                 compute_loop_ranges_rec( current->get_graph_entry_node( ) );
 
                 // If the graph is a loop, compute the current ranges
+                // For OpenMP::For nodes, the loop ranges have been already computed since they are synthesized in the ForRange nodecl
                 if( current->is_loop_node( ) )
                 {
                     ObjectList<Utils::InductionVariableData*> ivs = current->get_induction_variables( );

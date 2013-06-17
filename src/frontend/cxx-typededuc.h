@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -46,7 +46,7 @@ LIBMCXX_EXTERN char deduce_template_arguments_common(
         type_t** parameters,
         decl_context_t decl_context,
         template_parameter_list_t** deduced_template_arguments,
-        const char *filename, int line,
+        const locus_t* locus,
         template_parameter_list_t* explicit_template_parameters,
         deduction_flags_t flags);
 
@@ -56,7 +56,7 @@ LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(str
         template_parameter_list_t* type_template_parameters, 
         decl_context_t decl_context,
         template_parameter_list_t** deduced_template_arguments,
-        const char* filename, int line,
+        const locus_t* locus,
         template_parameter_list_t* explicit_template_parameters);
 
 LIBMCXX_EXTERN char deduce_arguments_of_conversion(
@@ -66,7 +66,7 @@ LIBMCXX_EXTERN char deduce_arguments_of_conversion(
         template_parameter_list_t* type_template_parameters,
         decl_context_t decl_context,
         template_parameter_list_t** deduced_template_arguments,
-        const char *filename, int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);
 

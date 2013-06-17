@@ -1,9 +1,9 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "codegen-cxx.hpp"
+#include "codegen-prune.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
@@ -1003,7 +1004,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     else
     {
         internal_error("%s: error: <<error expression>> found when the output is a file",
-                node.get_locus().c_str());
+                node.get_locus_str().c_str());
     }
 }
 
@@ -1769,12 +1770,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -1999,16 +1994,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
+    if (_prune_saved_variables)
+    {
+        PruneVLAVisitor prune_vla;
+        prune_vla.walk(node);
+    }
+
     //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -2787,6 +2782,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomClause& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
+    Nodecl::NodeclBase nested_pragma = node.get_nested_pragma();
     TL::Symbol symbol = node.get_symbol();
 
     indent();
@@ -2794,7 +2790,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     // FIXME  parallel|for must be printed as parallel for
     file << "/* decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
-    file << "'" << this->get_qualified_name(symbol) << "' */\n";
+    file << "' " << this->get_qualified_name(symbol) << "' */\n";
+    walk(nested_pragma);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDirective& node)
@@ -4179,7 +4176,8 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                     }
                 }
             }
-            else if (member.is_using_symbol())
+            else if (member.is_using_symbol()
+                    || member.is_using_typename_symbol())
             {
                 indent();
                 ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
@@ -4187,8 +4185,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 TL::ObjectList<TL::Symbol> unresolved = member.get_type().get_unresolved_overload_set();
 
                 TL::Symbol entry = unresolved[0];
+                file << "using ";
 
-                file << "using " << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
+                if (member.is_using_typename_symbol())
+                    file << "typename ";
+
+                file << this->get_qualified_name(entry, /* without_template */ 1) << ";\n";
             }
             else if (member.is_enum()
                     || member.is_typedef())
@@ -5040,6 +5042,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     if (!state.in_condition)
         indent();
 
+    if (_emit_saved_variables_as_unused
+            && symbol.is_saved_expression())
+    {
+        gcc_attributes += "__attribute__((unused)) ";
+    }
+
     file << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
@@ -5294,7 +5302,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             // the symbol will be already called 'struct/union X' in C
             indent();
-            file << symbol.get_name();
+            file << symbol.get_name() << ";\n";
         }
 
         CXX_LANGUAGE()
@@ -5407,10 +5415,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 {
                     file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
                 }
+                file << ";\n";
             }
         }
-
-        file << ";\n";
     }
     else if (symbol.is_enumerator())
     {
@@ -5524,6 +5531,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
+        }
+
+        if (symbol.is_nested_function())
+        {
+            decl_spec_seq += "auto ";
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
@@ -6362,6 +6374,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_SIZEOF:
         case NODECL_NEW:
         case NODECL_DELETE:
+        case NODECL_DELETE_ARRAY:
         case NODECL_PREINCREMENT:
         case NODECL_PREDECREMENT:
         case NODECL_REAL_PART:
@@ -7374,6 +7387,28 @@ CxxBase::CxxBase()
 {
     set_phase_name("C/C++ codegen");
     set_phase_description("This phase emits in C/C++ the intermediate representation of the compiler");
+
+    _emit_saved_variables_as_unused = false;
+    register_parameter("emit_saved_variables_as_unused",
+            "Emits saved-expression variables as __attribute__((unused))",
+            _emit_saved_variables_as_unused_str,
+            "0").connect(functor(&CxxBase::set_emit_saved_variables_as_unused, *this));
+
+    _prune_saved_variables = true;
+    register_parameter("prune_saved_variables",
+            "Disables removal of unused saved-expression variables. If you need to enable this, please report a ticket",
+            _prune_saved_variables_str,
+            "1").connect(functor(&CxxBase::set_prune_saved_variables, *this));
+}
+
+void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)
+{
+    TL::parse_boolean_option("emit_saved_variables_as_unused", str, _emit_saved_variables_as_unused, "Assuming false.");
+}
+
+void CxxBase::set_prune_saved_variables(const std::string& str)
+{
+    TL::parse_boolean_option("prune_saved_variables", str, _prune_saved_variables, "Assuming true.");
 }
 
 } // Codegen

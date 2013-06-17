@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -44,4 +44,6 @@ libcodegen_cxx_la_LIBADD = ../../common/libcodegen-common.la \
 libcodegen_cxx_la_SOURCES = \
 	 codegen-cxx.hpp \
 	 codegen-cxx.cpp \
+	 codegen-prune.cpp \
+	 codegen-prune.hpp \
   	 $(END)

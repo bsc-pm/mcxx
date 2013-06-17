@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -64,7 +64,7 @@ char deduce_template_arguments_common(
         type_t** parameters,
         decl_context_t decl_context,
         template_parameter_list_t** deduced_template_arguments,
-        const char *filename, int line,
+        const locus_t* locus,
         template_parameter_list_t* explicit_template_parameters,
         deduction_flags_t flags)
 {
@@ -273,7 +273,7 @@ char deduce_template_arguments_common(
         {
             type_t* updated_parameter = NULL;
             updated_parameter = update_type(parameters[j],
-                    updated_context, filename, line);
+                    updated_context, locus);
 
             if (updated_parameter == NULL
                     || !is_sound_type(updated_parameter, updated_context))
@@ -316,7 +316,7 @@ char deduce_template_arguments_common(
         }
 
         deduction_set_t *current_deduction = counted_xcalloc(1, sizeof(*current_deduction), &_bytes_typededuc);
-        unificate_two_types(parameter_type, argument_type, &current_deduction, updated_context, filename, line, flags);
+        unificate_two_types(parameter_type, argument_type, &current_deduction, updated_context, locus, flags);
         deductions[num_deduction_slots] = current_deduction;
         num_deduction_slots++;
     }
@@ -563,7 +563,7 @@ char deduce_template_arguments_common(
                 current_deduction->deduced_parameters[j]->type = 
                     update_type(
                             current_deduction->deduced_parameters[j]->type,
-                            updated_context, filename, line);
+                            updated_context, locus);
             }
         }
     }
@@ -579,7 +579,7 @@ char deduce_template_arguments_common(
 
             template_parameter_value_t* new_template_argument = update_template_parameter_value(default_template_argument,
                     updated_context,
-                    filename, line);
+                    locus);
 
             current_deduced_template_arguments->arguments[i] = new_template_argument;
         }
@@ -668,7 +668,7 @@ char deduce_arguments_of_conversion(
         template_parameter_list_t* type_template_parameters,
         decl_context_t decl_context,
         template_parameter_list_t **deduced_template_arguments,
-        const char *filename, int line)
+        const locus_t* locus)
 {
     scope_entry_t* specialized_symbol = named_type_get_symbol(specialized_named_type);
 
@@ -725,7 +725,7 @@ char deduce_arguments_of_conversion(
                 type_template_parameters,
                 argument_types, /* relevant arguments */ 1,
                 parameter_types, decl_context,
-                deduced_template_arguments, filename, line,
+                deduced_template_arguments, locus,
                 /* explicit_template_parameters */ NULL,
                 deduction_flags_empty()))
     {
@@ -740,7 +740,7 @@ char deduce_arguments_of_conversion(
     type_t* original_parameter_type = (*parameter_types);
     type_t* updated_type = 
         update_type(original_parameter_type, 
-                updated_context, filename, line);
+                updated_context, locus);
 
     if (!equivalent_types((*argument_types), updated_type))
     {
@@ -779,7 +779,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         template_parameter_list_t* type_template_parameters, 
         decl_context_t decl_context,
         template_parameter_list_t **deduced_template_arguments, 
-        const char* filename, int line,
+        const locus_t* locus,
         template_parameter_list_t* explicit_template_parameters)
 {
     scope_entry_t* specialized_symbol = named_type_get_symbol(specialized_named_type);
@@ -887,7 +887,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 {
                     // Simplify an unresolved overload of singleton, if possible
                     scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
-                            decl_context, filename, line);
+                            decl_context, locus);
 
                     if (solved_function == NULL)
                     {
@@ -934,7 +934,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 argument_types, relevant_arguments,
                 parameter_types, specialized_symbol->decl_context,
                 deduced_template_arguments, 
-                filename, line, 
+                locus, 
                 explicit_template_parameters,
                 deduction_flags_empty()))
     {
@@ -956,7 +956,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         if (explicit_template_parameters != NULL)
         {
             original_parameter_type = update_type(original_parameter_type,
-                    updated_context, filename, line);
+                    updated_context, locus);
 
             // The type failed to be updated
             if (original_parameter_type == NULL)
@@ -972,7 +972,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
         type_t* updated_type = 
             update_type(original_parameter_type, 
-                    updated_context, filename, line);
+                    updated_context, locus);
 
         // The type failed to be updated
         if (updated_type == NULL)
@@ -997,7 +997,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
                     updated_context,
-                    filename, line);
+                    locus);
             entry_list_free(unresolved_set);
 
             if (solved_function != NULL)
@@ -1205,7 +1205,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         fprintf(stderr, "TYPEDEDUC: Instantiating argument type know if it is derived or not\n");
                     }
                     scope_entry_t* symbol = named_type_get_symbol(no_ref(argument_types[i]));
-                    instantiate_template_class_if_needed(symbol, decl_context, filename, line);
+                    instantiate_template_class_if_needed(symbol, decl_context, locus);
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Argument type instantiated\n");
@@ -1233,7 +1233,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         // Now update it, if it returns NULL, everything was wrong :)
         function_return_type = update_type(function_return_type,
                 updated_context,
-                filename, line);
+                locus);
 
         if (function_return_type == NULL)
         {

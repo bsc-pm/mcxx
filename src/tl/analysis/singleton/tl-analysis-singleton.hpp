@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2012 Barcelona Supercomputing Center             *
+ ( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -210,8 +210,7 @@ namespace Analysis {
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //
-    // ************************************************************************************ //
-
+    // ************************************************************************************ /
 }
 }
 

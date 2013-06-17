@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -45,13 +45,14 @@ namespace Analysis {
         FUNCTION_CALL,       //! Node containing a Function Call
         GOTO,                //! Node containing a GotoStatement
         LABELED,             //! Node containing an only Labeled Statement
-        NORMAL,              //! Node representing a Basic Bloc
+        NORMAL,              //! Node representing a Basic Block
         // OMP
         OMP_BARRIER,
         OMP_FLUSH,
         OMP_TASKWAIT,
         OMP_WAITON_DEPS,
         OMP_TASKYIELD,
+        OMP_TASK_CREATION,
         OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
                              //! when the function that creates the task has ended
         // COMPOSITE

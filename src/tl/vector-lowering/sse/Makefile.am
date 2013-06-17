@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,27 +24,24 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+include ../../Makefile.phases
 
-include $(top_srcdir)/src/tl/Makefile.phases
-
-phases_LTLIBRARIES = libcodegen-sse-module.la
+lib_LTLIBRARIES = libtlvector-lowering-sse.la
 
 END=
 
-libcodegen_sse_module_la_CFLAGS = $(phases_cflags) \
-    -I $(srcdir)/../../common \
+libtlvector_lowering_sse_la_CFLAGS = $(tl_cflags) \
     $(END)
 
-libcodegen_sse_module_la_CXXFLAGS = $(phases_cflags) \
-    -I $(srcdir)/../../common \
+libtlvector_lowering_sse_la_CXXFLAGS = $(tl_cflags) \
     $(END)
 
-libcodegen_sse_module_la_LDFLAGS = $(phases_ldflags)
-libcodegen_sse_module_la_LIBADD = ../../common/libcodegen-common.la \
-					       $(END)
+libtlvector_lowering_sse_la_LDFLAGS = $(tl_ldflags)
+libtlvector_lowering_sse_la_LIBADD = $(END)
 
 
-libcodegen_sse_module_la_SOURCES = \
-	 codegen-sse-module.hpp \
-	 codegen-sse-module.cpp \
+libtlvector_lowering_sse_la_SOURCES = \
+	 tl-vector-lowering-sse.hpp \
+	 tl-vector-lowering-sse.cpp \
   	 $(END)
+

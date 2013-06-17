@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -26,10 +26,12 @@
 
 #include "tl-devices.hpp"
 #include "tl-nanos.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
+
 namespace TL { namespace Nanox {
 
     static DeviceHandler* _nanox_handler = 0;
@@ -101,8 +103,7 @@ namespace TL { namespace Nanox {
             const TL::Symbol& outline_function,
             Nodecl::NodeclBase outline_function_body,
             Nodecl::NodeclBase task_label,
-            std::string filename,
-            int line,
+            const locus_t* locus,
             Source& instrumentation_before,
             Source& instrumentation_after)
     {
@@ -111,33 +112,35 @@ namespace TL { namespace Nanox {
             Source extended_descr, extra_cast, instrument_before_c,
             instrument_after_c, function_name_instr;
 
+            std::string function_name;
             if (task_label.is_null())
             {
                 if (called_task.is_valid())
                 {
                     // It's a function task
-                    extended_descr << called_task.get_type().get_declaration(
-                            called_task.get_scope(), called_task.get_qualified_name());
+                    function_name =
+                        called_task.get_type().get_declaration(
+                                called_task.get_scope(), called_task.get_qualified_name());
                 }
                 else
                 {
                     // It's an inline task
-                    std::string function_name =
+                    function_name =
                         outline_function.get_type().get_declaration(
                                 outline_function.get_scope(), outline_function.get_qualified_name());
-
-                    // The character '@' will be used as a separator of the
-                    // description. Since the function name may contain one or
-                    // more '@' characters, we should replace them by an other
-                    // special char
-                    for (unsigned int i = 0; i < function_name.length(); i++)
-                    {
-                        if (function_name[i] == '@')
-                            function_name[i] = '#';
-                    }
-
-                    extended_descr << function_name;
                 }
+
+                // The character '@' will be used as a separator of the
+                // description. Since the function name may contain one or
+                // more '@' characters, we should replace them by an other
+                // special char
+                for (unsigned int i = 0; i < function_name.length(); i++)
+                {
+                    if (function_name[i] == '@')
+                        function_name[i] = '#';
+                }
+
+                extended_descr << function_name;
             }
             else
             {
@@ -149,7 +152,7 @@ namespace TL { namespace Nanox {
             //  - FILE: The filename
             //  - LINE: The line number
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
-            extended_descr << "@" << filename << "@" << line;
+            extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
 
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target a unsigned long long, in architectures of 32
@@ -322,8 +325,7 @@ namespace TL { namespace Nanox {
         new_function_sym->entity_specs.is_user_declared = 1;
 
         new_function_sym->kind = SK_FUNCTION;
-        new_function_sym->file = "";
-        new_function_sym->line = 0;
+        new_function_sym->locus = make_locus("", 0, 0);
 
         // Make it static
         new_function_sym->entity_specs.is_static = 1;
@@ -477,40 +479,22 @@ namespace TL { namespace Nanox {
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
-        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-        if (IS_CXX_LANGUAGE
-                && !is_function_task
-                && current_function.is_member()
-                && !current_function.is_static()
-                && it != data_items.end())
-        {
-            it++;
-        }
-
         int lower_bound_index = 1;
         int upper_bound_index = 1;
         int is_allocated_index = 1;
         TL::ObjectList<TL::Symbol> cray_pointee_list;
 
-        for (; it != data_items.end(); it++)
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
         {
             TL::Symbol sym = (*it)->get_symbol();
+            std::string name = (*it)->get_field_name();
 
-            std::string name;
-            if (sym.is_valid())
-            {
-                name = sym.get_name();
-                if (IS_CXX_LANGUAGE
-                        && name == "this")
-                {
-                    name = "this_";
-                }
-            }
-            else
-            {
-                name = (*it)->get_field_name();
-            }
+            if (!is_function_task
+                    && (*it)->get_is_cxx_this())
+                continue;
 
             bool already_mapped = false;
             switch ((*it)->get_sharing())
@@ -610,6 +594,8 @@ namespace TL { namespace Nanox {
                         shared_reduction_sym->entity_specs.is_allocatable = sym.is_valid()
                             && !sym.is_member()
                             && sym.is_allocatable();
+
+                        (*it)->reduction_set_shared_symbol_in_outline(shared_reduction_sym);
 
                         // Private vector of partial reductions. This is a local pointer variable
                         // rdv stands for reduction vector
@@ -790,8 +776,7 @@ namespace TL { namespace Nanox {
             new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
-            new_function_sym->file = "";
-            new_function_sym->line = 0;
+            new_function_sym->locus = make_locus("", 0, 0);
             new_function_sym->type_information = function_type;
         }
         else
@@ -799,14 +784,13 @@ namespace TL { namespace Nanox {
             scope_entry_t* new_template_sym =
                 new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
             new_template_sym->kind = SK_TEMPLATE;
-            new_template_sym->file = "";
-            new_template_sym->line = 0;
+            new_template_sym->locus = make_locus("", 0, 0);
 
             new_template_sym->type_information = get_new_template_type(
                     decl_context.template_parameters,
                     function_type,
                     uniquestr(function_name.c_str()),
-                    decl_context, 0, "");
+                    decl_context, make_locus("", 0, 0));
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
@@ -826,7 +810,6 @@ namespace TL { namespace Nanox {
         {
             new_function_sym->entity_specs.is_static = 0;
         }
-
 
         // Finally, we update the parameters of the new function symbol
         for (ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
@@ -857,6 +840,23 @@ namespace TL { namespace Nanox {
                     get_cv_qualifier(current_function.get_type().get_internal_type()));
         }
 
+        if (current_function.is_inline())
+            new_function_sym->entity_specs.is_inline = 1;
+
+        // new_function_sym->entity_specs.is_defined_inside_class_specifier =
+        //     current_function.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
+
+        if (IS_FORTRAN_LANGUAGE && current_function.is_in_module())
+        {
+            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
+            new_function_sym->entity_specs.in_module = module_sym;
+            P_LIST_ADD(
+                    module_sym->entity_specs.related_symbols,
+                    module_sym->entity_specs.num_related_symbols,
+                    new_function_sym);
+            new_function_sym->entity_specs.is_module_procedure = 1;
+        }
+
         function_context.function_scope->related_entry = new_function_sym;
         function_context.block_scope->related_entry = new_function_sym;
 
@@ -864,177 +864,6 @@ namespace TL { namespace Nanox {
 
         out_symbol_map = symbol_map;
         return new_function_sym;
-    }
-
-    TL::Symbol DeviceProvider::new_function_symbol(
-            TL::Symbol current_function,
-            const std::string& name,
-            TL::Type return_type,
-            ObjectList<std::string> parameter_names,
-            ObjectList<TL::Type> parameter_types)
-    {
-        if (IS_FORTRAN_LANGUAGE && current_function.is_nested_function())
-        {
-            // Get the enclosing function
-            current_function = current_function.get_scope().get_related_symbol();
-        }
-
-        decl_context_t decl_context = current_function.get_scope().get_decl_context();
-
-        ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
-
-        decl_context_t function_context;
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            function_context = new_program_unit_context(decl_context);
-        }
-        else
-        {
-            function_context = new_function_context(decl_context);
-            function_context = new_block_context(function_context);
-        }
-
-        // Build the function type
-        int num_parameters = 0;
-        scope_entry_t** parameter_list = NULL;
-
-        parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
-        parameter_info_t* it_ptypes = &(p_types[0]);
-        ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
-        for (ObjectList<std::string>::iterator it = parameter_names.begin();
-                it != parameter_names.end();
-                it++, it_ptypes++, type_it++)
-        {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
-            param->entity_specs.is_user_declared = 1;
-            param->kind = SK_VARIABLE;
-            param->file = "";
-            param->line = 0;
-
-            param->defined = 1;
-
-            param->type_information = get_unqualified_type(type_it->get_internal_type());
-
-            P_LIST_ADD(parameter_list, num_parameters, param);
-
-            it_ptypes->is_ellipsis = 0;
-            it_ptypes->nonadjusted_type_info = NULL;
-            it_ptypes->type_info = get_indirect_type(param);
-        }
-
-        type_t *function_type = get_new_function_type(
-                return_type.get_internal_type(),
-                p_types,
-                parameter_types.size());
-
-        delete[] p_types;
-
-        // Now, we can create the new function symbol
-        scope_entry_t* new_function_sym = NULL;
-        if (!current_function.get_type().is_template_specialized_type())
-        {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
-            new_function_sym->entity_specs.is_user_declared = 1;
-            new_function_sym->kind = SK_FUNCTION;
-            new_function_sym->file = "";
-            new_function_sym->line = 0;
-            new_function_sym->type_information = function_type;
-        }
-        else
-        {
-            scope_entry_t* new_template_sym = new_symbol(
-                    decl_context, decl_context.current_scope, name.c_str());
-            new_template_sym->kind = SK_TEMPLATE;
-            new_template_sym->file = "";
-            new_template_sym->line = 0;
-
-            new_template_sym->type_information = get_new_template_type(
-                    decl_context.template_parameters,
-                    function_type,
-                    uniquestr(name.c_str()),
-                    decl_context, 0, "");
-
-            template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
-
-            // The new function is the primary template specialization
-            new_function_sym = named_type_get_symbol(
-                    template_type_get_primary_type(
-                        new_template_sym->type_information));
-        }
-
-        function_context.function_scope->related_entry = new_function_sym;
-        function_context.block_scope->related_entry = new_function_sym;
-
-        new_function_sym->related_decl_context = function_context;
-
-        new_function_sym->entity_specs.related_symbols = parameter_list;
-        new_function_sym->entity_specs.num_related_symbols = num_parameters;
-        for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
-        {
-            symbol_set_as_parameter_of_function(
-                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
-        }
-
-        // Make it static
-        new_function_sym->entity_specs.is_static = 1;
-
-        // Make it member if the enclosing function is member
-        if (current_function.is_member())
-        {
-            new_function_sym->entity_specs.is_member = 1;
-            new_function_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
-
-            new_function_sym->entity_specs.access = AS_PUBLIC;
-
-            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
-        }
-        return new_function_sym;
-    }
-
-    void DeviceProvider::build_empty_body_for_function(
-            TL::Symbol function_symbol,
-            Nodecl::NodeclBase &function_code,
-            Nodecl::NodeclBase &empty_stmt
-            )
-    {
-        empty_stmt = Nodecl::EmptyStatement::make("", 0);
-        Nodecl::List stmt_list = Nodecl::List::make(empty_stmt);
-
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            Nodecl::CompoundStatement compound_statement =
-                Nodecl::CompoundStatement::make(stmt_list,
-                        /* destructors */ Nodecl::NodeclBase::null(),
-                        "", 0);
-            stmt_list = Nodecl::List::make(compound_statement);
-        }
-
-        Nodecl::NodeclBase context = Nodecl::Context::make(
-                stmt_list,
-                function_symbol.get_related_scope(), "", 0);
-
-        function_symbol.get_internal_symbol()->defined = 1;
-
-        if (function_symbol.is_dependent_function())
-        {
-            function_code = Nodecl::TemplateFunctionCode::make(context,
-                    // Initializers
-                    Nodecl::NodeclBase::null(),
-                    // Internal functions
-                    Nodecl::NodeclBase::null(),
-                    function_symbol,
-                    "", 0);
-        }
-        else
-        {
-            function_code = Nodecl::FunctionCode::make(context,
-                    // Initializers
-                    Nodecl::NodeclBase::null(),
-                    // Internal functions
-                    Nodecl::NodeclBase::null(),
-                    function_symbol,
-                    "", 0);
-        }
     }
 
     // Rewrite inline
@@ -1121,7 +950,113 @@ namespace TL { namespace Nanox {
         // Do nothing
         else return t;
     }
-
-
+    
+    
+    bool DeviceProvider::is_serializable(TL::Symbol& sym){
+        bool serializable=false;
+        TL::Type ser_type = sym.get_type();
+        //If the object is a class, generate everything so nanox can it
+        if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
+                TL::Symbol sym_serializer = ser_type.get_symbol();
+                if (sym_serializer.get_type().is_pointer_to_class()){
+                    ser_type= sym_serializer.get_type().get_pointer_to();
+                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+                }
+                ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
+                ObjectList<TL::Symbol>::iterator ser_it;
+                for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !serializable; ++ser_it){
+                    if (ser_it->get_name()=="serialize") serializable=true;
+                }    
+        }
+        return serializable;
+    }
 
 } }
+
+namespace TL
+{
+    namespace Nanox {
+
+        namespace {
+
+            void add_used_types_rec(TL::Type t, TL::Scope sc)
+            {
+                if (t.is_named_class() && t.get_symbol().is_from_module())
+                {
+                    Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                }
+                else if (t.is_lvalue_reference())
+                {
+                    add_used_types_rec(t.references_to(), sc);
+                }
+                else if (t.is_pointer())
+                {
+                    add_used_types_rec(t.points_to(), sc);
+                }
+                else if (t.is_array())
+                {
+                    add_used_types_rec(t.array_element(), sc);
+                }
+            }
+
+        }
+    }
+
+    // We rely on qualification to detect undefined references
+    void Nanox::add_used_types(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Scope sc)
+    {
+        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            add_used_types_rec((*it)->get_in_outline_type(), sc);
+        }
+    }
+
+    void Nanox::duplicate_internal_subprograms(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            )
+    {
+        if (internal_function_codes.empty())
+            return;
+
+        ERROR_CONDITION(!output_statements.is<Nodecl::List>(), "Invalid node", 0);
+
+        Nodecl::Utils::SimpleSymbolMap* new_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
+
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator
+                it2 = internal_function_codes.begin();
+                it2 != internal_function_codes.end();
+                it2++)
+        {
+            ERROR_CONDITION(!it2->is<Nodecl::FunctionCode>(), "Invalid node", 0);
+
+            TL::Symbol orig_sym = it2->get_symbol();
+
+            Nodecl::NodeclBase copied_node = it2->shallow_copy();
+
+            TL::Symbol new_sym = scope_of_unpacked.new_symbol(orig_sym.get_name());
+            new_map->add_map(orig_sym, new_sym);
+
+            output_statements.as<Nodecl::List>().append(copied_node);
+        }
+
+        symbol_map = new_map;
+    }
+
+    void Nanox::duplicate_nested_functions(
+            TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
+            TL::Scope scope_of_unpacked,
+            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::NodeclBase& output_statements
+            )
+    {
+        duplicate_internal_subprograms(internal_function_codes,
+                scope_of_unpacked,
+                symbol_map,
+                output_statements);
+    }
+}

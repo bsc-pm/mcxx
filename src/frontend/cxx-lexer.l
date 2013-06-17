@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -828,7 +828,7 @@ type {
     char start_of_new_file = 0;
     char return_of_a_file = 0;
     char system_header_file = 0;
-    char extern_c_block = 0;
+    char extern_c_block UNUSED_PARAMETER = 1;
     while (*directive == ' '
             || isdigit(*directive))
     {

@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -50,29 +50,24 @@ namespace TL { namespace Nanox {
             scope_entry_t* index_sym = index_symbol.get_internal_symbol();
             index_sym->kind = SK_VARIABLE;
             index_sym->type_information = get_signed_int_type();
-            index_sym->file = uniquestr(sections.get_filename().c_str());
-            index_sym->line = sections.get_line();
+            index_sym->locus = nodecl_get_locus(sections.get_internal_nodecl());
 
             // Make this symbol private
             execution_environment.append(
                     Nodecl::OpenMP::Private::make(
                         Nodecl::List::make(
                             Nodecl::Symbol::make(index_symbol,
-                                sections.get_filename(),
-                                sections.get_line())),
-                        sections.get_filename(),
-                        sections.get_line())
+                                sections.get_locus())),
+                        sections.get_locus())
                     );
 
             execution_environment.append(
                     Nodecl::OpenMP::Schedule::make(
                         Nodecl::IntegerLiteral::make(::get_signed_int_type(),
                             const_value_get_signed_int(1),
-                            sections.get_filename(),
-                            sections.get_line()),
+                            sections.get_locus()),
                         "static",
-                        sections.get_filename(),
-                        sections.get_line())
+                        sections.get_locus())
                     );
 
 
@@ -92,7 +87,7 @@ namespace TL { namespace Nanox {
                     // C/C++ needs a break here
                     current_case_statements.append(
                             Nodecl::BreakStatement::make(Nodecl::NodeclBase::null(),
-                                section.get_filename(), section.get_line()));
+                                section.get_locus()));
                 }
 
                 Nodecl::NodeclBase current_case =
@@ -100,29 +95,25 @@ namespace TL { namespace Nanox {
                             Nodecl::List::make(
                                 Nodecl::IntegerLiteral::make(::get_signed_int_type(),
                                     const_value_get_signed_int(index),
-                                    section.get_filename(),
-                                    section.get_line())),
+                                    section.get_locus())),
                             current_case_statements,
-                            section.get_filename(),
-                            section.get_line()
+                            section.get_locus()
                             );
 
                 switch_statements.append(current_case);
             }
 
             Nodecl::NodeclBase switch_body = switch_statements;
-
             if (!IS_FORTRAN_LANGUAGE)
             {
                 switch_body = Nodecl::CompoundStatement::make(
                         switch_body, // This is a list here
                         Nodecl::NodeclBase::null(), // No finalizers,
-                        sections.get_filename(),
-                        sections.get_line());
+                        sections.get_locus());
                 switch_body = Nodecl::List::make(switch_body);
             }
 
-            Nodecl::NodeclBase index_reference = Nodecl::Symbol::make(index_symbol, sections.get_filename(), sections.get_line());
+            Nodecl::NodeclBase index_reference = Nodecl::Symbol::make(index_symbol, sections.get_locus());
             index_reference.set_type(::lvalue_ref(index_sym->type_information));
 
             Nodecl::NodeclBase switch_statement =
@@ -130,21 +121,34 @@ namespace TL { namespace Nanox {
                         index_reference,
                         switch_body);
 
-            Nodecl::NodeclBase range = Nodecl::OpenMP::ForRange::make(
+            Nodecl::NodeclBase range = Nodecl::RangeLoopControl::make(
+                    Nodecl::Symbol::make(index_symbol, sections.get_locus()),
                     Nodecl::IntegerLiteral::make(::get_signed_int_type(), ::const_value_get_signed_int(0)),
                     Nodecl::IntegerLiteral::make(::get_signed_int_type(), ::const_value_get_signed_int(index - 1)),
                     Nodecl::IntegerLiteral::make(::get_signed_int_type(), ::const_value_get_signed_int(1)),
-                    index_symbol,
-                    sections.get_filename(),
-                    sections.get_line());
+                    sections.get_locus());
+
+            Nodecl::NodeclBase for_body = switch_statement;
+            if (!IS_FORTRAN_LANGUAGE)
+            {
+                for_body = Nodecl::CompoundStatement::make(
+                        Nodecl::List::make(for_body),
+                        Nodecl::NodeclBase::null(),
+                        sections.get_locus());
+            }
+
+            Nodecl::NodeclBase for_statement = Nodecl::ForStatement::make(
+                    range,
+                    Nodecl::List::make(for_body),
+                    /* name */ Nodecl::NodeclBase::null(),
+                    sections.get_locus());
+
 
             Nodecl::OpenMP::For for_construct =
                 Nodecl::OpenMP::For::make(
                         execution_environment,
-                        Nodecl::List::make(range),
-                        Nodecl::List::make(switch_statement),
-                        sections.get_filename(),
-                        sections.get_line());
+                        for_statement,
+                        sections.get_locus());
 
             return for_construct;
         }

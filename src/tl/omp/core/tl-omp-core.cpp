@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -203,7 +203,7 @@ namespace TL
                             || (!allow_extended_references && !it->has_symbol()))
                     {
                         std::cerr << data_ref.get_error_log();
-                        std::cerr << data_ref.get_locus() << ": warning: '" << data_ref.prettyprint()
+                        std::cerr << data_ref.get_locus_str() << ": warning: '" << data_ref.prettyprint()
                             << "' is not a valid name for data sharing" << std::endl;
                     }
                     else
@@ -213,7 +213,7 @@ namespace TL
                         if (_discard_unused_data_sharings
                                 && !symbols_in_construct.contains(base_sym))
                         {
-                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
+                            std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
                                 << "' since it does not appear in the construct" << std::endl;
                             continue;
                         }
@@ -221,14 +221,14 @@ namespace TL
                         if (base_sym.is_member()
                                 && !base_sym.is_static())
                         {
-                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
+                            std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
                                 << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
                             continue;
                         }
 
                         if (base_sym.is_cray_pointee())
                         {
-                            std::cerr << data_ref.get_locus() << ": warning: ignoring '" << data_ref.prettyprint()
+                            std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
                                 << "' since a cray pointee cannot appear un data-sharing clauses" << std::endl;
                             continue;
                         }
@@ -263,7 +263,7 @@ namespace TL
                             == DS_SHARED)
                             && (_data_attrib & DS_PRIVATE))
                     {
-                        std::cerr << _ref_tree.get_locus() << ": warning: data sharing of '" 
+                        std::cerr << _ref_tree.get_locus_str() << ": warning: data sharing of '" 
                             << data_ref.prettyprint() 
                             << "' was shared but now it is being overriden as private" 
                             << std::endl;
@@ -273,7 +273,7 @@ namespace TL
                             && sym.get_name() == "this"
                             && (_data_attrib & DS_PRIVATE))
                     {
-                        std::cerr << _ref_tree.get_locus() << ": warning: 'this' will be shared" << std::endl;
+                        std::cerr << _ref_tree.get_locus_str() << ": warning: 'this' will be shared" << std::endl;
                         return;
                     }
 
@@ -284,7 +284,7 @@ namespace TL
                             && !sym.get_type().no_ref().array_requires_descriptor()
                             && sym.get_type().no_ref().array_get_size().is_null())
                     {
-                        std::cerr << _ref_tree.get_locus()
+                        std::cerr << _ref_tree.get_locus_str()
                             << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized" << std::endl;
                         return;
                     }
@@ -396,31 +396,6 @@ namespace TL
             get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols, copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
-
-            // // Internal clauses created by fun-tasks phase
-            // ObjectList<DataReference> fp_input_references;
-            // get_clause_symbols(construct.get_clause("__fp_input"), nonlocal_symbols, fp_input_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_input_references.begin(), fp_input_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_output_references;
-            // get_clause_symbols(construct.get_clause("__fp_output"), nonlocal_symbols, fp_output_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_output_references.begin(), fp_output_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_inout_references;
-            // get_clause_symbols(construct.get_clause("__fp_inout"), nonlocal_symbols, fp_inout_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
-
-            // ObjectList<DataReference> fp_reduction_references;
-            // get_clause_symbols(construct.get_clause("__fp_reduction"), nonlocal_symbols, fp_reduction_references, 
-            //         /* Allow extended references */ true);
-            // std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
-            //         DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
@@ -465,9 +440,9 @@ namespace TL
                     }
                 }
 
-                std::cerr << default_clause.get_locus()
+                std::cerr << default_clause.get_locus_str()
                     << ": warning: data sharing '" << args[0] << "' is not valid in 'default' clause" << std::endl;
-                std::cerr << default_clause.get_locus()
+                std::cerr << default_clause.get_locus_str()
                     << ": warning: assuming 'shared'" << std::endl;
 
                 return DS_SHARED;
@@ -506,6 +481,112 @@ namespace TL
                     else
                     {
                         Nodecl::ExhaustiveVisitor<void>::visit(construct);
+                    }
+                }
+        };
+
+        class SavedExpressions : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+
+                bool is_local_to_current_function(TL::Symbol sym)
+                {
+                    return (sym.get_scope().is_block_scope()
+                            && sym.get_scope().get_related_symbol() == _sc.get_related_symbol());
+                }
+
+                void walk_type(TL::Type t)
+                {
+                    if (t.is_any_reference())
+                        walk_type(t.references_to());
+                    else if (t.is_pointer())
+                        walk_type(t.points_to());
+                    else if (t.is_array())
+                    {
+                        walk_type(t.array_element());
+
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            Nodecl::NodeclBase lower, upper;
+                            t.array_get_bounds(lower, upper);
+
+                            if (!lower.is_null()
+                                    && lower.is<Nodecl::Symbol>()
+                                    && lower.get_symbol().is_saved_expression())
+                            {
+                                TL::Symbol sym(lower.get_symbol());
+                                if (is_local_to_current_function(sym))
+                                {
+                                    symbols.insert(sym);
+                                }
+                            }
+
+                            if (!upper.is_null()
+                                    && upper.is<Nodecl::Symbol>()
+                                    && upper.get_symbol().is_saved_expression())
+                            {
+                                TL::Symbol sym(upper.get_symbol());
+                                if (is_local_to_current_function(sym))
+                                {
+                                    symbols.insert(sym);
+                                }
+                            }
+                        }
+                        else if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                        {
+                            Nodecl::NodeclBase size = t.array_get_size();
+
+                            if (!size.is_null()
+                                    && size.is<Nodecl::Symbol>()
+                                    && size.get_symbol().is_saved_expression())
+                            {
+                                TL::Symbol sym(size.get_symbol());
+                                if (is_local_to_current_function(sym))
+                                {
+                                    symbols.insert(sym);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                    }
+                }
+
+                TL::Scope _sc;
+
+            public :
+                TL::ObjectList<TL::Symbol> symbols;
+
+                SavedExpressions(TL::Scope sc)
+                     : _sc(sc)
+                {
+                }
+
+                virtual Ret visit(const Nodecl::Symbol &n)
+                {
+                    TL::Symbol sym = n.get_symbol();
+                    if (sym.is_saved_expression())
+                    {
+                        symbols.insert(sym);
+                    }
+                }
+
+                virtual Ret unhandled_node(const Nodecl::NodeclBase & n)
+                {
+                    TL::Type t = n.get_type();
+                    if (t.is_valid())
+                    {
+                        walk_type(t);
+                    }
+
+                    TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                            it != children.end();
+                            it++)
+                    {
+                        walk(*it);
                     }
                 }
         };
@@ -551,7 +632,7 @@ namespace TL
                             {
                                 if (filter_symbol(*it))
                                 {
-                                    _result.append(Nodecl::Symbol::make(*it, it->get_filename(), it->get_line()));
+                                    _result.append(Nodecl::Symbol::make(*it, it->get_locus()));
                                 }
                             }
                         }
@@ -675,7 +756,7 @@ namespace TL
                     {
                         if (!already_nagged.contains(sym))
                         {
-                            std::cerr << it->get_locus() 
+                            std::cerr << it->get_locus_str() 
                                 << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope()) 
                                 << "' does not have data sharing and 'default(none)' was specified. Assuming shared "
                                 << std::endl;
@@ -737,7 +818,7 @@ namespace TL
                 {
                     std::cerr << ast_print_node_type(nodecl_get_kind(l[0].get_internal_nodecl())) << std::endl;
                     running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             pragma_name.c_str());
                 }
                 else
@@ -754,7 +835,7 @@ namespace TL
                 if (l.empty())
                 {
                     running_error("%s: error: '#pragma omp %s' cannot have an empty compound statement\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             pragma_name.c_str());
                 }
 
@@ -776,8 +857,7 @@ namespace TL
                                     Nodecl::NodeclBase::null(),
                                     Nodecl::NodeclBase::null(),
                                     "section",
-                                    construct_wrap.get_filename(),
-                                    construct_wrap.get_line());
+                                    construct_wrap.get_locus());
                         }
                         else
                         {
@@ -791,8 +871,7 @@ namespace TL
                                 pragma_line,
                                 Nodecl::List::make(singleton_list), 
                                 "omp",
-                                construct_wrap.get_filename(),
-                                construct_wrap.get_line());
+                                construct_wrap.get_locus());
                         section_seq_wrap.append(pragma_construct);
                     }
                 };
@@ -809,11 +888,11 @@ namespace TL
                     {
                         if (next_must_be_omp_section)
                         {
-                            running_error("%s: error: expecting a '#pragma omp section'\n", it->get_locus().c_str());
+                            running_error("%s: error: expecting a '#pragma omp section'\n", it->get_locus_str().c_str());
                         }
                         else
                         {
-                            running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus().c_str());
+                            running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus_str().c_str());
                         }
                     }
                     else if (next_must_be_omp_section)
@@ -821,7 +900,7 @@ namespace TL
                         // Is it the last statement a #pragma omp section?
                         if ((it+1) == l.end())
                         {
-                            running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus().c_str());
+                            running_error("%s: error: a '#pragma omp section' cannot appear here\n", it->get_locus_str().c_str());
                         }
                         current_pragma = *it;
                     }
@@ -839,7 +918,7 @@ namespace TL
                 if (l.empty())
                 {
                     running_error("%s: error: '!$OMP %s' cannot have an empty block\n",
-                            construct.get_locus().c_str(),
+                            construct.get_locus_str().c_str(),
                             strtoupper(pragma_name.c_str()));
                 }
 
@@ -868,16 +947,14 @@ namespace TL
                                     Nodecl::NodeclBase::null(),
                                     Nodecl::NodeclBase::null(),
                                     "section",
-                                    construct_wrap.get_filename(),
-                                    construct_wrap.get_line());
+                                    construct_wrap.get_locus());
                         }
 
                         Nodecl::NodeclBase pragma_construct = Nodecl::PragmaCustomStatement::make(
                                 pragma_line,
                                 Nodecl::List::make(statement_set_wrap), 
                                 "omp",
-                                construct_wrap.get_filename(),
-                                construct_wrap.get_line());
+                                construct_wrap.get_locus());
                         section_seq_wrap.append(pragma_construct);
 
                         statement_set_wrap.clear();
@@ -897,7 +974,7 @@ namespace TL
                                 || current_is_the_last))
                     {
                         running_error("%s: error: misplaced '!$OMP SECTION'\n", 
-                                it->get_locus().c_str());
+                                it->get_locus_str().c_str());
                     }
 
                     if (!current_is_section)
@@ -930,8 +1007,7 @@ namespace TL
                 Nodecl::CompoundStatement::make(
                         Nodecl::List::make(section_seq),
                         Nodecl::NodeclBase::null(),
-                        construct.get_filename(),
-                        construct.get_line());
+                        construct.get_locus());
 
             construct
                 .get_statements()
@@ -943,7 +1019,7 @@ namespace TL
             if (!statement.is<Nodecl::ForStatement>())
             {
                 running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        statement.get_locus().c_str());
+                        statement.get_locus_str().c_str());
             }
 
             TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
@@ -961,7 +1037,7 @@ namespace TL
                         && sym_data_sharing != DS_NONE)
                 {
                     running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
-                            statement.get_locus().c_str(),
+                            statement.get_locus_str().c_str(),
                             sym.get_name().c_str()
                             );
                 }
@@ -973,12 +1049,12 @@ namespace TL
                 if (IS_FORTRAN_LANGUAGE)
                 {
                     running_error("%s: error: DO-statement in !$OMP DO directive is not valid", 
-                            statement.get_locus().c_str());
+                            statement.get_locus_str().c_str());
                 }
                 else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
                     running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
-                            statement.get_locus().c_str());
+                            statement.get_locus_str().c_str());
                 }
                 else
                 {
@@ -1071,7 +1147,7 @@ namespace TL
                 {
                     if (default_data_attr == DS_NONE)
                     {
-                        std::cerr << it->get_locus() 
+                        std::cerr << it->get_locus_str() 
                             << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope()) 
                             << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
                             << std::endl;
@@ -1127,7 +1203,7 @@ namespace TL
                         && !sym.get_type().no_ref().array_requires_descriptor()
                         && sym.get_type().no_ref().array_get_size().is_null())
                 {
-                    std::cerr << it->get_locus()
+                    std::cerr << it->get_locus_str()
                         << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
                     data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                     data_sharing.set_data_sharing(sym, data_attr);
@@ -1144,10 +1220,9 @@ namespace TL
                 DataSharingEnvironment& data_sharing,
                 ObjectList<Nodecl::Symbol>& nonlocal_symbols)
         {
+            Nodecl::NodeclBase statement = construct.get_statements();
             FORTRAN_LANGUAGE()
             {
-                Nodecl::NodeclBase statement = construct.get_statements();
-
                 // Other symbols that may be used indirectly are made shared
                 TL::ObjectList<Nodecl::Symbol> other_symbols;
 
@@ -1172,7 +1247,7 @@ namespace TL
                                 it2 != members.end();
                                 it2++)
                         {
-                            namelist_members.append(Nodecl::Symbol::make(*it2, it2->get_filename(), it2->get_line()));
+                            namelist_members.append(Nodecl::Symbol::make(*it2, it2->get_locus()));
                         }
                     }
                 }
@@ -1200,6 +1275,25 @@ namespace TL
                     }
                 }
             }
+
+            // Saved expressions from VLAs
+            SavedExpressions saved_expressions(statement.retrieve_context());
+            saved_expressions.walk(statement);
+
+            // Make them firstprivate if not already set
+            for (ObjectList<TL::Symbol>::iterator it = saved_expressions.symbols.begin();
+                    it != saved_expressions.symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+                if (data_attr == DS_UNDEFINED)
+                {
+                    data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
+                    data_sharing.set_data_sharing(sym, data_attr);
+                }
+            }
         }
 
         // Handlers
@@ -1221,8 +1315,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This function _modifies_ construct to reflect the new reality!
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1252,8 +1345,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This will replace the tree
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1287,8 +1379,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This will replace the tree
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1313,8 +1404,7 @@ namespace TL
 
             if (construct.get_pragma_line().get_clause("collapse").is_defined())
             {
-                // This will replace the tree
-                collapse_loop_first(construct);
+                collapse_check_loop(construct);
             }
 
             Nodecl::NodeclBase stmt = construct.get_statements();
@@ -1380,7 +1470,7 @@ namespace TL
                 Nodecl::NodeclBase& expr(*it);
                 if (!expr.has_symbol())
                 {
-                        std::cerr << expr.get_locus()
+                        std::cerr << expr.get_locus_str()
                             << ": warning: '"
                             << expr.prettyprint()
                             << "' cannot be used in this clause, skipping"
@@ -1398,7 +1488,7 @@ namespace TL
                         if (sym.is_member()
                                 && !sym.is_static())
                         {
-                            std::cerr << expr.get_locus()
+                            std::cerr << expr.get_locus_str()
                                 << ": warning: '"
                                 << expr.prettyprint()
                                 << "' is a nonstatic-member, skipping"
@@ -1408,7 +1498,7 @@ namespace TL
                     }
                     else
                     {
-                        std::cerr << expr.get_locus()
+                        std::cerr << expr.get_locus_str()
                             << ": warning: '"
                             << expr.prettyprint()
                             << "' is not a variable"
@@ -1522,7 +1612,7 @@ namespace TL
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                    ctr.get_locus().c_str(), \
+                    ctr.get_locus_str().c_str(), \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
@@ -1531,7 +1621,7 @@ namespace TL
 #define INVALID_DECLARATION_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
-                    ctr.get_locus().c_str(), \
+                    ctr.get_locus_str().c_str(), \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \

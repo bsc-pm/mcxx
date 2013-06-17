@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -104,6 +104,9 @@ namespace Utils {
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var );
 
+    InductionVariableData* get_induction_variable_from_list( ObjectList<InductionVariableData*> ivs,
+                                                             Nodecl::NodeclBase var );
+    
     InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
                                                              Nodecl::NodeclBase var );
 

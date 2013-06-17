@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -36,7 +36,7 @@ static nodecl_t nodecl_make_int_literal(int n)
 {
     return nodecl_make_integer_literal(fortran_get_default_integer_type(), 
             const_value_get_integer(n, type_get_size(fortran_get_default_integer_type()), 1), 
-            NULL, 0);
+            make_locus("", 0, 0));
 }
 
 static nodecl_t nodecl_make_zero(void)
@@ -238,7 +238,7 @@ static nodecl_t simplify_selected_real_kind(scope_entry_t* entry UNUSED_PARAMETE
         type_t* real_type = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
 
         // Reuse other simplification routines. We build a convenience node here
-        nodecl_t nodecl_type = nodecl_make_type(real_type, NULL, 0);
+        nodecl_t nodecl_type = nodecl_make_type(real_type, make_locus("", 0, 0));
 
         nodecl_t precision = simplify_precision(entry, 1, &nodecl_type);
         nodecl_t range = simplify_range(entry, 1, &nodecl_type);
@@ -388,21 +388,21 @@ static nodecl_t simplify_epsilon(scope_entry_t* entry UNUSED_PARAMETER, int num_
         return nodecl_make_floating_literal(
                 get_float_type(),
                 const_value_get_float(FLT_EPSILON),
-                NULL, 0);
+                make_locus("", 0, 0));
     }
     else if (is_double_type(t))
     {
         return nodecl_make_floating_literal(
                 get_double_type(),
                 const_value_get_double(DBL_EPSILON),
-                NULL, 0);
+                make_locus("", 0, 0));
     }
     else if (is_long_double_type(t))
     {
         return nodecl_make_floating_literal(
                 get_long_double_type(),
                 const_value_get_long_double(LDBL_EPSILON),
-                NULL, 0);
+                make_locus("", 0, 0));
     }
 
     return nodecl_null();
@@ -473,7 +473,7 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
                     nodecl_make_one(),
                     nodecl_make_int_literal(kind_),
                     CURRENT_COMPILED_FILE->global_decl_context),
-                NULL, 0);
+                make_locus("", 0, 0));
 
         if (rank > 0)
         {
@@ -568,7 +568,7 @@ static nodecl_t simplify_size(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             return nodecl_make_integer_literal(
                     choose_int_type_from_kind(kind, kind_),
                     const_value_get_signed_int(value),
-                    NULL, 0);
+                    make_locus("", 0, 0));
         }
     }
     else
@@ -647,7 +647,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
                     nodecl_make_one(),
                     nodecl_make_int_literal(rank),
                     CURRENT_COMPILED_FILE->global_decl_context),
-                NULL, 0);
+                make_locus("", 0, 0));
 
         const_value_t* const_vals[rank];
 
@@ -674,7 +674,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
                     nodecl_make_one(),
                     nodecl_make_zero(), 
                     CURRENT_COMPILED_FILE->global_decl_context),
-                NULL, 0);
+                make_locus("", 0, 0));
     }
 
     return result;
@@ -822,14 +822,14 @@ static nodecl_t simplify_int(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
         return nodecl_make_integer_literal(
                 choose_int_type_from_kind(arg, kind),
                 const_value_cast_to_bytes(v, kind, 1),
-                NULL, 0);
+                make_locus("", 0, 0));
     }
     else if (const_value_is_floating(v))
     {
         return nodecl_make_integer_literal(
                 choose_int_type_from_kind(arg, kind),
                 const_value_round_to_zero_bytes(v, kind),
-                NULL, 0);
+                make_locus("", 0, 0));
     }
 
     return nodecl_null();
@@ -877,7 +877,7 @@ static nodecl_t simplify_real(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
         }
         else
         {
-            running_error("Invalid floating type", 0);
+            running_error("Invalid floating type");
         }
     }
 
@@ -950,7 +950,7 @@ static nodecl_t simplify_cmplx(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
         }
         else
         {
-            running_error("Invalid floating type", 0);
+            running_error("Invalid floating type");
         }
     }
 
@@ -969,8 +969,29 @@ static nodecl_t simplify_char(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 {
     if (nodecl_is_constant(arguments[0]))
     {
-        char c = const_value_cast_to_1(nodecl_get_constant(arguments[0]));
-        return const_value_to_nodecl(const_value_make_string(&c, 1));
+        const_value_t* cval = nodecl_get_constant(arguments[0]);
+        const_value_t* result = NULL;
+
+        if (const_value_is_array(cval))
+        {
+            int N = const_value_get_num_elements(cval);
+            const_value_t* values[N + 1];
+
+            int i;
+            for (i = 0; i < N; i++)
+            {
+                char c = const_value_cast_to_1(const_value_get_element_num(cval, i));
+                values[i] = const_value_make_string(&c, 1);
+            }
+
+            result = const_value_make_array(N, values);
+        }
+        else
+        {
+            char c = const_value_cast_to_1(nodecl_get_constant(arguments[0]));
+            result = const_value_make_string(&c, 1);
+        }
+        return const_value_to_nodecl(result);
     }
 
     return nodecl_null();
@@ -2555,7 +2576,7 @@ static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
 
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
 
-    nodecl_t called = nodecl_make_symbol(entry, NULL, 0);
+    nodecl_t called = nodecl_make_symbol(entry, make_locus("", 0, 0));
 
     nodecl_t result;
     if (nodecl_is_null(arguments[0]))
@@ -2567,7 +2588,7 @@ static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
                 nodecl_null(),
                 nodecl_null(),
                 pointer_type,
-                NULL, 0);
+                make_locus("", 0, 0));
         nodecl_set_constant(result, zero);
     }
     else
@@ -2579,7 +2600,7 @@ static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
                 nodecl_null(),
                 nodecl_null(),
                 pointer_type,
-                NULL, 0);
+                make_locus("", 0, 0));
         nodecl_set_constant(result, zero);
     }
 
@@ -2599,9 +2620,7 @@ static nodecl_t simplify_mcc_loc(scope_entry_t* entry UNUSED_PARAMETER, int num_
             nodecl_make_reference(
                 nodecl_shallow_copy(arg),
                 get_pointer_type(get_void_type()),
-                nodecl_get_filename(arguments[0]),
-                nodecl_get_line(arguments[0])),
+                nodecl_get_locus(arguments[0])),
             get_lvalue_reference_type(get_void_type()),
-            nodecl_get_filename(arguments[0]),
-            nodecl_get_line(arguments[0]));
+            nodecl_get_locus(arguments[0]));
 }

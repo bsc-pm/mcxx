@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -140,8 +140,11 @@ namespace TL
              */
             Scope get_related_scope() const;
 
+            //! Returns the location of the symbol formatted as a string
+            std::string get_locus_str() const;
+
             //! Returns the location of the symbol
-            std::string get_locus() const;
+            const locus_t* get_locus() const;
 
             //! Returns the filename where the symbol was declared
             std::string get_filename() const;
@@ -508,6 +511,9 @@ namespace TL
             //! Special symbol for using A::x inside classes
             bool is_using_symbol() const;
 
+            //! Special symbol for using typename A<T>::x inside classes
+            bool is_using_typename_symbol() const;
+
             //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;
 
@@ -676,7 +682,7 @@ namespace TL
              */
             Nodecl::NodeclBase get_asm_specification() const;
 
-            Nodecl::Symbol make_nodecl(const std::string& filename = "", int line = 0) const;
+            Nodecl::Symbol make_nodecl(const locus_t* locus = ::make_locus("", 0, 0)) const;
 
             /*!
              * States whether this symbol has a parameter i with a default argument

@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -311,7 +311,8 @@ namespace Codegen
         else return c;
     }
 
-    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq, Nodecl::List internal_subprograms, 
+    void FortranBase::codegen_procedure(TL::Symbol entry, Nodecl::List statement_seq,
+            TL::ObjectList<Nodecl::NodeclBase> &internal_subprograms, 
             bool lacks_result)
     {
         inc_indent();
@@ -354,13 +355,21 @@ namespace Codegen
             state.emit_interoperable_types = keep_emit_interop;
         }
 
-        declare_everything_needed(statement_seq);
+        for (Nodecl::List::iterator it = statement_seq.begin();
+                it != statement_seq.end();
+                it++)
+        {
+            if (!it->is<Nodecl::FunctionCode>())
+            {
+                declare_everything_needed(*it);
+            }
+        }
 
-        if (!internal_subprograms.is_null())
+        if (!internal_subprograms.empty())
         {
             // Early pass to declare everything that might be needed by the
             // dummy arguments of the internal subprograms
-            for (Nodecl::List::iterator it = internal_subprograms.begin();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_subprograms.begin();
                     it != internal_subprograms.end();
                     it++)
             {
@@ -384,14 +393,14 @@ namespace Codegen
         }
 
         // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
         // Could we improve the name of this function?
-        TL::Symbol equivalence_symbol = ::get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -409,16 +418,24 @@ namespace Codegen
             file << "\n";
         }
 
-        walk(statement_seq);
+        for (Nodecl::List::iterator it = statement_seq.begin();
+                it != statement_seq.end();
+                it++)
+        {
+            if (!it->is<Nodecl::FunctionCode>())
+            {
+                walk(*it);
+            }
+        }
         dec_indent();
 
-        if (!internal_subprograms.is_null())
+        if (!internal_subprograms.empty())
         {
             indent();
             file << "CONTAINS\n";
 
             inc_indent();
-            for (Nodecl::List::iterator it = internal_subprograms.begin();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_subprograms.begin();
                     it != internal_subprograms.end();
                     it++)
             {
@@ -438,7 +455,20 @@ namespace Codegen
         TL::Symbol entry = node.get_symbol();
         Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
         Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
-        Nodecl::List internal_subprograms = node.get_internal_functions().as<Nodecl::List>();
+        TL::ObjectList<Nodecl::NodeclBase> internal_subprograms;
+
+        if (!statement_seq.is_null())
+        {
+            for (Nodecl::List::iterator it = statement_seq.begin();
+                    it != statement_seq.end();
+                    it++)
+            {
+                if (it->is<Nodecl::FunctionCode>())
+                {
+                    internal_subprograms.append(*it);
+                }
+            }
+        }
 
         // Module procedures are only printed if we are in the current module
         if (get_current_declaring_module() != TL::Symbol(entry.get_internal_symbol()->entity_specs.in_module))
@@ -605,15 +635,14 @@ namespace Codegen
                 if (!entry.get_value().is_null())
                 {
                     indent();
-                    Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_filename(), node.get_line());
+                    Nodecl::Symbol nodecl_sym = Nodecl::Symbol::make(entry, node.get_locus());
                     nodecl_set_type(nodecl_sym.get_internal_nodecl(), entry.get_type().get_internal_type());
 
                     Nodecl::Assignment assig = Nodecl::Assignment::make(
                             nodecl_sym,
                             entry.get_value().shallow_copy(),
                             entry.get_type(),
-                            node.get_filename(),
-                            node.get_line());
+                            node.get_locus());
 
                     walk(assig);
                     file << "\n";
@@ -752,62 +781,71 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::StringLiteral& node)
     {
-        const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
-
-        int length = 0;
-        int *bytes = NULL;
-        const_value_string_unpack_to_int(v, &bytes, &length);
-
-        if (length == 0
-                || (::isprint(bytes[0])))
+        // If there is a string for that, just use it
+        if (nodecl_get_text(node.get_internal_nodecl()) != NULL)
         {
-            file << "\"";
+            file << node.get_text();
         }
-
-        int i;
-
-        for (i = 0; i < length; i++)
+        // Otherwise use the constant kept in the node
+        else
         {
-            int current = bytes[i];
-            if (::isprint(current))
+            const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
+
+            int length = 0;
+            int *bytes = NULL;
+            const_value_string_unpack_to_int(v, &bytes, &length);
+
+            if (length == 0
+                    || (::isprint(bytes[0])))
             {
-                if (current == '\"')
+                file << "\"";
+            }
+
+            int i;
+
+            for (i = 0; i < length; i++)
+            {
+                int current = bytes[i];
+                if (::isprint(current))
                 {
-                    file << "\"\"";
+                    if (current == '\"')
+                    {
+                        file << "\"\"";
+                    }
+                    else
+                    {
+                        file << (char)current;
+                    }
                 }
                 else
                 {
-                    file << (char)current;
-                }
-            }
-            else
-            {
-                
-                if (i > 0 && ::isprint(bytes[i-1]))
-                {
-                    file << "\" // ";
-                }
-                unsigned char current_char = current;
-                
-                file << "char(" << (unsigned int) current_char << ")";
-                if ((i+1) < length)
-                {
-                    file << " // ";
-                    if (::isprint(bytes[i+1]))
+
+                    if (i > 0 && ::isprint(bytes[i-1]))
                     {
-                        file << "\"";
+                        file << "\" // ";
+                    }
+                    unsigned char current_char = current;
+
+                    file << "char(" << (unsigned int) current_char << ")";
+                    if ((i+1) < length)
+                    {
+                        file << " // ";
+                        if (::isprint(bytes[i+1]))
+                        {
+                            file << "\"";
+                        }
                     }
                 }
             }
-        }
 
-        if (length == 0
-                || (::isprint(bytes[length - 1])))
-        {
-            file << "\"";
-        }
+            if (length == 0
+                    || (::isprint(bytes[length - 1])))
+            {
+                file << "\"";
+            }
 
-        xfree(bytes);
+            xfree(bytes);
+        }
     }
 
     namespace {
@@ -1016,6 +1054,8 @@ OPERATOR_TABLE
     {
         const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
+        int kind = node.get_type().get_size();
+
         if (const_value_is_zero(val))
         {
             file << ".FALSE.";
@@ -1023,6 +1063,11 @@ OPERATOR_TABLE
         else
         {
             file << ".TRUE.";
+        }
+
+        if (kind != fortran_get_default_logical_type_kind())
+        {
+            file << "_" << kind;
         }
     }
 
@@ -1376,41 +1421,50 @@ OPERATOR_TABLE
         if (l.empty())
             return;
 
+        TL::ObjectList<TL::Symbol> parameter_symbols = called_symbol.get_related_symbols();
         TL::ObjectList<TL::Type> parameter_types = function_type.parameters();
 
-        int pos = 0;
+        // Explicit pos is the position of explicit arguments (skipping non present ones)
+        int explicit_pos = 0, pos = 0;
         bool keywords_are_mandatory = false;
         for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++, pos++)
         {
-            if (pos > 0)
-                file << ", ";
+            if (it->is<Nodecl::FortranNotPresent>())
+            {
+                keywords_are_mandatory = true;
+                continue;
+            }
 
-            Nodecl::NodeclBase keyword;
+            if (explicit_pos > 0)
+                file << ", ";
+            explicit_pos++;
+
             Nodecl::NodeclBase arg = *it;
 
             TL::Type parameter_type(NULL);
-            if (it->is<Nodecl::FortranNamedPairSpec>())
+            if (it->is<Nodecl::FortranActualArgument>())
             {
-                keyword = it->as<Nodecl::FortranNamedPairSpec>().get_name();
-                arg = it->as<Nodecl::FortranNamedPairSpec>().get_argument();
+                arg = it->as<Nodecl::FortranActualArgument>().get_argument();
             }
 
-            if (!keyword.is_null()
-                    && !called_symbol.is_statement_function_statement())
+            if (!called_symbol.is_statement_function_statement())
             {
-                TL::Symbol keyword_symbol = keyword.get_symbol();
-                parameter_type = keyword_symbol.get_type();
-                if (!keywords_are_mandatory)
+                if (keywords_are_mandatory)
                 {
-                    keywords_are_mandatory = (keyword_symbol.get_parameter_position_in(called_symbol) != pos);
-                }
-                if (keywords_are_mandatory
-                        && !keyword_symbol.not_to_be_printed())
-                {
-                    file << keyword_symbol.get_name() << " = ";
+                    ERROR_CONDITION (pos >= (signed int)parameter_symbols.size(),
+                            "This should not happen if some argument has been omitted", 0);
+
+                    ERROR_CONDITION(parameter_symbols[pos].is_result_variable(),
+                            "Invalid argument", 0);
+                    std::string keyword_name = parameter_symbols[pos].get_name();
+
+                    ERROR_CONDITION(keyword_name == "", "Invalid name for parameter\n", 0);
+
+                    file << keyword_name << " = ";
                 }
             }
-            else if (pos < (signed int)parameter_types.size())
+
+            if (pos < (signed int)parameter_types.size())
             {
                 parameter_type = parameter_types[pos];
             }
@@ -1551,14 +1605,14 @@ OPERATOR_TABLE
         }
     }
 
-    void FortranBase::visit(const Nodecl::FortranNamedPairSpec& node)
+    void FortranBase::visit(const Nodecl::FortranActualArgument& node)
     {
-        Nodecl::NodeclBase name = node.get_name();
+        TL::Symbol name = node.get_symbol();
         Nodecl::NodeclBase argument = node.get_argument();
 
-        if (!name.is_null())
+        if (name.is_valid())
         {
-            file << name.get_symbol().get_name() << " = ";
+            file << name.get_name() << " = ";
         }
 
         walk(argument);
@@ -3840,6 +3894,7 @@ OPERATOR_TABLE
             std::string real_name = rename(entry);
             real_name = fix_class_name(real_name);
 
+            TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
             push_declaring_entity(entry);
 
             // We do this because we want the type fully laid out if there is any bitfield
@@ -3868,13 +3923,17 @@ OPERATOR_TABLE
 
             if (!_deduce_use_statements)
             {
-                if (entry.get_access_specifier() == AS_PRIVATE)
+                if (entry.in_module().is_valid()
+                        && entry.in_module() == enclosing_declaring_symbol)
                 {
-                    file << ", PRIVATE";
-                }
-                else if (entry.get_access_specifier() == AS_PUBLIC)
-                {
-                    file << ", PUBLIC";
+                    if (entry.get_access_specifier() == AS_PRIVATE)
+                    {
+                        file << ", PRIVATE";
+                    }
+                    else if (entry.get_access_specifier() == AS_PUBLIC)
+                    {
+                        file << ", PUBLIC";
+                    }
                 }
             }
 
@@ -4283,8 +4342,16 @@ OPERATOR_TABLE
             declare_module_level_entities(node);
         }
 
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
+        if (data_symbol.is_valid())
+        {
+            walk(data_symbol.get_value());
+        }
+
+
         // EQUIVALENCE
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        TL::Symbol equivalence_symbol = ::fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -4338,7 +4405,7 @@ OPERATOR_TABLE
     void FortranBase::declare_use_statements_of_procedure(
             TL::Symbol entry,
             Nodecl::List statement_seq,
-            Nodecl::List internal_subprograms)
+            TL::ObjectList<Nodecl::NodeclBase> &internal_subprograms)
     {
         // Notet that we only emit automatic USE statements if .used_modules has a NULL
         // value, otherwise just blindly believe that value
@@ -4351,7 +4418,15 @@ OPERATOR_TABLE
         {
             // Note that we traverse the tree even if we are going to discard this info
             // because we want the symbols be appropiately marked as defined
-            declare_use_statements(statement_seq, use_stmt_info);
+            for (Nodecl::List::iterator it = statement_seq.begin();
+                    it != statement_seq.end();
+                    it++)
+            {
+                if (!it->is<Nodecl::FunctionCode>())
+                {
+                    declare_use_statements(*it, use_stmt_info);
+                }
+            }
             // Declare USEs that may affect internal subprograms but appear at the
             // enclosing program unit
             declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
@@ -4392,6 +4467,16 @@ OPERATOR_TABLE
     void FortranBase::declare_use_statements(Nodecl::NodeclBase node, TL::Scope sc, UseStmtInfo& use_stmt_info)
     {
         declare_symbols_from_modules_rec(node, sc, use_stmt_info);
+    }
+
+    void FortranBase::declare_use_statements(TL::ObjectList<Nodecl::NodeclBase> node, TL::Scope sc, UseStmtInfo& use_stmt_info)
+    {
+        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = node.begin();
+                it != node.end();
+                it++)
+        {
+            declare_use_statements(*it, sc, use_stmt_info);
+        }
     }
 
     void FortranBase::do_declare_module_level_entities(TL::Symbol entry, Nodecl::NodeclBase node /* unused */, void *data /* unused */)
@@ -4532,15 +4617,16 @@ OPERATOR_TABLE
             TL::Symbol &sym(*it);
             declare_symbol(sym, sym.get_scope());
         }
-        
-        // Could we improve the name of this function?
-        TL::Symbol data_symbol = ::get_data_symbol_info(entry.get_related_scope().get_decl_context());
+
+        // DATA
+        TL::Symbol data_symbol = ::fortran_get_data_symbol_info(entry.get_related_scope().get_decl_context());
         if (data_symbol.is_valid())
         {
             walk(data_symbol.get_value());
         }
 
-        TL::Symbol equivalence_symbol = get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
+        // EQUIVALENCE
+        TL::Symbol equivalence_symbol = fortran_get_equivalence_symbol_info(entry.get_related_scope().get_decl_context());
         if (equivalence_symbol.is_valid())
         {
             walk(equivalence_symbol.get_value());
@@ -5560,7 +5646,7 @@ OPERATOR_TABLE
         if (bitfield_size != 1)
         {
             running_error("%s: error: codegen of loads in bitfields larger than one bit is not implemented", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         file << "IBITS(";
@@ -5583,7 +5669,7 @@ OPERATOR_TABLE
         if (!lhs.is<Nodecl::ClassMemberAccess>())
         {
             running_error("%s: error: bitfield not accessed through a field-name", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         TL::Symbol symbol = lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol();
@@ -5605,7 +5691,7 @@ OPERATOR_TABLE
         if (bitfield_size != 1)
         {
             running_error("%s: error: codegen of stores in bitfields larger than one bit is not implemented", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
 
         if (rhs.is_constant())
@@ -5625,7 +5711,7 @@ OPERATOR_TABLE
         else
         {
             running_error("%s: error: non constants stores of bitfields is not implemented", 
-                    node.get_locus().c_str());
+                    node.get_locus_str().c_str());
         }
     }
 

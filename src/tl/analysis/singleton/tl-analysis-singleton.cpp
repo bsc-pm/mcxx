@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2012 Barcelona Supercomputing Center             *
+ ( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -583,6 +583,7 @@ namespace Analysis {
         ExtensibleGraph* pcfg = memento.get_pcfg( pcfg_name );
         pcfg->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
                                   memento.is_reaching_definitions_computed( ),
+                                  memento.is_induction_variables_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
     }
 }

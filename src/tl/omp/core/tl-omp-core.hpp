@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -144,7 +144,7 @@ namespace TL
 
                 void fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name);
 
-                void collapse_loop_first(Nodecl::NodeclBase& construct);
+                void collapse_check_loop(TL::PragmaCustomStatement construct);
 
                 void parse_declare_reduction(ReferenceScope ref_sc, const std::string& declare_reduction_src);
                 void parse_declare_reduction(ReferenceScope ref_sc, Source declare_reduction_src);

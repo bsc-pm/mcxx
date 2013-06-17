@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -530,6 +530,14 @@ namespace Codegen
             virtual bool cuda_print_special_attributes();
 
             virtual bool cuda_emit_always_extern_linkage();
+
+            std::string _emit_saved_variables_as_unused_str;
+            bool _emit_saved_variables_as_unused;
+            void set_emit_saved_variables_as_unused(const std::string& str);
+
+            std::string _prune_saved_variables_str;
+            bool _prune_saved_variables;
+            void set_prune_saved_variables(const std::string& str);
     };
 }
 

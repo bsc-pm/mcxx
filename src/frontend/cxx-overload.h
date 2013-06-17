@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -43,18 +43,17 @@ LIBMCXX_EXTERN candidate_t* add_to_candidate_set(candidate_t* candidate_set,
 
 LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
-        const char* filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversor_per_argument);
 
 LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion, scope_entry_t** conversor, const char* filename, int line);
+        char *ambiguous_conversion, scope_entry_t** conversor, const locus_t* locus);
 
 LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
         template_parameter_list_t* explicit_template_parameters,
         struct type_tag* target_type,
         decl_context_t decl_context,
-        const char *filename,
-        int line);
+        const locus_t* locus);
 
 LIBMCXX_EXTERN scope_entry_t* solve_constructor(
         type_t* class_type, 
@@ -62,7 +61,7 @@ LIBMCXX_EXTERN scope_entry_t* solve_constructor(
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
-        const char* filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversors,
         scope_entry_list_t** candidates);
 
@@ -72,7 +71,7 @@ LIBMCXX_EXTERN scope_entry_t* solve_init_list_constructor(
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
-        const char* filename, int line,
+        const locus_t* locus,
         scope_entry_t** conversors,
         scope_entry_list_t** candidates);
 

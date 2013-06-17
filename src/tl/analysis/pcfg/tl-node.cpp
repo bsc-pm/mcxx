@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -457,9 +457,19 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
     }
 
+    bool Node::is_omp_task_creation_node( )
+    {
+        return ( get_type ( ) == OMP_TASK_CREATION );
+    }
+
     bool Node::is_omp_taskwait_node( )
     {
         return ( get_type( ) == OMP_TASKWAIT );
+    }
+
+    bool Node::is_ompss_taskwait_on_node( )
+    {
+        return ( get_type( ) == OMP_WAITON_DEPS );
     }
 
     bool Node::is_omp_taskyield_node( )
@@ -575,6 +585,7 @@ namespace Analysis {
                 case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
                 case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
                 case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
+                case OMP_TASK_CREATION:     type = "OMP_TASK_CREATION";     break;
                 case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
                 case GRAPH:                 type = "GRAPH";                 break;
                 case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
@@ -1363,7 +1374,7 @@ namespace Analysis {
     ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
     {
         ObjectList<Utils::InductionVariableData*> ivs;
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             if( has_key( _INDUCTION_VARS ))
                 ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
@@ -1378,7 +1389,7 @@ namespace Analysis {
 
     void Node::set_induction_variable( Utils::InductionVariableData* iv )
     {
-        if( is_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) )
         {
             ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ) )

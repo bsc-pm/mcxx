@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -977,6 +977,7 @@ type_t* get_unsigned_int128_type(void)
 static int num_float_types = 0;
 static type_t* float_types[MAX_DIFFERENT_FLOATS];
 
+#if 0
 static char same_floating_info(floating_type_info_t* info1, floating_type_info_t* info2)
 {
     ERROR_CONDITION(info1 == NULL || info2 == NULL, "Invalid floating info", 0);
@@ -988,6 +989,7 @@ static char same_floating_info(floating_type_info_t* info1, floating_type_info_t
         && info1->emin == info2->emin
         && info1->emax == info2->emax;
 }
+#endif
 
 type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
 {
@@ -996,7 +998,7 @@ type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
     {
         type_t* current_type = float_types[i];
 
-        if (same_floating_info(current_type->type->floating_info, info))
+        if (current_type->type->floating_info == info)
         {
             return current_type;
         }
@@ -1294,8 +1296,7 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
                 nodecl_make_cxx_dep_name_nested(
                         nodecl_concat_lists(nodecl_shallow_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
                             nodecl_shallow_copy(nodecl_get_child(dependent_parts, 0))), 
-                        nodecl_get_filename(indirect_dependent_type->type->dependent_parts),
-                        nodecl_get_line(indirect_dependent_type->type->dependent_parts));
+                        nodecl_get_locus(indirect_dependent_type->type->dependent_parts));
         }
         else if (nodecl_is_null(indirect_dependent_type->type->dependent_parts))
         {
@@ -1571,7 +1572,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
                 }
             case TPK_NONTYPE :
                 {
-                    nodecl_t n = nodecl_make_symbol(param->entry, param->entry->file, param->entry->line);
+                    nodecl_t n = nodecl_make_symbol(param->entry, param->entry->locus);
                     nodecl_expr_set_is_value_dependent(n, 1);
 
                     new_value->kind = TPK_NONTYPE;
@@ -1596,7 +1597,7 @@ static type_t* _get_duplicated_function_type(type_t* function_type);
 static type_t* _get_duplicated_class_type(type_t* function_type);
 
 type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
-        const char* template_name, decl_context_t decl_context, int line, const char* filename)
+        const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
     _template_type_counter++;
 
@@ -1628,8 +1629,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     primary_symbol->type_information = primary_type;
     primary_symbol->decl_context = decl_context;
 
-    primary_symbol->line = line;
-    primary_symbol->file = filename;
+    primary_symbol->locus = locus;
     primary_symbol->entity_specs.is_user_declared = 1;
     primary_symbol->entity_specs.is_instantiable = 1;
 
@@ -1866,11 +1866,10 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s:%d'\n",
+            fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
                     print_type_str(specialization, decl_context),
                     entry->type_information,
-                    entry->file,
-                    entry->line);
+                    locus_to_str(entry->locus));
         }
 
         if (same_template_parameter_list(template_parameters, specialization_template_parameters, decl_context)
@@ -1897,7 +1896,7 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
         type_t* after_type,
         char reuse_existing, 
         decl_context_t decl_context, 
-        const char* filename, int line)
+        const locus_t* locus)
 {
     type_t* existing_spec = NULL;
     if (reuse_existing)
@@ -1942,7 +1941,7 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
-        type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, filename, line);
+        type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, locus);
 
         // If we cannot update the type, give up, as probably this is SFINAE 
         if (updated_function_type == NULL)
@@ -2004,8 +2003,7 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     // Fix the template arguments
     specialized_symbol->decl_context.template_parameters = template_arguments;
 
-    specialized_symbol->line = line;
-    specialized_symbol->file = filename;
+    specialized_symbol->locus = locus;
 
     // Keep information of the entity except for template_is_declared which
     // must be cleared at this point
@@ -2030,7 +2028,7 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
         for (i = 0; i < primary_symbol->entity_specs.num_exceptions; i++)
         {
            type_t* exception_type = primary_symbol->entity_specs.exceptions[i];
-           type_t* updated_exception_type = update_type(exception_type, updated_context, filename, line);
+           type_t* updated_exception_type = update_type(exception_type, updated_context, locus);
 
            P_LIST_ADD(specialized_symbol->entity_specs.exceptions, 
                    specialized_symbol->entity_specs.num_exceptions,
@@ -2060,36 +2058,37 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         template_parameter_list_t *template_arguments, 
         type_t* after_type,
         decl_context_t decl_context, 
-        const char* filename, int line)
+        const locus_t* locus)
 {
-    return template_type_get_specialized_type_after_type_aux(t, template_arguments, after_type, /* reuse_existing */ 1, decl_context, filename, line);
+    return template_type_get_specialized_type_after_type_aux(t, template_arguments, after_type,
+            /* reuse_existing */ 1, decl_context, locus);
 }
 
 
 type_t* template_type_get_specialized_type_noreuse(type_t* t, 
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context, 
-        const char* filename, int line)
+        const locus_t* locus)
 {
     return template_type_get_specialized_type_after_type_aux(t,
             template_parameters,
             /* after_type */ NULL /* It will create an empty one */,
             /* reuse_existing */ 0,
             decl_context,
-            filename, line);
+            locus);
 }
 
 type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context, 
-        const char* filename, int line)
+        const locus_t* locus)
 {
     return template_type_get_specialized_type_after_type_aux(t,
             template_parameters,
             /* after_type */ NULL /* It will create an empty one */,
             /* reuse_existing */ 1,
             decl_context,
-            filename, line);
+            locus);
 }
 
 template_parameter_list_t* template_type_get_template_parameters(type_t* t)
@@ -2861,7 +2860,7 @@ static type_t* _get_array_type(type_t* element_type,
             if (is_array_type(element_type))
             {
                 // If the element_type is array propagate the 'is_vla' value
-                result->array->is_vla = element_type->array->is_vla;
+                result->array->is_vla = array_type_is_vla(element_type);
 
                 // Check that the descriptor attribute is consistent
                 ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
@@ -2915,7 +2914,7 @@ static type_t* _get_array_type(type_t* element_type,
                 if (is_array_type(element_type))
                 {
                     // If the element_type is array propagate the 'is_vla' value
-                    result->array->is_vla = element_type->array->is_vla;
+                    result->array->is_vla = array_type_is_vla(element_type);
 
                     // Check that the descriptor attribute is consistent
                     ERROR_CONDITION((with_descriptor != result->array->with_descriptor),
@@ -2978,20 +2977,18 @@ static type_t* _get_array_type(type_t* element_type,
     return result;
 }
 
-static nodecl_t get_zero_tree(const char *filename, int line) 
+static nodecl_t get_zero_tree(const locus_t* locus) 
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
             const_value_get_zero(type_get_size(get_signed_int_type()), 0), 
-            filename, 
-            line);
+            locus);
 }
 
-static nodecl_t get_one_tree(const char *filename, int line)
+static nodecl_t get_one_tree(const locus_t* locus)
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
             const_value_get_one(type_get_size(get_signed_int_type()), 0), 
-            filename, 
-            line);
+            locus);
 }
 
 type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t decl_context)
@@ -3000,7 +2997,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     nodecl_t upper_bound = nodecl_null(); 
     if (!nodecl_is_null(whole_size))
     {
-        lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+        lower_bound = get_zero_tree(nodecl_get_locus(whole_size));
 
         if (nodecl_is_constant(whole_size))
         {
@@ -3018,11 +3015,10 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
             upper_bound = nodecl_make_minus(
                     nodecl_make_parenthesized_expression(temp, 
                         nodecl_get_type(temp), 
-                        nodecl_get_filename(whole_size), 
-                        nodecl_get_line(whole_size)),
-                    get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                        nodecl_get_locus(whole_size)),
+                    get_one_tree(nodecl_get_locus(whole_size)),
                     get_signed_int_type(),
-                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+                    nodecl_get_locus(whole_size));
         }
 
         nodecl_expr_set_is_value_dependent(upper_bound,
@@ -3054,7 +3050,7 @@ static nodecl_t compute_whole_size_given_bounds(
     }
     else
     {
-        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+        nodecl_t one_tree = get_one_tree(nodecl_get_locus(lower_bound));
 
         lower_bound = nodecl_shallow_copy(lower_bound);
         upper_bound = nodecl_shallow_copy(upper_bound);
@@ -3066,15 +3062,12 @@ static nodecl_t compute_whole_size_given_bounds(
                             upper_bound,
                             lower_bound,
                             get_signed_int_type(),
-                            nodecl_get_filename(lower_bound), 
-                            nodecl_get_line(lower_bound)),
+                            nodecl_get_locus(lower_bound)),
                         get_signed_int_type(),
-                        nodecl_get_filename(lower_bound), 
-                        nodecl_get_line(lower_bound)),
+                        nodecl_get_locus(lower_bound)),
                     one_tree,
                     get_signed_int_type(),
-                    nodecl_get_filename(lower_bound), 
-                    nodecl_get_line(lower_bound));
+                    nodecl_get_locus(lower_bound));
     }
 
     return whole_size;
@@ -4924,7 +4917,7 @@ static type_t* rebuild_advanced_dependent_type(
         nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_nested_name[i]);
     }
 
-    nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, NULL, 0);
+    nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, make_locus("", 0, 0));
 
     return get_dependent_typename_type_from_parts(advanced_member, nodecl_parts);
 }
@@ -5126,7 +5119,7 @@ static type_t* advance_dependent_typename_aux(
                     template_parameters,
                     class_context, 
                     // They should not be needed
-                    NULL, 0);
+                    make_locus("", 0, 0));
 
             current_member = named_type_get_symbol(specialized_type);
 
@@ -5199,8 +5192,7 @@ static type_t* advance_dependent_typename_aux(
         }
         return get_dependent_typename_type_from_parts(current_member, 
                 nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                    nodecl_get_filename(nodecl_unqualified_name), 
-                    nodecl_get_line(nodecl_unqualified_name)));
+                    nodecl_get_locus(nodecl_unqualified_name)));
     }
 
     if (entry_list_size(member_list) > 1)
@@ -5211,8 +5203,7 @@ static type_t* advance_dependent_typename_aux(
         }
         return get_dependent_typename_type_from_parts(current_member, 
                 nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                    nodecl_get_filename(nodecl_unqualified_name), 
-                    nodecl_get_line(nodecl_unqualified_name)));
+                    nodecl_get_locus(nodecl_unqualified_name)));
     }
 
     scope_entry_t* member = entry_list_head(member_list);
@@ -5233,8 +5224,7 @@ static type_t* advance_dependent_typename_aux(
             }
             return get_dependent_typename_type_from_parts(current_member, 
                     nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                        nodecl_get_filename(nodecl_unqualified_name), 
-                        nodecl_get_line(nodecl_unqualified_name)));
+                        nodecl_get_locus(nodecl_unqualified_name)));
         }
         
         if (member->kind == SK_TYPEDEF)
@@ -5269,8 +5259,7 @@ static type_t* advance_dependent_typename_aux(
             }
             return get_dependent_typename_type_from_parts(current_member, 
                     nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                        nodecl_get_filename(nodecl_unqualified_name), 
-                        nodecl_get_line(nodecl_unqualified_name)));
+                        nodecl_get_locus(nodecl_unqualified_name)));
         }
 
         // TEMPLATE RESOLUTION
@@ -5285,8 +5274,7 @@ static type_t* advance_dependent_typename_aux(
             }
             return get_dependent_typename_type_from_parts(current_member, 
                     nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                        nodecl_get_filename(nodecl_unqualified_name), 
-                        nodecl_get_line(nodecl_unqualified_name)));
+                        nodecl_get_locus(nodecl_unqualified_name)));
         }
 
         DEBUG_CODE()
@@ -5300,7 +5288,7 @@ static type_t* advance_dependent_typename_aux(
                 template_parameters, // Should this be properly nested?
                 class_context, 
                 // They should not be needed
-                /*filename*/NULL, /*line*/ 0);
+                make_locus("", 0, 0));
 
         current_member = named_type_get_symbol(specialized_type);
 
@@ -5313,8 +5301,7 @@ static type_t* advance_dependent_typename_aux(
         }
         return get_dependent_typename_type_from_parts(current_member, 
                 nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                    nodecl_get_filename(nodecl_unqualified_name), 
-                    nodecl_get_line(nodecl_unqualified_name)));
+                    nodecl_get_locus(nodecl_unqualified_name)));
     }
 
     // This looks a bit twisted
@@ -7794,12 +7781,16 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     {
                         whole_size = uniquestr("[]");
                     }
-                    // If this is a saved expression and it is NOT a parameter we use its saved symbol instead
+                    // A saved expression that is not user declared means that we have to ignore it
+                    // when printing it
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
+                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression
+                            && !nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_user_declared)
                     {
-                        scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
-                        whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
+                        scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
+                        const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
+
+                        whole_size = strappend("[", whole_size_str);
                         whole_size = strappend(whole_size, "]");
                     }
                     else
@@ -7937,18 +7928,16 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     {
         case SK_ENUM :
             {
-                snprintf(user_defined_str, MAX_LENGTH, "enum %s {%s:%d}", 
+                snprintf(user_defined_str, MAX_LENGTH, "enum %s {%s}", 
                         get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
-                        user_defined_type->file,
-                        user_defined_type->line);
+                        locus_to_str(user_defined_type->locus));
                 break;
             }
         case SK_CLASS :
             {
-                snprintf(user_defined_str, MAX_LENGTH, "class %s {%s:%d}", 
+                snprintf(user_defined_str, MAX_LENGTH, "class %s {%s}", 
                         get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
-                        user_defined_type->file,
-                        user_defined_type->line);
+                        locus_to_str(user_defined_type->locus));
                 break;
             }
         case SK_TYPEDEF :
@@ -7963,30 +7952,28 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             }
             break;
         case SK_TEMPLATE_TYPE_PARAMETER :
-            snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter '%s' (%d,%d) %s:%d>",
+            snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
                     user_defined_type->entity_specs.template_parameter_nesting,
                     user_defined_type->entity_specs.template_parameter_position,
-                    user_defined_type->file,
-                    user_defined_type->line
+                    locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER :
-            snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter '%s' (%d,%d) %s:%d>",
+            snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter '%s' (%d,%d) %s>",
                     user_defined_type->symbol_name,
                     user_defined_type->entity_specs.template_parameter_nesting,
                     user_defined_type->entity_specs.template_parameter_position,
-                    user_defined_type->file,
-                    user_defined_type->line
+                    locus_to_str(user_defined_type->locus)
                     );
             break;
         case SK_TEMPLATE_PARAMETER :
-            snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter '%s' (%d,%d) %s:%d>", 
+            snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter '%s' (%d,%d) %s>", 
                     user_defined_type->symbol_name,
                     user_defined_type->entity_specs.template_parameter_nesting,
                     user_defined_type->entity_specs.template_parameter_position,
-                    user_defined_type->file,
-                    user_defined_type->line);
+                    locus_to_str(user_defined_type->locus)
+                    );
             break;
         case SK_TEMPLATE :
             snprintf(user_defined_str, MAX_LENGTH, "<template-name '%s'>", 
@@ -8306,6 +8293,26 @@ static char is_unknown_dependent_type(type_t* t)
             && (t->unqualified_type == _dependent_type));
 }
 
+static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_context)
+{
+    if (nodecl_is_null(n))
+        return "<<<unknown>>>";
+    if (nodecl_get_kind(n) == NODECL_SYMBOL
+            && nodecl_get_symbol(n)->entity_specs.is_saved_expression)
+    {
+        const char* result = NULL;
+        uniquestr_sprintf(&result, "%s { => %s }",
+                nodecl_get_symbol(n)->symbol_name,
+                codegen_to_str(nodecl_get_symbol(n)->value, decl_context));
+
+        return result;
+    }
+    else
+    {
+        return codegen_to_str(n, decl_context);
+    }
+}
+
 // This prints a declarator in English. It is intended for debugging purposes
 const char* print_declarator(type_t* printed_declarator)
 {
@@ -8437,11 +8444,15 @@ const char* print_declarator(type_t* printed_declarator)
                 {
                     tmp_result = strappend(tmp_result, "(with descriptor) ");
                 }
+                tmp_result = strappend(tmp_result, "of size [");
+                tmp_result = strappend(tmp_result, print_dimension_of_array(printed_declarator->array->whole_size, 
+                            CURRENT_COMPILED_FILE->global_decl_context));
+                tmp_result = strappend(tmp_result, "] and bounds ");
                 tmp_result = strappend(tmp_result, "[");
-                tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->lower_bound, 
+                tmp_result = strappend(tmp_result, print_dimension_of_array(printed_declarator->array->lower_bound, 
                             CURRENT_COMPILED_FILE->global_decl_context));
                 tmp_result = strappend(tmp_result, ":");
-                tmp_result = strappend(tmp_result, codegen_to_str(printed_declarator->array->upper_bound, 
+                tmp_result = strappend(tmp_result, print_dimension_of_array(printed_declarator->array->upper_bound, 
                             CURRENT_COMPILED_FILE->global_decl_context));
                 tmp_result = strappend(tmp_result, "]");
                 if (printed_declarator->array->region != NULL)
@@ -8808,6 +8819,18 @@ static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
 
 }
 
+static char mask_to_integral(type_t* orig, type_t* dest)
+{
+    orig = no_ref(orig);
+    dest = no_ref(dest);
+
+    return (is_mask_type(orig)
+            && is_integral_type(dest)
+            // Since we do not register any conversion we force their bit
+            // representation size be the same
+            && ((type_get_size(dest) * 8) == mask_type_get_num_bits(orig)));
+}
+
 char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
 {
     DEBUG_CODE()
@@ -8877,13 +8900,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
                 }
             }
+
             if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
-            }
-            else
-            {
-                (*result) = identity_scs(t_orig, t_dest);
             }
 
             return 1;
@@ -9388,6 +9408,16 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // these types be transparently compatible
             orig = dest;
         }
+        // Mask conversions
+        // mask type -> integral type
+        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
+                && (mask_to_integral(orig, dest)
+                    || mask_to_integral(dest, orig)))
+        {
+            // We do not account this as a conversion of any kind, we just let
+            // these types be transparently compatible
+            orig = dest;
+        }
     }
 
     // Third kind of conversion
@@ -9544,7 +9574,7 @@ template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_argu
     return t->template_arguments;
 }
 
-scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const char* filename, int line)
+scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const locus_t* locus)
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
@@ -9570,7 +9600,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 
     // Get a specialization of this template
     type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-            template_arguments, decl_context, filename, line);
+            template_arguments, decl_context, locus);
 
     if (!is_dependent_type(named_specialization_type))
     {
@@ -9740,7 +9770,7 @@ type_t* get_literal_string_type(int length, char is_wchar)
         nodecl_t integer_literal = nodecl_make_integer_literal(
                 get_signed_int_type(),
                 const_value_get_unsigned_int(length),
-                NULL, 0);
+                make_locus("", 0, 0));
 
         type_t* char_type = NULL;
 
@@ -11274,7 +11304,8 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
     type_t* result = orig;
 
-    if (is_named_type(orig))
+    if (is_named_type(orig)
+            && (is_named_class_type(orig) || is_named_enumerated_type(orig)))
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);
@@ -11384,7 +11415,7 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
                     upper_bound,
                     new_decl_context,
                     nodecl_make_range(region_lower_bound, region_upper_bound, region_stride,
-                        get_signed_int_type(), NULL, 0),
+                        get_signed_int_type(), make_locus("", 0, 0)),
                     new_decl_context);
         }
         else

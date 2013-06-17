@@ -4,7 +4,7 @@
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -56,7 +56,7 @@ namespace TL { namespace Fortran {
 
         if (!statements.is_list())
         {
-            std::cerr << "Warning: expecting a list here -- " << statements.get_locus() << std::endl;
+            std::cerr << "Warning: expecting a list here -- " << statements.get_locus_str() << std::endl;
             return result;
         }
 

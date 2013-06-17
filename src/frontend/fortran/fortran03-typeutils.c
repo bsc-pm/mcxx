@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -460,7 +460,7 @@ type_t* fortran_rebuild_array_type(type_t* rank0_type, type_t* array_type)
                         nodecl_shallow_copy(array_type_get_region_upper_bound(array_type)),
                         nodecl_shallow_copy(array_type_get_region_stride(array_type)),
                         fortran_get_default_integer_type(),
-                        "", 0),
+                        make_locus("", 0, 0)),
                     array_type_get_region_size_expr_context(array_type)
                     );
         }

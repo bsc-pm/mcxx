@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -291,8 +291,14 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP TASK node
             bool is_omp_task_node( );
 
+            //! Returns true when the node is an OpenMP TASK CREATION node
+            bool is_omp_task_creation_node( );
+
             //! Returns true when the node is a TASKWAIT node
             bool is_omp_taskwait_node( );
+
+            //! Returns true when the node is a WAITON_DEPS node
+            bool is_ompss_taskwait_on_node( );
 
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );

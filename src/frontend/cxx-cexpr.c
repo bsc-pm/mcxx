@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -58,6 +58,15 @@
 
 #define CVAL_HASH_SIZE (37)
 
+/*
+IMPORTANT: incompatible changes to enum const_value_kind_tag requires
+increasing the value of CURRENT_MODULE_VERSION in fortran03-modules.c.
+
+It is safe to add new enumerator values after the last.
+
+Any other change is an incompatible one. In particular, removing
+or reordering the enumerator values are incompatible changes.
+*/
 typedef enum const_value_kind_tag
 {
     CVK_NONE = 0,
@@ -65,16 +74,14 @@ typedef enum const_value_kind_tag
     CVK_FLOAT,
     CVK_DOUBLE,
     CVK_LONG_DOUBLE,
-#ifdef HAVE_QUADMATH_H
     CVK_FLOAT128,
-#endif
     CVK_COMPLEX,
     CVK_ARRAY,
     CVK_STRUCT,
     CVK_VECTOR,
     CVK_STRING,
     CVK_RANGE,
-    CVK_MASK
+    CVK_MASK,
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -84,6 +91,15 @@ typedef struct const_multi_value_tag
     const_value_t* elements[];
 } const_multi_value_t;
 
+/*
+IMPORTANT: incompatible changes to memory layout of struct const_value_tag
+requires increasing the value of CURRENT_MODULE_VERSION in fortran03-modules.c.
+
+It is safe to add new fields inside the union value.
+
+Any other change should be assumed to be incompatible. In particular, adding
+fields before or after the union are incompatible changes.
+*/
 struct const_value_tag
 {
     const_value_kind_t kind;
@@ -967,7 +983,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
             {
                 // Zero is special
                 if (integer_type == NULL && v->value.i == 0)
-                    return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
+                    return nodecl_make_integer_literal(get_zero_type(), v, make_locus("", 0, 0));
 
                 type_t* t = integer_type;
                 if (t == NULL)
@@ -977,11 +993,11 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
 
                 if (is_bool_type(t))
                 {
-                    return nodecl_make_boolean_literal(t, v, NULL, 0);
+                    return nodecl_make_boolean_literal(t, v, make_locus("", 0, 0));
                 }
                 else
                 {
-                    return nodecl_make_integer_literal(t, v, NULL, 0);
+                    return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
                 }
                 break;
             }
@@ -992,7 +1008,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 type_t* t = floating_type;
                 if (t == NULL)
                     t = get_suitable_floating_type(v);
-                return nodecl_make_floating_literal(t, v, NULL, 0);
+                return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
                 break;
             }
         case CVK_STRING:
@@ -1000,10 +1016,10 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 return nodecl_make_string_literal(
                         get_array_type_bounds(
                             get_char_type(),
-                            nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), NULL, 0),
-                            nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
+                            nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), make_locus("", 0, 0)),
+                            nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), make_locus("", 0, 0)),
                             CURRENT_COMPILED_FILE->global_decl_context),
-                        v, NULL, 0);
+                        v, make_locus("", 0, 0));
                 break;
             }
         case CVK_ARRAY:
@@ -1025,13 +1041,13 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 // Fortran boundaries!
                 t = get_array_type_bounds(
                         t,
-                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), NULL, 0),
-                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
+                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), make_locus("", 0, 0)),
+                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), make_locus("", 0, 0)),
                         CURRENT_COMPILED_FILE->global_decl_context);
 
                 nodecl_t result = nodecl_make_structured_value(
                         list, t,
-                        NULL, 0);
+                        make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
                 return result;
@@ -1050,7 +1066,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
 
                 nodecl_t result = nodecl_make_structured_value(
                         list, t,
-                        NULL, 0);
+                        make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
                 return result;
@@ -1076,7 +1092,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 }
 
                 t = get_complex_type(t);
-                nodecl_t result = nodecl_make_complex_literal(t, v, NULL, 0);
+                nodecl_t result = nodecl_make_complex_literal(t, v, make_locus("", 0, 0));
 
                 return result;
                 break;

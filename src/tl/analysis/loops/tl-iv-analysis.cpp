@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -110,7 +110,7 @@ namespace Analysis {
                             && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
             {
                 Nodecl::NodeclBase new_rhs = Nodecl::Neg::make( rhs, rhs.get_type( ),
-                                                                rhs.get_filename( ), rhs.get_line( ) );
+                                                                rhs.get_locus() );
                 iv = st_.get_lhs( );
                 incr = new_rhs;
                 is_iv = true;
@@ -186,6 +186,18 @@ namespace Analysis {
 //                     ExtensibleGraph::clear_visits_in_level( entry, current );
 //                     detect_derived_induction_variables( entry, current );
                 }
+                else if( current->is_omp_loop_node( ) )
+                {   //Propagate induction variables from the inner loop to the omp loop node
+                    Node* loop_entry_node = current->get_graph_entry_node( )->get_children( )[0];
+                    Node* loop_node = loop_entry_node->get_children( )[0];
+                    std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs = 
+                    _induction_vars.equal_range( loop_node->get_id( ) );
+                    for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
+                    {
+                        current->set_induction_variable( it->second );
+                        _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( current->get_id( ), it->second ) );
+                    }
+                }
             }
 
             ObjectList<Node*> children = current->get_children( );
@@ -211,7 +223,7 @@ namespace Analysis {
                 if( !iv.is_null( ) )
                 {
                     Utils::InductionVariableData* ivd = new Utils::InductionVariableData( Utils::ExtendedSymbol( iv ),
-                                                                                            Utils::BASIC_IV, iv );
+                                                                                          Utils::BASIC_IV, iv );
                     ivd->set_increment( incr );
                     loop->set_induction_variable( ivd );
                     _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), ivd ) );

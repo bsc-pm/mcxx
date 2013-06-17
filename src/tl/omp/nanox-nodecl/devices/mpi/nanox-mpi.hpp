@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -55,7 +55,7 @@ namespace TL
                   unsigned int _currTaskId;
 
                   void generate_additional_mpi_code(
-                    const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+                    const TL::ObjectList<OutlineDataItem*>& data_items,
                     const TL::Symbol& struct_args,
                     const std::string& outline_name,
                     TL::Source& code_host,
@@ -73,62 +73,35 @@ namespace TL
                   
             public:
 
-                // This phase does nothing
-                virtual void pre_run(DTO& dto);
-                virtual void run(DTO& dto);
+                  // This phase does nothing
+                  void pre_run(DTO& dto);
 
-                DeviceMPI();
+                  void run(DTO& dto);
 
-                virtual ~DeviceMPI() { }
+                  DeviceMPI();
 
-             virtual void create_outline(CreateOutlineInfo &info,
-                     Nodecl::NodeclBase &outline_placeholder,
-                     Nodecl::NodeclBase &output_statements,
-                     Nodecl::Utils::SymbolMap* &symbol_map);
+                  ~DeviceMPI() { }
 
-             virtual void get_device_descriptor(DeviceDescriptorInfo& info,
-                     Source &ancillary_device_description,
-                     Source &device_descriptor,
-                     Source &fortran_dynamic_init);
+                  void create_outline(CreateOutlineInfo &info,
+                          Nodecl::NodeclBase &outline_placeholder,
+                          Nodecl::NodeclBase &output_statements,
+                          Nodecl::Utils::SymbolMap* &symbol_map);
 
-             virtual bool remove_function_task_from_original_source() const;
+                  void get_device_descriptor(DeviceDescriptorInfo& info,
+                          Source &ancillary_device_description,
+                          Source &device_descriptor,
+                          Source &fortran_dynamic_init);
 
-             virtual void copy_stuff_to_device_file(
-                     const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
+                  bool remove_function_task_from_original_source() const;
 
-             bool allow_mandatory_creation();
+                  void copy_stuff_to_device_file(
+                          const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
-              //  virtual void create_outline(
-              //          const std::string& task_name,
-              //          const std::string& struct_typename,
-              //          DataEnvironInfo &data_environ,
-              //          const OutlineFlags& outline_flags,
-              //          AST_t reference_tree,
-              //          ScopeLink sl,
-              //          Source initial_setup,
-              //          Source outline_body);
+                  bool allow_mandatory_creation();
 
-              //  virtual void do_replacements(DataEnvironInfo& data_environ,
-              //          AST_t body,
-              //          ScopeLink scope_link,
-              //          Source &initial_setup,
-              //          Source &replace_src);
+                  void phase_cleanup(DTO& data_flow);
 
-              //  virtual void get_device_descriptor(const std::string& task_name,
-              //          DataEnvironInfo &data_environ,
-              //          const OutlineFlags& outline_flags,
-              //          AST_t reference_tree,
-              //          ScopeLink sl,
-              //          Source &ancillary_device_description,
-              //          Source &device_descriptor);
 
-              //  virtual std::string get_outline_name_for_instrumentation(const std::string & name,
-              //          bool is_template_specialized, const FunctionDefinition& enclosing_function) const;
-
-               virtual void phase_cleanup(DTO& data_flow);
-
-              //  virtual void insert_function_definition(PragmaCustomConstruct, bool);
-              //  virtual void insert_declaration(PragmaCustomConstruct, bool);
         };
 
     }

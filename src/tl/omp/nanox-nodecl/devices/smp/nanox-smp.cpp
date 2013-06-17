@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
   
-  See AUTHORS file in the top level directory for information 
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
@@ -35,7 +35,9 @@
 #include "tl-replace.hpp"
 #include "tl-compilerpipeline.hpp"
 
+#include "tl-nodecl-utils-c.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
+#include "tl-symbol-utils.hpp"
 
 #include "codegen-phase.hpp"
 #include "codegen-fortran.hpp"
@@ -67,6 +69,7 @@ namespace TL { namespace Nanox {
         const Nodecl::NodeclBase& task_statements = info._task_statements;
         const Nodecl::NodeclBase& original_statements = info._original_statements;
         bool is_function_task = info._called_task.is_valid();
+        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
 
         output_statements = task_statements;
 
@@ -76,7 +79,7 @@ namespace TL { namespace Nanox {
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 running_error("%s: error: nested functions are not supported\n",
-                        original_statements.get_locus().c_str());
+                        original_statements.get_locus_str().c_str());
             // if (IS_FORTRAN_LANGUAGE)
             //     running_error("%s: error: internal subprograms are not supported\n",
             //             original_statements.get_locus().c_str());
@@ -115,7 +118,7 @@ namespace TL { namespace Nanox {
         }
 
         Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-        build_empty_body_for_function(unpacked_function,
+        SymbolUtils::build_empty_body_for_function(unpacked_function,
                 unpacked_function_code,
                 unpacked_function_body);
 
@@ -139,11 +142,12 @@ namespace TL { namespace Nanox {
                 << "}";
         }
 
-        // Fortran may require more symbols
+        // Aftere this we can use outline_placeholder
+        Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
+
         if (IS_FORTRAN_LANGUAGE)
         {
-            // Insert extra symbols
-            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+            TL::Scope unpacked_function_scope = unpacked_function.get_related_scope();
 
             Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
                     unpacked_function_scope,
@@ -154,7 +158,7 @@ namespace TL { namespace Nanox {
             }
             fun_visitor.insert_extra_symbols(task_statements);
 
-            Nodecl::Utils::Fortran::copy_used_modules(
+            Nodecl::Utils::Fortran::append_used_modules(
                     original_statements.retrieve_context(),
                     unpacked_function_scope);
 
@@ -165,40 +169,62 @@ namespace TL { namespace Nanox {
                         unpacked_function_scope);
             }
 
-            // Now get all the needed internal functions and replicate them in the outline
+            // Add also used types
+            add_used_types(data_items, unpacked_function.get_related_scope());
+
+            // Now get all the needed internal functions and duplicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
             internal_functions.walk(info._original_statements);
 
-            Nodecl::List l;
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator
-                    it2 = internal_functions.function_codes.begin();
-                    it2 != internal_functions.function_codes.end();
-                    it2++)
-            {
-                l.append(
-                        Nodecl::Utils::deep_copy(*it2, unpacked_function.get_related_scope(), *symbol_map)
-                        );
-            }
-
-            unpacked_function_code.as<Nodecl::FunctionCode>().set_internal_functions(l);
+            duplicate_internal_subprograms(internal_functions.function_codes,
+                    unpacked_function_scope,
+                    symbol_map,
+                    output_statements);
 
             extra_declarations
                 << "IMPLICIT NONE\n";
         }
-        else if (IS_CXX_LANGUAGE)
+        else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            if (!unpacked_function.is_member())
+            TL::Scope scope_in_outline = outline_placeholder.retrieve_context();
+
+            Nodecl::Utils::C::ExtraDeclsVisitor fun_visitor(symbol_map,
+                    scope_in_outline,
+                    current_function);
+
+            if (is_function_task
+                    && info._called_task.get_scope().is_block_scope()
+                    && !info._called_task.is_nested_function())
             {
-                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                        /* optative context */ nodecl_null(),
-                        unpacked_function,
-                        original_statements.get_filename(),
-                        original_statements.get_line());
-                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+                fun_visitor.insert_extra_symbol(info._called_task);
+            }
+            fun_visitor.insert_extra_symbols(task_statements);
+
+            if (IS_CXX_LANGUAGE)
+            {
+                if (!unpacked_function.is_member())
+                {
+                    Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                            /* optative context */ nodecl_null(),
+                            unpacked_function,
+                            original_statements.get_locus());
+                    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
+                }
+            }
+
+            if (IS_C_LANGUAGE)
+            {
+                // Now get all the needed nested functions and duplicate them in the outline
+                Nodecl::Utils::C::NestedFunctions nested_functions;
+                nested_functions.walk(info._original_statements);
+
+                duplicate_nested_functions(nested_functions.function_codes,
+                        scope_in_outline,
+                        symbol_map,
+                        output_statements);
             }
         }
 
-        Nodecl::NodeclBase new_unpacked_body = unpacked_source.parse_statement(unpacked_function_body);
         unpacked_function_body.replace(new_unpacked_body);
 
         // **** Outline function *****
@@ -209,36 +235,15 @@ namespace TL { namespace Nanox {
                 TL::Type(get_user_defined_type(info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to()
                 );
 
-        TL::Symbol outline_function = new_function_symbol(
+        TL::Symbol outline_function = SymbolUtils::new_function_symbol(
                 current_function,
                 outline_name,
                 TL::Type::get_void_type(),
                 structure_name,
                 structure_type);
 
-        if (IS_FORTRAN_LANGUAGE
-                && current_function.is_in_module())
-        {
-            scope_entry_t* module_sym = current_function.in_module().get_internal_symbol();
-
-            unpacked_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
-                    unpacked_function.get_internal_symbol());
-
-            unpacked_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-
-            outline_function.get_internal_symbol()->entity_specs.in_module = module_sym;
-            P_LIST_ADD(
-                    module_sym->entity_specs.related_symbols,
-                    module_sym->entity_specs.num_related_symbols,
-                    outline_function.get_internal_symbol());
-            outline_function.get_internal_symbol()->entity_specs.is_module_procedure = 1;
-        }
-
         Nodecl::NodeclBase outline_function_code, outline_function_body;
-        build_empty_body_for_function(outline_function,
+        SymbolUtils::build_empty_body_for_function(outline_function,
                 outline_function_code,
                 outline_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
@@ -249,19 +254,14 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
 
         Source unpacked_arguments, cleanup_code;
-        TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-        TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-        if (IS_CXX_LANGUAGE
-                && !is_function_task
-                && current_function.is_member()
-                && !current_function.is_static()
-                && it != data_items.end())
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
         {
-            ++it;
-        }
+            if (!is_function_task
+                    && (*it)->get_is_cxx_this())
+                continue;
 
-        for (; it != data_items.end(); it++)
-        {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
@@ -388,8 +388,7 @@ namespace TL { namespace Nanox {
                     Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
                             /* optative context */ nodecl_null(),
                             outline_function,
-                            original_statements.get_filename(),
-                            original_statements.get_line());
+                            original_statements.get_locus());
                     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
                 }
             }
@@ -418,8 +417,10 @@ namespace TL { namespace Nanox {
             {
                 TL::Symbol &function(*functions[i]);
 
-                Nodecl::Utils::Fortran::copy_used_modules(original_statements.retrieve_context(),
+                Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
                         function.get_related_scope());
+
+                add_used_types(data_items, function.get_related_scope());
             }
 
             // Generate ancillary code in C
@@ -437,8 +438,7 @@ namespace TL { namespace Nanox {
                     outline_function,
                     outline_function_body,
                     info._task_label,
-                    original_statements.get_filename(),
-                    original_statements.get_line(),
+                    original_statements.get_locus(),
                     instrument_before,
                     instrument_after);
         }
