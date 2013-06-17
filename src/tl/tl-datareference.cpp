@@ -342,6 +342,7 @@ namespace TL
                                 Nodecl::ClassMemberAccess::make(
                                     _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
                                     member.get_member().shallow_copy(),
+                                    /* member-form */ Nodecl::NodeclBase::null(),
                                     t,
                                     member.get_locus()
                                     ),
@@ -358,6 +359,7 @@ namespace TL
                                 Nodecl::ClassMemberAccess::make(
                                     member.get_lhs().shallow_copy(),
                                     member.get_member().shallow_copy(),
+                                    member.get_member_form().shallow_copy(),
                                     t,
                                     member.get_locus()
                                     ),
@@ -371,6 +373,7 @@ namespace TL
                                 Nodecl::ClassMemberAccess::make(
                                     _data_ref._base_address,
                                     member.get_member().shallow_copy(),
+                                    member.get_member_form().shallow_copy(),
                                     t,
                                     member.get_locus()
                                     ),

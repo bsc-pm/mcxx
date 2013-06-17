@@ -5476,6 +5476,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
             *nodecl_output = nodecl_make_class_member_access(
                     accessor,
                     *nodecl_output,
+                    /* member form */ nodecl_null(),
                     entry->type_information,
                     locus);
         }
@@ -5548,6 +5549,7 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
         return nodecl_make_class_member_access(
                 integrated_nodecl,
                 nodecl_shallow_copy(accessor_symbol),
+                /* member form */ nodecl_null(),
                 lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
                 nodecl_get_locus(integrated_nodecl));
     }
@@ -5556,6 +5558,7 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
         return nodecl_make_class_member_access(
                 nodecl_shallow_copy(base),
                 nodecl_shallow_copy(accessor),
+                /* member form */ nodecl_null(),
                 lvalue_ref(nodecl_get_symbol(accessor)->type_information),
                 nodecl_get_locus(base));
     }
@@ -5664,6 +5667,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             nodecl_access_to_symbol = nodecl_make_class_member_access(
                     accessor,
                     nodecl_access_to_symbol,
+                    /* member form */ nodecl_null(),
                     lvalue_ref(entry->type_information),
                     nodecl_get_locus(nodecl_name));
         }
@@ -9481,6 +9485,7 @@ static void check_nodecl_member_access(
         decl_context_t decl_context, 
         char is_arrow,
         char has_template_tag,
+        char member_is_qualified,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -9509,6 +9514,7 @@ static void check_nodecl_member_access(
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_accessed,
                     nodecl_member,
+                    /* member form */ nodecl_null(),
                     get_unknown_dependent_type(),
                     locus);
             
@@ -9745,6 +9751,7 @@ static void check_nodecl_member_access(
         *nodecl_output = nodecl_make_class_member_access(
                 nodecl_field,
                 nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                /* member form */ nodecl_null(),
                 lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                 nodecl_get_locus(nodecl_accessed));
     }
@@ -9755,6 +9762,13 @@ static void check_nodecl_member_access(
         {
             // Remove const because of a mutable field
             cv_qualif &= ~CV_CONST;
+        }
+
+        nodecl_t nodecl_member_form = nodecl_null();
+
+        if (member_is_qualified)
+        {
+            nodecl_member_form = nodecl_make_cxx_member_form_qualified(nodecl_get_locus(nodecl_accessed));
         }
 
         if (entry->kind == SK_VARIABLE)
@@ -9771,6 +9785,7 @@ static void check_nodecl_member_access(
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_field,
                     nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                    nodecl_member_form,
                     lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                     nodecl_get_locus(nodecl_accessed));
         }
@@ -9791,7 +9806,8 @@ static void check_nodecl_member_access(
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_accessed_out,
                     nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
-                    t, 
+                    nodecl_member_form,
+                    t,
                     nodecl_get_locus(nodecl_accessed));
         }
     }
@@ -9827,6 +9843,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     }
 
     check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,
+            is_qualified_id_expression(id_expression),
             ast_get_locus(member_access),
             nodecl_output);
 }

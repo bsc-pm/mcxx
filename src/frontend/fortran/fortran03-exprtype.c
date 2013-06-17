@@ -1717,6 +1717,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         nodecl_make_class_member_access(
                 nodecl_lhs,
                 nodecl_rhs_adjusted,
+                /* member form */ nodecl_null(),
                 synthesized_type,
                 ast_get_locus(expr));
     nodecl_set_symbol(*nodecl_output, component_symbol);

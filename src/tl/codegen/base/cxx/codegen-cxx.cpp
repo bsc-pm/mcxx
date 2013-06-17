@@ -554,6 +554,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    Nodecl::NodeclBase member_form = node.get_member_form();
 
     TL::Symbol sym = rhs.get_symbol();
 
@@ -610,7 +611,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             file << "(";
         }
 
-        walk(rhs);
+        // This will only emit the unqualified name
+        TL::Symbol rhs_symbol = rhs.get_symbol();
+        if (!rhs_symbol.is_valid()
+                || (!member_form.is_null()
+                    && member_form.is<Nodecl::CxxMemberFormQualified>()))
+        {
+            // This will print the qualified name
+            walk(rhs);
+        }
+        else
+        {
+
+            // Simply print the name
+            file << rhs_symbol.get_name();
+        }
+
         if (needs_parentheses)
         {
             file << ")";

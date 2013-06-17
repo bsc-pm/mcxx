@@ -1891,6 +1891,7 @@ struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
                     Nodecl::ClassMemberAccess::make(
                         struct_node,
                         field_node,
+                        /* member-form */ Nodecl::NodeclBase::null(),
                         field_node.get_type().get_lvalue_reference_to())
                     );
         }
