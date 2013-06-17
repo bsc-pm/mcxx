@@ -26,21 +26,14 @@
 
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
-
 #include "tl-vectorizer.hpp"
 
 namespace TL 
 {
     namespace Vectorization
     {
-        VectorizerVisitorStatement::VectorizerVisitorStatement(
-                const std::string& device,
-                const unsigned int vector_length,
-                const unsigned int unroll_factor,
-                const TL::Type& target_type,
-                const TL::Scope& simd_inner_scope) : 
-            _device(device), _vector_length(vector_length), _unroll_factor(unroll_factor), 
-            _target_type(target_type), _simd_inner_scope(simd_inner_scope)
+        VectorizerVisitorStatement::VectorizerVisitorStatement(VectorizerEnvironment& environment)
+            : _environment(environment)
         {
         }
 
@@ -57,13 +50,123 @@ namespace TL
         // Nested ForStatement
         void VectorizerVisitorStatement::visit(const Nodecl::ForStatement& n)
         {
+            _environment._local_scope_list.push_back(n.get_statement().as<Nodecl::List>().front().retrieve_context());
             walk(n.get_statement());
+            _environment._local_scope_list.pop_back();
+        }
+
+        void VectorizerVisitorStatement::visit(const Nodecl::IfElseStatement& n)
+        {
+            Nodecl::List list;
+            TL::Scope scope = n.retrieve_context();
+           
+            VectorizerVisitorExpression visitor_expression(_environment);
+            visitor_expression.walk(n.get_condition()); 
+
+            Nodecl::NodeclBase prev_mask =
+                _environment._mask_list.back();
+
+            // IF Mask
+            TL::Symbol if_mask_sym = scope.new_symbol("__mask_" + 
+                    Vectorizer::_vectorizer->get_var_counter());
+            if_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            if_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            if_mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+            
+            Nodecl::Symbol if_mask_nodecl_sym = if_mask_sym.make_nodecl(true, n.get_locus());
+            Nodecl::NodeclBase if_mask_value;
+
+            if (prev_mask.is_null()) // mask = if_cond
+            {
+                if_mask_value = n.get_condition().shallow_copy();
+            }
+            else // mask = prev_mask & if_cond
+            {
+                if_mask_value = Nodecl::VectorMaskAnd::make(
+                        prev_mask.shallow_copy(),
+                        n.get_condition().shallow_copy(),
+                        if_mask_sym.get_type(),
+                        n.get_locus());
+            }
+
+            Nodecl::ExpressionStatement if_mask_exp =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(if_mask_nodecl_sym, 
+                            if_mask_value,
+                            if_mask_sym.get_type(),
+                            n.get_locus()));
+
+            // Visit Then
+            _environment._mask_list.push_back(if_mask_nodecl_sym.shallow_copy());
+            _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
+                    front().retrieve_context());
+            walk(n.get_then());
+            _environment._local_scope_list.pop_back();
+            _environment._mask_list.pop_back();
+
+            list.append(if_mask_exp);
+
+            if (!n.get_else().is_null())
+            {
+                // ELSE Mask
+                TL::Symbol else_mask_sym = scope.new_symbol("__mask_" + 
+                        Vectorizer::_vectorizer->get_var_counter());
+                else_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                else_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                else_mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+
+                Nodecl::Symbol else_mask_nodecl_sym = else_mask_sym.make_nodecl(true, n.get_locus());
+
+                Nodecl::NodeclBase else_mask_value;
+
+                if (prev_mask.is_null()) // mask = !if_cond
+                {
+                    else_mask_value = Nodecl::VectorMaskNot::make(
+                            if_mask_nodecl_sym.shallow_copy(),
+                            else_mask_sym.get_type(),
+                            n.get_locus());
+                }
+                else // mask = prev_mask & !if_cond
+                {
+                    else_mask_value = Nodecl::VectorMaskAnd2Not::make(
+                            prev_mask.shallow_copy(),
+                            n.get_condition().shallow_copy(),
+                            else_mask_sym.get_type(),
+                            n.get_locus());
+                }
+
+                Nodecl::ExpressionStatement else_mask_exp =
+                    Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(else_mask_nodecl_sym.shallow_copy(), 
+                            else_mask_value,
+                            else_mask_sym.get_type(),
+                            n.get_locus()));
+
+                // Visit Else
+                _environment._mask_list.push_back(else_mask_nodecl_sym);
+                _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
+                walk(n.get_else());
+                _environment._local_scope_list.pop_back();
+                _environment._mask_list.pop_back();
+
+                list.append(else_mask_exp);
+                list.append(n.get_then().shallow_copy());
+                list.append(n.get_else().shallow_copy());
+            }
+            else
+            {
+                list.prepend(n.get_then().shallow_copy());
+            }
+
+            Nodecl::CompoundStatement compound_stmt =
+                Nodecl::CompoundStatement::make(list, Nodecl::NodeclBase::null(), n.get_locus());
+
+            n.replace(compound_stmt);
         }
 
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
         {
-            VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _unroll_factor, _target_type, _simd_inner_scope);
+            VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(n.get_nest());
         }
 
@@ -72,30 +175,26 @@ namespace TL
             TL::Symbol sym = n.get_symbol();
 
             // Vectorizing symbol type
-            sym.set_type(get_qualified_vector_to(sym.get_type(), _vector_length));
+            sym.set_type(get_qualified_vector_to(sym.get_type(), _environment._vector_length));
 
             // Vectorizing initialization
             Nodecl::NodeclBase init = sym.get_value();
             if(!init.is_null())
             {
-                VectorizerVisitorExpression visitor_expression(
-                        _device, _vector_length, _unroll_factor, _target_type, 
-                        _simd_inner_scope);
+                VectorizerVisitorExpression visitor_expression(_environment);
                 visitor_expression.walk(init);
             }
         }
 
         void VectorizerVisitorStatement::visit(const Nodecl::ReturnStatement& n)
         {
-            VectorizerVisitorExpression visitor_expression(
-                    _device, _vector_length, _unroll_factor,
-                    _target_type, _simd_inner_scope);
+            VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(n.get_value());
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorStatement::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            std::cerr << "Unknown 'Statement' node " 
+            std::cerr << "VECTORIZER: Unknown 'Statement' node " 
                 << ast_print_node_type(n.get_kind()) 
                 << " at " << n.get_locus() 
                 << std::endl;

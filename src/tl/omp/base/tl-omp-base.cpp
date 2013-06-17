@@ -1403,12 +1403,25 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
-        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
-        // Skipping AST_LIST_NODE
-        Nodecl::NodeclBase statements = stmt.get_statements();
-
         if (_simd_enabled)
         {
+            // SIMD Clauses
+            PragmaCustomLine pragma_line = stmt.get_pragma_line();
+            Nodecl::List environment;
+
+            // Suitable
+            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
+            
+            if (suitable_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::VectorSuitable::make(
+                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase statements = stmt.get_statements();
             ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
@@ -1436,6 +1449,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::Simd omp_simd_node =
                Nodecl::OpenMP::Simd::make(
                        for_statement.shallow_copy(),
+                       environment,
                        for_statement.get_locus());
 
             pragma_line.diagnostic_unused_clauses();
@@ -1447,9 +1461,41 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
     void Base::simd_handler_post(TL::PragmaCustomDeclaration decl)
     {
-        TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
         if (_simd_enabled)
         {
+            // SIMD Clauses
+            TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
+            Nodecl::List environment;
+
+            // Suitable
+            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
+            
+            if (suitable_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::VectorSuitable::make(
+                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                            decl.get_locus()));
+            }
+
+            // Mask
+            PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
+            
+            if (mask_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::VectorMask::make(decl.get_locus()));
+            }
+
+            // No Mask
+            PragmaCustomClause no_mask_clause = pragma_line.get_clause("nomask");
+            
+            if (no_mask_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::VectorNoMask::make(decl.get_locus()));
+            }
+
             ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
 
             TL::Symbol sym = decl.get_symbol();
@@ -1461,6 +1507,7 @@ namespace TL { namespace OpenMP {
             Nodecl::OpenMP::SimdFunction simd_func =
                 Nodecl::OpenMP::SimdFunction::make(
                         node.shallow_copy(),
+                        environment,
                         node.get_locus());
 
             node.replace(simd_func);
@@ -1474,13 +1521,25 @@ namespace TL { namespace OpenMP {
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
-        TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
-        // Skipping AST_LIST_NODE
-        Nodecl::NodeclBase statements = stmt.get_statements();
-
         if (_simd_enabled)
         {
-            /*
+            // SIMD Clauses
+            PragmaCustomLine pragma_line = stmt.get_pragma_line();
+            Nodecl::List environment;
+
+            // Suitable
+            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
+            if (suitable_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::VectorSuitable::make(
+                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase statements = stmt.get_statements();
+
             ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
@@ -1500,39 +1559,28 @@ namespace TL { namespace OpenMP {
             ERROR_CONDITION(ast_list_node2.size() != 1,
                     "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-            Nodecl::NodeclBase node = ast_list_node2.front();
-            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(),
+            Nodecl::NodeclBase for_statement = ast_list_node2.front();
+            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
                     "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
-                    ast_print_node_type(node.get_kind()));
-
-            // Vectorize for
-            Nodecl::NodeclBase epilog =
-                _vectorizer.vectorize(node.as<Nodecl::ForStatement>(),
-                        "smp", 16, NULL);
-
-            // Add epilog
-            if (!epilog.is_null())
-            {
-                //node.append_sibling(epilog);
-            }
+                    ast_print_node_type(for_statement.get_kind()));
 
             // for_handler_post
-            PragmaCustomLine pragma_line = stmt.get_pragma_line();
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
-            Nodecl::NodeclBase code = loop_handler_post(
-                    stmt, node, barrier_at_end, false);
+            Nodecl::OpenMP::For omp_for = loop_handler_post(
+                    stmt, for_statement, barrier_at_end, false).as<Nodecl::List>().front()
+                .as<Nodecl::OpenMP::For>();
+
+            Nodecl::OpenMP::SimdFor omp_simd_for_node =
+               Nodecl::OpenMP::SimdFor::make(
+                       omp_for,
+                       environment,
+                       for_statement.get_locus());
 
             // Removing #pragma
             pragma_line.diagnostic_unused_clauses();
-            stmt.replace(code);
-            */
-        }
-        else
-        {
-            // Remove #pragma
-            pragma_line.diagnostic_unused_clauses();
-            stmt.replace(statements);
+            //stmt.replace(code);
+            stmt.replace(omp_simd_for_node);
         }
     }
 

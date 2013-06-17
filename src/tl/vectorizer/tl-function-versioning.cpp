@@ -34,9 +34,10 @@ namespace TL
                 const std::string& device, 
                 const unsigned int vector_length, 
                 const TL::Type& target_type, 
+                const bool masked, 
                 const FunctionPriority priority) :
             _func_version(func_version), _priority(priority), _device(device),
-            _vector_length(vector_length), _target_type(target_type)
+            _vector_length(vector_length), _target_type(target_type), _masked(masked)
         {
         }
 
@@ -47,10 +48,12 @@ namespace TL
 
         bool VectorFunctionVersion::has_kind(const std::string& device,
                 const unsigned int vector_length,
-                const TL::Type& target_type) const
+                const TL::Type& target_type,
+                const bool masked) const
         {
             return (_device == device) &&
-                (_vector_length == vector_length); // &&
+                (_vector_length == vector_length) &&
+                (_masked == masked); // &&
                 //_target_type.is_same_type(target_type);
         }
 
@@ -73,7 +76,8 @@ namespace TL
         const Nodecl::NodeclBase FunctionVersioning::get_best_version(const std::string& func_name,
                 const std::string& device,
                 const unsigned int vector_length,
-                const Type& target_type) const
+                const Type& target_type,
+                const bool masked) const
         {
             std::pair<versions_map_t::const_iterator, versions_map_t::const_iterator> func_range = 
                 _versions.equal_range(func_name);
@@ -85,7 +89,7 @@ namespace TL
                     it != func_range.second;
                     it++)
             {
-                if (it->second.has_kind(device, vector_length, target_type))
+                if (it->second.has_kind(device, vector_length, target_type, masked))
                 {
                     best_version = it;
                     break;
@@ -95,7 +99,7 @@ namespace TL
             for (;it != func_range.second;
                     it++)
             {
-                if (it->second.has_kind(device, vector_length, target_type) &&
+                if (it->second.has_kind(device, vector_length, target_type, masked) &&
                         it->second.is_better_than(best_version->second))
                 {
                     best_version = it;
@@ -112,9 +116,11 @@ namespace TL
                 // Append
             }
 
-            ERROR_CONDITION(best_version == _versions.end(), 
-                    "There is no version of function '%s' for '%s' '%d'", 
-                    func_name.c_str(), device.c_str(), vector_length);
+            if (best_version == _versions.end())
+            {
+                running_error("Error: There is no vector version of function '%s' for '%s' '%d' 'mask=%d'", 
+                    func_name.c_str(), device.c_str(), vector_length, masked);
+            }
 
             return best_version->second.get_version();
         }

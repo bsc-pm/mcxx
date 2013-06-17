@@ -108,6 +108,12 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
+        void SSEVectorLowering::visit(const Nodecl::VectorAddMask& node) 
+        {
+            visit(node.as<Nodecl::VectorAdd>()); 
+        }                                                 
+
+
         void SSEVectorLowering::visit(const Nodecl::VectorMinus& node) 
         { 
             TL::Type type = node.get_type().basic_type();
@@ -161,6 +167,11 @@ namespace TL
                     intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
+        }                                                 
+
+        void SSEVectorLowering::visit(const Nodecl::VectorMinusMask& node) 
+        {
+            visit(node.as<Nodecl::VectorMinus>()); 
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorMul& node) 
@@ -227,6 +238,11 @@ namespace TL
             node.replace(function_call);
         }    
 
+        void SSEVectorLowering::visit(const Nodecl::VectorMulMask& node) 
+        {
+            visit(node.as<Nodecl::VectorMul>()); 
+        }                                                 
+
         void SSEVectorLowering::visit(const Nodecl::VectorDiv& node) 
         { 
             TL::Type type = node.get_type().basic_type();
@@ -275,6 +291,11 @@ namespace TL
                     intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
+        }                                                 
+
+        void SSEVectorLowering::visit(const Nodecl::VectorDivMask& node) 
+        {
+            visit(node.as<Nodecl::VectorDiv>()); 
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
@@ -997,6 +1018,51 @@ namespace TL
             node.replace(function_call);
         }
 
+        void SSEVectorLowering::visit(const Nodecl::UnalignedVectorLoad& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_loadu";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps("; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_pd("; 
+            } 
+            else if (type.is_integral_type()) 
+            { 
+                intrin_src << "_si128(("; 
+                intrin_src << print_type_str(
+                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        node.retrieve_context().get_decl_context());
+
+                intrin_src << ")"; 
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }
+
+            walk(node.get_rhs());
+
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void SSEVectorLowering::visit(const Nodecl::VectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
@@ -1005,6 +1071,53 @@ namespace TL
 
             // Intrinsic name
             intrin_src << "_mm_store";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps("; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_pd("; 
+            } 
+            else if (type.is_integral_type()) 
+            { 
+                intrin_src << "_si128((";
+                intrin_src << print_type_str(
+                        TL::Type::get_long_long_int_type().get_vector_to(16).get_pointer_to().get_internal_type(),
+                        node.retrieve_context().get_decl_context());
+                intrin_src << ")";
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")"; 
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
+        void SSEVectorLowering::visit(const Nodecl::UnalignedVectorStore& node) 
+        { 
+            TL::Type type = node.get_lhs().get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_storeu";
 
             // Postfix
             if (type.is_float()) 
@@ -1232,18 +1345,17 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorFunctionCall& node) 
         {
-            walk(node.get_arguments());
-
             Nodecl::FunctionCall function_call =
-                Nodecl::FunctionCall::make(
-                        node.get_called(),
-                        node.get_arguments(),
-                        node.get_alternate_name(),
-                        node.get_function_form(),
-                        node.get_type(),
-                        node.get_locus());
+                node.get_function_call().as<Nodecl::FunctionCall>();
+
+            walk(function_call.get_arguments());
 
             node.replace(function_call);
+        }
+
+        void SSEVectorLowering::visit(const Nodecl::VectorFunctionCallMask& node) 
+        {
+            running_error("SSE Lowering: VectorFuctionCallMask is not supported in SSE.");
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorFabs& node) 
@@ -1313,16 +1425,38 @@ namespace TL
             n.set_type(node.get_nest().get_type());
         }
 
-        Nodecl::NodeclVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
+        void SSEVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
+        {
+            running_error("SSE Lowering: Vector masks are not supported in SSE.");
+        }
+
+        void SSEVectorLowering::visit(const Nodecl::VectorMaskNot& node)
+        {
+            running_error("SSE Lowering: Vector masks are not supported in SSE.");
+/*            Nodecl::NodeclBase mask = node.get_rhs();
+
+            walk(mask);
+
+            TL::Source intrin_src;
+
+            intrin_src << "(!("
+                << as_expression(mask)
+                << "))";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+            */
+        }
+
+
+        Nodecl::ExhaustiveVisitor<void>::Ret SSEVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            fprintf(stderr, "SSE Lowering: Unknown node %s at %s.\n",
+            running_error("SSE Lowering: Unknown node %s at %s.",
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
-            /*
-               running_error("SSE Lowering: Unknown node %s at %s.",
-               ast_print_node_type(n.get_kind()),
-               locus_to_str(n.get_locus())); 
-             */
+
             return Ret(); 
         }
     }

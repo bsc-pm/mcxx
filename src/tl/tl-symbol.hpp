@@ -667,6 +667,9 @@ namespace TL
              */
             ObjectList<TL::Symbol> get_related_symbols() const;
 
+            //! Sets the symbols related to this one
+            void set_related_symbols(ObjectList<TL::Symbol> related_sym_list)  const;
+
             //! Returns the symbols of the parameters of a function
             ObjectList<TL::Symbol> get_function_parameters() const;
 
@@ -683,6 +686,8 @@ namespace TL
             Nodecl::NodeclBase get_asm_specification() const;
 
             Nodecl::Symbol make_nodecl(const locus_t* locus = ::make_locus("", 0, 0)) const;
+
+            Nodecl::Symbol make_nodecl(bool set_ref_type, const locus_t* locus = ::make_locus("", 0, 0)) const;
 
             /*!
              * States whether this symbol has a parameter i with a default argument

@@ -33,11 +33,9 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorFunction::VectorizerVisitorFunction(
-                const std::string& device,
-                const unsigned int vector_length,
-                const TL::Type& target_type) : 
-            _device(device), _vector_length(vector_length), _target_type(target_type)
+        VectorizerVisitorFunction::VectorizerVisitorFunction(VectorizerEnvironment& environment,
+                const bool masked_version) :
+            _environment(environment), _masked_version(masked_version)
         {
         }
 
@@ -56,11 +54,7 @@ namespace TL
             }
 
             // Push FunctionCode as scope for analysis
-            Vectorizer::_analysis_scopes = new std::list<Nodecl::NodeclBase>();
-            Vectorizer::_analysis_scopes->push_back(function_code);
-
-            //TODO
-            _unroll_factor = 4;
+            _environment._analysis_scopes.push_back(function_code);
 
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
@@ -77,7 +71,7 @@ namespace TL
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
             {
-                TL::Type sym_type = get_qualified_vector_to((*it_type), _vector_length);
+                TL::Type sym_type = get_qualified_vector_to((*it_type), _environment._vector_length);
 
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
@@ -85,22 +79,47 @@ namespace TL
                 parameters_vector_type.append(sym_type);
             }
 
-            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _vector_length).
+
+            if(_masked_version)
+            {
+                TL::Scope scope = vect_func_sym.get_related_scope();
+
+                // Create mask parameter
+                TL::Symbol mask_sym = scope.new_symbol("__mask_param");
+                mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
+               
+                symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(), 
+                        vect_func_sym.get_internal_symbol(),
+                        parameters.size());
+
+                // Add mask symbol and type to parameters
+                parameters.append(mask_sym);
+                parameters_vector_type.append(mask_sym.get_type());
+                vect_func_sym.set_related_symbols(parameters);
+
+                Nodecl::Symbol mask_nodecl_sym = 
+                    mask_sym.make_nodecl(true, function_code.get_locus());
+
+                _environment._mask_list.push_back(mask_nodecl_sym);
+            }
+
+            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _environment._vector_length).
                     get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
-            VectorizerVisitorStatement visitor_stmt(
-                    _device, 
-                    _vector_length,
-                    _unroll_factor,                    
-                    _target_type,
-                    function_code.get_statements().retrieve_context());
+            VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(function_code.get_statements());
 
-            Vectorizer::_analysis_scopes->pop_back();
-            delete Vectorizer::_analysis_scopes;
-            Vectorizer::_analysis_scopes = 0;
+            _environment._analysis_scopes.pop_back();
+
+            if(_masked_version)
+            {
+                _environment._mask_list.pop_back();
+            }
         }
+ 
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 
         { 

@@ -255,8 +255,8 @@ namespace TL
         int i;
         parameter_info_t *parameters_list;
         int num_parameters = type_list.size();
-
-        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+   
+        parameters_list = (parameter_info_t *) xmalloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
 
         for (i=0; i<num_parameters; i++)
         {
@@ -331,10 +331,15 @@ namespace TL
         else
             return (fortran_get_rank_of_type(_type_info));
     }
-    
+
     bool Type::is_vector() const
     {
         return (::is_vector_type(_type_info));
+    }
+
+    bool Type::is_mask() const
+    {
+        return (::is_mask_type(_type_info));
     }
 
     bool Type::is_generic_vector() const
@@ -669,6 +674,11 @@ namespace TL
     Type Type::get_double_type(void)
     {
         return Type(::get_double_type());
+    }
+
+    Type Type::get_mask_type(unsigned int mask_size)
+    {
+        return Type(::get_mask_type(mask_size));
     }
 
     bool Type::is_integral_type() const

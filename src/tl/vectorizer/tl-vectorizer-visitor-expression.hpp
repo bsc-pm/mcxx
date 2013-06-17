@@ -29,6 +29,7 @@
 
 #include "tl-nodecl-visitor.hpp"
 #include "tl-analysis-static-info.hpp"
+#include "tl-vectorizer.hpp"
 
 namespace TL 
 { 
@@ -37,24 +38,13 @@ namespace TL
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {
             private:
-                const std::string _device;
-                const unsigned int _vector_length;
-                const unsigned int _unroll_factor;
-                const TL::Type _target_type;
-
-                const TL::Scope& _simd_inner_scope;
+                VectorizerEnvironment& _environment;
 
                 bool is_declared_in_scope(const scope_t *const target_scope , 
                         const scope_t *const symbol_scope) const;
 
-                //void vector_evolution(const Nodecl::NodeclBase& n) const;
-
             public:
-                VectorizerVisitorExpression(const std::string& device,
-                        const unsigned int vector_length,
-                        const unsigned int unroll_factor,
-                        const TL::Type& target_type,
-                        const TL::Scope& simd_inner_scope);
+                VectorizerVisitorExpression(VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);
@@ -84,6 +74,8 @@ namespace TL
                 virtual void visit(const Nodecl::Symbol& n);
                 virtual void visit(const Nodecl::IntegerLiteral& n);
                 virtual void visit(const Nodecl::FloatingLiteral& n);
+                
+                virtual void visit(const Nodecl::Reference& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

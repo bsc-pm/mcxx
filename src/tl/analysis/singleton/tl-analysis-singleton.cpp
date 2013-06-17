@@ -168,7 +168,7 @@ namespace Analysis {
         _task_sync = true;
     }
 
-    Node* PCFGAnalysis_memento::pcfg_node_enclosing_nodecl( Node* current, const Nodecl::NodeclBase& n )
+    Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
         if( !current->is_visited( ) )
@@ -193,7 +193,7 @@ namespace Analysis {
                 }
                 else
                 {
-                    result = pcfg_node_enclosing_nodecl( current->get_graph_entry_node( ), n );
+                    result = node_enclosing_nodecl_rec( current->get_graph_entry_node( ), n );
                 }
             }
             else if( !current->is_entry_node( ) )
@@ -216,7 +216,7 @@ namespace Analysis {
                 for( ObjectList<Node*>::iterator it = children.begin( );
                      it != children.end( ); ++it )
                 {
-                    result = pcfg_node_enclosing_nodecl( *it, n );
+                    result = node_enclosing_nodecl_rec( *it, n );
                     if( result != NULL )
                     {
                         break;
@@ -234,7 +234,7 @@ namespace Analysis {
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
             Node* current = it->second->get_graph( );
-            result = pcfg_node_enclosing_nodecl( current, n );
+            result = node_enclosing_nodecl_rec( current, n );
             ExtensibleGraph::clear_visits( current );
 
             if( result != NULL )
@@ -254,40 +254,6 @@ namespace Analysis {
         return result;
     }
 
-    static void get_inner_loops_induction_variables( Node* pcfg_node,
-                                                     ObjectList<Utils::InductionVariableData*>& result )
-    {
-        if( !pcfg_node->is_visited( ) )
-        {
-            pcfg_node->set_visited( true );
-
-            if( pcfg_node->is_exit_node( ) )
-            {
-                return;
-            }
-            else
-            {
-                if( pcfg_node->is_graph_node( ) )
-                {
-                    // Look for inner loops
-                    get_inner_loops_induction_variables( pcfg_node->get_graph_entry_node( ), result );
-
-                    // Add current induction variables
-                    if( pcfg_node->is_loop_node( ) )
-                    {
-                        result.append( pcfg_node->get_induction_variables( ) );
-                    }
-                }
-
-                ObjectList<Node*> children = pcfg_node->get_children( );
-                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-                {
-                    get_inner_loops_induction_variables( *it, result );
-                }
-            }
-        }
-    }
-
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
             const Nodecl::NodeclBase& n )
     {
@@ -295,10 +261,9 @@ namespace Analysis {
         if( _induction_variables )
         {
             Node* pcfg_node = node_enclosing_nodecl( n );
-            if( pcfg_node != NULL )
+            if( ( pcfg_node != NULL ) && pcfg_node->is_loop_node( ) )
             {
-                get_inner_loops_induction_variables( pcfg_node, result );
-                ExtensibleGraph::clear_visits( pcfg_node );
+                result =  pcfg_node->get_induction_variables( );
             }
         }
         return result;

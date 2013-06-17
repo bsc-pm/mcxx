@@ -105,6 +105,8 @@ namespace Utils {
         Ret visit( const Nodecl::FunctionCode& n );
         Ret visit( const Nodecl::GxxTrait& n );
         Ret visit( const Nodecl::ObjectInit& n );
+        Ret visit( const Nodecl::OpenMP::SimdFunction& n );
+        Ret visit( const Nodecl::OpenMP::TaskCall& n );
         Ret visit( const Nodecl::PragmaCustomDeclaration& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );
         Ret visit( const Nodecl::PreprocessorLine& n );

@@ -314,8 +314,10 @@ namespace Analysis {
             case OMP_TASK:
                 dot_graph += "color=red4;\nstyle=bold;\n";
                 break;
-            case SIMD:
-            case SIMD_FUNCTION:
+            case OMP_SIMD:
+            case OMP_SIMD_FOR:
+            case OMP_SIMD_PARALLEL_FOR:
+            case OMP_SIMD_FUNCTION:
                 dot_graph += "color=indianred2;\n";
                 break;
             default:

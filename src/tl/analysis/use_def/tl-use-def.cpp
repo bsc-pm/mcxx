@@ -598,11 +598,11 @@ namespace Analysis {
 
             if( side_effects && VERBOSE )
             {
-//                 WARNING_MESSAGE( "Function's '%s' code not reached. Usage of global variables and "
-//                                  "reference parameters will be limited. If you know the side effects of this function, "
-//                                  "add it to the file and recompile your code. \n(If you recompile the compiler, "
-//                                  "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
-//                                  func_sym.get_name( ).c_str( ), cLibFuncsPath.c_str( ) );
+                WARNING_MESSAGE( "Function's '%s' code not reached. Usage of global variables and "\
+                                  "reference parameters will be limited. If you know the side effects of this function, "\
+                                  "add it to the file and recompile your code. \n(If you recompile the compiler, "\
+                                  "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
+                                  func_sym.get_name( ).c_str( ), cLibFuncsPath.c_str( ) );
             }
             cLibFuncs.close();
         }
