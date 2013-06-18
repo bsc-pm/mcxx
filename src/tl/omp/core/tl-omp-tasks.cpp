@@ -367,6 +367,9 @@ namespace TL
            _if_clause_cond_expr = Nodecl::Utils::deep_copy(
                    task_info._if_clause_cond_expr, task_info._sym.get_scope(), translation_map);
 
+           _final_clause_cond_expr = Nodecl::Utils::deep_copy(
+                   task_info._final_clause_cond_expr, task_info._sym.get_scope(), translation_map);
+
            _priority_clause_expr = Nodecl::Utils::deep_copy(
                    task_info._priority_clause_expr, task_info._sym.get_scope(), translation_map);
 
