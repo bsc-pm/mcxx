@@ -54,7 +54,6 @@ libanalysis_singleton_la_LIBADD= \
 				../reach_defs/libreaching_definitions.la \
 				../loops/libloops_analysis.la \
 				../auto-scope/libauto_scope.la \
-				../task_analysis/libtask_analysis.la \
 				$(END)
 
 libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \
