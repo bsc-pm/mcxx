@@ -96,7 +96,7 @@ namespace TL { namespace Nanox {
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            return create_basic_reduction_function_c(red->get_reduction_info(), construct);
+            return create_reduction_function_c(red->get_reduction_info(), construct);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {

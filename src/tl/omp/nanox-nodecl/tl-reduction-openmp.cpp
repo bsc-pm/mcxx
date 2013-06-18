@@ -104,7 +104,7 @@ namespace TL { namespace Nanox {
         }
     };
 
-    TL::Symbol LoweringVisitor::create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    TL::Symbol LoweringVisitor::create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
         reduction_map_t::iterator it = _reduction_map_openmp.find(red);
         if (it != _reduction_map_openmp.end())
@@ -178,87 +178,7 @@ namespace TL { namespace Nanox {
         return function_sym;
     }
 
-    TL::Symbol LoweringVisitor::create_vector_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
-    {
-        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
-        if (it != _reduction_map_openmp.end())
-        {
-            return it->second;
-        }
-
-        std::string fun_name;
-        {
-            std::stringstream ss;
-            ss << "nanos_v_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
-            fun_name = ss.str();
-        }
-
-        Nodecl::NodeclBase function_body;
-        Source src;
-        src << "void " << fun_name << "(" 
-            <<    "int size,"
-            <<    "void *v_original,"
-            <<    "void *v_privates)"
-            << "{"
-            <<    as_type(red->get_type().get_pointer_to())
-            <<      " original = (" << as_type(red->get_type().get_pointer_to()) << ")v_original;"
-            <<    as_type(red->get_type().get_pointer_to())
-            <<      " privates = (" << as_type(red->get_type().get_pointer_to()) << ")v_privates;"
-            <<    "int num_elements = size / sizeof(" << as_type(red->get_type()) << ");"
-            <<    "int i;"
-            <<    "for (i = 0; i < num_elements; i++)"
-            <<    "{"
-            <<           statement_placeholder(function_body)
-            <<    "}"
-            << "}"
-            ;
-
-        // FORTRAN_LANGUAGE()
-        // {
-        //     Source::source_language = SourceLanguage::C;
-        // }
-        // Nodecl::NodeclBase function_code = src.parse_global(construct);
-        // FORTRAN_LANGUAGE()
-        // {
-        //     Source::source_language = SourceLanguage::Current;
-        // }
-
-        // TL::Scope inside_function = ReferenceScope(function_body).get_scope();
-        // TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
-        // ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
-        // TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
-        // ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
-
-        // TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
-        // ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
-
-        // TL::Symbol index = inside_function.get_symbol_from_name("i");
-        // ERROR_CONDITION(!index.is_valid(), "Symbol %s not found", "i");
-        // TL::Symbol num_scalars = inside_function.get_symbol_from_name("num_scalars");
-        // ERROR_CONDITION(!num_scalars.is_valid(), "Symbol %s not found", "num_scalars");
-
-        // Nodecl::NodeclBase expanded_combiner =
-        //     red->get_combiner().shallow_copy();
-        // ExpandVisitor expander_visitor(
-        //         red->get_omp_in(),
-        //         param_omp_in,
-        //         red->get_omp_out(),
-        //         param_omp_out,
-        //         index);
-        // expander_visitor.walk(expanded_combiner);
-
-        // function_body.replace(
-        //         Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
-
-        // _reduction_map_openmp[red] = function_sym;
-
-        // Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
-        TL::Symbol function_sym;
-
-        return function_sym;
-    }
-
-    TL::Symbol LoweringVisitor::create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    TL::Symbol LoweringVisitor::create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
         reduction_map_t::iterator it = _reduction_map_openmp.find(red);
         if (it != _reduction_map_openmp.end())
@@ -339,18 +259,15 @@ namespace TL { namespace Nanox {
         return function_sym;
     }
 
-    void LoweringVisitor::create_reduction_function(OpenMP::Reduction* red,
-            Nodecl::NodeclBase construct,
-            TL::Symbol& basic_reduction_function,
-            TL::Symbol& vector_reduction_function)
+    TL::Symbol LoweringVisitor::create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            basic_reduction_function = create_basic_reduction_function_c(red, construct);
+            return create_reduction_function_c(red, construct);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            basic_reduction_function = create_basic_reduction_function_fortran(red, construct);
+            return create_reduction_function_fortran(red, construct);
         }
         else
         {
@@ -491,8 +408,7 @@ namespace TL { namespace Nanox {
 
             Source num_scalars;
 
-            TL::Symbol basic_reduction_function, vector_reduction_function;
-            create_reduction_function(reduction, construct, basic_reduction_function, vector_reduction_function);
+            TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
             (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
