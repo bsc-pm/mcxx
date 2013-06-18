@@ -352,12 +352,17 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
         reduction_map_t _reduction_map_openmp;
         reduction_map_t _reduction_map_ompss;
-        TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
-        TL::Symbol create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
-        TL::Symbol create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        void create_reduction_function(OpenMP::Reduction* red,
+                Nodecl::NodeclBase construct,
+                TL::Symbol& basic_reduction_function,
+                TL::Symbol& vector_reduction_function);
+        TL::Symbol create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         TL::Symbol create_reduction_function_slicer(OutlineDataItem* red, Nodecl::NodeclBase construct);
         TL::Symbol create_reduction_function_fortran_slicer(OutlineDataItem* ol, Nodecl::NodeclBase construct);
+
+        TL::Symbol create_vector_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
