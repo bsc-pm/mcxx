@@ -773,36 +773,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
+        // This expression is a logical-or-expression, so an assignment (or comma)
+        // needs parentheses
         file << "(";
     }
     walk(cond);
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
         file << ")";
     }
 
     file << " ? ";
 
-    if (operand_has_lower_priority(node, then))
-    {
-        file << "(";
-    }
+    // This is a top level expression, no parentheses should be required
     walk(then);
-    if (operand_has_lower_priority(node, then))
-    {
-        file << ")";
-    }
 
     file << " : ";
 
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
+        // Only comma operator could get here actually
         file << "(";
     }
     walk(_else);
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
         file << ")";
     }
@@ -3243,7 +3239,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Throw& node)
     if (!expr.is_null())
     {
         file << " ";
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            // A comma operator could slip in
+            file << "(";
+        }
         walk(expr);
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            file << ")";
+        }
     }
 }
 
