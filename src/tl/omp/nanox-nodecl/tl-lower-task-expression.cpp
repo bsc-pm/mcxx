@@ -47,23 +47,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
         get_nanos_in_final_condition(task_expr, task_expr.get_locus(), is_in_final_nodecl, items);
         Nodecl::Utils::prepend_items_before(expr_stmt, Nodecl::List::make(items));
 
-        Nodecl::List statements_task_expr;
-         for (Nodecl::List::iterator it = task_calls.begin();
-                 it != task_calls.end();
-                 ++it)
-         {
-             Nodecl::ExpressionStatement current_expr_stmt = it->as<Nodecl::ExpressionStatement>();
-             Nodecl::OpenMP::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
-             statements_task_expr.append(Nodecl::ExpressionStatement::make(current_task_call.get_call().shallow_copy()));
-         }
-         statements_task_expr.append(join_task.get_statements().shallow_copy());
-
         Nodecl::NodeclBase if_else_stmt =
             Nodecl::IfElseStatement::make(
                     is_in_final_nodecl,
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
-                            statements_task_expr,
+                            task_expr.get_sequential_code(),
                             nodecl_null(),
                             task_expr.get_locus())),
                     Nodecl::List::make(
