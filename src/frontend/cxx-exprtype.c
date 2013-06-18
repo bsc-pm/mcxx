@@ -523,7 +523,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_CHARACTER_LITERAL :
             {
-
                 character_literal_type(expression, nodecl_output);
                 break;
             }
@@ -1186,7 +1185,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     if (ASTType(expr) == AST_OCTAL_LITERAL
             && (strcmp(ASTText(expr), "0") == 0))
     {
-        result = get_zero_type();
+        result = get_zero_type(get_signed_int_type());
     }
 
     if (is_complex)
@@ -1308,6 +1307,11 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                          return;
                      }
         }
+    }
+
+    if (value == 0)
+    {
+        result = get_zero_type(result);
     }
 
     *nodecl_output = nodecl_make_integer_literal(result, 
@@ -5669,12 +5673,17 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
     {
         *nodecl_output = nodecl_make_symbol(entry, locus);
 
+        nodecl_set_type(*nodecl_output, entry->type_information);
+
         if (nodecl_is_constant(entry->value))
         {
             nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+            if (const_value_is_zero(nodecl_get_constant(*nodecl_output)))
+            {
+                nodecl_set_type(*nodecl_output, get_zero_type(entry->type_information));
+            }
         }
 
-        nodecl_set_type(*nodecl_output, entry->type_information);
     }
     else if (entry->kind == SK_VARIABLE
             || entry->kind == SK_FUNCTION)
@@ -7769,11 +7778,11 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
                || is_pointer_type(declarator_type)))
     {
         const_value_t * const_casted_expr = nodecl_get_constant(nodecl_casted_expr);
-        
+
         // The const_casted_expr variable can be a string literal. 
         // Example:
         // (const void *)"ABC";
-        // 
+        //
         // Something similar appears in strcmp function
         if (const_value_is_integer(const_casted_expr)
                 || const_value_is_floating(const_casted_expr))
@@ -7783,6 +7792,15 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
                         const_casted_expr,
                         type_get_size(declarator_type), 
                         /* sign */ is_signed_integral_type(declarator_type)));
+
+            // Propagate zero types
+            if (const_value_is_integer(const_casted_expr)
+                    && const_value_is_zero(const_casted_expr)
+                    && is_integral_type(declarator_type))
+            {
+                nodecl_set_type(*nodecl_output,
+                        get_zero_type(declarator_type));
+            }
         }
     }
 
@@ -10082,7 +10100,7 @@ static void check_postoperator_user_defined(
 
     type_t* argument_types[2] = {
         incremented_type, // Member argument
-        get_zero_type() // Postoperation
+        get_zero_type(get_signed_int_type()) // Postoperation
     };
     int num_arguments = 2;
 
@@ -10460,7 +10478,7 @@ static void check_postoperator(AST operator,
             // Note that we do not remove the left reference
             operated_type, 
             // This is the 0 argument of operator++(T&, 0)
-            get_zero_type(),
+            get_zero_type(get_signed_int_type()),
             &builtin_set,
             decl_context, operator,
             postoperator_pred,
