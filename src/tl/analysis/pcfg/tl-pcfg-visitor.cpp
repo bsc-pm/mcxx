@@ -439,6 +439,17 @@ namespace Analysis {
         return ObjectList<Node*>();
     }
 
+    // Taskwait on (X)
+    ObjectList<Node*> PCFGVisitor::visit_taskwait( const Nodecl::OpenMP::WaitOnDependences & n )
+    {
+        Node* taskwait_node = new Node( _utils->_nid, OMP_WAITON_DEPS, _utils->_outer_nodes.top( ), n);
+        // Connect with the last nodes created
+        _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
+
+        _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
+        return ObjectList<Node*>();
+    }
+
     ObjectList<Node*> PCFGVisitor::visit_unary_node( const Nodecl::NodeclBase& n,
                                                     const Nodecl::NodeclBase& rhs )
     {
@@ -1928,11 +1939,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
     {
-        Node* taskwait_node = new Node( _utils->_nid, OMP_WAITON_DEPS, _utils->_outer_nodes.top( ) );
-        _pcfg->connect_nodes( _utils->_last_nodes, taskwait_node );
-
-        _utils->_last_nodes = ObjectList<Node*>( 1, taskwait_node );
-        return ObjectList<Node*>( );
+        return visit_taskwait( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )

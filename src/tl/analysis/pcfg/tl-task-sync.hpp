@@ -32,8 +32,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-pcfg-utils.hpp"
 
-namespace TL { 
-namespace Analysis {
+namespace TL { namespace Analysis {
     
     // Task synchronization relationship
     enum TaskSyncRel
@@ -43,8 +42,36 @@ namespace Analysis {
         TaskSync_No = 2
     };
 
-    typedef std::map<Node*, AliveTaskSet> AliveTasks;
-    typedef std::set<Node*> PointOfSyncSet;
+    #define SYNC_KIND_LIST \
+    SYNC_KIND(unknown) \
+    SYNC_KIND(strict) \
+    SYNC_KIND(static) \
+    SYNC_KIND(post) \
+    SYNC_KIND(maybe)
+
+    enum SyncKind
+    {
+#undef SYNC_KIND
+#define SYNC_KIND(X) Sync_##X,
+        SYNC_KIND_LIST
+#undef SYNC_KIND
+    };
+
+    inline std::string sync_kind_to_str(SyncKind sk)
+    {
+        switch (sk)
+        {
+#undef SYNC_KIND
+#define SYNC_KIND(X) case Sync_##X : return #X;
+        SYNC_KIND_LIST
+#undef SYNC_KIND
+            default: return "";
+        }
+        return "";
+    };
+
+    typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
+    typedef std::set<PointOfSyncInfo> PointOfSyncSet;
     typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
 
     struct LIBTL_CLASS TaskSynchronizations
@@ -52,19 +79,12 @@ namespace Analysis {
         private:
             ExtensibleGraph* _graph;
 
-
-            void compute_task_synchronizations_rec(Node* current,
-                    bool &changed,
-                    PointsOfSync& points_of_sync,
-                    int current_domain_id,
-                    int &next_domain_id);
         public:
             TaskSynchronizations(ExtensibleGraph* graph);
 
             void compute_task_synchronizations();
     };
 
-}
-}
+} }
 
 #endif
