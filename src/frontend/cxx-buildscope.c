@@ -4177,6 +4177,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
             enumeration_item->locus = ast_get_locus(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
+            enumeration_item->type_information = get_signed_int_type();
 
             if (decl_context.current_scope->kind == CLASS_SCOPE)
             {
@@ -4246,10 +4247,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     const_value_t* zero_val = const_value_get_signed_int(0);
                     nodecl_t zero = const_value_to_nodecl(zero_val);
 
-                    CXX_LANGUAGE()
-                    {
-                        enumeration_item->type_information = get_signed_int_type();
-                    }
                     enumeration_item->value = zero;
                     base_enumerator = zero;
                     delta = 1;
