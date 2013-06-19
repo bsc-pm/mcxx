@@ -1449,7 +1449,6 @@ OPERATOR_TABLE
 
             if (!called_symbol.is_statement_function_statement())
             {
-#warning Get the parameter type from the function type, not the keyword symbol
                 if (keywords_are_mandatory)
                 {
                     ERROR_CONDITION (pos >= (signed int)parameter_symbols.size(),

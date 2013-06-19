@@ -1957,7 +1957,6 @@ namespace Analysis {
 
         task_exit->set_id( ++( _utils->_nid ) );
         _pcfg->connect_nodes( _utils->_last_nodes, task_exit );
-        _utils->_outer_nodes.pop( );
 
         // Set clauses info to the for node
         PCFGPragmaInfo current_pragma;
@@ -1968,6 +1967,7 @@ namespace Analysis {
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
+        _utils->_outer_nodes.pop( );
         _pcfg->_task_nodes_l.insert( task_node );
         _pcfg->_utils->_last_nodes = task_parents;
         return ObjectList<Node*>( 1, task_node );

@@ -360,6 +360,16 @@ namespace TL
             _priority_clause_expr = expr;
         }
 
+        void FunctionTaskInfo::set_final_clause_conditional_expression(Nodecl::NodeclBase expr)
+        {
+            _final_clause_cond_expr = expr;
+        }
+
+        Nodecl::NodeclBase FunctionTaskInfo::get_final_clause_conditional_expression() const
+        {
+            return _final_clause_cond_expr;
+        }
+
         Nodecl::NodeclBase FunctionTaskInfo::get_priority_clause_expression() const
         {
             return _priority_clause_expr;
@@ -377,6 +387,11 @@ namespace TL
 
         FunctionTaskSet::FunctionTaskSet()
         {
+        }
+
+        std::map<Symbol, FunctionTaskInfo> FunctionTaskSet::get_function_task_set() const
+        {
+            return _map;
         }
 
         bool FunctionTaskSet::is_function_task(Symbol sym) const
@@ -412,6 +427,7 @@ namespace TL
             mw.write(_target_info);
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
+            mw.write(_final_clause_cond_expr);
             mw.write(_untied);
             mw.write(_task_label);
         }
@@ -424,6 +440,7 @@ namespace TL
             mr.read(_target_info);
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
+            mr.read(_final_clause_cond_expr);
             mr.read(_untied);
             mr.read(_task_label);
         }
@@ -451,7 +468,7 @@ namespace TL
             module_map_t module_map;
 
             // First group everyone by module
-            for (map_t::iterator it = _map.begin();
+            for (std::map<Symbol, FunctionTaskInfo>::iterator it = _map.begin();
                     it != _map.end();
                     it++)
             {
@@ -906,7 +923,7 @@ namespace TL
             //Add real time information to the task
             task_info.set_real_time_info(rt_info);
 
-            // Support if clause 
+            // Support if clause
             PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())
             {
@@ -917,6 +934,19 @@ namespace TL
                             construct.get_locus_str().c_str());
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
+            }
+
+            // Support final clause
+            PragmaCustomClause final_clause = pragma_line.get_clause("final");
+            if (final_clause.is_defined())
+            {
+                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(param_ref_tree);
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'final' requires just one argument\n",
+                            construct.get_locus_str().c_str());
+                }
+                task_info.set_final_clause_conditional_expression(expr_list[0]);
             }
 
             // Support priority clause

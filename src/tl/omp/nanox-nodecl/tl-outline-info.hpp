@@ -454,8 +454,12 @@ namespace TL
                 OutlineDataItem& append_field(TL::Symbol sym);
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
+
+                bool only_has_smp_or_mpi_implementations() const;
 
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
@@ -490,6 +494,8 @@ namespace TL
                         OutlineDataItem* outline_data_item,
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
+
+                void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };
     }
 }

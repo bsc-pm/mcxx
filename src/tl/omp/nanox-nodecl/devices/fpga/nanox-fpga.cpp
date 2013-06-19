@@ -188,9 +188,14 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         //if function is in the list, do not add it again
         if (!found)
         {
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task);
+
+            Nodecl::Utils::SimpleSymbolMap map;
+            map.add_map(called_task, new_function);
             Nodecl::NodeclBase tmp_task = Nodecl::Utils::deep_copy(
-                        called_task.get_function_code(),
-                        called_task.get_scope());
+                    called_task.get_function_code(),
+                    called_task.get_scope(),
+                    map);
 
             if (_dump_ast != "0")
             {

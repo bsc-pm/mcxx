@@ -75,6 +75,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol called_task,
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority_expr,
+                Nodecl::NodeclBase if_condition,
+                Nodecl::NodeclBase final_condition,
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
@@ -213,6 +215,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase num_replicas,
+                Nodecl::NodeclBase if_condition,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 
@@ -347,17 +350,43 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
-        reduction_map_t _reduction_map_openmp;
+        reduction_map_t _basic_reduction_map_openmp;
+        reduction_map_t _vector_reduction_map_openmp;
+
         reduction_map_t _reduction_map_ompss;
-        TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
-        TL::Symbol create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
-        TL::Symbol create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        void create_reduction_function(OpenMP::Reduction* red,
+                Nodecl::NodeclBase construct,
+                TL::Symbol& basic_reduction_function,
+                TL::Symbol& vector_reduction_function);
+        TL::Symbol create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         TL::Symbol create_reduction_function_slicer(OutlineDataItem* red, Nodecl::NodeclBase construct);
         TL::Symbol create_reduction_function_fortran_slicer(OutlineDataItem* ol, Nodecl::NodeclBase construct);
 
+        TL::Symbol create_vector_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
+        Nodecl::NodeclBase fill_adapter_function(
+                TL::Symbol adapter_function,
+                TL::Symbol called_function,
+                Nodecl::Utils::SimpleSymbolMap* &symbol_map,
+                Nodecl::NodeclBase original_function_call,
+                Nodecl::NodeclBase original_environment,
+                TL::ObjectList<TL::Symbol> &save_expressions,
+                // out
+                Nodecl::NodeclBase& task_construct,
+                Nodecl::NodeclBase& statements_of_task_seq,
+                Nodecl::NodeclBase& new_environment);
+
+        void get_nanos_in_final_condition(
+                TL::ReferenceScope scope,
+                const locus_t* locus,
+                // out
+                Nodecl::NodeclBase& is_in_final_nodecl,
+                TL::ObjectList<Nodecl::NodeclBase>& items);
 };
 
 } }

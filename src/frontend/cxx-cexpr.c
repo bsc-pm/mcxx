@@ -983,7 +983,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
             {
                 // Zero is special
                 if (integer_type == NULL && v->value.i == 0)
-                    return nodecl_make_integer_literal(get_zero_type(), v, make_locus("", 0, 0));
+                    return nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0));
 
                 type_t* t = integer_type;
                 if (t == NULL)

@@ -387,6 +387,72 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
     }
 }
 
+void LoweringVisitor::get_nanos_in_final_condition(
+        TL::ReferenceScope ref_scope,
+        const locus_t* locus,
+        // out
+        Nodecl::NodeclBase& is_in_final_nodecl,
+        TL::ObjectList<Nodecl::NodeclBase>& items)
+{
+    TL::Scope sc = ref_scope.get_scope();
+
+    TL::Symbol nanos_in_final = sc.get_symbol_from_name("nanos_in_final");
+    ERROR_CONDITION(!nanos_in_final.is_valid(), "The 'nanos_in_final' function is not defined", 0);
+
+    TL::Symbol nanos_err_t = sc.get_symbol_from_name("nanos_err_t");
+    ERROR_CONDITION(!nanos_err_t.is_valid(), "The 'nanos_err_t' type is not defined", 0);
+
+    Counter& final_counter = CounterManager::get_counter("nanos++-final-counter");
+
+    std::stringstream ss1, ss2;
+    ss1 << "mcc_is_in_final_" << (int)final_counter;
+    TL::Symbol is_in_final_var = sc.new_symbol(ss1.str());
+    is_in_final_var.get_internal_symbol()->kind = SK_VARIABLE;
+    is_in_final_var.get_internal_symbol()->type_information = TL::Type::get_bool_type().get_internal_type();
+    is_in_final_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+    is_in_final_nodecl = Nodecl::Symbol::make(is_in_final_var);
+    is_in_final_nodecl.set_type(lvalue_ref(is_in_final_var.get_type().get_internal_type()));
+
+    ss2 << "mcc_err_in_final_" << (int)final_counter;
+    TL::Symbol err_in_final_var = sc.new_symbol(ss2.str());
+    err_in_final_var.get_internal_symbol()->kind = SK_VARIABLE;
+    err_in_final_var.get_internal_symbol()->type_information = nanos_err_t.get_user_defined_type().get_internal_type();
+    err_in_final_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+    Nodecl::Symbol err_in_final_nodecl = Nodecl::Symbol::make(err_in_final_var);
+    err_in_final_nodecl.set_type(lvalue_ref(err_in_final_var.get_type().get_internal_type()));
+    final_counter++;
+
+    if (IS_CXX_LANGUAGE)
+    {
+        items.append(Nodecl::CxxDef::make( /* context */ nodecl_null(), is_in_final_var, locus));
+        items.append(Nodecl::CxxDef::make( /* context */ nodecl_null(), err_in_final_var, locus));
+    }
+
+    Nodecl::NodeclBase in_final_function_call = Nodecl::FunctionCall::make(
+            Nodecl::Symbol::make(nanos_in_final),
+            Nodecl::List::make(
+                Nodecl::Reference::make(
+                    is_in_final_nodecl,
+                    is_in_final_var.get_type().get_pointer_to(),
+                    locus)),
+            /* alternate name */ nodecl_null(),
+            /* function_form */ nodecl_null(),
+            nanos_in_final.get_type().returns(),
+            locus);
+
+    Nodecl::ExpressionStatement expr = Nodecl::ExpressionStatement::make(
+            Nodecl::Assignment::make(
+                err_in_final_nodecl,
+                in_final_function_call,
+                err_in_final_nodecl.get_type()));
+
+    items.append(expr);
+
+    is_in_final_nodecl = is_in_final_nodecl.shallow_copy();
+}
+
 void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -441,6 +507,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     // If the current function is a non-static function and It is member of a
     // class, the first argument of the arguments list represents the object of
     // this class
+    std::set<TL::Symbol> seen_parameters;
+
     if (IS_CXX_LANGUAGE
             && !called_sym.is_static()
             && called_sym.is_member())
@@ -448,6 +516,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::NodeclBase class_object = *(arguments.begin());
         TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
+
+        seen_parameters.insert(this_symbol);
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         std::stringstream ss;
@@ -504,6 +574,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     arguments.get_locus_str().c_str(),
                     parameter.get_name().c_str());
         }
+
+        seen_parameters.insert(parameter);
 
         Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
         // Create a new variable holding the value of the argument
@@ -562,8 +634,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             t = t.get_lvalue_reference_to();
         sym_ref.set_type(t);
 
-
-
         if (parameter.get_type().is_any_reference()
                 && !parameter.get_type().is_const())
         {
@@ -614,6 +684,24 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             arguments_outline_info.set_param_arg_map(param_to_args_map, current_implementor);
         }
     }
+
+    // Register extra variables that might not be parameters of the function
+    // task but are in context
+    data_items = parameters_outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        TL::Symbol sym = (*it)->get_symbol();
+        if (!sym.is_valid() || sym.is_saved_expression())
+            continue;
+
+        if (seen_parameters.find(sym) != seen_parameters.end())
+            continue;
+
+        outline_register_entities.add_copy_of_outline_data_item(**it);
+    }
+
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in
@@ -735,40 +823,53 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     Nodecl::NodeclBase statements = Nodecl::List::make(list_stmt);
 
-    Nodecl::NodeclBase new_construct, new_code;
-    new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
+    Nodecl::NodeclBase new_construct = Nodecl::OpenMP::Task::make(/* environment */ Nodecl::NodeclBase::null(), statements);
 
-    if (!task_environment.if_condition.is_null())
+    Nodecl::NodeclBase new_code;
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
+            && arguments_outline_info.only_has_smp_or_mpi_implementations())
     {
-        Nodecl::NodeclBase expr_direct_call_to_function = 
+        Nodecl::NodeclBase enclosing_expr_stmt = construct.get_parent();
+        ERROR_CONDITION(!enclosing_expr_stmt.is<Nodecl::ExpressionStatement>(),
+                "Unexpected node '%s'\n", ast_print_node_type(enclosing_expr_stmt.get_kind()));
+
+        TL::ObjectList<Nodecl::NodeclBase> items;
+        Nodecl::NodeclBase is_in_final_nodecl;
+        get_nanos_in_final_condition(enclosing_expr_stmt, function_call.get_locus(), is_in_final_nodecl, items);
+
+        Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, Nodecl::List::make(items));
+
+        Nodecl::NodeclBase expr_direct_call_to_function =
             Nodecl::ExpressionStatement::make(
                     function_call.shallow_copy(),
                     function_call.get_locus());
 
-        Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
-
-        Nodecl::NodeclBase if_then_else_statement = 
+        Nodecl::NodeclBase if_else_stmt =
             Nodecl::IfElseStatement::make(
-                    updated_if_condition,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(new_construct),
-                            Nodecl::NodeclBase::null(),
-                            function_call.get_locus())),
+                    is_in_final_nodecl.shallow_copy(),
                     Nodecl::List::make(
                         Nodecl::CompoundStatement::make(
                             Nodecl::List::make(expr_direct_call_to_function),
-                            Nodecl::NodeclBase::null(),
-                            function_call.get_locus())));
+                            nodecl_null(),
+                            function_call.get_locus())),
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            Nodecl::List::make(new_construct),
+                            nodecl_null(),
+                            function_call.get_locus())),
+                    function_call.get_locus());
 
-        new_code = if_then_else_statement;
+        new_code = if_else_stmt;
     }
     else
     {
         new_code = new_construct;
     }
 
-        Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_priority = rewrite_expression_in_dependency_c(task_environment.priority, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_if_condition = rewrite_expression_in_dependency_c(task_environment.if_condition, param_sym_to_arg_sym);
+    Nodecl::NodeclBase updated_final_condition = rewrite_expression_in_dependency_c(task_environment.final_condition, param_sym_to_arg_sym);
 
     Nodecl::List code_plus_initializations;
     code_plus_initializations.append(initializations_tree);
@@ -801,6 +902,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             called_symbol,
             statements,
             updated_priority,
+            updated_if_condition,
+            updated_final_condition,
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
@@ -880,6 +983,7 @@ static TL::Symbol new_function_symbol_adapter(
         TL::Symbol current_function,
         TL::Symbol called_function,
         const std::string& function_name,
+        const TL::ObjectList<TL::Symbol> &free_vars,
         // out
         Nodecl::Utils::SimpleSymbolMap &symbol_map,
         TL::ObjectList<TL::Symbol> &save_expressions)
@@ -904,6 +1008,23 @@ static TL::Symbol new_function_symbol_adapter(
             = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
+
+        parameters_of_new_function.append(new_parameter_symbol);
+        symbol_map.add_map(*it, new_parameter_symbol);
+    }
+
+    // Free symbols
+    for (TL::ObjectList<TL::Symbol>::const_iterator it = free_vars.begin();
+            it != free_vars.end();
+            it++)
+    {
+        scope_entry_t* new_parameter_symbol
+            = new_symbol(function_context, function_context.current_scope, uniquestr(it->get_name().c_str()));
+        new_parameter_symbol->kind = SK_VARIABLE;
+        TL::Type t = it->get_type();
+        if (!t.is_lvalue_reference())
+            t = t.get_lvalue_reference_to();
+        new_parameter_symbol->type_information = t.get_internal_type();
 
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
@@ -997,18 +1118,17 @@ static TL::Symbol new_function_symbol_adapter(
     return new_function_sym;
 }
 
-static Nodecl::NodeclBase fill_adapter_function(
+Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
         TL::Symbol adapter_function,
         TL::Symbol called_function,
-        Nodecl::Utils::SymbolMap &symbol_map,
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map,
+        Nodecl::NodeclBase original_function_call,
         Nodecl::NodeclBase original_environment,
         TL::ObjectList<TL::Symbol> &save_expressions,
-
         // out
         Nodecl::NodeclBase& task_construct,
         Nodecl::NodeclBase& statements_of_task_seq,
-        Nodecl::NodeclBase& new_environment
-        )
+        Nodecl::NodeclBase& new_environment)
 {
     TL::ObjectList<Nodecl::NodeclBase> statements_of_function;
 
@@ -1028,13 +1148,18 @@ static Nodecl::NodeclBase fill_adapter_function(
 
     // Create the arguments of the call
     TL::ObjectList<Nodecl::NodeclBase> argument_list;
-    TL::ObjectList<TL::Symbol> parameters_of_adapter_function = adapter_function.get_related_symbols();
-    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_adapter_function.begin();
-            it != parameters_of_adapter_function.end();
+    TL::ObjectList<TL::Symbol> parameters_of_called_function = called_function.get_related_symbols();
+    for (TL::ObjectList<TL::Symbol>::iterator it = parameters_of_called_function.begin();
+            it != parameters_of_called_function.end();
             it++)
     {
-        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(*it);
-        TL::Type t = it->get_type();
+        TL::Symbol &sym(*it);
+        // We map from the parameter of the called function task to the
+        // parameter of the adapter function
+        sym = symbol_map->map(sym);
+
+        Nodecl::NodeclBase sym_ref = Nodecl::Symbol::make(sym);
+        TL::Type t = sym.get_type();
         if (!t.is_lvalue_reference())
             t = t.get_lvalue_reference_to();
 
@@ -1061,7 +1186,7 @@ static Nodecl::NodeclBase fill_adapter_function(
     // Update the environment of pragma omp task
     new_environment = Nodecl::Utils::deep_copy(original_environment,
             TL::Scope(CURRENT_COMPILED_FILE->global_decl_context),
-            symbol_map);
+            *symbol_map);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(new_environment);
@@ -1069,14 +1194,34 @@ static Nodecl::NodeclBase fill_adapter_function(
     // Create the #pragma omp task
     task_construct = Nodecl::OpenMP::Task::make(new_environment, statements_of_task_seq);
 
-    if (!task_environment.if_condition.is_null())
-    {
-        Nodecl::NodeclBase if_else = Nodecl::IfElseStatement::make(
-                task_environment.if_condition.shallow_copy(),
-                Nodecl::List::make(task_construct),
-                Nodecl::List::make(call_to_original.shallow_copy()));
+    OutlineInfo dummy_outline_info(new_environment, called_function, _function_task_set);
 
-        statements_of_function.append(if_else);
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
+            && dummy_outline_info.only_has_smp_or_mpi_implementations())
+    {
+        Nodecl::NodeclBase is_in_final_nodecl;
+        TL::ObjectList<Nodecl::NodeclBase> items;
+        get_nanos_in_final_condition(adapter_function.get_related_scope(), call_to_original.get_locus(), is_in_final_nodecl, items);
+
+        statements_of_function.append(items);
+
+        Nodecl::NodeclBase if_else_stmt =
+            Nodecl::IfElseStatement::make(
+                    is_in_final_nodecl,
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            Nodecl::List::make(call_to_original.shallow_copy()),
+                            nodecl_null(),
+                            call_to_original.get_locus())),
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            Nodecl::List::make(task_construct),
+                            nodecl_null(),
+                            call_to_original.get_locus())),
+                    call_to_original.get_locus());
+
+        statements_of_function.append(if_else_stmt);
     }
     else
     {
@@ -1084,6 +1229,29 @@ static Nodecl::NodeclBase fill_adapter_function(
     }
 
     Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
+
+    // Now get all the needed internal functions and duplicate them in the adapter function
+    Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+    internal_functions.walk(original_function_call);
+
+    // FIXME: this code is copied from 'duplicate_internal_subprograms' function
+    Nodecl::Utils::SimpleSymbolMap* new_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
+            it2 != internal_functions.function_codes.end();
+            it2++)
+    {
+        ERROR_CONDITION(!it2->is<Nodecl::FunctionCode>(), "Invalid node", 0);
+
+        TL::Symbol orig_sym = it2->get_symbol();
+
+        Nodecl::NodeclBase copied_node = it2->shallow_copy();
+
+        TL::Symbol new_sym = adapter_function.get_related_scope().new_symbol(orig_sym.get_name());
+        new_map->add_map(orig_sym, new_sym);
+
+        in_context.as<Nodecl::List>().append(copied_node);
+    }
+    symbol_map = new_map;
 
     Nodecl::NodeclBase context = Nodecl::Context::make(in_context, adapter_function.get_related_scope());
 
@@ -1096,6 +1264,30 @@ static Nodecl::NodeclBase fill_adapter_function(
 
     return function_code;
 }
+
+struct FreeVariablesVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    private:
+        TL::Symbol _function;
+        TL::ObjectList<TL::Symbol>& _free_vars;
+    public:
+
+        FreeVariablesVisitor(TL::Symbol function, TL::ObjectList<TL::Symbol>& free_vars)
+            : _function(function), _free_vars(free_vars)
+        {
+        }
+
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+
+            if (sym.get_scope().is_block_scope()
+                    && sym.get_scope().get_related_symbol() != _function)
+            {
+                _free_vars.insert(sym);
+            }
+        }
+};
 
 void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct)
 {
@@ -1124,11 +1316,19 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 
     TL::ObjectList<Symbol> save_expressions;
 
+    TL::ObjectList<TL::Symbol> free_vars;
+    if (called_task_function.is_nested_function())
+    {
+        FreeVariablesVisitor free_vars_visitor(called_task_function, free_vars);
+        free_vars_visitor.walk(called_task_function.get_function_code());
+    }
+
     Nodecl::Utils::SimpleSymbolMap* symbol_map = new Nodecl::Utils::SimpleSymbolMap();
     TL::Symbol adapter_function = new_function_symbol_adapter(
             current_function,
             called_task_function,
             ss.str(),
+            free_vars,
             *symbol_map,
             save_expressions);
 
@@ -1144,7 +1344,8 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,
-            *symbol_map,
+            symbol_map,
+            function_call,
             parameters_environment,
             save_expressions,
             // Out
@@ -1229,6 +1430,8 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             called_task_function,
             new_statements,
             task_environment.priority,
+            task_environment.if_condition,
+            task_environment.final_condition,
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
@@ -1238,13 +1441,33 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
      symbol_map->add_map(called_task_function, adapter_function);
 
     // Now call the adapter function instead of the original
+    Nodecl::FunctionCall new_function_call = function_call.shallow_copy().as<Nodecl::FunctionCall>();
+
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
-    adapter_sym_ref.set_type(adapter_function.get_type().get_lvalue_reference_to());
+    new_function_call.get_called().replace(adapter_sym_ref);
+
+    if (!free_vars.empty())
+    {
+        Nodecl::List arguments = new_function_call.get_arguments().as<Nodecl::List>();
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = free_vars.begin();
+                it != free_vars.end();
+                it++)
+        {
+            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(*it);
+            TL::Type t = it->get_type();
+            if (!t.is_lvalue_reference())
+                t = t.get_lvalue_reference_to();
+            sym_ref.set_type(t);
+
+            arguments.append(sym_ref);
+        }
+
+        new_function_call.set_arguments(arguments);
+    }
 
     // And replace everything with a call to the adapter function
-    construct.replace(
-            Nodecl::Utils::deep_copy(function_call, construct, *symbol_map)
-            );
+    construct.replace(new_function_call);
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)

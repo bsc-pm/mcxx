@@ -735,6 +735,11 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
     }
 
+    void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
+    {
+        _outline_info.add_copy_of_outline_data_item(data_item);
+    }
+
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
     {
         private:
@@ -1160,6 +1165,11 @@ namespace TL { namespace Nanox {
         return _implementation_table;
     }
 
+    void OutlineInfo::add_copy_of_outline_data_item(const OutlineDataItem& ol)
+    {
+        _data_env_items.append(new OutlineDataItem(ol));
+    }
+
     namespace
     {
         bool is_not_private(OutlineDataItem* it)
@@ -1171,5 +1181,24 @@ namespace TL { namespace Nanox {
     ObjectList<OutlineDataItem*> OutlineInfo::get_fields() const
     {
         return _data_env_items.filter(predicate(is_not_private));
+    }
+
+    bool OutlineInfo::only_has_smp_or_mpi_implementations() const
+    {
+        for (implementation_table_t::const_iterator it = _implementation_table.begin();
+                it != _implementation_table.end();
+                ++it)
+        {
+            TargetInformation target_info = it->second;
+            ObjectList<std::string> devices = target_info.get_device_names();
+            for (ObjectList<std::string>::const_iterator it2 = devices.begin();
+                    it2 != devices.end();
+                    ++it2)
+            {
+                if (*it2 != "smp" && *it2 != "mpi")
+                    return false;
+            }
+        }
+        return true;
     }
 } }

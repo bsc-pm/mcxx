@@ -32,6 +32,8 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
+#if !defined(__ICC) || (__ICC >= 1300)
+
 #include <stdlib.h>
 
 void f1(void)
@@ -76,3 +78,12 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+#else
+
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+
+#endif

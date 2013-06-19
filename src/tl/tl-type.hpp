@@ -430,6 +430,12 @@ namespace TL
             Symbol get_symbol() const;
             //! States whether current type is named
             bool is_named() const;
+            //! States whether current type is indirect
+            /*!
+             * All indirect types are named types but not the opposite
+             * Indirect types are like named type but the symbol is neither a class nor an enum
+             */
+            bool is_indirect() const;
 
             //! Advances over typedefs
             /*!
