@@ -542,6 +542,8 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
+                case OutlineDataItem::SHARING_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {

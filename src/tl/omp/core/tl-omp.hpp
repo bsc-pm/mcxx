@@ -37,11 +37,11 @@
 #include "tl-handler.hpp"
 #include "tl-dto.hpp"
 
-#include "tl-pragmasupport.hpp"
-#include "tl-omp-reduction.hpp"
-#include "tl-omp-deps.hpp"
-
 #include "tl-datareference.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "tl-omp-deps.hpp"
+#include "tl-omp-reduction.hpp"
+#include "tl-pragmasupport.hpp"
 
 #include <map>
 #include <set>
@@ -204,7 +204,10 @@ namespace TL
 
                 ~RealTimeInfo();
 
-                RealTimeInfo (const RealTimeInfo& rt_copy);
+                RealTimeInfo(const RealTimeInfo& rt_copy);
+
+                RealTimeInfo(const RealTimeInfo& rt_copy,
+                        Nodecl::Utils::SimpleSymbolMap& translation_map);
 
                 RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
@@ -265,6 +268,11 @@ namespace TL
                 bool _copy_deps;
             public:
                 TargetInfo();
+
+                TargetInfo(const TargetInfo& target_info,
+                        Nodecl::Utils::SimpleSymbolMap translation_map,
+                        TL::Symbol target_symbol);
+
                 bool can_be_ommitted();
 
                 void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
@@ -479,7 +487,14 @@ namespace TL
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info);
 
+                FunctionTaskInfo(
+                        const FunctionTaskInfo& task_info,
+                        Nodecl::Utils::SimpleSymbolMap& translation_map,
+                        TL::Symbol function_sym);
+
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
+
+                void add_function_task_dependency(const FunctionTaskDependency& dep);
 
                 ObjectList<Symbol> get_involved_parameters() const;
 
@@ -526,6 +541,7 @@ namespace TL
         {
             private:
                 std::map<Symbol, FunctionTaskInfo> _map;
+
             public:
                 FunctionTaskSet();
 
@@ -535,7 +551,9 @@ namespace TL
 
                 FunctionTaskInfo& get_function_task(Symbol sym);
                 const FunctionTaskInfo& get_function_task(Symbol sym) const;
+
                 void add_function_task(Symbol sym, const FunctionTaskInfo&);
+                void remove_function_task(Symbol sym);
 
                 bool empty() const;
 

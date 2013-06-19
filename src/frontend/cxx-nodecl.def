@@ -451,9 +451,13 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 # function task
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
+# task expression
+task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] task-construct, [task_calls] statement-seq, [sequential_code] statement-seq)
+
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
 expression : task-call
+            | task-expression
 
 top-level: target-declaration
 
@@ -466,7 +470,10 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*PRIVATE([private_symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([auto_symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
+                 | NODECL_OPEN_M_P*ALLOCA([alloca_expressions]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_IN_ALLOCA([in_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_IN_VALUE([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
                  | NODECL_OPEN_M_P*CONCURRENT([inout_deps]expression-seq)

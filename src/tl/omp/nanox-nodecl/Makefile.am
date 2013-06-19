@@ -49,6 +49,7 @@ libtlnanox_lowering_la_SOURCES = \
 								 tl-lower-arguments.cpp \
 								 tl-lower-task-common.hpp \
 								 tl-lower-task.cpp \
+								 tl-lower-task-expression.cpp \
 								 tl-lower-task-call.cpp \
 								 tl-lower-taskwait.cpp \
 								 tl-outline-info.hpp \

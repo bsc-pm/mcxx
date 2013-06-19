@@ -34,6 +34,8 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
     }
 
+    // We redefine the visitor of Nodecl::FunctionCode because  we need to
+    // visit first the internal functions and later the statements
     void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)
     {
         Nodecl::List stmts = function_code.get_statements().as<Nodecl::List>();
