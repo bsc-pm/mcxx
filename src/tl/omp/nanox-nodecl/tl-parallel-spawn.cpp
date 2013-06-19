@@ -154,6 +154,21 @@ namespace TL { namespace Nanox {
         dependence_type
             << "nanos_data_access_t*";
 
+        Source dynamic_wd_info;
+        dynamic_wd_info
+            <<   "nanos_wd_dyn_props_t dyn_props;"
+            << "dyn_props.tie_to = (nanos_thread_t)0;"
+            << "dyn_props.priority = 0;"
+            ;
+
+        if (!_lowering->final_clause_transformation_disabled()
+                && Nanos::Version::interface_is_at_least("master", 5024))
+        {
+            dynamic_wd_info
+                << "dyn_props.flags.is_final = 0;"
+                ;
+        }
+
         Source spawn_code;
         spawn_code
             << "{"
@@ -167,9 +182,7 @@ namespace TL { namespace Nanox {
             <<   "err = nanos_create_team(&nanos_team, (nanos_sched_t)0, &nanos_num_threads,"
             <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<   "nanos_wd_dyn_props_t dyn_props;"
-            <<   "dyn_props.tie_to = (nanos_thread_t)0;"
-            <<   "dyn_props.priority = 0;"
+            <<   dynamic_wd_info
             <<   "unsigned int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"

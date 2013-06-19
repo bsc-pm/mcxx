@@ -554,6 +554,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    Nodecl::NodeclBase member_form = node.get_member_form();
 
     TL::Symbol sym = rhs.get_symbol();
 
@@ -610,7 +611,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             file << "(";
         }
 
-        walk(rhs);
+        // This will only emit the unqualified name
+        TL::Symbol rhs_symbol = rhs.get_symbol();
+        if (!rhs_symbol.is_valid()
+                || (!member_form.is_null()
+                    && member_form.is<Nodecl::CxxMemberFormQualified>()))
+        {
+            // This will print the qualified name
+            walk(rhs);
+        }
+        else
+        {
+
+            // Simply print the name
+            file << rhs_symbol.get_name();
+        }
+
         if (needs_parentheses)
         {
             file << ")";
@@ -757,36 +773,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
+        // This expression is a logical-or-expression, so an assignment (or comma)
+        // needs parentheses
         file << "(";
     }
     walk(cond);
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
         file << ")";
     }
 
     file << " ? ";
 
-    if (operand_has_lower_priority(node, then))
-    {
-        file << "(";
-    }
+    // This is a top level expression, no parentheses should be required
     walk(then);
-    if (operand_has_lower_priority(node, then))
-    {
-        file << ")";
-    }
 
     file << " : ";
 
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
+        // Only comma operator could get here actually
         file << "(";
     }
     walk(_else);
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
         file << ")";
     }
@@ -2590,7 +2602,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     Nodecl::NodeclBase type = node.get_init_real_type();
     TL::Type init_real_type = type.get_type();
 
-    file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+    file << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
 
     // new[] cannot have an initializer, so just print the init_real_type
     if (init_real_type.is_array())
@@ -3227,7 +3239,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Throw& node)
     if (!expr.is_null())
     {
         file << " ";
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            // A comma operator could slip in
+            file << "(";
+        }
         walk(expr);
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            file << ")";
+        }
     }
 }
 
@@ -4219,20 +4240,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 bool member_declaration_does_define = true;
 
                 // If we are declaring a static member it is not a definition
-                // unless it is const integral type or const enum type
+                // unless it has been declared inside the class
                 if (member.is_variable()
-                        && member.is_static()
-                        && (!member.get_type().is_const()
-                            || (!member.get_type().is_integral_type()
-                                && !member.get_type().is_enum())))
+                        && member.is_static())
                 {
-                    member_declaration_does_define = false;
-                }
-
-                // Override whatever we might have deduced so far
-                if (member.is_defined_inside_class())
-                {
-                    member_declaration_does_define = true;
+                    member_declaration_does_define = member.is_defined_inside_class();
                 }
 
                 if (member_declaration_does_define)
@@ -4722,12 +4734,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
     char emit_initializer = 0;
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
-                || ((symbol.is_static()
-                        && (!state.in_member_declaration
-                            || ((symbol.get_type().is_integral_type()
-                                    || symbol.get_type().is_enum())
-                                && symbol.get_type().is_const())))
-                    || symbol.is_defined_inside_class())))
+                || (state.in_member_declaration == symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;
     }
@@ -5901,6 +5908,15 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 needs_definition);
 
         (this->*symbol_to_define)(t.get_symbol());
+    }
+    else if (t.is_indirect())
+    {
+        walk_type_for_symbols(
+                t.get_symbol().get_type(),
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree,
+                needs_definition);
     }
     else if (t.is_pointer())
     {

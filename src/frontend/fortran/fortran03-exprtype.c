@@ -1717,6 +1717,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         nodecl_make_class_member_access(
                 nodecl_lhs,
                 nodecl_rhs_adjusted,
+                /* member form */ nodecl_null(),
                 synthesized_type,
                 ast_get_locus(expr));
     nodecl_set_symbol(*nodecl_output, component_symbol);
@@ -3061,7 +3062,6 @@ static void check_called_symbol_list(
         ERROR_CONDITION(nodecl_get_kind(nodecl_actual_arguments[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT, "Invalid node", 0);
         const char* keyword_name = nodecl_get_text(nodecl_actual_arguments[i]);
 
-
         int position = -1;
         if (keyword_name == NULL)
         {
@@ -3090,7 +3090,8 @@ static void check_called_symbol_list(
 
         if (position < num_parameter_types)
         {
-            type_t* parameter_type = no_ref(function_type_get_parameter_type_num(no_ref(symbol->type_information), i));
+            type_t* parameter_type = no_ref(function_type_get_parameter_type_num(no_ref(symbol->type_information),
+                        position));
             nodecl_argument = fortran_nodecl_adjust_function_argument(
                     parameter_type, nodecl_argument);
         }

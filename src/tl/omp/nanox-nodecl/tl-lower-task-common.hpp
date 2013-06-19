@@ -41,6 +41,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         // a node here because tl-omp-base.cpp has already lowered the 'if'
         // clause
         Nodecl::NodeclBase if_condition;
+        Nodecl::NodeclBase final_condition;
 
         // This attribute is used only for instrumentation
         Nodecl::NodeclBase task_label;
@@ -49,6 +50,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
             : is_untied(false),
             priority(),
             if_condition(),
+            final_condition(),
             task_label()
         {
         }
@@ -66,6 +68,11 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::OpenMP::If& if_condition_)
         {
             this->if_condition = if_condition_.get_condition();
+        }
+
+        void visit(const Nodecl::OpenMP::Final& final_condition_)
+        {
+            this->final_condition = final_condition_.get_condition();
         }
 
         void visit(const Nodecl::OpenMP::TaskLabel& task_label_)

@@ -28,7 +28,7 @@
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
-
+#include "tl-nanos.hpp"
 #include "tl-predicateutils.hpp"
 
 namespace TL { namespace Nanox {
@@ -124,6 +124,21 @@ namespace TL { namespace Nanox {
         dependence_type
             << "nanos_data_access_t*";
 
+        Source dynamic_wd_info;
+        dynamic_wd_info
+            << "nanos_wd_dyn_props_t dyn_props;"
+            << "dyn_props.tie_to = (nanos_thread_t)0;"
+            << "dyn_props.priority = 0;"
+            ;
+
+        if (!_lowering->final_clause_transformation_disabled()
+                && Nanos::Version::interface_is_at_least("master", 5024))
+        {
+            dynamic_wd_info
+                << "dyn_props.flags.is_final = 0;"
+                ;
+        }
+
         Source spawn_code;
         spawn_code
         << "{"
@@ -154,9 +169,7 @@ namespace TL { namespace Nanox {
         <<             struct_arg_type_name << " *ol_args = (" << struct_arg_type_name <<"*) 0;"
         <<             const_wd_info
         <<             "nanos_wd_t nanos_wd_ = (nanos_wd_t) 0;"
-        <<             "nanos_wd_dyn_props_t dyn_props;"
-        <<             "dyn_props.tie_to = (nanos_thread_t)0;"
-        <<             "dyn_props.priority = 0;"
+        <<             dynamic_wd_info
 
         <<             "static nanos_slicer_t replicate = (nanos_slicer_t)0;"
         <<             "if (replicate == (nanos_slicer_t)0)"

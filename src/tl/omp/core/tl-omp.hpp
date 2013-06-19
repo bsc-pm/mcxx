@@ -463,6 +463,7 @@ namespace TL
                 RealTimeInfo _real_time_info;
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
+                Nodecl::NodeclBase _final_clause_cond_expr;
 
                 implementation_table_t get_implementation_table() const;
 
@@ -503,6 +504,9 @@ namespace TL
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
 
+                void set_final_clause_conditional_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_final_clause_conditional_expression() const;
+
                 void set_priority_clause_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_priority_clause_expression() const;
 
@@ -521,10 +525,11 @@ namespace TL
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
         {
             private:
-                typedef std::map<Symbol, FunctionTaskInfo> map_t;
-                map_t _map;
+                std::map<Symbol, FunctionTaskInfo> _map;
             public:
                 FunctionTaskSet();
+
+                std::map<Symbol, FunctionTaskInfo> get_function_task_set() const;
 
                 bool is_function_task(Symbol sym) const;
 

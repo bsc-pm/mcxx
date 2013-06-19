@@ -410,6 +410,7 @@ void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
         Nodecl::NodeclBase if_condition,
+        Nodecl::NodeclBase final_condition,
         Nodecl::NodeclBase task_label,
         bool is_untied,
 
@@ -507,11 +508,24 @@ void LoweringVisitor::emit_async_common(
         priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
     }
 
+    if (final_condition.is_null())
+    {
+        final_condition = const_value_to_nodecl(const_value_get_signed_int(0));
+    }
+
     dynamic_wd_info
         << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
         << "nanos_wd_dyn_props.tie_to = 0;"
         << "nanos_wd_dyn_props.priority = " << as_expression(priority_expr) << ";"
         ;
+
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024))
+    {
+        dynamic_wd_info
+            << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
+            ;
+    }
 
     Source dynamic_size;
     struct_size << "sizeof(imm_args)" << dynamic_size;
@@ -764,16 +778,50 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
         argument_outline_data_item.set_base_address_expression(sym_ref);
     }
+    Nodecl::NodeclBase new_construct;
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
+            && outline_info.only_has_smp_or_mpi_implementations())
+    {
+        new_construct = construct.shallow_copy();
+
+        TL::ObjectList<Nodecl::NodeclBase> items;
+        Nodecl::NodeclBase is_in_final_nodecl;
+        get_nanos_in_final_condition(construct, construct.get_locus(), is_in_final_nodecl, items);
+
+        Nodecl::Utils::prepend_items_before(construct, Nodecl::List::make(items));
+
+        Nodecl::NodeclBase if_else_stmt =
+            Nodecl::IfElseStatement::make(
+                    is_in_final_nodecl.shallow_copy(),
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            statements.shallow_copy(),
+                            nodecl_null(),
+                            construct.get_locus())),
+                    Nodecl::List::make(
+                        Nodecl::CompoundStatement::make(
+                            Nodecl::List::make(new_construct),
+                            nodecl_null(),
+                            construct.get_locus())),
+                    construct.get_locus());
+
+        construct.replace(if_else_stmt);
+    }
+    else
+    {
+        new_construct = construct;
+    }
 
     Symbol called_task_dummy = Symbol::invalid();
-
     emit_async_common(
-            construct,
+            new_construct,
             function_symbol,
             called_task_dummy,
             statements,
             task_environment.priority,
             task_environment.if_condition,
+            task_environment.final_condition,
             task_environment.task_label,
             task_environment.is_untied,
 
@@ -1843,6 +1891,7 @@ struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
                     Nodecl::ClassMemberAccess::make(
                         struct_node,
                         field_node,
+                        /* member-form */ Nodecl::NodeclBase::null(),
                         field_node.get_type().get_lvalue_reference_to())
                     );
         }
