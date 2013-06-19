@@ -902,6 +902,7 @@ namespace TL { namespace Nanox {
                     new_class_member_access = Nodecl::ClassMemberAccess::make(
                             new_args_ref,
                             field_ref,
+                            /* member-form */ Nodecl::NodeclBase::null(),
                             // The type of this node should be the same
                             node.get_type());
 

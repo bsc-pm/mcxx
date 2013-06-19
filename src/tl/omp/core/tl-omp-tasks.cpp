@@ -427,6 +427,7 @@ namespace TL
             mw.write(_target_info);
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
+            mw.write(_final_clause_cond_expr);
             mw.write(_untied);
             mw.write(_task_label);
         }
@@ -439,6 +440,7 @@ namespace TL
             mr.read(_target_info);
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
+            mr.read(_final_clause_cond_expr);
             mr.read(_untied);
             mr.read(_task_label);
         }
