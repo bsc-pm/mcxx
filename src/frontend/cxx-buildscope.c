@@ -13122,8 +13122,13 @@ static nodecl_t normalize_multiple_statements(nodecl_t multiple_statements,
     if (!nodecl_is_list(multiple_statements))
         return multiple_statements;
 
+    nodecl_t nodecl_context, nodecl_in_context;
     if (nodecl_list_length(multiple_statements) == 1
-            && nodecl_get_kind(nodecl_list_head(multiple_statements)) == NODECL_COMPOUND_STATEMENT)
+            && nodecl_get_kind(nodecl_context = nodecl_list_head(multiple_statements)) == NODECL_CONTEXT
+            && !nodecl_is_null(nodecl_in_context)
+            && nodecl_is_list(nodecl_in_context = nodecl_get_child(nodecl_context, 0))
+            && nodecl_list_length(nodecl_in_context) == 1
+            && nodecl_get_kind(nodecl_list_head(nodecl_in_context)) == NODECL_COMPOUND_STATEMENT)
         return multiple_statements;
 
     // We simplify
