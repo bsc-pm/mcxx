@@ -29,19 +29,19 @@ noinst_PROGRAMS = tpp
 CC_FOR_BUILD=@CC_FOR_BUILD@
 
 if SUPPORTED_SILENT_RULES
-CCHOST_verbose = $(CCHOST_verbose_$(V))
-CCHOST_verbose_ = $(CCHOST_verbose_$(AM_DEFAULT_VERBOSITY))
-CCHOST_verbose_0 = @echo "  CCHOST" $@;
+CCBUILD_verbose = $(CCBUILD_verbose_$(V))
+CCBUILD_verbose_ = $(CCBUILD_verbose_$(AM_DEFAULT_VERBOSITY))
+CCBUILD_verbose_0 = @echo "  CCBUILD " $@;
 endif
 
 # tpp
 tpp_SOURCES = tpp.c
 
 tpp$(EXEEXT): tpp.o
-	$(CCHOST_verbose)$(CC_FOR_BUILD) -o $@ $+ $(LDFLAGS) 
+	$(CCBUILD_verbose)$(CC_FOR_BUILD) -o $@ $+ $(LDFLAGS) 
 
 tpp.o : tpp.c
-	$(CCHOST_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
+	$(CCBUILD_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
 	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
 #end of tpp
 
