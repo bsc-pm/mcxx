@@ -677,436 +677,55 @@ namespace TL { namespace OpenMP {
             }
     };
 
-
-    // The methods of this class transform a nonvoid function task into a void
-    // function task. This transformations is different if the function tasks are
-    // defined (i. e. the compiler sees the code) or if They are not.
+    //  This visistor creates, for every nonvoid function task called in the
+    //  source, a new void task which acts like a wrapper. At the end of the
+    //  execution of this visitor, the nonvoid function task will be removed
+    //  from the function task set.
     //
-    // ---------------------------------------------------------------
-    // Example 1: The function task is defined
-    // ---------------------------------------------------------------
-    //      #pragma omp task in(x)
-    //      int foo(float x)
-    //      {
-    //          if (x > 0.0)
-    //              return -1;
-    //          return 1;
-    //      }
-    //
-    // This code is transformed into:
-    //
-    //      #pragma omp task in(x)
-    //      int foo(float x);
-    //
-    //      #pragma omp task in(x) out(*output)
-    //      void foo__(float x, int* output)
-    //      {
-    //          if (x > 0.0)
-    //          {
-    //              *output = -1;
-    //              return;
-    //          }
-    //          *output = 1;
-    //          return;
-    //      }
-    // ---------------------------------------------------------------
-    //
-    // ---------------------------------------------------------------
-    // Example 2: The function task is declared but It's not defined
-    // ---------------------------------------------------------------
-    //      #pragma omp task in(x)
-    //      int foo(float x);
-    //
-    // This code is transformed into:
-    //
-    //      #pragma omp task in(x)
-    //      int foo(float x) __attribute__ ((weak));
-    //
-    //      #pragma omp task in(x) out(*output)
-    //      void foo__(float x, int* output) __attribute__ ((weak))
-    //      {
-    //          *output = foo(x);
-    //      }
-    // ---------------------------------------------------------------
-    //
-    // Note 1: the original task function cannot be removed from the function
-    // task set because the function task calls have not been transformated
-    // yet.
-    //
-    // Note 2: the new void function task is added to the task set
-    //
-    // Note 3: Some nonvoid function calls may be transformed into void
-    // function calls. This only happens in recursive nonvoid function tasks:
-    //
-    //      #pragma omp task in(x)
-    //      int bar(int x)
-    //      {
-    //          if (x < 0) return 1;
-    //          return bar(x-1);
-    //      }
-    //
-    // This code is transformed into:
-    //
-    //      #pragma omp task in(x) out(*output)
-    //      void bar__(int x, int*output)
-    //      {
-    //          if (x < 0) { *output = 1; return; }
-    //          *output = bar__(x-1);
-    //          return;
-    //      }
-    //
-    // This is because when we are copying the body of the function, we replace
-    // the 'bar' symbol by the 'bar__' symbol. The TransformNonVoidFunctionCalls
-    // visitor should take care of this case.
-    //
-    class TransformNonVoidFunctionTasks
-    {
-        private:
-            RefPtr<FunctionTaskSet> _function_task_set;
-            std::map<TL::Symbol, TL::Symbol> _transformed_task_map;
-            TL::ObjectList<Nodecl::FunctionCall> _ignore_these_function_calls;
-
-        public:
-            TransformNonVoidFunctionTasks(RefPtr<FunctionTaskSet> function_task_set)
-                :
-                    _function_task_set(function_task_set),
-                    _transformed_task_map(),
-                    _ignore_these_function_calls()
-            {
-            }
-
-            void run()
-            {
-                const std::map<TL::Symbol, FunctionTaskInfo>& task_map = _function_task_set->get_function_task_set();
-                for (std::map<TL::Symbol, FunctionTaskInfo>::const_iterator it_task = task_map.begin();
-                        it_task != task_map.end();
-                        ++it_task)
-                {
-                    TL::Symbol original_function = it_task->first;
-                    FunctionTaskInfo original_function_task_info = it_task->second;
-
-                    if (original_function.get_type().returns().is_void())
-                        continue;
-
-                    // Create the void function task with one parameter more than the original function
-                    std::string new_function_name = original_function.get_name() + "__";
-
-                    TL::ObjectList<std::string> parameter_names;
-                    TL::ObjectList<TL::Type> parameter_types;
-
-                    parameter_types = original_function.get_type().parameters();
-                    parameter_types.append(original_function.get_type().returns().get_pointer_to());
-
-                    TL::ObjectList<TL::Symbol> function_called_related_symbols = original_function.get_related_symbols();
-                    for (TL::ObjectList<TL::Symbol>::iterator it = function_called_related_symbols.begin();
-                            it != function_called_related_symbols.end();
-                            it++)
-                    {
-                        parameter_names.append(it->get_name());
-                    }
-                    parameter_names.append("output");
-
-                    TL::Symbol new_function = SymbolUtils::new_function_symbol(
-                            original_function,
-                            new_function_name,
-                            TL::Type::get_void_type(),
-                            parameter_names,
-                            parameter_types);
-
-                    Nodecl::NodeclBase new_function_code,new_function_body;
-                    SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
-
-                    new_function.get_internal_symbol()->entity_specs.is_static = 0;
-                    new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
-
-                    // Update the map of transformed tasks
-                    _transformed_task_map.insert(std::make_pair(original_function, new_function));
-
-                    Nodecl::Utils::SimpleSymbolMap translation_map;
-                    TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
-                    unsigned int new_function_num_related_symbols = new_function.get_num_related_symbols();
-                    for (unsigned int i = 0; i < new_function_num_related_symbols - 1; ++i)
-                    {
-                        translation_map.add_map(function_called_related_symbols[i], new_function_related_symbols[i]);
-                    }
-                    translation_map.add_map(original_function, new_function);
-
-                    // Create the code of the new void function task
-                    Nodecl::NodeclBase original_function_code, new_function_stmts;
-                    original_function_code = original_function.get_function_code();
-                    if (original_function_code.is_null())
-                    {
-                        new_function_stmts = create_a_wrapper_to_the_original_function(original_function, new_function);
-                        Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
-                    }
-                    else
-                    {
-                        new_function_stmts = copy_and_transform_the_original_function_code(new_function, original_function_code, translation_map);
-                        // Replace the nonvoid function code by the new function code
-                        Nodecl::Utils::prepend_items_before(original_function_code, new_function_code);
-                    }
-                    new_function_body.replace(new_function_stmts);
-
-                    // Finally, we should add the new void function task into the task set
-                    add_the_new_task_to_the_function_task_set(new_function, original_function_task_info, translation_map);
-                }
-            }
-
-            std::map<TL::Symbol, TL::Symbol>& get_transformed_task_map()
-            {
-                return _transformed_task_map;
-            }
-
-            TL::ObjectList<Nodecl::FunctionCall>& get_ignore_these_function_calls()
-            {
-                return  _ignore_these_function_calls;
-            }
-
-        private:
-
-            void add_the_new_task_to_the_function_task_set(
-                    TL::Symbol new_function,
-                    const FunctionTaskInfo& original_function_task_info,
-                    Nodecl::Utils::SimpleSymbolMap& translation_map)
-            {
-                FunctionTaskInfo new_function_task_info(original_function_task_info, translation_map, new_function);
-
-                TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_function.get_related_symbols();
-                TL::Symbol return_argument = new_funcion_related_symbols[new_funcion_related_symbols.size()-1];
-                Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
-                        return_argument,
-                        return_argument.get_locus());
-                return_argument_nodecl.set_type(return_argument.get_type());
-
-                TL::DataReference data_ref_dep(
-                        Nodecl::Dereference::make(
-                            return_argument_nodecl,
-                            return_argument_nodecl.get_type().points_to(),
-                            return_argument.get_locus()));
-
-                FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
-
-                new_function_task_info.add_function_task_dependency(result_dependence);
-                _function_task_set->add_function_task(new_function, new_function_task_info);
-            }
-
-            Nodecl::NodeclBase create_a_wrapper_to_the_original_function(
-                    TL::Symbol original_function,
-                    TL::Symbol new_function)
-            {
-                // Create the new called entity
-                Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
-                        original_function,
-                        original_function.get_locus());
-
-                called_entity.set_type(original_function.get_type());
-
-                // Create the list of arguments
-                Nodecl::List argument_list;
-                TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
-                unsigned int new_function_num_related_symbols = new_function.get_num_related_symbols();
-                for (unsigned int i = 0; i < (new_function_num_related_symbols - 1); ++i)
-                {
-                    Nodecl::NodeclBase new_arg =
-                        Nodecl::Symbol::make(new_function_related_symbols[i],
-                                original_function.get_locus());
-
-                    new_arg.set_type(new_function_related_symbols[i].get_type().get_lvalue_reference_to());
-                    argument_list.append(new_arg);
-                }
-                // Create the new function call
-                Nodecl::NodeclBase new_function_call = Nodecl::FunctionCall::make(
-                        called_entity,
-                        argument_list,
-                        /* alternate name */ nodecl_null(),
-                        /* function_form */ nodecl_null(),
-                        original_function.get_type().returns(),
-                        original_function.get_locus());
-
-                // The last parameter of the new function is used to store the return value of the new_function_call
-                Nodecl::NodeclBase return_param = Nodecl::Symbol::make(
-                        new_function_related_symbols[new_function_num_related_symbols - 1],
-                        original_function.get_locus());
-
-                return_param.set_type(new_function_related_symbols[new_function_num_related_symbols-1].get_type().get_lvalue_reference_to());
-
-                Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
-                        return_param,
-                        return_param.get_type().no_ref().points_to().get_lvalue_reference_to(),
-                        original_function.get_locus());
-
-                Nodecl::NodeclBase expression_stmt =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                deref_return_param,
-                                new_function_call,
-                                return_param.get_type(),
-                                original_function.get_locus()));
-
-                // The function call to the original task should be ignored!
-                _ignore_these_function_calls.append(new_function_call.as<Nodecl::FunctionCall>());
-
-
-                // Set the new function as a weak symbol
-                {
-                    scope_entry_t* new_function_intern = new_function.get_internal_symbol();
-                    new_function_intern->entity_specs.num_gcc_attributes++;
-
-                    int num_gcc_attributes = new_function_intern->entity_specs.num_gcc_attributes;
-
-                    new_function_intern->entity_specs.gcc_attributes = (gather_gcc_attribute_t*) xrealloc(
-                            new_function_intern->entity_specs.gcc_attributes,
-                            sizeof(*new_function_intern->entity_specs.gcc_attributes) * num_gcc_attributes);
-
-                    new_function_intern->entity_specs.gcc_attributes[num_gcc_attributes - 1].attribute_name = "weak";
-                    new_function_intern->entity_specs.gcc_attributes[num_gcc_attributes - 1].expression_list = nodecl_null();
-                }
-
-                // Set the original function as a weak symbol
-                {
-                    scope_entry_t* original_function_intern = original_function.get_internal_symbol();
-                    original_function_intern->entity_specs.num_gcc_attributes++;
-
-                    int num_gcc_attributes = original_function_intern->entity_specs.num_gcc_attributes;
-
-                    original_function_intern->entity_specs.gcc_attributes = (gather_gcc_attribute_t*) xrealloc(
-                            original_function_intern->entity_specs.gcc_attributes,
-                            sizeof(*original_function_intern->entity_specs.gcc_attributes) * num_gcc_attributes);
-
-                    original_function_intern->entity_specs.gcc_attributes[num_gcc_attributes - 1].attribute_name = "weak";
-                    original_function_intern->entity_specs.gcc_attributes[num_gcc_attributes - 1].expression_list = nodecl_null();
-                }
-
-                return expression_stmt;
-            }
-
-            Nodecl::NodeclBase copy_and_transform_the_original_function_code(
-                    TL::Symbol new_function,
-                    Nodecl::NodeclBase function_called_code,
-                    Nodecl::Utils::SimpleSymbolMap& translation_map)
-            {
-                Nodecl::NodeclBase function_called_stmts;
-                if (function_called_code.is<Nodecl::FunctionCode>())
-                {
-                    function_called_stmts = function_called_code.as<Nodecl::FunctionCode>().get_statements();
-                }
-                else if (function_called_code.is<Nodecl::TemplateFunctionCode>())
-                {
-                    function_called_stmts = function_called_code.as<Nodecl::TemplateFunctionCode>().get_statements();
-                }
-                else
-                {
-                    internal_error("Unexpected '%s' node\n", ast_print_node_type(function_called_code.get_kind()));
-                }
-
-                Nodecl::NodeclBase updated_function_stmts = Nodecl::Utils::deep_copy(
-                        function_called_stmts,
-                        new_function.get_related_scope(),
-                        translation_map);
-
-                TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
-                TL::Symbol return_param = new_function_related_symbols[new_function_related_symbols.size() - 1];
-
-                ReplaceReturnStatementsByAssignments visitor(return_param);
-                visitor.walk(updated_function_stmts);
-
-                return updated_function_stmts;
-            }
-
-            class ReplaceReturnStatementsByAssignments : public Nodecl::ExhaustiveVisitor<void>
-        {
-            private:
-                TL::Symbol _output_symbol;
-
-            public:
-
-                ReplaceReturnStatementsByAssignments(TL::Symbol output_symbol)
-                    : _output_symbol(output_symbol)
-                {
-                }
-
-                virtual void visit(const Nodecl::ReturnStatement& ret_stmt)
-                {
-                    Nodecl::NodeclBase return_expr = ret_stmt.get_value();
-                    if (!return_expr.is_null())
-                    {
-                        Nodecl::NodeclBase output_symbol_nodecl = Nodecl::Symbol::make(_output_symbol, _output_symbol.get_locus());
-                        output_symbol_nodecl.set_type(_output_symbol.get_type().get_lvalue_reference_to());
-
-                        TL::ObjectList<Nodecl::NodeclBase> stmt_list;
-                        stmt_list.append(
-                                Nodecl::ExpressionStatement::make(
-                                    Nodecl::Assignment::make(
-                                        Nodecl::Dereference::make(
-                                            output_symbol_nodecl,
-                                            _output_symbol.get_type().no_ref().points_to().get_lvalue_reference_to(),
-                                            _output_symbol.get_locus()),
-                                        return_expr,
-                                        _output_symbol.get_type(),
-                                        ret_stmt.get_locus())));
-
-                        stmt_list.append(Nodecl::ReturnStatement::make(/* statements */ nodecl_null()));
-
-                        ret_stmt.replace(Nodecl::CompoundStatement::make(Nodecl::List::make(stmt_list), nodecl_null(), ret_stmt.get_locus()));
-                    }
-                }
-        };
-    };
-
-
-    // This visitor transforms a nonvoid function task call into a void function task call.
     // Example:
     //
-    //      NOTE: This function has been transformed by TransformNonVoidFunctionTasks visitor
-    //      #pragma omp task in(x) out(*output)
-    //      void foo(float x, int* output)
-    //      {
-    //          if (x > 0.0)
+    //          #pragma omp task
+    //          int fact(int n)
     //          {
-    //              *output = -1;
-    //              return;
+    //              if (n == 0 || n == 1) return 1;
+    //              int res = fact(n-1) * n;
+    //              #pragma omp taskwait
+    //              return res;
     //          }
-    //          *output = 1;
-    //          return;
-    //      }
     //
-    //      int main()
-    //      {
-    //          int x;
-    //          x = foo(2.4);
-    //      }
-    //
-    // This code is transformed into:
-    //
-    //      NOTE: This function has been transformed by TransformNonVoidFunctionTasks visitor
-    //      #pragma omp task in(x) out(*output)
-    //      void foo(float x, int* output)
-    //      {
-    //          if (x > 0.0)
+    //          int main()
     //          {
-    //              *output = -1;
-    //              return;
+    //              int x = fact(10);
+    //              #pragma omp taskwait
     //          }
-    //          *output = 1;
-    //          return;
-    //      }
     //
-    //      int main()
-    //      {
-    //          int x;
-    //          int* mcc_ret_0;
-    //          foo__(2.4, mcc_ret_0);
-    //          x = *mcc_ret_0;
-    //      }
+    //  This code is tranformed into:
     //
-    // Note 1: Some original nonvoid function calls may be transformed into
-    // void function calls in the TransformNonVoidFunctionTasks visitor. This
-    // only happens in recursive functions, for more information read the Note 3
-    // of the TransformNonVoidFunctionTasks visitor.
+    //          void fact__(int n, int* out); // Forward Declaration
     //
-    // Note 2: After all function calls are visited, we can remove safetly the
-    // nonvoid function task from the function task set (It has been already
-    // removed from the tree)
+    //          int fact(int n)
+    //          {
+    //              if (n == 0 || n == 1) return 1;
+    //              int res, *mcc_ret1;
+    //              fact__(n-1, mcc_ret1);
+    //              res = *mcc_ret1 * n;
+    //              #pragma omp taskwait
+    //              return res;
+    //          }
+    //
+    //          #pragma omp task in(n) output(*output)
+    //          void fact__(int n, int* out)
+    //          {
+    //              *out = fact(n);
+    //          }
+    //
+    //          int main()
+    //          {
+    //              int x, *mcc_ret1;
+    //              fact__(10, mcc_ret1);
+    //              x = *mcc_ret1;i
+    //              #pragma omp taskwait
+    //          }
     //
     class TransformNonVoidFunctionCalls : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -1117,37 +736,24 @@ namespace TL { namespace OpenMP {
 
             RefPtr<FunctionTaskSet> _function_task_set;
 
-            // Computed by TransformNonVoidFunctionTasks
-            const std::map<TL::Symbol, TL::Symbol>& _transformed_task_map;
-            const TL::ObjectList<Nodecl::FunctionCall>& _ignore_these_function_calls;
+            std::map<TL::Symbol, TL::Symbol> _transformed_task_map;
 
-            TL::ObjectList<TL::Symbol> _transformed_tasks;
+            TL::ObjectList<Nodecl::FunctionCall> _ignore_these_function_calls;
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_stmt_map;
             std::map<Nodecl::NodeclBase, std::set<TL::Symbol> > _enclosing_stmt_to_return_vars_map;
 
         public:
 
-            TransformNonVoidFunctionCalls(
-                    RefPtr<FunctionTaskSet> function_task_Set,
-                    const std::map<TL::Symbol, TL::Symbol>& transformed_tasks,
-                    const TL::ObjectList<Nodecl::FunctionCall>& ignore_these_function_calls)
+            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set)
                 :
                     _counter(0),
                     _enclosing_stmt(nodecl_null()),
                     _function_task_set(function_task_Set),
-                    _transformed_task_map(transformed_tasks),
-                    _ignore_these_function_calls(ignore_these_function_calls),
+                    _transformed_task_map(),
+                    _ignore_these_function_calls(),
                     _funct_call_to_enclosing_stmt_map(),
                     _enclosing_stmt_to_return_vars_map()
             {
-                for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = _transformed_task_map.begin();
-                        it != _transformed_task_map.end();
-                        it++)
-                {
-
-                    _transformed_tasks.insert(it->second);
-                }
-
             }
 
             virtual void visit(const Nodecl::ObjectInit& object_init)
@@ -1184,28 +790,90 @@ namespace TL { namespace OpenMP {
                 if (!_function_task_set->is_function_task(function_called))
                     return;
 
-                if (function_called.get_type().returns().is_void()
-                        // was this function a nonvoid funcion call transformed into a void function call by the deep_copy in the
-                        // TransformNonVoidFunctionTasks visitor? (for more information read Note 1)
-                        && !_transformed_tasks.contains(function_called))
+                if (function_called.get_type().returns().is_void())
                     return;
 
                 TL::Symbol transformed_task;
-                TL::Type return_type;
-                if (!_transformed_tasks.contains(function_called))
+                TL::Type return_type = function_called.get_type().returns().get_pointer_to();
+                std::map<TL::Symbol, TL::Symbol>::iterator it_transformed_task = _transformed_task_map.find(function_called);
+                if (it_transformed_task == _transformed_task_map.end())
                 {
-                    std::map<TL::Symbol, TL::Symbol>::const_iterator it_transformed_task = _transformed_task_map.find(function_called);
-                    ERROR_CONDITION(it_transformed_task == _transformed_task_map.end(), "Unreachable code", 0);
+                    FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
 
-                    transformed_task = it_transformed_task->second;
-                    return_type = function_called.get_type().returns().get_pointer_to();
+                    // Create the void function task with one parameter more than the original function
+                    std::string new_function_name = function_called.get_name() + "__";
+
+                    TL::ObjectList<std::string> parameter_names;
+                    TL::ObjectList<TL::Type> parameter_types;
+
+                    parameter_types = function_called.get_type().parameters();
+                    parameter_types.append(function_called.get_type().returns().get_pointer_to());
+
+                    TL::ObjectList<TL::Symbol> function_called_related_symbols = function_called.get_related_symbols();
+                    for (TL::ObjectList<TL::Symbol>::iterator it = function_called_related_symbols.begin();
+                            it != function_called_related_symbols.end();
+                            it++)
+                    {
+                        parameter_names.append(it->get_name());
+                    }
+                    parameter_names.append("output");
+
+                    TL::Symbol new_function = SymbolUtils::new_function_symbol(
+                            function_called,
+                            new_function_name,
+                            TL::Type::get_void_type(),
+                            parameter_names,
+                            parameter_types);
+
+                    Nodecl::NodeclBase new_function_code,new_function_body;
+                    SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
+
+                    new_function.get_internal_symbol()->entity_specs.is_static = 0;
+                    new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
+
+                    // Update the map of transformed tasks
+                    _transformed_task_map.insert(std::make_pair(function_called, new_function));
+
+                    Nodecl::Utils::SimpleSymbolMap translation_map;
+                    TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
+                    unsigned int new_function_num_related_symbols = new_function.get_num_related_symbols();
+                    for (unsigned int i = 0; i < new_function_num_related_symbols - 1; ++i)
+                    {
+                        translation_map.add_map(function_called_related_symbols[i], new_function_related_symbols[i]);
+                    }
+                    translation_map.add_map(function_called, new_function);
+
+                    // Create the code of the new void function task
+                    Nodecl::NodeclBase function_called_code, new_function_stmts;
+                    function_called_code = function_called.get_function_code();
+                    new_function_stmts = create_a_wrapper_to_the_function_called(function_called, new_function);
+                    if (function_called_code.is_null())
+                    {
+                        Nodecl::Utils::prepend_to_top_level_nodecl(new_function_code);
+                    }
+                    else
+                    {
+                        Nodecl::Utils::prepend_items_before(function_called_code, new_function_code);
+                    }
+
+                    // In C++, we need to specify explictly the forward declaration
+                    CXX_LANGUAGE()
+                    {
+                        Nodecl::Utils::prepend_items_before(
+                                new_function_code,
+                                Nodecl::CxxDecl::make(/* context */ nodecl_null(), function_called));
+                    }
+
+
+                    new_function_body.replace(new_function_stmts);
+
+                    // Finally, we should add the new void function task into the task set
+                    add_the_new_task_to_the_function_task_set(new_function, function_called_task_info, translation_map);
+                    transformed_task = new_function;
                 }
                 else
                 {
-                    ERROR_CONDITION(!function_called.get_type().returns().is_void(), "Unreachable code", 0);
-                    transformed_task = function_called;
-                    TL::ObjectList<TL::Symbol> params = function_called.get_related_symbols();
-                    return_type = params[params.size() - 1].get_type();
+                    transformed_task = it_transformed_task->second;
                 }
 
                 // Create a new function call to the new void function. Replace the original
@@ -1346,7 +1014,17 @@ namespace TL { namespace OpenMP {
                 _enclosing_stmt_to_return_vars_map[enclosing_stmt].insert(return_arg_sym);
             }
 
-            void remove_nonvoid_function_task_from_function_task_set()
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_function_call_to_enclosing_stmt_map()
+            {
+                return _funct_call_to_enclosing_stmt_map;
+            }
+
+            std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& get_enclosing_stmt_to_return_variables_map()
+            {
+                return _enclosing_stmt_to_return_vars_map;
+            }
+
+            void remove_nonvoid_function_tasks_from_function_task_set()
             {
                 for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = _transformed_task_map.begin();
                         it != _transformed_task_map.end();
@@ -1359,14 +1037,89 @@ namespace TL { namespace OpenMP {
                 }
             }
 
-            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_function_call_to_enclosing_stmt_map()
+        private:
+            void add_the_new_task_to_the_function_task_set(
+                    TL::Symbol new_function,
+                    const FunctionTaskInfo& original_function_task_info,
+                    Nodecl::Utils::SimpleSymbolMap& translation_map)
             {
-                return _funct_call_to_enclosing_stmt_map;
+                FunctionTaskInfo new_function_task_info(original_function_task_info, translation_map, new_function);
+
+                TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_function.get_related_symbols();
+                TL::Symbol return_argument = new_funcion_related_symbols[new_funcion_related_symbols.size()-1];
+                Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
+                        return_argument,
+                        return_argument.get_locus());
+                return_argument_nodecl.set_type(return_argument.get_type());
+
+                TL::DataReference data_ref_dep(
+                        Nodecl::Dereference::make(
+                            return_argument_nodecl,
+                            return_argument_nodecl.get_type().points_to(),
+                            return_argument.get_locus()));
+
+                FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
+
+                new_function_task_info.add_function_task_dependency(result_dependence);
+                _function_task_set->add_function_task(new_function, new_function_task_info);
             }
 
-            std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& get_enclosing_stmt_to_return_variables_map()
+            Nodecl::NodeclBase create_a_wrapper_to_the_function_called(
+                    TL::Symbol original_function,
+                    TL::Symbol new_function)
             {
-                return _enclosing_stmt_to_return_vars_map;
+                // Create the new called entity
+                Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
+                        original_function,
+                        original_function.get_locus());
+
+                called_entity.set_type(original_function.get_type());
+
+                // Create the list of arguments
+                Nodecl::List argument_list;
+                TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
+                unsigned int new_function_num_related_symbols = new_function.get_num_related_symbols();
+                for (unsigned int i = 0; i < (new_function_num_related_symbols - 1); ++i)
+                {
+                    Nodecl::NodeclBase new_arg =
+                        Nodecl::Symbol::make(new_function_related_symbols[i],
+                                original_function.get_locus());
+
+                    new_arg.set_type(new_function_related_symbols[i].get_type().no_ref().get_lvalue_reference_to());
+                    argument_list.append(new_arg);
+                }
+                // Create the new function call
+                Nodecl::NodeclBase new_function_call = Nodecl::FunctionCall::make(
+                        called_entity,
+                        argument_list,
+                        /* alternate name */ nodecl_null(),
+                        /* function_form */ nodecl_null(),
+                        original_function.get_type().returns(),
+                        original_function.get_locus());
+
+                // The last parameter of the new function is used to store the return value of the new_function_call
+                Nodecl::NodeclBase return_param = Nodecl::Symbol::make(
+                        new_function_related_symbols[new_function_num_related_symbols - 1],
+                        original_function.get_locus());
+
+                return_param.set_type(new_function_related_symbols[new_function_num_related_symbols-1].get_type().get_lvalue_reference_to());
+
+                Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
+                        return_param,
+                        return_param.get_type().no_ref().points_to().get_lvalue_reference_to(),
+                        original_function.get_locus());
+
+                Nodecl::NodeclBase expression_stmt =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                deref_return_param,
+                                new_function_call,
+                                return_param.get_type(),
+                                original_function.get_locus()));
+
+                // The function call to the original task should be ignored!
+                _ignore_these_function_calls.append(new_function_call.as<Nodecl::FunctionCall>());
+                return expression_stmt;
             }
     };
 
@@ -1448,16 +1201,9 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase translation_unit = dto["nodecl"];
 
-        TransformNonVoidFunctionTasks transform_nonvoid_tasks(function_task_set);
-        transform_nonvoid_tasks.run();
-        const std::map<TL::Symbol, TL::Symbol>& transformed_tasks =
-            transform_nonvoid_tasks.get_transformed_task_map();
-        const TL::ObjectList<Nodecl::FunctionCall>& ignore_these_function_calls =
-            transform_nonvoid_tasks.get_ignore_these_function_calls();
-
-        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, transformed_tasks, ignore_these_function_calls);
+        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set);
         transform_nonvoid_task_calls.walk(translation_unit);
-        transform_nonvoid_task_calls.remove_nonvoid_function_task_from_function_task_set();
+        transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
         const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map =
             transform_nonvoid_task_calls.get_function_call_to_enclosing_stmt_map();
         const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map =
