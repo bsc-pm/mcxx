@@ -650,6 +650,17 @@ LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
+// Like get_declarator_name_string_ex but only returns the declarator part, ignoring the type specifier
+LIBMCXX_EXTERN const char* get_declarator_name_string_ex(decl_context_t decl_context,
+        type_t* type_info,
+        const char* symbol_name,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
 LIBMCXX_EXTERN type_t* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(type_t* t);
 
