@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,18 +31,32 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<assert.h>
+#include<stdlib.h>
 
-double x;
-int e;
-#pragma omp task inout(e) input(*n) deadline(x) onerror(OMP_DEADLINE_EXPIRED:OMP_SKIP) 
-void foo(int* n)
+#pragma omp task
+int* task_producer(int n)
 {
-        //do something
-        e += *n;
+    int *buf = malloc(n * sizeof(int));
+    for (int i = 0; i < n; ++i)
+    {
+        buf[i] = i;
+    }
+    return buf;
+}
+
+
+#pragma omp task in(buf, [n]buf)
+void task_consumer(int n, int buf[n])
+{
+    for (int i = 0; i < n; ++i)
+        assert(buf[i] == i);
 }
 
 int main()
 {
-    int e = 1;
-    foo(&e);
+    int* p = 0;
+    p = task_producer(5);
+    task_consumer(5, p);
+#pragma omp taskwait
 }

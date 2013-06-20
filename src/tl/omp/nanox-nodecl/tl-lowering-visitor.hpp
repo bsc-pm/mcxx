@@ -40,22 +40,23 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     public:
         LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
         ~LoweringVisitor();
-        virtual void visit(const Nodecl::OpenMP::Task& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
-        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
-        virtual void visit(const Nodecl::OpenMP::Single& construct);
-        virtual void visit(const Nodecl::OpenMP::Master& construct);
-        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
-        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
-        virtual void visit(const Nodecl::OpenMP::For& construct);
-        virtual void visit(const Nodecl::OpenMP::Critical& construct);
-        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
-        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
-        virtual void visit(const Nodecl::OpenMP::Sections& construct);
-        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
+        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
+        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
+        virtual void visit(const Nodecl::OpenMP::Critical& construct);
+        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
+        virtual void visit(const Nodecl::OpenMP::For& construct);
+        virtual void visit(const Nodecl::OpenMP::Master& construct);
+        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
+        virtual void visit(const Nodecl::OpenMP::Sections& construct);
+        virtual void visit(const Nodecl::OpenMP::Single& construct);
+        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
+        virtual void visit(const Nodecl::OpenMP::Task& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
+        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
 
     private:
 
@@ -80,7 +81,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
-                OutlineInfo* parameter_outline_info);
+                OutlineInfo* parameter_outline_info,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation = NULL);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -161,6 +163,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src
                 );
 
+        void handle_dependency_item(
+                Nodecl::NodeclBase ctr,
+                TL::DataReference dep_expr,
+                OutlineDataItem::DependencyDirectionality dir,
+                int current_dep_num,
+                Source& dependency_regions,
+                Source& dependency_init,
+                Source& result_src);
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -175,6 +186,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
+
+        void check_pendant_writes_on_subexpressions(
+                OutlineDataItem::TaskwaitOnNode* c,
+                // out
+                TL::Source& code);
+
+        void generate_mandatory_taskwaits(
+                OutlineInfo& outline_info,
+                // out
+                TL::Source& taskwait_on_after_wd_creation_opt);
 
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
@@ -344,8 +365,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
         static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
 
-        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
-        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
+        void visit_task(
+                const Nodecl::OpenMP::Task& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
+
+        void visit_task_call(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
 
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
@@ -376,6 +403,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase original_function_call,
                 Nodecl::NodeclBase original_environment,
                 TL::ObjectList<TL::Symbol> &save_expressions,
+                bool inside_task_expression,
                 // out
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,

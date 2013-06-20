@@ -31,18 +31,28 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<assert.h>
 
-double x;
-int e;
-#pragma omp task inout(e) input(*n) deadline(x) onerror(OMP_DEADLINE_EXPIRED:OMP_SKIP) 
-void foo(int* n)
+#pragma omp task in(x)
+ int foo(int x)
+ {
+     return x + 1;
+ }
+
+#pragma omp task
+int bar()
 {
-        //do something
-        e += *n;
+    int x = foo(foo(1));
+#pragma omp taskwait on(x)
+    return x;
 }
 
 int main()
 {
-    int e = 1;
-    foo(&e);
+
+   int x = bar();
+
+#pragma omp taskwait
+
+   assert(x == 3);
 }

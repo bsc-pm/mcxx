@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,18 +31,64 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
+#include<assert.h>
 
-double x;
-int e;
-#pragma omp task inout(e) input(*n) deadline(x) onerror(OMP_DEADLINE_EXPIRED:OMP_SKIP) 
-void foo(int* n)
+#pragma omp task out(*z)
+void produce_z(int*z)
 {
-        //do something
-        e += *n;
+    for (int i = 0; i < 1000; i++)
+    {
+        for(int j = 0; j < 1000; ++j)
+        {
+        }
+    }
+    *z = 2;
+}
+
+#pragma omp task out(*y)
+void produce_y(int*y)
+{
+for (int i = 0; i < 1000; i++)
+    {
+        for(int j = 0; j < 1000; ++j)
+        {
+        }
+    }
+    *y = 1;
+}
+
+#pragma omp task out([3]v)
+void produce_v(int* v)
+{
+    v[0] = 0;
+    v[1] = 1;
+    v[2] = 2;
+}
+
+#pragma omp task in(n) inout([n]arr)
+void consumer(int n, int* arr)
+{
+    assert(n == 3);
+    assert(arr[0] == 0);
+    assert(arr[1] == 1);
+    assert(arr[2] == 2);
+
 }
 
 int main()
 {
-    int e = 1;
-    foo(&e);
+    int y = -1, z = -1;
+    int v[3] = { -1 };
+    produce_y(&y);
+    produce_z(&z);
+    produce_v(v);
+    consumer(z + y, v);
+#pragma omp taskwait
+
+    assert(y == 1);
+    assert(z == 2);
+
+    assert(v[0] == 0);
+    assert(v[1] == 1);
+    assert(v[2] == 2);
 }

@@ -270,6 +270,7 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
@@ -280,7 +281,8 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                            if (
+                                 ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
                                 if (!param_type.no_ref().depends_on_nonconstant_values())
@@ -329,6 +331,18 @@ namespace TL { namespace Nanox {
                             internal_error("running error", 0);
                         }
 
+                        unpacked_arguments.append_with_separator(argument, ", ");
+                        break;
+                    }
+                case OutlineDataItem::SHARING_ALLOCA:
+                    {
+                        if (IS_FORTRAN_LANGUAGE)
+                        {
+                            internal_error("unreachable code", 0);
+                        }
+
+                        TL::Source argument;
+                        argument << "&(args." << (*it)->get_field_name() <<")";
                         unpacked_arguments.append_with_separator(argument, ", ");
                         break;
                     }

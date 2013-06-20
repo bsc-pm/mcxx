@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,18 +31,26 @@
 test_generator=config/mercurium-ompss
 </testinfo>
 */
-
-double x;
-int e;
-#pragma omp task inout(e) input(*n) deadline(x) onerror(OMP_DEADLINE_EXPIRED:OMP_SKIP) 
-void foo(int* n)
+#pragma omp task in(n) if(n > 0)
+void DO(int n)
 {
-        //do something
-        e += *n;
+
+}
+
+#pragma omp task in(n) priority(n)
+void RE(int n)
+{
+
+}
+
+void MI(int n)
+{
 }
 
 int main()
 {
-    int e = 1;
-    foo(&e);
+    int a, b;
+    DO(a + b);
+    RE(a + b + a);
+#pragma omp taskwait
 }

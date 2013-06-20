@@ -299,6 +299,7 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_UNDEFINED:
                 return "<<undefined-dependence>>";
             case DEP_DIR_IN:
+            case DEP_DIR_IN_VALUE:
                 return "in";
             case DEP_DIR_OUT:
                 return "out";
