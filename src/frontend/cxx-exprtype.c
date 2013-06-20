@@ -3428,12 +3428,17 @@ static char operator_bin_arithmetic_pointer_or_enum_pred_flags(type_t* lhs,
             // T* < T*
             || (lhs_is_ptr_like
                 && rhs_is_ptr_like
-                && (standard_conversion_between_types(&dummy,
+                // We make a special check for void* because const T* becomes const void*
+                // which cannot be converted to void* although the comparison is legal
+                && (is_pointer_to_void_type(get_unqualified_type(no_ref(lhs)))
+                    || is_pointer_to_void_type(get_unqualified_type(no_ref(rhs)))
+                    || standard_conversion_between_types(&dummy,
                         get_unqualified_type(get_unqualified_type(no_ref(lhs))),
                         get_unqualified_type(get_unqualified_type(no_ref(rhs))))
                     || standard_conversion_between_types(&dummy,
                         get_unqualified_type(get_unqualified_type(no_ref(rhs))),
-                        get_unqualified_type(get_unqualified_type(no_ref(lhs)))))
+                        get_unqualified_type(get_unqualified_type(no_ref(lhs))))
+                   )
                )
             || (is_zero_type(no_ref(lhs)) && rhs_is_ptr_like)
             || (lhs_is_ptr_like && is_zero_type(no_ref(rhs)))
@@ -3517,6 +3522,30 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         {
             *lhs = get_unqualified_type(no_ref(*lhs));
             *rhs = get_unqualified_type(no_ref(*rhs));
+        }
+        else if (is_pointer_to_void_type(no_ref(*lhs))
+                || is_pointer_to_void_type(no_ref(*rhs)))
+        {
+            cv_qualifier_t cv_qualif_mixed = CV_NONE;
+
+            if (is_array_type(no_ref(*lhs)))
+            {
+                *lhs = get_pointer_type(array_type_get_element_type(no_ref(*lhs)));
+            }
+
+            if (is_pointer_type(no_ref(*lhs)))
+                cv_qualif_mixed |= get_cv_qualifier(pointer_type_get_pointee_type(no_ref(*lhs)));
+
+            if (is_array_type(no_ref(*rhs)))
+            {
+                *rhs = get_pointer_type(array_type_get_element_type(no_ref(*rhs)));
+            }
+
+            if (is_pointer_type(no_ref(*rhs)))
+                cv_qualif_mixed |= get_cv_qualifier(pointer_type_get_pointee_type(no_ref(*rhs)));
+
+            *lhs = get_pointer_type(get_cv_qualified_type(get_void_type(), cv_qualif_mixed));
+            *rhs = get_pointer_type(get_cv_qualified_type(get_void_type(), cv_qualif_mixed));
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*lhs)),
@@ -3627,6 +3656,8 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_rhs_type)))
                 && (is_zero_type(no_ref_lhs_type)
                     || is_zero_type(no_ref_rhs_type)
+                    || is_pointer_to_void_type(no_ref_lhs_type)
+                    || is_pointer_to_void_type(no_ref_rhs_type)
                     || standard_conversion_between_types(&scs,
                         get_unqualified_type(no_ref_lhs_type),
                         get_unqualified_type(no_ref_rhs_type))
