@@ -1440,6 +1440,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/auto-scope/Makefile
            src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
+           src/tl/omp/lint/Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
            src/tl/omp/nanox-nodecl/Makefile

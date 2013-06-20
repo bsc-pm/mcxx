@@ -11,6 +11,7 @@ compiler_options =
 linker_name = @GCC@
 linker_options = -Xlinker --add-needed
 {openmp} compiler_phase = libtlomp-base.so
+{openmp} compiler_phase = libtlomp-lint.so
 {openmp} compiler_phase = libtlomp-simd.so
 {openmp} compiler_phase = libtlvector-lowering.so
 {openmp} pragma_prefix = nanos

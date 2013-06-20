@@ -24,16 +24,34 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core base simd auto-scope lint @TL_OMP_EXTENSIONS@
+include $(top_srcdir)/src/tl/Makefile.phases
+
+phases_LTLIBRARIES = libtlomp-lint.la
 
 END=
 
-DIST_SUBDIRS=base \
-             core \
-             auto-scope \
-             simd \
-             nanos-common \
-             nanox-nodecl \
-             ss2omp \
-             profile \
-             $(END)
+libtlomp_lint_la_CFLAGS = $(phases_cflags) \
+                          -I $(srcdir)/../core \
+                          -I $(srcdir)/../../vectorizer \
+                          -I $(srcdir)/../../analysis/singleton\
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          $(END)
+
+libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
+                          -I $(srcdir)/../core \
+                          -I $(srcdir)/../../vectorizer \
+                          -I $(srcdir)/../../analysis/singleton\
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          $(END)
+
+libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
+libtlomp_lint_la_LIBADD = $(phases_libadd)
+
+
+libtlomp_lint_la_SOURCES = \
+   tl-omp-lint.hpp \
+   tl-omp-lint.cpp \
+   $(END)
+
