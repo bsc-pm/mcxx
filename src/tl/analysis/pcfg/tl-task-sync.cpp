@@ -158,18 +158,6 @@ namespace TL { namespace Analysis {
             return false;
         }
 
-        // Computes if task source will synchronize with the creation of the task target
-        TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
-        {
-            // FIXME: Nothing implemented
-            return TaskSync_Unknown;
-        }
-
-        bool task_has_dependences(Node* task)
-        {
-            // FIXME: Not yet implemented
-            return false;
-        }
 
         static ObjectList<Edge*> get_task_creation_edges(Node* n)
         {
@@ -391,6 +379,116 @@ namespace TL { namespace Analysis {
                 ERROR_CONDITION((it->is<Nodecl::OpenMP::DepIn>()) || (it->is<Nodecl::OpenMP::DepOut>()), 
                         "Unexpected tree in a taskwait", 0);
                 if (it->is<Nodecl::OpenMP::DepInout>())
+                    target_dep_inout = *it;
+            }
+
+            TaskSyncRel may_have_dep = TaskSync_No;
+
+            // DRY
+            Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
+            int num_sources = sizeof(sources)/sizeof(sources[0]);
+            Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout };
+            int num_targets = sizeof(targets)/sizeof(targets[0]);
+
+            for (int n_source = 0; n_source < num_sources; n_source++)
+            {
+                for (int n_target = 0; n_target < num_targets; n_target++)
+                {
+                    if (sources[n_source].is_null()
+                            || targets[n_target].is_null())
+                        continue;
+
+                    // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
+                    // same physical layout
+                    may_have_dep = may_have_dep || may_have_dependence_list(
+                            sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+                            targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
+                }
+            }
+
+            return may_have_dep;
+        }
+
+        // Computes if task source will synchronize with the creation of the task target
+        TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
+        {
+            //    std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
+
+            // TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
+            // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
+            Nodecl::NodeclBase task_node_source = source->get_graph_label();
+            ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
+            ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
+                    && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
+                    "Expecting an OpenMP::Task or OpenMP::TaskCall source node here got a %s", 
+                    ast_print_node_type(task_node_source.get_kind()));
+            Nodecl::List task_source_env;
+            if (task_node_source.is<Nodecl::OpenMP::Task>())
+            {
+                Nodecl::OpenMP::Task task_source(task_node_source.as<Nodecl::OpenMP::Task>());
+                task_source_env = task_source.get_environment().as<Nodecl::List>();
+            }
+            else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
+            {
+                Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
+                task_source_env = task_source.get_site_environment().as<Nodecl::List>();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            Nodecl::NodeclBase source_dep_in;
+            Nodecl::NodeclBase source_dep_out;
+            Nodecl::NodeclBase source_dep_inout;
+            for (Nodecl::List::iterator it = task_source_env.begin();
+                    it != task_source_env.end();
+                    it++)
+            {
+                if (it->is<Nodecl::OpenMP::DepIn>())
+                    source_dep_in = *it;
+                else if (it->is<Nodecl::OpenMP::DepOut>())
+                    source_dep_out = *it;
+                else if (it->is<Nodecl::OpenMP::DepInout>())
+                    source_dep_inout = *it;
+            }
+
+            // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
+            // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
+            Nodecl::NodeclBase task_node_target = target->get_graph_label();
+            ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
+            ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
+                    && !task_node_target.is<Nodecl::OpenMP::TaskCall>(),
+                    "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
+                    ast_print_node_type(task_node_target.get_kind()));
+            Nodecl::List task_target_env;
+            if (task_node_target.is<Nodecl::OpenMP::Task>())
+            {
+                Nodecl::OpenMP::Task task_target(task_node_target.as<Nodecl::OpenMP::Task>());
+                task_target_env = task_target.get_environment().as<Nodecl::List>();
+            }
+            else if (task_node_target.is<Nodecl::OpenMP::TaskCall>())
+            {
+                Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
+                task_target_env = task_target.get_site_environment().as<Nodecl::List>();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            Nodecl::NodeclBase target_dep_in;
+            Nodecl::NodeclBase target_dep_out;
+            Nodecl::NodeclBase target_dep_inout;
+            for (Nodecl::List::iterator it = task_target_env.begin();
+                    it != task_target_env.end();
+                    it++)
+            {
+                if (it->is<Nodecl::OpenMP::DepIn>())
+                    target_dep_in = *it;
+                else if (it->is<Nodecl::OpenMP::DepOut>())
+                    target_dep_out = *it;
+                else if (it->is<Nodecl::OpenMP::DepInout>())
                     target_dep_inout = *it;
             }
 
