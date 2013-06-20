@@ -7378,6 +7378,27 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
+const char* get_declarator_name_string_ex(decl_context_t decl_context,
+        type_t* type_info,
+        const char* symbol_name,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    return get_type_name_string_internal( decl_context,
+            type_info,
+            symbol_name,
+            num_parameter_names,
+            parameter_names,
+            parameter_attributes,
+            is_parameter,
+            print_symbol_fun,
+            print_symbol_data);
+}
+
 const char* get_declaration_string_ex(type_t* type_info,
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer,
