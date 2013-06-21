@@ -962,10 +962,10 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         //(user can specify any rank and any comm using onto clause)
         std::string assignedComm = "0";
         std::string assignedRank = "-2";
-        if (onto_clause.size() >= 1) {
+        if (onto_clause.size() >= 1 && onto_clause.at(0).get_symbol().is_valid() ) {
             assignedComm = as_symbol(param_to_args_map.map(onto_clause.at(0).get_symbol()));
         }
-        if (onto_clause.size() >= 2) {
+        if (onto_clause.size() >= 2 && onto_clause.at(1).get_symbol().is_valid()) {
             assignedRank = as_symbol(param_to_args_map.map(onto_clause.at(1).get_symbol()));
         }
         
@@ -1194,7 +1194,11 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                Nodecl::Utils::append_to_top_level_nodecl(newompss_main); 
                Nodecl::Utils::append_to_top_level_nodecl(new_main); 
                main.set_name("ompss___user_main");
-               _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
+               if (Nanos::Version::interface_is_at_least("copies_api", 1003)){
+                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
+               } else {
+                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");                   
+               }
             }
     }
     

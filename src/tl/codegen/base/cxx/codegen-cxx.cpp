@@ -4926,9 +4926,13 @@ void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, b
         std::string variable_name =
             define_or_declare_variable_get_name_variable(symbol);
 
+        std::string declarator = this->get_declaration_only_declarator(symbol.get_type(),
+            symbol.get_scope(),
+            variable_name);
+
         set_codegen_status(symbol, codegen_status);
 
-        file <<  ", " << variable_name;
+        file <<  ", " << declarator;
 
         define_or_declare_variable_emit_initializer(symbol, is_definition);
     }
@@ -7043,7 +7047,6 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
 }
 
-
 const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
 {
     // We obtain the current codegen from the data
@@ -7170,6 +7173,21 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
             /* we need to store the current codegen */ (void*) this);
 }
 
+std::string CxxBase::get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name)
+{
+    t = fix_references(t);
+
+    return get_declarator_name_string_ex(
+            scope.get_decl_context(),
+            t.get_internal_type(),
+            name.c_str(),
+            /* num_parameter_names */ 0,
+            /* parameter_names */ NULL,
+            /* parameter_attributes */ NULL,
+            /* is_parameter */ 0,
+            print_name_str,
+            /* we need to store the current codegen */ (void*) this);
+}
 
 std::string CxxBase::get_qualified_name(TL::Symbol sym, bool without_template_id) const
 {

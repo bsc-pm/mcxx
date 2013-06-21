@@ -932,10 +932,11 @@ namespace TL
             if (function_sym.is_member()
                     && !function_sym.is_static())
             {
-                TL::Symbol this_symbol = scope.get_symbol_from_name("this");
+                TL::Scope class_scope = function_sym.get_scope();
+                TL::Symbol this_symbol = class_scope.get_symbol_from_name("this");
                 if (!this_symbol.is_valid())
                 {
-                    this_symbol = scope.new_symbol("this");
+                    this_symbol = class_scope.new_symbol("this");
                     Type pointed_this = function_sym.get_class_type();
                     Type this_type = pointed_this.get_pointer_to().get_const_type();
 

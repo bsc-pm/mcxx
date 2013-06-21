@@ -475,6 +475,7 @@ namespace Codegen
             static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
+            std::string get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& symbol_name,
                     TL::ObjectList<std::string>& parameter_names, TL::ObjectList<std::string> & parameter_attributes);
             TL::Type fix_references(TL::Type t);
