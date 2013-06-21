@@ -162,7 +162,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, fraction, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, gamma, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, get_command, "?COMMAND,?LENGTH,?STATUS", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, get_command_argument, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, get_environment_variable, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, get_environment_variable, "NAME,?VALUE,?LENGTH,?STATUS,?TRIM_NAME", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, huge, "X", I, simplify_huge) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hypot, "X,Y", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, iachar, "C,?KIND", E, simplify_iachar) \
@@ -3190,13 +3190,13 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
             && (t3 == NULL || is_integer_type(t3))
             && (t4 == NULL || is_bool_type(t4)))
     {
-        return GET_INTRINSIC_IMPURE(symbol, "get_environment_variable", 
+        return GET_INTRINSIC_IMPURE(symbol, "get_environment_variable",
                 get_void_type(), // is a subroutine
                 t0,
                 t1 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? fortran_get_default_integer_type() : t2,
                 t3 == NULL ? fortran_get_default_integer_type() : t3,
-                t3 == NULL ? fortran_get_default_logical_type() : t4);
+                t4 == NULL ? fortran_get_default_logical_type() : t4);
     }
 
     return NULL;
