@@ -813,7 +813,7 @@ namespace TL { namespace Analysis {
                     jt != it->second.end();
                     jt++)
             {
-                std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
+                // std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
                 Edge* edge = _graph->connect_nodes(it->first, (*jt).first, ALWAYS, "", /*is task edge*/ true);
                 edge->set_label(sync_kind_to_str((*jt).second));
             }
@@ -829,7 +829,7 @@ namespace TL { namespace Analysis {
         {
             if (exit->get_static_sync_in_tasks().find(*it) == exit->get_static_sync_in_tasks().end())
             {
-                std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+                // std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
                 Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
                 edge->set_label(sync_kind_to_str(Sync_post));
             }
