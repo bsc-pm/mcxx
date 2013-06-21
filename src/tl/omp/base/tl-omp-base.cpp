@@ -261,7 +261,7 @@ namespace TL { namespace OpenMP {
                             {
                                 // The return arguments present in the enclosing statement are added as alloca input dependences
                                 Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                                sym_nodecl.set_type(sym.get_type());
+                                sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
                                 input_alloca_dependence.append(
                                         Nodecl::Dereference::make(
@@ -283,7 +283,7 @@ namespace TL { namespace OpenMP {
                             TL::Symbol sym = *it2;
 
                             Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                            sym_nodecl.set_type(sym.get_type());
+                            sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
                             alloca_exprs.append(
                                     Nodecl::Dereference::make(
@@ -349,7 +349,7 @@ namespace TL { namespace OpenMP {
                             TL::Symbol current_ret_arg = *it2;
 
                             Nodecl::NodeclBase current_ret_arg_ref = Nodecl::Symbol::make(current_ret_arg);
-                            current_ret_arg_ref.set_type(current_ret_arg.get_type());
+                            current_ret_arg_ref.set_type(lvalue_ref(current_ret_arg.get_type().get_internal_type()));
 
                             TL::Symbol alloca_sym = scope.get_symbol_from_name("__builtin_alloca");
                             ERROR_CONDITION(!alloca_sym.is_valid(), "__builtin_alloca not found", 0);
@@ -358,7 +358,7 @@ namespace TL { namespace OpenMP {
                                     alloca_sym,
                                     make_locus("", 0, 0));
 
-                            called_entity_alloca.set_type(alloca_sym.get_type());
+                            called_entity_alloca.set_type(lvalue_ref(alloca_sym.get_type().get_internal_type()));
 
                             Nodecl::List arguments_alloca;
                             int bytes_to_allocate = current_ret_arg.get_type().points_to().get_size();
@@ -911,7 +911,7 @@ namespace TL { namespace OpenMP {
                     sym.get_internal_symbol()->type_information = sym.get_type().get_unqualified_type().get_internal_type();
 
                     Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, func_call.get_locus());
-                    sym_nodecl.set_type(sym.get_type());
+                    sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
                     // Create the new assignment
                     Nodecl::NodeclBase new_expr_stmt =
@@ -941,7 +941,7 @@ namespace TL { namespace OpenMP {
                         transformed_task,
                         func_call.get_locus());
 
-                called_entity.set_type(transformed_task.get_type());
+                called_entity.set_type(lvalue_ref(transformed_task.get_type().get_internal_type()));
 
                 // Declare a new variable which represents the return of the original function as an argument
                 Scope scope = enclosing_stmt.retrieve_context();
@@ -960,7 +960,7 @@ namespace TL { namespace OpenMP {
                         return_arg_sym,
                         func_call.get_locus());
 
-                return_arg_nodecl.set_type(return_arg_sym.get_type().get_lvalue_reference_to());
+                return_arg_nodecl.set_type(lvalue_ref(return_arg_sym.get_type().get_internal_type()));
 
                 Nodecl::NodeclBase new_arguments = func_call.get_arguments();
                 if (!new_arguments.is_null())
@@ -1050,12 +1050,12 @@ namespace TL { namespace OpenMP {
                 Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
                         return_argument,
                         return_argument.get_locus());
-                return_argument_nodecl.set_type(return_argument.get_type());
+                return_argument_nodecl.set_type(lvalue_ref(return_argument.get_type().get_internal_type()));
 
                 TL::DataReference data_ref_dep(
                         Nodecl::Dereference::make(
                             return_argument_nodecl,
-                            return_argument_nodecl.get_type().points_to(),
+                            return_argument_nodecl.get_type().no_ref().points_to().get_lvalue_reference_to(),
                             return_argument.get_locus()));
 
                 FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
@@ -1073,7 +1073,7 @@ namespace TL { namespace OpenMP {
                         original_function,
                         original_function.get_locus());
 
-                called_entity.set_type(original_function.get_type());
+                called_entity.set_type(lvalue_ref(original_function.get_type().get_internal_type()));
 
                 // Create the list of arguments
                 Nodecl::List argument_list;
@@ -1085,7 +1085,7 @@ namespace TL { namespace OpenMP {
                         Nodecl::Symbol::make(new_function_related_symbols[i],
                                 original_function.get_locus());
 
-                    new_arg.set_type(new_function_related_symbols[i].get_type().no_ref().get_lvalue_reference_to());
+                    new_arg.set_type(lvalue_ref(new_function_related_symbols[i].get_type().get_internal_type()));
                     argument_list.append(new_arg);
                 }
                 // Create the new function call
@@ -1102,7 +1102,7 @@ namespace TL { namespace OpenMP {
                         new_function_related_symbols[new_function_num_related_symbols - 1],
                         original_function.get_locus());
 
-                return_param.set_type(new_function_related_symbols[new_function_num_related_symbols-1].get_type().get_lvalue_reference_to());
+                return_param.set_type(lvalue_ref(new_function_related_symbols[new_function_num_related_symbols-1].get_type().get_internal_type()));
 
                 Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
                         return_param,
