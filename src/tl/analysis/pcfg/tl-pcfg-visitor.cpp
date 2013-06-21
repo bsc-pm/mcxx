@@ -1917,6 +1917,8 @@ namespace Analysis {
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>(1, task_creation);
 
+        _pcfg->_task_nodes_l.insert( task_node );
+
         return ObjectList<Node*>( 1, task_creation );
     }
 
