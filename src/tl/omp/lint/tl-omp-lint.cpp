@@ -28,6 +28,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-analysis-singleton.hpp"
 #include "tl-datareference.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL { namespace OpenMP {
 
@@ -62,25 +63,76 @@ namespace TL { namespace OpenMP {
                     {
                         Nodecl::NodeclBase task = (*it)->get_graph_label();
 
-                        std::cerr << task.get_locus_str() << ": warning: '#pragma omp task' uses local data but may be"
-                            " executed after the function ends" << std::endl;
+                        warn_printf("%s: warning: '#pragma omp task' uses local data but may be"
+                                " executed after the function ends\n", task.get_locus_str().c_str());
                     }
                 }
             }
 
+            // If this function returns false it may mean both unknown/no
             bool data_ref_is_local(TL::DataReference data_ref)
             {
-                TL::Symbol base_sym = data_ref.get_base_symbol();
-
                 if (!data_ref.is_valid())
+                {
                     return false;
+                }
 
+                return data_ref_is_local_rec(data_ref);
+            }
+
+            // If this function returns false it may mean both unknown/no
+            bool data_ref_is_local_rec(TL::DataReference data_ref)
+            {
+                TL::Symbol base_sym = data_ref.get_base_symbol();
                 if (!base_sym.is_valid())
                     return false;
 
-                // FIXME - Improve this
-                return (base_sym.get_scope().is_block_scope());
+                if (data_ref.is<Nodecl::Symbol>())
+                {
+                    return base_sym.get_scope().is_block_scope();
+                }
+                else if (data_ref.is<Nodecl::Dereference>())
+                {
+                    // *&a -> a
+                    if (data_ref.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Reference>())
+                    {
+                        return data_ref_is_local_rec(
+                                data_ref.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Reference>().get_rhs());
+                    }
+                    else
+                    {
+                        return data_ref_is_local_rec(
+                                data_ref.as<Nodecl::Dereference>().get_rhs())
+                            && base_sym.get_type().is_array();
+                    }
+                }
+                else if (data_ref.is<Nodecl::Reference>())
+                {
+                    // &*a -> a
+                    if (data_ref.as<Nodecl::Reference>().get_rhs().is<Nodecl::Dereference>())
+                    {
+                        return data_ref_is_local_rec(
+                                data_ref.as<Nodecl::Reference>().get_rhs().as<Nodecl::Dereference>().get_rhs());
+                    }
+                    else
+                    {
+                        return data_ref_is_local_rec(data_ref.as<Nodecl::Reference>().get_rhs());
+                    }
+                }
+                else if (data_ref.is<Nodecl::ArraySubscript>())
+                {
+                    return data_ref_is_local_rec(
+                            data_ref.as<Nodecl::ArraySubscript>().get_subscripted())
+                        && base_sym.get_type().is_array();
+                }
+                else if (data_ref.is<Nodecl::ClassMemberAccess>())
+                {
+                    return data_ref_is_local_rec(
+                            data_ref.as<Nodecl::ClassMemberAccess>().get_lhs());
+                }
+                return false;
             }
+
 
             bool any_data_ref_is_local(Nodecl::List item_list)
             {
@@ -150,6 +202,7 @@ namespace TL { namespace OpenMP {
                 //     std::cerr << "Yes, it is locally bound" << std::endl;
                 // else
                 //     std::cerr << "No, it is not locally bound " << std::endl;
+
                 return result;
             }
 
@@ -194,6 +247,11 @@ namespace TL { namespace OpenMP {
                     // it runs lately
                     result = (!seen_maybe_edges && seen_post_edges);
                 }
+                else
+                {
+                    // std::cerr << "No exit edges?" << std::endl;
+                }
+
 
                 // if (result)
                 //     std::cerr << "Yes, it can be lated executed" << std::endl;
