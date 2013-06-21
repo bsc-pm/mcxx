@@ -2604,11 +2604,19 @@ static nodecl_t simplify_nint(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             || (!nodecl_is_null(kind) && !nodecl_is_constant(kind)))
         return nodecl_null();
 
+
+    int kind_ = type_get_size(no_ref(nodecl_get_type(arg)));
+    if (!nodecl_is_null(kind))
+    {
+        kind_ = const_value_cast_to_signed_int(nodecl_get_constant(kind));
+    }
+
+    type_t* integer_type = choose_int_type_from_kind(kind, kind_);
     const_value_t* integer_value = compute_nint(nodecl_get_constant(arg));
 
     return const_value_to_nodecl_with_basic_type(
             integer_value,
-            fortran_get_default_integer_type());
+            integer_type);
 }
 
 static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
