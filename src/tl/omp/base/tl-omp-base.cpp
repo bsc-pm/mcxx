@@ -904,6 +904,25 @@ namespace TL { namespace OpenMP {
 
                 // Create the list of arguments
                 Nodecl::List argument_list;
+
+                if (original_function.is_member()
+                        && !original_function.is_static())
+                {
+                    Scope sc = original_function.get_scope();
+                    TL::Symbol this_ = sc.get_symbol_from_name("this");
+                    ERROR_CONDITION(this_.is_invalid(), "", 0);
+
+                    Nodecl::NodeclBase this_nodecl = Nodecl::Symbol::make(this_, original_function.get_locus());
+                    this_nodecl.set_type(lvalue_ref(this_.get_type().get_internal_type()));
+
+                    Nodecl::NodeclBase deref_this_nodecl = Nodecl::Dereference::make(
+                            this_nodecl,
+                            this_.get_type().no_ref().points_to().get_lvalue_reference_to(),
+                            original_function.get_locus());
+
+                    argument_list.append(deref_this_nodecl);
+                }
+
                 TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
                 unsigned int new_function_num_related_symbols = new_function.get_num_related_symbols();
                 for (unsigned int i = 0; i < (new_function_num_related_symbols - 1); ++i)
