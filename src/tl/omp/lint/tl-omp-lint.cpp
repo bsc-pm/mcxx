@@ -48,7 +48,7 @@ namespace TL { namespace OpenMP {
 
                 TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
 
-                graph->print_graph_to_dot(false, false, false, false, false, false);
+                // graph->print_graph_to_dot(false, false, false, false, false, false);
 
                 // Get all task nodes
                 TL::ObjectList<TL::Analysis::Node*> tasks = graph->get_tasks_list();
@@ -71,6 +71,12 @@ namespace TL { namespace OpenMP {
             bool data_ref_is_local(TL::DataReference data_ref)
             {
                 TL::Symbol base_sym = data_ref.get_base_symbol();
+
+                if (!data_ref.is_valid())
+                    return false;
+
+                if (!base_sym.is_valid())
+                    return false;
 
                 // FIXME - Improve this
                 return (base_sym.get_scope().is_block_scope());
