@@ -916,15 +916,9 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
                     nodecl_t nodecl_expr = nodecl_null();
-                    if (expression != NULL 
-                            && !check_expression(expression, decl_context, &nodecl_expr))
+                    if (expression != NULL)
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: assembler operand '%s' could not be checked\n",
-                                    ast_location(expression),
-                                    prettyprint_in_buffer(expression));
-                        }
+                        check_expression(expression, decl_context, &nodecl_expr);
                     }
 
                     nodecl_t nodecl_identifier = nodecl_null();
@@ -13028,15 +13022,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         AST initializer = ASTSon2(a);
 
         nodecl_t nodecl_expr = nodecl_null();
-        if (!check_initialization(initializer, decl_context, entry->type_information, &nodecl_expr))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: initializer '%s' could not be checked\n",
-                        ast_location(initializer),
-                        prettyprint_in_buffer(initializer));
-            }
-        }
+        check_initialization(initializer, decl_context, entry->type_information, &nodecl_expr);
+
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the initialization expression", 0);
 
@@ -13098,15 +13085,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
     else
     {
-        if (!check_expression(ASTSon2(a), decl_context, nodecl_output))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: condition '%s' could not be checked\n",
-                        ast_location(ASTSon2(a)),
-                        prettyprint_in_buffer(ASTSon2(a)));
-            }
-        }
+        check_expression(ASTSon2(a), decl_context, nodecl_output);
 
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the expression", 0);
