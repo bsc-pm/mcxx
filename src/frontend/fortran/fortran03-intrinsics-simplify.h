@@ -2570,6 +2570,47 @@ static nodecl_t simplify_ichar(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     return simplify_iachar(entry, num_arguments, arguments);
 }
 
+static const_value_t* compute_nint(const_value_t* cval)
+{
+    // Array case
+    if (const_value_is_array(cval))
+    {
+        int i, N = const_value_get_num_elements(cval);
+        const_value_t* array[N];
+
+        for (i = 0; i < N; i++)
+        {
+            array[i] = compute_nint(const_value_get_element_num(cval, i));
+            if (array[i] == NULL)
+                return NULL;
+        }
+
+        return const_value_make_array(N, array);
+    }
+
+    return const_value_cast_to_signed_int_value(const_value_round_to_zero(cval));
+}
+
+static nodecl_t simplify_nint(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+    nodecl_t kind = nodecl_null();
+    if (num_arguments == 2)
+    {
+        kind = arguments[1];
+    }
+
+    if (!nodecl_is_constant(arg)
+            || (!nodecl_is_null(kind) && !nodecl_is_constant(kind)))
+        return nodecl_null();
+
+    const_value_t* integer_value = compute_nint(nodecl_get_constant(arg));
+
+    return const_value_to_nodecl_with_basic_type(
+            integer_value,
+            fortran_get_default_integer_type());
+}
+
 static nodecl_t simplify_null(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     const_value_t* zero = const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
