@@ -136,6 +136,19 @@ namespace Nodecl { namespace Utils { namespace Fortran {
                 {
                     _extra_new_sym.insert(sym);
                 }
+                else if (sym.is_fortran_parameter())
+                {
+                    _extra_insert_sym.insert(sym);
+
+                    walk(sym.get_value());
+
+                    TL::Type t = sym.get_type();
+                    if (t.is_named_class()
+                            && in_scope_of_reference_function(t.get_symbol()))
+                    {
+                        _extra_insert_sym.insert(t.get_symbol());
+                    }
+                }
             }
 
             virtual void visit(const Nodecl::StructuredValue &node)

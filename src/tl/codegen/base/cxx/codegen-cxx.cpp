@@ -471,8 +471,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         bool is_non_ref = is_non_language_reference_type(node.get_type());
         if (is_non_ref)
         {
-            // Here we assume that casts in C always yield rvalues
-            file << "(*";
+            if (node.get_type().no_ref().is_array())
+            {
+                // Special case for arrays, themselves are an address
+                file << "(";
+            }
+            else
+            {
+                file << "(*";
+            }
 
             // This avoids a warning in some compilers which complain on (T* const)e
             t = t.get_unqualified_type();
@@ -1320,6 +1327,24 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
                     {
                         actual_arg = actual_arg.as<Nodecl::Dereference>().get_rhs();
                     }
+                }
+                else if (type_it->references_to().is_array()
+                        && actual_arg.get_type().is_valid()
+                        && actual_arg.get_type().no_ref().is_array())
+                {
+                    // Consider this case                 [ Emitted C ]
+                    // void f(int (&v)[10])    ->         void f(int * const v)
+                    // {
+                    // }
+                    //
+                    // void g()                           void g()
+                    // {                                  {
+                    //    int k[10];                         int k[10];
+                    //    f(k);                              f(k); // Emitting f(&k) would yield a wrong
+                    //                                             // type (with the proper value, though)
+                    // }                                  }
+                    //
+                    // Note that "k" has type "int[10]" (not a reference)
                 }
                 else
                 {
