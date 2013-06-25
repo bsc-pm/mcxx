@@ -234,6 +234,7 @@ namespace Analysis {
         Ret visit( const Nodecl::ContinueStatement& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::CxxDef& n );
+        Ret visit( const Nodecl::CxxUsingNamespace& n );
         Ret visit( const Nodecl::DefaultStatement& n );
         Ret visit( const Nodecl::Delete& n );
         Ret visit( const Nodecl::DeleteArray& n );

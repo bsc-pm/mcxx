@@ -706,6 +706,12 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CxxUsingNamespace& n )
+    {
+        // Do nothing
+        return ObjectList<Node*>( );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Conversion& n )
     {
         return walk( n.get_nest( ) );
