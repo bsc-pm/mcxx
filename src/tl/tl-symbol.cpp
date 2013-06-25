@@ -283,6 +283,13 @@ namespace TL
         return (this->_symbol->kind == SK_MODULE);
     }
 
+    bool Symbol::is_fortran_parameter() const
+    {
+        return (IS_FORTRAN_LANGUAGE
+                && this->is_variable()
+                && this->get_type().is_const());
+    }
+
     bool Symbol::is_in_module() const
     {
         return (this->_symbol->entity_specs.in_module != NULL);

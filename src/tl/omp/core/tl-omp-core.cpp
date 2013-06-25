@@ -610,6 +610,7 @@ namespace TL
                     {
                         return (sym.is_variable()
                                 && sym.get_scope().get_decl_context().current_scope == _sc
+                                && !sym.is_fortran_parameter()
                                 && !_result.contains(
                                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol),
                                     sym));
@@ -718,7 +719,8 @@ namespace TL
                 Symbol sym = it->get_symbol();
 
                 if (!sym.is_valid()
-                        || !sym.is_variable())
+                        || !sym.is_variable()
+                        || sym.is_fortran_parameter())
                     continue;
 
                 // We should ignore these ones lest they slipped in because
