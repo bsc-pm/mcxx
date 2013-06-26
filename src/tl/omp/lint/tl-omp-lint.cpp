@@ -49,7 +49,7 @@ namespace TL { namespace OpenMP {
 
                 TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
 
-                // graph->print_graph_to_dot(false, false, false, false, false, false);
+                graph->print_graph_to_dot(false, false, false, false, false, false);
 
                 // Get all task nodes
                 TL::ObjectList<TL::Analysis::Node*> tasks = graph->get_tasks_list();
