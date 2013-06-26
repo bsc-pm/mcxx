@@ -6038,7 +6038,9 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
                 get_unqualified_type(fortran_get_rank0_type(t0)))
             && fortran_are_conformable_types(t2, t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "unpack", t0, t0, t1, t2);
+        type_t* result = fortran_get_n_ranked_type(fortran_get_rank0_type(t0),
+                fortran_get_rank_of_type(t1), CURRENT_COMPILED_FILE->global_decl_context);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "unpack", result, t0, t1, t2);
     }
 
     return NULL;
