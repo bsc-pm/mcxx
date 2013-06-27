@@ -772,6 +772,18 @@ namespace TL { namespace OpenMP {
                 _enclosing_stmt = old_enclosing_stmt;
             }
 
+            virtual void visit(const Nodecl::ReturnStatement& return_stmt)
+            {
+                // Save the old enclosing expr statement
+                Nodecl::NodeclBase old_enclosing_stmt = _enclosing_stmt;
+                _enclosing_stmt = return_stmt;
+
+                walk(return_stmt.get_value());
+
+                // Restore the old enclosing expr statement
+                _enclosing_stmt = old_enclosing_stmt;
+            }
+
             virtual void visit(const Nodecl::FunctionCall& func_call)
             {
                 if (_ignore_these_function_calls.contains(func_call))
@@ -793,10 +805,16 @@ namespace TL { namespace OpenMP {
                 if (function_called.get_type().returns().is_void())
                     return;
 
-                // Obtain the enclosing statement of the current function call
-                // and if It's an object initialization replace it by an assignment
+                // Some statements should be transformed into others more friendly
                 Nodecl::NodeclBase enclosing_stmt = get_enclosing_stmt(func_call);
-                replace_object_init_by_an_assignment(enclosing_stmt, func_call.get_locus());
+                if(enclosing_stmt.is<Nodecl::ObjectInit>())
+                {
+                    transform_object_init(enclosing_stmt, func_call.get_locus());
+                }
+                else if(enclosing_stmt.is<Nodecl::ReturnStatement>())
+                {
+                    transform_return_statement(enclosing_stmt, func_call.get_locus());
+                }
                 Scope scope = enclosing_stmt.retrieve_context();
 
                 TL::Symbol transformed_task;
@@ -1011,19 +1029,30 @@ namespace TL { namespace OpenMP {
                 return enclosing_stmt;
             }
 
-            void replace_object_init_by_an_assignment(Nodecl::NodeclBase enclosing_stmt, const locus_t* locus)
+            // Replace the object initialization by a variable definition and an assignment
+            // Expected input:
+            //      {
+            //          int x = foo(...);
+            //      }
+            //     - where foo is a function task which returns an integer
+            //
+            // Expected output:
+            //      {
+            //          int x;
+            //          x = foo(...);
+            //      }
+            void transform_object_init(Nodecl::NodeclBase enclosing_stmt, const locus_t* locus)
             {
-                if (!enclosing_stmt.is<Nodecl::ObjectInit>())
-                    return;
+                ERROR_CONDITION(!enclosing_stmt.is<Nodecl::ObjectInit>(),
+                        "Unexpected node '%s'\n",
+                        ast_print_node_type(enclosing_stmt.get_kind()));
 
-                // Transform a variable initialization into a variable definition and an assignment
                 TL::Symbol sym = enclosing_stmt.as<Nodecl::ObjectInit>().get_symbol();
                 sym.get_internal_symbol()->type_information = sym.get_type().get_unqualified_type().get_internal_type();
 
                 Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, locus);
                 sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
-                // Create the new assignment
                 Nodecl::NodeclBase new_expr_stmt = Nodecl::ExpressionStatement::make(
                         Nodecl::Assignment::make(
                             sym_nodecl,
@@ -1037,11 +1066,66 @@ namespace TL { namespace OpenMP {
                 // Remove the value of the 'sym' symbol
                 sym.get_internal_symbol()->value = nodecl_null();
 
-                // In C++ We also need to define explicitly this symbol
                 CXX_LANGUAGE()
                 {
                     Nodecl::Utils::prepend_items_before(enclosing_stmt,
                             Nodecl::CxxDef::make( /* context */ nodecl_null(), sym, locus));
+                }
+            }
+
+            // Replace the return statement by a variable definition, an assignment,
+            // a taskwait and an empty return statement
+            // Expected input:
+            //      {
+            //          return foo(...);
+            //      }
+            //     - where foo is a function task which returns an integer
+            //
+            // Expected output:
+            //      {
+            //          int mcc_ret_smt_0;
+            //          mcc_ret_smt_0 = foo(...);
+            //          #pragma omp taskwait
+            //          return;
+            //      }
+            void transform_return_statement(Nodecl::NodeclBase enclosing_stmt, const locus_t* locus)
+            {
+                ERROR_CONDITION(!enclosing_stmt.is<Nodecl::ReturnStatement>(),
+                        "Unexpected node '%s'\n",
+                        ast_print_node_type(enclosing_stmt.get_kind()));
+
+                Nodecl::NodeclBase value = enclosing_stmt.as<Nodecl::ReturnStatement>().get_value();
+
+                std::stringstream ss;
+                ss << "mcc_ret_stmt_" << _counter;
+                Scope scope = enclosing_stmt.retrieve_context();
+                TL::Symbol new_symbol = scope.new_symbol(ss.str());
+                _counter++;
+
+                new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                new_symbol.get_internal_symbol()->type_information = value.get_type().get_internal_type();
+                new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+                Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(new_symbol, locus);
+                sym_nodecl.set_type(lvalue_ref(new_symbol.get_type().get_internal_type()));
+
+                Nodecl::NodeclBase new_expr_stmt = Nodecl::ExpressionStatement::make(
+                        Nodecl::Assignment::make(
+                            sym_nodecl,
+                            value,
+                            sym_nodecl.get_type(),
+                            locus));
+
+                // Replace the return statement by this new assignment
+                enclosing_stmt.replace(new_expr_stmt);
+
+                Nodecl::Utils::append_items_after(enclosing_stmt, Nodecl::ReturnStatement::make(sym_nodecl.shallow_copy()));
+                Nodecl::Utils::append_items_after(enclosing_stmt, Nodecl::OpenMP::TaskwaitShallow::make(/*exec environment*/ nodecl_null()));
+
+                CXX_LANGUAGE()
+                {
+                    Nodecl::Utils::prepend_items_before(enclosing_stmt,
+                            Nodecl::CxxDef::make( /* context */ nodecl_null(), new_symbol, locus));
                 }
             }
 
