@@ -1451,6 +1451,18 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::workshare_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+            _openmp_info->push_current_data_sharing(data_sharing);
+            common_workshare_handler(construct, data_sharing);
+        }
+
+        void Core::workshare_handler_post(TL::PragmaCustomStatement construct)
+        {
+            _openmp_info->pop_current_data_sharing();
+        }
+
         void Core::threadprivate_handler_pre(TL::PragmaCustomDirective construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
@@ -1640,6 +1652,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(single)
+        INVALID_DECLARATION_HANDLER(workshare)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \

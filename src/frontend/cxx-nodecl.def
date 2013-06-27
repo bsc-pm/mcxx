@@ -434,6 +434,7 @@ parallel-execution : task-construct
                    | atomic-construct
                    | sections-construct
                    | master-construct
+                   | workshare-construct
                    | simd-constructs
 
 # single
@@ -508,6 +509,9 @@ parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-
 
 # for
 for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
+
+# workshare (Fortran only)
+workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)
 
 # atomic
 atomic-construct : NODECL_OPEN_M_P*ATOMIC([environment]exec-environment-seq-opt, [statements]statement-seq)
