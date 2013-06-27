@@ -67,6 +67,20 @@ namespace TL { namespace OpenMP {
                                 " executed after the function ends\n", task.get_locus_str().c_str());
                     }
                 }
+
+                for (TL::ObjectList<TL::Analysis::Node*>::iterator it = tasks.begin();
+                        it != tasks.end();
+                        it++)
+                {
+                    if (task_is_locally_bound(*it)
+                            && task_only_synchronizes_in_enclosing_scopes(*it))
+                    {
+                        Nodecl::NodeclBase task = (*it)->get_graph_label();
+
+                        warn_printf("%s: warning: '#pragma omp task' uses local data whose lifetime may have ended "
+                                "when the task is executed\n", task.get_locus_str().c_str());
+                    }
+                }
             }
 
             // If this function returns false it may mean both unknown/no
@@ -202,6 +216,155 @@ namespace TL { namespace OpenMP {
                 //     std::cerr << "Yes, it is locally bound" << std::endl;
                 // else
                 //     std::cerr << "No, it is not locally bound " << std::endl;
+
+                return result;
+            }
+
+            TL::Scope get_innermost_required_scope_data_items(TL::Scope sc, Nodecl::List item_list)
+            {
+                for (Nodecl::List::iterator it = item_list.begin();
+                        it != item_list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+                    if (!data_ref.is_valid())
+                        continue;
+
+                    TL::Symbol base_symbol = data_ref.get_base_symbol();
+
+                    if (!base_symbol.is_valid())
+                        continue;
+
+                    TL::Scope current_scope = base_symbol.get_scope();
+
+                    if (current_scope.scope_is_enclosed_by(sc))
+                        sc = current_scope;
+                }
+
+                return sc;
+            }
+
+            TL::Scope get_innermost_required_scope(TL::Analysis::Node* n)
+            {
+                // We assume the broadest scope and progressively narrow it
+                TL::Scope result = CURRENT_COMPILED_FILE->global_decl_context;
+
+                Nodecl::NodeclBase task = n->get_graph_label();
+                // std::cerr << "Checking if task at " << task.get_locus_str() << " is locally bound" << std::endl;
+
+                ERROR_CONDITION(task.is_null(), "Invalid target task tree", 0);
+                ERROR_CONDITION(!task.is<Nodecl::OpenMP::Task>()
+                        && !task.is<Nodecl::OpenMP::TaskCall>(),
+                        "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
+                        ast_print_node_type(task.get_kind()));
+                Nodecl::List task_env;
+                if (task.is<Nodecl::OpenMP::Task>())
+                {
+                    Nodecl::OpenMP::Task inline_task(task.as<Nodecl::OpenMP::Task>());
+                    task_env = inline_task.get_environment().as<Nodecl::List>();
+                }
+                else if (task.is<Nodecl::OpenMP::TaskCall>())
+                {
+                    Nodecl::OpenMP::TaskCall function_task(task.as<Nodecl::OpenMP::TaskCall>());
+                    task_env = function_task.get_site_environment().as<Nodecl::List>();
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+
+                Nodecl::OpenMP::Shared shared;
+                Nodecl::OpenMP::DepIn dep_in;
+                Nodecl::OpenMP::DepOut dep_out;
+                Nodecl::OpenMP::DepInout dep_inout;
+                for (Nodecl::List::iterator it = task_env.begin();
+                        it != task_env.end();
+                        it++)
+                {
+                    if (it->is<Nodecl::OpenMP::DepIn>())
+                        dep_in = it->as<Nodecl::OpenMP::DepIn>();
+                    else if (it->is<Nodecl::OpenMP::DepOut>())
+                        dep_out = it->as<Nodecl::OpenMP::DepOut>();
+                    else if (it->is<Nodecl::OpenMP::DepInout>())
+                        dep_inout = it->as<Nodecl::OpenMP::DepInout>();
+                    else if (it->is<Nodecl::OpenMP::Shared>())
+                        shared = it->as<Nodecl::OpenMP::Shared>();
+                }
+
+                if (!shared.is_null())
+                    result = get_innermost_required_scope_data_items(result, shared.get_shared_symbols().as<Nodecl::List>());
+                if (!dep_in.is_null())
+                    result = get_innermost_required_scope_data_items(result, dep_in.get_in_deps().as<Nodecl::List>());
+                if (!dep_out.is_null())
+                    result = get_innermost_required_scope_data_items(result, dep_out.get_out_deps().as<Nodecl::List>());
+                if (!dep_inout.is_null())
+                    result = get_innermost_required_scope_data_items(result, dep_inout.get_inout_deps().as<Nodecl::List>());
+
+                return result;
+            }
+
+            bool task_only_synchronizes_in_enclosing_scopes(TL::Analysis::Node *n)
+            {
+                bool result;
+
+                TL::Scope innermost_required_scope = get_innermost_required_scope(n);
+
+                Nodecl::NodeclBase task = n->get_graph_label();
+
+                // std::cerr << "Checking if task at " << task.get_locus_str()
+                //     << " can be late executed" << std::endl;
+
+                TL::ObjectList<TL::Analysis::Edge*> exit_edges = n->get_exit_edges();
+
+                // ERROR_CONDITION (exit_edges.empty(), "We should have computed at least some exit edge for this task", 0);
+                if (!exit_edges.empty())
+                {
+                    bool seen_relevant_edges = false;
+                    result = true;
+
+                    for (TL::ObjectList<TL::Analysis::Edge*>::iterator it = exit_edges.begin();
+                            it != exit_edges.end();
+                            it++)
+                    {
+                        std::string exit_label = (*it)->get_label();
+
+                        if (exit_label == "strict"
+                                || exit_label == "maybe")
+                        {
+                            seen_relevant_edges = true;
+                            TL::Analysis::Node* target = (*it)->get_target();
+
+                            TL::Scope scope_of_target;
+
+                            if (target->is_graph_node())
+                                scope_of_target = target->get_graph_label().retrieve_context();
+                            else if (target->has_statements())
+                                scope_of_target = target->get_statements()[0].retrieve_context();
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                                continue;
+                            }
+
+                            bool target_is_in_an_enclosing_scope = innermost_required_scope.scope_is_enclosed_by(scope_of_target);
+
+                            result = result && target_is_in_an_enclosing_scope;
+                        }
+                    }
+
+                    result = seen_relevant_edges && result;
+                }
+                else
+                {
+                    result = false;
+                    // std::cerr << "No exit edges?" << std::endl;
+                }
+
+
+                // if (result)
+                //     std::cerr << "Yes, it can be lated executed" << std::endl;
+                // else
+                //     std::cerr << "No, we cannot assert this" << std::endl;
 
                 return result;
             }

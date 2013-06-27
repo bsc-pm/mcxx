@@ -132,10 +132,10 @@ namespace Analysis {
         Ret visit_literal_node( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for any kind of taskwait without dependences: TaskwaitDeep, TaskwaitShallow
-        Ret visit_taskwait( );
+        Ret visit_taskwait( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for taskwait on dependences
-        Ret visit_taskwait( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit_taskwait_on( const Nodecl::OpenMP::WaitOnDependences& n );
 
         //! This method implements the visitor for unary nodecls
         /*!
