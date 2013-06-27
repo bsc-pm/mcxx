@@ -264,6 +264,8 @@ namespace TL { namespace OpenMP {
 
     Lint::Lint()
     {
+        set_phase_name("OpenMP Lint");
+        set_phase_description("This phase is able to detect some common pitfalls when using OpenMP");
     }
 
     void Lint::run(TL::DTO& dto)
