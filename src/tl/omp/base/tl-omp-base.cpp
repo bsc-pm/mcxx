@@ -1371,6 +1371,7 @@ namespace TL { namespace OpenMP {
         INVALID_DECLARATION_HANDLER(parallel_sections)
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(single)
+        INVALID_DECLARATION_HANDLER(workshare)
         INVALID_DECLARATION_HANDLER(critical)
         INVALID_DECLARATION_HANDLER(atomic)
         INVALID_DECLARATION_HANDLER(master)
@@ -1759,6 +1760,37 @@ namespace TL { namespace OpenMP {
         Nodecl::List code;
         code.append(
                 Nodecl::OpenMP::Single::make(
+                    execution_environment,
+                    directive.get_statements().shallow_copy(),
+                    directive.get_locus()));
+
+        pragma_line.diagnostic_unused_clauses();
+        directive.replace(code);
+    }
+
+    void Base::workshare_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::workshare_handler_post(TL::PragmaCustomStatement directive)
+    {
+        OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+
+        if (!pragma_line.get_clause("nowait").is_defined())
+        {
+            execution_environment.append(
+                    Nodecl::OpenMP::FlushAtExit::make(
+                        directive.get_locus())
+            );
+
+            execution_environment.append(
+                    Nodecl::OpenMP::BarrierAtEnd::make(
+                        directive.get_locus()));
+        }
+
+        Nodecl::List code;
+        code.append(
+                Nodecl::OpenMP::Workshare::make(
                     execution_environment,
                     directive.get_statements().shallow_copy(),
                     directive.get_locus()));
