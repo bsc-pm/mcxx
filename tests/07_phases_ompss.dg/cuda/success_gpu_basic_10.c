@@ -33,9 +33,13 @@ compile_versions=cuda_omp
 </testinfo>
 */
 
-#include <stdlib.h>
+#include <assert.h>
 
-__global__ void addOne_gpu(int *a);
+#pragma omp target device(cuda)
+__global__ void addOne_gpu(int *a)
+{
+    *a += 1;
+}
 
 int main (int argc, char *argv[])
 {
@@ -48,8 +52,10 @@ int main (int argc, char *argv[])
         var.x = 1;
         var.y = 1;
         var.z = 1;
-        addOne_gpu <<<1, 2>>> (&a);
+        addOne_gpu <<<1, 1>>> (&a);
     }
-    if (a != 2) abort();
+
+#pragma omp taskwait
+    assert(a == 2);
     return 0;
 }

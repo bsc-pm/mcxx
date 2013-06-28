@@ -33,8 +33,9 @@ compile_versions=cuda_omp
 </testinfo>
 */
 
-#include <stdlib.h>
+#include <assert.h>
 
+#pragma omp target device(cuda)
 __global__ void addOne_gpu(int *a)
 {
 	*a += 1;
@@ -49,13 +50,15 @@ struct MyType
 #pragma omp task inout (*a)
 void addOne (struct MyType *a)
 {
-    struct dim3 x1,x2;
-	addOne_gpu <<<x1, x2>>> (&(a->x));
+	addOne_gpu <<<1, 1>>> (&(a->x));
 }
 
 
 int main (int argc, char *argv[])
 {
-	addOne((struct MyType*) 0);
-	return 0;
+    struct MyType var;
+    var.x = 1;
+	addOne(&var);
+#pragma omp taskwait
+    assert(var.x == 2);
 }
