@@ -240,6 +240,12 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(flush);
             }
 
+            // Mark the induction variable as a private entity in the Single construct
+            Nodecl::OpenMP::Private ind_var_priv = 
+                Nodecl::OpenMP::Private::make(Nodecl::List::make(
+                            TL::ForStatement(for_statement).get_induction_variable().make_nodecl()));
+            single_environment.append(ind_var_priv);
+
             Nodecl::OpenMP::Single single_epilog =
                 Nodecl::OpenMP::Single::make(single_environment,
                         Nodecl::List::make(epilog), epilog.get_locus());
