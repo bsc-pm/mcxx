@@ -4854,6 +4854,16 @@ OPERATOR_TABLE
                     emit_use_statement_if_symbol_comes_from_module(*it, sc, use_stmt_info);
                 }
             }
+            else if (entry.is_function())
+            {
+                TL::ObjectList<TL::Symbol> parameters = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin(); 
+                        it != parameters.end();
+                        it++)
+                {
+                    emit_use_statement_if_symbol_comes_from_module(*it, sc, use_stmt_info);
+                }
+            }
         }
 
         being_checked.erase(entry);
