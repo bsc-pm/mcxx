@@ -62,7 +62,7 @@ namespace TL { namespace Nanox {
     void DeviceSMP::create_outline(CreateOutlineInfo& info,
             Nodecl::NodeclBase& outline_placeholder,
             Nodecl::NodeclBase& output_statements,
-            Nodecl::Utils::SymbolMap* &symbol_map)
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map)
     {
         // Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
@@ -84,6 +84,8 @@ namespace TL { namespace Nanox {
             //     running_error("%s: error: internal subprograms are not supported\n",
             //             original_statements.get_locus().c_str());
         }
+
+        symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
         Source extra_declarations;
         Source final_statements, initial_statements;

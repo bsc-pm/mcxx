@@ -58,23 +58,21 @@ void DeviceOpenCL::generate_ndrange_code(
         const std::string kernel_name,
         const TL::ObjectList<OutlineDataItem*>& data_items,
         Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
-        Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
+        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
         // Out
         TL::Source& code_ndrange)
 {
     TL::Source code_ndrange_aux;
     Nodecl::Utils::SimpleSymbolMap called_fun_to_unpacked_fun_map;
 
-    symbol_map_t* outline_data_to_unpacked_fun_map_internal = outline_data_to_unpacked_fun_map->get_symbol_map();
-    const std::map<TL::Symbol, TL::Symbol>* called_task_map = called_fun_to_outline_data_map->get_simple_symbol_map();
-    for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = called_task_map->begin();
-            it != called_task_map->end();
+    const std::map<TL::Symbol, TL::Symbol>* called_fun_to_outline_data_map_simple =
+        called_fun_to_outline_data_map->get_simple_symbol_map();
+    for (std::map<TL::Symbol, TL::Symbol>::const_iterator it = called_fun_to_outline_data_map_simple->begin();
+            it != called_fun_to_outline_data_map_simple->end();
             it++)
     {
         TL::Symbol key = it->first;
-        TL::Symbol value =
-            outline_data_to_unpacked_fun_map_internal->map(
-                    outline_data_to_unpacked_fun_map_internal, it->second.get_internal_symbol());
+        TL::Symbol value = outline_data_to_unpacked_fun_map->map(it->second.get_internal_symbol());
         called_fun_to_unpacked_fun_map.add_map(key, value);
     }
 
@@ -188,9 +186,7 @@ void DeviceOpenCL::generate_ndrange_code(
 
                 // If the symbol of the current outline data item is not the
                 // same as the unpacked_argument, skip it
-                if(TL::Symbol(outline_data_to_unpacked_fun_map_internal->map(
-                                outline_data_to_unpacked_fun_map_internal,
-                                outline_data_item_sym.get_internal_symbol())) != unpacked_argument)
+                if(outline_data_to_unpacked_fun_map->map(outline_data_item_sym.get_internal_symbol()) != unpacked_argument)
                     continue;
 
                 is_global = !((*it)->get_copies().empty());
@@ -451,7 +447,7 @@ void DeviceOpenCL::generate_ndrange_code(
 void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map)
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
     _opencl_tasks_processed=true;
     // Unpack DTO
@@ -461,6 +457,8 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
     const TL::Symbol& called_task = info._called_task;
     bool is_function_task = info._called_task.is_valid();
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
     output_statements = task_statements;
 
@@ -628,7 +626,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         unpacked_source
             << "{";
     }
-    
+
     unpacked_source
         << extra_declarations
         << initial_statements

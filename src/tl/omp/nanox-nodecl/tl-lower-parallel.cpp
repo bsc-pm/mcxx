@@ -158,7 +158,7 @@ namespace TL { namespace Nanox {
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
-            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+            Nodecl::Utils::SimpleSymbolMap *symbol_map = NULL;
             device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
             if (IS_FORTRAN_LANGUAGE)

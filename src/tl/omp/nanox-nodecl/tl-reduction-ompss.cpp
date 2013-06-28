@@ -137,7 +137,7 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::perform_partial_reduction_slicer(OutlineInfo& outline_info,
             Nodecl::NodeclBase ref_tree,
-            Nodecl::Utils::SymbolMap*& symbol_map)
+            Nodecl::Utils::SimpleSymbolMap*& symbol_map)
     {
         ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
 

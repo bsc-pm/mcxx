@@ -326,7 +326,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void perform_partial_reduction(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree);
         void perform_partial_reduction_slicer(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree,
-                Nodecl::Utils::SymbolMap*& symbol_map);
+                Nodecl::Utils::SimpleSymbolMap*& symbol_map);
 
         Nodecl::NodeclBase emit_critical_region(
                 const std::string lock_name,

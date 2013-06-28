@@ -447,7 +447,7 @@ namespace TL { namespace Nanox {
             const std::string& function_name,
             CreateOutlineInfo& info,
             // Out
-            Nodecl::Utils::SymbolMap*& out_symbol_map,
+            Nodecl::Utils::SimpleSymbolMap*& symbol_map,
             Source &initial_statements,
             Source &final_statements)
     {
@@ -474,8 +474,6 @@ namespace TL { namespace Nanox {
         }
 
         // Create all the symbols and an appropiate mapping
-        Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
-
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
@@ -863,8 +861,6 @@ namespace TL { namespace Nanox {
         function_context.block_scope->related_entry = new_function_sym;
 
         new_function_sym->related_decl_context = function_context;
-
-        out_symbol_map = symbol_map;
         return new_function_sym;
     }
 
@@ -1019,7 +1015,7 @@ namespace TL
     void Nanox::duplicate_internal_subprograms(
             TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
             TL::Scope scope_of_unpacked,
-            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             )
     {
@@ -1053,7 +1049,7 @@ namespace TL
     void Nanox::duplicate_nested_functions(
             TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
             TL::Scope scope_of_unpacked,
-            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             )
     {

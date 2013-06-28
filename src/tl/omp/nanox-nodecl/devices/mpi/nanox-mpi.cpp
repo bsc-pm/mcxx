@@ -403,14 +403,11 @@ void DeviceMPI::generate_additional_mpi_code(
 void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map) {
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map) {
     
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     preprocess_datasharing(data_items);
     
-    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
-        
-
     // Unpack DTO 
     const std::string& device_outline_name = get_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -418,7 +415,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     bool is_function_task = called_task.is_valid();
 
     output_statements = original_statements;
-    
+
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+
     //OutlineInfo& outline_info = info._outline_info;
     
     //At first time we process a task, declare a function

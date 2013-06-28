@@ -159,7 +159,7 @@ namespace TL { namespace Nanox {
              virtual void create_outline(CreateOutlineInfo &info,
                      Nodecl::NodeclBase &outline_placeholder,
                      Nodecl::NodeclBase &output_statements,
-                     Nodecl::Utils::SymbolMap* &symbol_map) = 0;
+                     Nodecl::Utils::SimpleSymbolMap* &symbol_map) = 0;
 
              /*!
                This function returns the device descriptor for nanos_devices_t
@@ -216,7 +216,7 @@ namespace TL { namespace Nanox {
                      TL::Symbol current_function,
                      const std::string& function_name,
                      CreateOutlineInfo& info,
-                     Nodecl::Utils::SymbolMap*& out_symbol_map,
+                     Nodecl::Utils::SimpleSymbolMap* &out_symbol_map,
                      Source &initial_statements,
                      Source &final_statements);
 
@@ -258,14 +258,14 @@ namespace TL { namespace Nanox {
     void duplicate_internal_subprograms(
             TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
             TL::Scope scope_of_unpacked,
-            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             );
 
     void duplicate_nested_functions(
             TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
             TL::Scope scope_of_unpacked,
-            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             );
 } }

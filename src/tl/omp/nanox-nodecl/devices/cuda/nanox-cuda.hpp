@@ -41,9 +41,7 @@ namespace TL
             private:
 
                 Nodecl::List _cuda_file_code;
-
-                // This list is used to store the set of functions that are in the intermediate file
-                TL::ObjectList<Nodecl::NodeclBase> _cuda_functions;
+                Nodecl::Utils::SimpleSymbolMap _copied_cuda_functions;
 
                 bool _cuda_tasks_processed;
                 Nodecl::NodeclBase _root;
@@ -82,7 +80,7 @@ namespace TL
                 virtual void create_outline(CreateOutlineInfo &info,
                         Nodecl::NodeclBase &outline_placeholder,
                         Nodecl::NodeclBase &output_statements,
-                        Nodecl::Utils::SymbolMap* &symbol_map);
+                        Nodecl::Utils::SimpleSymbolMap* &symbol_map);
 
                 virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,

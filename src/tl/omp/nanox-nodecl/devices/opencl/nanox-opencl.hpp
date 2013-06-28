@@ -57,7 +57,7 @@ namespace TL
                         const std::string kernel_name,
                         const TL::ObjectList<OutlineDataItem*>& data_items,
                         Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
-                        Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
+                        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
                         TL::Source& code_ndrange);
             public:
 
@@ -72,7 +72,7 @@ namespace TL
                 virtual void create_outline(CreateOutlineInfo &info,
                         Nodecl::NodeclBase &outline_placeholder,
                         Nodecl::NodeclBase &output_statements,
-                        Nodecl::Utils::SymbolMap* &symbol_map);
+                        Nodecl::Utils::SimpleSymbolMap* &symbol_map);
 
                 virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,

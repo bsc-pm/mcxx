@@ -683,16 +683,16 @@ void LoweringVisitor::emit_async_common(
                     real_called_task);
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
-            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+            Nodecl::Utils::SimpleSymbolMap* symbol_map = NULL;
             device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
 
             Nodecl::NodeclBase outline_statements_code =
                     Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
 
-            delete symbol_map;
-
             outline_placeholder.replace(outline_statements_code);
+
+            delete symbol_map;
         }
     }
 
