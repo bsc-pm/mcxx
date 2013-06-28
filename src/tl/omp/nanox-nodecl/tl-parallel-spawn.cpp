@@ -35,6 +35,7 @@ namespace TL { namespace Nanox {
             OutlineInfo& outline_info,
             Nodecl::NodeclBase construct,
             Nodecl::NodeclBase num_replicas,
+            Nodecl::NodeclBase if_condition,
             const std::string& outline_name,
             TL::Symbol structure_symbol)
     {
@@ -115,8 +116,7 @@ namespace TL { namespace Nanox {
                 outline_info,
                 construct);
 
-        Source num_threads;
-
+        Source num_threads, if_condition_code_opt;
         if (Nanos::Version::interface_is_at_least("openmp", 7))
         {
             num_threads << "nanos_omp_get_num_threads_next_parallel("
@@ -135,6 +135,11 @@ namespace TL { namespace Nanox {
             }
         }
 
+        if (!if_condition.is_null())
+        {
+            if_condition_code_opt << "if (!" << as_expression(if_condition) << ")  nanos_num_threads = 1;";
+        }
+
         Nodecl::NodeclBase fill_outline_arguments_tree,
             fill_dependences_outline_tree;
         Source fill_outline_arguments,
@@ -149,21 +154,35 @@ namespace TL { namespace Nanox {
         dependence_type
             << "nanos_data_access_t*";
 
+        Source dynamic_wd_info;
+        dynamic_wd_info
+            <<   "nanos_wd_dyn_props_t dyn_props;"
+            << "dyn_props.tie_to = (nanos_thread_t)0;"
+            << "dyn_props.priority = 0;"
+            ;
+
+        if (!_lowering->final_clause_transformation_disabled()
+                && Nanos::Version::interface_is_at_least("master", 5024))
+        {
+            dynamic_wd_info
+                << "dyn_props.flags.is_final = 0;"
+                ;
+        }
+
         Source spawn_code;
         spawn_code
             << "{"
             <<   const_wd_info
             <<   immediate_decl
             <<   "unsigned int nanos_num_threads = " << num_threads << ";"
+            <<   if_condition_code_opt
             <<   "nanos_err_t err;"
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"
             <<   "err = nanos_create_team(&nanos_team, (nanos_sched_t)0, &nanos_num_threads,"
             <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
-            <<   "nanos_wd_dyn_props_t dyn_props;"
-            <<   "dyn_props.tie_to = (nanos_thread_t)0;"
-            <<   "dyn_props.priority = 0;"
+            <<   dynamic_wd_info
             <<   "unsigned int nth_i;"
             <<   "for (nth_i = 1; nth_i < nanos_num_threads; nth_i = nth_i + 1)"
             <<   "{"

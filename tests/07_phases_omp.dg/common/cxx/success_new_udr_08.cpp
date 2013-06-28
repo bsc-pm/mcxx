@@ -58,20 +58,22 @@ public:
    void foo();
    int bar()
    {
+       int x;
        #pragma omp declare reduction( * : myInt : omp_out *= omp_in)
        myInt a;
        #pragma omp parallel reduction(* : a)
-       int x = rand();
+       x = rand();
        return x;
    }
 };
 
 void myInt::foo()
 {
+   int x;
    #pragma omp declare reduction(- : myInt : omp_out -= omp_in)
    myInt a;
    #pragma omp parallel reduction(- :a)
-   int x = rand();
+   x = rand();
 }
 
 int main (int argc, char **argv)

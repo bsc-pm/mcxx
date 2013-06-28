@@ -150,7 +150,7 @@ namespace TL { namespace Nanox {
                 <<      "__oldval = (" << lhs << ");"
                 <<      "__newval = __oldval " << op << " (" << rhs << ");"
                 <<      "__sync_synchronize();"
-                <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "( &(" << lhs << ") ,"
+                <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "( (volatile void*)&(" << lhs << ") ,"
                 <<                 "*(" << proper_int_type << "*)&__oldval,"
                 <<                 "*(" << proper_int_type << "*)&__newval ));"
                 << "}"
@@ -188,13 +188,12 @@ namespace TL { namespace Nanox {
             type << as_type(expr_type);
             bytes << expr_type.get_size();
 
-            // FIXME - We should be choosing the proper size using the environment
             if (expr_type.get_size() == 4)
             {
                 Type int_type(::get_unsigned_int_type());
                 if (int_type.get_size() == 4)
                 {
-                    proper_int_type << "unsigned int";
+                    proper_int_type << "int";
                 }
                 else
                 {
@@ -209,11 +208,11 @@ namespace TL { namespace Nanox {
 
                 if (long_type.get_size() == 8)
                 {
-                    proper_int_type << "unsigned long";
+                    proper_int_type << "long";
                 }
                 else if (long_long_type.get_size() == 8)
                 {
-                    proper_int_type << "unsigned long long";
+                    proper_int_type << "long long";
                 }
                 else
                 {
@@ -255,7 +254,10 @@ namespace TL { namespace Nanox {
                         internal_error("Code unreachable", 0);
                 }
 
-                critical_source << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs()) << "), 1);"
+                Source op_size;
+                op_size << expr.as<Nodecl::Preincrement>().get_rhs().get_type().no_ref().get_size();
+
+                critical_source << intrinsic_function_name << "_" << op_size << "(&(" << as_expression(expr.as<Nodecl::Preincrement>().get_rhs()) << "), 1);"
                     ;
             }
             // No need to check the other case as allowed_expressions_critical
@@ -287,17 +289,17 @@ namespace TL { namespace Nanox {
                         //         intrinsic_function_name = "__sync_div_and_fetch";
                         //         break;
                         //     }
-                    case NODECL_BITWISE_AND : // x &= y
+                    case NODECL_BITWISE_AND_ASSIGNMENT : // x &= y
                         {
                             intrinsic_function_name = "__sync_and_and_fetch";
                             break;
                         }
-                    case NODECL_BITWISE_OR : // x |= y
+                    case NODECL_BITWISE_OR_ASSIGNMENT : // x |= y
                         {
                             intrinsic_function_name = "__sync_or_and_fetch";
                             break;
                         }
-                    case NODECL_BITWISE_XOR : // x ^= y
+                    case NODECL_BITWISE_XOR_ASSIGNMENT : // x ^= y
                         {
                             intrinsic_function_name = "__sync_xor_and_fetch";
                             break;
@@ -318,11 +320,14 @@ namespace TL { namespace Nanox {
                         internal_error("Code unreachable", 0);
                 }
 
+                Source op_size;
+                op_size << expr.as<Nodecl::AddAssignment>().get_rhs().get_type().no_ref().get_size();
+
                 critical_source
                     << "{"
                     << as_type(expr.as<Nodecl::AddAssignment>().get_rhs().get_type()) << "__tmp = "
                         << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs()) << ";"
-                    << intrinsic_function_name << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
+                    << intrinsic_function_name << "_" << op_size << "((volatile void*)&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
                     << "}"
                     ;
             }
@@ -347,7 +352,7 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase stmt(*it);
             if (!stmt.is<Nodecl::ExpressionStatement>())
             {
-                error_printf("%s: error: 'atomic' directive requires an expression statement\n", 
+                error_printf("%s: error: 'atomic' directive requires an expression statement\n",
                         stmt.get_locus_str().c_str());
             }
             else
@@ -358,7 +363,7 @@ namespace TL { namespace Nanox {
                 bool using_builtin = false;
                 if (!allowed_expressions_critical(expr, using_builtin))
                 {
-                    warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n", 
+                    warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n",
                             expr.get_locus_str().c_str());
                     std::string lock_name = "nanos_default_critical_lock";
                     atomic_tree = emit_critical_region(lock_name, construct, statements);
@@ -374,7 +379,7 @@ namespace TL { namespace Nanox {
                     else
                     {
                         atomic_tree = compare_and_exchange(expr);
-                        info_printf("%s: info: 'atomic' directive implemented using compare and exchange\n",
+                        info_printf("%s: info: 'atomic' directive implemented using GCC compare and exchange\n",
                                 expr.get_locus_str().c_str());
                     }
                 }

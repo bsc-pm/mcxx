@@ -399,6 +399,7 @@ struct common_type_info_tag
     unsigned char is_dependent:1;
     unsigned char is_incomplete:1;
     unsigned char is_interoperable:1;
+    unsigned char is_zero_type:1;
 
     // The sizeof and alignment of the type
     // They are only valid once 'valid_size' is true
@@ -7377,6 +7378,27 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
+const char* get_declarator_name_string_ex(decl_context_t decl_context,
+        type_t* type_info,
+        const char* symbol_name,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data)
+{
+    return get_type_name_string_internal( decl_context,
+            type_info,
+            symbol_name,
+            num_parameter_names,
+            parameter_names,
+            parameter_attributes,
+            is_parameter,
+            print_symbol_fun,
+            print_symbol_data);
+}
+
 const char* get_declaration_string_ex(type_t* type_info,
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer,
@@ -7783,12 +7805,16 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     {
                         whole_size = uniquestr("[]");
                     }
-                    // If this is a saved expression and it is NOT a parameter we use its saved symbol instead
+                    // A saved expression that is not user declared means that we have to ignore it
+                    // when printing it
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
-                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression)
+                            && nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_saved_expression
+                            && !nodecl_get_symbol(type_info->array->whole_size)->entity_specs.is_user_declared)
                     {
-                        scope_entry_t* saved_sym = nodecl_get_symbol(type_info->array->whole_size);
-                        whole_size = strappend("[", get_qualified_symbol_name(saved_sym, saved_sym->decl_context));
+                        scope_entry_t* saved_expr = nodecl_get_symbol(type_info->array->whole_size);
+                        const char* whole_size_str = uniquestr(codegen_to_str(saved_expr->value, decl_context));
+
+                        whole_size = strappend("[", whole_size_str);
                         whole_size = strappend(whole_size, "]");
                     }
                     else
@@ -8898,13 +8924,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
                 }
             }
+
             if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
-            }
-            else
-            {
-                (*result) = identity_scs(t_orig, t_dest);
             }
 
             return 1;
@@ -9613,40 +9636,60 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
     }
 }
 
-static type_t* _zero_type = NULL;
-static type_t* _false_type = NULL;
+static rb_red_blk_tree *_zero_types_hash = NULL;
 
-// Special type for '0'
-type_t* get_zero_type(void)
+static type_t* get_zero_type_variant(type_t* t)
 {
-    if (_zero_type == NULL)
+    ERROR_CONDITION (!is_integral_type(t) && !is_bool_type(t), "Base type must be integral", 0);
+    if (is_zero_type(t))
+        return t;
+
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
+    t = get_unqualified_type(advance_over_typedefs(t));
+
+    if (_zero_types_hash == NULL)
     {
-        _zero_type = get_simple_type();
-        _zero_type->type->kind = STK_BUILTIN_TYPE;
-        _zero_type->type->builtin_type = BT_INT;
-        _zero_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
-        _zero_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
-        _zero_type->info->valid_size = 1;
+        _zero_types_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
-    return _zero_type;
+    type_t* result = rb_tree_query_type(_zero_types_hash, t);
+
+    if (result == NULL)
+    {
+        result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+        *result = *t;
+
+        // The unqualified type must point to itself
+        result->unqualified_type = result;
+
+        result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+        *result->info = *t->info;
+
+        result->info->is_zero_type = 1;
+
+        rb_tree_insert(_zero_types_hash, t, result);
+    }
+
+    return get_cv_qualified_type(result, cv_qualif);;
+}
+
+// Special variant type for '0' constants
+type_t* get_zero_type(type_t* t)
+{
+    return get_zero_type_variant(t);
 }
 
 // Special type for 'false'
 type_t* get_bool_false_type(void)
 {
-    if (_false_type == NULL)
-    {
-        _false_type = get_simple_type();
-        _false_type->type->kind = STK_BUILTIN_TYPE;
-        _false_type->type->builtin_type = BT_BOOL;
+    return get_zero_type_variant(get_bool_type());
+}
 
-        _false_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_bool;
-        _false_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_bool;
-        _false_type->info->valid_size = 1;
-    }
-
-    return _false_type;
+char is_zero_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t->info->is_zero_type);
 }
 
 static type_t* _null_type = NULL;
@@ -9694,6 +9737,7 @@ type_t* get_null_type(void)
         {
             internal_error("Unexpected size of null type '%d'", _null_type->info->size);
         }
+        _null_type->info->is_zero_type = 1;
     }
 
     return _null_type;
@@ -9720,15 +9764,6 @@ char is_error_type(type_t* t)
     return (_error_type != NULL && t == _error_type);
 }
 
-char is_zero_type(type_t* t)
-{
-    return ((_zero_type != NULL
-                && t == _zero_type)
-            || (_null_type != NULL
-                && t == _null_type)
-            || (_false_type != NULL
-                && t == _false_type));
-}
 
 static int _literal_string_set_num_elements = 0;
 static type_t** _literal_string_set = NULL;
@@ -11305,11 +11340,19 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
     type_t* result = orig;
 
-    if (is_named_type(orig))
+    if (is_named_type(orig)
+            && (is_named_class_type(orig) || is_named_enumerated_type(orig)))
     {
         scope_entry_t* symbol = named_type_get_symbol(orig);
         symbol = symbol_map->map(symbol_map, symbol);
-        result = get_user_defined_type(symbol);
+        if (is_indirect_type(orig))
+        {
+            result = get_indirect_type(symbol);
+        }
+        else
+        {
+            result = get_user_defined_type(symbol);
+        }
     }
     else if (is_pointer_type(orig))
     {

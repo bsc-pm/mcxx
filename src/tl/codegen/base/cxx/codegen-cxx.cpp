@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "codegen-cxx.hpp"
+#include "codegen-prune.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-type.hpp"
 #include "cxx-cexpr.h"
@@ -470,8 +471,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         bool is_non_ref = is_non_language_reference_type(node.get_type());
         if (is_non_ref)
         {
-            // Here we assume that casts in C always yield rvalues
-            file << "(*";
+            if (node.get_type().no_ref().is_array())
+            {
+                // Special case for arrays, themselves are an address
+                file << "(";
+            }
+            else
+            {
+                file << "(*";
+            }
 
             // This avoids a warning in some compilers which complain on (T* const)e
             t = t.get_unqualified_type();
@@ -553,6 +561,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    Nodecl::NodeclBase member_form = node.get_member_form();
 
     TL::Symbol sym = rhs.get_symbol();
 
@@ -609,7 +618,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             file << "(";
         }
 
-        walk(rhs);
+        // This will only emit the unqualified name
+        TL::Symbol rhs_symbol = rhs.get_symbol();
+        if (!rhs_symbol.is_valid()
+                || (!member_form.is_null()
+                    && member_form.is<Nodecl::CxxMemberFormQualified>()))
+        {
+            // This will print the qualified name
+            walk(rhs);
+        }
+        else
+        {
+
+            // Simply print the name
+            file << rhs_symbol.get_name();
+        }
+
         if (needs_parentheses)
         {
             file << ")";
@@ -756,36 +780,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
+        // This expression is a logical-or-expression, so an assignment (or comma)
+        // needs parentheses
         file << "(";
     }
     walk(cond);
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
         file << ")";
     }
 
     file << " ? ";
 
-    if (operand_has_lower_priority(node, then))
-    {
-        file << "(";
-    }
+    // This is a top level expression, no parentheses should be required
     walk(then);
-    if (operand_has_lower_priority(node, then))
-    {
-        file << ")";
-    }
 
     file << " : ";
 
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
+        // Only comma operator could get here actually
         file << "(";
     }
     walk(_else);
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
         file << ")";
     }
@@ -1308,6 +1328,24 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
                         actual_arg = actual_arg.as<Nodecl::Dereference>().get_rhs();
                     }
                 }
+                else if (type_it->references_to().is_array()
+                        && actual_arg.get_type().is_valid()
+                        && actual_arg.get_type().no_ref().is_array())
+                {
+                    // Consider this case                 [ Emitted C ]
+                    // void f(int (&v)[10])    ->         void f(int * const v)
+                    // {
+                    // }
+                    //
+                    // void g()                           void g()
+                    // {                                  {
+                    //    int k[10];                         int k[10];
+                    //    f(k);                              f(k); // Emitting f(&k) would yield a wrong
+                    //                                             // type (with the proper value, though)
+                    // }                                  }
+                    //
+                    // Note that "k" has type "int[10]" (not a reference)
+                }
                 else
                 {
                     do_reference = true;
@@ -1769,12 +1807,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -1999,16 +2031,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 {
+    if (_prune_saved_variables)
+    {
+        PruneVLAVisitor prune_vla;
+        prune_vla.walk(node);
+    }
+
     //Only independent code
     Nodecl::Context context = node.get_statements().as<Nodecl::Context>();
     Nodecl::List statement_seq = context.get_in_context().as<Nodecl::List>();
     Nodecl::NodeclBase initializers = node.get_initializers();
-    Nodecl::NodeclBase internal_functions = node.get_internal_functions();
-
-    if (!internal_functions.is_null())
-    {
-        internal_error("C/C++ does not have internal functions", 0);
-    }
 
     if (statement_seq.size() != 1)
     {
@@ -2595,7 +2627,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     Nodecl::NodeclBase type = node.get_init_real_type();
     TL::Type init_real_type = type.get_type();
 
-    file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+    file << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
 
     // new[] cannot have an initializer, so just print the init_real_type
     if (init_real_type.is_array())
@@ -2787,6 +2819,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomClause& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
 {
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
+    Nodecl::NodeclBase nested_pragma = node.get_nested_pragma();
     TL::Symbol symbol = node.get_symbol();
 
     indent();
@@ -2794,7 +2827,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     // FIXME  parallel|for must be printed as parallel for
     file << "/* decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
-    file << "'" << this->get_qualified_name(symbol) << "' */\n";
+    file << "' " << this->get_qualified_name(symbol) << "' */\n";
+    walk(nested_pragma);
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDirective& node)
@@ -3230,7 +3264,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Throw& node)
     if (!expr.is_null())
     {
         file << " ";
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            // A comma operator could slip in
+            file << "(";
+        }
         walk(expr);
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            file << ")";
+        }
     }
 }
 
@@ -4222,20 +4265,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 bool member_declaration_does_define = true;
 
                 // If we are declaring a static member it is not a definition
-                // unless it is const integral type or const enum type
+                // unless it has been declared inside the class
                 if (member.is_variable()
-                        && member.is_static()
-                        && (!member.get_type().is_const()
-                            || (!member.get_type().is_integral_type()
-                                && !member.get_type().is_enum())))
+                        && member.is_static())
                 {
-                    member_declaration_does_define = false;
-                }
-
-                // Override whatever we might have deduced so far
-                if (member.is_defined_inside_class())
-                {
-                    member_declaration_does_define = true;
+                    member_declaration_does_define = member.is_defined_inside_class();
                 }
 
                 if (member_declaration_does_define)
@@ -4725,12 +4759,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
     char emit_initializer = 0;
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
-                || ((symbol.is_static()
-                        && (!state.in_member_declaration
-                            || ((symbol.get_type().is_integral_type()
-                                    || symbol.get_type().is_enum())
-                                && symbol.get_type().is_const())))
-                    || symbol.is_defined_inside_class())))
+                || (state.in_member_declaration == symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;
     }
@@ -4922,9 +4951,13 @@ void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, b
         std::string variable_name =
             define_or_declare_variable_get_name_variable(symbol);
 
+        std::string declarator = this->get_declaration_only_declarator(symbol.get_type(),
+            symbol.get_scope(),
+            variable_name);
+
         set_codegen_status(symbol, codegen_status);
 
-        file <<  ", " << variable_name;
+        file <<  ", " << declarator;
 
         define_or_declare_variable_emit_initializer(symbol, is_definition);
     }
@@ -5044,6 +5077,12 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     if (!state.in_condition)
         indent();
+
+    if (_emit_saved_variables_as_unused
+            && symbol.is_saved_expression())
+    {
+        gcc_attributes += "__attribute__((unused)) ";
+    }
 
     file << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
 
@@ -5299,7 +5338,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             // the symbol will be already called 'struct/union X' in C
             indent();
-            file << symbol.get_name();
+            file << symbol.get_name() << ";\n";
         }
 
         CXX_LANGUAGE()
@@ -5412,10 +5451,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 {
                     file << get_template_arguments_str(symbol.get_internal_symbol(), symbol.get_scope().get_decl_context());
                 }
+                file << ";\n";
             }
         }
-
-        file << ";\n";
     }
     else if (symbol.is_enumerator())
     {
@@ -5529,6 +5567,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_defined_inside_class())
         {
             decl_spec_seq += "explicit ";
+        }
+
+        if (symbol.is_nested_function())
+        {
+            decl_spec_seq += "auto ";
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
@@ -5894,6 +5937,15 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
                 needs_definition);
 
         (this->*symbol_to_define)(t.get_symbol());
+    }
+    else if (t.is_indirect())
+    {
+        walk_type_for_symbols(
+                t.get_symbol().get_type(),
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree,
+                needs_definition);
     }
     else if (t.is_pointer())
     {
@@ -6367,6 +6419,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_SIZEOF:
         case NODECL_NEW:
         case NODECL_DELETE:
+        case NODECL_DELETE_ARRAY:
         case NODECL_PREINCREMENT:
         case NODECL_PREDECREMENT:
         case NODECL_REAL_PART:
@@ -7019,7 +7072,6 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
 }
 
-
 const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
 {
     // We obtain the current codegen from the data
@@ -7146,6 +7198,21 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
             /* we need to store the current codegen */ (void*) this);
 }
 
+std::string CxxBase::get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name)
+{
+    t = fix_references(t);
+
+    return get_declarator_name_string_ex(
+            scope.get_decl_context(),
+            t.get_internal_type(),
+            name.c_str(),
+            /* num_parameter_names */ 0,
+            /* parameter_names */ NULL,
+            /* parameter_attributes */ NULL,
+            /* is_parameter */ 0,
+            print_name_str,
+            /* we need to store the current codegen */ (void*) this);
+}
 
 std::string CxxBase::get_qualified_name(TL::Symbol sym, bool without_template_id) const
 {
@@ -7379,6 +7446,28 @@ CxxBase::CxxBase()
 {
     set_phase_name("C/C++ codegen");
     set_phase_description("This phase emits in C/C++ the intermediate representation of the compiler");
+
+    _emit_saved_variables_as_unused = false;
+    register_parameter("emit_saved_variables_as_unused",
+            "Emits saved-expression variables as __attribute__((unused))",
+            _emit_saved_variables_as_unused_str,
+            "0").connect(functor(&CxxBase::set_emit_saved_variables_as_unused, *this));
+
+    _prune_saved_variables = true;
+    register_parameter("prune_saved_variables",
+            "Disables removal of unused saved-expression variables. If you need to enable this, please report a ticket",
+            _prune_saved_variables_str,
+            "1").connect(functor(&CxxBase::set_prune_saved_variables, *this));
+}
+
+void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)
+{
+    TL::parse_boolean_option("emit_saved_variables_as_unused", str, _emit_saved_variables_as_unused, "Assuming false.");
+}
+
+void CxxBase::set_prune_saved_variables(const std::string& str)
+{
+    TL::parse_boolean_option("prune_saved_variables", str, _prune_saved_variables, "Assuming true.");
 }
 
 } // Codegen

@@ -49,7 +49,6 @@ namespace TL
         DataSharingEnvironment::DataSharingEnvironment(DataSharingEnvironment *enclosing)
             : _num_refs(new int(1)), 
             _map(new map_symbol_data_t()),
-            _map_data_ref(new map_symbol_data_ref_t()),
             _enclosing(enclosing),
             _is_parallel(false)
         {
@@ -70,7 +69,6 @@ namespace TL
                 }
 
                 delete _map;
-                delete _map_data_ref;
                 delete _num_refs;
             }
         }
@@ -78,7 +76,6 @@ namespace TL
         DataSharingEnvironment::DataSharingEnvironment(const DataSharingEnvironment& ds)
             : _num_refs(ds._num_refs),
             _map(ds._map),
-            _map_data_ref(ds._map_data_ref),
             _enclosing(ds._enclosing),
             _reduction_symbols(ds._reduction_symbols),
             _dependency_items(ds._dependency_items),
@@ -166,32 +163,6 @@ namespace TL
         void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref)
         {
             set_data_sharing(sym, data_attr);
-            // (_map_data_ref->operator[](sym)) = data_ref;
-            _map_data_ref->insert(std::make_pair(sym, data_ref));
-        }
-
-        bool DataSharingEnvironment::is_extended_reference(Symbol sym)
-        {
-            return (_map_data_ref->find(sym) != _map_data_ref->end());
-        }
-
-        DataReference DataSharingEnvironment::get_extended_reference(Symbol sym, bool check_enclosing)
-        {
-            DataSharingEnvironment *current = this;
-
-            bool found = current->is_extended_reference(sym);
-
-            if (!found
-                    && check_enclosing
-                    && ((current = get_enclosing()) != NULL))
-            {
-                found = current->is_extended_reference(sym);
-            }
-
-            if (!found)
-                internal_error("Extended data reference not found", 0);
-
-            return (current->_map_data_ref->find(sym))->second;
         }
 
         void DataSharingEnvironment::set_reduction(const ReductionSymbol &reduction_symbol)
@@ -423,6 +394,25 @@ namespace TL
             if(rt_copy.has_deadline_time())
             {
                 _time_deadline = new Nodecl::NodeclBase(rt_copy.get_time_deadline());
+            }
+        }
+
+        RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy,
+                Nodecl::Utils::SimpleSymbolMap& translation_map) :
+            _time_deadline(NULL),
+            _time_release(NULL),
+            _map_error_behavior(rt_copy._map_error_behavior)
+        {
+            if (rt_copy.has_release_time())
+            {
+                _time_release = new Nodecl::NodeclBase(
+                        Nodecl::Utils::deep_copy(*(rt_copy._time_release), rt_copy._time_release->retrieve_context(), translation_map));
+            }
+
+            if (rt_copy.has_deadline_time())
+            {
+                _time_deadline = new Nodecl::NodeclBase(
+                        Nodecl::Utils::deep_copy(*(rt_copy._time_deadline), rt_copy._time_deadline->retrieve_context(), translation_map));
             }
         }
 

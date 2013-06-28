@@ -41,6 +41,8 @@ namespace TL
             private:
 
                 Nodecl::List _extra_c_code;
+                bool _opencl_tasks_processed;
+                Nodecl::NodeclBase _root;
 
                 void add_forward_code_to_extra_c_code(
                         const std::string& outline_name,
@@ -50,12 +52,12 @@ namespace TL
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
-                        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
+                        const TargetInformation& target_info,
                         const std::string filename,
                         const std::string kernel_name,
                         const TL::ObjectList<OutlineDataItem*>& data_items,
                         Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
-                        Nodecl::Utils::SymbolMap* outline_data_to_unpacked_fun_map,
+                        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
                         TL::Source& code_ndrange);
             public:
 
@@ -70,7 +72,7 @@ namespace TL
                 virtual void create_outline(CreateOutlineInfo &info,
                         Nodecl::NodeclBase &outline_placeholder,
                         Nodecl::NodeclBase &output_statements,
-                        Nodecl::Utils::SymbolMap* &symbol_map);
+                        Nodecl::Utils::SimpleSymbolMap* &symbol_map);
 
                 virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,

@@ -1717,6 +1717,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         nodecl_make_class_member_access(
                 nodecl_lhs,
                 nodecl_rhs_adjusted,
+                /* member form */ nodecl_null(),
                 synthesized_type,
                 ast_get_locus(expr));
     nodecl_set_symbol(*nodecl_output, component_symbol);
@@ -2540,7 +2541,7 @@ static void check_called_symbol_list(
         decl_context_t decl_context, 
         AST location,
         AST procedure_designator,
-        int num_actual_arguments,
+        int *num_actual_arguments,
         nodecl_t* nodecl_actual_arguments,
         char is_call_stmt,
         // out
@@ -2551,6 +2552,8 @@ static void check_called_symbol_list(
 {
     scope_entry_t* symbol = NULL;
     char intrinsic_named_like_generic_spec = 0;
+
+    int explicit_num_actual_arguments = *num_actual_arguments;
 
     // First solve the generic specifier
     if (entry_list_size(symbol_list) > 1
@@ -2570,7 +2573,7 @@ static void check_called_symbol_list(
                 intrinsic_named_like_generic_spec = 1;
                 scope_entry_t* specific_intrinsic = fortran_solve_generic_intrinsic_call(current_generic_spec,
                         nodecl_actual_arguments,
-                        num_actual_arguments,
+                        explicit_num_actual_arguments,
                         is_call_stmt);
 
                 if (specific_intrinsic != NULL)
@@ -2584,7 +2587,7 @@ static void check_called_symbol_list(
             else if (current_generic_spec->entity_specs.is_generic_spec)
             {
                 scope_entry_list_t* current_specific_symbol_set = get_specific_interface(current_generic_spec,
-                        num_actual_arguments,
+                        explicit_num_actual_arguments,
                         nodecl_actual_arguments);
 
                 if (current_specific_symbol_set != NULL)
@@ -2692,7 +2695,7 @@ static void check_called_symbol_list(
 
         scope_entry_t* entry = fortran_solve_generic_intrinsic_call(symbol,
                 nodecl_actual_arguments,
-                num_actual_arguments,
+                explicit_num_actual_arguments,
                 is_call_stmt);
 
         if (entry == NULL)
@@ -2703,12 +2706,12 @@ static void check_called_symbol_list(
                         ast_location(location),
                         strtoupper(symbol->symbol_name));
 
-                if (num_actual_arguments > 0)
+                if (explicit_num_actual_arguments > 0)
                 {
                     info_printf("%s: info: actual arguments and their types follow\n",
                             ast_location(location));
                     int i;
-                    for (i = 0; i < num_actual_arguments; i++)
+                    for (i = 0; i < explicit_num_actual_arguments; i++)
                     {
                         nodecl_t expr = nodecl_get_child(nodecl_actual_arguments[i], 0);
                         type_t* t = nodecl_get_type(expr);
@@ -2737,7 +2740,7 @@ static void check_called_symbol_list(
             // Try to come up with a common_rank
             int common_rank = -1;
             int i;
-            for (i = 0; i < num_actual_arguments; i++)
+            for (i = 0; i < explicit_num_actual_arguments; i++)
             {
                 nodecl_t expr = nodecl_get_child(nodecl_actual_arguments[i], 0);
                 type_t* t = nodecl_get_type(expr);
@@ -2807,7 +2810,7 @@ static void check_called_symbol_list(
         memset(argument_info_items, 0, sizeof(argument_info_items));
 
         int i;
-        for (i = 0; i < num_actual_arguments; i++)
+        for (i = 0; i < explicit_num_actual_arguments; i++)
         {
             int position = -1;
             if (nodecl_get_text(nodecl_actual_arguments[i]) == NULL)
@@ -2857,7 +2860,7 @@ static void check_called_symbol_list(
             argument_info_items[position].argument = nodecl_get_child(nodecl_actual_arguments[i], 0);
         }
 
-        int num_completed_arguments = num_actual_arguments;
+        int num_completed_arguments = explicit_num_actual_arguments;
 
         // Now complete with the optional ones
         for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
@@ -3014,7 +3017,7 @@ static void check_called_symbol_list(
     {
         fortran_simplify_specific_intrinsic_call(symbol,
                 nodecl_actual_arguments,
-                num_actual_arguments,
+                explicit_num_actual_arguments,
                 nodecl_simplify,
                 ast_get_locus(procedure_designator));
     }
@@ -3045,6 +3048,72 @@ static void check_called_symbol_list(
             return;
         }
     }
+
+    // Now make the code explicitly positional and adjust the pointer arguments
+    nodecl_t nodecl_actual_positional_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    memset(nodecl_actual_positional_arguments, 0, sizeof(nodecl_actual_positional_arguments));
+
+    int num_parameter_types = function_type_get_num_parameters(no_ref(symbol->type_information));
+
+    int last_argument = -1;
+    int i;
+    for (i = 0; i < explicit_num_actual_arguments; i++)
+    {
+        ERROR_CONDITION(nodecl_get_kind(nodecl_actual_arguments[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT, "Invalid node", 0);
+        const char* keyword_name = nodecl_get_text(nodecl_actual_arguments[i]);
+
+        int position = -1;
+        if (keyword_name == NULL)
+        {
+            position = i;
+        }
+        else
+        {
+            int j;
+            for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
+            {
+                scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
+
+                if (!symbol_is_parameter_of_function(related_sym, symbol))
+                    continue;
+
+                if (strcasecmp(related_sym->symbol_name, keyword_name) == 0)
+                {
+                    position = j;
+                }
+            }
+            ERROR_CONDITION(position < 0, "Invalid dummy argument name", 0);
+            ERROR_CONDITION(position >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Invalid position", 0);
+        }
+
+        nodecl_t nodecl_argument = nodecl_actual_arguments[i];
+
+        if (position < num_parameter_types)
+        {
+            type_t* parameter_type = no_ref(function_type_get_parameter_type_num(no_ref(symbol->type_information),
+                        position));
+            nodecl_argument = fortran_nodecl_adjust_function_argument(
+                    parameter_type, nodecl_argument);
+        }
+
+        nodecl_actual_positional_arguments[position] = nodecl_argument;
+        last_argument = last_argument < position ? position : last_argument;
+    }
+
+    // Copy back to nodecl_actual_arguments
+    for (i = 0; i <= last_argument; i++)
+    {
+        if (nodecl_is_null(nodecl_actual_positional_arguments[i]))
+        {
+            nodecl_actual_arguments[i] = nodecl_make_fortran_not_present(ast_get_locus(location));
+        }
+        else
+        {
+            nodecl_actual_arguments[i] = nodecl_actual_positional_arguments[i];
+        }
+    }
+
+    *num_actual_arguments = (last_argument + 1);
 
     *result_type = return_type;
     *called_symbol = symbol;
@@ -3169,7 +3238,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             decl_context, 
             expr, 
             procedure_designator, 
-            num_actual_arguments,
+            &num_actual_arguments,
             nodecl_arguments,
             is_call_stmt,
             // out
@@ -3187,101 +3256,16 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-    // Recheck arguments so we can associate them their dummy argument name
-    // (if the function is not implicit)
-    nodecl_t nodecl_argument_list = nodecl_null();
-    if (actual_arg_spec_list != NULL)
-    {
-        int parameter_index = 0;
-        AST it;
-        for_each_element(actual_arg_spec_list, it)
-        {
-            AST actual_arg_spec = ASTSon1(it);
-
-            AST keyword = ASTSon0(actual_arg_spec);
-            AST actual_arg = ASTSon1(actual_arg_spec);
-
-            nodecl_t nodecl_argument_spec = nodecl_null();
-            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
-            {
-                char no_argument_info = 0;
-                scope_entry_t* parameter = NULL;
-                if (keyword == NULL)
-                {
-                    ERROR_CONDITION(parameter_index < 0, "Invalid index", 0);
-                    if (called_symbol->entity_specs.num_related_symbols <= parameter_index)
-                    {
-                        no_argument_info = 1;
-                    }
-                    else
-                    {
-                        parameter = called_symbol->entity_specs.related_symbols[parameter_index];
-                    }
-                    parameter_index++;
-                }
-                else
-                {
-                    const char* param_name = ASTText(keyword);
-                    int j;
-                    for (j = 0; j < called_symbol->entity_specs.num_related_symbols; j++)
-                    {
-                        if (strcasecmp(called_symbol->entity_specs.related_symbols[j]->symbol_name, param_name) == 0)
-                        {
-                            parameter = called_symbol->entity_specs.related_symbols[j];
-                            break;
-                        }
-                    }
-                    parameter_index = -1;
-                }
-
-                nodecl_t nodecl_argument = nodecl_null();
-                if (ASTType(actual_arg) == AST_SYMBOL) 
-                {
-                    check_symbol_of_argument(actual_arg, decl_context, &nodecl_argument);
-                }
-                else
-                {
-                    fortran_check_expression_impl_(actual_arg, decl_context, &nodecl_argument);
-                }
-                ERROR_CONDITION(nodecl_is_err_expr(nodecl_argument), "This should not have happened", 0);
-
-                if (no_argument_info)
-                {
-                    nodecl_argument_spec = nodecl_argument;
-                }
-                else
-                {
-                    ERROR_CONDITION(parameter == NULL, "We did not find the parameter", 0);
-                    nodecl_argument = fortran_nodecl_adjust_function_argument(
-                            parameter->type_information,
-                            nodecl_argument);
-
-                    nodecl_argument_spec = nodecl_make_fortran_actual_argument(
-                            nodecl_argument, nodecl_get_locus(nodecl_argument));
-                    nodecl_set_symbol(nodecl_argument_spec, parameter);
-                    nodecl_set_text(nodecl_argument_spec, parameter->symbol_name);
-                }
-            }
-            else
-            {
-                scope_entry_t* label = fortran_query_label(ASTSon0(actual_arg),
-                        decl_context, /* is_definition */ 0);
-
-                nodecl_argument_spec = nodecl_make_fortran_actual_argument(
-                        nodecl_make_fortran_alternate_return_argument(
-                            label, get_void_type(),
-                            ast_get_locus(actual_arg)),
-                        ast_get_locus(actual_arg));
-
-                parameter_index++;
-            }
-
-            nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_argument_spec);
-        }
-    }
 
     if (nodecl_is_null(nodecl_simplify))
     {
+        nodecl_t nodecl_argument_list = nodecl_null();
+        int i;
+        for (i = 0; i < num_actual_arguments; i++)
+        {
+            nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_arguments[i]);
+        }
+
         nodecl_t nodecl_generic_spec = nodecl_null();
 
         if (generic_specifier_symbol != NULL)
@@ -3309,7 +3293,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 nodecl_argument_list,
                 nodecl_generic_spec,
                 /* function_form */ nodecl_null(),
-                // Fortran has not template arguments
                 result_type,
                 ast_get_locus(expr));
 
@@ -3629,7 +3612,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
             decl_context,
             expr,
             operator,
-            num_actual_arguments,
+            &num_actual_arguments,
             nodecl_arguments,
             /* is_call_stmt */ 0,
             // out
@@ -3740,7 +3723,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             decl_context,
             /* location */ expr,
             operator,
-            num_actual_arguments,
+            &num_actual_arguments,
             nodecl_arguments,
             /* is_call_stmt */ 0,
             // out
@@ -4517,7 +4500,7 @@ static char is_defined_assignment(AST expr, AST lvalue,
             decl_context,
             /* location */ expr,
             operator_designation,
-            num_actual_arguments,
+            &num_actual_arguments,
             nodecl_arguments,
             /* is_call_stmt */ 1, // Assignments must be subroutines!
             // out
@@ -5706,7 +5689,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     decl_context, 
                     /* location */ expr, 
                     operator_designation,
-                    num_actual_arguments,
+                    &num_actual_arguments,
                     nodecl_arguments,
                     /* is_call_stmt */ 0,
                     // out
@@ -6187,8 +6170,15 @@ static nodecl_t fortran_nodecl_adjust_function_argument(
     if (is_pointer_type(no_ref(parameter_type))
             && !is_call_to_null(argument, NULL))
     {
-        ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_DEREFERENCE, "Invalid pointer access", 0);
-        argument = nodecl_get_child(argument, 0);
+        // When calling a function with a POINTER dummy argument we have an
+        // extra dereference, let's get the pointer reference itself
+
+        ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_FORTRAN_ACTUAL_ARGUMENT, "Invalid pointer access", 0);
+        nodecl_t expr = nodecl_get_child(argument, 0);
+        ERROR_CONDITION(nodecl_get_kind(expr) != NODECL_DEREFERENCE, "Invalid pointer access", 0);
+        expr = nodecl_get_child(expr, 0);
+
+        nodecl_set_child(argument, 0, expr);
     }
 
     return argument;

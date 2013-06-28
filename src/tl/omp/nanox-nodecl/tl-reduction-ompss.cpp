@@ -96,7 +96,7 @@ namespace TL { namespace Nanox {
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            return create_reduction_function_c(red->get_reduction_info(), construct);
+            return create_basic_reduction_function_c(red->get_reduction_info(), construct);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
@@ -137,7 +137,7 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::perform_partial_reduction_slicer(OutlineInfo& outline_info,
             Nodecl::NodeclBase ref_tree,
-            Nodecl::Utils::SymbolMap*& symbol_map)
+            Nodecl::Utils::SimpleSymbolMap*& symbol_map)
     {
         ERROR_CONDITION(ref_tree.is_null(), "Invalid tree", 0);
 

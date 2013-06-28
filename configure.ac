@@ -108,7 +108,7 @@ AC_COMPILE_IFELSE(
 
 dnl --------------------- end check of old gcc ---
 
-TL_EXTENSIONS=""
+TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
@@ -476,7 +476,7 @@ AC_SUBST([CUDA_LIBS])
 AC_SUBST([CUDA_RPATH])
 
 
-if test x$gpu_valid = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
@@ -533,7 +533,7 @@ AS_HELP_STRING([--with-fpga-cc=comp], [Prefix for the fpga system cross compiler
 
 AC_SUBST([FPGA_CC])
 
-if test x$fpga_enabled = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$fpga_enabled = xyes;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
     COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
@@ -562,7 +562,7 @@ CFLAGS="$CFLAGSBACKUP"
 CPPFLAGS="$CPPFLAGSBACKUP"
 CXXFLAGS="$CXXFLAGSBACKUP"
 
-if test x$opencl_valid = xyes; then
+if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
@@ -571,8 +571,11 @@ fi
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
-INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
-COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+if test x$is_enabled_tl_omp_nanox = xyes;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+   COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
@@ -814,7 +817,6 @@ if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
-   TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 
    if test x$is_enabled_tl_omp_profile = xyes;
    then
@@ -945,7 +947,7 @@ AC_ARG_ENABLE([tl-examples],
 
 if test x$is_enabled_tl_examples = xyes;
 then
-   TL_EXTENSIONS="${TL_EXTENSIONS} examples"
+   TL_EXTRAS="${TL_EXTRAS} examples"
 fi
 
 dnl ------------------------------------
@@ -974,7 +976,7 @@ AC_ARG_ENABLE([tl-tests],
 
 if test x$is_enabled_tl_tests = xyes;
 then
-   TL_EXTENSIONS="${TL_EXTENSIONS} testing"
+   TL_EXTRAS="${TL_EXTRAS} testing"
 fi
 
 dnl ------------------------------------
@@ -1121,7 +1123,7 @@ then
     AC_MSG_CHECKING([bison version])
     bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
-       x2.@<:@345@:>@*)
+       x2.@<:@34567@:>@*)
           AC_MSG_RESULT([${bison_ver}])
           if test x${bison_ver} = x2.4;
           then
@@ -1393,7 +1395,7 @@ AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
 AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
-AC_SUBST([TL_EXTENSIONS])
+AC_SUBST([TL_EXTRAS])
 AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
@@ -1450,6 +1452,10 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
+           src/tl/examples/Makefile
+           src/tl/examples/01_basic_phase/Makefile
+           src/tl/examples/02_parameters/Makefile
+           src/tl/examples/03_visitor/Makefile
            src/tl/old_examples/Makefile
            src/tl/old_examples/basic_phase/Makefile
            src/tl/old_examples/parameters/Makefile

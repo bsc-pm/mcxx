@@ -28,7 +28,7 @@
 #include "tl-source.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-nodecl-utils.hpp"
-
+#include "tl-nanos.hpp"
 #include "tl-predicateutils.hpp"
 
 namespace TL { namespace Nanox {
@@ -98,6 +98,20 @@ namespace TL { namespace Nanox {
                     outline_info,
                     construct);
 
+
+        Source dynamic_wd_info;
+        dynamic_wd_info
+            <<     "nanos_wd_dyn_props_t nanos_dyn_props;"
+            <<     "nanos_dyn_props.tie_to = (nanos_thread_t)0;"
+            ;
+        if (!_lowering->final_clause_transformation_disabled()
+                && Nanos::Version::interface_is_at_least("master", 5024))
+        {
+            dynamic_wd_info
+                << "nanos_dyn_props.flags.is_final = 0;"
+                ;
+        }
+
         Source spawn_code, barrier_code;
         spawn_code
         << "{"
@@ -105,9 +119,7 @@ namespace TL { namespace Nanox {
         <<     struct_arg_type_name << "* ol_args, imm_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
-        <<     "nanos_wd_dyn_props_t nanos_dyn_props;"
-        <<     "nanos_dyn_props.tie_to = (nanos_thread_t)0;"
-        <<     "nanos_dyn_props.priority = 0;"
+        <<     dynamic_wd_info
         <<     const_wd_info
         <<     schedule_setup
         <<     "err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "

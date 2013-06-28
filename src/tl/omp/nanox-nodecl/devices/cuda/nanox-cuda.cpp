@@ -39,6 +39,8 @@
 #include <errno.h>
 #include "cxx-driver-utils.h"
 
+#include "tl-symbol-utils.hpp"
+
 using namespace TL;
 using namespace TL::Nanox;
 
@@ -52,46 +54,62 @@ bool DeviceCUDA::is_gpu_device() const
     return true;
 }
 
-void DeviceCUDA::generate_ndrange_additional_code(
+void DeviceCUDA::update_ndrange_and_shmem_arguments(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
-        const TL::ObjectList<Nodecl::NodeclBase>& ndrange_args,
-        TL::Source& code_ndrange)
+        const TargetInformation& target_info,
+        // out
+        TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
+        TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args)
 {
-    int num_args_ndrange = ndrange_args.size();
-    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
-
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
     ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
 
-    int num_params = parameters_called.size();
-    for (int i = 0; i < num_params; ++i)
+    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
+    for (unsigned int i = 0; i < parameters_called.size(); ++i)
     {
         translate_parameters_map.add_map(
                 parameters_called[i],
                 parameters_unpacked[i]);
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> new_ndrange;
-    for (int i = 0; i < num_args_ndrange; ++i)
+    TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
+    for (unsigned int i = 0; i < ndrange_args.size(); ++i)
     {
 
-        new_ndrange.append(Nodecl::Utils::deep_copy(
+        new_ndrange_args.append(Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
                     translate_parameters_map));
     }
 
-    ERROR_CONDITION(!new_ndrange[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
 
-    int num_dim = const_value_cast_to_4(new_ndrange[0].get_constant());
+    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+    for (unsigned int i = 0; i < shmem_args.size(); ++i)
+    {
+
+        new_shmem_args.append(Nodecl::Utils::deep_copy(
+                    shmem_args[i],
+                    unpacked_function.get_related_scope(),
+                    translate_parameters_map));
+    }
+}
+
+void DeviceCUDA::generate_ndrange_additional_code(
+        const TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
+        TL::Source& code_ndrange)
+{
+    ERROR_CONDITION(!new_ndrange_args[0].is_constant(), "The first argument of the 'ndrange' clause must be a literal", 0);
+
+    int num_args_ndrange = new_ndrange_args.size();
+    int num_dim = const_value_cast_to_4(new_ndrange_args[0].get_constant());
 
     ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
 
-    bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
-            && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+    bool check_dim = !(new_ndrange_args[num_args_ndrange - 1].is_constant()
+            && const_value_is_string(new_ndrange_args[num_args_ndrange - 1].get_constant())
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
 
     ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
 
@@ -106,19 +124,19 @@ void DeviceCUDA::generate_ndrange_additional_code(
             {
                 code_ndrange << "dimBlock." << field[i-1] << " = "
                     << "(("
-                    << as_expression(new_ndrange[i])
-                    << " < " << as_expression(new_ndrange[num_dim + i])
-                    << ") ? (" << as_expression(new_ndrange[i])
-                    << ") : (" << as_expression(new_ndrange[num_dim + i])
+                    << as_expression(new_ndrange_args[i])
+                    << " < " << as_expression(new_ndrange_args[num_dim + i])
+                    << ") ? (" << as_expression(new_ndrange_args[i])
+                    << ") : (" << as_expression(new_ndrange_args[num_dim + i])
                     << "));";
 
                 code_ndrange << "dimGrid."  << field[i-1] << " = "
                     << "(("
-                    << as_expression(new_ndrange[i])
-                    << " < " << as_expression(new_ndrange[num_dim + i])
+                    << as_expression(new_ndrange_args[i])
+                    << " < " << as_expression(new_ndrange_args[num_dim + i])
                     << ") ? 1 : (("
-                    << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i])
-                    << ") + ((" << as_expression(new_ndrange[i]) << " %  " << as_expression(new_ndrange[num_dim + i])
+                    << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i])
+                    << ") + ((" << as_expression(new_ndrange_args[i]) << " %  " << as_expression(new_ndrange_args[num_dim + i])
                     << " == 0) ? 0 : 1)));";
             }
             else
@@ -131,8 +149,8 @@ void DeviceCUDA::generate_ndrange_additional_code(
         {
             if (i <= num_dim)
             {
-                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange[num_dim + i]) << ";";
-                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange[i]) << "/" << as_expression(new_ndrange[num_dim + i]) << ";";
+                code_ndrange << "dimBlock." << field[i-1] << " = " << as_expression(new_ndrange_args[num_dim + i]) << ";";
+                code_ndrange << "dimGrid."  << field[i-1] << " = " << as_expression(new_ndrange_args[i]) << "/" << as_expression(new_ndrange_args[num_dim + i]) << ";";
             }
             else
             {
@@ -141,14 +159,16 @@ void DeviceCUDA::generate_ndrange_additional_code(
             }
         }
     }
-
 }
 
 void DeviceCUDA::generate_ndrange_kernel_call(
         const Scope& scope,
+        const TL::ObjectList<Nodecl::NodeclBase>& shmem_args,
         const Nodecl::NodeclBase& task_statements,
         Nodecl::NodeclBase& output_statements)
 {
+    ERROR_CONDITION(shmem_args.size() > 0 && shmem_args.size() != 1, "Unexpected number of arguments in the 'shmem' clause", 0);
+
     Nodecl::NodeclBase function_call_nodecl =
         task_statements.as<Nodecl::List>().begin()->as<Nodecl::ExpressionStatement>().get_nest();
 
@@ -166,11 +186,18 @@ void DeviceCUDA::generate_ndrange_kernel_call(
             Nodecl::Symbol::make(dim_block,
                 task_statements.get_locus()));
 
-    cuda_kernel_config.append(
-            Nodecl::IntegerLiteral::make(
-                TL::Type::get_int_type(),
-                const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
-                task_statements.get_locus()));
+    if (shmem_args.size() == 1)
+    {
+        cuda_kernel_config.append(shmem_args[0]);
+    }
+    else
+    {
+        cuda_kernel_config.append(
+                Nodecl::IntegerLiteral::make(
+                    TL::Type::get_int_type(),
+                    const_value_get_zero(TL::Type::get_int_type().get_size(), /* sign */ 1),
+                    task_statements.get_locus()));
+    }
 
     cuda_kernel_config.append(
             Nodecl::FunctionCall::make(
@@ -254,11 +281,12 @@ void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map)
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for CUDA devices is not supported yet\n");
 
+    _cuda_tasks_processed=true;
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -269,6 +297,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     bool is_function_task = called_task.is_valid();
 
     output_statements = task_statements;
+
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_cuda_functions);
 
     ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
@@ -369,14 +399,24 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // Add the user function to the intermediate file if It is a function task
-    // (This action must be done always after the update of the kernel configurations
-    // because the code of the user function may be changed if It contains one or more cuda function calls)
+    // and It has not been added to the file previously (This action must be
+    // done always after the update of the kernel configurations because the
+    // code of the user function may be changed if It contains one or more cuda
+    // function calls)
     if (is_function_task
             && !called_task.get_function_code().is_null())
     {
-        _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope()));
+        if (_copied_cuda_functions.map(called_task) == called_task)
+        {
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
+
+            _copied_cuda_functions.add_map(called_task, new_function);
+
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(
+                        called_task.get_function_code(),
+                        called_task.get_scope(),
+                        *symbol_map));
+        }
     }
 
     // Create the new unpacked function
@@ -390,13 +430,14 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             dummy_final_statements);
 
     Source ndrange_code;
+    TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args, new_shmem_args;
     if (is_function_task
             && info._target_info.get_ndrange().size() > 0)
     {
-        generate_ndrange_additional_code(called_task,
-                unpacked_function,
-                info._target_info.get_ndrange(),
-                ndrange_code);
+        update_ndrange_and_shmem_arguments(called_task, unpacked_function,
+                info._target_info, new_ndrange_args, new_shmem_args);
+
+        generate_ndrange_additional_code(new_ndrange_args, ndrange_code);
     }
 
     // The unpacked function must not be static and must have external linkage because
@@ -408,7 +449,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
-    build_empty_body_for_function(unpacked_function,
+    SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
 
@@ -430,6 +471,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         generate_ndrange_kernel_call(
                 outline_placeholder.retrieve_context(),
+                new_shmem_args,
                 task_statements,
                 output_statements);
     }
@@ -458,7 +500,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 get_user_defined_type(
                     info._arguments_struct.get_internal_symbol())).get_lvalue_reference_to());
 
-    TL::Symbol outline_function = new_function_symbol(
+    TL::Symbol outline_function = SymbolUtils::new_function_symbol(
             current_function,
             device_outline_name,
             TL::Type::get_void_type(),
@@ -466,7 +508,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             structure_type);
 
     Nodecl::NodeclBase outline_function_code, outline_function_body;
-    build_empty_body_for_function(outline_function,
+    SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_body);
 
@@ -500,7 +542,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")) //, _cudaFilename(""), _cudaHeaderFilename("")
+    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions()
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -565,12 +607,38 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
             it != stuff_to_be_copied.end();
             ++it)
     {
-        _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
+        if (it->is<Nodecl::FunctionCode>()
+                || it->is<Nodecl::TemplateFunctionCode>())
+        {
+            TL::Symbol function = it->get_symbol();
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_moved");
+
+            _copied_cuda_functions.add_map(function, new_function);
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_cuda_functions));
+        }
+        else
+        {
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
+        }
     }
 }
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
+    if (_cuda_tasks_processed){
+        Source nanox_device_enable_section;
+        nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";
+        if (IS_FORTRAN_LANGUAGE)
+           Source::source_language = SourceLanguage::C;
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+        Source::source_language = SourceLanguage::Current;
+        if (IS_FORTRAN_LANGUAGE){
+           //_extra_c_code.prepend(functions_section_tree); 
+        } else {
+           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+        }
+        _cuda_tasks_processed = false;
+    }
     if (!_cuda_file_code.is_null())
     {
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
@@ -612,11 +680,16 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         // Do not forget the clear the code for next files
         _cuda_file_code.get_internal_nodecl() = nodecl_null();
+
+        // Clear the copied cuda functions map
+        _copied_cuda_functions = Nodecl::Utils::SimpleSymbolMap();
     }
 }
 
 void DeviceCUDA::pre_run(DTO& dto)
 {
+    _root = dto["nodecl"];
+    _cuda_tasks_processed = false;
 }
 
 void DeviceCUDA::run(DTO& dto)

@@ -40,22 +40,24 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     public:
         LoweringVisitor(Lowering*, RefPtr<OpenMP::FunctionTaskSet> function_task_set);
         ~LoweringVisitor();
-        virtual void visit(const Nodecl::OpenMP::Task& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
-        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
-        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
-        virtual void visit(const Nodecl::OpenMP::Single& construct);
-        virtual void visit(const Nodecl::OpenMP::Master& construct);
-        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
-        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
-        virtual void visit(const Nodecl::OpenMP::For& construct);
-        virtual void visit(const Nodecl::OpenMP::Critical& construct);
-        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
-        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
-        virtual void visit(const Nodecl::OpenMP::Sections& construct);
-        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
+        virtual void visit(const Nodecl::OpenMP::Atomic& construct);
+        virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
+        virtual void visit(const Nodecl::OpenMP::Critical& construct);
+        virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
+        virtual void visit(const Nodecl::OpenMP::For& construct);
+        virtual void visit(const Nodecl::OpenMP::Master& construct);
+        virtual void visit(const Nodecl::OpenMP::Parallel& construct);
+        virtual void visit(const Nodecl::OpenMP::Sections& construct);
+        virtual void visit(const Nodecl::OpenMP::Single& construct);
+        virtual void visit(const Nodecl::OpenMP::Workshare& construct);
+        virtual void visit(const Nodecl::OpenMP::TargetDeclaration& construct);
+        virtual void visit(const Nodecl::OpenMP::Task& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
+        virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
+        virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
 
     private:
 
@@ -75,10 +77,13 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol called_task,
                 Nodecl::NodeclBase statements,
                 Nodecl::NodeclBase priority_expr,
+                Nodecl::NodeclBase if_condition,
+                Nodecl::NodeclBase final_condition,
                 Nodecl::NodeclBase task_label,
                 bool is_untied,
                 OutlineInfo& outline_info,
-                OutlineInfo* parameter_outline_info);
+                OutlineInfo* parameter_outline_info,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation = NULL);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -159,6 +164,15 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src
                 );
 
+        void handle_dependency_item(
+                Nodecl::NodeclBase ctr,
+                TL::DataReference dep_expr,
+                OutlineDataItem::DependencyDirectionality dir,
+                int current_dep_num,
+                Source& dependency_regions,
+                Source& dependency_init,
+                Source& result_src);
+
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
@@ -173,6 +187,16 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 // out
                 Source& result_src
                 );
+
+        void check_pendant_writes_on_subexpressions(
+                OutlineDataItem::TaskwaitOnNode* c,
+                // out
+                TL::Source& code);
+
+        void generate_mandatory_taskwaits(
+                OutlineInfo& outline_info,
+                // out
+                TL::Source& taskwait_on_after_wd_creation_opt);
 
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
@@ -213,6 +237,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo& outline_info,
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase num_replicas,
+                Nodecl::NodeclBase if_condition,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol);
 
@@ -301,7 +326,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         void perform_partial_reduction(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree);
         void perform_partial_reduction_slicer(OutlineInfo& outline_info, Nodecl::NodeclBase ref_tree,
-                Nodecl::Utils::SymbolMap*& symbol_map);
+                Nodecl::Utils::SimpleSymbolMap*& symbol_map);
 
         Nodecl::NodeclBase emit_critical_region(
                 const std::string lock_name,
@@ -340,25 +365,57 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         static Nodecl::NodeclBase get_lower_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
         static Nodecl::NodeclBase get_upper_bound(Nodecl::NodeclBase dep_expr, int dimension_num);
-        static Nodecl::NodeclBase get_size_of_fortran_array(Nodecl::NodeclBase dep_expr, int dimension_num);
 
-        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct);
-        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct);
+        void visit_task(
+                const Nodecl::OpenMP::Task& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
+
+        void visit_task_call(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
 
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
         typedef std::map<OpenMP::Reduction*, TL::Symbol> reduction_map_t;
-        reduction_map_t _reduction_map_openmp;
+        reduction_map_t _basic_reduction_map_openmp;
+        reduction_map_t _vector_reduction_map_openmp;
+
         reduction_map_t _reduction_map_ompss;
-        TL::Symbol create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
-        TL::Symbol create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
-        TL::Symbol create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        void create_reduction_function(OpenMP::Reduction* red,
+                Nodecl::NodeclBase construct,
+                TL::Symbol& basic_reduction_function,
+                TL::Symbol& vector_reduction_function);
+        TL::Symbol create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+        TL::Symbol create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
 
         TL::Symbol create_reduction_function_slicer(OutlineDataItem* red, Nodecl::NodeclBase construct);
         TL::Symbol create_reduction_function_fortran_slicer(OutlineDataItem* ol, Nodecl::NodeclBase construct);
 
+        TL::Symbol create_vector_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
         reduction_map_t _reduction_cleanup_map;
         TL::Symbol create_reduction_cleanup_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct);
+
+        Nodecl::NodeclBase fill_adapter_function(
+                TL::Symbol adapter_function,
+                TL::Symbol called_function,
+                Nodecl::Utils::SimpleSymbolMap* &symbol_map,
+                Nodecl::NodeclBase original_function_call,
+                Nodecl::NodeclBase original_environment,
+                TL::ObjectList<TL::Symbol> &save_expressions,
+                bool inside_task_expression,
+                // out
+                Nodecl::NodeclBase& task_construct,
+                Nodecl::NodeclBase& statements_of_task_seq,
+                Nodecl::NodeclBase& new_environment);
+
+        void get_nanos_in_final_condition(
+                TL::ReferenceScope scope,
+                const locus_t* locus,
+                // out
+                Nodecl::NodeclBase& is_in_final_nodecl,
+                TL::ObjectList<Nodecl::NodeclBase>& items);
 };
 
 } }

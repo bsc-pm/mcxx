@@ -475,6 +475,7 @@ namespace Codegen
             static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
 
             std::string get_declaration(TL::Type t, TL::Scope scope, const std::string& name);
+            std::string get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name);
             std::string get_declaration_with_parameters(TL::Type, TL::Scope, const std::string& symbol_name,
                     TL::ObjectList<std::string>& parameter_names, TL::ObjectList<std::string> & parameter_attributes);
             TL::Type fix_references(TL::Type t);
@@ -530,6 +531,14 @@ namespace Codegen
             virtual bool cuda_print_special_attributes();
 
             virtual bool cuda_emit_always_extern_linkage();
+
+            std::string _emit_saved_variables_as_unused_str;
+            bool _emit_saved_variables_as_unused;
+            void set_emit_saved_variables_as_unused(const std::string& str);
+
+            std::string _prune_saved_variables_str;
+            bool _prune_saved_variables;
+            void set_prune_saved_variables(const std::string& str);
     };
 }
 

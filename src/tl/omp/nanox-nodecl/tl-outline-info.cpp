@@ -163,6 +163,80 @@ namespace TL { namespace Nanox {
         }
     }
 
+    void OutlineInfoRegisterEntities::add_shared_with_capture(Symbol sym)
+    {
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_WITH_CAPTURE);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        outline_info.set_field_type(t);
+
+        if (is_new)
+        {
+            TL::Type in_outline_type = t;
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+
+
+        Nodecl::Symbol symbol_nodecl = Nodecl::Symbol::make(sym);
+        symbol_nodecl.set_type(sym.get_type());
+
+        TL::DataReference data_ref(
+                Nodecl::Dereference::make(
+                    symbol_nodecl,
+                    sym.get_type().points_to(),
+                    symbol_nodecl.get_locus()));
+
+        outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, OutlineDataItem::DEP_IN));
+    }
+
+
+    // Only used in task expressions to store the return results
+    void OutlineInfoRegisterEntities::add_alloca(Symbol sym, TL::DataReference& data_ref)
+    {
+        ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_ALLOCA);
+
+        if (is_new)
+        {
+            // Note that we obtain the type from the data_ref
+            Type t = data_ref.get_type();
+            if (t.is_any_reference())
+            {
+                t = t.references_to();
+            }
+
+            if (t.is_array())
+            {
+                t = t.array_element().get_pointer_to();
+            }
+
+            outline_info.set_field_type(t.get_unqualified_type());
+
+            TL::Type in_outline_type = t.get_unqualified_type();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type.get_pointer_to());
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
     void OutlineInfoRegisterEntities::add_capture_address(Symbol sym, TL::DataReference& data_ref)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
@@ -276,6 +350,8 @@ namespace TL { namespace Nanox {
             {
                 outline_data_item->set_allocation_policy(
                         OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
+                outline_data_item->set_field_type(
+                        TL::Type::get_void_type().get_pointer_to());
             }
         }
         else
@@ -558,17 +634,25 @@ namespace TL { namespace Nanox {
         if (data_ref.is_valid())
         {
             TL::Symbol sym = data_ref.get_base_symbol();
-            if (IS_FORTRAN_LANGUAGE)
+
+            if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
             {
-                add_shared_opaque(sym);
-            }
-            else if (data_ref.is<Nodecl::Symbol>())
-            {
-                add_shared(sym);
+                add_alloca(sym, data_ref);
             }
             else
             {
-                add_capture_address(sym, data_ref);
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    add_shared_opaque(sym);
+                }
+                else if (data_ref.is<Nodecl::Symbol>())
+                {
+                    add_shared(sym);
+                }
+                else
+                {
+                    add_capture_address(sym, data_ref);
+                }
             }
 
             OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
@@ -658,6 +742,7 @@ namespace TL { namespace Nanox {
         }
     }
 
+
     void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr)
     {
         add_capture_with_value(sym, expr, Nodecl::NodeclBase::null());
@@ -733,6 +818,18 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(t);
     }
 
+    void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
+            OutlineDataItem::TaskwaitOnNode* taskwait_on)
+    {
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
+        outline_info.set_taskwait_on_after_wd_creation(taskwait_on);
+    }
+
+    void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
+    {
+        _outline_info.add_copy_of_outline_data_item(data_item);
+    }
+
     class OutlineInfoSetupVisitor : public Nodecl::ExhaustiveVisitor<void>, OutlineInfoRegisterEntities
     {
         private:
@@ -782,10 +879,39 @@ namespace TL { namespace Nanox {
                 }
             }
 
+            void visit(const Nodecl::OpenMP::Alloca& alloca)
+            {
+                Nodecl::List l = alloca.get_alloca_expressions().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+
+                    ERROR_CONDITION(!data_ref.is_valid(), "%s: data reference '%s' must be valid at this point!\n",
+                            it->get_locus_str().c_str(),
+                            Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str());
+
+                    TL::Symbol sym = data_ref.get_base_symbol();
+
+                    add_alloca(sym, data_ref);
+                }
+            }
+
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
                 add_dependences(dep_in.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN);
+            }
+
+            void visit(const Nodecl::OpenMP::DepInValue& dep_in_value)
+            {
+                add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
+            }
+
+            void visit(const Nodecl::OpenMP::DepInAlloca& dep_in_alloca)
+            {
+                add_dependences(dep_in_alloca.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_ALLOCA);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)
@@ -832,12 +958,20 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::NDRange& ndrange)
             {
-                _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
+                _outline_info.append_to_ndrange(ndrange.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        ndrange.get_ndrange_expressions().as<Nodecl::List>().to_object_list());
+            }
+
+            void visit(const Nodecl::OpenMP::ShMem& shmem)
+            {
+                _outline_info.append_to_shmem(shmem.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        shmem.get_shmem_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::Onto& onto)
             {
-                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
+                _outline_info.append_to_onto(onto.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        onto.get_onto_expressions().as<Nodecl::List>().to_object_list());
             }
 
             void visit(const Nodecl::OpenMP::File& file)
@@ -1066,13 +1200,13 @@ namespace TL { namespace Nanox {
        _implementation_table[function_symbol].append_to_ndrange(ndrange_exprs);
     }
 
-    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_ndrange(TL::Symbol function_symbol)
+    void OutlineInfo::append_to_shmem(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& shmem_exprs)
     {
-        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
-                "Function symbol '%s' not found in outline info implementation table",
-                function_symbol.get_name().c_str());
+       ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
+               "Function symbol '%s' not found in outline info implementation table",
+               function_symbol.get_name().c_str());
 
-        return _implementation_table[function_symbol].get_ndrange();
+       _implementation_table[function_symbol].append_to_shmem(shmem_exprs);
     }
 
     void OutlineInfo::append_to_onto(TL::Symbol function_symbol, const ObjectList<Nodecl::NodeclBase>& onto_exprs)
@@ -1082,15 +1216,6 @@ namespace TL { namespace Nanox {
                 function_symbol.get_name().c_str());
 
         _implementation_table[function_symbol].append_to_onto(onto_exprs);
-    }
-
-    ObjectList<Nodecl::NodeclBase> OutlineInfo::get_onto(TL::Symbol function_symbol)
-    {
-        ERROR_CONDITION(_implementation_table.count(function_symbol) == 0,
-                "Function symbol '%s' not found in outline info implementation table",
-                function_symbol.get_name().c_str());
-
-       return _implementation_table[function_symbol].get_onto();
     }
 
     Nodecl::Utils::SimpleSymbolMap OutlineInfo::get_param_arg_map(TL::Symbol function_symbol)
@@ -1125,6 +1250,7 @@ namespace TL { namespace Nanox {
             {
                 set_file(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_file());
                 append_to_ndrange(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_ndrange());
+                append_to_shmem(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_shmem());
                 append_to_onto(function_symbol, _function_task_set->get_function_task(function_symbol).get_target_info().get_onto());
             }
         }
@@ -1158,6 +1284,11 @@ namespace TL { namespace Nanox {
         return _implementation_table;
     }
 
+    void OutlineInfo::add_copy_of_outline_data_item(const OutlineDataItem& ol)
+    {
+        _data_env_items.append(new OutlineDataItem(ol));
+    }
+
     namespace
     {
         bool is_not_private(OutlineDataItem* it)
@@ -1169,5 +1300,24 @@ namespace TL { namespace Nanox {
     ObjectList<OutlineDataItem*> OutlineInfo::get_fields() const
     {
         return _data_env_items.filter(predicate(is_not_private));
+    }
+
+    bool OutlineInfo::only_has_smp_or_mpi_implementations() const
+    {
+        for (implementation_table_t::const_iterator it = _implementation_table.begin();
+                it != _implementation_table.end();
+                ++it)
+        {
+            TargetInformation target_info = it->second;
+            ObjectList<std::string> devices = target_info.get_device_names();
+            for (ObjectList<std::string>::const_iterator it2 = devices.begin();
+                    it2 != devices.end();
+                    ++it2)
+            {
+                if (*it2 != "smp" && *it2 != "mpi")
+                    return false;
+            }
+        }
+        return true;
     }
 } }

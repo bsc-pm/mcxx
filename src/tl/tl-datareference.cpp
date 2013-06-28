@@ -342,6 +342,7 @@ namespace TL
                                 Nodecl::ClassMemberAccess::make(
                                     _data_ref._base_address.as<Nodecl::Reference>().get_rhs(),
                                     member.get_member().shallow_copy(),
+                                    /* member-form */ Nodecl::NodeclBase::null(),
                                     t,
                                     member.get_locus()
                                     ),
@@ -358,6 +359,7 @@ namespace TL
                                 Nodecl::ClassMemberAccess::make(
                                     member.get_lhs().shallow_copy(),
                                     member.get_member().shallow_copy(),
+                                    member.get_member_form().shallow_copy(),
                                     t,
                                     member.get_locus()
                                     ),
@@ -371,6 +373,7 @@ namespace TL
                                 Nodecl::ClassMemberAccess::make(
                                     _data_ref._base_address,
                                     member.get_member().shallow_copy(),
+                                    member.get_member_form().shallow_copy(),
                                     t,
                                     member.get_locus()
                                     ),
@@ -967,18 +970,25 @@ namespace TL
                         get_ptrdiff_t_type(),
                         expr.get_locus());
             }
+            // ([N]p)[X:Y]
             else if (subscripted.is<Nodecl::Shaping>())
             {
                 Nodecl::Shaping shaping = subscripted.as<Nodecl::Shaping>();
+                DataReference shaped_data_ref = shaping.get_postfix();
+
+                if (!shaped_data_ref.is_valid())
+                    return Nodecl::NodeclBase::null();
+
+                Nodecl::NodeclBase shaped_offset = compute_offsetof(
+                        shaping.get_postfix(),
+                        shaped_data_ref,
+                        scope);
+
                 result = Nodecl::Add::make(
                         result,
-                        Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Cast::make(
-                                shaping.get_postfix().shallow_copy(),
-                                get_ptrdiff_t_type(),
-                                "C"),
-                            get_ptrdiff_t_type()),
-                        get_ptrdiff_t_type());
+                        shaped_offset,
+                        get_ptrdiff_t_type(),
+                        expr.get_locus());
             }
             // a[e]
             else if (subscripted.is<Nodecl::Symbol>())

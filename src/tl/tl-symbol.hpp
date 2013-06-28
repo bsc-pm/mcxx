@@ -279,6 +279,10 @@ namespace TL
             /*! \note This only applies to Fortran */
             bool is_fortran_blockdata() const;
 
+            //! States that this symbol has the PARAMETER attribute set (meaning that this variable is actually a constant)
+            /*! \note This only applies to Fortran and will always return false in C/C++ */
+            bool is_fortran_parameter() const;
+
             //! States whether this symbol is a parameter of the function where it has been declared (if any)
             bool is_parameter() const;
 

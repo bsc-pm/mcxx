@@ -26,15 +26,16 @@
 
 END=
 
-SUBDIRS = . codegen analysis vectorizer omp vector-lowering hlt
+SUBDIRS = . codegen analysis vectorizer omp vector-lowering hlt @TL_EXTRAS@
 
 DIST_SUBDIRS= analysis \
               vectorizer \
               omp \
               instr \
+              examples \
               old_examples \
               testing \
-			  hlt \
+              hlt \
               old_hlt \
               vector-lowering \
               codegen \
@@ -105,6 +106,8 @@ libtl_la_SOURCES = \
     tl-nodecl-utils.cpp \
     tl-nodecl-utils-fortran.hpp \
     tl-nodecl-utils-fortran.cpp \
+    tl-nodecl-utils-c.hpp \
+    tl-nodecl-utils-c.cpp \
     tl-nodecl-calc.hpp \
     tl-nodecl-calc.cpp \
     tl-nodecl-replace.hpp \
@@ -117,6 +120,8 @@ libtl_la_SOURCES = \
     tl-symbol-fwd.hpp \
     tl-symbol.hpp \
     tl-symbol.cpp \
+    tl-symbol-utils.hpp \
+    tl-symbol-utils.cpp \
     tl-compilerphase.hpp \
     tl-compilerphase.cpp \
     tl-lexer.hpp \

@@ -34,13 +34,19 @@
 
 namespace TL { namespace Nanox {
 
-    // -- Not used yet
     struct ParallelEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
-        public:
-            ParallelEnvironmentVisitor()
-            {
-            }
+        Nodecl::NodeclBase if_condition;
+
+        ParallelEnvironmentVisitor()
+            : if_condition()
+        {
+        }
+
+        void visit(const Nodecl::OpenMP::If& if_condition_)
+        {
+            if_condition = if_condition_.get_condition();
+        }
     };
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
@@ -65,6 +71,9 @@ namespace TL { namespace Nanox {
 
         // Get the new statements
         statements = construct.get_statements();
+
+        ParallelEnvironmentVisitor parallel_environment;
+        parallel_environment.walk(environment);
 
         Scope  enclosing_scope = construct.retrieve_context();
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
@@ -149,7 +158,7 @@ namespace TL { namespace Nanox {
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
-            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+            Nodecl::Utils::SimpleSymbolMap *symbol_map = NULL;
             device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
             if (IS_FORTRAN_LANGUAGE)
@@ -177,6 +186,6 @@ namespace TL { namespace Nanox {
         }
 
         // This function replaces the current construct
-        parallel_spawn(outline_info, construct, num_replicas, outline_name, structure_symbol);
+        parallel_spawn(outline_info, construct, num_replicas, parallel_environment.if_condition, outline_name, structure_symbol);
     }
 } }

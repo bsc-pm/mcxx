@@ -34,14 +34,32 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
     }
 
+    // We redefine the visitor of Nodecl::FunctionCode because  we need to
+    // visit first the internal functions and later the statements
     void LoweringVisitor::visit(const Nodecl::FunctionCode& function_code)
     {
-        if (IS_FORTRAN_LANGUAGE)
+        Nodecl::List stmts = function_code.get_statements().as<Nodecl::List>();
+
+        // First, traverse nested functions
+        for (Nodecl::List::iterator it = stmts.begin();
+                it != stmts.end();
+                it++)
         {
-            // Visit first the internal functions
-            walk(function_code.get_internal_functions());
+            if (it->is<Nodecl::FunctionCode>())
+            {
+                walk(*it);
+            }
         }
-        walk(function_code.get_statements());
+        // Second, remaining statements
+        for (Nodecl::List::iterator it = stmts.begin();
+                it != stmts.end();
+                it++)
+        {
+            if (!it->is<Nodecl::FunctionCode>())
+            {
+                walk(*it);
+            }
+        }
     }
 
     LoweringVisitor::~LoweringVisitor() { }

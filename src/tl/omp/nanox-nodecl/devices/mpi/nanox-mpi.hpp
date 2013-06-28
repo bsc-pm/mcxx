@@ -55,7 +55,7 @@ namespace TL
                   unsigned int _currTaskId;
 
                   void generate_additional_mpi_code(
-                    const TL::ObjectList<Nodecl::NodeclBase>& onto_clause,
+                    const TL::ObjectList<OutlineDataItem*>& data_items,
                     const TL::Symbol& struct_args,
                     const std::string& outline_name,
                     TL::Source& code_host,
@@ -85,7 +85,7 @@ namespace TL
                   void create_outline(CreateOutlineInfo &info,
                           Nodecl::NodeclBase &outline_placeholder,
                           Nodecl::NodeclBase &output_statements,
-                          Nodecl::Utils::SymbolMap* &symbol_map);
+                          Nodecl::Utils::SimpleSymbolMap* &symbol_map);
 
                   void get_device_descriptor(DeviceDescriptorInfo& info,
                           Source &ancillary_device_description,

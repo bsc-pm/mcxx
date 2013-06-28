@@ -39,13 +39,47 @@ namespace TL { namespace Nanox {
             TL::Symbol new_class_symbol,
             Nodecl::NodeclBase construct)
     {
+        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
+        {
+            std::string field_name = outline_data_item.get_field_name() + "_storage";
+            TL::Symbol field = class_scope.new_symbol(field_name);
+            field.get_internal_symbol()->kind = SK_VARIABLE;
+            field.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+            TL::Type field_type = outline_data_item.get_field_type().points_to();
+            if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+            {
+                if (field_type.is_const())
+                {
+                    field_type = field_type.get_unqualified_type();
+                }
+            }
+            field.get_internal_symbol()->type_information = field_type.get_internal_type();
+
+            field.get_internal_symbol()->entity_specs.is_member = 1;
+            field.get_internal_symbol()->entity_specs.class_type = ::get_user_defined_type(new_class_symbol.get_internal_symbol());
+            field.get_internal_symbol()->entity_specs.access = AS_PUBLIC;
+
+            field.get_internal_symbol()->locus = nodecl_get_locus(construct.get_internal_nodecl());
+
+            // Language specific parts
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                if ((outline_data_item.get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                        == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                {
+                    field.get_internal_symbol()->entity_specs.is_allocatable = 1;
+                }
+            }
+            class_type_add_member(new_class_type.get_internal_type(), field.get_internal_symbol());
+        }
+
         std::string field_name = outline_data_item.get_field_name();
         TL::Symbol field = class_scope.new_symbol(field_name);
         field.get_internal_symbol()->kind = SK_VARIABLE;
         field.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
         TL::Type field_type = outline_data_item.get_field_type();
-
         if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
         {
             if (field_type.is_const())

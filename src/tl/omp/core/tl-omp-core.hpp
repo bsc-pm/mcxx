@@ -156,9 +156,6 @@ namespace TL
 
                 void initialize_builtin_reductions(Scope sc);
 
-                ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
-                           TL::Symbol function_symbol);
-
                 bool _discard_unused_data_sharings;
                 bool _allow_shared_without_copies;
             public:

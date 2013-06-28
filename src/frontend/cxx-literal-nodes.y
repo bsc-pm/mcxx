@@ -81,7 +81,7 @@ unqualified_id : symbol_literal_ref
 }
 ;
 
-no_if_statement : nodecl_literal_stmt
+nondeclarating_statement : nodecl_literal_stmt
 {
     $$ = $1;
 }

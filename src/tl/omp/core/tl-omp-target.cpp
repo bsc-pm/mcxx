@@ -78,6 +78,20 @@ namespace TL
                 target_ctx.ndrange = ndrange.get_arguments_as_expressions(scope);
             }
 
+            PragmaCustomClause shmem = pragma_line.get_clause("shmem");
+            if (shmem.is_defined())
+            {
+                if (ndrange.is_defined())
+                {
+                    target_ctx.shmem = shmem.get_arguments_as_expressions(scope);
+                }
+                else
+                {
+                    std::cerr << pragma_line.get_locus_str()
+                        << ": warning: 'shmem' clause cannot be used without the 'ndrange' clause, skipping" << std::endl;
+                }
+            }
+
             PragmaCustomClause onto = pragma_line.get_clause("onto");
             if (onto.is_defined())
             {
@@ -428,6 +442,7 @@ namespace TL
             target_info.set_file(target_ctx.file);
             target_info.set_name(target_ctx.name);
             target_info.append_to_ndrange(target_ctx.ndrange);
+            target_info.append_to_shmem(target_ctx.shmem);
             target_info.append_to_onto(target_ctx.onto);
             target_info.append_to_device_list(target_ctx.device_list);
 

@@ -1641,6 +1641,14 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
             }
 
+            if (entry->kind == SK_FUNCTION
+                    && decl_context.current_scope->kind == BLOCK_SCOPE
+                    && !entry->entity_specs.is_nested_function)
+            {
+                // Ensure that the symbol is marked as extern
+                entry->entity_specs.is_extern = 1;
+            }
+
             if (entry->kind == SK_VARIABLE)
             {
                 if (decl_context.current_scope->kind == BLOCK_SCOPE)
@@ -4031,7 +4039,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     AST enum_name = ASTSon0(a);
 
-    scope_entry_t* new_enum;
+    scope_entry_t* new_enum = NULL;
 
     // If it has name, we register this type name in the symbol table
     // but only if it has not been declared previously
@@ -4169,6 +4177,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
             enumeration_item->locus = ast_get_locus(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
+            enumeration_item->type_information = get_signed_int_type();
 
             if (decl_context.current_scope->kind == CLASS_SCOPE)
             {
@@ -4238,10 +4247,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     const_value_t* zero_val = const_value_get_signed_int(0);
                     nodecl_t zero = const_value_to_nodecl(zero_val);
 
-                    CXX_LANGUAGE()
-                    {
-                        enumeration_item->type_information = get_signed_int_type();
-                    }
                     enumeration_item->value = zero;
                     base_enumerator = zero;
                     delta = 1;
@@ -8644,7 +8649,79 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.is_inline = gather_info->is_inline;
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
 
-        new_entry->entity_specs.linkage_spec = linkage_current_get_name();
+        if (gather_info->is_static && gather_info->is_extern
+                && !gather_info->is_auto)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: conflicting linkage specifiers extern and static\n",
+                        ast_location(declarator_id));
+            }
+        }
+
+        if (gather_info->is_virtual && gather_info->is_extern)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a virtual function is member, so it cannot have extern linkage\n",
+                        ast_location(declarator_id));
+            }
+        }
+
+        if (gather_info->is_virtual && gather_info->is_static)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a virtual function must be a nonstatic member\n",
+                        ast_location(declarator_id));
+            }
+        }
+
+        if (gather_info->is_auto)
+        {
+            if (!gather_info->is_static
+                    && !gather_info->is_extern)
+            {
+                if (decl_context.current_scope->kind != BLOCK_SCOPE)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid auto linkage specifier for functions in non block scope\n",
+                                ast_location(declarator_id));
+                    }
+                }
+                // This is the gcc way to declare (not define) a nested function
+                new_entry->entity_specs.is_nested_function = 1;
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: conflicting linkage specifiers auto %s specified\n",
+                            ast_location(declarator_id),
+                            (gather_info->is_static && gather_info->is_extern)
+                            ?  ", extern and static"
+                            : (gather_info->is_static ? "and static" : "and extern"));
+                }
+            }
+        }
+
+        if (decl_context.current_scope->kind == BLOCK_SCOPE)
+        {
+            if (gather_info->is_static)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid static linkage specifier for a function declared in block scope\n",
+                            ast_location(declarator_id));
+                }
+            }
+        }
+
+        if (decl_context.current_scope->kind != BLOCK_SCOPE)
+        {
+            new_entry->entity_specs.linkage_spec = linkage_current_get_name();
+        }
 
         // "is_pure" of a function is computed in "build_scope_member_simple_declaration"
 
@@ -8654,8 +8731,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         new_entry->entity_specs.num_parameters = gather_info->num_parameters;
 
-        new_entry->entity_specs.default_argument_info = 
-            counted_xcalloc(gather_info->num_parameters, 
+        new_entry->entity_specs.default_argument_info =
+            counted_xcalloc(gather_info->num_parameters,
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
         
@@ -10885,7 +10962,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // This does not modify block_context.current_scope, it simply adds a function_scope to the context
     block_context = new_function_context(block_context);
-    
+
     if(previous_symbol != NULL
             && previous_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
@@ -10955,6 +11032,16 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 locus_to_str(entry->locus),
                 print_declarator(entry->type_information)
                 );
+    }
+
+    if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        if (entry->entity_specs.is_extern)
+        {
+            error_printf("%s: error: definition of a nested function already declared as an extern\n",
+                    ast_location(function_header));
+        }
+        entry->entity_specs.is_nested_function = 1;
     }
 
     if (entry->defined
@@ -11181,7 +11268,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     linkage_pop();
 
-    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
 
     ptr_nodecl_make_func_code = is_dependent_function(entry)
         ? &nodecl_make_template_function_code : &nodecl_make_function_code;
@@ -11193,7 +11280,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 block_context,
                 ast_get_locus(a)),
             nodecl_initializers,
-            /* internal_functions */ nodecl_null(),
             entry,
             ast_get_locus(a));
 
@@ -12815,6 +12901,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             nodecl_make_expression_statement(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(class_type_get_destructor(entry->type_information), make_locus("", 0, 0)),
+                        /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_make_symbol(entry, make_locus("", 0, 0))),
                         /* function_form */ nodecl_null(),
                         get_void_type(),
@@ -12992,7 +13079,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 {
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
                             "I expected a conversion function!", 0);
-                    *nodecl_output = cxx_nodecl_make_function_call(nodecl_make_symbol(conversor, ast_get_locus(initializer)),
+                    *nodecl_output = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversor, ast_get_locus(initializer)),
+                            /* called name */ nodecl_null(),
                             nodecl_make_list_1(*nodecl_output),
                             /* function_form */ nodecl_null(),
                             function_type_get_return_type(conversor->type_information), ast_get_locus(initializer));
@@ -13024,6 +13113,57 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
 }
 
+static nodecl_t normalize_multiple_statements(nodecl_t multiple_statements,
+        decl_context_t context_of_stmts UNUSED_PARAMETER)
+{
+    if (nodecl_is_null(multiple_statements))
+        return multiple_statements;
+
+    if (!nodecl_is_list(multiple_statements))
+        return multiple_statements;
+
+    nodecl_t nodecl_context, nodecl_in_context;
+    if (nodecl_list_length(multiple_statements) == 1
+            && nodecl_get_kind(nodecl_context = nodecl_list_head(multiple_statements)) == NODECL_CONTEXT
+            && !nodecl_is_null(nodecl_in_context)
+            && nodecl_is_list(nodecl_in_context = nodecl_get_child(nodecl_context, 0))
+            && nodecl_list_length(nodecl_in_context) == 1
+            && nodecl_get_kind(nodecl_list_head(nodecl_in_context)) == NODECL_COMPOUND_STATEMENT)
+        return multiple_statements;
+
+    // We simplify
+    //
+    // if (E)
+    //    S1
+    //
+    //    into
+    //
+    // if (E)
+    // {
+    //   S1
+    // }
+    nodecl_t nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_compound_statement(
+                    multiple_statements,
+                    /* finalize */ nodecl_null(),
+                    nodecl_get_locus(multiple_statements))
+                );
+
+    // Note: We are not creating a context for now, but if we have to simply
+    // enable the following code
+    decl_context_t block_context = new_block_context(context_of_stmts);
+    nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_context(
+                    nodecl_result,
+                    block_context,
+                    nodecl_get_locus(multiple_statements)));
+
+    return nodecl_result;
+}
+
+
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
@@ -13039,6 +13179,7 @@ static void build_scope_while_statement(AST a,
         build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
 
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13139,6 +13280,8 @@ static void build_scope_if_else_statement(AST a,
     nodecl_t nodecl_then = nodecl_null();
     build_scope_statement(then_branch, block_context, &nodecl_then);
 
+    // Normalize multiple statements
+
     nodecl_t nodecl_else = nodecl_null();
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
@@ -13146,6 +13289,8 @@ static void build_scope_if_else_statement(AST a,
         build_scope_statement(else_branch, block_context, &nodecl_else);
     }
 
+    nodecl_then = normalize_multiple_statements(nodecl_then, block_context);
+    nodecl_else = normalize_multiple_statements(nodecl_else, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13249,6 +13394,7 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, block_context, &nodecl_statement);
 
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ast_get_locus(a));
@@ -13279,6 +13425,7 @@ static void build_scope_switch_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, block_context, &nodecl_statement);
 
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13574,6 +13721,9 @@ static void build_scope_do_statement(AST a,
 
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    nodecl_statement = normalize_multiple_statements(nodecl_statement, decl_context);
+
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(expression, decl_context, &nodecl_expr))
     {
@@ -13628,53 +13778,104 @@ static void build_scope_pragma_custom_directive(AST a,
     *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
 
-void build_scope_statement_pragma(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_output, 
-        void* info UNUSED_PARAMETER)
-{
-    build_scope_statement(a, decl_context, nodecl_output);
-}
-
-static void build_scope_pragma_custom_construct_statement(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_output)
-{
-    nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_statement_pragma, NULL);
-
-    // We expect lists of statements at statement level
-    *nodecl_output = nodecl_make_list_1(*nodecl_output);
-}
-
 typedef
 struct declaration_pragma_info_tag
 {
     scope_entry_list_t** declared_symbols;
     gather_decl_spec_list_t *gather_decl_spec_list;
+
+    int num_pragma_lines;
+    nodecl_t *pragma_lines;
+    int num_pragma_texts;
+    const char** pragma_texts;
 } declaration_pragma_info_t;
 
-static void build_scope_declaration_pragma(AST a,
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output,
-        void *p)
+typedef
+struct pragma_block_level_info_tag
 {
-    declaration_pragma_info_t *i = (declaration_pragma_info_t*)p;
+    char is_declaration;
+    declaration_pragma_info_t declaration_pragma;
+} pragma_block_level_info_t;
 
-    build_scope_declaration(a, decl_context, nodecl_output, i->declared_symbols, i->gather_decl_spec_list);
+static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma,
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output, 
+        pragma_block_level_info_t* info)
+{
+    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+
+    AST pragma_line = ASTSon0(pragma);
+    AST pragma_stmt = ASTSon1(pragma);
+    AST end_clauses = ASTSon2(pragma);
+
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
+
+    if (ASTType(pragma_stmt) == AST_AMBIGUITY)
+        solve_ambiguous_statement(pragma_stmt, decl_context);
+
+    nodecl_t nodecl_statement = nodecl_null();
+
+    switch (ASTType(pragma_stmt))
+    {
+        case AST_AMBIGUITY:
+            {
+                internal_error("This should not happen", 0);
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid nesting of #pragma\n",
+                            ast_location(pragma_stmt));
+                }
+                *nodecl_output = nodecl_make_err_statement(ast_get_locus(pragma_stmt));
+                return;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                build_scope_pragma_custom_construct_statement_or_decl_rec(pragma_stmt,
+                        decl_context, &nodecl_statement, info);
+                break;
+            }
+        case AST_DECLARATION_STATEMENT:
+            {
+                // FIXME
+                info->is_declaration = 1;
+
+                AST declaration = ASTSon0(pragma_stmt);
+                // Note that here we use nodecl_output instead of nodecl_statement
+                build_scope_declaration(declaration, decl_context, nodecl_output,
+                        info->declaration_pragma.declared_symbols,
+                        info->declaration_pragma.gather_decl_spec_list);
+                break;
+            }
+        default:
+            {
+                build_scope_statement(pragma_stmt, decl_context, &nodecl_statement);
+                break;
+            }
+    }
+
+    if (!info->is_declaration)
+    {
+        *nodecl_output = nodecl_make_list_1(
+            nodecl_make_pragma_custom_statement(
+                nodecl_pragma_line,
+                nodecl_statement,
+                ASTText(pragma),
+                ast_get_locus(pragma)));
+    }
+    else
+    {
+        P_LIST_ADD(info->declaration_pragma.pragma_lines,
+                info->declaration_pragma.num_pragma_lines,
+                nodecl_pragma_line);
+        P_LIST_ADD(info->declaration_pragma.pragma_texts,
+                info->declaration_pragma.num_pragma_texts,
+                ASTText(pragma));
+    }
 }
-
-// It seems unavoidable to keep some state here, otherwise the flow will
-// become unnecessarily complex. This is used only in
-//
-//     build_scope_pragma_custom_construct_declaration
-//     build_scope_pragma_custom_construct_member_declaration
-//     finish_pragma_declaration
-//
-// - State for pragmas declaration -
-static int pragma_nesting = 0;
-static nodecl_t nodecl_pragma_output = NODECL_STATIC_NULL;
-// - End of state for pragma declaration processing -
 
 // Picks the context of the first non null parameter
 static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
@@ -13700,85 +13901,128 @@ static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
 }
 
 static void finish_pragma_declaration(
-        scope_entry_list_t* declared_symbols,
-        gather_decl_spec_list_t gather_decl_spec_list,
         decl_context_t decl_context,
-        nodecl_t nodecl_pragma_line,
-        nodecl_t nodecl_decl,
-        const char* text,
-        const locus_t* locus,
-        nodecl_t *nodecl_output)
+        nodecl_t *nodecl_output,
+        declaration_pragma_info_t* info)
 {
-    // fprintf(stderr, "PRAGMA -> '%s %s' || DECL = %s\n", text,
-    //         nodecl_get_text(nodecl_pragma_line),
-    //         nodecl_is_null(nodecl_decl) ? "<<NULL>>" :
-    //         (nodecl_is_list(nodecl_decl) ?
-    //         ast_print_node_type(nodecl_get_kind(nodecl_list_head(nodecl_decl))) :
-    //         ast_print_node_type(nodecl_get_kind(nodecl_decl))));
+    ERROR_CONDITION(info->num_pragma_lines == 0, "This cannot happen", 0);
 
-    ERROR_CONDITION(!nodecl_is_null(nodecl_pragma_output) &&
-            entry_list_size(declared_symbols) != 0, "This should not happen", 0);
-
-    if (entry_list_size(declared_symbols) > 0)
+    nodecl_t nodecl_pragma_declarations = nodecl_null();
+    scope_entry_list_iterator_t* it = NULL;
+    int i;
+    for (it = entry_list_iterator_begin(*info->declared_symbols), i = 0;
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it), i++)
     {
-        scope_entry_list_iterator_t* it = NULL;
-        int i = 0;
-        for (it = entry_list_iterator_begin(declared_symbols);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it), i++)
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        gather_decl_spec_t gather_info = info->gather_decl_spec_list->items[i];
+
+        nodecl_t nodecl_single_pragma_declaration = nodecl_null();
+        int j;
+        for (j = 0; j < info->num_pragma_lines; j++)
         {
-            scope_entry_t* entry = entry_list_iterator_current(it);
-            ERROR_CONDITION(gather_decl_spec_list.num_items <= i, "Invalid list of gather_decl_spec", 0);
-
-            gather_decl_spec_t gather_spec = gather_decl_spec_list.items[i];
-
-            nodecl_pragma_output = nodecl_append_to_list(
-                    nodecl_pragma_output,
-                    nodecl_make_pragma_custom_declaration(
-                        nodecl_shallow_copy(nodecl_pragma_line), 
-                        nodecl_null(), 
-                        nodecl_make_pragma_context(decl_context, entry->locus),
-                        nodecl_make_pragma_context(
-                            get_prototype_context_if_any(decl_context, entry, gather_spec), 
-                            entry->locus),
-                        entry, 
-                        text, locus));
+            nodecl_single_pragma_declaration = nodecl_make_pragma_custom_declaration(
+                    nodecl_shallow_copy(info->pragma_lines[j]),
+                    nodecl_single_pragma_declaration,
+                    nodecl_make_pragma_context(decl_context, entry->locus),
+                    nodecl_make_pragma_context(
+                        get_prototype_context_if_any(decl_context, entry, gather_info),
+                        entry->locus),
+                    entry,
+                    info->pragma_texts[j],
+                    nodecl_get_locus(info->pragma_lines[j]));
         }
-    }
-    else
-    {
-        int num_items = 0, i;
-        nodecl_t nodecl_old_pragma_output = nodecl_pragma_output;
-        nodecl_t* list = nodecl_unpack_list(nodecl_old_pragma_output, &num_items);
 
-        nodecl_pragma_output = nodecl_null();
-
-        for (i = 0; i < num_items; i++)
-        {
-            ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_PRAGMA_CUSTOM_DECLARATION,
-                    "Invalid node in nodecl_pragma_output", 0);
-
-            nodecl_t pragma_context = nodecl_get_child(list[i], 2);
-            nodecl_t prototype_context = nodecl_get_child(list[i], 3);
-
-            nodecl_pragma_output = nodecl_append_to_list(
-                    nodecl_pragma_output,
-                    nodecl_make_pragma_custom_declaration(
-                        nodecl_shallow_copy(nodecl_pragma_line), 
-                        list[i], 
-                        nodecl_shallow_copy(pragma_context),
-                        nodecl_shallow_copy(prototype_context),
-                        nodecl_get_symbol(list[i]), 
-                        text, locus));
-        }
-        xfree(list);
+        nodecl_pragma_declarations = nodecl_append_to_list(nodecl_pragma_declarations,
+                nodecl_single_pragma_declaration);
     }
 
-    entry_list_free(declared_symbols);
+    entry_list_iterator_free(it);
+    entry_list_free(*info->declared_symbols);
 
-    nodecl_free(nodecl_pragma_line);
+    xfree(info->pragma_texts);
+    xfree(info->pragma_lines);
 
-    *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
+    *nodecl_output = nodecl_concat_lists(*nodecl_output,
+            nodecl_pragma_declarations);
+}
+
+static void build_scope_pragma_custom_construct_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    pragma_block_level_info_t info;
+    memset(&info, 0, sizeof(info));
+
+    scope_entry_list_t* declared_symbols = NULL;
+    gather_decl_spec_list_t gather_decl_spec_list;
+    memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
+
+    info.declaration_pragma.declared_symbols = &declared_symbols;
+    info.declaration_pragma.gather_decl_spec_list = &gather_decl_spec_list;
+
+    build_scope_pragma_custom_construct_statement_or_decl_rec(a, decl_context, nodecl_output, &info);
+
+    if (info.is_declaration)
+    {
+        finish_pragma_declaration(decl_context, nodecl_output, &info.declaration_pragma);
+    }
+}
+
+static void build_scope_pragma_custom_construct_declaration_rec(
+        AST pragma,
+        decl_context_t decl_context,
+        nodecl_t *nodecl_output,
+        declaration_pragma_info_t* info)
+{
+    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+
+    AST pragma_line = ASTSon0(pragma);
+    AST pragma_decl = ASTSon1(pragma);
+    AST end_clauses = ASTSon2(pragma);
+
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
+
+    if (ASTType(pragma_decl) == AST_AMBIGUITY)
+        solve_ambiguous_declaration(pragma_decl, decl_context);
+
+    switch (ASTType(pragma_decl))
+    {
+        case AST_AMBIGUITY:
+            {
+                internal_error("This should not happen", 0);
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid nesting of #pragma\n",
+                            ast_location(pragma_decl));
+                }
+                return;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                build_scope_pragma_custom_construct_declaration_rec(pragma_decl, decl_context, nodecl_output, info);
+                break;
+            }
+        default:
+            {
+                // FIXME
+                build_scope_declaration(pragma_decl, decl_context, nodecl_output,
+                        info->declared_symbols,
+                        info->gather_decl_spec_list);
+                break;
+            }
+    }
+
+    P_LIST_ADD(info->pragma_lines,
+            info->num_pragma_lines,
+            nodecl_pragma_line);
+    P_LIST_ADD(info->pragma_texts,
+            info->num_pragma_texts,
+            ASTText(pragma));
 }
 
 static void build_scope_pragma_custom_construct_declaration(AST a,
@@ -13789,52 +14033,82 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     gather_decl_spec_list_t gather_decl_spec_list;
     memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
 
-    nodecl_t nodecl_pragma_line = nodecl_null();
-    nodecl_t nodecl_decl = nodecl_null();
-
-    pragma_nesting++;
-
     declaration_pragma_info_t info;
+    memset(&info, 0, sizeof(info));
+
     info.declared_symbols = &declared_symbols;
     info.gather_decl_spec_list = &gather_decl_spec_list;
 
-    common_build_scope_pragma_custom_declaration(a, decl_context,
-            &nodecl_pragma_line, &nodecl_decl,
-            build_scope_declaration_pragma,
-            &info);
+    build_scope_pragma_custom_construct_declaration_rec(a, decl_context, nodecl_output, &info);
 
-    pragma_nesting--;
-    ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
-
-    finish_pragma_declaration(declared_symbols,
-            gather_decl_spec_list,
-            decl_context,
-            nodecl_pragma_line, nodecl_decl,
-            ASTText(a), ast_get_locus(a),
-            nodecl_output);
-
-    if (pragma_nesting == 0)
-    {
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_pragma_output);
-        nodecl_pragma_output = nodecl_null();
-    }
+    finish_pragma_declaration(decl_context, nodecl_output, &info);
 }
 
-struct declaration_pragma_member_info_tag
+typedef
+struct member_declaration_pragma_info_tag
 {
     type_t* class_info;
     access_specifier_t current_access;
-    scope_entry_list_t** declared_symbols;
-    gather_decl_spec_list_t* gather_decl_spec_list;
-};
+    declaration_pragma_info_t declaration_pragma;
+} member_declaration_pragma_info_t;
 
-static void build_scope_member_declaration_pragma(AST a, decl_context_t decl_context, nodecl_t* nodecl_output, void* info)
+static void build_scope_pragma_custom_construct_member_declaration_rec(
+        AST pragma,
+        decl_context_t decl_context,
+        nodecl_t *nodecl_output,
+        member_declaration_pragma_info_t* info)
 {
-    struct declaration_pragma_member_info_tag* mem = (struct declaration_pragma_member_info_tag*)info;
-    build_scope_member_declaration(decl_context, a, mem->current_access, mem->class_info, 
-            nodecl_output,
-            mem->declared_symbols, 
-            mem->gather_decl_spec_list);
+    ERROR_CONDITION(ASTType(pragma) != AST_PRAGMA_CUSTOM_CONSTRUCT, "Invalid node", 0);
+
+    AST pragma_line = ASTSon0(pragma);
+    AST pragma_decl = ASTSon1(pragma);
+    AST end_clauses = ASTSon2(pragma);
+
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_line(pragma_line, end_clauses, decl_context, &nodecl_pragma_line);
+
+    if (ASTType(pragma_decl) == AST_AMBIGUITY)
+        solve_ambiguous_declaration(pragma_decl, decl_context);
+
+    switch (ASTType(pragma_decl))
+    {
+        case AST_AMBIGUITY:
+            {
+                internal_error("This should not happen", 0);
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid nesting of #pragma %s\n",
+                            ast_location(pragma_decl),
+                            ast_get_text(pragma_decl));
+                }
+                return;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT:
+            {
+                build_scope_pragma_custom_construct_member_declaration_rec(pragma_decl, decl_context, nodecl_output, info);
+                break;
+            }
+        default:
+            {
+                build_scope_member_declaration(decl_context, pragma_decl,
+                        info->current_access,
+                        info->class_info, 
+                        nodecl_output,
+                        info->declaration_pragma.declared_symbols, 
+                        info->declaration_pragma.gather_decl_spec_list);
+                break;
+            }
+    }
+
+    P_LIST_ADD(info->declaration_pragma.pragma_lines,
+            info->declaration_pragma.num_pragma_lines,
+            nodecl_pragma_line);
+    P_LIST_ADD(info->declaration_pragma.pragma_texts,
+            info->declaration_pragma.num_pragma_texts,
+            ASTText(pragma));
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
@@ -13847,37 +14121,16 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     gather_decl_spec_list_t gather_decl_spec_list;
     memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
 
-    struct declaration_pragma_member_info_tag mem_info = { 
-        .class_info = class_info, 
-        .current_access = current_access, 
-        .declared_symbols = &declared_symbols,
-        .gather_decl_spec_list = &gather_decl_spec_list,
-    };
+    member_declaration_pragma_info_t info;
+    memset(&info, 0, sizeof(info));
+    info.class_info = class_info;
+    info.current_access = current_access;
+    info.declaration_pragma.declared_symbols = &declared_symbols;
+    info.declaration_pragma.gather_decl_spec_list = &gather_decl_spec_list;
 
-    nodecl_t nodecl_pragma_line = nodecl_null();
-    nodecl_t nodecl_member_decl = nodecl_null();
+    build_scope_pragma_custom_construct_member_declaration_rec(a, decl_context, nodecl_output, &info);
 
-    pragma_nesting++;
-
-    common_build_scope_pragma_custom_declaration(a, decl_context, 
-            &nodecl_pragma_line, &nodecl_member_decl,
-            build_scope_member_declaration_pragma, &mem_info);
-
-    pragma_nesting--;
-    ERROR_CONDITION(pragma_nesting < 0, "Invalid pragma nesting", 0);
-
-    finish_pragma_declaration(declared_symbols,
-            gather_decl_spec_list,
-            decl_context,
-            nodecl_pragma_line, nodecl_member_decl,
-            ASTText(a), ast_get_locus(a),
-            nodecl_output);
-
-    if (pragma_nesting == 0)
-    {
-        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_pragma_output);
-        nodecl_pragma_output = nodecl_null();
-    }
+    finish_pragma_declaration(decl_context, nodecl_output, &info.declaration_pragma);
 }
 
 

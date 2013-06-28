@@ -146,8 +146,8 @@ LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 // States that this is a variably modified type
 LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 
-// This is a plain '0'
-LIBMCXX_EXTERN type_t* get_zero_type(void);
+// This is an integral/bool type after a zero-constant
+LIBMCXX_EXTERN type_t* get_zero_type(type_t* t);
 // This is a plain 'false'
 LIBMCXX_EXTERN type_t* get_bool_false_type(void);
 // This is for g++'s '__null'
@@ -643,6 +643,17 @@ LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer,
         char semicolon,
+        int num_parameter_names,
+        const char** parameter_names,
+        const char** parameter_attributes,
+        char is_parameter,
+        print_symbol_callback_t print_symbol_fun,
+        void* print_symbol_data);
+
+// Like get_declarator_name_string_ex but only returns the declarator part, ignoring the type specifier
+LIBMCXX_EXTERN const char* get_declarator_name_string_ex(decl_context_t decl_context,
+        type_t* type_info,
+        const char* symbol_name,
         int num_parameter_names,
         const char** parameter_names,
         const char** parameter_attributes,

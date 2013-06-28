@@ -34,14 +34,14 @@ test_generator=config/mercurium-ompss
 
 int o;
 double x, y;
-#pragma omp task input(e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
-void f(int e) 
+#pragma omp task input(*e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
+void f(int* e)
 {
-    o = e + 1;
-}      
+    o = *e + 1;
+}
 
-int main() 
+int main()
 {
     int e = 1;
-    f(e);
+    f(&e);
 }
