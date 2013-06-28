@@ -346,24 +346,10 @@ namespace TL {
                 const Nodecl::List& suitable_expressions,
                 const bool masked_version)
         {
-            std::string orig_func_name = function_code.get_symbol().get_name();
+            TL::Symbol func_sym = function_code.get_symbol();
+            std::string orig_func_name = func_sym.get_name();
 
-            Nodecl::FunctionCode vector_func_code = 
-                Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
-
-            // Vectorize function
-            VectorizerEnvironment _environment(
-                    _device_name,
-                    _vector_length, 
-                    _support_masking,
-                    _mask_size,
-                    NULL,
-                    vector_func_code.get_statements().retrieve_context(),
-                    suitable_expressions);
-
-            _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
-
-            // Set new name
+            // Set new symbol
             std::stringstream vector_func_name; 
 
             vector_func_name <<"__" 
@@ -379,7 +365,28 @@ namespace TL {
                 vector_func_name << "_mask";
             }
 
-            vector_func_code.get_symbol().set_name(vector_func_name.str());
+            TL::Symbol new_func_sym = func_sym.get_scope().
+                new_symbol(vector_func_name.str());
+
+            Nodecl::Utils::SimpleSymbolMap func_sym_map;
+            func_sym_map.add_map(func_sym, new_func_sym);
+
+            Nodecl::FunctionCode vector_func_code = 
+                Nodecl::Utils::deep_copy(function_code, 
+                        function_code,
+                        func_sym_map).as<Nodecl::FunctionCode>();
+
+            // Vectorize function
+            VectorizerEnvironment _environment(
+                    _device_name,
+                    _vector_length, 
+                    _support_masking,
+                    _mask_size,
+                    NULL,
+                    vector_func_code.get_statements().retrieve_context(),
+                    suitable_expressions);
+
+            _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
 
             // Add SIMD version to vector function versioning
             _vectorizer.add_vector_function_version(orig_func_name, vector_func_code, 
