@@ -25,16 +25,15 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
 test_generator=config/mercurium-cuda
 compile_versions=cuda_omp
 </testinfo>
 */
+#include <assert.h>
 
-#include <stdlib.h>
-
+#pragma omp target device(cuda)
 __global__ void addOne_gpu(int *a)
 {
 	*a += 1;
@@ -44,9 +43,9 @@ __global__ void addOne_gpu(int *a)
 #pragma omp task inout (*a)
 void addOne (int *a)
 {
-    struct dim3 x1,x2;
-	addOne_gpu <<<x1, x2>>> (a);
+	addOne_gpu <<<1, 1>>> (a);
 }
+
 
 
 int main (int argc, char *argv[])
@@ -54,8 +53,7 @@ int main (int argc, char *argv[])
 	int a = 1;
 
 	addOne(&a);
-
-	if (a != 2) abort();
-
+#pragma omp taskwait
+    assert(a == 2);
 	return 0;
 }

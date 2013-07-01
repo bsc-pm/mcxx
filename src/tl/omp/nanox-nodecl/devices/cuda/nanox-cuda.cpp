@@ -281,7 +281,7 @@ void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
 void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map)
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for CUDA devices is not supported yet\n");
@@ -297,6 +297,8 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     bool is_function_task = called_task.is_valid();
 
     output_statements = task_statements;
+
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_cuda_functions);
 
     ERROR_CONDITION(is_function_task && !called_task.is_function(),
             "The '%s' symbol is not a function", called_task.get_name().c_str());
@@ -402,20 +404,19 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // code of the user function may be changed if It contains one or more cuda
     // function calls)
     if (is_function_task
-            && !called_task.get_function_code().is_null()
-            && !_cuda_functions.contains(called_task.get_function_code()))
+            && !called_task.get_function_code().is_null())
     {
-        TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task);
+        if (_copied_cuda_functions.map(called_task) == called_task)
+        {
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
 
-        Nodecl::Utils::SimpleSymbolMap map;
-        map.add_map(called_task, new_function);
+            _copied_cuda_functions.add_map(called_task, new_function);
 
-        _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope(),
-                    map));
-
-        _cuda_functions.append(called_task.get_function_code());
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(
+                        called_task.get_function_code(),
+                        called_task.get_scope(),
+                        *symbol_map));
+        }
     }
 
     // Create the new unpacked function
@@ -541,7 +542,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")), _cuda_functions()
+    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions()
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -584,13 +585,17 @@ void DeviceCUDA::add_included_cuda_files(FILE* file)
     for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
     {
         std::string line = (*it).get_preprocessor_line();
-        std::string extension = line.substr(line.find_last_of("."));
-
-        if (extension == cuda_file_ext || extension == cuda_header_ext)
+        size_t found = line.find_last_of(".");
+        if (found != std::string::npos)
         {
-            int output = fprintf(file, "%s\n", line.c_str());
-            if (output < 0)
-                internal_error("Error trying to write the intermediate cuda file\n", 0);
+            std::string extension = line.substr(found);
+
+            if (extension == cuda_file_ext || extension == cuda_header_ext)
+            {
+                int output = fprintf(file, "%s\n", line.c_str());
+                if (output < 0)
+                    internal_error("Error trying to write the intermediate cuda file\n", 0);
+            }
         }
     }
 }
@@ -610,12 +615,10 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
                 || it->is<Nodecl::TemplateFunctionCode>())
         {
             TL::Symbol function = it->get_symbol();
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(function);
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_moved");
 
-            Nodecl::Utils::SimpleSymbolMap map;
-            map.add_map(function, new_function);
-
-            _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, map));
+            _copied_cuda_functions.add_map(function, new_function);
+            _cuda_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_cuda_functions));
         }
         else
         {
@@ -681,7 +684,9 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         // Do not forget the clear the code for next files
         _cuda_file_code.get_internal_nodecl() = nodecl_null();
-        _cuda_functions.clear();
+
+        // Clear the copied cuda functions map
+        _copied_cuda_functions = Nodecl::Utils::SimpleSymbolMap();
     }
 }
 

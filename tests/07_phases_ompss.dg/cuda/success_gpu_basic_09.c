@@ -25,37 +25,34 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
 test_generator=config/mercurium-cuda
 compile_versions=cuda_omp
 </testinfo>
 */
-#include <stdlib.h>
 
-#pragma omp target device(cuda)
-__global__ void addOne_gpu(int *a)
+#pragma omp target device(smp)
+#pragma omp task
+void foo_smp()
 {
-	*a += 1;
 }
 
-#pragma omp target device (cuda) copy_deps
-#pragma omp task inout (*a)
-void addOne (int *a)
+#pragma omp target device(smp) implements(foo_smp)
+#pragma omp task
+void foo_smp_v2()
 {
-    struct dim3 x, y;
-	addOne_gpu <<<x, y>>> (a);
 }
 
-
-
-int main (int argc, char *argv[])
+#pragma omp target device(cuda) implements(foo_smp)
+#pragma omp task
+void foo_cuda()
 {
-	int a = 1;
+}
 
-	addOne(&a);
-
-	if (a != 2) abort();
-
-	return 0;
+int main()
+{
+    foo_smp();
+#pragma omp taskwait
 }

@@ -28,30 +28,23 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-cuda
-compile_versions=cuda_omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
-
-#pragma omp target device(smp)
+#include<assert.h>
 #pragma omp task
-void foo_smp()
+int fact(int n)
 {
+    if ( n == 0 || n == 1) return 1;
+    return fact(n-1) * n; // The taskwait will be introduced by Mercurium
 }
-
-#pragma omp target device(smp) implements(foo_smp)
-#pragma omp task
-void foo_smp_v2()
-{
-}
-
- #pragma omp target device(cuda) implements(foo_smp)
- #pragma omp task
- void foo_cuda()
- {
- }
 
 int main()
 {
-    foo_smp();
+
+    int x = fact(6);
+#pragma omp taskwait
+    assert(x == 720);
 }
+
+

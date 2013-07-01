@@ -25,39 +25,48 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
-test_generator=config/mercurium-cuda
-compile_versions=cuda_omp
+test_generator=config/mercurium-omp
 </testinfo>
 */
 
-
 #include <stdlib.h>
 
-#pragma omp target device(cuda)
-__global__ void addOne_gpu(int *a)
+int main(int argc, char *argv[])
 {
-	*a += 1;
-}
+    int x, y, z;
 
-#pragma omp target device (cuda) copy_deps
-#pragma omp task inout (*a)
-void addOne (int *a)
-{
-    struct dim3 x, y;
-	addOne_gpu <<<x, y>>> (a);
-}
+    x = 1;
+    y = 42;
+    z = 1;
 
+#pragma omp single private(x) firstprivate(y)
+    {
+        x = 99;
+        if (y != 42)
+        {
+            abort();
+        }
+        y = 99;
+        z = 99;
+    }
 
+    if (x != 1)
+    {
+        abort();
+    }
 
-int main (int argc, char *argv[])
-{
-	int a = 1;
+    if (y != 42)
+    {
+        abort();
+    }
 
-	addOne(&a);
+    if (z != 99)
+    {
+        abort();
+    }
 
-	if (a != 2) abort();
-
-	return 0;
+    return 0;
 }

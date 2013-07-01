@@ -271,7 +271,7 @@ namespace TL { namespace Nanox {
             ERROR_CONDITION(device == NULL, " Device '%s' has not been loaded.", device_name.c_str());
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
-            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+            Nodecl::Utils::SimpleSymbolMap *symbol_map = NULL;
             device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
             Source extended_outline_distribute_loop_source;
@@ -310,7 +310,6 @@ namespace TL { namespace Nanox {
             outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
 
             delete symbol_map;
-            symbol_map = NULL;
         }
 
         loop_spawn_slicer(outline_info, construct, distribute_environment, range, outline_name, structure_symbol, slicer_descriptor);

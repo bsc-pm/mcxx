@@ -85,7 +85,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             }
 
         public:
-            ExtraDeclsVisitor(Nodecl::Utils::SymbolMap*& symbol_map,
+            ExtraDeclsVisitor(Nodecl::Utils::SimpleSymbolMap*& symbol_map,
                     TL::Scope new_scope,
                     TL::Symbol reference_function)
                 : _scope(new_scope), _reference_function(reference_function)

@@ -33,8 +33,11 @@
 
 namespace SymbolUtils
 {
-    TL::Symbol new_function_symbol(TL::Symbol function)
+    TL::Symbol new_function_symbol(
+            TL::Symbol function,
+            const std::string& name)
     {
+        ERROR_CONDITION(name == function.get_name(), "The name of the new function cannot be the name of the original function", 0);
         TL::ObjectList<TL::Type> parameter_types = function.get_type().parameters();
 
         TL::ObjectList<std::string> parameter_names;
@@ -48,7 +51,7 @@ namespace SymbolUtils
 
         TL::Symbol new_function = SymbolUtils::new_function_symbol(
                 function,
-                function.get_name(),
+                name,
                 function.get_type().returns(),
                 parameter_names,
                 parameter_types);

@@ -25,7 +25,6 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
 test_generator=config/mercurium-cuda
@@ -33,20 +32,29 @@ compile_versions=cuda_omp
 </testinfo>
 */
 
-#include <stdlib.h>
-#include "success_gpu_basic_04.cu"
+
+#include <assert.h>
+
+#pragma omp target device(cuda)
+__global__ void addOne_gpu(int *a);
+
+
+__global__ void addOne_gpu(int *a)
+{
+	*a += 1;
+}
 
 #pragma omp target device (cuda) copy_deps
 #pragma omp task inout (*a)
-void addOne (struct MyType *a)
+void addOne (int *a)
 {
-    struct dim3 x1,x2;
-	addOne_gpu <<<x1, x2>>> (&(a->x));
+	addOne_gpu <<<1, 1>>> (a);
 }
-
 
 int main (int argc, char *argv[])
 {
-	addOne((struct MyType*) 0);
-	return 0;
+	int a = 1;
+	addOne(&a);
+#pragma omp taskwait
+    assert(a == 2);
 }
