@@ -312,6 +312,7 @@ namespace Analysis {
             case OMP_SECTIONS:
             case OMP_SINGLE:
             case OMP_TASK:
+            case OMP_MASTER:
                 dot_graph += "color=red4;\nstyle=bold;\n";
                 break;
             case OMP_SIMD:
@@ -321,7 +322,7 @@ namespace Analysis {
                 dot_graph += "color=indianred2;\n";
                 break;
             default:
-                internal_error( "Unexpected node type while printing dot\n", 0 );
+                internal_error( "Unexpected node %d type while printing dot\n", current->get_graph_type() );
         };
         Node* entry_node = current->get_graph_entry_node( );
         _cluster_to_entry_map[current->get_id( )] = entry_node->get_id( );

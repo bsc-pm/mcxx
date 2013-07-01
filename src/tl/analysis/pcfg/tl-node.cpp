@@ -620,6 +620,7 @@ namespace Analysis {
                 case OMP_CRITICAL:          graph_type = "OMP_CRITICAL";            break;
                 case OMP_LOOP:              graph_type = "OMP_LOOP";                break;
                 case OMP_PARALLEL:          graph_type = "OMP_PARALLEL";            break;
+                case OMP_MASTER:            graph_type = "OMP_MASTER";              break;
                 case OMP_SECTION:           graph_type = "OMP_SECTION";             break;
                 case OMP_SECTIONS:          graph_type = "OMP_SECTIONS";            break;
                 case OMP_SIMD:              graph_type = "OMP_SIMD";                break;
