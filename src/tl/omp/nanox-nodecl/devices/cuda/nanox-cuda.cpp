@@ -585,13 +585,17 @@ void DeviceCUDA::add_included_cuda_files(FILE* file)
     for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
     {
         std::string line = (*it).get_preprocessor_line();
-        std::string extension = line.substr(line.find_last_of("."));
-
-        if (extension == cuda_file_ext || extension == cuda_header_ext)
+        size_t found = line.find_last_of(".");
+        if (found != std::string::npos)
         {
-            int output = fprintf(file, "%s\n", line.c_str());
-            if (output < 0)
-                internal_error("Error trying to write the intermediate cuda file\n", 0);
+            std::string extension = line.substr(found);
+
+            if (extension == cuda_file_ext || extension == cuda_header_ext)
+            {
+                int output = fprintf(file, "%s\n", line.c_str());
+                if (output < 0)
+                    internal_error("Error trying to write the intermediate cuda file\n", 0);
+            }
         }
     }
 }
