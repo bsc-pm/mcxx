@@ -1189,13 +1189,16 @@ namespace Analysis {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LoopControl& n )
+    ObjectList<Node*> PCFGVisitor::visit_loop_control(
+            const Nodecl::NodeclBase& init,
+            const Nodecl::NodeclBase& cond,
+            const Nodecl::NodeclBase& next )
     {
         PCFGLoopControl* current_loop_ctrl = new PCFGLoopControl( );
 
         // Create initializing node
         _utils->_last_nodes.clear( );
-        ObjectList<Node*> init_node_l = walk( n.get_init( ) );
+        ObjectList<Node*> init_node_l = walk( init );
         if( init_node_l.empty( ) )
         {   // The empty statement will return anything here. No node needs to be created
             current_loop_ctrl->_init = NULL;
@@ -1207,7 +1210,7 @@ namespace Analysis {
 
         // Create condition node
         _utils->_last_nodes.clear( );
-        ObjectList<Node*> cond_node_l = walk( n.get_cond( ) );
+        ObjectList<Node*> cond_node_l = walk( cond );
         if( cond_node_l.empty( ) )
         {   // The condition is an empty statement.
             // In any case, we build here a node for easiness
@@ -1221,7 +1224,7 @@ namespace Analysis {
 
         // Create next node
         _utils->_last_nodes.clear( );
-        ObjectList<Node*> next_node_l = walk( n.get_next( ) );
+        ObjectList<Node*> next_node_l = walk( next );
         if( next_node_l.empty( ) )
         {
             current_loop_ctrl->_next = new Node( _utils->_nid, NORMAL,
@@ -1235,6 +1238,89 @@ namespace Analysis {
         _utils->_nested_loop_nodes.push( current_loop_ctrl );
 
         return ObjectList<Node*>( );   // No return required here. '_current_loop_ctrl' contains all information.
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LoopControl& n )
+    {
+        return visit_loop_control(n.get_init(), n.get_cond(), n.get_next());
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::RangeLoopControl& n )
+    {
+        Nodecl::Symbol induction_var = n.get_induction_variable().as<Nodecl::Symbol>();
+        // These are actually misleading names, they should be start and end
+        Nodecl::NodeclBase lower = n.get_lower();
+        Nodecl::NodeclBase upper = n.get_upper();
+        Nodecl::NodeclBase step = n.get_step();
+        if (step.is_null())
+            step = const_value_to_nodecl(const_value_get_signed_int(1));
+
+        // Build a reference node that we will use everywhere
+        TL::Symbol induction_sym = induction_var.get_symbol();
+        TL::Type sym_ref_type = induction_sym.get_type();
+        if (!sym_ref_type.is_any_reference())
+            sym_ref_type = sym_ref_type.get_lvalue_reference_to();
+        Nodecl::Symbol induction_var_ref = Nodecl::Symbol::make(induction_sym, induction_var.get_locus());
+        induction_var_ref.set_type(sym_ref_type);
+
+        // I = lower
+        Nodecl::NodeclBase fake_init = 
+            Nodecl::Assignment::make(
+                induction_var.shallow_copy(),
+                lower.shallow_copy(),
+                sym_ref_type);
+
+        // I <= upper                   if step is known to be > 0
+        // I >= upper                   if step is known to be < 0
+        // (I * step) <= (upper * step) if the step is nonconstant
+        Nodecl::NodeclBase fake_cond;
+        if (step.is_constant())
+        {
+            const_value_t* c = step.get_constant();
+            if (const_value_is_negative(c))
+            {
+                // I >= upper
+                fake_cond = Nodecl::GreaterOrEqualThan::make(
+                        induction_var.shallow_copy(),
+                        upper.shallow_copy(),
+                        get_bool_type());
+            }
+            else
+            {
+                // I <= upper
+                fake_cond = Nodecl::LowerOrEqualThan::make(
+                        induction_var.shallow_copy(),
+                        upper.shallow_copy(),
+                        get_bool_type());
+            }
+        }
+        else
+        {
+            // (I * step) <= (upper * step)
+            fake_cond = Nodecl::LowerOrEqualThan::make(
+                    Nodecl::Mul::make(
+                        induction_var.shallow_copy(),
+                        step.shallow_copy(),
+                        sym_ref_type.no_ref()),
+                    Nodecl::Mul::make(
+                        upper.shallow_copy(),
+                        step.shallow_copy(),
+                        sym_ref_type.no_ref()),
+                    get_bool_type());
+        }
+
+        // I = I + step
+        Nodecl::NodeclBase fake_next = 
+            Nodecl::Assignment::make(
+                    induction_var.shallow_copy(),
+                    Nodecl::Add::make(
+                        induction_var.shallow_copy(),
+                        step.shallow_copy(),
+                        sym_ref_type.no_ref()),
+                    sym_ref_type);
+
+
+        return visit_loop_control( fake_init, fake_cond, fake_next );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LowerOrEqualThan& n )

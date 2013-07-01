@@ -147,6 +147,10 @@ namespace Analysis {
          */
         Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
 
+        Ret visit_loop_control(
+                const Nodecl::NodeclBase& init,
+                const Nodecl::NodeclBase& cond,
+                const Nodecl::NodeclBase& next );
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //
 
@@ -262,6 +266,7 @@ namespace Analysis {
         Ret visit( const Nodecl::LogicalNot& n );
         Ret visit( const Nodecl::LogicalOr& n );
         Ret visit( const Nodecl::LoopControl& n );
+        Ret visit( const Nodecl::RangeLoopControl& n );
         Ret visit( const Nodecl::LowerOrEqualThan& n );
         Ret visit( const Nodecl::LowerThan& n );
         Ret visit( const Nodecl::Minus& n );
