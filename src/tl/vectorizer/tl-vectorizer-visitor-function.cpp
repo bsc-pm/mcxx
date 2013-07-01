@@ -27,6 +27,7 @@
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-vectorizer-visitor-expression.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL 
@@ -111,6 +112,25 @@ namespace TL
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(function_code.get_statements());
+
+            // Add final return if multi-return function
+            if (_environment._function_return.is_valid())
+            {
+                // Return value
+                Nodecl::Symbol return_value= _environment._function_return.make_nodecl(false, function_code.get_locus());
+
+//                VectorizerVisitorExpression visitor_sym(_environment);
+//                visitor_sym.walk(return_value);
+
+                // Return value at the end of the Compound Statement
+                Nodecl::ReturnStatement return_stmt =
+                    Nodecl::ReturnStatement::make(return_value, function_code.get_locus());
+
+                function_code.get_statements().as<Nodecl::Context>().get_in_context().as<Nodecl::List>()
+                    .front().as<Nodecl::CompoundStatement>().get_statements()
+                    .as<Nodecl::List>().append(return_stmt);
+            }
+            
 
             _environment._analysis_scopes.pop_back();
 

@@ -113,13 +113,13 @@ namespace TL
             else if (type.is_double()) 
             { 
                 intrin_src << "_pd("; 
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32("; 
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             } 
             else
             {
@@ -217,13 +217,13 @@ namespace TL
             else if (type.is_double()) 
             { 
                 intrin_src << "_pd("; 
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32("; 
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             } 
             else
             {
@@ -351,14 +351,14 @@ namespace TL
                     second_op_type.is_double())
             { 
                 intrin_src << "_pd("; 
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
             }
             else if (result_type.is_signed_int() &&
                     first_op_type.is_signed_int() &&
                     second_op_type.is_signed_int())
             {
                 intrin_src << "lo_epi32("; 
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             } 
             /* 
                else if (type.is_signed_short_int() ||
@@ -469,13 +469,13 @@ namespace TL
             else if (type.is_double()) 
             { 
                 intrin_src << "_pd("; 
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32("; 
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             } 
             else
             {
@@ -724,7 +724,7 @@ namespace TL
 
             if (_old_m512.empty())
             {
-                intrin_src << "_mm512_undefined_epi32()";
+                intrin_src << "_mm512_castps_si512(_mm512_undefined())";
             }
             else
             {
@@ -815,7 +815,7 @@ namespace TL
 
             if (_old_m512.empty())
             {
-                intrin_src << "_mm512_undefined_epi32()";
+                intrin_src << "_mm512_castps_si512(_mm512_undefined())";
             }
             else
             {
@@ -911,7 +911,7 @@ namespace TL
 
             if (_old_m512.empty())
             {
-                intrin_src << "_mm512_undefined_epi32()";
+                intrin_src << "_mm512_castps_si512(_mm512_undefined())";
             }
             else
             {
@@ -1320,15 +1320,48 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorAssignmentMask& node) 
         {
-            TL::Source intrin_src;
+            TL::Type type = node.get_type().basic_type();
+            TL::Source intrin_src, intrin_name, args, dst;
 
+            intrin_src << dst 
+                << "="
+                << intrin_name
+                << "("
+                << args
+                << ")"
+                ;
+
+            // Visit
             walk(node.get_lhs());
+            walk(node.get_mask());
             _old_m512.push_back(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << as_expression(node.get_lhs());
-            intrin_src << " = ";
-            intrin_src << as_expression(node.get_rhs());
+
+            dst << as_expression(node.get_lhs());
+
+            args << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_mask())
+                << ", "
+                << as_expression(node.get_rhs());
+
+
+            // Postfix
+            if (type.is_float()) 
+            {
+                intrin_name << "_mm512_mask_mov_ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_name << "_mm512_mask_mov_pd";
+            } 
+            else if (type.is_integral_type()) 
+            { 
+                intrin_name << "_mm512_mask_swizzle_epi32"; 
+                args << ", _MM_SWIZ_REG_NONE";
+            }
+
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1403,7 +1436,7 @@ namespace TL
             else if (type.is_double()) 
             { 
                 intrin_src << "_pd(";
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
             } 
             else if (type.is_integral_type()) 
             { 
@@ -1416,7 +1449,7 @@ namespace TL
                     << ")"
                     ; 
 */
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             } 
             else
             {
@@ -1482,14 +1515,14 @@ namespace TL
                 intrin_name_hi << "_pd";
                 intrin_name_lo << "_pd";
                 ext << "_MM_UPCONV_PD_NONE";
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
             } 
             else if (type.is_integral_type()) 
             { 
                 intrin_name_hi << "_epi32";
                 intrin_name_lo << "_epi32";
                 ext << "_MM_UPCONV_EPI32_NONE";
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
 /*
                 casting << "(" 
                     << print_type_str(
@@ -1563,7 +1596,7 @@ namespace TL
             { 
                 intrin_name_hi << "_pd";
                 intrin_name_lo << "_pd";
-                undef << "_mm512_undefined_pd()";
+                undef << "_mm512_castps_pd(_mm512_undefined())";
                 ext << "_MM_UPCONV_PD_NONE";
             } 
             else if (type.is_integral_type()) 
@@ -1579,7 +1612,7 @@ namespace TL
                     << ")"
                     ; 
 */
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             } 
             else
             {
@@ -1976,7 +2009,7 @@ namespace TL
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32(";
-                undef << "_mm512_undefined_epi32()";
+                undef << "_mm512_castps_si512(_mm512_undefined())";
             }
             else
             {
@@ -2182,11 +2215,11 @@ namespace TL
                     } 
                     else if (type.is_double()) 
                     { 
-                        undef << "_mm512_undefined_pd()";
+                        undef << "_mm512_castps_pd(_mm512_undefined())";
                     } 
                     else if (type.is_integral_type()) 
                     { 
-                        undef << "_mm512_undefined_epi32()";
+                        undef << "_mm512_castps_si512(_mm512_undefined())";
                     }
 
                     Nodecl::NodeclBase undef_function_call =
@@ -2282,7 +2315,7 @@ namespace TL
 
             if (_old_m512.empty())
             {
-                old_m512 << "_mm512_undefined_epi32()";
+                old_m512 << "_mm512_castps_si512(_mm512_undefined())";
             }
             else
             {

@@ -52,6 +52,8 @@ namespace TL
                 std::list<Nodecl::NodeclBase> _mask_list;
                 std::list<Nodecl::NodeclBase> _analysis_scopes;
 
+                TL::Symbol _function_return;
+
            public:
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,

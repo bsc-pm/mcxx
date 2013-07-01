@@ -323,33 +323,26 @@ namespace TL {
             // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
-                printf("MASK\n");
                 Nodecl::FunctionCode mask_func =
-                    common_simd_function(function_code, suitable_expressions, true);
-
-                // Append vectorized function code to scalar function
-                simd_node.append_sibling(mask_func);
+                    common_simd_function(simd_node, function_code, suitable_expressions, true);
             }
             // Nomask Version
             if (omp_mask.is_null())
             {
-                printf("NO MASK\n");
                 Nodecl::FunctionCode no_mask_func =
-                    common_simd_function(function_code, suitable_expressions, false);
-                
-                // Append vectorized function code to scalar function
-                simd_node.append_sibling(no_mask_func);
+                    common_simd_function(simd_node, function_code, suitable_expressions, false);
             }
         }
 
-        Nodecl::FunctionCode SimdVisitor::common_simd_function(const Nodecl::FunctionCode& function_code,
+        Nodecl::FunctionCode SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+                const Nodecl::FunctionCode& function_code,
                 const Nodecl::List& suitable_expressions,
                 const bool masked_version)
         {
             TL::Symbol func_sym = function_code.get_symbol();
             std::string orig_func_name = func_sym.get_name();
 
-            // Set new symbol
+            // Set new vector function symbol
             std::stringstream vector_func_name; 
 
             vector_func_name <<"__" 
@@ -367,6 +360,7 @@ namespace TL {
 
             TL::Symbol new_func_sym = func_sym.get_scope().
                 new_symbol(vector_func_name.str());
+            new_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
 
             Nodecl::Utils::SimpleSymbolMap func_sym_map;
             func_sym_map.add_map(func_sym, new_func_sym);
@@ -375,6 +369,17 @@ namespace TL {
                 Nodecl::Utils::deep_copy(function_code, 
                         function_code,
                         func_sym_map).as<Nodecl::FunctionCode>();
+
+            FunctionDeepCopyFixVisitor fix_deep_copy_visitor(func_sym, new_func_sym);
+            fix_deep_copy_visitor.walk(vector_func_code.get_statements());
+
+            // Add SIMD version to vector function versioning
+            _vectorizer.add_vector_function_version(orig_func_name, vector_func_code, 
+                    _device_name, _vector_length, NULL, masked_version, 
+                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+
+            // Append vectorized function code to scalar function
+            simd_node.append_sibling(vector_func_code);
 
             // Vectorize function
             VectorizerEnvironment _environment(
@@ -388,14 +393,23 @@ namespace TL {
 
             _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
 
-            // Add SIMD version to vector function versioning
-            _vectorizer.add_vector_function_version(orig_func_name, vector_func_code, 
-                    _device_name, _vector_length, NULL, masked_version, 
-                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
-
             return vector_func_code;
-       }
-    } 
+        }
+
+
+        FunctionDeepCopyFixVisitor::FunctionDeepCopyFixVisitor(const TL::Symbol& orig_symbol, const TL::Symbol& new_symbol)
+            : _orig_symbol(orig_symbol), _new_symbol(new_symbol)
+        {
+        }
+
+        void FunctionDeepCopyFixVisitor::visit(const Nodecl::Symbol& n)
+        {
+            if (n.get_symbol() == _new_symbol)
+            {
+                n.replace(_orig_symbol.make_nodecl(false, n.get_locus()));
+            }
+        }
+    }
 }
 
 EXPORT_PHASE(TL::OpenMP::Simd)
