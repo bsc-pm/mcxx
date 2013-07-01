@@ -978,11 +978,33 @@ namespace TL
 
         namespace {
 
+            std::set<TL::Type> _used_types;
+
             void add_used_types_rec(TL::Type t, TL::Scope sc)
             {
-                if (t.is_named_class() && t.get_symbol().is_from_module())
+                if (!t.is_valid())
+                    return;
+
+                std::pair<std::set<TL::Type>::iterator, bool> p = _used_types.insert(t);
+                if (!p.second)
+                    return;
+
+                if (t.is_named_class())
                 {
-                    Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    if (t.get_symbol().is_from_module())
+                    {
+                        Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    }
+                    else
+                    {
+                        TL::ObjectList<TL::Symbol> members = t.get_fields();
+                        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                                it != members.end();
+                                it++)
+                        {
+                            add_used_types_rec(it->get_type(), sc);
+                        }
+                    }
                 }
                 else if (t.is_lvalue_reference())
                 {
@@ -996,6 +1018,8 @@ namespace TL
                 {
                     add_used_types_rec(t.array_element(), sc);
                 }
+
+                _used_types.erase(t);
             }
 
         }

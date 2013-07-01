@@ -42,6 +42,8 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase placeholder;
 
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+
         TL::Source transform_code, final_barrier;
         transform_code
             << "{"
@@ -59,8 +61,7 @@ namespace TL { namespace Nanox {
 
         if (!environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
-            final_barrier
-            << full_barrier_source();
+            final_barrier << full_barrier_source();
         }
 
         FORTRAN_LANGUAGE()
@@ -68,14 +69,115 @@ namespace TL { namespace Nanox {
             // Parse in C
             Source::source_language = SourceLanguage::C;
         }
-
         Nodecl::NodeclBase n = transform_code.parse_statement(construct);
         FORTRAN_LANGUAGE()
         {
             Source::source_language = SourceLanguage::Current;
         }
 
-        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder);
+        // Create the environment
+        Nodecl::NodeclBase private_syms = environment.find_first<Nodecl::OpenMP::Private>();
+        Nodecl::NodeclBase firstprivate_syms = environment.find_first<Nodecl::OpenMP::Firstprivate>();
+
+        TL::Scope placeholder_scope = placeholder.retrieve_context();
+        if (!private_syms.is_null())
+        {
+            Nodecl::List private_items = private_syms
+                .as<Nodecl::OpenMP::Private>()
+                .get_private_symbols()
+                .as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = private_items.begin();
+                    it != private_items.end();
+                    it++)
+            {
+                TL::Symbol orig_sym = it->get_symbol();
+                ERROR_CONDITION(!orig_sym.is_valid(), "Invalid symbol", 0);
+
+                // FIXME - Improve the naming scheme
+                TL::Symbol sym = placeholder_scope.new_symbol("sp_" + orig_sym.get_name());
+                sym.get_internal_symbol()->kind = SK_VARIABLE;
+                sym.get_internal_symbol()->type_information = orig_sym.get_type().no_ref().get_internal_type();
+                sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+                symbol_map.add_map(orig_sym, sym);
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), sym);
+                    Nodecl::Utils::prepend_items_before(placeholder, def);
+                }
+            }
+        }
+
+        if (!firstprivate_syms.is_null())
+        {
+            Nodecl::List private_items = firstprivate_syms
+                .as<Nodecl::OpenMP::Firstprivate>()
+                .get_firstprivate_symbols()
+                .as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = private_items.begin();
+                    it != private_items.end();
+                    it++)
+            {
+                TL::Symbol orig_sym = it->get_symbol();
+                ERROR_CONDITION(!orig_sym.is_valid(), "Invalid symbol", 0);
+
+                // FIXME - Improve the naming scheme
+                TL::Symbol sym = placeholder_scope.new_symbol("sfp_" + orig_sym.get_name());
+                sym.get_internal_symbol()->kind = SK_VARIABLE;
+                sym.get_internal_symbol()->type_information = orig_sym.get_type().no_ref().get_internal_type();
+                sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+                symbol_map.add_map(orig_sym, sym);
+
+                if (IS_CXX_LANGUAGE)
+                {
+                    Nodecl::NodeclBase def = Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), sym);
+                    Nodecl::Utils::prepend_items_before(placeholder, def);
+                }
+
+                // Initialization of the private
+                if (IS_FORTRAN_LANGUAGE
+                        || !sym.get_type().no_ref().is_array())
+                {
+                    Nodecl::Symbol sym_ref = sym.make_nodecl();
+                    sym_ref.set_type(sym.get_type());
+
+                    if (!sym_ref.get_type().is_any_reference())
+                        sym_ref.set_type(sym.get_type().get_lvalue_reference_to());
+
+                    Nodecl::Symbol orig_sym_ref = orig_sym.make_nodecl();
+                    orig_sym_ref.set_type(orig_sym.get_type());
+
+                    if (!orig_sym_ref.get_type().is_any_reference())
+                        orig_sym_ref.set_type(orig_sym.get_type().get_lvalue_reference_to());
+
+                    Nodecl::NodeclBase assig =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    sym_ref,
+                                    orig_sym_ref,
+                                    sym_ref.get_type()));
+
+                    Nodecl::Utils::prepend_items_before(placeholder, assig);
+                }
+                else // This is not Fortran and the type of the symbol is array
+                {
+                    Source src;
+                    src << "__builtin_memcpy(" << as_symbol(sym) << ", "
+                        << as_symbol(orig_sym) << ", "
+                        << "sizeof(" << as_type(orig_sym.get_type().no_ref()) << "));"
+                        ;
+
+                    Nodecl::Utils::prepend_items_before(placeholder,
+                            src.parse_statement(placeholder_scope));
+                }
+            }
+        }
+
+        Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, placeholder, symbol_map);
         placeholder.replace(copied_statements);
 
         construct.replace(n);
