@@ -12,17 +12,20 @@ options =
 preprocessor_options =-include nanos-fpga.h
 linker_options = -lnanox-fpga-api
 compiler_phase = libtlnanox-fpga.so
+preprocessor_name = @G++@
+compiler_name = @G++@
+linker_name = @G++@
 
 # FPGA profile
 [fpga]
-language = C
+language = C++
 options =
 # cross compile for arm: ato some point, this is going to call a hardware build script
-preprocessor_name = @GCC@
+preprocessor_name = @G++@
 preprocessor_options = -E
-compiler_name = @GCC@
+compiler_name = @G++@
 compiler_options =
-linker_name = @GCC@
+linker_name = @G++@
 linker_options = -Xlinker --add-needed
 target_options[fpgacc] = no_sublink no_embed
 target_options[fpgacc-dev] = no_sublink no_embed
