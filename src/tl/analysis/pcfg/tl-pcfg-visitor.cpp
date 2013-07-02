@@ -1481,9 +1481,11 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
-    {   // No deeper Nodecls
-        internal_error( "CombinedWorksharing not yet implemented ( %s )", codegen_to_str( n.get_internal_nodecl( ),
-                                                                                          nodecl_retrieve_context( n.get_internal_nodecl( ) ) ) );
+    {
+        // FIXME. We should do something with this (but crashing, of course)
+        PCFGClause current_clause( COMBINED_WORKSHARING, n );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )

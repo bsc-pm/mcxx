@@ -126,7 +126,8 @@ namespace Analysis {
         TARGET,
         UNDEFINED_CLAUSE,
         UNTIED,
-        WAITON
+        WAITON,
+        COMBINED_WORKSHARING,
     };
 
     class PCFGClause {
