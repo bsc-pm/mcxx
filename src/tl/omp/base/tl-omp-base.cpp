@@ -821,20 +821,30 @@ namespace TL { namespace OpenMP {
                 {
                     Nodecl::NodeclBase expression;
                     TL::Symbol parameter_sym;
+                    Nodecl::NodeclBase arg;
+
                     if (it->is<Nodecl::FortranActualArgument>())
                     {
                         // If this is a Fortran style argument use the symbol
                         Nodecl::FortranActualArgument named_pair(it->as<Nodecl::FortranActualArgument>());
 
-                        param_to_arg_expr[named_pair.get_symbol()] = named_pair.get_argument();
+                        parameter_sym = named_pair.get_symbol();
+                        arg = named_pair.get_argument();
                     }
                     else
                     {
                         // Get the i-th parameter of the function
                         ERROR_CONDITION(((signed int)function.get_related_symbols().size() <= i), "Too many parameters", 0);
-                        TL::Symbol parameter = function.get_related_symbols()[i];
-                        param_to_arg_expr[parameter] = *it;
+                        parameter_sym = function.get_related_symbols()[i];
+                        arg = *it;
                     }
+
+                    while (arg.is<Nodecl::Conversion>())
+                    {
+                        arg = arg.as<Nodecl::Conversion>().get_nest();
+                    }
+
+                    param_to_arg_expr[parameter_sym] = arg;
                 }
             }
 
