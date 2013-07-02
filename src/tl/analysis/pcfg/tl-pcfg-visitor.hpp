@@ -350,6 +350,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Typeid& n );
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
+        Ret visit( const Nodecl::DefaultArgument& n );
         Ret visit( const Nodecl::WhileStatement& n );
 
         // ******************************** END visiting methods ******************************** //
