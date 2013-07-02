@@ -365,8 +365,9 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // The unpacked function must not be static and must have external linkage because
-    // this function is called from the original source but It is defined in cudacc_filename.cu
+    // It's called from the original source but It's defined in cudacc_filename.cu
     unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+    unpacked_function.get_internal_symbol()->entity_specs.is_inline = 0;
     if (IS_C_LANGUAGE)
     {
         unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
