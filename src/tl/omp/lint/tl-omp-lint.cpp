@@ -28,6 +28,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-analysis-singleton.hpp"
 #include "tl-datareference.hpp"
+#include "tl-tribool.hpp"
 #include "cxx-diagnostic.h"
 
 namespace TL { namespace OpenMP {
@@ -58,8 +59,8 @@ namespace TL { namespace OpenMP {
                         it != tasks.end();
                         it++)
                 {
-                    if (task_is_locally_bound(*it)
-                            && task_is_statically_determined_to_late_execution(*it))
+                    if ((task_is_locally_bound(*it)
+                            && task_is_statically_determined_to_late_execution(*it)).is_true())
                     {
                         Nodecl::NodeclBase task = (*it)->get_graph_label();
 
@@ -72,8 +73,8 @@ namespace TL { namespace OpenMP {
                         it != tasks.end();
                         it++)
                 {
-                    if (task_is_locally_bound(*it)
-                            && task_only_synchronizes_in_enclosing_scopes(*it))
+                    if ((task_is_locally_bound(*it)
+                            && task_only_synchronizes_in_enclosing_scopes(*it)).is_true())
                     {
                         Nodecl::NodeclBase task = (*it)->get_graph_label();
 
@@ -84,18 +85,20 @@ namespace TL { namespace OpenMP {
             }
 
             // If this function returns false it may mean both unknown/no
-            bool data_ref_is_local(TL::DataReference data_ref)
+            tribool data_ref_is_local(TL::DataReference data_ref)
             {
                 if (!data_ref.is_valid())
                 {
-                    return false;
+                    // Somehow the data reference cannot be analyzed as valid
+                    // so act conservatively and return unknown
+                    return tribool();
                 }
 
                 return data_ref_is_local_rec(data_ref);
             }
 
             // If this function returns false it may mean both unknown/no
-            bool data_ref_is_local_rec(TL::DataReference data_ref)
+            tribool data_ref_is_local_rec(TL::DataReference data_ref)
             {
                 TL::Symbol base_sym = data_ref.get_base_symbol();
                 if (!base_sym.is_valid())
@@ -148,22 +151,22 @@ namespace TL { namespace OpenMP {
             }
 
 
-            bool any_data_ref_is_local(Nodecl::List item_list)
+            tribool any_data_ref_is_local(Nodecl::List item_list)
             {
+                tribool result(false);
                 for (Nodecl::List::iterator it = item_list.begin();
                         it != item_list.end();
                         it++)
                 {
-                    if (data_ref_is_local(*it))
-                        return true;
+                    result = result || data_ref_is_local(*it);
                 }
 
-                return false;
+                return result;
             }
 
-            bool task_is_locally_bound(TL::Analysis::Node *n)
+            tribool task_is_locally_bound(TL::Analysis::Node *n)
             {
-                bool result = false;
+                tribool result = false;
 
                 Nodecl::NodeclBase task = n->get_graph_label();
                 // std::cerr << "Checking if task at " << task.get_locus_str() << " is locally bound" << std::endl;
@@ -207,10 +210,14 @@ namespace TL { namespace OpenMP {
                         shared = it->as<Nodecl::OpenMP::Shared>();
                 }
 
-                result = (!shared.is_null() && any_data_ref_is_local(shared.get_shared_symbols().as<Nodecl::List>()))
-                    || (!dep_in.is_null() && any_data_ref_is_local(dep_in.get_in_deps().as<Nodecl::List>()))
-                    || (!dep_out.is_null() && any_data_ref_is_local(dep_out.get_out_deps().as<Nodecl::List>()))
-                    || (!dep_inout.is_null() && any_data_ref_is_local(dep_inout.get_inout_deps().as<Nodecl::List>()));
+                if (!shared.is_null())
+                    result = result || any_data_ref_is_local(shared.get_shared_symbols().as<Nodecl::List>());
+                if (!dep_in.is_null())
+                    result = result || any_data_ref_is_local(dep_in.get_in_deps().as<Nodecl::List>());
+                if (!dep_out.is_null())
+                    result = result || any_data_ref_is_local(dep_out.get_out_deps().as<Nodecl::List>());
+                if (!dep_inout.is_null())
+                    result = result || any_data_ref_is_local(dep_inout.get_inout_deps().as<Nodecl::List>());
 
                 // if (result)
                 //     std::cerr << "Yes, it is locally bound" << std::endl;
@@ -303,9 +310,9 @@ namespace TL { namespace OpenMP {
                 return result;
             }
 
-            bool task_only_synchronizes_in_enclosing_scopes(TL::Analysis::Node *n)
+            tribool task_only_synchronizes_in_enclosing_scopes(TL::Analysis::Node *n)
             {
-                bool result;
+                tribool result;
 
                 TL::Scope innermost_required_scope = get_innermost_required_scope(n);
 
@@ -319,7 +326,7 @@ namespace TL { namespace OpenMP {
                 // ERROR_CONDITION (exit_edges.empty(), "We should have computed at least some exit edge for this task", 0);
                 if (!exit_edges.empty())
                 {
-                    bool seen_relevant_edges = false;
+                    tribool seen_relevant_edges = false;
                     result = true;
 
                     for (TL::ObjectList<TL::Analysis::Edge*>::iterator it = exit_edges.begin();
@@ -346,7 +353,7 @@ namespace TL { namespace OpenMP {
                                 continue;
                             }
 
-                            bool target_is_in_an_enclosing_scope = innermost_required_scope.scope_is_enclosed_by(scope_of_target);
+                            tribool target_is_in_an_enclosing_scope = innermost_required_scope.scope_is_enclosed_by(scope_of_target);
 
                             result = result && target_is_in_an_enclosing_scope;
                         }
@@ -369,19 +376,19 @@ namespace TL { namespace OpenMP {
                 return result;
             }
 
-            bool task_is_statically_determined_to_late_execution(TL::Analysis::Node *n)
+            tribool task_is_statically_determined_to_late_execution(TL::Analysis::Node *n)
             {
-                bool result = false;
+                tribool result = false;
 
                 Nodecl::NodeclBase task = n->get_graph_label();
                 // std::cerr << "Checking if task at " << task.get_locus_str()
                 //     << " can be late executed" << std::endl;
 
-                bool seen_static_edges = false;
-                bool seen_maybe_edges = false;
-                bool seen_post_edges = false;
+                tribool seen_static_edges = false;
+                tribool seen_maybe_edges = false;
+                tribool seen_post_edges = false;
 
-                typedef std::map<std::string, bool*> map_edge_kind_t;
+                typedef std::map<std::string, tribool*> map_edge_kind_t;
 
                 map_edge_kind_t map_edge_kind;
                 map_edge_kind["static"] = &seen_static_edges;

@@ -208,9 +208,10 @@ namespace TL { namespace Analysis {
             TL::DataReference source_data_ref(source);
             TL::DataReference target_data_ref(target);
 
-            ERROR_CONDITION(!source_data_ref.is_valid()
-                    || !target_data_ref.is_valid(),
-                    "Data references should be valid here", 0);
+            // We return unknown
+            if (!source_data_ref.is_valid()
+                    || !target_data_ref.is_valid())
+                return tribool();
 
             TL::Symbol source_sym = source_data_ref.get_base_symbol();
             TL::Symbol target_sym = target_data_ref.get_base_symbol();
