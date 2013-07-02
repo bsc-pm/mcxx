@@ -89,29 +89,29 @@ namespace TL
 
             return tribool(!is_true());
         }
-
-        // And
-        tribool operator&&(const tribool& rhs) const
-        {
-            if (!this->is_unknown() && !rhs.is_unknown())
-                return tribool(this->is_true() && rhs.is_true());
-            else if (this->is_false() || rhs.is_false())
-                return tribool(false);
-            else
-                return tribool();
-        }
-
-        // Or
-        tribool operator||(const tribool& rhs) const
-        {
-            if (!this->is_unknown() && !rhs.is_unknown())
-                return tribool(this->is_true() || rhs.is_true());
-            else if (this->is_true() || rhs.is_true())
-                return tribool(true);
-            else
-                return tribool();
-        }
     };
+    
+    // And
+    tribool operator&&(const tribool &lhs, const tribool& rhs)
+    {
+        if (!lhs.is_unknown() && !rhs.is_unknown())
+            return tribool(lhs.is_true() && rhs.is_true());
+        else if (lhs.is_false() || rhs.is_false())
+            return tribool(false);
+        else
+            return tribool();
+    }
+
+    // Or
+    tribool operator||(const tribool& lhs, const tribool& rhs)
+    {
+        if (!lhs.is_unknown() && !rhs.is_unknown())
+            return tribool(lhs.is_true() || rhs.is_true());
+        else if (lhs.is_true() || rhs.is_true())
+            return tribool(true);
+        else
+            return tribool();
+    }
 }
 
 #endif
