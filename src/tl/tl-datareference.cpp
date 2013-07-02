@@ -317,8 +317,9 @@ namespace TL
                 }
                 else
                 {
-                    internal_error("Unexpected subscripted tree %s\n",
-                            ast_print_node_type(array.get_subscripted().get_kind()));
+                    // Anything else cannot be accepted here
+                    _data_ref._is_valid = false;
+                    return;
                 }
             }
 
