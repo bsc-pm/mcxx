@@ -189,7 +189,8 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    internal_error("Code unreachable", 0);
+                    // ??? What reached here?
+                    return tribool();
                 }
 
                 Nodecl::OpenMP::Shared shared;
@@ -277,7 +278,8 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    internal_error("Code unreachable", 0);
+                    // ??? What reached here?
+                    return result;
                 }
 
                 Nodecl::OpenMP::Shared shared;
@@ -349,8 +351,8 @@ namespace TL { namespace OpenMP {
                                 scope_of_target = target->get_statements()[0].retrieve_context();
                             else
                             {
-                                internal_error("Code unreachable", 0);
-                                continue;
+                                // ???
+                                return tribool();
                             }
 
                             tribool target_is_in_an_enclosing_scope = innermost_required_scope.scope_is_enclosed_by(scope_of_target);
