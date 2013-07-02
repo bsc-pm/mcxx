@@ -33,14 +33,6 @@
 #include "tl-pcfg-utils.hpp"
 
 namespace TL { namespace Analysis {
-    
-    // Task synchronization relationship
-    enum TaskSyncRel
-    {
-        TaskSync_Unknown = 0,
-        TaskSync_Yes = 1,
-        TaskSync_No = 2
-    };
 
     #define SYNC_KIND_LIST \
     SYNC_KIND(unknown) \

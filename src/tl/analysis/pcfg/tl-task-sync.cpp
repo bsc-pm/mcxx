@@ -26,76 +26,25 @@
 
 #include "tl-task-sync.hpp"
 #include "tl-datareference.hpp"
+#include "tl-tribool.hpp"
 
 namespace TL { namespace Analysis {
 
     namespace {
 
-        TaskSyncRel operator||(const TaskSyncRel& l, const TaskSyncRel r)
-        {
-            if ((l != TaskSync_Unknown) && (r != TaskSync_Unknown))
-            {
-                return ((l == TaskSync_Yes) || (r == TaskSync_Yes)) ? TaskSync_Yes : TaskSync_No;
-            }
-            else if (((l == TaskSync_Unknown) && (r == TaskSync_Yes))
-                    || ((l == TaskSync_Yes) && (r == TaskSync_Unknown)))
-            {
-                return TaskSync_Yes;
-            }
-            else if (((l == TaskSync_Unknown) && (r == TaskSync_No))
-                    || ((l == TaskSync_No) && (r == TaskSync_Unknown)))
-            {
-                return TaskSync_Unknown;
-            }
-            else if ((l == r) && (l == TaskSync_Unknown))
-            {
-                return TaskSync_Unknown;
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-        }
-
-        TaskSyncRel operator&&(const TaskSyncRel& l, const TaskSyncRel r)
-        {
-            if ((l != TaskSync_Unknown) && (r != TaskSync_Unknown))
-            {
-                return ((l == TaskSync_Yes) && (r == TaskSync_Yes)) ? TaskSync_Yes : TaskSync_No;
-            }
-            else if (((l == TaskSync_Unknown) && (r == TaskSync_Yes))
-                    || ((l == TaskSync_Yes) && (r == TaskSync_Unknown)))
-            {
-                return TaskSync_Unknown;
-            }
-            else if (((l == TaskSync_Unknown) && (r == TaskSync_No))
-                    || ((l == TaskSync_No) && (r == TaskSync_Unknown)))
-            {
-                return TaskSync_No;
-            }
-            else if ((l == r) && (l == TaskSync_Unknown))
-            {
-                return TaskSync_Unknown;
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-        }
-
-        void set_sync_relationship(TaskSyncRel& task_sync_rel,
+        void set_sync_relationship(tribool& task_sync_rel,
                 AliveTaskSet::iterator& alive_tasks_it,
                 PointsOfSync& points_of_sync,
                 Node* current,
                 Node* current_sync_point)
         {
-            switch (task_sync_rel)
+            switch (task_sync_rel.value())
             {
-                case TaskSync_Unknown :
-                case TaskSync_Yes :
+                case tribool::unknown :
+                case tribool::yes :
                     {
                         SyncKind sync_kind = Sync_maybe;
-                        if (task_sync_rel == TaskSync_Yes)
+                        if (task_sync_rel == tribool::yes)
                             sync_kind = Sync_static;
 
                         if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
@@ -118,14 +67,14 @@ namespace TL { namespace Analysis {
                             //                                << " task is (potentially) still alive after execution" << std::endl;
                         }
 
-                        if (task_sync_rel == TaskSync_Yes)
+                        if (task_sync_rel == tribool::yes)
                         {
                             //                            std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
                             current->get_static_sync_out_tasks().insert(*alive_tasks_it);
                         }
                         break;
                     }
-                case TaskSync_No :
+                case tribool::no :
                     {
                         // We positively know that the task does not synchronize here
                         std::pair<AliveTaskSet::iterator, bool> res = current->get_live_out_tasks().insert(*alive_tasks_it);
@@ -254,7 +203,7 @@ namespace TL { namespace Analysis {
             return true;
         }
 
-        TaskSyncRel may_have_dependence(Nodecl::NodeclBase source, Nodecl::NodeclBase target)
+        tribool may_have_dependence(Nodecl::NodeclBase source, Nodecl::NodeclBase target)
         {
             TL::DataReference source_data_ref(source);
             TL::DataReference target_data_ref(target);
@@ -275,7 +224,7 @@ namespace TL { namespace Analysis {
             {
                 // If both data references are simple objects, different names means
                 // different names
-                return (source_sym == target_sym) ? TaskSync_Yes : TaskSync_No;
+                return (source_sym == target_sym) ? tribool::yes : tribool::no;
             }
 
             bool source_is_subobject = is_strict_subobject_access(source_data_ref);
@@ -287,18 +236,18 @@ namespace TL { namespace Analysis {
                 // If one is object and the other subobject (or both subobjects),
                 // if the base symbol is different, they they cannot be the same dependence
                 if (source_sym != target_sym)
-                    return TaskSync_No;
+                    return tribool::no;
             }
 
             // IMPROVEMENT: If both are subobjects we could try to deduce if really there is dependence
 
             // In all other cases we take conservative stance
-            return TaskSync_Unknown;
+            return tribool::unknown;
         }
 
-        TaskSyncRel may_have_dependence_list(Nodecl::List out_deps_source, Nodecl::List in_deps_target)
+        tribool may_have_dependence_list(Nodecl::List out_deps_source, Nodecl::List in_deps_target)
         {
-            TaskSyncRel result = TaskSync_No;
+            tribool result = tribool::no;
             for (Nodecl::List::iterator it = out_deps_source.begin();
                     it != out_deps_source.end();
                     it++)
@@ -314,7 +263,7 @@ namespace TL { namespace Analysis {
             return result;
         }
 
-        TaskSyncRel compute_taskwait_sync_relationship(Node* source, Node* target)
+        tribool compute_taskwait_sync_relationship(Node* source, Node* target)
         {
             // Source (task)
             Nodecl::NodeclBase task_node_source = source->get_graph_label();
@@ -382,7 +331,7 @@ namespace TL { namespace Analysis {
                     target_dep_inout = *it;
             }
 
-            TaskSyncRel may_have_dep = TaskSync_No;
+            tribool may_have_dep = tribool::no;
 
             // DRY
             Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
@@ -410,7 +359,7 @@ namespace TL { namespace Analysis {
         }
 
         // Computes if task source will synchronize with the creation of the task target
-        TaskSyncRel compute_task_sync_relationship(Node* source, Node* target)
+        tribool compute_task_sync_relationship(Node* source, Node* target)
         {
             //    std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
 
@@ -492,7 +441,7 @@ namespace TL { namespace Analysis {
                     target_dep_inout = *it;
             }
 
-            TaskSyncRel may_have_dep = TaskSync_No;
+            tribool may_have_dep = tribool::no;
 
             // DRY
             Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
@@ -666,7 +615,7 @@ namespace TL { namespace Analysis {
                     if (alive_tasks_it->domain != current_domain_id)
                         continue;
 
-                    TaskSyncRel task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
+                    tribool task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
                     set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, current);
                 }
             }
@@ -715,7 +664,7 @@ namespace TL { namespace Analysis {
                     if (alive_tasks_it->domain != current_domain_id)
                         continue;
 
-                    TaskSyncRel task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
+                    tribool task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
                     set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, task);
                 }
 
