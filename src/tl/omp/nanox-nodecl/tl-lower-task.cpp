@@ -1826,13 +1826,13 @@ void LoweringVisitor::fill_copies_region(
                 << num_dimensions_count;
 
 
-            for (int dim = 0; dim < num_dimensions_count; dim++)
+            for (int dim = num_dimensions_count - 1; dim >= 0; dim--, current_dimension_descriptor++)
             {
                 // Sanity check
                 ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
                         current_dimension_descriptor, num_copies_dimensions);
 
-                if (dim == 0)
+                if (current_dimension_descriptor == 0)
                 {
                     // In bytes
                     ol_dimension_descriptors
@@ -1876,9 +1876,7 @@ void LoweringVisitor::fill_copies_region(
                         << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
                         ;
                 }
-                current_dimension_descriptor++;
             }
-            
 
             if (Nanos::Version::interface_is_at_least("copies_api", 1003))
             {
