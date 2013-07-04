@@ -1001,7 +1001,10 @@ namespace Analysis {
 
         // Build the node containing the input operands
         ObjectList<Node*> op1 = walk( n.get_operands1( ) );
-        op1[0]->set_asm_info( ASM_DEF_INPUT_OPS );
+        if ( !op1.empty( ) )
+        {
+            op1[0]->set_asm_info( ASM_DEF_INPUT_OPS );
+        }
 
         // Build the node containing the clobbered registers
         ObjectList<Node*> op2 = walk( n.get_operands2( ) );
