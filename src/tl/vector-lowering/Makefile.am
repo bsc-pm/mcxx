@@ -36,11 +36,19 @@ END=
 libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               -I $(top_srcdir)/src/tl/vectorizer/ \
+                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
+                               -I $(top_srcdir)/src/tl/analysis/common/ \
+                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                                $(END)
 
 libtlvector_lowering_la_CXXFLAGS=$(tl_cflags) -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               -I $(top_srcdir)/src/tl/vectorizer/ \
+                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
+                               -I $(top_srcdir)/src/tl/analysis/common/ \
+                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                                $(END)
 
 libtlvector_lowering_la_LDFLAGS = $(tl_ldflags)

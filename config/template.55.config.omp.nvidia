@@ -7,9 +7,7 @@ preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
 linker_options = -lnanox-gpu-api
-#compiler_dto = remove_attributes:string:host,device
 compiler_phase = libtlnanox-cuda.so
-#compiler_phase = libtl-remove-attrs.so
 
 [mnvcxx : omp-base]
 language = C++
@@ -19,6 +17,4 @@ preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
 linker_options = -lnanox-gpu-api
-#compiler_dto = remove_attributes:string:host,device
 compiler_phase = libtlnanox-cuda.so
-#compiler_phase = libtl-remove-attrs.so

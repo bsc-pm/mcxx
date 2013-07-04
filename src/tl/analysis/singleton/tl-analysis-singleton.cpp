@@ -157,7 +157,7 @@ namespace Analysis {
     {
         _auto_deps = true;
     }
-    
+
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
@@ -243,6 +243,7 @@ namespace Analysis {
 
         return result;
     }
+
 
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
             const Nodecl::NodeclBase& n )

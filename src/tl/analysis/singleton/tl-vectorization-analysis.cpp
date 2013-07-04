@@ -56,9 +56,20 @@ namespace Analysis {
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
                 
-                ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
-                iv_v.walk( s );
-                result = iv_v.is_adjacent_access( );
+                AdjacentAccessVisitor iv_v( _induction_variables, _killed );
+                bool constant = iv_v.walk( s );
+                if( !constant )
+                {
+                    result = false;
+                }
+                else
+                {
+                    Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
+                    if( iv == NULL || !iv->is_increment_one( ) )
+                    {
+                        result = false;
+                    }
+                }
             }
         }
         
@@ -69,7 +80,7 @@ namespace Analysis {
     {
         bool result = false;
         
-//         std::cout << "Access: " << n.prettyprint() << "\n";
+//        std::cout << "Access: " << n.prettyprint() << "\n";
 
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
@@ -81,9 +92,20 @@ namespace Analysis {
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
                 
-                ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
-                iv_v.walk( s );
-                result = iv_v.depends_on_induction_vars( );
+                AdjacentAccessVisitor iv_v( _induction_variables, _killed );
+                bool constant = iv_v.walk( s );
+                
+                Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
+                if( iv != NULL )
+                {
+//                    std::cout << "-> " << s.prettyprint() << " has iv '" << iv->get_variable().get_nodecl().prettyprint() <<  "'\n";
+                    result = true;
+                    break;
+                }
+                else
+                {
+//                    std::cout << "-> " << s.prettyprint() << " has no iv" << "\n";
+                }
             }
         }
         
@@ -303,76 +325,45 @@ namespace Analysis {
     
     
     // ********************************************************************************************* //
-    // ******************* Visitor retrieving array accesses info within a loop ******************** //
+    // ***************** Visitor retrieving adjacent array accesses within a loop ****************** //
     
-    ArrayAccessInfoVisitor::ArrayAccessInfoVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, 
+    AdjacentAccessVisitor::AdjacentAccessVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, 
                                                   Utils::ext_sym_set killed )
-            : _induction_variables( ivs ), _killed( killed ), _ivs( ), _is_adjacent_access( false )
+            : _induction_variables( ivs ), _killed( killed ), _iv( NULL ), _iv_found( false )
     {}
     
-    bool ArrayAccessInfoVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
+    Utils::InductionVariableData* AdjacentAccessVisitor::get_induction_variable( )
     {
-        bool is_iv = false;
+        return _iv;
+    }
+    
+    Utils::InductionVariableData* AdjacentAccessVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
+    {
+        Utils::InductionVariableData* res = NULL;
         for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                _ivs.insert( *it );
-                is_iv = true;
+                res = *it;
                 break;
             }
         }
-        return is_iv;
-    }
-    
-    static bool nodecl_is_zero( const Nodecl::NodeclBase& n )
-    {
-        bool res = false;
-
-        if( n.is<Nodecl::IntegerLiteral>( ) )
-            res = const_value_is_zero( n.as<Nodecl::IntegerLiteral>( ).get_constant( ) );
-        else if( n.is<Nodecl::FloatingLiteral>( ) )
-            res = const_value_is_zero( n.as<Nodecl::FloatingLiteral>( ).get_constant( ) );
-        
         return res;
     }
     
-    static bool nodecl_is_one( const Nodecl::NodeclBase& n )
+    bool AdjacentAccessVisitor::visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
     {
-        bool res = false;
-        
-        if( n.is<Nodecl::IntegerLiteral>( ) )
-            res = const_value_is_one( n.as<Nodecl::IntegerLiteral>( ).get_constant( ) );
-        else if( n.is<Nodecl::FloatingLiteral>( ) )
-            res = const_value_is_one( n.as<Nodecl::FloatingLiteral>( ).get_constant( ) );
-        
-        return res;
+        return ( walk( lhs ) && walk( rhs ) );
     }
     
-    bool ArrayAccessInfoVisitor::is_adjacent_access( )
+    bool AdjacentAccessVisitor::visit_unary_node( const Nodecl::NodeclBase& rhs )
     {
-        return _is_adjacent_access;
+        return walk( rhs );
     }
     
-    bool ArrayAccessInfoVisitor::depends_on_induction_vars( )
+    bool AdjacentAccessVisitor::join_list( ObjectList<bool>& list )
     {
-        return !_ivs.empty( );
-    }
-    
-    bool ArrayAccessInfoVisitor::unhandled_node( const Nodecl::NodeclBase& n )
-    {
-        std::cerr << "Unhandled node while parsing Array Subscript '"
-                  << codegen_to_str( n.get_internal_nodecl( ),
-                                    nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-                  << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
-        return false;
-    }
-    
-    bool ArrayAccessInfoVisitor::join_list( ObjectList<bool>& list )
-    {
-        _is_adjacent_access = false;
-        
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -381,256 +372,315 @@ namespace Analysis {
         return result;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Add& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Add& n )
     {
-        // Gather LHS info
-        Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
-        bool lhs_is_zero = false;
-        if( lhs_is_const )
-            lhs_is_zero = nodecl_is_zero( lhs );
-        bool lhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Gather RHS info
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
-        bool rhs_is_zero = false;
-        if( rhs_is_const )
-            rhs_is_zero = nodecl_is_zero( rhs );
-        bool rhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Compute adjacency info
-        _is_adjacent_access = ( ( lhs_is_adjacent_access && rhs_is_const && rhs_is_zero )
-                              || ( lhs_is_const && lhs_is_zero && rhs_is_adjacent_access ) );
-        
-        return ( rhs_is_const && lhs_is_const );
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::ArraySubscript& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::AddAssignment& n )
     {
-        // Collect information about the induction variables contained in the node
-        bool n_is_iv = variable_is_iv( n );
-        walk( n.get_subscripted( ) );
-        walk( n.get_subscripts( ) );
-        
-        _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
-        
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::BooleanLiteral& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::ArithmeticShr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::ArraySubscript& n )
+    {
+        bool res = true;
+        Utils::InductionVariableData* iv = variable_is_iv( n );
+        if( !_iv_found && iv != NULL)
+        {
+            _iv = iv;
+            _iv_found = true;
+        }
+        else
+        {
+            res = walk( n.get_subscripts( ) );
+        }
+        return res;
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Assignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseAnd& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseNot& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseOr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShl& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseShrAssignment& n)
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseXor& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::BooleanLiteral& n )
     {
         return true;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Cast& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Cast& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::ComplexLiteral& n )
+    {
+        return true;
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Conversion& n )
+    {
+        return visit_unary_node( n.get_nest( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Different& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Div& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::DivAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Equal& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::FloatingLiteral& n )
+    {
+        return true;
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::FunctionCall& n )
+    {
+        // FIXME We may do something more here...
+        return false;
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::GreaterOrEqualThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::GreaterThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        return true;
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::LogicalAnd& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::LogicalNot& n )
+    {
+        return visit_unary_node( n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::LogicalOr& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::LowerOrEqualThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::LowerThan& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Minus& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::MinusAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Mod& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::ModAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Mul& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::MulAssignment& n )
+    {
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Neg& n )
     {
         return walk( n.get_rhs( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::ComplexLiteral& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::ObjectInit& n )
     {
-        return true;
+        return walk( n.get_symbol( ).get_value( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Conversion& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Plus& n )
     {
-        return walk( n.get_nest( ) );
-    }
-
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Div& n )
-    {
-        // Gather LHS info
-        Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
-        bool lhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Gather RHS info
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
-        bool rhs_is_one = false;
-        if( rhs_is_const )
-            rhs_is_one = nodecl_is_one( rhs );
-        
-        // Compute adjacency info
-        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_const && rhs_is_one;
-        
-        return ( lhs_is_const && rhs_is_const );
+        return visit_unary_node( n.get_rhs( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::FloatingLiteral& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::PointerToMember& n )
     {
-        return true;
+        bool res = true;
+        Utils::InductionVariableData* iv = variable_is_iv( n );
+        if( !_iv_found && iv != NULL)
+        {
+            _iv = iv;
+            _iv_found = true;
+        }
+        else
+        {
+            res = !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        }
+        return res;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::FunctionCall& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Postdecrement& n )
     {
-        // Traverse arguments to find induction variables
-        walk( n.get_arguments( ) );
-        
-        _is_adjacent_access = false;    // Reset this value
-        
-        return false; // Conservatively assume the result of the function call is not constant
+        walk( n.get_rhs( ) );
+        return false;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::IntegerLiteral& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Postincrement& n )
     {
-        return true;
+        walk( n.get_rhs( ) );
+        return false;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Minus& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Power& n )
     {
-        // Gather LHS info
-        Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
-        bool lhs_is_zero = false;
-        if( lhs_is_const )
-            lhs_is_zero = nodecl_is_zero( lhs );
-        bool lhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Gather RHS info
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
-        bool rhs_is_zero = false;
-        if( rhs_is_const )
-            rhs_is_zero = nodecl_is_zero( rhs );
-        bool rhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Compute adjacency info
-        _is_adjacent_access = ( ( lhs_is_adjacent_access && rhs_is_const && lhs_is_zero )
-                              || ( lhs_is_const && rhs_is_zero && rhs_is_adjacent_access ) );
-        
-        return ( rhs_is_const && lhs_is_const );
+        return visit_binary_node( n.get_lhs( ), n.get_rhs( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Mul& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Predecrement& n )
     {
-        // Gather LHS info
-        Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
-        bool lhs_is_one = false;
-        if( lhs_is_const )
-            lhs_is_one = nodecl_is_one( lhs );
-        bool lhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Gather RHS info
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
-        bool rhs_is_one = false;
-        if( rhs_is_const )
-            rhs_is_one = nodecl_is_one( rhs );
-        bool rhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const && rhs_is_one ) 
-                              || ( rhs_is_adjacent_access && lhs_is_const && lhs_is_one );
-        
-        return ( lhs_is_const && rhs_is_const );
+        walk( n.get_rhs( ) );
+        return false;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Neg& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Preincrement& n )
+    {
+        walk( n.get_rhs( ) );
+        return false;
+    }
+    
+    bool AdjacentAccessVisitor::visit( const Nodecl::Reference& n )
     {
         return walk( n.get_rhs( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::PointerToMember& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Sizeof& n )
     {
-        // Collect information about the induction variables contained in the node
-        bool n_is_iv = variable_is_iv( n );
-        
-        _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
-        
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        return walk( n.get_size_type( ) );
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Postdecrement& n )
-    {
-        // Gather information about induction variables
-        walk( n.get_rhs( ) );
-        
-        _is_adjacent_access = false;
-        
-        return false;
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Postincrement& n )
-    {
-        // Gather information about induction variables
-        walk( n.get_rhs( ) );
-        
-        _is_adjacent_access = false;
-        
-        return false;
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Power& n )
-    {
-        // Gather LHS info
-        Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
-        bool lhs_is_adjacent_access = _is_adjacent_access;
-        
-        // Gather RHS info
-        Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
-        bool rhs_is_one = false;
-        if( rhs_is_const )
-            rhs_is_one = nodecl_is_one( rhs );
-        
-        // Compute adjacency info
-        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_const && rhs_is_one;
-        
-        return ( lhs_is_const && rhs_is_const );
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Predecrement& n )
-    {
-        walk( n.get_rhs( ) );
-        
-        _is_adjacent_access = false;
-        
-        return false;
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Preincrement& n )
-    {
-        walk( n.get_rhs( ) );
-        
-        _is_adjacent_access = false;
-        
-        return false;
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Reference& n )
-    {
-        return walk( n.get_rhs( ) );
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Sizeof& n )
-    {
-        bool n_is_const = walk( n.get_expr( ) );
-        
-        _is_adjacent_access = false;
-        
-        return n_is_const;
-    }
-    
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::StringLiteral& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::StringLiteral& n )
     {
         return true;
     }
     
-    bool ArrayAccessInfoVisitor::visit( const Nodecl::Symbol& n )
+    bool AdjacentAccessVisitor::visit( const Nodecl::Symbol& n )
     {
-        // Collect information about the induction variables contained in the node
-        bool n_is_iv = variable_is_iv( n );
-
-        _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
-        
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        bool res = true;
+        Utils::InductionVariableData* iv = variable_is_iv( n );
+        if( !_iv_found && iv != NULL)
+        {
+            _iv = iv;
+            _iv_found = true;
+        }
+        else
+        {
+            res = !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        }
+        return res;
     }
     
-    // ***************** END visitor retrieving array accesses info within a loop ****************** //
+    // *************** END visitor retrieving adjacent array accesses within a loop **************** //
     // ********************************************************************************************* //
 
 }

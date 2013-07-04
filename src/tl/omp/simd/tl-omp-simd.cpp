@@ -154,7 +154,6 @@ namespace TL {
                 suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
             }
 
-
             // Add epilog before vectorization
             Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
                     for_statement, for_statement).as<Nodecl::ForStatement>();
@@ -241,9 +240,15 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(flush);
             }
 
+            // Mark the induction variable as a private entity in the Single construct
+            Nodecl::OpenMP::Private ind_var_priv = 
+                Nodecl::OpenMP::Private::make(Nodecl::List::make(
+                            TL::ForStatement(for_statement).get_induction_variable().make_nodecl()));
+            single_environment.append(ind_var_priv);
+
             Nodecl::OpenMP::Single single_epilog =
                 Nodecl::OpenMP::Single::make(single_environment,
-                        epilog, epilog.get_locus());
+                        Nodecl::List::make(epilog), epilog.get_locus());
 
             simd_node.append_sibling(single_epilog);
 
@@ -277,12 +282,6 @@ namespace TL {
             else // Remove epilog
             {
                 Nodecl::Utils::remove_from_enclosing_list(single_epilog);
-            }
-
-
-            // Add epilog
-            if (!epilog.is_null())
-            {
             }
 
             // Remove Simd node
@@ -347,24 +346,10 @@ namespace TL {
                 const Nodecl::List& suitable_expressions,
                 const bool masked_version)
         {
-            std::string orig_func_name = function_code.get_symbol().get_name();
+            TL::Symbol func_sym = function_code.get_symbol();
+            std::string orig_func_name = func_sym.get_name();
 
-            Nodecl::FunctionCode vector_func_code = 
-                Nodecl::Utils::deep_copy(function_code, function_code).as<Nodecl::FunctionCode>();
-
-            // Vectorize function
-            VectorizerEnvironment _environment(
-                    _device_name,
-                    _vector_length, 
-                    _support_masking,
-                    _mask_size,
-                    NULL,
-                    vector_func_code.get_statements().retrieve_context(),
-                    suitable_expressions);
-
-            _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
-
-            // Set new name
+            // Set new symbol
             std::stringstream vector_func_name; 
 
             vector_func_name <<"__" 
@@ -380,11 +365,33 @@ namespace TL {
                 vector_func_name << "_mask";
             }
 
-            vector_func_code.get_symbol().set_name(vector_func_name.str());
+            TL::Symbol new_func_sym = func_sym.get_scope().
+                new_symbol(vector_func_name.str());
+
+            Nodecl::Utils::SimpleSymbolMap func_sym_map;
+            func_sym_map.add_map(func_sym, new_func_sym);
+
+            Nodecl::FunctionCode vector_func_code = 
+                Nodecl::Utils::deep_copy(function_code, 
+                        function_code,
+                        func_sym_map).as<Nodecl::FunctionCode>();
+
+            // Vectorize function
+            VectorizerEnvironment _environment(
+                    _device_name,
+                    _vector_length, 
+                    _support_masking,
+                    _mask_size,
+                    NULL,
+                    vector_func_code.get_statements().retrieve_context(),
+                    suitable_expressions);
+
+            _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
 
             // Add SIMD version to vector function versioning
             _vectorizer.add_vector_function_version(orig_func_name, vector_func_code, 
-                    _device_name, _vector_length, NULL, masked_version, TL::Vectorization::SIMD_FUNC_PRIORITY);
+                    _device_name, _vector_length, NULL, masked_version, 
+                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
 
             return vector_func_code;
        }

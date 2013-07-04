@@ -27,6 +27,7 @@
 #ifndef KNC_VECTOR_LOWERING_HPP
 #define KNC_VECTOR_LOWERING_HPP
 
+#include "tl-vectorizer.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include <list>
@@ -38,6 +39,7 @@ namespace TL
         class KNCVectorLowering : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
+                TL::Vectorization::Vectorizer& _vectorizer;
                 const unsigned int _vector_length;
                 std::list<Nodecl::NodeclBase> _old_m512;
 
@@ -62,8 +64,11 @@ namespace TL
                 virtual void visit(const Nodecl::VectorEqual& node);
 
                 virtual void visit(const Nodecl::VectorBitwiseAnd& node);
+                virtual void visit(const Nodecl::VectorBitwiseAndMask& node);
                 virtual void visit(const Nodecl::VectorBitwiseOr& node);
+                virtual void visit(const Nodecl::VectorBitwiseOrMask& node);
                 virtual void visit(const Nodecl::VectorBitwiseXor& node);
+                virtual void visit(const Nodecl::VectorBitwiseXorMask& node);
                 virtual void visit(const Nodecl::VectorLogicalOr& node);
 
                 virtual void visit(const Nodecl::VectorConversion& node);
@@ -86,7 +91,9 @@ namespace TL
                 virtual void visit(const Nodecl::VectorScatterMask& node);
 
                 virtual void visit(const Nodecl::VectorFunctionCall& node);
+                virtual void visit(const Nodecl::VectorFunctionCallMask& node);
                 virtual void visit(const Nodecl::VectorFabs& node);
+                virtual void visit(const Nodecl::VectorFabsMask& node);
 
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
 

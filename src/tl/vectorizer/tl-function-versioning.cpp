@@ -35,9 +35,11 @@ namespace TL
                 const unsigned int vector_length, 
                 const TL::Type& target_type, 
                 const bool masked, 
-                const FunctionPriority priority) :
+                const FunctionPriority priority,
+                const bool is_svml) :
             _func_version(func_version), _priority(priority), _device(device),
-            _vector_length(vector_length), _target_type(target_type), _masked(masked)
+            _vector_length(vector_length), _target_type(target_type), _masked(masked),
+            _is_svml(is_svml)
         {
         }
 
@@ -62,6 +64,11 @@ namespace TL
             return _priority < func_version._priority;
         }
 
+        bool VectorFunctionVersion::is_svml_function() const
+        {
+            return _is_svml;
+        }
+
 
         FunctionVersioning::FunctionVersioning()
         {
@@ -73,7 +80,7 @@ namespace TL
             _versions.insert(std::pair<const std::string, const VectorFunctionVersion>(func_name, value));
         }
 
-        const Nodecl::NodeclBase FunctionVersioning::get_best_version(const std::string& func_name,
+        const VectorFunctionVersion FunctionVersioning::get_best_function_version(const std::string& func_name,
                 const std::string& device,
                 const unsigned int vector_length,
                 const Type& target_type,
@@ -122,7 +129,33 @@ namespace TL
                     func_name.c_str(), device.c_str(), vector_length, masked);
             }
 
-            return best_version->second.get_version();
+            return best_version->second;
+        }
+
+        const Nodecl::NodeclBase FunctionVersioning::get_best_version(const std::string& func_name,
+                const std::string& device,
+                const unsigned int vector_length,
+                const Type& target_type,
+                const bool masked) const
+        {
+            return get_best_function_version(func_name,
+                    device,
+                    vector_length,
+                    target_type,
+                    masked).get_version();
+        }
+
+        bool FunctionVersioning::is_svml_function(const std::string& func_name,
+                const std::string& device,
+                const unsigned int vector_length,
+                const Type& target_type,
+                const bool masked) const
+        {
+            return get_best_function_version(func_name,
+                    device,
+                    vector_length,
+                    target_type,
+                    masked).is_svml_function();
         }
     };
 }
