@@ -451,7 +451,7 @@ namespace Analysis {
     }
 
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                                     const Nodecl::List suitable_expressions, int unroll_factor, int alignment ) const 
+                                                     const Nodecl::List* suitable_expressions, int unroll_factor, int alignment ) const 
     {
         bool result = false;
         

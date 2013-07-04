@@ -80,8 +80,6 @@ namespace Analysis {
     {
         bool result = false;
         
-//        std::cout << "Access: " << n.prettyprint() << "\n";
-
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
             Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
@@ -98,13 +96,8 @@ namespace Analysis {
                 Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
                 if( iv != NULL )
                 {
-//                    std::cout << "-> " << s.prettyprint() << " has iv '" << iv->get_variable().get_nodecl().prettyprint() <<  "'\n";
                     result = true;
                     break;
-                }
-                else
-                {
-//                    std::cout << "-> " << s.prettyprint() << " has no iv" << "\n";
                 }
             }
         }
@@ -133,7 +126,7 @@ namespace Analysis {
         return result;
     }
         
-    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List suitable_expressions, 
+    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List* suitable_expressions, 
                                                    int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -177,7 +170,7 @@ namespace Analysis {
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
                                                         ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        Nodecl::List suitable_expressions, int unroll_factor, int type_size)
+                                                        const Nodecl::List* suitable_expressions, int unroll_factor, int type_size)
             : _subscripted( subscripted ), _induction_variables( induction_variables), _suitable_expressions( suitable_expressions ), 
               _unroll_factor( unroll_factor ), _type_size(type_size)
     {
@@ -195,8 +188,11 @@ namespace Analysis {
 
     bool SuitableAlignmentVisitor::is_suitable_expression(Nodecl::NodeclBase n)
     {
-        if( _suitable_expressions.end() == std::find_if(_suitable_expressions.begin(), _suitable_expressions.end(), 
-                std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
+        if(_suitable_expressions == NULL)
+            return false;
+
+        if( _suitable_expressions->end() == std::find_if(_suitable_expressions->begin(), _suitable_expressions->end(), 
+                    std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
             return false;
 
         return true;
