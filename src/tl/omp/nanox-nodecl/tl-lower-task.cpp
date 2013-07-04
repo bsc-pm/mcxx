@@ -1832,7 +1832,7 @@ void LoweringVisitor::fill_copies_region(
                 ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
                         current_dimension_descriptor, num_copies_dimensions);
 
-                if (current_dimension_descriptor == 0)
+                if (dim == num_dimensions_count - 1)
                 {
                     // In bytes
                     ol_dimension_descriptors
