@@ -106,7 +106,8 @@ namespace TL { namespace OpenMP {
 
                 if (data_ref.is<Nodecl::Symbol>())
                 {
-                    return base_sym.get_scope().is_block_scope();
+                    return !base_sym.get_type().is_any_reference() &&
+                        base_sym.get_scope().is_block_scope();
                 }
                 else if (data_ref.is<Nodecl::Dereference>())
                 {
