@@ -44,4 +44,6 @@ int main()
 {
     int e = 1;
     f(&e);
+#pragma omp taskwait
+    return 0;
 }

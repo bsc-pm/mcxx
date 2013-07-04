@@ -59,4 +59,6 @@ int main()
     bar(&x);
 #pragma omp taskwait on(x)
     assert(x == 4);
+
+    return 0;
 }
