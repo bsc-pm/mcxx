@@ -30,6 +30,8 @@
 
 namespace TL { namespace Analysis {
 
+// #define TASK_SYNC_DEBUG
+
     namespace {
 
         void set_sync_relationship(tribool& task_sync_rel,
@@ -50,26 +52,37 @@ namespace TL { namespace Analysis {
                         if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
                         {
                             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
-                            //                            std::cerr << __FILE__ << ":" << __LINE__
-                            //                                << " task (among others) maybe synchronizes in this task execution" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__
+                                << " task (among others) maybe synchronizes in this task execution" << std::endl;
+#endif
                         }
                         else
                         {
                             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
-                            //                            std::cerr << __FILE__ << ":" << __LINE__
-                            //                                << " task maybe synchronizes in this task execution" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__
+                                << " task maybe synchronizes in this task execution" << std::endl;
+#endif
                         }
 
-                        std::pair<AliveTaskSet::iterator, bool> res = current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
+                        std::pair<AliveTaskSet::iterator, bool> res =
+#endif
+                        current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
                         if (res.second)
                         {
-                            //                            std::cerr << __FILE__ << ":" << __LINE__
-                            //                                << " task is (potentially) still alive after execution" << std::endl;
+                             std::cerr << __FILE__ << ":" << __LINE__
+                                << " task is (potentially) still alive after execution" << std::endl;
                         }
+#endif
 
                         if (task_sync_rel == tribool::yes)
                         {
-                            //                            std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
+#endif
                             current->get_static_sync_out_tasks().insert(*alive_tasks_it);
                         }
                         break;
@@ -77,12 +90,17 @@ namespace TL { namespace Analysis {
                 case tribool::no :
                     {
                         // We positively know that the task does not synchronize here
-                        std::pair<AliveTaskSet::iterator, bool> res = current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
+                        std::pair<AliveTaskSet::iterator, bool> res =
+#endif
+                        current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
                         if (res.second)
                         {
-                            //                            std::cerr << __FILE__ << ":" << __LINE__
-                            //                                << " task is (for sure) still alive after execution" << std::endl;
+                            std::cerr << __FILE__ << ":" << __LINE__
+                                << " task is (for sure) still alive after execution" << std::endl;
                         }
+#endif
                         break;
                     }
                 default:
@@ -369,7 +387,9 @@ namespace TL { namespace Analysis {
         // Computes if task source will synchronize with the creation of the task target
         tribool compute_task_sync_relationship(Node* source, Node* target)
         {
-            //    std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
+#ifdef TASK_SYNC_DEBUG
+            std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
+#endif
 
             // TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
             // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
@@ -501,68 +521,79 @@ namespace TL { namespace Analysis {
 
             // Propagate predecessors
             {
-                // IN_{AliveTaskSet}[current] = Union_{p:pred(current)} OUT_{AliveTaskSet}[p]
-                ObjectList<Edge*> predecessors = current->get_entry_edges();
-                for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
-                        predecessor_it != predecessors.end();
-                        predecessor_it++)
+                if (!current->is_entry_node())
                 {
-                    if ((*predecessor_it)->is_task_edge())
-                        continue;
-
-                    Node* predecessor = (*predecessor_it)->get_source();
-                    AliveTaskSet& alive_tasks_of_predecessor = predecessor->get_live_out_tasks();
-
-                    current->get_live_in_tasks().insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
-                }
-
-                // IN_{StaticSyncTaskSet}[current] = Intersection_{p:pred(current)} OUT_{StaticSyncTaskSet}[p]
-                bool first = true;
-                StaticSyncTaskSet intersection;
-                for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
-                        predecessor_it != predecessors.end();
-                        predecessor_it++)
-                {
-                    if ((*predecessor_it)->is_task_edge())
-                        continue;
-
-                    Node* predecessor = (*predecessor_it)->get_source();
-                    if (first)
+                    // IN_{AliveTaskSet}[current] = Union_{p:pred(current)} OUT_{AliveTaskSet}[p]
+                    ObjectList<Edge*> predecessors = current->get_entry_edges();
+                    for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
+                            predecessor_it != predecessors.end();
+                            predecessor_it++)
                     {
-                        intersection = predecessor->get_static_sync_out_tasks();
-                        //                std::cerr << "FIRST ISECT -> " << print_set(intersection) << std::endl;
-                        first = false;
+                        if ((*predecessor_it)->is_task_edge())
+                            continue;
+
+                        Node* predecessor = (*predecessor_it)->get_source();
+                        AliveTaskSet& alive_tasks_of_predecessor = predecessor->get_live_out_tasks();
+
+                        current->get_live_in_tasks().insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
                     }
-                    else
+
+                    // IN_{StaticSyncTaskSet}[current] = Intersection_{p:pred(current)} OUT_{StaticSyncTaskSet}[p]
+                    bool first = true;
+                    StaticSyncTaskSet intersection;
+                    for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
+                            predecessor_it != predecessors.end();
+                            predecessor_it++)
                     {
-                        StaticSyncTaskSet tmp;
-                        //                std::cerr << "CURRENT ISECT -> " << print_set(intersection) << std::endl;
-                        //                std::cerr << "OPERAND ISECT -> " << print_set(predecessor->get_static_sync_out_tasks()) << std::endl;
-                        std::set_intersection(intersection.begin(),
-                                intersection.end(),
-                                predecessor->get_static_sync_out_tasks().begin(),
-                                predecessor->get_static_sync_out_tasks().end(),
-                                std::inserter(tmp, tmp.begin()));
-                        intersection = tmp;
-                        //                std::cerr << "COMPUTED ISECT -> " << print_set(intersection) << std::endl;
+                        if ((*predecessor_it)->is_task_edge())
+                            continue;
+
+                        Node* predecessor = (*predecessor_it)->get_source();
+                        if (first)
+                        {
+                            intersection = predecessor->get_static_sync_out_tasks();
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << "FIRST ISECT -> " << print_set(intersection) << std::endl;
+#endif
+                            first = false;
+                        }
+                        else
+                        {
+                            StaticSyncTaskSet tmp;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << "CURRENT ISECT -> " << print_set(intersection) << std::endl;
+                            std::cerr << "OPERAND ISECT -> " << print_set(predecessor->get_static_sync_out_tasks()) << std::endl;
+#endif
+                            std::set_intersection(intersection.begin(),
+                                    intersection.end(),
+                                    predecessor->get_static_sync_out_tasks().begin(),
+                                    predecessor->get_static_sync_out_tasks().end(),
+                                    std::inserter(tmp, tmp.begin()));
+                            intersection = tmp;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << "COMPUTED ISECT -> " << print_set(intersection) << std::endl;
+#endif
+                        }
                     }
+                    current->get_static_sync_in_tasks() = intersection;
                 }
-                current->get_static_sync_in_tasks() = intersection;
             }
 
             AliveTaskSet initial_alive_out = current->get_live_out_tasks();
             StaticSyncTaskSet initial_static_sync = current->get_static_sync_out_tasks();
 
-            //    std::cerr << "["
-            //      << current->get_id()
-            //      << ":" << current->get_type_as_string()
-            //      << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
-            //      << "]"
-            //      << "Before" << std::endl
-            //      << "  IN[alive] = " << print_set(current->get_live_in_tasks()) << std::endl
-            //      << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl
-            //      << "  IN[static_sync] = " << print_set(current->get_static_sync_in_tasks()) << std::endl
-            //      << "  OUT[static_sync] = " << print_set(current->get_static_sync_out_tasks()) << std::endl;
+#ifdef TASK_SYNC_DEBUG
+            std::cerr << "["
+              << current->get_id()
+              << ":" << current->get_type_as_string()
+              << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
+              << "]"
+              << "Before" << std::endl
+              << "  IN[alive] = " << print_set(current->get_live_in_tasks()) << std::endl
+              << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl
+              << "  IN[static_sync] = " << print_set(current->get_static_sync_in_tasks()) << std::endl
+              << "  OUT[static_sync] = " << print_set(current->get_static_sync_out_tasks()) << std::endl;
+#endif
 
             if (current->is_omp_task_node())
             {
@@ -575,7 +606,7 @@ namespace TL { namespace Analysis {
                 graph_entry->get_live_in_tasks() = current->get_live_in_tasks();
                 graph_entry->get_static_sync_in_tasks() = current->get_static_sync_in_tasks();
 
-                compute_task_synchronizations_rec(current->get_graph_entry_node(), changed, points_of_sync, current_domain_id, next_domain_id);
+                compute_task_synchronizations_rec(graph_entry, changed, points_of_sync, current_domain_id, next_domain_id);
 
                 Node* graph_exit = current->get_graph_exit_node();
                 current->get_live_out_tasks() = graph_exit->get_live_out_tasks();
@@ -596,8 +627,10 @@ namespace TL { namespace Analysis {
                         if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
                         {
                             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                            //                    std::cerr << __FILE__ << ":" << __LINE__
-                            //                        << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__
+                                << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
+#endif
                         }
                         else
                         {
@@ -609,8 +642,10 @@ namespace TL { namespace Analysis {
                         if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
                         {
                             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                            //                    std::cerr << __FILE__ << ":" << __LINE__
-                            //                      << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__
+                                << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
+#endif
                         }
                     }
                 }
@@ -651,7 +686,9 @@ namespace TL { namespace Analysis {
                         if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
                         {
                             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                            //                    std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
+#endif
                         }
                         else
                         {
@@ -663,7 +700,9 @@ namespace TL { namespace Analysis {
                         if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
                         {
                             points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-                            //                    std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                            std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
+#endif
                         }
                     }
                 }
@@ -690,11 +729,13 @@ namespace TL { namespace Analysis {
 
                 // Add the newly created task as well
                 std::pair<AliveTaskSet::iterator, bool> res = current->get_live_out_tasks().insert(AliveTaskItem(task, current_domain_id));
+#ifdef TASK_SYNC_DEBUG
                 if (res.second)
                 {
-                    //            std::cerr << __FILE__ << ":" << __LINE__
-                    //                << " new task alive in " << task->get_id() << " with domain " << current_domain_id << std::endl;
+                    std::cerr << __FILE__ << ":" << __LINE__
+                                    << " new task alive in " << task->get_id() << " with domain " << current_domain_id << std::endl;
                 }
+#endif
 
                 // All the alive tasks at the end of the task are also alive here
                 if (task->is_graph_node())
@@ -705,11 +746,13 @@ namespace TL { namespace Analysis {
                             alive_tasks_it++)
                     {
                         res = current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
                         if (res.second)
                         {
-                            //                    std::cerr << __FILE__ << ":" << __LINE__
-                            //                        << " task created in task outlives its parent task" << std::endl;
+                            std::cerr << __FILE__ << ":" << __LINE__
+                                << " task created in task outlives its parent task" << std::endl;
                         }
+#endif
                     }
                 }
             }
@@ -723,20 +766,24 @@ namespace TL { namespace Analysis {
             if (initial_alive_out != current->get_live_out_tasks()
                     || initial_static_sync != current->get_static_sync_out_tasks())
             {
-                //        std::cerr << "[" << current->get_id() << "] OUT SET HAS CHANGED" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                std::cerr << "[" << current->get_id() << "] OUT SET HAS CHANGED" << std::endl;
+#endif
                 changed = true;
             }
 
-            //    std::cerr << "["
-            //      << current->get_id()
-            //      << ":" << current->get_type_as_string()
-            //      << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
-            //      << "]"
-            //      << "After" << std::endl
-            //      << "  IN[alive] = " << print_set(current->get_live_in_tasks()) << std::endl
-            //      << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl
-            //      << "  IN[static_sync] = " << print_set(current->get_static_sync_in_tasks()) << std::endl
-            //      << "  OUT[static_sync] = " << print_set(current->get_static_sync_out_tasks()) << std::endl;
+#ifdef TASK_SYNC_DEBUG
+            std::cerr << "["
+                << current->get_id()
+                << ":" << current->get_type_as_string()
+                << ":" << (current->is_graph_node() ? current->get_graph_type_as_string() : "")
+                << "]"
+                << "After" << std::endl
+                << "  IN[alive] = " << print_set(current->get_live_in_tasks()) << std::endl
+                << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl
+                << "  IN[static_sync] = " << print_set(current->get_static_sync_in_tasks()) << std::endl
+                << "  OUT[static_sync] = " << print_set(current->get_static_sync_out_tasks()) << std::endl;
+#endif
 
             ObjectList<Edge*> exit_edges = current->get_exit_edges();
             for (ObjectList<Edge*>::iterator edge_it = exit_edges.begin();
@@ -769,10 +816,14 @@ namespace TL { namespace Analysis {
             compute_task_synchronizations_rec(root, changes, points_of_sync, 
                     /* current_domain_id */ 0, next_domain_id);
             ExtensibleGraph::clear_visits( root );
-            // std::cerr << std::endl << std::endl;
+#ifdef TASK_SYNC_DEBUG
+            std::cerr << std::endl << std::endl;
+#endif
         } while (changes);
 
-        //    std::cerr << "Task synchronizations computed" << std::endl;
+#ifdef TASK_SYNC_DEBUG
+        std::cerr << "Task synchronizations computed" << std::endl;
+#endif
 
         for (PointsOfSync::iterator it = points_of_sync.begin();
                 it != points_of_sync.end();
@@ -782,7 +833,9 @@ namespace TL { namespace Analysis {
                     jt != it->second.end();
                     jt++)
             {
-                // std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
+#endif
                 Edge* edge = _graph->connect_nodes(it->first, (*jt).first, ALWAYS, "", /*is task edge*/ true);
                 edge->set_label(sync_kind_to_str((*jt).second));
             }
@@ -798,7 +851,9 @@ namespace TL { namespace Analysis {
         {
             if (exit->get_static_sync_in_tasks().find(*it) == exit->get_static_sync_in_tasks().end())
             {
-                // std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+#ifdef TASK_SYNC_DEBUG
+                std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
+#endif
                 Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
                 edge->set_label(sync_kind_to_str(Sync_post));
             }
