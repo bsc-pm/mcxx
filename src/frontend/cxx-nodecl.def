@@ -170,6 +170,14 @@ expression : literal
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_DIV_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_NEG([rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_ADD([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_ADD_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_MINUS([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_MINUS_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_MUL([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_MUL_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_DIV([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_REDUCTION_DIV_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value-opt 
