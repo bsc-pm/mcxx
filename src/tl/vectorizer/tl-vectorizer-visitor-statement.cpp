@@ -254,7 +254,9 @@ namespace TL
                                         n.get_locus()),
                                     TL::Type::get_bool_type(),
                                     n.get_locus()),
-                                Nodecl::List::make(Nodecl::ReturnStatement::make(return_value, n.get_locus())),
+                                Nodecl::List::make(Nodecl::ReturnStatement::make(
+                                        _environment._function_return.make_nodecl(true, n.get_locus()),
+                                        n.get_locus())),
                                 Nodecl::NodeclBase::null(),
                                 n.get_locus());
 
