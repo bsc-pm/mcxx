@@ -2020,6 +2020,42 @@ namespace Analysis {
         return ObjectList<Node*>( 1, task_creation );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskExpression& n )
+    {
+        Node* task_creation = new Node( _utils->_nid, OMP_TASK_CREATION, _utils->_outer_nodes.top() );
+
+        _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
+        // Create the new graph node containing the task
+        Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_TASK, _utils->_context_nodecl.top( ) );
+        Edge* edge = _pcfg->connect_nodes( task_creation, task_node, ALWAYS, "", /* is task */ true );
+        edge->set_label("create");
+
+        // Node* task_entry = task_node->get_graph_entry_node( );
+        // Node* task_exit = task_node->get_graph_exit_node( );
+
+        // // Traverse the statements of the current task
+        // _utils->_last_nodes = ObjectList<Node*>( 1, task_entry );
+        // walk( n.get_call( ) );
+
+        // task_exit->set_id( ++( _utils->_nid ) );
+        // _pcfg->connect_nodes( _utils->_last_nodes, task_exit );
+
+        // // Set clauses info to the for node
+        // PCFGPragmaInfo current_pragma;
+        // _utils->_pragma_nodes.push( current_pragma );
+        // _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( task_entry, task_exit ) );
+        // walk( n.get_site_environment( ) );
+        // task_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        // _utils->_pragma_nodes.pop( );
+        // _utils->_environ_entry_exit.pop( );
+
+        // _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>(1, task_creation);
+        _pcfg->_task_nodes_l.insert( task_node );
+
+        return ObjectList<Node*>( 1, task_creation );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
     {
         return visit_taskwait( n );

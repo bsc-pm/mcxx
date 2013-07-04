@@ -270,9 +270,16 @@ namespace TL { namespace Analysis {
             Nodecl::NodeclBase task_node_source = source->get_graph_label();
             ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
             ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
+                    && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
                     && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
-                    "Expecting an OpenMP::Task or OpenMP::TaskCall source node here got a %s", 
+                    "Expecting an OpenMP::Task, OpenMP::TaskExpression or OpenMP::TaskCall source node here got a %s",
                     ast_print_node_type(task_node_source.get_kind()));
+            if (task_node_source.is<Nodecl::OpenMP::TaskExpression>())
+            {
+                // Return unknown
+                return tribool();
+            }
+
             Nodecl::List task_source_env;
             if (task_node_source.is<Nodecl::OpenMP::Task>())
             {
@@ -369,8 +376,9 @@ namespace TL { namespace Analysis {
             Nodecl::NodeclBase task_node_source = source->get_graph_label();
             ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
             ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
+                    && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
                     && !task_node_source.is<Nodecl::OpenMP::TaskCall>(),
-                    "Expecting an OpenMP::Task or OpenMP::TaskCall source node here got a %s", 
+                    "Expecting an OpenMP::Task, OpenMP::TaskExpression or OpenMP::TaskCall source node here got a %s", 
                     ast_print_node_type(task_node_source.get_kind()));
             Nodecl::List task_source_env;
             if (task_node_source.is<Nodecl::OpenMP::Task>())
@@ -382,6 +390,11 @@ namespace TL { namespace Analysis {
             {
                 Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
                 task_source_env = task_source.get_site_environment().as<Nodecl::List>();
+            }
+            else if (task_node_source.is<Nodecl::OpenMP::TaskExpression>())
+            {
+                // Return unknown
+                return tribool();
             }
             else
             {
@@ -408,6 +421,7 @@ namespace TL { namespace Analysis {
             Nodecl::NodeclBase task_node_target = target->get_graph_label();
             ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
             ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
+                    && !task_node_target.is<Nodecl::OpenMP::TaskExpression>()
                     && !task_node_target.is<Nodecl::OpenMP::TaskCall>(),
                     "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
                     ast_print_node_type(task_node_target.get_kind()));
@@ -421,6 +435,11 @@ namespace TL { namespace Analysis {
             {
                 Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
                 task_target_env = task_target.get_site_environment().as<Nodecl::List>();
+            }
+            else if (task_node_target.is<Nodecl::OpenMP::TaskExpression>())
+            {
+                // Return unknown
+                return tribool();
             }
             else
             {

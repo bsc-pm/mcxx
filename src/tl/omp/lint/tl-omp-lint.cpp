@@ -173,9 +173,15 @@ namespace TL { namespace OpenMP {
 
                 ERROR_CONDITION(task.is_null(), "Invalid target task tree", 0);
                 ERROR_CONDITION(!task.is<Nodecl::OpenMP::Task>()
-                        && !task.is<Nodecl::OpenMP::TaskCall>(),
-                        "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
+                        && !task.is<Nodecl::OpenMP::TaskCall>()
+                        && !task.is<Nodecl::OpenMP::TaskExpression>(),
+                        "Expecting an OpenMP::Task, OpenMP::TaskExpression or OpenMP::TaskCall target node here got a %s", 
                         ast_print_node_type(task.get_kind()));
+
+                // Not yet implemented, return unknown
+                if (task.is<Nodecl::OpenMP::TaskExpression>())
+                    return tribool();
+
                 Nodecl::List task_env;
                 if (task.is<Nodecl::OpenMP::Task>())
                 {
@@ -262,9 +268,15 @@ namespace TL { namespace OpenMP {
 
                 ERROR_CONDITION(task.is_null(), "Invalid target task tree", 0);
                 ERROR_CONDITION(!task.is<Nodecl::OpenMP::Task>()
-                        && !task.is<Nodecl::OpenMP::TaskCall>(),
-                        "Expecting an OpenMP::Task or OpenMP::TaskCall target node here got a %s", 
+                        && !task.is<Nodecl::OpenMP::TaskCall>()
+                        && !task.is<Nodecl::OpenMP::TaskExpression>(),
+                        "Expecting an OpenMP::Task, OpenMP::TaskExpression or OpenMP::TaskCall target node here got a %s", 
                         ast_print_node_type(task.get_kind()));
+
+                // Not yet implemented, return global scope
+                if (task.is<Nodecl::OpenMP::TaskExpression>())
+                    return result;
+
                 Nodecl::List task_env;
                 if (task.is<Nodecl::OpenMP::Task>())
                 {
