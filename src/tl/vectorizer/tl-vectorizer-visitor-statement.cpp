@@ -97,15 +97,7 @@ namespace TL
                             if_mask_sym.get_type(),
                             n.get_locus()));
 
-            // Visit Then
-            _environment._mask_list.push_back(if_mask_nodecl_sym.shallow_copy());
-            _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
-                    front().retrieve_context());
-            walk(n.get_then());
-            _environment._local_scope_list.pop_back();
-            _environment._mask_list.pop_back();
 
-            
             // ELSE Mask: There ALWAYS will be an ELSE mask, even if else does not exist!
             TL::Symbol else_mask_sym = scope.new_symbol("__mask_" + 
                     Vectorizer::_vectorizer->get_var_counter());
@@ -140,14 +132,24 @@ namespace TL
                             else_mask_sym.get_type(),
                             n.get_locus()));
 
-            // Add masks and if to the final code
+            // Add masks to the final code
             list.append(if_mask_exp);
             list.append(else_mask_exp);
 
-            list.append(n.get_then().shallow_copy());
-
             // Add 'else' mask to mask list
             _environment._mask_list.push_back(else_mask_nodecl_sym);
+
+            // Visit Then
+            _environment._mask_list.push_back(if_mask_nodecl_sym.shallow_copy());
+            _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
+                    front().retrieve_context());
+            walk(n.get_then());
+            _environment._local_scope_list.pop_back();
+            _environment._mask_list.pop_back();
+
+            
+            // Add then to the final code
+            list.append(n.get_then().shallow_copy());
 
             // Else body
             if (!n.get_else().is_null())
@@ -156,8 +158,11 @@ namespace TL
                 _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
                 walk(n.get_else());
                 _environment._local_scope_list.pop_back();
+
+                // Else mask will be removed only if else exists
                 _environment._mask_list.pop_back();
 
+                // Add else to the final code
                 list.append(n.get_else().shallow_copy());
             }
 
@@ -196,8 +201,10 @@ namespace TL
             VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(return_value);
             
-            // If mask exists but no special symbol, add return special symbol
-            if ((_environment._function_return.is_invalid()) &&
+            // If I'm not in the first SIMD context, mask exists but no special symbol, 
+            // add return special symbol
+            if ((n.retrieve_context() != _environment._local_scope_list.front()) && 
+                    (_environment._function_return.is_invalid()) &&
                     (!_environment._mask_list.back().is_null()))
             {
                 // New return special symbol
@@ -212,12 +219,13 @@ namespace TL
                 _environment._function_return.set_type(return_type);
             }
 
-            // Return special symbol exists
+            // Return special symbol if it exists 
             if(_environment._function_return.is_valid())
             {
-                ERROR_CONDITION(_environment._mask_list.back().is_null(), "Return Statement Visitor: Mask list is null", 0);
+                ERROR_CONDITION(_environment._mask_list.back().is_null(), 
+                        "Return Statement Visitor: Mask list is null", 0);
 
-                Nodecl::ExpressionStatement new_return_expr =
+                Nodecl::ExpressionStatement new_exp_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::VectorAssignmentMask::make(
                                 _environment._function_return.make_nodecl(true, n.get_locus()),
@@ -227,7 +235,34 @@ namespace TL
                                 n.get_locus()),
                             n.get_locus());
 
-                n.replace(new_return_expr);
+                // If return is not in the first SIMD scope, then 
+                // a real return may be necessary if mask is == 0
+                // if (else_mask == zero) return
+
+                if (n.retrieve_context() != _environment._local_scope_list.front())
+                {
+                    std::list<Nodecl::NodeclBase>::iterator else_mask_it = _environment._mask_list.end();
+                    else_mask_it--; // Current mask
+                    else_mask_it--; // Previous mask
+
+                    Nodecl::IfElseStatement if_mask_is_zero =
+                        Nodecl::IfElseStatement::make(
+                                Nodecl::Equal::make(
+                                    *else_mask_it, // Else mask
+                                    Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                        const_value_get_zero(4, 0),
+                                        n.get_locus()),
+                                    TL::Type::get_bool_type(),
+                                    n.get_locus()),
+                                Nodecl::List::make(Nodecl::ReturnStatement::make(return_value, n.get_locus())),
+                                Nodecl::NodeclBase::null(),
+                                n.get_locus());
+
+                    n.append_sibling(if_mask_is_zero);
+                }
+
+                // Replace ReturnStatement for ExpressionStatement
+                n.replace(new_exp_stmt);
             }
             // Otherwise, simple return. No changes are necessary
         }
