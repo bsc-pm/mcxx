@@ -42,33 +42,37 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
         ERROR_CONDITION(!task_expr.get_parent().is<Nodecl::ExpressionStatement>(), "Unexpected node", 0);
         Nodecl::NodeclBase expr_stmt = task_expr.get_parent();
 
-        TL::ObjectList<Nodecl::NodeclBase> items;
-        Nodecl::NodeclBase is_in_final_nodecl;
-        get_nanos_in_final_condition(task_expr, task_expr.get_locus(), is_in_final_nodecl, items);
-        Nodecl::Utils::prepend_items_before(expr_stmt, Nodecl::List::make(items));
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(task_expr.get_sequential_code())
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(Nodecl::ExpressionStatement::make(task_expr))
+            <<      "}"
+            << "}"
+            ;
 
-        Nodecl::NodeclBase if_else_stmt =
-            Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            task_expr.get_sequential_code(),
-                            nodecl_null(),
-                            task_expr.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(Nodecl::ExpressionStatement::make(task_expr)),
-                            nodecl_null(),
-                            task_expr.get_locus())),
-                    task_expr.get_locus());
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
 
-        expr_stmt.replace(if_else_stmt);
+        Nodecl::NodeclBase if_else_tree = code.parse_statement(expr_stmt);
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
+
+        expr_stmt.replace(if_else_tree);
     }
 
     // Note: don't walk over the OpenMP::Task node because Its visitor ignores
     // the placeholder and sets to false the 'inside_task_expression' boolean
     Nodecl::NodeclBase placeholder_task_expr_transformation;
-    visit_task(join_task, /* inside_task_expression */ true, &placeholder_task_expr_transformation);
+    visit_task(task_expr.get_join_task().as<Nodecl::OpenMP::Task>(), /* inside_task_expression */ true, &placeholder_task_expr_transformation);
 
     // Note: don't walk over the OpenMP::TaskCall because It's visitor sets to
     // false the 'inside_task_expression' boolean
