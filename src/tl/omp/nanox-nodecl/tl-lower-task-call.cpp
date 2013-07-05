@@ -671,72 +671,6 @@ namespace InputValueUtils
     }
 }
 
-void LoweringVisitor::get_nanos_in_final_condition(
-        TL::ReferenceScope ref_scope,
-        const locus_t* locus,
-        // out
-        Nodecl::NodeclBase& is_in_final_nodecl,
-        TL::ObjectList<Nodecl::NodeclBase>& items)
-{
-    TL::Scope sc = ref_scope.get_scope();
-
-    TL::Symbol nanos_in_final = sc.get_symbol_from_name("nanos_in_final");
-    ERROR_CONDITION(!nanos_in_final.is_valid(), "The 'nanos_in_final' function is not defined", 0);
-
-    TL::Symbol nanos_err_t = sc.get_symbol_from_name("nanos_err_t");
-    ERROR_CONDITION(!nanos_err_t.is_valid(), "The 'nanos_err_t' type is not defined", 0);
-
-    Counter& final_counter = CounterManager::get_counter("nanos++-final-counter");
-
-    std::stringstream ss1, ss2;
-    ss1 << "mcc_is_in_final_" << (int)final_counter;
-    TL::Symbol is_in_final_var = sc.new_symbol(ss1.str());
-    is_in_final_var.get_internal_symbol()->kind = SK_VARIABLE;
-    is_in_final_var.get_internal_symbol()->type_information = TL::Type::get_bool_type().get_internal_type();
-    is_in_final_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-    is_in_final_nodecl = Nodecl::Symbol::make(is_in_final_var);
-    is_in_final_nodecl.set_type(lvalue_ref(is_in_final_var.get_type().get_internal_type()));
-
-    ss2 << "mcc_err_in_final_" << (int)final_counter;
-    TL::Symbol err_in_final_var = sc.new_symbol(ss2.str());
-    err_in_final_var.get_internal_symbol()->kind = SK_VARIABLE;
-    err_in_final_var.get_internal_symbol()->type_information = nanos_err_t.get_user_defined_type().get_internal_type();
-    err_in_final_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-    Nodecl::Symbol err_in_final_nodecl = Nodecl::Symbol::make(err_in_final_var);
-    err_in_final_nodecl.set_type(lvalue_ref(err_in_final_var.get_type().get_internal_type()));
-    final_counter++;
-
-    if (IS_CXX_LANGUAGE)
-    {
-        items.append(Nodecl::CxxDef::make( /* context */ nodecl_null(), is_in_final_var, locus));
-        items.append(Nodecl::CxxDef::make( /* context */ nodecl_null(), err_in_final_var, locus));
-    }
-
-    Nodecl::NodeclBase in_final_function_call = Nodecl::FunctionCall::make(
-            Nodecl::Symbol::make(nanos_in_final),
-            Nodecl::List::make(
-                Nodecl::Reference::make(
-                    is_in_final_nodecl,
-                    is_in_final_var.get_type().get_pointer_to(),
-                    locus)),
-            /* alternate name */ nodecl_null(),
-            /* function_form */ nodecl_null(),
-            nanos_in_final.get_type().returns(),
-            locus);
-
-    Nodecl::ExpressionStatement expr = Nodecl::ExpressionStatement::make(
-            Nodecl::Assignment::make(
-                err_in_final_nodecl,
-                in_final_function_call,
-                err_in_final_nodecl.get_type()));
-
-    items.append(expr);
-
-    is_in_final_nodecl = is_in_final_nodecl.shallow_copy();
-}
-
 void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -1155,37 +1089,34 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             && arguments_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase enclosing_expr_stmt = construct.get_parent();
-        ERROR_CONDITION(!enclosing_expr_stmt.is<Nodecl::ExpressionStatement>(),
-                "Unexpected node '%s'\n", ast_print_node_type(enclosing_expr_stmt.get_kind()));
-
-        TL::ObjectList<Nodecl::NodeclBase> items;
-        Nodecl::NodeclBase is_in_final_nodecl;
-        get_nanos_in_final_condition(enclosing_expr_stmt, function_call.get_locus(), is_in_final_nodecl, items);
-
-        Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, Nodecl::List::make(items));
-
         Nodecl::NodeclBase expr_direct_call_to_function =
             Nodecl::ExpressionStatement::make(
                     function_call.shallow_copy(),
                     function_call.get_locus());
 
-        Nodecl::NodeclBase if_else_stmt =
-            Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl.shallow_copy(),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(expr_direct_call_to_function),
-                            nodecl_null(),
-                            function_call.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(new_construct),
-                            nodecl_null(),
-                            function_call.get_locus())),
-                    function_call.get_locus());
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(expr_direct_call_to_function)
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(new_construct)
+            <<      "}"
+            << "}"
+            ;
 
-        new_code = if_else_stmt;
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
+
+        new_code = code.parse_statement(construct);
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
     }
     else
     {
@@ -1457,7 +1388,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
         Nodecl::NodeclBase& statements_of_task_seq,
         Nodecl::NodeclBase& new_environment)
 {
-    TL::ObjectList<Nodecl::NodeclBase> statements_of_function;
+    Nodecl::List statements_of_function;
 
     TL::ObjectList<Nodecl::NodeclBase> statements_of_task_list;
     // Create one object init per save expression
@@ -1528,35 +1459,38 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             && dummy_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase is_in_final_nodecl;
-        TL::ObjectList<Nodecl::NodeclBase> items;
-        get_nanos_in_final_condition(adapter_function.get_related_scope(), call_to_original.get_locus(), is_in_final_nodecl, items);
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(call_to_original.shallow_copy())
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(task_construct)
+            <<      "}"
+            << "}"
+            ;
 
-        statements_of_function.append(items);
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
 
-        Nodecl::NodeclBase if_else_stmt =
-            Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(call_to_original.shallow_copy()),
-                            nodecl_null(),
-                            call_to_original.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(task_construct),
-                            nodecl_null(),
-                            call_to_original.get_locus())),
-                    call_to_original.get_locus());
+        Nodecl::NodeclBase if_else_tree = code.parse_statement(adapter_function.get_related_scope());
 
-        statements_of_function.append(if_else_stmt);
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
+
+        statements_of_function.append(if_else_tree);
     }
     else
     {
         statements_of_function.append(task_construct);
     }
 
-    Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
+    Nodecl::NodeclBase in_context = statements_of_function;
 
     // Now get all the needed internal functions and duplicate them in the adapter function
     Nodecl::Utils::Fortran::InternalFunctions internal_functions;

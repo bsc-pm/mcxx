@@ -409,13 +409,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
-
-        void get_nanos_in_final_condition(
-                TL::ReferenceScope scope,
-                const locus_t* locus,
-                // out
-                Nodecl::NodeclBase& is_in_final_nodecl,
-                TL::ObjectList<Nodecl::NodeclBase>& items);
 };
 
 } }

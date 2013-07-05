@@ -905,6 +905,7 @@ void LoweringVisitor::visit_task(
         argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
         argument_outline_data_item.set_base_address_expression(sym_ref);
     }
+
     Nodecl::NodeclBase new_construct;
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024)
@@ -912,31 +913,31 @@ void LoweringVisitor::visit_task(
             && !inside_task_expression)
     {
         new_construct = construct.shallow_copy();
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(statements.shallow_copy())
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(new_construct)
+            <<      "}"
+            << "}"
+            ;
 
-        TL::ObjectList<Nodecl::NodeclBase> items;
-        Nodecl::NodeclBase is_in_final_nodecl;
-        get_nanos_in_final_condition(construct, construct.get_locus(), is_in_final_nodecl, items);
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
 
-        // The enclosing statement of a usual inline task is the Nodecl::OpenMP::Task node
-        Nodecl::NodeclBase enclosing_stmt = construct;
-        Nodecl::Utils::prepend_items_before(enclosing_stmt, Nodecl::List::make(items));
+        Nodecl::NodeclBase if_else_tree = code.parse_statement(construct);
 
-        Nodecl::NodeclBase if_else_stmt =
-            Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            statements.shallow_copy(),
-                            nodecl_null(),
-                            construct.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(new_construct),
-                            nodecl_null(),
-                            construct.get_locus())),
-                    construct.get_locus());
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
 
-        construct.replace(if_else_stmt);
+        construct.replace(if_else_tree);
     }
     else
     {
@@ -1826,13 +1827,13 @@ void LoweringVisitor::fill_copies_region(
                 << num_dimensions_count;
 
 
-            for (int dim = 0; dim < num_dimensions_count; dim++)
+            for (int dim = num_dimensions_count - 1; dim >= 0; dim--, current_dimension_descriptor++)
             {
                 // Sanity check
                 ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
                         current_dimension_descriptor, num_copies_dimensions);
 
-                if (dim == 0)
+                if (dim == num_dimensions_count - 1)
                 {
                     // In bytes
                     ol_dimension_descriptors
@@ -1876,9 +1877,7 @@ void LoweringVisitor::fill_copies_region(
                         << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
                         ;
                 }
-                current_dimension_descriptor++;
             }
-            
 
             if (Nanos::Version::interface_is_at_least("copies_api", 1003))
             {
