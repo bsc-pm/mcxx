@@ -42,4 +42,7 @@ int main()
     {
         ntasks;
     }
+#pragma omp taskwait
+
+    return 0;
 }

@@ -45,4 +45,6 @@ int main()
 {
     int e = 1;
     foo(&e);
+#pragma omp taskwait
+    return 0;
 }

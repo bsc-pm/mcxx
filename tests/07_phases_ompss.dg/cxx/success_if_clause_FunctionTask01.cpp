@@ -48,6 +48,7 @@ void g()
     assert(d == 13);
     f(c, &d); 
     assert(d == 16);
+#pragma omp taskwait
 }
 
 int main() { g(); }

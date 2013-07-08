@@ -41,10 +41,12 @@ void f(int e)
     {
         o = e + 1;
     }
+#pragma omp taskwait
 }      
 
 int main() 
 {
     int e = 1;
     f(e);
+    return 0;
 }
