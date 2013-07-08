@@ -1425,6 +1425,84 @@ namespace TL
             n.set_type(node.get_nest().get_type());
         }
 
+        void SSEVectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, intrin_name, extract_src;
+
+            intrin_name << "_mm_hadd";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_name << "_ps"; 
+                extract_src << "_mm_extract_ps";
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_name << "_pd"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_name << "_epi32"; 
+                extract_src << "_mm_extract_epi32";
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                intrin_name << "_epi16"; 
+                extract_src << "_mm_extract_epi16";
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+            //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
+
+            Nodecl::NodeclBase vector_src =
+                node.get_vector_src();
+
+            Nodecl::NodeclBase scalar_dst =
+                node.get_scalar_dst();
+
+            walk(scalar_dst);
+            walk(vector_src);
+
+            intrin_src << as_expression(scalar_dst) 
+                << " = "
+                << "({"
+                    << as_expression(vector_src) 
+                    << " = "
+                    << intrin_name
+                    << "(" 
+                        << as_expression(vector_src)
+                        << ", "
+                        << as_expression(vector_src)
+                    << ");";
+
+            intrin_src
+                << extract_src
+                << "("
+                    << intrin_name
+                    << "(" 
+                        << as_expression(vector_src)
+                        << ", "
+                        << as_expression(vector_src)
+                    << ")"
+                    << ", 0"
+                << ");})";
+ 
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
+
         void SSEVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
         {
             running_error("SSE Lowering: Vector masks are not supported in SSE.");

@@ -42,6 +42,12 @@ namespace TL
 
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
+            // Set up enviroment
+            _environment._external_scope =
+                function_code.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    function_code.get_statements().retrieve_context());
+
             // Get analysis info
             if ((Vectorizer::_analysis_info == 0) || 
                     (Vectorizer::_analysis_info->get_nodecl_origin() != function_code))

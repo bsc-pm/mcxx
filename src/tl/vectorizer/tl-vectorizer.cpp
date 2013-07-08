@@ -27,34 +27,29 @@
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
+#include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-source.hpp"
 
 namespace TL 
 {
     namespace Vectorization
     {
-        
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
                 const bool support_masking,
                 const unsigned int mask_size,
                 const TL::Type& target_type,
-                const TL::Scope& local_scope,
-                const Nodecl::List& suitable_expr_list) : 
+                const Nodecl::List * suitable_expr_list,
+                const TL::ObjectList<TL::Symbol> * reduction_list,
+                std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
            _mask_size(mask_size), _support_masking(support_masking), _target_type(target_type), 
-           _suitable_expr_list(suitable_expr_list)
+           _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
+           _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
-            _local_scope_list.push_back(local_scope);
             _mask_list.push_back(Nodecl::NodeclBase::null());
         }
-        
-        VectorizerEnvironment::~VectorizerEnvironment()
-        {
-            _local_scope_list.pop_back();
-        }
-
-
+ 
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
         Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;
@@ -107,6 +102,38 @@ namespace TL
         {
             VectorizerVisitorForEpilog visitor_epilog(environment);
             visitor_epilog.walk(for_statement);
+        }
+
+        bool Vectorizer::is_supported_reduction(bool is_builtin,
+                const std::string& reduction_name,
+                const TL::Type& reduction_type,
+                const VectorizerEnvironment& environment)
+        {
+            VectorizerVectorReduction vector_reduction(environment);
+
+            return vector_reduction.is_supported_reduction(is_builtin,
+                    reduction_name, reduction_type);
+        }
+
+        void Vectorizer::vectorize_reduction(const TL::Symbol& scalar_symbol,
+                TL::Symbol& vector_symbol,
+                const Nodecl::NodeclBase& initializer,
+                const std::string& reduction_name,
+                const TL::Type& reduction_type,
+                const VectorizerEnvironment& environment,
+                Nodecl::List& pre_nodecls,
+                Nodecl::List& post_nodecls)
+        {
+            VectorizerVectorReduction vector_reduction(environment);
+
+            vector_reduction.vectorize_reduction(
+                    scalar_symbol,
+                    vector_symbol,
+                    initializer,
+                    reduction_name,
+                    reduction_type,
+                    pre_nodecls,
+                    post_nodecls);
         }
 
         void Vectorizer::add_vector_function_version(const std::string& func_name, 

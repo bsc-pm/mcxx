@@ -61,5 +61,7 @@ libtlvectorizer_la_SOURCES = \
                            tl-vectorizer-visitor-statement.hpp \
                            tl-vectorizer-visitor-expression.cpp \
                            tl-vectorizer-visitor-expression.hpp \
+                           tl-vectorizer-vector-reduction.hpp \
+                           tl-vectorizer-vector-reduction.cpp \
                            $(END)
 

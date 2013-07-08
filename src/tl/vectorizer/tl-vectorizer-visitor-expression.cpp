@@ -1031,7 +1031,8 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n", n.prettyprint().c_str()); 
+                        fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n",
+                                n.prettyprint().c_str()); 
                     }
 
                     // Computing IV offset {0, 1, 2, 3}
@@ -1041,7 +1042,8 @@ namespace TL
                             _environment._analysis_scopes.back(), n);
 
                     for(const_value_t *i = const_value_get_zero(4, 0);
-                            const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_environment._unroll_factor)));
+                            const_value_is_nonzero(const_value_lt(i, 
+                                    const_value_get_unsigned_int(_environment._unroll_factor)));
                             i = const_value_add(i, ind_var_increment))
                     {
                         literal_list.prepend(const_value_to_nodecl(i));
@@ -1126,7 +1128,8 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", n.prettyprint().c_str()); 
+                        fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", 
+                                n.prettyprint().c_str()); 
                     }
 
                     const Nodecl::VectorPromotion vector_prom =
@@ -1137,10 +1140,25 @@ namespace TL
 
                     n.replace(vector_prom);
                 }
+                else if(_environment._reduction_list != NULL)
+                {
+                    if(_environment._reduction_list->contains(tl_sym))
+                    {
+                        // If symbol is in the map
+                        Nodecl::Symbol new_red_symbol;
+
+                        std::map<TL::Symbol, TL::Symbol>::iterator it =
+                            _environment._new_external_vector_symbol_map->find(tl_sym);
+
+                        new_red_symbol = it->second.make_nodecl(true, n.get_locus());
+
+                        n.replace(new_red_symbol);
+                    }
+                }
                 else
                 {
                     //TODO: If you are from outside of the loop -> Vector local copy.
-                    running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV or Constant or Local.",
+                    running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV, Constant, Local, Reduction or LastPrivate.",
                             n.get_symbol().get_name().c_str());
                 }
             }

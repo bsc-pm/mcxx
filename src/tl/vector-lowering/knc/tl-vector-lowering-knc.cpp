@@ -2412,6 +2412,51 @@ namespace TL
             node.replace(n);
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, intrin_name;
+
+            intrin_name << "_mm512_reduce_add";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_name << "_ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_name << "_pd"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_name << "_epi32"; 
+            } 
+            else
+            {
+                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_scalar_dst());
+            walk(node.get_vector_src());
+
+            intrin_src << as_expression(node.get_scalar_dst())
+                << " = "
+                << intrin_name 
+                << "("
+                << as_expression(node.get_vector_src())
+                << ")";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }        
+
         void KNCVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
         {
             TL::Source intrin_src;

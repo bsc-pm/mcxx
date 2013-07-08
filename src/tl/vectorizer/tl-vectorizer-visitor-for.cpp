@@ -56,6 +56,12 @@ namespace TL
         bool VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
             bool needs_epilog = false;
+    
+            // Set up enviroment
+            _environment._external_scope =
+                for_statement.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
 
             // Get analysis info
             Nodecl::NodeclBase enclosing_func = 
@@ -536,6 +542,11 @@ namespace TL
 
         void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement)
         {
+            // Set up environment
+            _environment._external_scope = for_statement.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+
             Nodecl::LoopControl loop_control =
                 for_statement.get_loop_header().as<Nodecl::LoopControl>();
 

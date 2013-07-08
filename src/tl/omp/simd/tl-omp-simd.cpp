@@ -25,6 +25,7 @@
   --------------------------------------------------------------------*/
 
 #include "tl-omp-simd.hpp"
+#include "tl-omp.hpp"
 #include "tl-nodecl-utils.hpp"
 
 using namespace TL::Vectorization;
@@ -147,11 +148,42 @@ namespace TL {
             Nodecl::List simd_environment = simd_node.get_environment().as<Nodecl::List>();
 
             Nodecl::List suitable_expressions;
+            TL::ObjectList<TL::Symbol> reductions;
 
             Nodecl::OpenMP::VectorSuitable omp_suitable = simd_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
             if(!omp_suitable.is_null())
             {
                 suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+
+            Nodecl::OpenMP::Reduction omp_reductions = simd_environment.find_first<Nodecl::OpenMP::Reduction>();
+            Nodecl::List omp_reduction_list;
+
+            std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
+            if(!omp_reductions.is_null())
+            {
+                // Extract reduced Nodecl::Symbol from ReductionItems
+                omp_reduction_list = omp_reductions.get_reductions().as<Nodecl::List>();
+                for(Nodecl::List::iterator it = omp_reduction_list.begin();
+                        it != omp_reduction_list.end();
+                        it++ )
+                {
+                    TL::Symbol red_sym = (*it).as<Nodecl::OpenMP::ReductionItem>().
+                        get_reduced_symbol().as<Nodecl::Symbol>().get_symbol();
+
+                    reductions.append(red_sym);
+
+                    // Add new vector TL::Symbol in the enclosing context
+                    TL::Symbol new_red_sym =
+                        for_statement.retrieve_context().new_symbol("__vred_" + red_sym.get_name());
+                    new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                    new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
+
+                    // Add new TL::Symbol to map
+                    new_external_vector_symbol_map.insert(std::pair<TL::Symbol, TL::Symbol>(
+                                red_sym, new_red_sym));
+                }
             }
 
             // Add epilog before vectorization
@@ -160,32 +192,82 @@ namespace TL {
 
             simd_node.append_sibling(epilog);
 
-            // Vectorize for
+            // VECTORIZE FOR
             VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length, 
                     _support_masking,
                     _mask_size,
                     NULL,
-                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
-                    suitable_expressions);
+                    &suitable_expressions,
+                    &reductions,
+                    &new_external_vector_symbol_map);
 
             bool needs_epilog = 
                 _vectorizer.vectorize(for_statement, for_environment); 
 
+            // Add new vector symbols
+            if (!new_external_vector_symbol_map.empty())
+            {
+                Nodecl::List pre_for_nodecls, post_for_nodecls;
+
+                // REDUCTIONS
+                for(Nodecl::List::iterator it = omp_reduction_list.begin();
+                        it != omp_reduction_list.end();
+                        it++)
+                {
+                    // Prepare reduction information to be used in vectorizer
+                    Nodecl::OpenMP::ReductionItem omp_red_item = (*it).as<Nodecl::OpenMP::ReductionItem>();
+                    TL::OpenMP::Reduction omp_red = *(OpenMP::Reduction::get_reduction_info_from_symbol(
+                                omp_red_item.get_reductor().get_symbol()));
+
+                    // Symbols
+                    std::map<TL::Symbol, TL::Symbol>::iterator new_external_symbol_pair = 
+                        new_external_vector_symbol_map.find(omp_red_item.get_reduced_symbol().get_symbol());
+
+                    TL::Symbol scalar_tl_symbol = new_external_symbol_pair->first;
+                    TL::Symbol vector_tl_symbol = new_external_symbol_pair->second;
+
+                    // Reduction info
+                    Nodecl::NodeclBase reduction_initializer = omp_red.get_initializer();
+                    std::string reduction_name = omp_red.get_name();
+                    TL::Type reduction_type = omp_red.get_type();
+
+                    // Vectorize reductions
+                    if(_vectorizer.is_supported_reduction(
+                                omp_red.is_builtin(reduction_name),
+                                reduction_name,
+                                reduction_type,
+                                for_environment))
+                    {
+                        _vectorizer.vectorize_reduction(scalar_tl_symbol, 
+                                vector_tl_symbol, 
+                                reduction_initializer,
+                                reduction_name,
+                                reduction_type,
+                                for_environment,
+                                pre_for_nodecls,
+                                post_for_nodecls);
+                    }
+                    else
+                    {
+                        running_error("SIMD: reduction '%s:%s' is not supported", 
+                                reduction_name.c_str(), scalar_tl_symbol.get_name().c_str());
+                    }
+                }
+
+                simd_node.prepend_sibling(pre_for_nodecls);
+                // Final reduction after the epilog (to reduce also elements from masked epilogs)
+                epilog.append_sibling(post_for_nodecls);
+
+                // TODO: 
+                // firstprivate in SIMD
+            }
+
             // Process epilog
             if (needs_epilog)
             {
-                VectorizerEnvironment epilog_environment(
-                        _device_name,
-                        _vector_length, 
-                        _support_masking,
-                        _mask_size,
-                        NULL,
-                        epilog.get_statement().as<Nodecl::List>().front().retrieve_context(),
-                        suitable_expressions);
-
-                _vectorizer.process_epilog(epilog, epilog_environment);
+                _vectorizer.process_epilog(epilog, for_environment);
             }
             else // Remove epilog
             {
@@ -211,11 +293,26 @@ namespace TL {
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
             Nodecl::List suitable_expressions;
+            TL::ObjectList<TL::Symbol> reductions;
 
             Nodecl::OpenMP::VectorSuitable omp_suitable = omp_simd_for_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
             if(!omp_suitable.is_null())
             {
                 suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+
+            Nodecl::OpenMP::Reduction omp_reductions = omp_simd_for_environment.find_first<Nodecl::OpenMP::Reduction>();
+            if(!omp_reductions.is_null())
+            {
+                // Extract reduced Nodecl::Symbol from ReductionItems
+                Nodecl::List omp_reduction_list = omp_reductions.get_reductions().as<Nodecl::List>();
+                for(Nodecl::List::iterator it = omp_reduction_list.begin();
+                        it != omp_reduction_list.end();
+                        it++ )
+                {
+                    reductions.append((*it).as<Nodecl::OpenMP::ReductionItem>().
+                            get_reduced_symbol().as<Nodecl::Symbol>().get_symbol());
+                }
             }
 
             // Add epilog with single before vectorization
@@ -252,15 +349,18 @@ namespace TL {
 
             simd_node.append_sibling(single_epilog);
 
-            // Vectorize for
+            // VECTORIZE FOR
+            std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
+
             VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length,
                     _support_masking, 
                     _mask_size,
                     NULL,
-                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context(),
-                    suitable_expressions);
+                    &suitable_expressions,
+                    &reductions,
+                    &new_external_vector_symbol_map);
 
             bool needs_epilog = 
                 _vectorizer.vectorize(for_statement, for_environment); 
@@ -268,16 +368,7 @@ namespace TL {
             // Process epilog
             if (needs_epilog)
             {
-                VectorizerEnvironment epilog_environment(
-                        _device_name,
-                        _vector_length, 
-                        _support_masking,
-                        _mask_size,
-                        NULL,
-                        epilog.get_statement().as<Nodecl::List>().front().retrieve_context(),
-                        suitable_expressions);
-
-                _vectorizer.process_epilog(epilog, epilog_environment);
+                _vectorizer.process_epilog(epilog, for_environment);
             }
             else // Remove epilog
             {
@@ -388,8 +479,9 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     NULL,
-                    vector_func_code.get_statements().retrieve_context(),
-                    suitable_expressions);
+                    &suitable_expressions,
+                    NULL,
+                    NULL);
 
             _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
 
