@@ -100,6 +100,7 @@ namespace TL
             visitor_stmt.walk(for_statement.get_statement());
 
             _environment._analysis_scopes.pop_back();
+            _environment._local_scope_list.pop_back();
 
             return needs_epilog;
         }
@@ -472,6 +473,12 @@ namespace TL
 
         void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement)
         {
+            // Set up enviroment
+            _environment._external_scope =
+                for_statement.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+
             // Get analysis info
             Nodecl::NodeclBase enclosing_func = 
                 Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
@@ -480,23 +487,6 @@ namespace TL
                 front().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().
                 as<Nodecl::CompoundStatement>();
 
-            // Get analysis info
-/*            Nodecl::NodeclBase enclosing_func = 
-                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
-
-            if ((Vectorizer::_analysis_info == 0) || 
-                (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
-            {
-                if (Vectorizer::_analysis_info != 0)
-                    delete Vectorizer::_analysis_info;
-
-                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
-                        enclosing_func.as<Nodecl::FunctionCode>(),
-                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, 100);
-            }
-*/
             // Push ForStatement as scope for analysis
             _environment._analysis_scopes.push_back(for_statement);
 
@@ -537,6 +527,7 @@ namespace TL
             for_statement.replace(for_statement.get_statement());
 
             _environment._analysis_scopes.pop_back();
+            _environment._local_scope_list.pop_back();
         }
 
 
@@ -551,6 +542,8 @@ namespace TL
                 for_statement.get_loop_header().as<Nodecl::LoopControl>();
 
             loop_control.set_init(Nodecl::NodeclBase::null());
+
+            _environment._local_scope_list.pop_back();
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorForEpilog::unhandled_node(const Nodecl::NodeclBase& n)
