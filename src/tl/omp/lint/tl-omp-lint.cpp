@@ -494,9 +494,15 @@ namespace TL { namespace OpenMP {
     };
 
     Lint::Lint()
+         : _disable_phase("0")
     {
         set_phase_name("OpenMP Lint");
         set_phase_description("This phase is able to detect some common pitfalls when using OpenMP");
+
+        register_parameter("disable-omp-lint",
+                "Disables this phase. You should not need this. If you do, then it is an error. Please fill a bug",
+                _disable_phase,
+                "0");
     }
 
     void Lint::run(TL::DTO& dto)
@@ -504,8 +510,11 @@ namespace TL { namespace OpenMP {
         // std::cerr << "Running OpenMP Lint" << std::endl;
         Nodecl::NodeclBase top_level = dto["nodecl"];
 
-        FunctionCodeVisitor function_codes;
-        function_codes.walk(top_level);
+        if (_disable_phase == "0")
+        {
+            FunctionCodeVisitor function_codes;
+            function_codes.walk(top_level);
+        }
     }
 
     void Lint::pre_run(TL::DTO& dto)

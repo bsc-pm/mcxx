@@ -36,6 +36,8 @@ namespace TL
         //! This class transforms OpenMP pragmas to the Nodecl representation of parallelism
         class Lint : public TL::CompilerPhase
         {
+            private:
+                std::string _disable_phase;
             public:
                 Lint();
 
