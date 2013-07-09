@@ -1036,6 +1036,11 @@ namespace Analysis {
         return ObjectList<Node*>( 1, asm_op_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccBuiltinVaArg& n)
+    {
+        return visit_literal_node(n);
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GotoStatement& n )
     {
         Node* goto_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, GOTO );
@@ -1982,6 +1987,36 @@ namespace Analysis {
         return ObjectList<Node*>( 1, single_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Workshare& n )
+    {
+        // Create the new graph node containing the single
+        Node* single_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_WORKSHARE );
+        _pcfg->connect_nodes( _utils->_last_nodes, single_node );
+
+        Node* single_entry = single_node->get_graph_entry_node( );
+        Node* single_exit = single_node->get_graph_exit_node( );
+
+        // Traverse the statements of the current single
+        _utils->_last_nodes = ObjectList<Node*>( 1, single_entry );
+        walk( n.get_statements( ) );
+
+        single_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, single_exit );
+
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( single_entry, single_exit ) );
+        walk( n.get_environment( ) );
+        single_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, single_node );
+        return ObjectList<Node*>( 1, single_node );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
     {
         PCFGClause current_clause( TARGET );
@@ -2170,8 +2205,15 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
     {
-        WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
-                         n.prettyprint( ).c_str( ) );
+        // WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
+        //                  n.prettyprint( ).c_str( ) );
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
+    {
+        // WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
+        //                  n.prettyprint( ).c_str( ) );
         return ObjectList<Node*>( );
     }
 
@@ -2429,6 +2471,56 @@ namespace Analysis {
 
         _utils->_last_nodes = ObjectList<Node*>( 1, while_graph_node );
         return ObjectList<Node*>( 1, while_graph_node );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranAllocateStatement& n )
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranDeallocateStatement& n)
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranOpenStatement& n )
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranCloseStatement& n)
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranPrintStatement& n )
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranStopStatement& n )
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranIoStatement& n)
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranWhere& n)
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranReadStatement& n )
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranWriteStatement& n )
+    {
+        return visit_literal_node(n);
     }
 
     // ******************************** END visiting methods ******************************** //

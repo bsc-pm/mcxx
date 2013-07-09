@@ -288,6 +288,10 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
 
+            //! Returns true when the node is an OpenMP WORKSHARE node
+            // Fortran only
+            bool is_omp_workshare_node( );
+
             //! Returns true when the node is an OpenMP TASK node
             bool is_omp_task_node( );
 

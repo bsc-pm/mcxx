@@ -452,6 +452,12 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
     }
 
+    // Fortran only
+    bool Node::is_omp_workshare_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_WORKSHARE ) );
+    }
+
     bool Node::is_omp_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
@@ -628,6 +634,7 @@ namespace Analysis {
                 case OMP_SIMD_FUNCTION:     graph_type = "OMP_SIMD_FUNCTION";       break;
                 case OMP_SIMD_PARALLEL_FOR: graph_type = "OMP_SIMD_PARALLEL_FOR";   break;
                 case OMP_SINGLE:            graph_type = "OMP_SINGLE";              break;
+                case OMP_WORKSHARE:         graph_type = "OMP_WORKSHARE";           break;
                 case OMP_TASK:              graph_type = "OMP_TASK";                break;
                 case SPLIT_STMT:            graph_type = "SPLIT_STMT";              break;
                 case SWITCH:                graph_type = "SWITCH";                  break;

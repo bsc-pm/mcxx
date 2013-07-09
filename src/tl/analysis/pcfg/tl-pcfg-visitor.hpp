@@ -257,6 +257,7 @@ namespace Analysis {
         Ret visit( const Nodecl::FunctionCode& n );
         Ret visit( const Nodecl::GccAsmDefinition& n );
         Ret visit( const Nodecl::GccAsmOperand& n );
+        Ret visit( const Nodecl::GccBuiltinVaArg& n );
         Ret visit( const Nodecl::GotoStatement& n );
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
@@ -323,6 +324,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
+        Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
         Ret visit( const Nodecl::OpenMP::TaskCall& n );
@@ -338,6 +340,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
         Ret visit( const Nodecl::PragmaCustomStatement& n );
+        Ret visit( const Nodecl::PragmaCustomDirective& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
@@ -361,6 +364,17 @@ namespace Analysis {
         Ret visit( const Nodecl::DefaultArgument& n );
         Ret visit( const Nodecl::FortranActualArgument& n );
         Ret visit( const Nodecl::WhileStatement& n );
+
+        Ret visit( const Nodecl::FortranAllocateStatement& n );
+        Ret visit( const Nodecl::FortranDeallocateStatement& n );
+        Ret visit( const Nodecl::FortranOpenStatement& n );
+        Ret visit( const Nodecl::FortranCloseStatement& n );
+        Ret visit( const Nodecl::FortranPrintStatement& n );
+        Ret visit( const Nodecl::FortranStopStatement& n );
+        Ret visit( const Nodecl::FortranIoStatement& n );
+        Ret visit( const Nodecl::FortranWhere& n );
+        Ret visit( const Nodecl::FortranReadStatement& n );
+        Ret visit( const Nodecl::FortranWriteStatement& n );
 
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //

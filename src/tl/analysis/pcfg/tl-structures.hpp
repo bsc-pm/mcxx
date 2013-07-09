@@ -81,6 +81,7 @@ namespace Analysis {
         OMP_SIMD_FUNCTION,
         OMP_SIMD_PARALLEL_FOR,
         OMP_SINGLE,
+        OMP_WORKSHARE,
         OMP_TASK,
         SPLIT_STMT,          //! Expression being split because it contains a sub-expression with a separated node
         SWITCH               //! Switch statement

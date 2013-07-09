@@ -311,6 +311,7 @@ namespace Analysis {
             case OMP_SECTION:
             case OMP_SECTIONS:
             case OMP_SINGLE:
+            case OMP_WORKSHARE:
             case OMP_TASK:
             case OMP_MASTER:
                 dot_graph += "color=red4;\nstyle=bold;\n";
