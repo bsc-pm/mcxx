@@ -546,9 +546,9 @@ namespace TL
             walk(node.get_rhs());
 
             intrin_src << "_mask(";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ", ";
             intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
             intrin_src << ", ";
             intrin_src << cmp_flavor;
             intrin_src << ")";
