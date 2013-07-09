@@ -60,11 +60,11 @@ namespace TL
         {
             Nodecl::NodeclBase condition = n.get_condition();
 
-            // Non-constant comparisson. Vectorize them with masks
-            if(!Vectorizer::_analysis_info->is_constant(
-                        _environment._analysis_scopes.back(),
-                        condition))
+            // Non-constant comparison. Vectorize them with masks
+            if(!n.is_constant())
             {
+                std::cerr << "Vectorizer: Non-constant if\n";
+
                 Nodecl::List list;
                 TL::Scope scope = _environment._local_scope_list.front();
 
@@ -86,13 +86,13 @@ namespace TL
 
                 if (prev_mask.is_null()) // mask = if_cond
                 {
-                    if_mask_value = n.get_condition().shallow_copy();
+                    if_mask_value = condition.shallow_copy();
                 }
                 else // mask = prev_mask & if_cond
                 {
                     if_mask_value = Nodecl::VectorMaskAnd::make(
                             prev_mask.shallow_copy(),
-                            n.get_condition().shallow_copy(),
+                            condition.shallow_copy(),
                             if_mask_sym.get_type(),
                             n.get_locus());
                 }
@@ -127,7 +127,7 @@ namespace TL
                 {
                     else_mask_value = Nodecl::VectorMaskAnd2Not::make(
                             prev_mask.shallow_copy(),
-                            n.get_condition().shallow_copy(),
+                            condition.shallow_copy(),
                             else_mask_sym.get_type(),
                             n.get_locus());
                 }
@@ -143,16 +143,19 @@ namespace TL
                 list.append(if_mask_exp);
                 list.append(else_mask_exp);
 
-                // Add 'else' mask to mask list
+                // Add 'else' mask to mask list:
+                // ELSE mask should ALWAYS be after if_mask before visiting!
                 _environment._mask_list.push_back(else_mask_nodecl_sym);
 
                 // Visit Then
-                _environment._mask_list.push_back(if_mask_nodecl_sym.shallow_copy());
+                _environment._inside_inner_masked_bb.push_back(true);
+                _environment._mask_list.push_back(if_mask_nodecl_sym);
                 _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
                         front().retrieve_context());
                 walk(n.get_then());
                 _environment._local_scope_list.pop_back();
                 _environment._mask_list.pop_back();
+                _environment._inside_inner_masked_bb.pop_back();
 
 
                 // Add then to the final code
@@ -180,6 +183,7 @@ namespace TL
             }
             else // Constant comparisson. We do not vectorize them. Only the body
             {
+                std::cerr << "Vectorizer: Constant if\n";
                 walk(n.get_then());
                 walk(n.get_else());
             }
@@ -214,9 +218,9 @@ namespace TL
             VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(return_value);
             
-            // If I'm not in the first SIMD context, mask exists but no special symbol, 
+            // If I'm inside a inner basic block with mask, mask exists but no special symbol, 
             // add return special symbol
-            if ((n.retrieve_context() != _environment._local_scope_list.front()) && 
+            if (_environment._inside_inner_masked_bb.back() && 
                     (_environment._function_return.is_invalid()) &&
                     (!_environment._mask_list.back().is_null()))
             {
@@ -252,8 +256,11 @@ namespace TL
                 // a real return may be necessary if mask is == 0
                 // if (else_mask == zero) return
 
-                if (n.retrieve_context() != _environment._local_scope_list.front())
+                if (_environment._inside_inner_masked_bb.back())
                 {
+                    ERROR_CONDITION(_environment._mask_list.size() < 3, 
+                            "Return Statement Visitor: Else mask does not exist", 0);
+
                     std::list<Nodecl::NodeclBase>::iterator else_mask_it = _environment._mask_list.end();
                     else_mask_it--; // Current mask
                     else_mask_it--; // Previous mask
@@ -261,7 +268,7 @@ namespace TL
                     Nodecl::IfElseStatement if_mask_is_zero =
                         Nodecl::IfElseStatement::make(
                                 Nodecl::Equal::make(
-                                    *else_mask_it, // Else mask
+                                    (*else_mask_it).shallow_copy(), // Else mask
                                     Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
                                         const_value_get_zero(4, 0),
                                         n.get_locus()),

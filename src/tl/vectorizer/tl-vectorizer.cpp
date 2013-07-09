@@ -48,8 +48,15 @@ namespace TL
            _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
             _mask_list.push_back(Nodecl::NodeclBase::null());
+            _inside_inner_masked_bb.push_back(false);
         }
  
+        VectorizerEnvironment::~VectorizerEnvironment()
+        {
+            _mask_list.pop_back();
+            _inside_inner_masked_bb.pop_back();
+        }
+
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
         Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;

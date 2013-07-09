@@ -55,6 +55,7 @@ namespace TL
                 std::list<TL::Scope> _local_scope_list;
                 std::list<Nodecl::NodeclBase> _mask_list;
                 std::list<Nodecl::NodeclBase> _analysis_scopes;
+                std::list<bool> _inside_inner_masked_bb;
 
                 TL::Symbol _function_return;
 
@@ -67,6 +68,8 @@ namespace TL
                         const Nodecl::List* suitable_expr_list,
                         const TL::ObjectList<TL::Symbol>* reduction_list,
                         std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
+
+                ~VectorizerEnvironment();
 
             friend class Vectorizer;
             friend class VectorizerVisitorFor;
