@@ -97,6 +97,20 @@ namespace TL { namespace OpenMP {
                 return data_ref_is_local_rec(data_ref);
             }
 
+            tribool symbol_is_local(TL::Symbol sym)
+            {
+                if (!sym.is_valid())
+                {
+                    // Somehow the data reference cannot be analyzed as valid
+                    // so act conservatively and return unknown
+                    return tribool();
+                }
+
+                return !sym.get_type().is_any_reference() &&
+                    sym.get_scope().is_block_scope();
+            }
+
+
             // If this function returns false it may mean both unknown/no
             tribool data_ref_is_local_rec(TL::DataReference data_ref)
             {
@@ -151,6 +165,18 @@ namespace TL { namespace OpenMP {
                 return false;
             }
 
+            tribool any_symbol_is_local(Nodecl::List item_list)
+            {
+                tribool result(false);
+                for (Nodecl::List::iterator it = item_list.begin();
+                        it != item_list.end();
+                        it++)
+                {
+                    result = result || symbol_is_local(it->get_symbol());
+                }
+
+                return result;
+            }
 
             tribool any_data_ref_is_local(Nodecl::List item_list)
             {
@@ -219,7 +245,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 if (!shared.is_null())
-                    result = result || any_data_ref_is_local(shared.get_shared_symbols().as<Nodecl::List>());
+                    result = result || any_symbol_is_local(shared.get_shared_symbols().as<Nodecl::List>());
                 if (!dep_in.is_null())
                     result = result || any_data_ref_is_local(dep_in.get_in_deps().as<Nodecl::List>());
                 if (!dep_out.is_null())
@@ -233,6 +259,26 @@ namespace TL { namespace OpenMP {
                 //     std::cerr << "No, it is not locally bound " << std::endl;
 
                 return result;
+            }
+
+            TL::Scope get_innermost_required_scope_symbols(TL::Scope sc, Nodecl::List item_list)
+            {
+                for (Nodecl::List::iterator it = item_list.begin();
+                        it != item_list.end();
+                        it++)
+                {
+                    TL::Symbol base_symbol = it->get_symbol();
+
+                    if (!base_symbol.is_valid())
+                        continue;
+
+                    TL::Scope current_scope = base_symbol.get_scope();
+
+                    if (current_scope.scope_is_enclosed_by(sc))
+                        sc = current_scope;
+                }
+
+                return sc;
             }
 
             TL::Scope get_innermost_required_scope_data_items(TL::Scope sc, Nodecl::List item_list)
@@ -314,7 +360,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 if (!shared.is_null())
-                    result = get_innermost_required_scope_data_items(result, shared.get_shared_symbols().as<Nodecl::List>());
+                    result = get_innermost_required_scope_symbols(result, shared.get_shared_symbols().as<Nodecl::List>());
                 if (!dep_in.is_null())
                     result = get_innermost_required_scope_data_items(result, dep_in.get_in_deps().as<Nodecl::List>());
                 if (!dep_out.is_null())
