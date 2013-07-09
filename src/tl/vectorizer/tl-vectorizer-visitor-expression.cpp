@@ -1204,6 +1204,7 @@ namespace TL
         {
             std::cerr << "Vectorizer: Unknown 'Expression' node "
                 << ast_print_node_type(n.get_kind())
+                //<< "(" << n.prettyprint() << ")"
                 << " at " << n.get_locus()
                 << std::endl;
 

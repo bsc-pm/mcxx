@@ -496,7 +496,7 @@ namespace TL
            
             VectorizerVisitorExpression visitor_mask(_environment);
             visitor_mask.walk(mask_value);
-            
+           
             TL::Symbol mask_sym = comp_statement.retrieve_context().
                 new_symbol("__mask_" + Vectorizer::_vectorizer->get_var_counter());
             mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
@@ -505,6 +505,7 @@ namespace TL
             
             Nodecl::Symbol mask_nodecl_sym = mask_sym.make_nodecl(true, for_statement.get_locus());
 
+            // Compute mask expression
             Nodecl::ExpressionStatement mask_exp =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
@@ -512,16 +513,17 @@ namespace TL
                             mask_sym.get_type(),
                             for_statement.get_locus()));
 
-            comp_statement.as<Nodecl::CompoundStatement>().
-                get_statements().as<Nodecl::List>().prepend(mask_exp); 
-
-                // Vectorize Loop Body
+            // Vectorize Loop Body
             _environment._mask_list.push_back(mask_nodecl_sym);
 
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(comp_statement);
 
             _environment._mask_list.pop_back();
+
+            // Add mask expression after vectorization
+            comp_statement.as<Nodecl::CompoundStatement>().
+                get_statements().as<Nodecl::List>().prepend(mask_exp); 
 
             // Remove loop header
             for_statement.replace(for_statement.get_statement());
