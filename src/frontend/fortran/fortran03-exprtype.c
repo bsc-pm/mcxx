@@ -1002,15 +1002,108 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 return;
             }
 
-            nodecl_indexes[num_subscripts] = nodecl_make_range(
-                    nodecl_lower,
-                    nodecl_upper,
-                    nodecl_stride,
-                    fortran_get_default_integer_type(),
-                    ast_get_locus(subscript));
-
             if (!symbol_is_invalid)
             {
+                // Make ranges explicit through the usage of LBOUND and UBOUND
+                if (nodecl_is_null(nodecl_lower))
+                {
+                    nodecl_t nodecl_actual_arguments[2] =
+                    {
+                        nodecl_make_fortran_actual_argument(
+                                nodecl_shallow_copy(nodecl_subscripted),
+                                ast_get_locus(subscript)),
+                        nodecl_make_fortran_actual_argument(
+                                const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
+                                ast_get_locus(subscript))
+                    };
+
+                    scope_entry_t* intrinsic_lbound = fortran_solve_generic_intrinsic_call(
+                            fortran_query_intrinsic_name_str(decl_context, "lbound"),
+                            nodecl_actual_arguments,
+                            /* explicit_num_actual_arguments */ 2,
+                            /* is_call */ 0);
+
+                    ERROR_CONDITION(
+                            intrinsic_lbound == NULL,
+                            "Failure while doing an internal call to lbound at %s", 
+                            locus_to_str(ast_get_locus(subscript)));
+
+                    fortran_simplify_specific_intrinsic_call(intrinsic_lbound,
+                            nodecl_actual_arguments,
+                            /* explicit_num_actual_arguments */ 2,
+                            &nodecl_lower,
+                            ast_get_locus(subscript));
+
+                    if (nodecl_is_null(nodecl_lower))
+                    {
+                        nodecl_t nodecl_called = nodecl_make_symbol(intrinsic_lbound, ast_get_locus(subscript));
+                        nodecl_set_type(nodecl_called, lvalue_ref(intrinsic_lbound->type_information));
+
+                        nodecl_lower = nodecl_make_function_call(
+                                nodecl_called,
+                                nodecl_make_list_2(
+                                    nodecl_get_child(nodecl_actual_arguments[0], 0),
+                                    nodecl_get_child(nodecl_actual_arguments[1], 0)),
+                                /* generic spec */ nodecl_null(),
+                                /* function form*/ nodecl_null(),
+                                fortran_get_default_integer_type(),
+                                ast_get_locus(subscript));
+                    }
+                }
+
+                if (nodecl_is_null(nodecl_upper))
+                {
+                    nodecl_t nodecl_actual_arguments[2] =
+                    {
+                        nodecl_make_fortran_actual_argument(
+                                nodecl_shallow_copy(nodecl_subscripted),
+                                ast_get_locus(subscript)),
+                        nodecl_make_fortran_actual_argument(
+                                const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
+                                ast_get_locus(subscript))
+                    };
+
+                    scope_entry_t* intrinsic_ubound = fortran_solve_generic_intrinsic_call(
+                            fortran_query_intrinsic_name_str(decl_context, "ubound"),
+                            nodecl_actual_arguments,
+                            /* explicit_num_actual_arguments */ 2,
+                            /* is_call */ 0);
+
+                    ERROR_CONDITION(
+                            intrinsic_ubound == NULL,
+                            "Failure while doing an internal call to ubound at %s", 
+                            locus_to_str(ast_get_locus(subscript)));
+
+                    fortran_simplify_specific_intrinsic_call(intrinsic_ubound,
+                            nodecl_actual_arguments,
+                            /* explicit_num_actual_arguments */ 2,
+                            &nodecl_upper,
+                            ast_get_locus(subscript));
+
+                    if (nodecl_is_null(nodecl_upper))
+                    {
+                        nodecl_t nodecl_called = nodecl_make_symbol(intrinsic_ubound, ast_get_locus(subscript));
+                        nodecl_set_type(nodecl_called, lvalue_ref(intrinsic_ubound->type_information));
+
+                        nodecl_upper = nodecl_make_function_call(
+                                nodecl_called,
+                                nodecl_make_list_2(
+                                    nodecl_get_child(nodecl_actual_arguments[0], 0),
+                                    nodecl_get_child(nodecl_actual_arguments[1], 0)),
+                                /* generic spec */ nodecl_null(),
+                                /* function form*/ nodecl_null(),
+                                fortran_get_default_integer_type(),
+                                ast_get_locus(subscript));
+                    }
+                }
+
+                nodecl_indexes[num_subscripts] = nodecl_make_range(
+                        nodecl_lower,
+                        nodecl_upper,
+                        nodecl_stride,
+                        fortran_get_default_integer_type(),
+                        ast_get_locus(subscript));
+
                 synthesized_type = get_array_type_bounds_with_regions(synthesized_type, 
                         // Original array
                         nodecl_lower_dim[num_subscripts], 
@@ -1019,20 +1112,20 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                         // Range
                         nodecl_indexes[num_subscripts], 
                         decl_context);
-            }
 
-            if (!nodecl_is_null(nodecl_lower)
-                    && !nodecl_is_null(nodecl_upper)
-                    && !nodecl_is_null(nodecl_stride)
-                    && nodecl_is_constant(nodecl_lower)
-                    && nodecl_is_constant(nodecl_upper)
-                    && nodecl_is_constant(nodecl_stride))
-            {
-                // This range is constant
-                nodecl_set_constant(nodecl_indexes[num_subscripts],
-                        const_value_make_range(nodecl_get_constant(nodecl_lower),
-                            nodecl_get_constant(nodecl_upper),
-                            nodecl_get_constant(nodecl_stride)));
+                if (!nodecl_is_null(nodecl_lower)
+                        && !nodecl_is_null(nodecl_upper)
+                        && !nodecl_is_null(nodecl_stride)
+                        && nodecl_is_constant(nodecl_lower)
+                        && nodecl_is_constant(nodecl_upper)
+                        && nodecl_is_constant(nodecl_stride))
+                {
+                    // This range is constant
+                    nodecl_set_constant(nodecl_indexes[num_subscripts],
+                            const_value_make_range(nodecl_get_constant(nodecl_lower),
+                                nodecl_get_constant(nodecl_upper),
+                                nodecl_get_constant(nodecl_stride)));
+                }
             }
         }
         else
@@ -2812,6 +2905,9 @@ static void check_called_symbol_list(
         int i;
         for (i = 0; i < explicit_num_actual_arguments; i++)
         {
+            ERROR_CONDITION(nodecl_get_kind(nodecl_actual_arguments[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT,
+                    "This node must be a NODECL_FORTRAN_ACTUAL_ARGUMENT", 0);
+
             int position = -1;
             if (nodecl_get_text(nodecl_actual_arguments[i]) == NULL)
             {
