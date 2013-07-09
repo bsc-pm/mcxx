@@ -516,6 +516,10 @@ static char generic_keyword_check(
         int i;
         for (i = 0; i < (*num_arguments); i++)
         {
+            ERROR_CONDITION(!nodecl_is_null(argument_expressions[i])
+                    && nodecl_get_kind(argument_expressions[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT,
+                    "This node must be a NODECL_FORTRAN_ACTUAL_ARGUMENT", 0);
+
             nodecl_t expr = nodecl_get_child(argument_expressions[i], 0);
 
             reordered_types[i] = nodecl_get_type(expr);
@@ -535,6 +539,10 @@ static char generic_keyword_check(
     char seen_keywords = 0;
     for (i = 0; i < (*num_arguments) && ok; i++)
     {
+        ERROR_CONDITION(!nodecl_is_null(argument_expressions[i])
+                && nodecl_get_kind(argument_expressions[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT,
+                "This node must be a NODECL_FORTRAN_ACTUAL_ARGUMENT", 0);
+
         const char* keyword = NULL;
         nodecl_t expr = nodecl_null();
 
