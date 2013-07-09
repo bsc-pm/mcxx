@@ -50,6 +50,11 @@ namespace TL { namespace OpenMP {
             void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
+                if (!sym.is_valid()
+                        || !sym.is_variable()
+                        || sym.is_fortran_parameter())
+                    return;
+
                 if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
                         == DS_UNDEFINED)
                 {
