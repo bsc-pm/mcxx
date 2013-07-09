@@ -459,10 +459,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        std::cerr << "Unhandled node while PCFG construction '"
-                    << codegen_to_str( n.get_internal_nodecl( ),
-                                        nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-                    << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        internal_error("Unhandled node while PCFG: %s", ast_print_node_type(n.get_kind()));
         return ObjectList<Node*>( );
     }
 
@@ -702,6 +699,11 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CxxDef& n )
+    {   // Nothing to be done: this nodes are also represented with ObjectInits when necessary
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CxxDecl& n )
     {   // Nothing to be done: this nodes are also represented with ObjectInits when necessary
         return ObjectList<Node*>( );
     }
@@ -1558,6 +1560,13 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInValue& n )
+    {
+        PCFGClause current_clause( DEP_IN_VALUE, n.get_in_deps( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
     {
         PCFGClause current_clause( DEP_INOUT, n.get_inout_deps( ) );
@@ -1575,6 +1584,41 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
         PCFGClause current_clause( FIRSTPRIVATE, n.get_firstprivate_symbols( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Lastprivate& n )
+    {
+        PCFGClause current_clause( LASTPRIVATE, n.get_lastprivate_symbols( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FirstLastprivate& n )
+    {
+        PCFGClause current_clause( FIRSTLASTPRIVATE, n.get_firstlastprivate_symbols( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Concurrent& n )
+    {
+        PCFGClause current_clause( DEP_CONCURRENT, n.get_inout_deps( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Commutative& n )
+    {
+        PCFGClause current_clause( DEP_COMMUTATIVE, n.get_inout_deps( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Final& n )
+    {
+        PCFGClause current_clause( FINAL_TASK, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2345,6 +2389,11 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DefaultArgument& n)
+    {
+        return walk(n.get_argument());
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranActualArgument& n)
     {
         return walk(n.get_argument());
     }

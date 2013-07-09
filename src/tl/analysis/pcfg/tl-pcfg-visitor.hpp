@@ -238,6 +238,7 @@ namespace Analysis {
         Ret visit( const Nodecl::ContinueStatement& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::CxxDef& n );
+        Ret visit( const Nodecl::CxxDecl& n );
         Ret visit( const Nodecl::CxxUsingNamespace& n );
         Ret visit( const Nodecl::DefaultStatement& n );
         Ret visit( const Nodecl::Delete& n );
@@ -293,14 +294,20 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Critical& n );
         Ret visit( const Nodecl::OpenMP::CriticalName& n );
         Ret visit( const Nodecl::OpenMP::DepIn& n );
+        Ret visit( const Nodecl::OpenMP::DepInValue& n );
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
+        Ret visit( const Nodecl::OpenMP::Commutative& n );
+        Ret visit( const Nodecl::OpenMP::Concurrent& n );
         Ret visit( const Nodecl::OpenMP::Firstprivate& n );
+        Ret visit( const Nodecl::OpenMP::Lastprivate& n );
+        Ret visit( const Nodecl::OpenMP::FirstLastprivate& n );
         Ret visit( const Nodecl::OpenMP::FlushAtEntry& n );
         Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
         Ret visit( const Nodecl::OpenMP::If& n );
+        Ret visit( const Nodecl::OpenMP::Final& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
@@ -352,6 +359,7 @@ namespace Analysis {
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
         Ret visit( const Nodecl::DefaultArgument& n );
+        Ret visit( const Nodecl::FortranActualArgument& n );
         Ret visit( const Nodecl::WhileStatement& n );
 
         // ******************************** END visiting methods ******************************** //
