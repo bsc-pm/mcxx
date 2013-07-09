@@ -282,6 +282,11 @@ namespace TL
             // Otherwise, simple return. No changes are necessary
         }
 
+        void VectorizerVisitorStatement::visit(const Nodecl::BreakStatement& n)
+        {
+            running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+        }
+
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorStatement::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
             std::cerr << "VECTORIZER: Unknown 'Statement' node " 
