@@ -55,7 +55,13 @@ namespace TL { namespace OpenMP {
                 {
                     // Mark this as an implicit firstprivate
                     _data_sharing.set_data_sharing(sym, TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT) );
-                    std::cerr << node.get_locus_str() << ": warning: assuming '" << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+
+                    // Do not warn saved expressions, it confuses users
+                    if (!sym.is_saved_expression())
+                    {
+                        std::cerr << node.get_locus_str() << ": warning: assuming '"
+                            << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+                    }
                 }
             }
 
