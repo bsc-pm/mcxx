@@ -34,6 +34,24 @@ namespace TL { namespace Analysis {
 
     namespace {
 
+        bool function_waits_tasks(TL::Symbol sym)
+        {
+            scope_entry_t* entry = sym.get_internal_symbol();
+
+            int i;
+            for (i = 0; i < entry->entity_specs.num_gcc_attributes; i++)
+            {
+                const char* attr_name = entry->entity_specs.gcc_attributes[i].attribute_name;
+                if (attr_name != NULL
+                        && std::string(attr_name) == "omp_waits_tasks")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         void set_sync_relationship(tribool& task_sync_rel,
                 AliveTaskSet::iterator& alive_tasks_it,
                 PointsOfSync& points_of_sync,
@@ -508,6 +526,60 @@ namespace TL { namespace Analysis {
             return may_have_dep;
         }
 
+
+        void shallow_synchronization_point(
+                Node* current,
+                int current_domain_id,
+                PointsOfSync& points_of_sync)
+        {
+            // This is a taskwait without dependences
+            for (AliveTaskSet::iterator alive_tasks_it = current->get_live_in_tasks().begin();
+                    alive_tasks_it != current->get_live_in_tasks().end();
+                    alive_tasks_it++)
+            {
+                if (alive_tasks_it->domain != current_domain_id)
+                    continue;
+
+                if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
+                {
+                    if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
+                    {
+                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
+#ifdef TASK_SYNC_DEBUG
+                        std::cerr << __FILE__ << ":" << __LINE__
+                            << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
+#endif
+                    }
+                    else
+                    {
+                        points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                    }
+                }
+                else
+                {
+                    if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
+                    {
+                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
+#ifdef TASK_SYNC_DEBUG
+                        std::cerr << __FILE__ << ":" << __LINE__
+                            << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
+#endif
+                    }
+                }
+            }
+
+            // Remove all the tasks that do sync here
+            AliveTaskSet still_alive;
+            for (AliveTaskSet::iterator alive_tasks_it = current->get_live_in_tasks().begin();
+                    alive_tasks_it != current->get_live_in_tasks().end();
+                    alive_tasks_it++)
+            {
+                if (alive_tasks_it->domain != current_domain_id)
+                    still_alive.insert(*alive_tasks_it);
+            }
+            current->get_live_out_tasks() = still_alive;
+        }
+
         void compute_task_synchronizations_rec(Node* current,
                 bool &changed,
                 PointsOfSync& points_of_sync,
@@ -614,52 +686,7 @@ namespace TL { namespace Analysis {
             }
             else if (current->is_omp_taskwait_node())
             {
-                // This is a taskwait without dependences
-                for (AliveTaskSet::iterator alive_tasks_it = current->get_live_in_tasks().begin();
-                        alive_tasks_it != current->get_live_in_tasks().end();
-                        alive_tasks_it++)
-                {
-                    if (alive_tasks_it->domain != current_domain_id)
-                        continue;
-
-                    if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
-                    {
-                        if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
-                        {
-                            points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-#ifdef TASK_SYNC_DEBUG
-                            std::cerr << __FILE__ << ":" << __LINE__
-                                << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
-#endif
-                        }
-                        else
-                        {
-                            points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
-                        }
-                    }
-                    else
-                    {
-                        if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
-                        {
-                            points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-#ifdef TASK_SYNC_DEBUG
-                            std::cerr << __FILE__ << ":" << __LINE__
-                                << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
-#endif
-                        }
-                    }
-                }
-
-                // Remove all the tasks that do sync here
-                AliveTaskSet still_alive;
-                for (AliveTaskSet::iterator alive_tasks_it = current->get_live_in_tasks().begin();
-                        alive_tasks_it != current->get_live_in_tasks().end();
-                        alive_tasks_it++)
-                {
-                    if (alive_tasks_it->domain != current_domain_id)
-                        still_alive.insert(*alive_tasks_it);
-                }
-                current->get_live_out_tasks() = still_alive;
+                shallow_synchronization_point(current, current_domain_id, points_of_sync);
             }
             else if (current->is_ompss_taskwait_on_node())
             {
@@ -756,6 +783,21 @@ namespace TL { namespace Analysis {
                     }
                 }
             }
+            else if (current->is_function_call_node())
+            {
+                TL:: Symbol symbol = current->get_function_node_symbol();
+
+                if (function_waits_tasks(symbol))
+                {
+                    shallow_synchronization_point(current, current_domain_id, points_of_sync);
+                }
+                else
+                {
+                    // All other nodes just propagate OUT(X) = IN(X)
+                    current->get_live_out_tasks() = current->get_live_in_tasks();
+                    current->get_static_sync_out_tasks() = current->get_static_sync_in_tasks();
+                }
+            }
             else
             {
                 // All other nodes just propagate OUT(X) = IN(X)
@@ -793,7 +835,6 @@ namespace TL { namespace Analysis {
                 compute_task_synchronizations_rec((*edge_it)->get_target(), changed, points_of_sync, current_domain_id, next_domain_id);
             }
         }
-
     }
 
     TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph)
