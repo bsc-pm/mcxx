@@ -14229,11 +14229,21 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: warning: pointer types only allow one-level array sections\n",
+                error_printf("%s: error: pointer types only allow one-level array sections\n",
                         nodecl_locus_to_str(nodecl_postfix));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
+        }
+        if (is_void_pointer_type(indexed_type))
+        {
+            if (!checking_ambiguity())
+            {
+                warn_printf("%s: warning: postfix expression '%s' of array section is 'void*', assuming 'char*' instead\n",
+                        nodecl_locus_to_str(nodecl_postfix),
+                        codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)));
+            }
+            indexed_type = get_pointer_type(get_char_type());
         }
         result_type = get_array_type_bounds_with_regions(
                 pointer_type_get_pointee_type(indexed_type),
@@ -14414,13 +14424,11 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: shaped expression '%s' has type 'void*' which is invalid\n",
+            warn_printf("%s: warning: shaped expression '%s' has type 'void*', assuming 'char*' instead\n",
                     nodecl_locus_to_str(nodecl_shaped_expr),
                     codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         }
-        xfree(list);
-        *nodecl_output = nodecl_make_err_expr(locus);
-        return;
+        shaped_expr_type = get_pointer_type(get_char_type());
     }
 
     // Synthesize a new type based on what we got
