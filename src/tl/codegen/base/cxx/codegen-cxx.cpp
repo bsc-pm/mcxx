@@ -1897,14 +1897,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
     if (symbol.is_inline())
     {
-        C_LANGUAGE()
-        {
-            decl_spec_seq += "__inline ";
-        }
-        CXX_LANGUAGE()
-        {
-            decl_spec_seq += "inline ";
-        }
+        decl_spec_seq += "inline ";
     }
 
     if (symbol.is_explicit_constructor()
@@ -2162,6 +2155,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (symbol.is_extern() && symbol.get_value().is_null())
     {
         decl_spec_seq += "extern ";
+    }
+    if (symbol.is_virtual() && symbol.is_defined_inside_class())
+    {
+        decl_spec_seq += "virtual ";
     }
     if (symbol.is_inline())
     {
