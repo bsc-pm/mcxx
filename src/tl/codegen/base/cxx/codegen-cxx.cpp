@@ -2156,6 +2156,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     {
         decl_spec_seq += "extern ";
     }
+    if (symbol.is_virtual() && symbol.is_defined_inside_class())
+    {
+        decl_spec_seq += "virtual ";
+    }
     if (symbol.is_inline())
     {
         C_LANGUAGE()
