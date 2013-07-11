@@ -1897,14 +1897,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
     if (symbol.is_inline())
     {
-        C_LANGUAGE()
-        {
-            decl_spec_seq += "__inline ";
-        }
-        CXX_LANGUAGE()
-        {
-            decl_spec_seq += "inline ";
-        }
+        decl_spec_seq += "inline ";
     }
 
     if (symbol.is_explicit_constructor()
