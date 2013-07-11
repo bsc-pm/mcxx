@@ -1181,7 +1181,10 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
 
 static char standard_conversion_is_pointer_to_bool(standard_conversion_t scs)
 {
-    return ((is_pointer_type(no_ref(scs.orig)) || is_pointer_to_member_type(no_ref(scs.orig)))
+    return ((is_pointer_type(no_ref(scs.orig))
+                || is_pointer_to_member_type(no_ref(scs.orig))
+                // Array types may get here if we applied array to pointer
+                || (is_array_type(no_ref(scs.orig)) && (scs.conv[0] == SCI_ARRAY_TO_POINTER)))
             && is_bool_type(no_ref(scs.dest)));
 }
 

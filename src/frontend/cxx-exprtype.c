@@ -7746,6 +7746,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
     }
 
     if (IS_CXX_LANGUAGE
+            && !nodecl_expr_is_type_dependent(nodecl_casted_expr)
             && (strcmp(cast_kind, "C") == 0
                 || strcmp(cast_kind, "static_cast") == 0))
     {
