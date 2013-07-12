@@ -3944,14 +3944,13 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
 
 
 static type_t* compute_underlying_type_enum(const_value_t* min_value, 
-        const_value_t* max_value, 
+        const_value_t* max_value,
         type_t* underlying_type,
         char short_enums)
 {
     if (is_dependent_type(underlying_type)
             || is_error_type(underlying_type))
         return underlying_type;
-
 
     type_t* signed_types[] =
     {
@@ -3979,7 +3978,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
 
     type_t** result = NULL;
     if (!short_enums)
-    { 
+    {
         if (there_are_negatives)
         {
             result = &(signed_types[2]); // get_signed_int_type()
@@ -4219,7 +4218,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     else if (IS_CXX_LANGUAGE
                             && nodecl_expr_is_value_dependent(nodecl_expr))
                     {
-                        underlying_type = get_unknown_dependent_type();
+                        if (nodecl_expr_is_type_dependent(nodecl_expr))
+                        {
+                            underlying_type = get_unknown_dependent_type();
+                        }
                         enumeration_item->type_information = nodecl_get_type(nodecl_expr);
                     }
                     else
@@ -4275,14 +4277,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         nodecl_t add_one = nodecl_make_add(
                                 nodecl_shallow_copy(base_enumerator),
                                 const_value_to_nodecl(const_value_get_signed_int(delta)),
-                                get_unknown_dependent_type(),
+                                nodecl_get_type(base_enumerator),
                                 nodecl_get_locus(base_enumerator));
                         nodecl_expr_set_is_value_dependent(add_one, 1);
 
                         enumeration_item->value = add_one;
 
-                        enumeration_item->type_information = get_unknown_dependent_type();
-                        underlying_type = get_unknown_dependent_type();
+                        enumeration_item->type_information = nodecl_get_type(base_enumerator);
                     }
                     else
                     {
