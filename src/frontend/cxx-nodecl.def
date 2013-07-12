@@ -177,6 +177,7 @@ expression : literal
            | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_MUL_MASK([scalar_dst]expression, [vector_src]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_DIFFERENT([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_GREATER_THAN([lhs]expression, [rhs]expression) type const-value-opt 

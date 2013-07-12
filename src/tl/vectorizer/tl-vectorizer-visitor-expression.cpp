@@ -201,6 +201,21 @@ namespace TL
             n.replace(vector_lt);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::LowerOrEqualThan& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorLowerOrEqualThan vector_lt =
+                Nodecl::VectorLowerOrEqualThan::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_lt);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::GreaterThan& n)
         {
             walk(n.get_lhs());
@@ -208,6 +223,21 @@ namespace TL
 
             const Nodecl::VectorGreaterThan vector_gt =
                 Nodecl::VectorGreaterThan::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_gt);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::GreaterOrEqualThan& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorGreaterOrEqualThan vector_gt =
+                Nodecl::VectorGreaterOrEqualThan::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _environment._vector_length),
@@ -229,6 +259,21 @@ namespace TL
                         n.get_locus());
 
             n.replace(vector_eq);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::Different& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorDifferent vector_dif =
+                Nodecl::VectorDifferent::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_dif);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)

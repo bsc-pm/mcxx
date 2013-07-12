@@ -63,8 +63,6 @@ namespace TL
             // Non-constant comparison. Vectorize them with masks
             if(!n.is_constant())
             {
-                std::cerr << "Vectorizer: Non-constant if\n";
-
                 Nodecl::List list;
                 TL::Scope scope = _environment._local_scope_list.front();
 
@@ -139,7 +137,7 @@ namespace TL
                                 else_mask_sym.get_type(),
                                 n.get_locus()));
 
-                // Add masks to the final code
+                // Add masks to the source code
                 list.append(if_mask_exp);
                 list.append(else_mask_exp);
 
@@ -147,7 +145,7 @@ namespace TL
                 // ELSE mask should ALWAYS be after if_mask before visiting!
                 _environment._mask_list.push_back(else_mask_nodecl_sym);
 
-                // Visit Then
+                // Visit THEN
                 _environment._inside_inner_masked_bb.push_back(true);
                 _environment._mask_list.push_back(if_mask_nodecl_sym);
                 _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
@@ -157,11 +155,23 @@ namespace TL
                 _environment._mask_list.pop_back();
                 _environment._inside_inner_masked_bb.pop_back();
 
+                // Create IF to check if if_mask is all zero
+                Nodecl::IfElseStatement if_check =
+                    Nodecl::IfElseStatement::make(
+                            Nodecl::Different::make(
+                                if_mask_nodecl_sym.shallow_copy(),
+                                Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                    const_value_get_zero(4, 0),
+                                    n.get_locus()),
+                                TL::Type::get_bool_type(),
+                                n.get_locus()),
+                            n.get_then().shallow_copy(),
+                            Nodecl::NodeclBase::null());
 
-                // Add then to the final code
-                list.append(n.get_then().shallow_copy());
+                // Add THEN to the final code
+                list.append(if_check);
 
-                // Else body
+                // ELSE body
                 if (!n.get_else().is_null())
                 {
                     // Visit Else
@@ -169,21 +179,33 @@ namespace TL
                     walk(n.get_else());
                     _environment._local_scope_list.pop_back();
 
-                    // Else mask will be removed only if else exists
+                    // Else mask will be removed only if ELSE exists
                     _environment._mask_list.pop_back();
 
-                    // Add else to the final code
-                    list.append(n.get_else().shallow_copy());
-                }
+                    // Create IF to check if else_mask is all zero
+                    Nodecl::IfElseStatement else_check =
+                        Nodecl::IfElseStatement::make(
+                                Nodecl::Different::make(
+                                    else_mask_nodecl_sym.shallow_copy(),
+                                    Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                        const_value_get_zero(4, 0),
+                                        n.get_locus()),
+                                    TL::Type::get_bool_type(),
+                                    n.get_locus()),
+                                n.get_else().shallow_copy(),
+                                Nodecl::NodeclBase::null());
 
+                    // Add it to the source code
+                    list.append(else_check);
+                }
+                
                 Nodecl::CompoundStatement compound_stmt =
                     Nodecl::CompoundStatement::make(list, Nodecl::NodeclBase::null(), n.get_locus());
 
                 n.replace(compound_stmt);
             }
-            else // Constant comparisson. We do not vectorize them. Only the body
+            else // Constant comparison. We do not vectorize them. Only the body
             {
-                std::cerr << "Vectorizer: Constant if\n";
                 walk(n.get_then());
                 walk(n.get_else());
             }
@@ -251,7 +273,7 @@ namespace TL
                                 _environment._function_return.get_type(),
                                 n.get_locus()),
                             n.get_locus());
-
+/*
                 // If return is not in the first SIMD scope, then 
                 // a real return may be necessary if mask is == 0
                 // if (else_mask == zero) return
@@ -282,7 +304,7 @@ namespace TL
 
                     n.append_sibling(if_mask_is_zero);
                 }
-
+*/
                 // Replace ReturnStatement for ExpressionStatement
                 n.replace(new_exp_stmt);
             }
