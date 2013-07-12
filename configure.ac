@@ -118,9 +118,17 @@ dnl ----- SQLITE - Required only for fortran ---
 
 PKG_PROG_PKG_CONFIG
 
+
 PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
                   [],
-                  AC_MSG_ERROR([Fortran support requires sqlite 3.6.16]))
+AC_MSG_ERROR([Fortran support requires development files of sqlite3.
+ * In Ubuntu/Debian: apt-get install libsqlite3-dev.
+ * In RHEL/Fedora: yum install sqlite-devel.
+ * In SuSE: zypper install sqlite3-devel
+ * Install from sources at http://www.sqlite.org:
+   - Use sqlite-autoconf-xxx.tar.gz
+   - Make sure PKG_CONFIG_PATH points to <sqlite3-install-dir>/lib/pkgconfig])
+)
 
 AC_SUBST([sqlite3_CFLAGS])
 AC_SUBST([sqlite3_LIBS])
