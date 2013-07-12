@@ -65,23 +65,30 @@ namespace TL
             {
                 Nodecl::List list;
                 TL::Scope scope = _environment._local_scope_list.front();
+                bool has_else = !n.get_else().is_null();
 
                 VectorizerVisitorExpression visitor_expression(_environment);
                 visitor_expression.walk(condition); 
 
                 Nodecl::NodeclBase prev_mask =
                     _environment._mask_list.back();
-
+                
+                // *******
                 // IF Mask
+                // *******
+
+                // New symbol mask
                 TL::Symbol if_mask_sym = scope.new_symbol("__mask_" + 
                         Vectorizer::_vectorizer->get_var_counter());
                 if_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 if_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 if_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
 
-                Nodecl::Symbol if_mask_nodecl_sym = if_mask_sym.make_nodecl(true, n.get_locus());
-                Nodecl::NodeclBase if_mask_value;
+                Nodecl::Symbol if_mask_nodecl = if_mask_sym.make_nodecl(true, n.get_locus());
+                Nodecl::Symbol else_mask_nodecl; 
 
+                // Mask value
+                Nodecl::NodeclBase if_mask_value;
                 if (prev_mask.is_null()) // mask = if_cond
                 {
                     if_mask_value = condition.shallow_copy();
@@ -95,59 +102,70 @@ namespace TL
                             n.get_locus());
                 }
 
+                // Expression that sets the mask
                 Nodecl::ExpressionStatement if_mask_exp =
                     Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(if_mask_nodecl_sym, 
+                            Nodecl::VectorMaskAssignment::make(if_mask_nodecl, 
                                 if_mask_value,
                                 if_mask_sym.get_type(),
                                 n.get_locus()));
 
-
-                // ELSE Mask: There ALWAYS will be an ELSE mask, even if else does not exist!
-                TL::Symbol else_mask_sym = scope.new_symbol("__mask_" + 
-                        Vectorizer::_vectorizer->get_var_counter());
-                else_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                else_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                else_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                Nodecl::Symbol else_mask_nodecl_sym = else_mask_sym.make_nodecl(true, n.get_locus());
-
-                Nodecl::NodeclBase else_mask_value;
-
-                if (prev_mask.is_null()) // mask = !if_cond
-                {
-                    else_mask_value = Nodecl::VectorMaskNot::make(
-                            if_mask_nodecl_sym.shallow_copy(),
-                            else_mask_sym.get_type(),
-                            n.get_locus());
-                }
-                else // mask = prev_mask & !if_cond
-                {
-                    else_mask_value = Nodecl::VectorMaskAnd2Not::make(
-                            prev_mask.shallow_copy(),
-                            condition.shallow_copy(),
-                            else_mask_sym.get_type(),
-                            n.get_locus());
-                }
-
-                Nodecl::ExpressionStatement else_mask_exp =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(else_mask_nodecl_sym.shallow_copy(), 
-                                else_mask_value,
-                                else_mask_sym.get_type(),
-                                n.get_locus()));
-
                 // Add masks to the source code
                 list.append(if_mask_exp);
-                list.append(else_mask_exp);
+ 
+                // *********
+                // Else Mask
+                // *********
+                if (has_else)
+                {
+                    // New symbol mask
+                    TL::Symbol else_mask_sym = scope.new_symbol("__mask_" + 
+                            Vectorizer::_vectorizer->get_var_counter());
+                    else_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    else_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                    else_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
 
-                // Add 'else' mask to mask list:
-                // ELSE mask should ALWAYS be after if_mask before visiting!
-                _environment._mask_list.push_back(else_mask_nodecl_sym);
+                    else_mask_nodecl = else_mask_sym.make_nodecl(true, n.get_locus());
 
-                // Visit THEN
+                    // Mask value
+                    Nodecl::NodeclBase else_mask_value;
+                    if (prev_mask.is_null()) // mask = !if_cond
+                    {
+                        else_mask_value = Nodecl::VectorMaskNot::make(
+                                if_mask_nodecl.shallow_copy(),
+                                else_mask_sym.get_type(),
+                                n.get_locus());
+                    }
+                    else // mask = prev_mask & !if_cond
+                    {
+                        else_mask_value = Nodecl::VectorMaskAnd2Not::make(
+                                prev_mask.shallow_copy(),
+                                condition.shallow_copy(),
+                                else_mask_sym.get_type(),
+                                n.get_locus());
+                    }
+
+                    // Expression that sets the mask
+                    Nodecl::ExpressionStatement else_mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(else_mask_nodecl.shallow_copy(), 
+                                    else_mask_value,
+                                    else_mask_sym.get_type(),
+                                    n.get_locus()));
+                    
+                    // Add masks to the source code
+                    list.append(else_mask_exp);
+
+                    // Add else_mask to mask list:
+                    // It should ALWAYS be after if_mask before visiting!
+                    _environment._mask_list.push_back(else_mask_nodecl);
+                }
+
+                // ***************
+                // VISIT IF'S THEN
+                // ***************
                 _environment._inside_inner_masked_bb.push_back(true);
-                _environment._mask_list.push_back(if_mask_nodecl_sym);
+                _environment._mask_list.push_back(if_mask_nodecl);
                 _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
                         front().retrieve_context());
                 walk(n.get_then());
@@ -155,11 +173,12 @@ namespace TL
                 _environment._mask_list.pop_back();
                 _environment._inside_inner_masked_bb.pop_back();
 
+                // TODO: Do you really want to aways create this checks?
                 // Create IF to check if if_mask is all zero
                 Nodecl::IfElseStatement if_check =
                     Nodecl::IfElseStatement::make(
                             Nodecl::Different::make(
-                                if_mask_nodecl_sym.shallow_copy(),
+                                if_mask_nodecl.shallow_copy(),
                                 Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
                                     const_value_get_zero(4, 0),
                                     n.get_locus()),
@@ -171,22 +190,22 @@ namespace TL
                 // Add THEN to the final code
                 list.append(if_check);
 
-                // ELSE body
-                if (!n.get_else().is_null())
+                // ***************
+                // VISIT ELSE'S THEN
+                // ***************
+                if (has_else)
                 {
-                    // Visit Else
                     _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
                     walk(n.get_else());
                     _environment._local_scope_list.pop_back();
-
-                    // Else mask will be removed only if ELSE exists
                     _environment._mask_list.pop_back();
 
+                    // TODO: Do you really want to aways create this checks?
                     // Create IF to check if else_mask is all zero
                     Nodecl::IfElseStatement else_check =
                         Nodecl::IfElseStatement::make(
                                 Nodecl::Different::make(
-                                    else_mask_nodecl_sym.shallow_copy(),
+                                    else_mask_nodecl.shallow_copy(),
                                     Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
                                         const_value_get_zero(4, 0),
                                         n.get_locus()),
@@ -197,6 +216,135 @@ namespace TL
 
                     // Add it to the source code
                     list.append(else_check);
+                }
+
+                // ****************
+                // Return inside if
+                // ****************
+                bool return_inside_if;
+                
+                LookForReturnVisitor look_for_return_visitor_if(&return_inside_if);
+                look_for_return_visitor_if.walk(n.get_then());
+
+                if (return_inside_if)
+                {
+                    printf("If return inside\n");
+                    Nodecl::NodeclBase previous_mask = _environment._mask_list.back();
+
+                    // New symbol mask
+                    TL::Symbol new_previous_mask_sym = scope.new_symbol("__mask_" + 
+                            Vectorizer::_vectorizer->get_var_counter());
+                    new_previous_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_previous_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                    new_previous_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
+
+                    Nodecl::Symbol new_previous_mask_nodecl = 
+                        new_previous_mask_sym.make_nodecl(true, n.get_locus());
+
+                    // Mask value
+                    Nodecl::NodeclBase new_previous_mask_value;
+                    if (previous_mask.is_null())
+                    {
+                        // No previous mask, then new mask = !if_mask
+                        new_previous_mask_value =
+                            Nodecl::VectorMaskNot::make(
+                                    if_mask_nodecl.shallow_copy(),
+                                    if_mask_nodecl.get_type(),
+                                    n.get_locus());
+                    }
+                    else
+                    {
+                        // Remove previous mask to update it
+                        _environment._mask_list.pop_back();
+
+                        new_previous_mask_value =
+                            Nodecl::VectorMaskXor::make(
+                                    prev_mask.shallow_copy(),
+                                    if_mask_nodecl,
+                                    if_mask_nodecl.get_type(),
+                                    n.get_locus());
+                    }
+
+                    // Expression that sets the mask
+                    Nodecl::ExpressionStatement new_previous_mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(new_previous_mask_nodecl.shallow_copy(), 
+                                    new_previous_mask_value.shallow_copy(),
+                                    new_previous_mask_nodecl.get_type(),
+                                    n.get_locus()));
+
+                    // Add it to the source code
+                    list.append(new_previous_mask_exp);
+
+                    // Add mask to the mask list
+                    _environment._mask_list.push_back(new_previous_mask_nodecl);
+                }
+
+                // ******************
+                // Return inside else
+                // ******************
+                if(has_else)
+                {
+                    printf("Tiene Else\n");
+                    bool return_inside_else;
+
+                    LookForReturnVisitor look_for_return_visitor_else(&return_inside_else);
+                    look_for_return_visitor_else.walk(n.get_else());
+
+                    // Return inside else
+                    if (return_inside_else)
+                    {
+                        printf("Else return inside\n");
+                        Nodecl::NodeclBase previous_mask = _environment._mask_list.back();
+                    
+                        // New symbol mask
+                        TL::Symbol new_previous_mask_sym = scope.new_symbol("__mask_" + 
+                                Vectorizer::_vectorizer->get_var_counter());
+                        new_previous_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                        new_previous_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                        new_previous_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
+
+                        Nodecl::Symbol new_previous_mask_nodecl = 
+                            new_previous_mask_sym.make_nodecl(true, n.get_locus());
+
+                        // Mask value
+                        Nodecl::NodeclBase new_previous_mask_value;
+                        if (previous_mask.is_null())
+                        {
+                            // No previous mask, then new mask = !else_mask
+                            new_previous_mask_value =
+                                Nodecl::VectorMaskNot::make(
+                                        else_mask_nodecl.shallow_copy(),
+                                        else_mask_nodecl.get_type(),
+                                        n.get_locus());
+                        }
+                        else
+                        {
+                            // Remove previous mask to update it
+                            _environment._mask_list.pop_back();
+
+                            new_previous_mask_value =
+                                Nodecl::VectorMaskXor::make(
+                                        prev_mask.shallow_copy(),
+                                        else_mask_nodecl,
+                                        else_mask_nodecl.get_type(),
+                                        n.get_locus());
+                        }
+
+                        // Expression that sets the mask
+                        Nodecl::ExpressionStatement new_previous_mask_exp =
+                            Nodecl::ExpressionStatement::make(
+                                    Nodecl::VectorMaskAssignment::make(new_previous_mask_nodecl.shallow_copy(), 
+                                        new_previous_mask_value.shallow_copy(),
+                                        new_previous_mask_nodecl.get_type(),
+                                        n.get_locus()));
+
+                        // Add it to the source code
+                        list.append(new_previous_mask_exp);
+
+                        // Add mask to the mask list
+                        _environment._mask_list.push_back(new_previous_mask_nodecl);
+                    }
                 }
                 
                 Nodecl::CompoundStatement compound_stmt =
@@ -240,8 +388,8 @@ namespace TL
             VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(return_value);
             
-            // If I'm inside a inner basic block with mask, mask exists but no special symbol, 
-            // add return special symbol
+            // If I'm inside an inner basic block with mask and mask exists but no special symbol, 
+            // then add return special symbol
             if (_environment._inside_inner_masked_bb.back() && 
                     (_environment._function_return.is_invalid()) &&
                     (!_environment._mask_list.back().is_null()))
@@ -262,7 +410,7 @@ namespace TL
             if(_environment._function_return.is_valid())
             {
                 ERROR_CONDITION(_environment._mask_list.back().is_null(), 
-                        "Return Statement Visitor: Mask list is null", 0);
+                        "VisitorStatement: Mask list is null at %s", locus_to_str(n.get_locus()));
 
                 Nodecl::ExpressionStatement new_exp_stmt =
                     Nodecl::ExpressionStatement::make(

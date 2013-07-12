@@ -49,6 +49,8 @@ libtlvectorizer_la_LIBADD = $(phases_libadd) \
                           $(END)
 
 libtlvectorizer_la_SOURCES = \
+                           tl-vectorizer-utils.hpp \
+                           tl-vectorizer-utils.cpp \
                            tl-function-versioning.cpp \
                            tl-function-versioning.hpp \
                            tl-vectorizer.cpp \

@@ -30,6 +30,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-utils.hpp"
 
 namespace TL 
 { 

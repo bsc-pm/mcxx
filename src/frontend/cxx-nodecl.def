@@ -217,6 +217,8 @@ expression : literal
            | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_OR([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_XOR([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt 
            | c-cxx-expressions
