@@ -9638,7 +9638,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 
 static rb_red_blk_tree *_zero_types_hash = NULL;
 
-static type_t* get_zero_type_variant(type_t* t)
+type_t* get_zero_type_variant(type_t* t)
 {
     ERROR_CONDITION (!is_integral_type(t) && !is_bool_type(t), "Base type must be integral", 0);
     if (is_zero_type(t))
@@ -9688,6 +9688,9 @@ type_t* get_bool_false_type(void)
 
 char is_zero_type(type_t* t)
 {
+    if (t == NULL)
+        return 0;
+
     t = advance_over_typedefs(t);
     return (t->info->is_zero_type);
 }
