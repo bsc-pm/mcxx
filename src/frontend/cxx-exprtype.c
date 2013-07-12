@@ -6015,11 +6015,22 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         nodecl_set_type(*nodecl_output, entry->type_information);
 
         if (is_dependent_type(entry->type_information)
-                || nodecl_expr_is_value_dependent(entry->value))
+                || (is_enum_type(entry->type_information)
+                    && is_dependent_type(enum_type_get_underlying_type(entry->type_information))))
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
+                fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be type dependent\n",
+                        nodecl_locus_to_str(nodecl_name), codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
+            }
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
+
+        if (nodecl_expr_is_value_dependent(entry->value))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
                         nodecl_locus_to_str(nodecl_name), codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
             }
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
