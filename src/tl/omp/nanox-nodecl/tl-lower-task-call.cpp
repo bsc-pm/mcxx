@@ -721,6 +721,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
     // Make sure we allocate the argument size
     TL::ObjectList<Nodecl::NodeclBase> new_arguments(arguments.size());
+    int parameter_position_offset = 0; // Will be 1 if "this" implicit argument if present
 
     Source initializations_src;
 
@@ -763,6 +764,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     new_symbol_nodecl,
                     new_symbol_nodecl.get_type().points_to(),
                     new_symbol_nodecl.get_locus());
+        parameter_position_offset = 1;
 
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
 
@@ -803,7 +805,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
         ERROR_CONDITION(found.size() > 1, "unreachable code", 0);
 
-        int position = parameter.get_parameter_position();
+        int position = parameter.get_parameter_position() + parameter_position_offset;
         ERROR_CONDITION(position > (signed int)new_arguments.size(), "Too many parameters!", 0);
 
         OutlineDataItem* current_item = found[0];
