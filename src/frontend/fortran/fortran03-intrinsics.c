@@ -328,6 +328,7 @@ MERCURIUM_SPECIFIC_INTRINSICS
 
 #define MERCURIUM_SPECIFIC_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_loc, "X", I, simplify_mcc_loc) \
+  FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_null, "", I, simplify_mcc_null) \
 
 #define IEEE_EXCEPTIONS_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_support_flag, "FLAG,?X", I, NULL) \
@@ -6498,6 +6499,15 @@ scope_entry_t* compute_intrinsic_mercurium_loc(scope_entry_t* symbol,
     type_t* t0 = no_ref(argument_types[0]);
 
     return GET_INTRINSIC_INQUIRY(symbol, "mercurium_loc", get_pointer_type(get_void_type()), t0);
+}
+
+scope_entry_t* compute_intrinsic_mercurium_null(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return GET_INTRINSIC_INQUIRY(symbol, "mercurium_loc", get_pointer_type(get_void_type()));
 }
 
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,
