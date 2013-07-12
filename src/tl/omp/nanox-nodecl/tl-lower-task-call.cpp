@@ -719,7 +719,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Scope sc = construct.retrieve_context();
     Scope new_block_context_sc = new_block_context(sc.get_decl_context());
 
-    TL::ObjectList<Nodecl::NodeclBase> new_arguments;
+    // Make sure we allocate the argument size
+    TL::ObjectList<Nodecl::NodeclBase> new_arguments(arguments.size());
 
     Source initializations_src;
 
@@ -757,11 +758,11 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
         new_symbol_nodecl.set_type(new_symbol.get_type());
 
-        new_arguments.append(
+        new_arguments[0] =
                 Nodecl::Dereference::make(
                     new_symbol_nodecl,
                     new_symbol_nodecl.get_type().points_to(),
-                    new_symbol_nodecl.get_locus()));
+                    new_symbol_nodecl.get_locus());
 
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
 
@@ -802,6 +803,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
         ERROR_CONDITION(found.size() > 1, "unreachable code", 0);
 
+        int position = parameter.get_parameter_position();
+        ERROR_CONDITION(position > (signed int)new_arguments.size(), "Too many parameters!", 0);
+
         OutlineDataItem* current_item = found[0];
 
         seen_parameters.insert(parameter);
@@ -835,7 +839,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     argument,
                     initializations_src);
 
-            new_arguments.append(new_updated_argument);
+            new_arguments[position] = new_updated_argument;
 
             // Note that the current argument may create more than one
             // SHARING_SHARED_WITH_CAPTURE outline data items and They are not
@@ -900,7 +904,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
             sym_ref.set_type(t);
 
-            new_arguments.append(sym_ref);
+            new_arguments[position] = sym_ref;
 
             if (parameter.get_type().is_any_reference()
                     && !parameter.get_type().is_const())
