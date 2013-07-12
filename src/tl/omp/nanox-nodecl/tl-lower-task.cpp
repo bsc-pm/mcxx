@@ -1341,7 +1341,13 @@ void LoweringVisitor::fill_arguments(
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        if (t.is_pointer() 
+                        if (sym.is_optional())
+                        {
+                            fill_outline_arguments << "IF (PRESENT(" << sym.get_name() << ")) THEN\n";
+                            fill_immediate_arguments << "IF (PRESENT(" << sym.get_name() << ")) THEN\n";
+                        }
+
+                        if (t.is_pointer()
                                 || sym.is_allocatable())
                         {
                             TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
@@ -1384,6 +1390,19 @@ void LoweringVisitor::fill_arguments(
                                 "imm_args % " << (*it)->get_field_name() << " => MERCURIUM_LOC("
                                 << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
+                        }
+
+                        if (sym.is_optional())
+                        {
+                            fill_outline_arguments
+                                << "ELSE\n"
+                                <<    "ol_args %" << (*it)->get_field_name() << " => MERCURIUM_NULL()\n"
+                                << "END IF\n";
+
+                            fill_immediate_arguments
+                                << "ELSE\n"
+                                <<    "imm_args %" << (*it)->get_field_name() << " => MERCURIUM_NULL()\n"
+                                << "END IF\n";
                         }
 
                         break;

@@ -451,6 +451,16 @@ namespace TL { namespace Nanox {
                 conditional_bound = allocated_tree;
             }
 
+            if (sym.is_optional()
+                    && conditional_bound.is_null())
+            {
+                Source present_src;
+                present_src << "PRESENT(" << sym.get_name() << ")";
+
+                Nodecl::NodeclBase allocated_tree = present_src.parse_expression(_sc);
+                conditional_bound = allocated_tree;
+            }
+
             if (lower.is_null())
             {
                 if (t.array_requires_descriptor()
