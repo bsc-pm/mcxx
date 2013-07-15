@@ -6219,19 +6219,30 @@ static void check_nodecl_array_subscript_expression(
         subscript_type = nodecl_get_type(nodecl_subscript);
     }
 
+    if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    // lvalue-to-rvalue of the subscript
+    unary_record_conversion_to_result(
+            no_ref(nodecl_get_type(nodecl_subscript)),
+            &nodecl_subscript);
+
+
     // Builtin cases
     if (is_array_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
 
-        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
         if (nodecl_get_kind(nodecl_subscripted) != NODECL_ARRAY_SUBSCRIPT)
         {
+            // The subscripted type may be T[n] or T(&)[n] and we want it to become T*
+            unary_record_conversion_to_result(
+                    get_pointer_type(array_type_get_element_type(no_ref(subscripted_type))),
+                    &nodecl_subscripted);
+
             *nodecl_output = nodecl_make_array_subscript(
                     nodecl_subscripted,
                     nodecl_make_list_1(nodecl_subscript),
@@ -6256,11 +6267,8 @@ static void check_nodecl_array_subscript_expression(
     {
         type_t* t = lvalue_ref(pointer_type_get_pointee_type(no_ref(subscripted_type)));
 
-        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
+        // The subscripted type may be T*& and we want it to be T*
+        unary_record_conversion_to_result(no_ref(subscripted_type), &nodecl_subscripted);
 
         *nodecl_output = nodecl_make_array_subscript(
                 nodecl_subscripted,
