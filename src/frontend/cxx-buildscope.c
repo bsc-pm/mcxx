@@ -9124,6 +9124,42 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     return 1;
 }
 
+static char same_template_parameter_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(template_parameter_list_1 == NULL
+            || template_parameter_list_2 == NULL,
+            "Invalid template parameter list", 0);
+
+    if (template_parameter_list_1->num_parameters !=
+            template_parameter_list_2->num_parameters)
+        return 0;
+
+    int i;
+    for (i = 0; i < template_parameter_list_1->num_parameters; i++)
+    {
+        if (template_parameter_list_1->parameters[i]->kind !=
+                template_parameter_list_2->parameters[i]->kind)
+            return 0;
+
+        if (template_parameter_list_1->parameters[i]->kind == TPK_NONTYPE)
+        {
+            // Check both types
+            if (!equivalent_types_in_context(
+                        template_parameter_list_1->parameters[i]->entry->type_information,
+                        template_parameter_list_2->parameters[i]->entry->type_information,
+                        decl_context))
+            {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 static char find_function_declaration(AST declarator_id,
         type_t* declarator_type,
         gather_decl_spec_t* gather_info,
@@ -9307,13 +9343,71 @@ static char find_function_declaration(AST declarator_id,
         type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
         found_equal = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
+
+        if (found_equal
+                // We have matched with a template specialized type, so we have
+                // to check the current template parameters
+                && is_template_specialized_type(considered_type))
+        {
+            template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
+
+            if (decl_template_parameters == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: Types match with a template specialization but there "
+                            "are no template parameters available\n");
+                }
+                found_equal = 0;
+            }
+            else if (decl_template_parameters->is_explicit_specialization)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: Types match with a template specialization but current "
+                            "declaration is a template specialization, we will check it later\n");
+                }
+            }
+            else
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: Types match with a template specialization and this is a plain"
+                            "template declaration, we have to check template parameters\n");
+                }
+
+                template_parameter_list_t* considered_type_template_parameters =
+                    template_specialized_type_get_template_parameters(considered_type);
+
+                found_equal =
+                    (decl_template_parameters->num_parameters
+                     == considered_type_template_parameters->num_parameters)
+                    && same_template_parameter_list(
+                            decl_template_parameters,
+                            considered_type_template_parameters,
+                            entry->decl_context);
+
+                DEBUG_CODE()
+                {
+                    if (!found_equal)
+                    {
+                        fprintf(stderr, "BUILDSCOPE: Template parameters did NOT match\n");
+                    }
+                    else
+                    {
+                        fprintf(stderr, "BUILDSCOPE: Template parameters DID match\n");
+                    }
+                }
+            }
+        }
+
         if (found_equal)
         {
             equal_entry = considered_symbol;
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Function declarator '%s' at '%s' matches symbol '%s' declared at '%s'\n",
-                        prettyprint_in_buffer(declarator_id), 
+                        prettyprint_in_buffer(declarator_id),
                         ast_location(declarator_id),
                         considered_symbol->symbol_name,
                         locus_to_str(considered_symbol->locus));
@@ -9328,7 +9422,7 @@ static char find_function_declaration(AST declarator_id,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s')\n", 
+                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s')\n",
                                 ast_location(declarator_id),
                                 ASTText(declarator_id),
                                 locus_to_str(entry->locus)
@@ -9360,7 +9454,7 @@ static char find_function_declaration(AST declarator_id,
         scope_entry_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_buildscope);
         result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         result->locus = ast_get_locus(declarator_id);
-        
+
         if (ASTType(declarator_id) == AST_TEMPLATE_ID)
         {
             result->symbol_name = ASTText(ASTSon0(declarator_id));
@@ -9372,7 +9466,7 @@ static char find_function_declaration(AST declarator_id,
 
         result->entity_specs.any_exception = gather_info->any_exception;
         result->type_information = declarator_type;
-        
+
         result->decl_context = decl_context;
 
         *result_entry = result;
@@ -11930,7 +12024,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     // Propagate the __extension__ attribute to the symbol
     entry->entity_specs.gcc_extension = gcc_extension;
-    
+
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
     return entry;

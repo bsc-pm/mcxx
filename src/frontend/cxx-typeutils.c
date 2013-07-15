@@ -1730,7 +1730,7 @@ type_t* template_type_get_primary_type(type_t* t)
     return t->type->primary_specialization;
 }
 
-static char same_template_parameter_list(
+static char same_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
         template_parameter_list_t* template_parameter_list_2,
         decl_context_t decl_context)
@@ -1873,7 +1873,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
                     locus_to_str(entry->locus));
         }
 
-        if (same_template_parameter_list(template_parameters, specialization_template_parameters, decl_context)
+        if (same_template_argument_list(template_parameters, specialization_template_parameters, decl_context)
                 // If this template type is 0-parameterized, the primary never matches
                 && !(specialization == template_type_get_primary_type(t)
                     && template_type_get_template_parameters(t)->num_parameters == 0))
@@ -4598,7 +4598,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                     {
                         template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
                         template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
-                        result = same_template_parameter_list(tpl1, tpl2, decl_context);
+                        result = same_template_argument_list(tpl1, tpl2, decl_context);
                     }
                 }
                 else
@@ -5417,7 +5417,7 @@ static char syntactic_comparison_of_one_dependent_part(
 
     if (template_parameter_list_1 != NULL)
     {
-        if (!same_template_parameter_list(template_parameter_list_1,
+        if (!same_template_argument_list(template_parameter_list_1,
                     template_parameter_list_2, decl_context))
         {
             DEBUG_CODE()
