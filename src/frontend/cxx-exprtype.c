@@ -6219,19 +6219,23 @@ static void check_nodecl_array_subscript_expression(
         subscript_type = nodecl_get_type(nodecl_subscript);
     }
 
-    if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+    // Builtin cases
+    if (is_array_type(no_ref(subscripted_type))
+            || is_pointer_type(no_ref(subscripted_type)))
     {
-        *nodecl_output = nodecl_make_err_expr(locus);
-        return;
+        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+        {
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
+        // lvalue-to-rvalue of the subscript
+        unary_record_conversion_to_result(
+                no_ref(nodecl_get_type(nodecl_subscript)),
+                &nodecl_subscript);
+
     }
 
-    // lvalue-to-rvalue of the subscript
-    unary_record_conversion_to_result(
-            no_ref(nodecl_get_type(nodecl_subscript)),
-            &nodecl_subscript);
-
-
-    // Builtin cases
     if (is_array_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
@@ -6294,7 +6298,7 @@ static void check_nodecl_array_subscript_expression(
         }
     }
 
-    // Now we are in C++
+    // Now we are in C++ specific cases
     if (is_class_type(no_ref(subscripted_type)))
     {
         static AST operator_subscript_tree = NULL;
