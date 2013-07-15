@@ -1424,7 +1424,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                 ::template_arguments_to_str(
                         deduced_template_args.get_internal_template_parameter_list(),
                         /* first_template_argument_to_be_printed */ template_args.get_num_parameters(),
-                        /* print_first_level_bracket */ 1,
+                        /* print_first_level_bracket */ 0,
                         called_symbol.get_scope().get_decl_context());
 
             // Reason of this: A<::B> it's not legal
@@ -1436,7 +1436,13 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
             {
                 file << "<";
             }
-            file << template_args_str << "/*, " << deduced_template_args_str <<"*/>";
+
+            file << template_args_str;
+
+            if (deduced_template_args_str != "")
+                file << " /*, " << deduced_template_args_str << " */ ";
+
+            file << ">";
         }
     }
     else
