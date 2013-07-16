@@ -1257,6 +1257,8 @@ type {
 @ref@ { parse_token_text(); return '&'; }
  /*!endif*/
 
+@byte@ { parse_token_text(); return MCC_BYTE; }
+
 @reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 
  /* A plain identifier */

@@ -2079,7 +2079,11 @@ void build_scope_decl_specifier_seq(AST a,
         // Second signed/usigned
         if (gather_info->is_unsigned)
         {
-            if (*type_info == get_char_type())
+            if (*type_info == get_signed_byte_type())
+            {
+                *type_info = get_unsigned_byte_type();
+            }
+            else if (*type_info == get_char_type())
             {
                 *type_info = get_unsigned_char_type();
             }
@@ -2600,6 +2604,14 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 error_printf("%s: error: __int128 support not available\n", ast_location(a));
                 *simple_type_info = get_error_type();
 #endif
+                break;
+            }
+            // Mercurium extension @byte@
+        case AST_MCC_BYTE:
+            {
+                // This type is an integer of sizeof(char) but not a char per se
+                // this is useful only when declaring prototypes for Fortran
+                *simple_type_info = get_signed_byte_type();
                 break;
             }
             // Microsoft builtin types
