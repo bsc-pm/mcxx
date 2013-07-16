@@ -559,7 +559,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             }
         }
 
-        if (!found)
+        if (!found && !_disable_opencl_file_check)
         {
             running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
                     original_statements.get_locus_str().c_str());
@@ -939,6 +939,16 @@ DeviceOpenCL::DeviceOpenCL()
 {
     set_phase_name("Nanox OpenCL support");
     set_phase_description("This phase is used by Nanox phases to implement OpenCL device support");
+
+    register_parameter("disable_opencl_file_check",
+            "Do not check if the argument of the 'file' clause is specified as an OpenCL file in the command line",
+            _disable_opencl_file_check_str,
+            "0").connect(functor(&DeviceOpenCL::disable_opencl_file_check, *this));
+}
+
+void  DeviceOpenCL::disable_opencl_file_check(const std::string &str)
+{
+    parse_boolean_option("1", str, _disable_opencl_file_check, "Assuming false.");
 }
 
 void DeviceOpenCL::add_forward_code_to_extra_c_code(
