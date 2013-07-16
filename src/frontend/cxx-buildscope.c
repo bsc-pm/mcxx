@@ -1947,7 +1947,8 @@ void build_scope_decl_specifier_seq(AST a,
             || gather_info->is_signed
             || gather_info->is_short
             || gather_info->is_long
-            || gather_info->is_complex)
+            || gather_info->is_complex
+            || gather_info->is_boolean_integer)
     {
 
         if (type_spec == NULL)
@@ -1955,7 +1956,9 @@ void build_scope_decl_specifier_seq(AST a,
             if( gather_info->is_unsigned
                     || gather_info->is_signed
                     || gather_info->is_short
-                    || gather_info->is_long)
+                    || gather_info->is_long
+                    // Mercurium extension
+                    || gather_info->is_boolean_integer)
             {
                 // Manually add the int tree to make things easier
                 ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
@@ -2079,7 +2082,11 @@ void build_scope_decl_specifier_seq(AST a,
         // Second signed/usigned
         if (gather_info->is_unsigned)
         {
-            if (*type_info == get_char_type())
+            if (*type_info == get_signed_byte_type())
+            {
+                *type_info = get_unsigned_byte_type();
+            }
+            else if (*type_info == get_char_type())
             {
                 *type_info = get_unsigned_char_type();
             }
@@ -2119,6 +2126,12 @@ void build_scope_decl_specifier_seq(AST a,
         if (gather_info->is_complex)
         {
             *type_info = get_complex_type(*type_info);
+        }
+
+        // Mercurium extension
+        if (gather_info->is_boolean_integer)
+        {
+            *type_info = get_bool_of_integer_type(*type_info);
         }
 
         // cv-qualification
@@ -2233,6 +2246,10 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             break;
         case AST_GCC_COMPLEX_TYPE :
             gather_info->is_complex = 1;
+            break;
+            // Mercurium extensions
+        case AST_MCC_BOOL:
+            gather_info->is_boolean_integer = 1;
             break;
             // UPC extensions
         case AST_UPC_SHARED :
@@ -2600,6 +2617,14 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 error_printf("%s: error: __int128 support not available\n", ast_location(a));
                 *simple_type_info = get_error_type();
 #endif
+                break;
+            }
+            // Mercurium extension @byte@
+        case AST_MCC_BYTE:
+            {
+                // This type is an integer of sizeof(char) but not a char per se
+                // this is useful only when declaring prototypes for Fortran
+                *simple_type_info = get_signed_byte_type();
                 break;
             }
             // Microsoft builtin types

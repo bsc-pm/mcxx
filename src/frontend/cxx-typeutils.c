@@ -7131,6 +7131,11 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                             result = strappend(result, "void");
                             break;
                         }
+                    case BT_BYTE :
+                        {
+                            result = strappend(result, "@byte@");
+                            break;
+                        }
                     case BT_UNKNOWN :
                         {
                             result = strappend(result, " ");
