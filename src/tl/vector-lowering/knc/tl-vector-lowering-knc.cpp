@@ -2693,6 +2693,25 @@ namespace TL
             node.replace(function_call);
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorMaskXor& node)
+        {
+            TL::Source intrin_src;
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << "_mm512_kxor("
+                << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_rhs())
+                << ")"
+                ;
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
 
         Nodecl::NodeclVisitor<void>::Ret KNCVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
         { 

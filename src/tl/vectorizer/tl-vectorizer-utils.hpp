@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,39 +24,29 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_VISITOR_STATEMENT_HPP
-#define TL_VECTORIZER_VISITOR_STATEMENT_HPP
+#ifndef TL_VECTORIZER_UTILS_VERSIONING_HPP
+#define TL_VECTORIZER_UTILS_VERSIONING_HPP
 
 #include "tl-nodecl-visitor.hpp"
-#include "tl-analysis-static-info.hpp"
-#include "tl-vectorizer.hpp"
+#include <map>
+
 
 namespace TL 
 { 
-    namespace Vectorization
+    namespace Vectorization 
     {
-        class VectorizerVisitorStatement : public Nodecl::NodeclVisitor<void>
+        class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                VectorizerEnvironment& _environment;
+                bool* _return_inside;
 
             public:
-                VectorizerVisitorStatement(VectorizerEnvironment& environment);
+                LookForReturnVisitor(bool * return_inside);
 
-                virtual void visit(const Nodecl::Context& n);
-                virtual void visit(const Nodecl::CompoundStatement& n);
-                virtual void visit(const Nodecl::ForStatement& n);
-                virtual void visit(const Nodecl::IfElseStatement& n);
-                virtual void visit(const Nodecl::ExpressionStatement& n);
-                virtual void visit(const Nodecl::ObjectInit& n);
                 virtual void visit(const Nodecl::ReturnStatement& n);
-                virtual void visit(const Nodecl::BreakStatement& n);
-
-                Nodecl::NodeclBase process_return_inside(Nodecl::NodeclBase current_mask_nodecl);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }
 }
 
-#endif //TL_VECTORIZER_VISITOR_STATEMENT_HPP
+#endif //TL_VECTORIZER_UTILS_VERSIONING_HPP
+

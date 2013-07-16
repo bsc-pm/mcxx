@@ -105,8 +105,8 @@ namespace TL
                 // Expression that sets the mask
                 Nodecl::ExpressionStatement if_mask_exp =
                     Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(if_mask_nodecl, 
-                                if_mask_value,
+                            Nodecl::VectorMaskAssignment::make(if_mask_nodecl.shallow_copy(), 
+                                if_mask_value.shallow_copy(),
                                 if_mask_sym.get_type(),
                                 n.get_locus()));
 
@@ -149,7 +149,7 @@ namespace TL
                     Nodecl::ExpressionStatement else_mask_exp =
                         Nodecl::ExpressionStatement::make(
                                 Nodecl::VectorMaskAssignment::make(else_mask_nodecl.shallow_copy(), 
-                                    else_mask_value,
+                                    else_mask_value.shallow_copy(),
                                     else_mask_sym.get_type(),
                                     n.get_locus()));
                     
@@ -164,6 +164,11 @@ namespace TL
                 // ***************
                 // VISIT IF'S THEN
                 // ***************
+                // Before visiting, look for returns
+                bool return_inside_if;
+                LookForReturnVisitor look_for_return_visitor_if(&return_inside_if);
+                look_for_return_visitor_if.walk(n.get_then());
+
                 _environment._inside_inner_masked_bb.push_back(true);
                 _environment._mask_list.push_back(if_mask_nodecl);
                 _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
@@ -193,8 +198,13 @@ namespace TL
                 // ***************
                 // VISIT ELSE'S THEN
                 // ***************
+                bool return_inside_else;
                 if (has_else)
                 {
+                    // Before visiting, look for returns
+                    LookForReturnVisitor look_for_return_visitor_else(&return_inside_else);
+                    look_for_return_visitor_else.walk(n.get_else());
+
                     _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
                     walk(n.get_else());
                     _environment._local_scope_list.pop_back();
@@ -221,129 +231,28 @@ namespace TL
                 // ****************
                 // Return inside if
                 // ****************
-                bool return_inside_if;
-                
-                LookForReturnVisitor look_for_return_visitor_if(&return_inside_if);
-                look_for_return_visitor_if.walk(n.get_then());
-
                 if (return_inside_if)
                 {
-                    printf("If return inside\n");
-                    Nodecl::NodeclBase previous_mask = _environment._mask_list.back();
-
-                    // New symbol mask
-                    TL::Symbol new_previous_mask_sym = scope.new_symbol("__mask_" + 
-                            Vectorizer::_vectorizer->get_var_counter());
-                    new_previous_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                    new_previous_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                    new_previous_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                    Nodecl::Symbol new_previous_mask_nodecl = 
-                        new_previous_mask_sym.make_nodecl(true, n.get_locus());
-
-                    // Mask value
-                    Nodecl::NodeclBase new_previous_mask_value;
-                    if (previous_mask.is_null())
-                    {
-                        // No previous mask, then new mask = !if_mask
-                        new_previous_mask_value =
-                            Nodecl::VectorMaskNot::make(
-                                    if_mask_nodecl.shallow_copy(),
-                                    if_mask_nodecl.get_type(),
-                                    n.get_locus());
-                    }
-                    else
-                    {
-                        // Remove previous mask to update it
-                        _environment._mask_list.pop_back();
-
-                        new_previous_mask_value =
-                            Nodecl::VectorMaskXor::make(
-                                    prev_mask.shallow_copy(),
-                                    if_mask_nodecl,
-                                    if_mask_nodecl.get_type(),
-                                    n.get_locus());
-                    }
-
-                    // Expression that sets the mask
-                    Nodecl::ExpressionStatement new_previous_mask_exp =
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::VectorMaskAssignment::make(new_previous_mask_nodecl.shallow_copy(), 
-                                    new_previous_mask_value.shallow_copy(),
-                                    new_previous_mask_nodecl.get_type(),
-                                    n.get_locus()));
+                    Nodecl::NodeclBase new_prev_mask_exp = 
+                        process_return_inside(if_mask_nodecl);
 
                     // Add it to the source code
-                    list.append(new_previous_mask_exp);
-
-                    // Add mask to the mask list
-                    _environment._mask_list.push_back(new_previous_mask_nodecl);
-                }
+                    list.append(new_prev_mask_exp);
+               }
 
                 // ******************
                 // Return inside else
                 // ******************
                 if(has_else)
                 {
-                    printf("Tiene Else\n");
-                    bool return_inside_else;
-
-                    LookForReturnVisitor look_for_return_visitor_else(&return_inside_else);
-                    look_for_return_visitor_else.walk(n.get_else());
-
                     // Return inside else
                     if (return_inside_else)
                     {
-                        printf("Else return inside\n");
-                        Nodecl::NodeclBase previous_mask = _environment._mask_list.back();
-                    
-                        // New symbol mask
-                        TL::Symbol new_previous_mask_sym = scope.new_symbol("__mask_" + 
-                                Vectorizer::_vectorizer->get_var_counter());
-                        new_previous_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                        new_previous_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                        new_previous_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                        Nodecl::Symbol new_previous_mask_nodecl = 
-                            new_previous_mask_sym.make_nodecl(true, n.get_locus());
-
-                        // Mask value
-                        Nodecl::NodeclBase new_previous_mask_value;
-                        if (previous_mask.is_null())
-                        {
-                            // No previous mask, then new mask = !else_mask
-                            new_previous_mask_value =
-                                Nodecl::VectorMaskNot::make(
-                                        else_mask_nodecl.shallow_copy(),
-                                        else_mask_nodecl.get_type(),
-                                        n.get_locus());
-                        }
-                        else
-                        {
-                            // Remove previous mask to update it
-                            _environment._mask_list.pop_back();
-
-                            new_previous_mask_value =
-                                Nodecl::VectorMaskXor::make(
-                                        prev_mask.shallow_copy(),
-                                        else_mask_nodecl,
-                                        else_mask_nodecl.get_type(),
-                                        n.get_locus());
-                        }
-
-                        // Expression that sets the mask
-                        Nodecl::ExpressionStatement new_previous_mask_exp =
-                            Nodecl::ExpressionStatement::make(
-                                    Nodecl::VectorMaskAssignment::make(new_previous_mask_nodecl.shallow_copy(), 
-                                        new_previous_mask_value.shallow_copy(),
-                                        new_previous_mask_nodecl.get_type(),
-                                        n.get_locus()));
+                        Nodecl::NodeclBase new_prev_mask_exp = 
+                            process_return_inside(else_mask_nodecl);
 
                         // Add it to the source code
-                        list.append(new_previous_mask_exp);
-
-                        // Add mask to the mask list
-                        _environment._mask_list.push_back(new_previous_mask_nodecl);
+                        list.append(new_prev_mask_exp);
                     }
                 }
                 
@@ -462,6 +371,53 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::BreakStatement& n)
         {
             running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+        }
+
+        Nodecl::NodeclBase VectorizerVisitorStatement::process_return_inside(Nodecl::NodeclBase current_mask_nodecl)
+        {
+            Nodecl::NodeclBase prev_mask = _environment._mask_list.back();
+            Nodecl::NodeclBase new_prev_mask_nodecl;
+
+            // Mask value
+            Nodecl::NodeclBase new_prev_mask_value;
+            if (prev_mask.is_null())
+            {
+                // No previous mask, then new mask = !current_mask
+                new_prev_mask_value =
+                    Nodecl::VectorMaskNot::make(
+                            current_mask_nodecl.shallow_copy(),
+                            current_mask_nodecl.get_type(),
+                            make_locus("", 0, 0));
+
+                new_prev_mask_nodecl = current_mask_nodecl;
+            }
+            else
+            {
+                // Remove previous mask to update it
+                _environment._mask_list.pop_back();
+
+                new_prev_mask_value =
+                    Nodecl::VectorMaskAnd2Not::make(
+                            prev_mask.shallow_copy(),
+                            current_mask_nodecl.shallow_copy(),
+                            current_mask_nodecl.get_type(),
+                            make_locus("", 0, 0));
+
+                new_prev_mask_nodecl = prev_mask;
+            }
+
+            // Expression that sets the mask
+            Nodecl::ExpressionStatement new_prev_mask_exp =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(new_prev_mask_nodecl.shallow_copy(), 
+                            new_prev_mask_value.shallow_copy(),
+                            new_prev_mask_nodecl.get_type(),
+                            make_locus("", 0, 0)));
+
+            // Add mask to the mask list
+            _environment._mask_list.push_back(new_prev_mask_nodecl);
+
+            return new_prev_mask_exp;
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorStatement::unhandled_node(const Nodecl::NodeclBase& n) 
