@@ -6389,6 +6389,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_COMPOUND_EXPRESSION:
 
         case NODECL_CXX_DEP_NAME_SIMPLE:
+        case NODECL_CXX_DEP_NAME_CONVERSION:
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
         case NODECL_CXX_DEP_TEMPLATE_ID:
