@@ -104,8 +104,8 @@ namespace TL
                 _copy_out.append(CopyItem(updated_data_ref, dir));
             }
 
-            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
-                    it != target_info._copy_in.end();
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_inout.begin();
+                    it != target_info._copy_inout.end();
                     it++)
             {
                 CopyItem item = *it;
@@ -116,7 +116,7 @@ namespace TL
                         data_ref, data_ref.retrieve_context(), translation_map);
 
                 DataReference updated_data_ref(updated_expr);
-                _copy_in.append(CopyItem(updated_data_ref, dir));
+                _copy_inout.append(CopyItem(updated_data_ref, dir));
             }
 
             for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = target_info._ndrange.begin();
