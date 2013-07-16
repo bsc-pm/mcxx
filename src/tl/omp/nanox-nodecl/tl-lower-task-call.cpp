@@ -671,6 +671,141 @@ namespace InputValueUtils
     }
 }
 
+
+static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expressions(
+        const TL::ObjectList<Nodecl::NodeclBase>& expressions,
+        const sym_to_argument_expr_t& param_to_arg_expr,
+        const std::string& clause_name,
+        OutlineInfo& arguments_outline_info,
+        OutlineInfoRegisterEntities& outline_register_entities,
+        TL::Scope& new_block_context_sc,
+        TL::Source& initializations_src)
+{
+    struct ReplaceParamsByArgs : public Nodecl::ExhaustiveVisitor<void>
+    {
+        const sym_to_argument_expr_t& _param_to_arg_expr;
+        ReplaceParamsByArgs(const sym_to_argument_expr_t &param_to_arg_expr) :
+            _param_to_arg_expr(param_to_arg_expr)
+        {
+        }
+
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+
+            sym_to_argument_expr_t::const_iterator it_param = _param_to_arg_expr.find(sym);
+            if (it_param != _param_to_arg_expr.end())
+            {
+                node.replace(it_param->second.shallow_copy());
+            }
+        }
+    };
+
+    Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+    int num_id = (int) arg_counter;
+    arg_counter++;
+
+    int num_argument = 0;
+    TL::ObjectList<Nodecl::NodeclBase> new_expresssions;
+    for (ObjectList<Nodecl::NodeclBase>::const_iterator it = expressions.begin();
+            it != expressions.end();
+            it++)
+    {
+        Nodecl::NodeclBase arg = *it;
+        Nodecl::NodeclBase new_arg;
+        if (arg.is_constant())
+        {
+            // Contants don't need to be captured
+            const_value_t* value = arg.get_constant();
+            new_arg = const_value_to_nodecl(value);
+        }
+        else
+        {
+            Nodecl::NodeclBase arg_copy = it->shallow_copy();
+
+            ReplaceParamsByArgs visitor(param_to_arg_expr);
+            visitor.walk(arg_copy);
+
+            // Create a new variable holding the value of the argument
+            std::stringstream ss;
+            ss << "mcc_" << clause_name << "_"<< num_id << "_" << num_argument;
+            TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
+            num_argument++;
+
+            // FIXME - Wrap this sort of things
+            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+            new_symbol.get_internal_symbol()->type_information = arg_copy.get_type().no_ref().get_internal_type();
+            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            //param_sym_to_arg_sym[parameter] = new_symbol;
+            new_symbol.get_internal_symbol()->value = arg_copy.get_internal_nodecl();
+
+            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(new_symbol);
+            sym_ref.set_type(arg_copy.get_type().no_ref().get_lvalue_reference_to());
+
+            outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+
+            new_arg = sym_ref;
+
+            if (IS_CXX_LANGUAGE)
+            {
+                initializations_src
+                    << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_symbol));
+            }
+        }
+        new_expresssions.append(new_arg);
+    }
+    return new_expresssions;
+}
+
+static void copy_target_info_from_params_to_args(
+        const OutlineInfo::implementation_table_t& implementation_table,
+        const sym_to_argument_expr_t& param_to_arg_expr,
+        OutlineInfo& arguments_outline_info,
+        OutlineInfoRegisterEntities& outline_register_entities,
+        TL::Scope& new_block_context_sc,
+        TL::Source& initializations_src)
+{
+    //Copy target info table from parameter_outline_info to arguments_outline_info
+    for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
+    {
+        TL::Nanox::TargetInformation target_info = it->second;
+
+        ObjectList<Nodecl::NodeclBase> new_ndrange_args =
+            capture_the_values_of_these_expressions(
+                    target_info.get_ndrange(),
+                    param_to_arg_expr,
+                    "ndrange",
+                    arguments_outline_info,
+                    outline_register_entities,
+                    new_block_context_sc,
+                    initializations_src);
+
+        ObjectList<Nodecl::NodeclBase> new_shmem_args =
+            capture_the_values_of_these_expressions(
+                    target_info.get_shmem(),
+                    param_to_arg_expr,
+                    "shmem",
+                    arguments_outline_info,
+                    outline_register_entities,
+                    new_block_context_sc,
+                    initializations_src);
+
+        ObjectList<std::string> devices= target_info.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end();
+                ++it2)
+        {
+            arguments_outline_info.add_implementation(*it2, it->first);
+            arguments_outline_info.append_to_ndrange(it->first, new_ndrange_args);
+            arguments_outline_info.append_to_shmem(it->first, new_shmem_args);
+            arguments_outline_info.append_to_onto(it->first, target_info.get_onto());
+            arguments_outline_info.set_file(it->first, target_info.get_file());
+        }
+    }
+}
+
 void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
@@ -691,24 +826,13 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
-    //Copy target info table from parameter_outline_info to arguments_outline_info
-    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-            it != implementation_table.end();
-            ++it)
-    {
-        ObjectList<std::string> devices=it->second.get_device_names();
-        for (ObjectList<std::string>::iterator it2 = devices.begin();
-                it2 != devices.end();
-                ++it2)
-        {
-                arguments_outline_info.add_implementation(*it2, it->first);
-                arguments_outline_info.append_to_ndrange(it->first, it->second.get_ndrange());
-                arguments_outline_info.append_to_shmem(it->first, it->second.get_shmem());
-                arguments_outline_info.append_to_onto(it->first, it->second.get_onto());
-                arguments_outline_info.set_file(it->first, it->second.get_file());
-        }
-    }
+
+    Scope sc = construct.retrieve_context();
+    Scope new_block_context_sc = new_block_context(sc.get_decl_context());
+
+    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
+
+    Source initializations_src;
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -716,14 +840,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
-    Scope sc = construct.retrieve_context();
-    Scope new_block_context_sc = new_block_context(sc.get_decl_context());
+
 
     // Make sure we allocate the argument size
     TL::ObjectList<Nodecl::NodeclBase> new_arguments(arguments.size());
     int parameter_position_offset = 0; // Will be 1 if "this" implicit argument if present
 
-    Source initializations_src;
 
     // If the current function is a non-static function and It is member of a
     // class, the first argument of the arguments list represents the object of
@@ -780,7 +902,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     function_call.get_locus()));
     }
 
-    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
 
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     //Map so the device provider can translate between parameters and arguments
@@ -946,6 +1067,14 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             param_to_args_map.add_map(parameter, new_symbol);
         }
     }
+
+    copy_target_info_from_params_to_args(
+            parameters_outline_info.get_implementation_table(),
+            param_to_arg_expr,
+            arguments_outline_info,
+            outline_register_entities,
+            new_block_context_sc,
+            initializations_src);
 
     // For every existant implementation we should create a new map and store it in their target information
     // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)

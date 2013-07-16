@@ -118,15 +118,7 @@ void DeviceOpenCL::generate_ndrange_code(
             new_ndrange.append(Nodecl::Utils::deep_copy(
                         ndrange_args[i],
                         unpacked_function.get_related_scope(),
-                        called_fun_to_unpacked_fun_map));
-        }
-
-        for (int i = 0; i < num_args_shmem; ++i)
-        {
-            new_shmem.append(Nodecl::Utils::deep_copy(
-                        shmem_args[i],
-                        unpacked_function.get_related_scope(),
-                        called_fun_to_unpacked_fun_map));
+                        *outline_data_to_unpacked_fun_map));
         }
     }
 
