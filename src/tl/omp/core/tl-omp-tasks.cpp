@@ -457,7 +457,7 @@ namespace TL
             return result;
         }
 
-        TargetInfo FunctionTaskInfo::get_target_info() const
+        TargetInfo& FunctionTaskInfo::get_target_info()
         {
             return _target_info;
         }

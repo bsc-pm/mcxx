@@ -532,7 +532,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 // Build the tree which contains the target information
-                TargetInfo target_info = function_task_info.get_target_info();
+                TargetInfo& target_info = function_task_info.get_target_info();
 
                 TL::ObjectList<Nodecl::NodeclBase> devices;
                 TL::ObjectList<Nodecl::NodeclBase> target_items;
@@ -2619,7 +2619,7 @@ namespace TL { namespace OpenMP {
         }
 
         // Build the tree which contains the target information
-        TargetInfo target_info = data_sharing_env.get_target_info();
+        TargetInfo& target_info = data_sharing_env.get_target_info();
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
@@ -2787,7 +2787,7 @@ namespace TL { namespace OpenMP {
                 result_list);
 
         // Build the tree which contains the target information
-        TargetInfo target_info = data_sharing_env.get_target_info();
+        TargetInfo& target_info = data_sharing_env.get_target_info();
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;

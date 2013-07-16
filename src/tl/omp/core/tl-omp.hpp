@@ -382,7 +382,7 @@ namespace TL
 
                 void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
-                TargetInfo get_target_info();
+                TargetInfo& get_target_info();
                 void set_target_info(const TargetInfo & target_info);
 
                 void set_real_time_info(const RealTimeInfo & rt_info);
@@ -510,7 +510,7 @@ namespace TL
 
                 ObjectList<implementation_pair_t> get_devices_with_implementation() const;
 
-                TargetInfo get_target_info() const;
+                TargetInfo& get_target_info();
                 void set_target_info(const TargetInfo& target_info);
 
                 RealTimeInfo get_real_time_info();
