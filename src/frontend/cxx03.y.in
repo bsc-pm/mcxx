@@ -178,6 +178,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 %token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
 %token<token_atrib> MCC_BYTE "<byte-type-spec>"
+%token<token_atrib> MCC_BOOL "<bool-type-spec>"
 
 // g++ type traits
 %token<token_atrib> GXX_HAS_NOTHROW_ASSIGN "__has_nothrow_assign"
@@ -1205,6 +1206,11 @@ type_specifier_SUSL : TOKEN_SIGNED
 | TOKEN_LONG
 {
 	$$ = ASTLeaf(AST_LONG_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+// Mercurium extension
+| MCC_BOOL
+{
+	$$ = ASTLeaf(AST_MCC_BOOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 

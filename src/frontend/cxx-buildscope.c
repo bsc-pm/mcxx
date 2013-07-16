@@ -1947,7 +1947,8 @@ void build_scope_decl_specifier_seq(AST a,
             || gather_info->is_signed
             || gather_info->is_short
             || gather_info->is_long
-            || gather_info->is_complex)
+            || gather_info->is_complex
+            || gather_info->is_boolean_integer)
     {
 
         if (type_spec == NULL)
@@ -1955,7 +1956,9 @@ void build_scope_decl_specifier_seq(AST a,
             if( gather_info->is_unsigned
                     || gather_info->is_signed
                     || gather_info->is_short
-                    || gather_info->is_long)
+                    || gather_info->is_long
+                    // Mercurium extension
+                    || gather_info->is_boolean_integer)
             {
                 // Manually add the int tree to make things easier
                 ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
@@ -2125,6 +2128,12 @@ void build_scope_decl_specifier_seq(AST a,
             *type_info = get_complex_type(*type_info);
         }
 
+        // Mercurium extension
+        if (gather_info->is_boolean_integer)
+        {
+            *type_info = get_bool_of_integer_type(*type_info);
+        }
+
         // cv-qualification
         if (gather_info->is_const)
         {
@@ -2237,6 +2246,10 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             break;
         case AST_GCC_COMPLEX_TYPE :
             gather_info->is_complex = 1;
+            break;
+            // Mercurium extensions
+        case AST_MCC_BOOL:
+            gather_info->is_boolean_integer = 1;
             break;
             // UPC extensions
         case AST_UPC_SHARED :

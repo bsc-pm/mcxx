@@ -1258,6 +1258,7 @@ type {
  /*!endif*/
 
 @byte@ { parse_token_text(); return MCC_BYTE; }
+@mcc_bool@ { parse_token_text(); return MCC_BOOL; }
 
 @reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 
