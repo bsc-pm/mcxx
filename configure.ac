@@ -576,6 +576,7 @@ if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
 else
    DISABLE_OPENCL="\#do not uncomment"
 fi 
+AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
