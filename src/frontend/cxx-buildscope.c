@@ -9180,6 +9180,15 @@ static char same_template_parameter_list(
                 return 0;
             }
         }
+        else if (template_parameter_list_1->parameters[i]->kind == TPK_TEMPLATE)
+        {
+            // Recursively check template parameters of template-template parameter
+            if (!same_template_parameter_list(
+                        template_type_get_template_parameters(template_parameter_list_1->parameters[i]->entry->type_information),
+                        template_type_get_template_parameters(template_parameter_list_2->parameters[i]->entry->type_information),
+                        decl_context))
+                return 0;
+        }
     }
 
     return 1;
