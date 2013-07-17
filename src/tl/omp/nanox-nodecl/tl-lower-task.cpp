@@ -724,7 +724,9 @@ void LoweringVisitor::emit_async_common(
                 continue;
 
             TL::Symbol sym = (*it)->get_symbol();
-            update_alloca_decls_opt << sym.get_name() << " = &(ol_args->" << sym.get_name() << ");";
+            update_alloca_decls_opt
+                << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
+                ;
 
         }
     }
@@ -1214,7 +1216,13 @@ void LoweringVisitor::fill_arguments(
                     }
                 case OutlineDataItem::SHARING_ALLOCA:
                     {
-                        // This argument will be initialized by another task
+                        fill_outline_arguments
+                            << "ol_args->" << (*it)->get_field_name() << "= &(ol_args->" << (*it)->get_field_name() << "_storage);"
+                            ;
+
+                        fill_immediate_arguments
+                            << "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
+                            ;
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:

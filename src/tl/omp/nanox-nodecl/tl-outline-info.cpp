@@ -214,8 +214,7 @@ namespace TL { namespace Nanox {
 
         if (is_new)
         {
-            // Note that we obtain the type from the data_ref
-            Type t = data_ref.get_type();
+            Type t = sym.get_type();
             if (t.is_any_reference())
             {
                 t = t.references_to();
@@ -231,7 +230,7 @@ namespace TL { namespace Nanox {
             TL::Type in_outline_type = t.get_unqualified_type();
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
-            outline_info.set_in_outline_type(in_outline_type.get_pointer_to());
+            outline_info.set_in_outline_type(in_outline_type);
 
             _outline_info.move_at_end(outline_info);
         }
