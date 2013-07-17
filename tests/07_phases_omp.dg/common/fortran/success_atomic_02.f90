@@ -1,3 +1,6 @@
+! <testinfo>
+! test_generator=config/mercurium-omp
+! </testinfo>
 PROGRAM MAIN
     IMPLICIT NONE
     LOGICAL(1) :: L1_A, L1_B
