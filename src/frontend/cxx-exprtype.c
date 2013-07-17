@@ -584,6 +584,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_CONVERSION_FUNCTION_ID :
             {
+                // This case is only triggered in syntax like
+                //
+                // return operator bool();
+                //
+                // When operator bool appears as the id-expression of a
+                // class-member access  (e.g. "a.operator bool()") we check
+                // it in check_member_access
                 check_conversion_function_id_expression(expression, decl_context, nodecl_output);
                 break;
             }
@@ -6457,60 +6464,61 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context, no
 
 static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, expression);
+    // This is the case of an "operator T" used alone (not in a class-member access like "a.operator T")
+    //
+    // The standard says that we should look up T both in class scope and the current scope. To my understanding
+    // it tacitly implies the existence of a class scope.
 
-    if (entry_list == NULL)
+    if (decl_context.class_scope == NULL)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: a class-scope is required to name a conversion function\n", ast_location(expression));
+        }
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
 
     type_t* conversion_type = NULL;
-    /* char* conversion_function_name = */ 
-    nodecl_t dummy_nodecl_output = nodecl_null();
-    get_conversion_function_name(decl_context, expression, &conversion_type, &dummy_nodecl_output);
+    /* const char* conversion_name = */ get_conversion_function_name(decl_context, expression, &conversion_type);
 
-    ERROR_CONDITION(conversion_type == NULL,
-            "Conversion type was not computed", 0);
-
-    if (is_dependent_type(conversion_type))
-    {
-        compute_nodecl_name_from_id_expression(expression, decl_context, nodecl_output);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    char found = 0;
-    scope_entry_t* found_entry = NULL;
-
-    scope_entry_list_iterator_t *it = NULL;
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it) && !found;
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        type_t* current_conversion_type 
-            = function_type_get_return_type(entry->type_information);
-
-        if (equivalent_types(current_conversion_type, conversion_type))
-        {
-            found = 1;
-            found_entry = entry;
-        }
-    }
-    entry_list_iterator_free(it);
-    entry_list_free(entry_list);
-
-    if (!found)
+    if (conversion_type == NULL)
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
 
-    *nodecl_output = nodecl_make_symbol(found_entry, ast_get_locus(expression));
+    compute_nodecl_name_from_id_expression(expression, decl_context, nodecl_output);
+    // Keep the conversion type
+    nodecl_set_child(*nodecl_output, 1,
+            nodecl_make_type(conversion_type, ast_get_locus(expression)));
+
+    if (is_dependent_type(conversion_type))
+    {
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    scope_entry_list_t* entry_list = query_conversion_function_info(decl_context, conversion_type);
+
+    if (entry_list == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: 'operator %s' not found in the current scope\n",
+                    ast_location(expression),
+                    print_type_str(conversion_type, decl_context));
+        }
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        return;
+    }
+    else
+    {
+        nodecl_set_type(*nodecl_output, get_unresolved_overloaded_type(entry_list, NULL));
+    }
 }
 
-static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2, 
+static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         char *is_ambiguous_conversion,
         decl_context_t decl_context,
         const locus_t* locus)
@@ -9347,8 +9355,9 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     {
         // Note that koenig lookup is simply disabled by means of parentheses,
         // so the check has to be done here.
+        //
+        // Unqualified ids are subject to argument dependent lookup
         if (ASTType(called_expression) == AST_SYMBOL
-            || ASTType(called_expression) == AST_CONVERSION_FUNCTION_ID
             || ASTType(called_expression) == AST_OPERATOR_FUNCTION_ID)
         {
             DEBUG_CODE()
@@ -9357,6 +9366,15 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
                         prettyprint_in_buffer(called_expression));
             }
             compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
+        }
+        // Although conversion function id's are technically subject to argument dependent lookup
+        // they never receive arguments and they always will be members. The latter property makes
+        // that argument dependent lookup is actually not applied to conversion functions!!!
+        else if (ASTType(called_expression) == AST_CONVERSION_FUNCTION_ID)
+        {
+            // We make a special case just for the sake of documentation but this
+            // is actually no different than the 'else' case below
+            check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
         else
         {
@@ -9781,17 +9799,7 @@ static void check_nodecl_member_access(
 
     const char* template_tag = has_template_tag ? "template " : "";
 
-    type_t* conversion_type = NULL;
-    if (nodecl_get_kind(nodecl_member) == NODECL_CXX_DEP_NAME_CONVERSION)
-    {
-        conversion_type = nodecl_get_type(nodecl_member);
-    }
-
-    if (nodecl_expr_is_type_dependent(nodecl_accessed)
-            // If syntax is 'a.operator T' or 'a->operator T' check if it is a
-            // dependent type
-            || (conversion_type != NULL
-                && is_dependent_type(conversion_type)))
+    if (nodecl_expr_is_type_dependent(nodecl_accessed))
     {
         if (!is_arrow)
         {
@@ -9801,7 +9809,7 @@ static void check_nodecl_member_access(
                     /* member form */ nodecl_null(),
                     get_unknown_dependent_type(),
                     locus);
-            
+
             nodecl_set_text(*nodecl_output, template_tag);
         }
         else
@@ -9821,7 +9829,7 @@ static void check_nodecl_member_access(
     type_t* accessed_type = nodecl_get_type(nodecl_accessed);
     nodecl_t nodecl_accessed_out = nodecl_accessed;
     char operator_arrow = 0;
-    
+
     // First we adjust the actually accessed type
     // if we are in '->' syntax
     if (is_arrow)
@@ -10119,11 +10127,74 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     }
 
     nodecl_t nodecl_name = nodecl_null();
+
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
     if (nodecl_is_err_expr(nodecl_name))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
         return;
+    }
+
+    if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+    {
+        // Special treatment required for conversion function ids
+        type_t* conversion_type_at_scope = get_error_type();
+        enter_test_expression();
+        get_conversion_function_name(decl_context, id_expression, &conversion_type_at_scope);
+        leave_test_expression();
+
+        type_t* conversion_type_in_class = get_error_type();
+        if (is_class_type(no_ref(nodecl_get_type(nodecl_accessed))))
+        {
+            enter_test_expression();
+            decl_context_t class_context = class_type_get_inner_context(no_ref(nodecl_get_type(nodecl_accessed)));
+            get_conversion_function_name(class_context, id_expression, &conversion_type_in_class);
+            leave_test_expression();
+        }
+
+        type_t* conversion_type = conversion_type_in_class;
+        if (is_error_type(conversion_type_in_class))
+        {
+            conversion_type = conversion_type_at_scope;
+        }
+        else
+        {
+            if (!is_error_type(conversion_type_at_scope))
+            {
+                if (!equivalent_types(conversion_type, conversion_type_at_scope))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        decl_context_t class_context = class_type_get_inner_context(no_ref(nodecl_get_type(nodecl_accessed)));
+                        error_printf("%s: error: type of conversion found in class scope (%s) and the type found in the scope "
+                                "of the class-member access (%s) should match\n",
+                                nodecl_locus_to_str(nodecl_name),
+                                print_type_str(conversion_type_in_class, class_context),
+                                print_type_str(conversion_type_at_scope, decl_context));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
+                    return;
+                }
+            }
+        }
+
+        if (is_error_type(conversion_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: type of conversion not found\n", nodecl_locus_to_str(nodecl_name));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
+            return;
+        }
+
+        ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_CONVERSION, "Invalid node", 0);
+        nodecl_set_child(nodecl_name, 1, nodecl_make_type(conversion_type, nodecl_get_locus(nodecl_name)));
+
+        if (is_dependent_type(conversion_type))
+        {
+            nodecl_expr_set_is_type_dependent(nodecl_name, 1);
+        }
     }
 
     check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,

@@ -884,7 +884,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
-    file << "operator " << this->get_declaration(node.get_type(), this->get_current_scope(), "");
+    file
+        << "operator "
+        << this->get_declaration(node.get_conversion_type().get_type(), this->get_current_scope(), "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameNested& node)
