@@ -2079,20 +2079,20 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
             
-            TL::Source intrin_src;
+            TL::Source intrin_src, conv;
 
-            intrin_src << "_mm512_i32gather";
-
-            std::string extract;
+            intrin_src << "_mm512_i32extgather";
 
             // Postfix
             if (type.is_float()) 
             { 
                 intrin_src << "_ps";
+                conv << "_MM_DOWNCONV_PS_NONE";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32";
+                conv << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
             {
@@ -2111,16 +2111,17 @@ namespace TL
             walk(node.get_base());
             walk(node.get_strides());
 
-            intrin_src << "("; 
-
-            intrin_src << as_expression(node.get_base());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_strides());
-            intrin_src << ", ";
-            intrin_src << type.get_size();
-
-            intrin_src << ")";
-
+            intrin_src << "("
+                << as_expression(node.get_strides()) 
+                << ", " 
+                << as_expression(node.get_base())
+                << ", "
+                << conv
+                << ", "
+                << type.get_size()
+                << ", "
+                << _MM_HINT_NONE
+                << ")";
             
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -2133,22 +2134,22 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
             
-            TL::Source intrin_src, undef;
+            TL::Source intrin_src, undef, conv;
 
-            intrin_src << "_mm512_mask_i32gather";
-
-            std::string extract;
+            intrin_src << "_mm512_mask_i32extgather";
 
             // Postfix
             if (type.is_float()) 
             { 
                 intrin_src << "_ps(";
                 undef << "_mm512_undefined()";
+                conv << "_MM_DOWNCONV_PS_NONE";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32(";
                 undef << "_mm512_castps_si512(_mm512_undefined())";
+                conv << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
             {
@@ -2180,15 +2181,18 @@ namespace TL
             walk(node.get_mask());
 
             intrin_src << as_expression(node.get_mask())
-               << ", "
-               << as_expression(node.get_base())
-               << ", "
-               << as_expression(node.get_strides())
-               << ", "
-               << type.get_size()
-               << ")";
+                << ", "
+                << as_expression(node.get_base()) 
+                << ", " 
+                << as_expression(node.get_strides())
+                << ", "
+                << conv
+                << ", "
+                << type.get_size()
+                << ", "
+                << _MM_HINT_NONE
+                << ")";
 
-            
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
 
@@ -2203,9 +2207,9 @@ namespace TL
             std::string extract_index;
             std::string extract_source;
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, conv;
 
-            intrin_src << "_mm512_i32scatter";
+            intrin_src << "_mm512_i32extscatter";
 
             // Indexes
             if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
@@ -2219,10 +2223,12 @@ namespace TL
             if (type.is_float()) 
             { 
                 intrin_src << "_ps";
+                conv << "_MM_DOWNCONV_PS_NONE";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32";
+                conv << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
             {
@@ -2242,7 +2248,11 @@ namespace TL
                 << ", "
                 << as_expression(node.get_source())
                 << ", "
+                << conv
+                << ", "
                 << type.get_size()
+                << ", "
+                << _MM_HINT_NONE
                 << ")";
 
 
@@ -2260,9 +2270,9 @@ namespace TL
             std::string extract_index;
             std::string extract_source;
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, conv;
 
-            intrin_src << "_mm512_mask_i32scatter";
+            intrin_src << "_mm512_mask_i32extscatter";
 
             // Indexes
             if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
@@ -2276,10 +2286,12 @@ namespace TL
             if (type.is_float()) 
             { 
                 intrin_src << "_ps";
+                conv << "_MM_DOWNCONV_PS_NONE";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
                 intrin_src << "_epi32";
+                conv << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
             {
@@ -2294,15 +2306,19 @@ namespace TL
             walk(node.get_mask());
 
             intrin_src << "("
-                << as_expression(node.get_mask())
-                << ", "
                 << as_expression(node.get_base())
+                << ", "
+                << as_expression(node.get_mask())
                 << ", "
                 << as_expression(node.get_strides())
                 << ", "
                 << as_expression(node.get_source())
                 << ", "
+                << conv
+                << ", "
                 << type.get_size()
+                << ", "
+                << _MM_HINT_NONE
                 << ")";
 
 
