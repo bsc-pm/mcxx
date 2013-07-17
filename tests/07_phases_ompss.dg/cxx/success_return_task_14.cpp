@@ -29,8 +29,13 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_compile_fail=yes
+test_compile_faulty=yes
 </testinfo>
 */
+
+// This test is faulty until we fix ticket #1565
+
 #include<assert.h>
 
 class A
