@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-visitor-expression.hpp"
+#include "tl-vectorizer-utils.hpp"
 
 namespace TL
 {
@@ -1119,7 +1120,7 @@ namespace TL
                     n.replace(vector_induction_var);
                 }
                 // Vectorize symbols declared in the SIMD scope
-                else if (is_declared_in_scope(
+                else if (Utils::is_declared_in_scope(
                             _environment._local_scope_list.back().get_decl_context().current_scope,
                             n.get_symbol().get_scope().get_decl_context().current_scope))
                 {
@@ -1254,21 +1255,6 @@ namespace TL
                 << std::endl;
 
             return Ret();
-        }
-
-        bool VectorizerVisitorExpression::is_declared_in_scope(const scope_t *const  target_scope,
-                const scope_t *const symbol_scope) const
-        {
-            if (symbol_scope == NULL)
-                return false;
-            else if (target_scope == NULL)
-                return false;
-            else if (target_scope == symbol_scope)
-                return true;
-            else
-            {
-                return false;
-            }
         }
     }
 }

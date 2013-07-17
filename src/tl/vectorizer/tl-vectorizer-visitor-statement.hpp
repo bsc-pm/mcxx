@@ -52,8 +52,6 @@ namespace TL
                 virtual void visit(const Nodecl::ReturnStatement& n);
                 virtual void visit(const Nodecl::BreakStatement& n);
 
-                Nodecl::NodeclBase process_return_inside(Nodecl::NodeclBase current_mask_nodecl);
-
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
     }

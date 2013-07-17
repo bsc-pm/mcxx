@@ -35,16 +35,30 @@ namespace TL
 { 
     namespace Vectorization 
     {
-        class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<void>
+        namespace Utils
         {
-            private:
-                bool* _return_inside;
+            class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<void>
+            {
+                private:
+                    bool* _return_inside;
 
-            public:
-                LookForReturnVisitor(bool * return_inside);
+                public:
+                    LookForReturnVisitor(bool * return_inside);
 
-                virtual void visit(const Nodecl::ReturnStatement& n);
-        };
+                    virtual void visit(const Nodecl::ReturnStatement& n);
+            };
+
+            Nodecl::NodeclBase get_new_mask_symbol(TL::Scope& scope,
+                    const int masks_size);
+            Nodecl::NodeclBase emit_disjunction_mask(
+                    const ObjectList<Nodecl::NodeclBase>& bb_exit_mask_list,
+                    Nodecl::List& output_stmt_list,
+                    TL::Scope& scope,
+                    const int masks_size);
+
+            bool is_declared_in_scope(const scope_t *const  target_scope,
+                    const scope_t *const symbol_scope);
+        }
     }
 }
 

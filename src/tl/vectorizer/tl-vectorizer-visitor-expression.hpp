@@ -30,7 +30,6 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-utils.hpp"
 
 namespace TL 
 { 
@@ -40,9 +39,6 @@ namespace TL
         {
             private:
                 VectorizerEnvironment& _environment;
-
-                bool is_declared_in_scope(const scope_t *const target_scope , 
-                        const scope_t *const symbol_scope) const;
 
             public:
                 VectorizerVisitorExpression(VectorizerEnvironment& environment);

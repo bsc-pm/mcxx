@@ -2653,6 +2653,26 @@ namespace TL
             node.replace(function_call);
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorMaskOr& node)
+        {
+            TL::Source intrin_src;
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << "_mm512_kor("
+                << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_rhs())
+                << ")"
+                ;
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void KNCVectorLowering::visit(const Nodecl::VectorMaskAnd1Not& node)
         {
             TL::Source intrin_src;

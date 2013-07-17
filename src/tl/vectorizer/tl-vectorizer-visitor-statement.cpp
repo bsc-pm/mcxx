@@ -72,20 +72,13 @@ namespace TL
 
                 Nodecl::NodeclBase prev_mask =
                     _environment._mask_list.back();
-                
+
                 // *******
                 // IF Mask
                 // *******
-
                 // New symbol mask
-                TL::Symbol if_mask_sym = scope.new_symbol("__mask_" + 
-                        Vectorizer::_vectorizer->get_var_counter());
-                if_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                if_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                if_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                Nodecl::Symbol if_mask_nodecl = if_mask_sym.make_nodecl(true, n.get_locus());
-                Nodecl::Symbol else_mask_nodecl; 
+                Nodecl::NodeclBase if_mask_nodecl = Utils::get_new_mask_symbol(
+                        scope, _environment._mask_size); 
 
                 // Mask value
                 Nodecl::NodeclBase if_mask_value;
@@ -98,7 +91,7 @@ namespace TL
                     if_mask_value = Nodecl::VectorMaskAnd::make(
                             prev_mask.shallow_copy(),
                             condition.shallow_copy(),
-                            if_mask_sym.get_type(),
+                            prev_mask.get_type(),
                             n.get_locus());
                 }
 
@@ -107,66 +100,54 @@ namespace TL
                     Nodecl::ExpressionStatement::make(
                             Nodecl::VectorMaskAssignment::make(if_mask_nodecl.shallow_copy(), 
                                 if_mask_value.shallow_copy(),
-                                if_mask_sym.get_type(),
+                                if_mask_nodecl.get_type(),
                                 n.get_locus()));
 
                 // Add masks to the source code
                 list.append(if_mask_exp);
  
-                // *********
-                // Else Mask
-                // *********
-                if (has_else)
+                // ***********
+                // "Else" Mask: It will always exists! With or without real 'else statement'
+                // ***********
+                // New symbol mask
+                Nodecl::NodeclBase else_mask_nodecl = Utils::get_new_mask_symbol(
+                        scope, _environment._mask_size);
+
+                // Mask value
+                Nodecl::NodeclBase else_mask_value;
+                if (prev_mask.is_null()) // mask = !if_cond
                 {
-                    // New symbol mask
-                    TL::Symbol else_mask_sym = scope.new_symbol("__mask_" + 
-                            Vectorizer::_vectorizer->get_var_counter());
-                    else_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                    else_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                    else_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                    else_mask_nodecl = else_mask_sym.make_nodecl(true, n.get_locus());
-
-                    // Mask value
-                    Nodecl::NodeclBase else_mask_value;
-                    if (prev_mask.is_null()) // mask = !if_cond
-                    {
-                        else_mask_value = Nodecl::VectorMaskNot::make(
-                                if_mask_nodecl.shallow_copy(),
-                                else_mask_sym.get_type(),
-                                n.get_locus());
-                    }
-                    else // mask = prev_mask & !if_cond
-                    {
-                        else_mask_value = Nodecl::VectorMaskAnd2Not::make(
-                                prev_mask.shallow_copy(),
-                                condition.shallow_copy(),
-                                else_mask_sym.get_type(),
-                                n.get_locus());
-                    }
-
-                    // Expression that sets the mask
-                    Nodecl::ExpressionStatement else_mask_exp =
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::VectorMaskAssignment::make(else_mask_nodecl.shallow_copy(), 
-                                    else_mask_value.shallow_copy(),
-                                    else_mask_sym.get_type(),
-                                    n.get_locus()));
-                    
-                    // Add masks to the source code
-                    list.append(else_mask_exp);
-
-                    // Add else_mask to mask list:
-                    // It should ALWAYS be after if_mask before visiting!
-                    _environment._mask_list.push_back(else_mask_nodecl);
+                    else_mask_value = Nodecl::VectorMaskNot::make(
+                            if_mask_nodecl.shallow_copy(),
+                            if_mask_nodecl.get_type(),
+                            n.get_locus());
                 }
+                else // mask = prev_mask & !if_cond
+                {
+                    else_mask_value = Nodecl::VectorMaskAnd2Not::make(
+                            prev_mask.shallow_copy(),
+                            condition.shallow_copy(),
+                            prev_mask.get_type(),
+                            n.get_locus());
+                }
+
+                // Expression that sets the mask
+                Nodecl::ExpressionStatement else_mask_exp =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorMaskAssignment::make(else_mask_nodecl.shallow_copy(), 
+                                else_mask_value.shallow_copy(),
+                                else_mask_value.get_type(),
+                                n.get_locus()));
+
+                // Add masks to the source code
+                list.append(else_mask_exp);
 
                 // ***************
                 // VISIT IF'S THEN
                 // ***************
                 // Before visiting, look for returns
                 bool return_inside_if;
-                LookForReturnVisitor look_for_return_visitor_if(&return_inside_if);
+                TL::Vectorization::Utils::LookForReturnVisitor look_for_return_visitor_if(&return_inside_if);
                 look_for_return_visitor_if.walk(n.get_then());
 
                 _environment._inside_inner_masked_bb.push_back(true);
@@ -175,11 +156,15 @@ namespace TL
                         front().retrieve_context());
                 walk(n.get_then());
                 _environment._local_scope_list.pop_back();
+
+                // Update if_mask after visiting. It could have changed.
+                if_mask_nodecl = _environment._mask_list.back();
+
                 _environment._mask_list.pop_back();
                 _environment._inside_inner_masked_bb.pop_back();
 
-                // TODO: Do you really want to aways create this checks?
-                // Create IF to check if if_mask is all zero
+                // TODO: Heuristic to create early-exist
+/*                // Create IF to check if if_mask is all zero
                 Nodecl::IfElseStatement if_check =
                     Nodecl::IfElseStatement::make(
                             Nodecl::Different::make(
@@ -191,28 +176,32 @@ namespace TL
                                 n.get_locus()),
                             n.get_then().shallow_copy(),
                             Nodecl::NodeclBase::null());
-
+*/
                 // Add THEN to the final code
-                list.append(if_check);
+                list.append(n.get_then());
 
                 // ***************
                 // VISIT ELSE'S THEN
                 // ***************
-                bool return_inside_else;
+                bool return_inside_else = false;
                 if (has_else)
                 {
                     // Before visiting, look for returns
-                    LookForReturnVisitor look_for_return_visitor_else(&return_inside_else);
+                    TL::Vectorization::Utils::LookForReturnVisitor look_for_return_visitor_else(&return_inside_else);
                     look_for_return_visitor_else.walk(n.get_else());
 
-                    _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
+                    _environment._mask_list.push_back(else_mask_nodecl);
+                   _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
                     walk(n.get_else());
                     _environment._local_scope_list.pop_back();
+
+                    // Update else_mask after visiting. It could have changed.
+                    else_mask_nodecl = _environment._mask_list.back();
                     _environment._mask_list.pop_back();
 
-                    // TODO: Do you really want to aways create this checks?
+                    // TODO: Heuristic to create early-exist
                     // Create IF to check if else_mask is all zero
-                    Nodecl::IfElseStatement else_check =
+                    /*Nodecl::IfElseStatement else_check =
                         Nodecl::IfElseStatement::make(
                                 Nodecl::Different::make(
                                     else_mask_nodecl.shallow_copy(),
@@ -223,39 +212,29 @@ namespace TL
                                     n.get_locus()),
                                 n.get_else().shallow_copy(),
                                 Nodecl::NodeclBase::null());
-
+                    */
                     // Add it to the source code
-                    list.append(else_check);
+                    list.append(n.get_else());
+                }
+                // *************
+                // BB Exit Masks
+                // *************
+                if (return_inside_if || return_inside_else)
+                {
+                    // Remove previous mask. It will never be used again.
+                    _environment._mask_list.pop_back();
+
+                    ObjectList<Nodecl::NodeclBase> bb_predecessor_masks;
+                    bb_predecessor_masks.push_back(if_mask_nodecl);
+                    bb_predecessor_masks.push_back(else_mask_nodecl);
+
+                    Nodecl::NodeclBase new_exit_mask = Utils::emit_disjunction_mask(bb_predecessor_masks,
+                            list, scope, _environment._mask_size);
+
+                    _environment._mask_list.push_back(new_exit_mask);
                 }
 
-                // ****************
-                // Return inside if
-                // ****************
-                if (return_inside_if)
-                {
-                    Nodecl::NodeclBase new_prev_mask_exp = 
-                        process_return_inside(if_mask_nodecl);
-
-                    // Add it to the source code
-                    list.append(new_prev_mask_exp);
-               }
-
-                // ******************
-                // Return inside else
-                // ******************
-                if(has_else)
-                {
-                    // Return inside else
-                    if (return_inside_else)
-                    {
-                        Nodecl::NodeclBase new_prev_mask_exp = 
-                            process_return_inside(else_mask_nodecl);
-
-                        // Add it to the source code
-                        list.append(new_prev_mask_exp);
-                    }
-                }
-                
+                // Replace if/else with CompoundStatement
                 Nodecl::CompoundStatement compound_stmt =
                     Nodecl::CompoundStatement::make(list, Nodecl::NodeclBase::null(), n.get_locus());
 
@@ -293,6 +272,7 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ReturnStatement& n)
         {
             Nodecl::NodeclBase return_value = n.get_value();
+            Nodecl::NodeclBase mask = _environment._mask_list.back();
 
             VectorizerVisitorExpression visitor_expression(_environment);
             visitor_expression.walk(return_value);
@@ -301,7 +281,7 @@ namespace TL
             // then add return special symbol
             if (_environment._inside_inner_masked_bb.back() && 
                     (_environment._function_return.is_invalid()) &&
-                    (!_environment._mask_list.back().is_null()))
+                    (!mask.is_null()))
             {
                 // New return special symbol
                 _environment._function_return = _environment._local_scope_list.front().new_symbol("__function_return");
@@ -318,7 +298,7 @@ namespace TL
             // Return special symbol if it exists 
             if(_environment._function_return.is_valid())
             {
-                ERROR_CONDITION(_environment._mask_list.back().is_null(), 
+                ERROR_CONDITION(mask.is_null(), 
                         "VisitorStatement: Mask list is null at %s", locus_to_str(n.get_locus()));
 
                 Nodecl::ExpressionStatement new_exp_stmt =
@@ -326,10 +306,28 @@ namespace TL
                             Nodecl::VectorAssignmentMask::make(
                                 _environment._function_return.make_nodecl(true, n.get_locus()),
                                 return_value.shallow_copy(),
-                                _environment._mask_list.back().shallow_copy(),
+                                mask.shallow_copy(),
                                 _environment._function_return.get_type(),
                                 n.get_locus()),
                             n.get_locus());
+
+                // If return is not in the first SIMD scope, then 
+                // current mask must be set to all zeros
+
+                if (_environment._inside_inner_masked_bb.back())
+                {
+                    Nodecl::ExpressionStatement mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(
+                                    mask.shallow_copy(),
+                                    Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                        const_value_get_zero(2, 0),
+                                        n.get_locus()),
+                                    mask.get_type(),
+                                    make_locus("", 0, 0)));
+
+                    n.append_sibling(mask_exp);
+                }
 /*
                 // If return is not in the first SIMD scope, then 
                 // a real return may be necessary if mask is == 0
@@ -373,6 +371,7 @@ namespace TL
             running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
         }
 
+/*
         Nodecl::NodeclBase VectorizerVisitorStatement::process_return_inside(Nodecl::NodeclBase current_mask_nodecl)
         {
             Nodecl::NodeclBase prev_mask = _environment._mask_list.back();
@@ -419,6 +418,7 @@ namespace TL
 
             return new_prev_mask_exp;
         }
+*/
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorStatement::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
