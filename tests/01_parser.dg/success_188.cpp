@@ -28,35 +28,26 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
-test_compile_fail=yes
-test_compile_faulty=yes
+test_generator=config/mercurium
 </testinfo>
 */
-
-// This test is faulty until we fix ticket #1565
-
-#include<assert.h>
-
-class A
+template <typename T>
+struct A
 {
-    public:
-        int bar()
-        {
-            int x = foo() + foo();
-            #pragma omp taskwait on(x)
-            return x;
-        }
+    operator bool();
 
-    private:
-        #pragma omp task
-        int foo() { return 1; }
+    bool to_bool()
+    {
+        return operator bool();
+    }
 };
 
-int main()
+struct B
 {
-    A a;
-    int x = a.bar();
+    operator bool();
 
-    assert(x == 2);
-}
+    bool to_bool()
+    {
+        return operator bool();
+    }
+};

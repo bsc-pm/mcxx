@@ -28,35 +28,51 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
-test_compile_fail=yes
-test_compile_faulty=yes
+test_generator=config/mercurium
 </testinfo>
 */
+template <typename T>
+float* f(int n) { }
 
-// This test is faulty until we fix ticket #1565
+template <int N>
+double* f(int n) { }
 
-#include<assert.h>
-
-class A
+struct B
 {
-    public:
-        int bar()
-        {
-            int x = foo() + foo();
-            #pragma omp taskwait on(x)
-            return x;
-        }
+    template <typename T>
+        float* f(const T &t) { }
 
-    private:
-        #pragma omp task
-        int foo() { return 1; }
+    template <typename Q, typename T>
+        double* f(const T &t) { }
 };
 
-int main()
+template <typename S>
+struct C
 {
-    A a;
-    int x = a.bar();
+    template <typename T>
+        float* f(const T &t) { }
 
-    assert(x == 2);
+    template <typename Q, typename T>
+        double* f(const T &t) { }
+};
+
+void g()
+{
+    float *pf;
+    double *pd;
+
+    pf = f<int>(3);
+    pd = f<10>(3);
+
+    char pc;
+    B b;
+    pf = b.f(pc);
+
+    short ps;
+    pd = b.f<float>(ps);
+
+    C<int> c;
+    pf = c.f(pc);
+
+    pd = c.f<float>(ps);
 }

@@ -1730,7 +1730,7 @@ type_t* template_type_get_primary_type(type_t* t)
     return t->type->primary_specialization;
 }
 
-static char same_template_parameter_list(
+static char same_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
         template_parameter_list_t* template_parameter_list_2,
         decl_context_t decl_context)
@@ -1873,7 +1873,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
                     locus_to_str(entry->locus));
         }
 
-        if (same_template_parameter_list(template_parameters, specialization_template_parameters, decl_context)
+        if (same_template_argument_list(template_parameters, specialization_template_parameters, decl_context)
                 // If this template type is 0-parameterized, the primary never matches
                 && !(specialization == template_type_get_primary_type(t)
                     && template_type_get_template_parameters(t)->num_parameters == 0))
@@ -4598,7 +4598,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                     {
                         template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
                         template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
-                        result = same_template_parameter_list(tpl1, tpl2, decl_context);
+                        result = same_template_argument_list(tpl1, tpl2, decl_context);
                     }
                 }
                 else
@@ -5417,7 +5417,7 @@ static char syntactic_comparison_of_one_dependent_part(
 
     if (template_parameter_list_1 != NULL)
     {
-        if (!same_template_parameter_list(template_parameter_list_1,
+        if (!same_template_argument_list(template_parameter_list_1,
                     template_parameter_list_2, decl_context))
         {
             DEBUG_CODE()
@@ -7129,6 +7129,11 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                     case BT_VOID :
                         {
                             result = strappend(result, "void");
+                            break;
+                        }
+                    case BT_BYTE :
+                        {
+                            result = strappend(result, "@byte@");
                             break;
                         }
                     case BT_UNKNOWN :
@@ -9638,7 +9643,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 
 static rb_red_blk_tree *_zero_types_hash = NULL;
 
-static type_t* get_zero_type_variant(type_t* t)
+type_t* get_zero_type_variant(type_t* t)
 {
     ERROR_CONDITION (!is_integral_type(t) && !is_bool_type(t), "Base type must be integral", 0);
     if (is_zero_type(t))
@@ -9688,6 +9693,9 @@ type_t* get_bool_false_type(void)
 
 char is_zero_type(type_t* t)
 {
+    if (t == NULL)
+        return 0;
+
     t = advance_over_typedefs(t);
     return (t->info->is_zero_type);
 }

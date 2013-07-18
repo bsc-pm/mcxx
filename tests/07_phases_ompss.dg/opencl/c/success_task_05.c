@@ -28,35 +28,24 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
-test_compile_fail=yes
-test_compile_faulty=yes
+test_generator=config/mercurium-opencl
+compile_versions=ompss
 </testinfo>
 */
-
-// This test is faulty until we fix ticket #1565
-
-#include<assert.h>
-
-class A
+void g()
 {
-    public:
-        int bar()
-        {
-            int x = foo() + foo();
-            #pragma omp taskwait on(x)
-            return x;
-        }
+    const int x12 = 32;
 
-    private:
-        #pragma omp task
-        int foo() { return 1; }
-};
+    #pragma omp target device(opencl) ndrange(1, x12, 32) file(dummy.cl)
+    #pragma omp task inout([n]a)
+    void f(int n, int *a);
+
+    int a[100];
+    f(100, a);
+    #pragma omp taskwait
+}
 
 int main()
 {
-    A a;
-    int x = a.bar();
-
-    assert(x == 2);
+    g();
 }

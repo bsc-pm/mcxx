@@ -724,7 +724,9 @@ void LoweringVisitor::emit_async_common(
                 continue;
 
             TL::Symbol sym = (*it)->get_symbol();
-            update_alloca_decls_opt << sym.get_name() << " = &(ol_args->" << sym.get_name() << ");";
+            update_alloca_decls_opt
+                << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
+                ;
 
         }
     }
@@ -1214,7 +1216,13 @@ void LoweringVisitor::fill_arguments(
                     }
                 case OutlineDataItem::SHARING_ALLOCA:
                     {
-                        // This argument will be initialized by another task
+                        fill_outline_arguments
+                            << "ol_args->" << (*it)->get_field_name() << "= &(ol_args->" << (*it)->get_field_name() << "_storage);"
+                            ;
+
+                        fill_immediate_arguments
+                            << "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
+                            ;
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
@@ -1341,7 +1349,13 @@ void LoweringVisitor::fill_arguments(
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        if (t.is_pointer() 
+                        if (sym.is_optional())
+                        {
+                            fill_outline_arguments << "IF (PRESENT(" << sym.get_name() << ")) THEN\n";
+                            fill_immediate_arguments << "IF (PRESENT(" << sym.get_name() << ")) THEN\n";
+                        }
+
+                        if (t.is_pointer()
                                 || sym.is_allocatable())
                         {
                             TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
@@ -1384,6 +1398,19 @@ void LoweringVisitor::fill_arguments(
                                 "imm_args % " << (*it)->get_field_name() << " => MERCURIUM_LOC("
                                 << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
+                        }
+
+                        if (sym.is_optional())
+                        {
+                            fill_outline_arguments
+                                << "ELSE\n"
+                                <<    "ol_args %" << (*it)->get_field_name() << " => MERCURIUM_NULL()\n"
+                                << "END IF\n";
+
+                            fill_immediate_arguments
+                                << "ELSE\n"
+                                <<    "imm_args %" << (*it)->get_field_name() << " => MERCURIUM_NULL()\n"
+                                << "END IF\n";
                         }
 
                         break;
@@ -1440,61 +1467,6 @@ void LoweringVisitor::fill_arguments(
                         internal_error("Unexpected sharing kind", 0);
                     }
             }
-        }
-    }
-}
-
-void LoweringVisitor::fill_allocatable_dimensions(
-        TL::Symbol symbol,
-        TL::Type current_type,
-        int current_rank,
-        int rank_size,
-        Source &fill_outline_arguments, 
-        Source &fill_immediate_arguments, 
-        int &lower_bound_index, 
-        int &upper_bound_index)
-{
-    if (current_type.is_array())
-    {
-        fill_allocatable_dimensions(
-                symbol,
-                current_type.array_element(),
-                current_rank - 1,
-                rank_size,
-                fill_outline_arguments, 
-                fill_immediate_arguments,
-                lower_bound_index,
-                upper_bound_index);
-
-        Nodecl::NodeclBase lower, upper;
-        current_type.array_get_bounds(lower, upper);
-
-        if (lower.is_null())
-        {
-            fill_outline_arguments
-                << "ol_args % mcc_lower_bound_" << lower_bound_index
-                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-            fill_immediate_arguments
-                << "imm_args % mcc_lower_bound_" << lower_bound_index
-                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-
-            lower_bound_index++;
-        }
-
-        if (upper.is_null())
-        {
-            fill_outline_arguments
-                << "ol_args % mcc_upper_bound_" << upper_bound_index
-                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-            fill_immediate_arguments
-                << "imm_args % mcc_upper_bound_" << upper_bound_index
-                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-
-            upper_bound_index++;
         }
     }
 }

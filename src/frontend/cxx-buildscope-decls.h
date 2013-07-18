@@ -76,6 +76,9 @@ struct gather_decl_spec_tag {
     // GCC extension
     char is_transparent_union;
 
+    // Mercurium extension
+    char is_boolean_integer;
+
     // We are in the declarator of "new T[e]" 
     // 'e' may be non-constant, do not create a VLA entity for it
     char is_cxx_new_declarator;

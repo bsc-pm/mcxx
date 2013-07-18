@@ -1135,8 +1135,8 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                 break;
             }
         case AST_CONVERSION_FUNCTION_ID :
-            // That's fine
-            return 1;
+            // That's fine only at class-scope
+            return decl_context.current_scope->kind == CLASS_SCOPE;
         default :
             // Do nothing for any other things
             break;

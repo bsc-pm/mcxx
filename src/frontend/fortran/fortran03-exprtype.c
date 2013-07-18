@@ -210,14 +210,23 @@ static char is_call_to_null(nodecl_t node, type_t** ptr_type)
         *ptr_type = NULL;
 
     scope_entry_t* function_called = NULL;
-    if (nodecl_is_null(node)
-            || nodecl_get_kind(node) != NODECL_FUNCTION_CALL
-            || ((function_called = nodecl_get_symbol(nodecl_get_child(node, 0))) == NULL)
-            || strcasecmp(function_called->symbol_name, "null") != 0
-            || !function_called->entity_specs.is_builtin)
+    char ok = 0;
+    if (!nodecl_is_null(node)
+            && is_zero_type(nodecl_get_type(node)))
     {
-        return 0;
+        ok = 1;
     }
+    else if (!nodecl_is_null(node)
+            && nodecl_get_kind(node) == NODECL_FUNCTION_CALL
+            && ((function_called = nodecl_get_symbol(nodecl_get_child(node, 0))) != NULL)
+            && strcasecmp(function_called->symbol_name, "null") == 0
+            && function_called->entity_specs.is_builtin)
+    {
+        ok = 1;
+    }
+
+    if (!ok)
+        return 0;
 
     if (ptr_type != NULL)
         *ptr_type = function_type_get_return_type(function_called->type_information);

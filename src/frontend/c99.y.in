@@ -150,6 +150,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 %token<token_atrib> MCC_REFERENCE "<C-reference-specifier>"
 %token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
+%token<token_atrib> MCC_BYTE "<byte-type-spec>"
+%token<token_atrib> MCC_BOOL "<bool-type-spec>"
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -812,6 +814,11 @@ nontype_specifier_without_attribute : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_GCC_IMAGINARY_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
+// Mercurium extension
+| MCC_BOOL
+{
+	$$ = ASTLeaf(AST_MCC_BOOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 ;
 
 storage_class_specifier : AUTO 
@@ -963,6 +970,10 @@ builtin_types : TOKEN_CHAR
 | TOKEN_INT128
 {
 	$$ = ASTLeaf(AST_GCC_INT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| MCC_BYTE
+{
+	$$ = ASTLeaf(AST_MCC_BYTE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 

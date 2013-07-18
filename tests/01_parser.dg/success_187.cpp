@@ -28,35 +28,15 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
-test_compile_fail=yes
-test_compile_faulty=yes
+test_generator=config/mercurium
 </testinfo>
 */
-
-// This test is faulty until we fix ticket #1565
-
-#include<assert.h>
-
-class A
+template <template <typename> class W >
+void f()
 {
-    public:
-        int bar()
-        {
-            int x = foo() + foo();
-            #pragma omp taskwait on(x)
-            return x;
-        }
+}
 
-    private:
-        #pragma omp task
-        int foo() { return 1; }
-};
-
-int main()
+template <template <typename, typename> class W >
+void f()
 {
-    A a;
-    int x = a.bar();
-
-    assert(x == 2);
 }

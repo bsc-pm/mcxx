@@ -1,0 +1,39 @@
+#!/bin/bash
+
+if [ -z "@NANOX_INCLUDES@" -o "@opencl_valid@" = no ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
+fi
+
+source @abs_builddir@/mercurium-libraries
+
+cat <<EOF
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=oclmcc --config-dir=@abs_top_builddir@/config --verbose"
+MFC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=oclmfc --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=oclmcxx --config-dir=@abs_top_builddir@/config --verbose"
+EOF
+
+if [ ! -z "@NANOX_INCLUDES@" ];
+then
+
+cat <<EOF
+test_CC_ompss="\${MCC} --variable=disable_opencl_file_check:1"
+test_FC_ompss="\${MFC} --variable=disable_opencl_file_check:1"
+test_CXX_ompss="\${MCXX} --variable=disable_opencl_file_check:1"
+
+test_CFLAGS_ompss="--ompss"
+test_FFLAGS_ompss="--ompss"
+test_CXXFLAGS_ompss="--ompss"
+EOF
+
+fi
+
+cat <<EOF
+test_nolink=yes
+EOF

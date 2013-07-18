@@ -276,7 +276,13 @@ namespace TL
 
                 _data_ref._data_type = extend_array_type_to_regions(array);
 
-                if (array.get_subscripted().is<Nodecl::Symbol>())
+                Nodecl::NodeclBase subscripted = array.get_subscripted();
+                while (subscripted.is<Nodecl::Conversion>())
+                {
+                    subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
+                }
+
+                if (subscripted.is<Nodecl::Symbol>())
                 {
                     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                     {
@@ -284,10 +290,10 @@ namespace TL
                         // float *p              p[3]         (we are in [3])
                         //
                         // Use x (or p) directly
-                        _data_ref._base_address = array.get_subscripted();
+                        _data_ref._base_address = subscripted;
                     }
                 }
-                else if (array.get_subscripted().is<Nodecl::ClassMemberAccess>())
+                else if (subscripted.is<Nodecl::ClassMemberAccess>())
                 {
                     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                     {
@@ -295,21 +301,21 @@ namespace TL
                         //                      a.x[1][2]     (we are in [1][2])
                         //                      a.p[3]        (we are in [3])
                         // Use a.x or (a.p) directly
-                        _data_ref._base_address = array.get_subscripted();
+                        _data_ref._base_address = subscripted;
                     }
                 }
-                else if (array.get_subscripted().is<Nodecl::Shaping>())
+                else if (subscripted.is<Nodecl::Shaping>())
                 {
                     // ([10][20]x)[30][40]          (we are in [30][40])
                     // Use the address of the shaping expression itself
                     // Do nothing
                 }
-                else if (array.get_subscripted().is<Nodecl::ArraySubscript>())
+                else if (subscripted.is<Nodecl::ArraySubscript>())
                 {
                     // float (*p)[20][30]    (p[1])[2][3]  (we are in [2][3])
                     // Do nothing
                 }
-                else if (array.get_subscripted().is<Nodecl::Dereference>())
+                else if (subscripted.is<Nodecl::Dereference>())
                 {
                     // float (*p)[20][30]    (*p)[2][3]    (we are in [2][3])
                     // This is like p[0][2][3] so the base address is p.
@@ -674,6 +680,10 @@ namespace TL
         {
             return get_address_of_symbol_helper(expr.as<Nodecl::ClassMemberAccess>().get_lhs(), /* reference */ true);
         }
+        else if (expr.is<Nodecl::Conversion>())
+        {
+            return get_address_of_symbol_helper(expr.as<Nodecl::Conversion>().get_nest(), reference);
+        }
         else
         {
             internal_error("Unhandled case '%s'\n", ast_print_node_type(expr.get_kind()));
@@ -944,6 +954,10 @@ namespace TL
                     result.get_locus());
 
             Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
+            while (subscripted.is<Nodecl::Conversion>())
+            {
+                subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
+            }
 
             // a.b[e]
             // (p[e1])[e] -> This only happens when indexing a pointer p

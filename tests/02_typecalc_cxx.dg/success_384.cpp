@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,35 +28,12 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ompss
-test_compile_fail=yes
-test_compile_faulty=yes
+test_generator=config/mercurium
 </testinfo>
 */
 
-// This test is faulty until we fix ticket #1565
-
-#include<assert.h>
-
-class A
-{
-    public:
-        int bar()
-        {
-            int x = foo() + foo();
-            #pragma omp taskwait on(x)
-            return x;
-        }
-
-    private:
-        #pragma omp task
-        int foo() { return 1; }
-};
-
-int main()
-{
-    A a;
-    int x = a.bar();
-
-    assert(x == 2);
+template<int _AP_W>
+inline void isNegative(void) {
+    enum {APINT_BITS_PER_WORD=32,_AP_N=(_AP_W+APINT_BITS_PER_WORD-1)/APINT_BITS_PER_WORD};
+    static const unsigned int sign_mask = (1ULL << (_AP_W%APINT_BITS_PER_WORD-1));
 }

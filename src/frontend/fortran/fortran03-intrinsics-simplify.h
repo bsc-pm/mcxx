@@ -32,6 +32,8 @@
 #include <float.h>
 #include <complex.h>
 
+#include "cxx-typeutils.h"
+
 static nodecl_t nodecl_make_int_literal(int n)
 {
     return nodecl_make_integer_literal(fortran_get_default_integer_type(), 
@@ -2672,4 +2674,16 @@ static nodecl_t simplify_mcc_loc(scope_entry_t* entry UNUSED_PARAMETER, int num_
                 nodecl_get_locus(arguments[0])),
             get_lvalue_reference_type(get_void_type()),
             nodecl_get_locus(arguments[0]));
+}
+
+static nodecl_t simplify_mcc_null(scope_entry_t* entry UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        nodecl_t* arguments UNUSED_PARAMETER)
+{
+    const_value_t* zero = const_value_get_zero(fortran_get_default_integer_type_kind(), 1);
+
+    nodecl_t zero_pointer = const_value_to_nodecl(zero);
+
+    nodecl_set_type(zero_pointer, get_zero_type_variant(fortran_get_default_integer_type()));
+    return zero_pointer;
 }
