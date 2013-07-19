@@ -26,3 +26,5 @@ target_options[xlmf95] = no_sublink embed
 # opencl
 target_options[oclmfc] = no_sublink embed
 target_options[oclmf95] = no_sublink embed
+# nvidia
+target_options[mnvfc] = no_sublink embed

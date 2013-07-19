@@ -41,6 +41,7 @@ namespace TL
             private:
 
                 Nodecl::List _cuda_file_code;
+                Nodecl::List _extra_c_code;
                 Nodecl::Utils::SimpleSymbolMap _copied_cuda_functions;
 
                 bool _cuda_tasks_processed;
@@ -67,6 +68,12 @@ namespace TL
                         Nodecl::NodeclBase& output_statements);
 
                 void add_included_cuda_files(FILE* file);
+
+                void add_forward_code_to_extra_c_code(
+                        const std::string& outline_name,
+                        TL::ObjectList<OutlineDataItem*> data_items,
+                        Nodecl::NodeclBase parse_context);
+
             public:
 
                 // This phase does nothing

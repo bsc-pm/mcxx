@@ -40,6 +40,7 @@
 #include "cxx-driver-utils.h"
 
 #include "tl-symbol-utils.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -283,19 +284,15 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &output_statements,
         Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
-    if (IS_FORTRAN_LANGUAGE)
-        running_error("Fortran for CUDA devices is not supported yet\n");
-
     _cuda_tasks_processed = true;
+
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
+    const TargetInformation& target_info = info._target_info;
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const Nodecl::NodeclBase& task_statements = info._task_statements;
-
-    // This symbol is only valid for function tasks
-    const TL::Symbol& called_task = info._called_task;
+    const TL::Symbol& called_task = info._called_task; // This symbol is only valid for function tasks
     bool is_function_task = called_task.is_valid();
-
     output_statements = task_statements;
 
     symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_cuda_functions);
@@ -313,6 +310,12 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                     original_statements.get_locus_str().c_str());
     }
 
+    if (IS_FORTRAN_LANGUAGE
+            && target_info.get_ndrange().size() == 0)
+    {
+            running_error("%s: error: a CUDA task in Fortran must have defined the 'ndrange' clause\n",
+                    original_statements.get_locus_str().c_str());
+    }
 
     // Update the kernel configurations of every cuda function call of the current task
     Nodecl::NodeclBase task_code =
@@ -322,44 +325,90 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         update_all_kernel_configurations(task_code);
     }
 
-    // Add the user function to the intermediate file if It is a function task
-    // and It has not been added to the file previously (This action must be
-    // done always after the update of the kernel configurations because the
-    // code of the user function may be changed if It contains one or more cuda
-    // function calls)
-    if (is_function_task
-            && !called_task.get_function_code().is_null())
+    // Add the user function to the intermediate file if It is a function task and It has not been added
+    // to the file previously (This action must be done always after the update of the kernel configurations
+    // because the code of the user function may be changed if It contains one or more cuda function calls)
+    if (is_function_task)
     {
         if (_copied_cuda_functions.map(called_task) == called_task)
         {
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
+            if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE) &&
+                    !called_task.get_function_code().is_null())
+            {
+                TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
 
-            _copied_cuda_functions.add_map(called_task, new_function);
+                _copied_cuda_functions.add_map(called_task, new_function);
 
-            _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                        called_task.get_function_code(),
-                        called_task.get_scope(),
-                        *symbol_map));
+                _cuda_file_code.append(Nodecl::Utils::deep_copy(
+                            called_task.get_function_code(),
+                            called_task.get_scope(),
+                            *symbol_map));
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                TL::Symbol new_function = current_function.get_scope().new_symbol(called_task.get_name());
+                scope_entry_t* new_function_internal = new_function.get_internal_symbol();
+
+                new_function_internal->kind = called_task.get_internal_symbol()->kind;
+                new_function_internal->type_information = called_task.get_type().get_internal_type();
+                new_function_internal->entity_specs.is_user_declared = 1;
+                new_function_internal->entity_specs.is_extern = 1;
+
+                gather_gcc_attribute_t intern_global_attr;
+                intern_global_attr.attribute_name = uniquestr("global");
+                intern_global_attr.expression_list = nodecl_null();
+
+                new_function_internal->entity_specs.num_gcc_attributes = 1;
+                new_function_internal->entity_specs.gcc_attributes =
+                    (gather_gcc_attribute_t*) xcalloc(1, sizeof(gather_gcc_attribute_t));
+
+                memcpy(new_function_internal->entity_specs.gcc_attributes, &intern_global_attr, 1 * sizeof(gather_gcc_attribute_t));
+
+                _copied_cuda_functions.add_map(called_task, new_function);
+            }
         }
     }
 
     // Create the new unpacked function
     Source initial_statements, final_statements;
-    TL::Symbol unpacked_function = new_function_symbol_unpacked(
-            current_function,
-            device_outline_name + "_unpacked",
-            info,
-            symbol_map,
-            initial_statements,
-            final_statements);
+    TL::Symbol unpacked_function, forward_function;
+    if (IS_FORTRAN_LANGUAGE)
+    {
+        forward_function = new_function_symbol_forward(
+                current_function,
+                device_outline_name + "_forward",
+                info);
+
+        // The unpacked function is defined in the cuda intermediate file, but It's declared and used
+        // in the Fortran source. For some linkage reasons, the name of this function must end with an "_"
+        unpacked_function = new_function_symbol_unpacked(
+                current_function,
+                device_outline_name + "_unpack_",
+                info,
+                // out
+                symbol_map,
+                initial_statements,
+                final_statements);
+    }
+    else
+    {
+        unpacked_function = new_function_symbol_unpacked(
+                current_function,
+                device_outline_name + "_unpacked",
+                info,
+                // out
+                symbol_map,
+                initial_statements,
+                final_statements);
+    }
 
     Source ndrange_code;
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args, new_shmem_args;
     if (is_function_task
-            && info._target_info.get_ndrange().size() > 0)
+            && target_info.get_ndrange().size() > 0)
     {
         update_ndrange_and_shmem_arguments(called_task, unpacked_function,
-                info._target_info, new_ndrange_args, new_shmem_args);
+                target_info, new_ndrange_args, new_shmem_args);
 
         generate_ndrange_additional_code(new_ndrange_args, ndrange_code);
     }
@@ -368,8 +417,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // It's called from the original source but It's defined in cudacc_filename.cu
     unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
     unpacked_function.get_internal_symbol()->entity_specs.is_inline = 0;
-    if (IS_C_LANGUAGE)
+    if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
     {
+        // The unpacked function is declared in the C/Fortran source but
+        // defined in the Cuda file. For this reason, It has C linkage
         unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
     }
 
@@ -381,19 +432,26 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     Source unpacked_source;
     unpacked_source
         << "{"
-        << initial_statements
-        << ndrange_code
-        << statement_placeholder(outline_placeholder)
-        << final_statements
+        <<      initial_statements
+        <<      ndrange_code
+        <<      statement_placeholder(outline_placeholder)
+        <<      final_statements
         << "}"
         ;
 
+    if (IS_FORTRAN_LANGUAGE)
+        Source::source_language = SourceLanguage::C;
+
     Nodecl::NodeclBase new_unpacked_body =
         unpacked_source.parse_statement(unpacked_function_body);
+
+    if (IS_FORTRAN_LANGUAGE)
+        Source::source_language = SourceLanguage::Current;
+
     unpacked_function_body.replace(new_unpacked_body);
 
     if (is_function_task
-            && info._target_info.get_ndrange().size() > 0)
+            && target_info.get_ndrange().size() > 0)
     {
         generate_ndrange_kernel_call(
                 outline_placeholder.retrieve_context(),
@@ -443,7 +501,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     TL::Symbol structure_symbol = outline_function_scope.get_symbol_from_name("args");
     ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
 
-    Source unpacked_arguments/*, private_entities*/;
+    Source unpacked_arguments, cleanup_code;
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
             it != data_items.end();
@@ -453,11 +511,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         {
             case OutlineDataItem::SHARING_PRIVATE:
                 {
-                    // if (IS_CXX_LANGUAGE)
-                    // {
-                    //     // We need the declarations of the private symbols!
-                    //     private_entities << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), (*it)->get_symbol()));
-                    // }
                     break;
                 }
             case OutlineDataItem::SHARING_SHARED:
@@ -501,6 +554,21 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                             }
                         }
                     }
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        argument << "args % " << (*it)->get_field_name();
+
+                        bool is_allocatable = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE;
+                        bool is_pointer = (*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_POINTER;
+
+                        if (is_allocatable
+                                || is_pointer)
+                        {
+                            cleanup_code
+                                << "DEALLOCATE(args % " << (*it)->get_field_name() << ")\n"
+                                ;
+                        }
+                    }
                     else
                     {
                         internal_error("running error", 0);
@@ -535,13 +603,62 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
            instrument_before,
            instrument_after;
 
-    outline_src
-        << "{"
-        <<      instrument_before
-        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
-        <<      instrument_after
-        << "}"
-        ;
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            outline_src
+                << "{"
+                <<      instrument_before
+                <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
+                <<      instrument_after
+                << "}"
+                ;
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            Source outline_function_addr;
+
+            // Remove the last character of the unpacked function name (It's always an "_")
+            // Note: the unpacked function of the Fortran source and the unpacked function
+            // of the CUDA source are different symbols
+            std::string unpack_name = unpacked_function.get_name();
+            std::string unpack_name_fortran = unpack_name.substr(0, unpack_name.size()-1);
+
+            outline_src
+                << "IMPLICIT NONE\n"
+                << "EXTERNAL " << unpack_name_fortran << "\n"
+                << instrument_before << "\n"
+                << "CALL " << device_outline_name << "_forward(" << outline_function_addr << unpacked_arguments << ")\n"
+                << instrument_after << "\n"
+                << cleanup_code
+                ;
+
+
+            outline_function_addr << "LOC(" << unpack_name_fortran << ")";
+            if (!unpacked_arguments.empty())
+            {
+                outline_function_addr << ", ";
+            }
+
+            // Copy USEd information to the outline and forward functions
+            TL::Symbol *functions[] = { &outline_function, &forward_function, NULL };
+
+            for (int i = 0; functions[i] != NULL; i++)
+            {
+                TL::Symbol &function(*functions[i]);
+
+                Nodecl::Utils::Fortran::append_used_modules(original_statements.retrieve_context(),
+                        function.get_related_scope());
+
+                add_used_types(data_items, function.get_related_scope());
+            }
+
+            // Generate ancillary code in C
+            add_forward_code_to_extra_c_code(device_outline_name, data_items, outline_placeholder);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
 
     if (instrumentation_enabled())
     {
@@ -560,6 +677,105 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, outline_function_code);
 }
 
+void DeviceCUDA::add_forward_code_to_extra_c_code(
+        const std::string& outline_name,
+        TL::ObjectList<OutlineDataItem*> data_items,
+        Nodecl::NodeclBase parse_context)
+{
+    Source ancillary_source, parameters;
+
+    ancillary_source
+        << "extern void " << outline_name << "_forward_" << "(";
+    int num_data_items = data_items.size();
+    if (num_data_items == 0)
+    {
+        ancillary_source << "void (*outline_fun)(void)";
+    }
+    else
+    {
+        ancillary_source << "void (*outline_fun)(";
+        if (num_data_items == 0)
+        {
+            ancillary_source << "void";
+        }
+        else
+        {
+            for (int i = 0; i < num_data_items; i++)
+            {
+                if (i > 0)
+                {
+                    ancillary_source << ", ";
+                }
+                ancillary_source << "void *p" << i;
+            }
+        }
+        ancillary_source << ")";
+
+        for (int i = 0; i < num_data_items; i++)
+        {
+            ancillary_source << ", void *p" << i;
+        }
+    }
+    ancillary_source << ")\n{\n"
+        // << "    extern int nanos_free(void*);\n"
+        << "    extern int nanos_handle_error(int);\n\n"
+        << "    outline_fun(";
+    for (int i = 0; i < num_data_items; i++)
+    {
+        if (i > 0)
+        {
+            ancillary_source << ", ";
+        }
+        ancillary_source << "p" << i;
+    }
+    ancillary_source << ");\n";
+
+    // Free all the allocated descriptors
+    // bool first = true;
+    // int i = 0;
+    // for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+    //         it != data_items.end();
+    //         it++, i++)
+    // {
+    //     OutlineDataItem &item (*(*it));
+
+    //     if (item.get_symbol().is_valid()
+    //             && item.get_sharing() == OutlineDataItem::SHARING_SHARED)
+    //     {
+    //         TL::Type t = item.get_symbol().get_type();
+
+    //         if (!item.get_symbol().is_allocatable()
+    //                 && t.is_lvalue_reference()
+    //                 && t.references_to().is_array()
+    //                 && t.references_to().array_requires_descriptor())
+    //         {
+    //             if (first)
+    //             {
+    //                 ancillary_source << "   nanos_err_t err;\n";
+    //                 first = false;
+    //             }
+
+    //             ancillary_source
+    //                 << "    err = nanos_free(p" << i << ");\n"
+    //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
+    //                 ;
+    //         }
+    //     }
+    // }
+
+    ancillary_source << "}\n\n";
+
+    // Parse in C
+    Source::source_language = SourceLanguage::C;
+
+    Nodecl::List n = ancillary_source.parse_global(parse_context).as<Nodecl::List>();
+
+    // Restore original source language (Fortran)
+    Source::source_language = SourceLanguage::Current;
+
+    _extra_c_code.append(n);
+}
+
 DeviceCUDA::DeviceCUDA()
     : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions()
 {
@@ -574,20 +790,39 @@ void DeviceCUDA::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &fortran_dynamic_init UNUSED_PARAMETER)
 {
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
-    if (Nanos::Version::interface_is_at_least("master", 5012))
+    if (!Nanos::Version::interface_is_at_least("master", 5012))
+        internal_error("Unsupported Nanos version.", 0);
+
+    if (!IS_FORTRAN_LANGUAGE)
     {
         ancillary_device_description
             << comment("CUDA device descriptor")
             << "static nanos_smp_args_t "
             << device_outline_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
             ;
+        device_descriptor << "{ &nanos_gpu_factory, &" << device_outline_name << "_args }";
     }
     else
     {
-        internal_error("Unsupported Nanos version.", 0);
-    }
+        ancillary_device_description
+            << "static nanos_smp_args_t " << device_outline_name << "_args;"
+            ;
 
-    device_descriptor << "{ &nanos_gpu_factory, &" << device_outline_name << "_args }";
+        device_descriptor
+            << "{"
+            // factory, arg
+            << "0, 0"
+            << "}"
+            ;
+
+        fortran_dynamic_init
+            << device_outline_name << "_args.outline = (void(*)(void*))&" << device_outline_name << ";"
+            << "nanos_wd_const_data.devices[" << info._fortran_device_index << "].factory = &nanos_gpu_factory;"
+            << "nanos_wd_const_data.devices[" << info._fortran_device_index << "].arg = &" << device_outline_name << "_args;"
+            ;
+
+
+    }
 }
 
 bool DeviceCUDA::remove_function_task_from_original_source() const
@@ -648,20 +883,30 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
 
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
-    if (_cuda_tasks_processed){
+    if (_cuda_tasks_processed)
+    {
         Source nanox_device_enable_section;
         nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";
+
         if (IS_FORTRAN_LANGUAGE)
-           Source::source_language = SourceLanguage::C;
+            Source::source_language = SourceLanguage::C;
+
         Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
-        Source::source_language = SourceLanguage::Current;
-        if (IS_FORTRAN_LANGUAGE){
-           //_extra_c_code.prepend(functions_section_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            _extra_c_code.prepend(functions_section_tree);
+        }
+        else
+        {
+            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
         _cuda_tasks_processed = false;
     }
+
     if (!_cuda_file_code.is_null())
     {
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
@@ -679,13 +924,13 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         CXX_LANGUAGE()
         {
             // Add to the new intermediate file the *.cu, *.cuh included files.
-            // It must be done only in C++ language because the C++ codegen do
+            // It must be done only in C++ language because the C++ codegen does
             // not deduce the set of used symbols
             add_included_cuda_files(ancillary_file);
         }
 
         compilation_configuration_t* configuration = ::get_compilation_configuration("cuda");
-        ERROR_CONDITION (configuration == NULL, "cuda profile is mandatory when using mnvcc/mnvcxx", 0);
+        ERROR_CONDITION (configuration == NULL, "cuda profile is mandatory when using mnvfc/mnvcc/mnvcxx", 0);
 
         // Make sure phases are loaded (this is needed for codegen)
         load_compiler_phases(configuration);
@@ -697,7 +942,14 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
 
+        bool is_fortan = IS_FORTRAN_LANGUAGE;
+        if (is_fortan)
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
+
+        if (is_fortan)
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
         fclose(ancillary_file);
 
@@ -706,6 +958,42 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         // Clear the copied cuda functions map
         _copied_cuda_functions = Nodecl::Utils::SimpleSymbolMap();
+    }
+
+    if (!_extra_c_code.is_null())
+    {
+        std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
+        std::string new_filename = "cuda_aux_nanox_outline_file_" + original_filename  + ".c";
+
+        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+        if (ancillary_file == NULL)
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+        // Make sure phases are loaded (this is needed for codegen)
+        load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "auxcc");
+
+        ::mark_file_for_cleanup(new_filename.c_str());
+
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        phase->codegen_top_level(_extra_c_code, ancillary_file);
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+
+        fclose(ancillary_file);
+        // Do not forget the clear the code for next files
+        _extra_c_code.get_internal_nodecl() = nodecl_null();
     }
 }
 
