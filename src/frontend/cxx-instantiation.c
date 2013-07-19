@@ -680,52 +680,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 break;
             }
-            // This is only possible because of using declarations / or qualified members
-            // which refer to dependent entities
-            // case SK_DEPENDENT_ENTITY:
-            //     {
-            //         ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
-            //                 "Invalid expression for dependent entity", 0);
-
-            //         scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->language_dependent_value);
-            //         
-            //         if (entry_list == NULL
-            //                 || !entry_list_head(entry_list)->entity_specs.is_member)
-            //         {
-            //             running_error("%s: invalid using declaration '%s' while instantiating\n", 
-            //                     ast_location(member_of_template->language_dependent_value),
-            //                     prettyprint_in_buffer(member_of_template->language_dependent_value));
-            //         }
-
-            //         scope_entry_t* entry = entry_list_head(entry_list);
-            //         if (!class_type_is_base(entry->entity_specs.class_type, 
-            //                     get_actual_class_type(being_instantiated)))
-            //         {
-            //             running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
-            //                     ast_location(member_of_template->language_dependent_value),
-            //                         get_qualified_symbol_name(entry,
-            //                             context_of_being_instantiated),
-            //                         get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
-            //                             context_of_being_instantiated)
-            //                     );
-            //         }
-
-            //         scope_entry_list_iterator_t* it = NULL;
-            //         for (it = entry_list_iterator_begin(entry_list);
-            //                 !entry_list_iterator_end(it);
-            //                 entry_list_iterator_next(it))
-            //         {
-            //             entry = entry_list_iterator_current(it);
-            //             class_type_add_member(get_actual_class_type(being_instantiated), entry);
-
-            //             // Insert the symbol in the context
-            //             insert_entry(context_of_being_instantiated.current_scope, entry);
-            //         }
-            //         entry_list_iterator_free(it);
-            //         entry_list_free(entry_list);
-
-            //         break;
-            //     }
         case SK_USING:
         case SK_USING_TYPENAME:
             {
