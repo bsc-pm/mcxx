@@ -410,6 +410,10 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
 
 static type_t* extend_function_with_return_type(type_t* funct_type)
 {
+    // Some functions do not return anything, they are already extended
+    if (function_type_get_return_type(funct_type) == NULL)
+        return funct_type;
+
     int num_params = function_type_get_num_parameters(funct_type);
     parameter_info_t params[num_params + 1];
     memset(params, 0, sizeof(params));
