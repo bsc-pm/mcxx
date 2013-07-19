@@ -13019,12 +13019,18 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
         instantiate_template_class_if_needed(named_type_get_symbol(entry->type_information), 
                 entry->decl_context, destructor_data->locus);
 
+        nodecl_t sym_ref = nodecl_make_symbol(entry, make_locus("", 0, 0));
+        type_t* t = entry->type_information;
+        if (!is_any_reference_type(t))
+            t = get_lvalue_reference_type(t);
+        nodecl_set_type(sym_ref, t);
+
         nodecl_t nodecl_call_to_destructor = 
             nodecl_make_expression_statement(
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(class_type_get_destructor(entry->type_information), make_locus("", 0, 0)),
                         /* called name */ nodecl_null(),
-                        nodecl_make_list_1(nodecl_make_symbol(entry, make_locus("", 0, 0))),
+                        nodecl_make_list_1(sym_ref),
                         /* function_form */ nodecl_null(),
                         get_void_type(),
                         make_locus("", 0, 0)), make_locus("", 0, 0));
