@@ -275,6 +275,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
 
@@ -333,18 +334,6 @@ namespace TL { namespace Nanox {
                             internal_error("running error", 0);
                         }
 
-                        unpacked_arguments.append_with_separator(argument, ", ");
-                        break;
-                    }
-                case OutlineDataItem::SHARING_ALLOCA:
-                    {
-                        if (IS_FORTRAN_LANGUAGE)
-                        {
-                            internal_error("unreachable code", 0);
-                        }
-
-                        TL::Source argument;
-                        argument << "&(args." << (*it)->get_field_name() <<")";
                         unpacked_arguments.append_with_separator(argument, ", ");
                         break;
                     }

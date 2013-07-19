@@ -69,7 +69,7 @@ LIBMCXX_EXTERN struct AST_tag* get_function_declarator_parameter_list(struct AST
 LIBMCXX_EXTERN struct AST_tag* get_leftmost_declarator_name(struct AST_tag* a, decl_context_t decl_context);
 
 LIBMCXX_EXTERN char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id, 
-        struct type_tag** result_conversion_type, nodecl_t* nodecl_output);
+        struct type_tag** result_conversion_type);
 LIBMCXX_EXTERN const char *get_operation_function_name(AST operation_tree);
 
 LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t inner_decl_context,

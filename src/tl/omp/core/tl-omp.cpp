@@ -186,7 +186,7 @@ namespace TL
             symbols = _reduction_symbols;
         }
 
-        TargetInfo DataSharingEnvironment::get_target_info()
+        TargetInfo& DataSharingEnvironment::get_target_info()
         {
             return _target_info;
         }

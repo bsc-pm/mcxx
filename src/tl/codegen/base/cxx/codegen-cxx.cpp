@@ -884,7 +884,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
-    file << "operator " << this->get_declaration(node.get_type(), this->get_current_scope(), "");
+    file
+        << "operator "
+        << this->get_declaration(node.get_conversion_type().get_type(), this->get_current_scope(), "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameNested& node)
@@ -1424,7 +1426,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                 ::template_arguments_to_str(
                         deduced_template_args.get_internal_template_parameter_list(),
                         /* first_template_argument_to_be_printed */ template_args.get_num_parameters(),
-                        /* print_first_level_bracket */ 1,
+                        /* print_first_level_bracket */ 0,
                         called_symbol.get_scope().get_decl_context());
 
             // Reason of this: A<::B> it's not legal
@@ -1436,7 +1438,13 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
             {
                 file << "<";
             }
-            file << template_args_str << "/*, " << deduced_template_args_str <<"*/>";
+
+            file << template_args_str;
+
+            if (deduced_template_args_str != "")
+                file << " /*, " << deduced_template_args_str << " */ ";
+
+            file << ">";
         }
     }
     else
@@ -1897,14 +1905,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
     if (symbol.is_inline())
     {
-        C_LANGUAGE()
-        {
-            decl_spec_seq += "__inline ";
-        }
-        CXX_LANGUAGE()
-        {
-            decl_spec_seq += "inline ";
-        }
+        decl_spec_seq += "inline ";
     }
 
     if (symbol.is_explicit_constructor()
@@ -2162,6 +2163,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (symbol.is_extern() && symbol.get_value().is_null())
     {
         decl_spec_seq += "extern ";
+    }
+    if (symbol.is_virtual() && symbol.is_defined_inside_class())
+    {
+        decl_spec_seq += "virtual ";
     }
     if (symbol.is_inline())
     {
@@ -6386,6 +6391,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_COMPOUND_EXPRESSION:
 
         case NODECL_CXX_DEP_NAME_SIMPLE:
+        case NODECL_CXX_DEP_NAME_CONVERSION:
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
         case NODECL_CXX_DEP_TEMPLATE_ID:

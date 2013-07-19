@@ -36,11 +36,120 @@ namespace TL { namespace Nanox {
     namespace {
 
         // FIXME - Part of this logic must be moved to OpenMP::Core
-        bool allowed_expressions_critical(Nodecl::NodeclBase expr, bool &using_builtin)
+        bool atomic_binary_check_expr(Nodecl::NodeclBase lhs_assig, Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs)
         {
-            if (IS_FORTRAN_LANGUAGE)
-                return false;
+            // Purely syntactic check
+            return (Nodecl::Utils::equal_nodecls(lhs_assig, lhs, /* skip_conversion_nodecls */ true)
+                    != Nodecl::Utils::equal_nodecls(lhs_assig, rhs, /* skip_conversion_nodecls */ true));
+        }
 
+        bool allowed_expressions_critical_fortran(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
+        {
+            if (!expr.is<Nodecl::Assignment>())
+            {
+                // std::cerr << "NOT AN ASSIGNMENT!" << std::endl;
+                return false;
+            }
+
+            Nodecl::NodeclBase lhs_assig = expr.as<Nodecl::Assignment>().get_lhs();
+            Nodecl::NodeclBase rhs_assig = expr.as<Nodecl::Assignment>().get_rhs();
+
+            node_t op_kind = rhs_assig.get_kind();
+
+            switch (op_kind)
+            {
+                case NODECL_ADD:
+                case NODECL_MUL:
+                case NODECL_MINUS:
+                case NODECL_DIV:
+                case NODECL_LOGICAL_AND:
+                case NODECL_LOGICAL_OR:
+                    {
+                        Nodecl::NodeclBase lhs = rhs_assig.as<Nodecl::Add>().get_lhs();
+                        Nodecl::NodeclBase rhs = rhs_assig.as<Nodecl::Add>().get_rhs();
+                        if (!atomic_binary_check_expr(lhs_assig,
+                                    lhs,
+                                    rhs))
+                            return false;
+                    }
+                    break;
+                case NODECL_EQUAL:
+                case NODECL_DIFFERENT:
+                    {
+                        Nodecl::NodeclBase lhs = rhs_assig.as<Nodecl::Add>().get_lhs();
+                        Nodecl::NodeclBase rhs = rhs_assig.as<Nodecl::Add>().get_rhs();
+                        if (!atomic_binary_check_expr(lhs_assig,
+                                    lhs,
+                                    rhs))
+                            return false;
+
+                        // Only .EQV. and .NEQV.
+                        if (!lhs.get_type().no_ref().is_bool()
+                                || !rhs.get_type().no_ref().is_bool())
+                            return false;
+                    }
+                    break;
+                case NODECL_FUNCTION_CALL:
+                    {
+                        Nodecl::NodeclBase called = rhs_assig.as<Nodecl::FunctionCall>().get_called();
+                        TL::Symbol called_sym = called.get_symbol();
+                        if (!called_sym.is_valid())
+                        {
+                            // std::cerr << "SYM NOT VALID" << std::endl;
+                            return false;
+                        }
+                        if (!called_sym.is_builtin())
+                        {
+                            // std::cerr << "SYM NOT BUILTIN" << std::endl;
+                            return false;
+                        }
+                        if (called_sym.get_name() != "max"
+                                && called_sym.get_name() != "min"
+                                && called_sym.get_name() != "ieor"
+                                && called_sym.get_name() != "ior"
+                                && called_sym.get_name() != "iand")
+                        {
+                            // std::cerr << "NOT VALID BUILTIN" << std::endl;
+                            return false;
+                        }
+
+                        Nodecl::List args = rhs_assig.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        if (args.size() != 2)
+                        {
+                            // std::cerr << "ARGS NOT 2" << std::endl;
+                            return false;
+                        }
+
+                        Nodecl::NodeclBase arg_0 = args[0];
+                        Nodecl::NodeclBase arg_1 = args[1];
+
+                        if (arg_0.is<Nodecl::FortranActualArgument>())
+                            arg_0 = arg_0.as<Nodecl::FortranActualArgument>().get_argument();
+                        if (arg_1.is<Nodecl::FortranActualArgument>())
+                            arg_1 = arg_1.as<Nodecl::FortranActualArgument>().get_argument();
+
+                        if (!atomic_binary_check_expr(lhs_assig,
+                                    arg_0, arg_1))
+                        {
+                            // std::cerr << "NOT OF THE FORM X=F(X,Y) or X=F(Y,X)" << std::endl;
+                            // std::cerr << " LHS_ASSIG -> " << lhs_assig.prettyprint() << std::endl;
+                            // std::cerr << " ARGS0 -> " << arg_0.prettyprint() << std::endl;
+                            // std::cerr << " ARGS1 -> " << arg_1.prettyprint() << std::endl;
+                            return false;
+                        }
+                    }
+                    break;
+                default:
+                    // std::cerr << "??? " << ast_print_node_type(op_kind) << std::endl;
+                    return false;
+            }
+
+            using_nanos_api = true;
+            return true;
+        }
+
+        bool allowed_expressions_critical_c(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
+        {
             node_t op_kind = expr.get_kind();
 
             switch (op_kind)
@@ -124,6 +233,14 @@ namespace TL { namespace Nanox {
             }
 
             return false;
+        }
+
+        bool allowed_expressions_critical(Nodecl::NodeclBase expr, bool &using_builtin, bool &using_nanos_api)
+        {
+            if (IS_FORTRAN_LANGUAGE)
+                return allowed_expressions_critical_fortran(expr, using_builtin, using_nanos_api);
+            else
+                return allowed_expressions_critical_c(expr, using_builtin, using_nanos_api);
         }
 
         Nodecl::NodeclBase compare_and_exchange(Nodecl::NodeclBase expr)
@@ -334,6 +451,158 @@ namespace TL { namespace Nanox {
 
             return critical_source.parse_statement(expr);
         }
+
+        std::string nanos_get_api_name(Nodecl::NodeclBase lhs, Nodecl::NodeclBase op)
+        {
+            std::string result = "nanos_atomic_";
+
+            node_t op_kind = op.get_kind();
+
+            std::map<node_t, std::string> op_names;
+            op_names.insert(std::make_pair(NODECL_ADD, "add"));
+            op_names.insert(std::make_pair(NODECL_MINUS, "sub"));
+            op_names.insert(std::make_pair(NODECL_MUL, "mul"));
+            op_names.insert(std::make_pair(NODECL_DIV, "div"));
+            op_names.insert(std::make_pair(NODECL_LOGICAL_AND, "land"));
+            op_names.insert(std::make_pair(NODECL_LOGICAL_OR, "lor"));
+            op_names.insert(std::make_pair(NODECL_EQUAL, "eq"));
+            op_names.insert(std::make_pair(NODECL_DIFFERENT, "neq"));
+            op_names.insert(std::make_pair(NODECL_FUNCTION_CALL, "__intrin__"));
+
+            std::map<node_t, std::string>::iterator it_1 = op_names.find(op_kind);
+            ERROR_CONDITION(it_1 == op_names.end(), "Unhandled op", 0);
+
+            if (it_1->second == "__intrin__")
+            {
+                std::map<std::string, std::string> intrin_names;
+                intrin_names.insert(std::make_pair("max",  "max"));
+                intrin_names.insert(std::make_pair("min",  "min"));
+                intrin_names.insert(std::make_pair("ieor", "bxor"));
+                intrin_names.insert(std::make_pair("ior",  "bor"));
+                intrin_names.insert(std::make_pair("iand", "band"));
+
+                TL::Symbol funct_sym = op.as<Nodecl::FunctionCall>().get_called().get_symbol();
+                ERROR_CONDITION(!funct_sym.is_valid(), "Symbol is invalid", 0);
+                std::string funct_name = funct_sym.get_name();;
+
+                std::map<std::string, std::string>::iterator it_3 = intrin_names.find(funct_name);
+                ERROR_CONDITION(it_3 == intrin_names.end(), "Unhandled intrinsic %s", funct_name.c_str());
+
+                result += it_3->second;
+            }
+            else
+            {
+                result += it_1->second;
+            }
+
+            TL::Type t = lhs.get_type().no_ref();
+
+            std::map<TL::Type, std::string> type_names;
+            type_names.insert(std::make_pair(get_signed_char_type(), "schar"));
+            type_names.insert(std::make_pair(get_signed_byte_type(), "schar"));
+            type_names.insert(std::make_pair(get_bool_type(), "schar"));
+            type_names.insert(std::make_pair(get_signed_short_int_type(), "short"));
+            type_names.insert(std::make_pair(get_signed_int_type(), "int"));
+            type_names.insert(std::make_pair(get_signed_long_int_type(), "long"));
+            type_names.insert(std::make_pair(get_signed_long_long_int_type(), "longlong"));
+            type_names.insert(std::make_pair(get_unsigned_char_type(), "uchar"));
+            type_names.insert(std::make_pair(get_unsigned_byte_type(), "uchar"));
+            type_names.insert(std::make_pair(get_unsigned_short_int_type(), "ushort"));
+            type_names.insert(std::make_pair(get_unsigned_int_type(), "uint"));
+            type_names.insert(std::make_pair(get_unsigned_long_int_type(), "ulong"));
+            type_names.insert(std::make_pair(get_unsigned_long_long_int_type(), "ulonglong"));
+            type_names.insert(std::make_pair(get_float_type(), "float" ));
+            type_names.insert(std::make_pair(get_double_type(), "double" ));
+            type_names.insert(std::make_pair(get_long_double_type(), "ldouble" ));
+            type_names.insert(std::make_pair(get_complex_type(get_float_type()), "cfloat" ));
+            type_names.insert(std::make_pair(get_complex_type(get_double_type()), "cdouble" ));
+            type_names.insert(std::make_pair(get_complex_type(get_long_double_type()), "cldouble" ));
+
+            // Fortran logical types
+            type_names.insert(std::make_pair(get_bool_of_integer_type(get_signed_byte_type()), "bytebool"));
+            type_names.insert(std::make_pair(get_bool_of_integer_type(get_signed_short_int_type()), "shortbool"));
+            type_names.insert(std::make_pair(get_bool_of_integer_type(get_signed_int_type()), "intbool"));
+            type_names.insert(std::make_pair(get_bool_of_integer_type(get_signed_long_int_type()), "longbool"));
+            type_names.insert(std::make_pair(get_bool_of_integer_type(get_signed_long_long_int_type()), "longlongbool"));
+
+            std::map<TL::Type, std::string>::iterator it_2 = type_names.find(t);
+            ERROR_CONDITION(it_2 == type_names.end(), "Unhandled type %s", print_declarator(t.get_internal_type()));
+
+            result += "_" + it_2->second;
+
+            return result;
+        }
+
+        Nodecl::NodeclBase nanos_api_call(Nodecl::NodeclBase expr)
+        {
+            Nodecl::NodeclBase result;
+
+            Nodecl::NodeclBase lhs_assig = expr.as<Nodecl::Assignment>().get_lhs();
+            Nodecl::NodeclBase rhs_assig = expr.as<Nodecl::Assignment>().get_rhs();
+
+            node_t op_kind = rhs_assig.get_kind();
+
+            Nodecl::NodeclBase lhs, rhs;
+
+            switch (op_kind)
+            {
+                case NODECL_FUNCTION_CALL:
+                    {
+                        Source src;
+
+                        Nodecl::List args = rhs_assig.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        lhs = args[0];
+                        rhs = args[1];
+
+                        if (lhs.is<Nodecl::FortranActualArgument>())
+                            lhs = lhs.as<Nodecl::FortranActualArgument>().get_argument();
+                        if (rhs.is<Nodecl::FortranActualArgument>())
+                            rhs = rhs.as<Nodecl::FortranActualArgument>().get_argument();
+                    }
+                    break;
+                case NODECL_ADD:
+                case NODECL_MUL:
+                case NODECL_MINUS:
+                case NODECL_DIV:
+                case NODECL_LOGICAL_AND:
+                case NODECL_LOGICAL_OR:
+                case NODECL_EQUAL:
+                case NODECL_DIFFERENT:
+                    {
+                        lhs = rhs_assig.as<Nodecl::Add>().get_lhs();
+                        rhs = rhs_assig.as<Nodecl::Add>().get_rhs();
+                    }
+                    break;
+                default:
+                    internal_error("Unhandled case '%s'\n", ast_print_node_type(op_kind));
+            }
+
+            Nodecl::NodeclBase value;
+
+            if (Nodecl::Utils::equal_nodecls(lhs_assig, lhs, /* skip_conversion_nodecls */ true))
+                value = rhs;
+            else
+                value = lhs;
+
+            std::string api_name = nanos_get_api_name(expr, rhs_assig);
+
+            Source src;
+            src << api_name << "(" << as_expression(lhs_assig.shallow_copy()) << ", "
+                << as_expression(value.shallow_copy()) << ");"
+                ;
+
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Source::source_language = SourceLanguage::C;
+            }
+            result = src.parse_statement(expr);
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                Source::source_language = SourceLanguage::Current;
+            }
+
+            return result;
+        }
     }
 
     void LoweringVisitor::visit(const Nodecl::OpenMP::Atomic& construct)
@@ -361,7 +630,8 @@ namespace TL { namespace Nanox {
                 Nodecl::NodeclBase atomic_tree;
 
                 bool using_builtin = false;
-                if (!allowed_expressions_critical(expr, using_builtin))
+                bool using_nanos_api = false;
+                if (!allowed_expressions_critical(expr, using_builtin, using_nanos_api))
                 {
                     warn_printf("%s: warning: 'atomic' expression cannot be implemented efficiently\n",
                             expr.get_locus_str().c_str());
@@ -370,7 +640,13 @@ namespace TL { namespace Nanox {
                 }
                 else
                 {
-                    if (using_builtin)
+                    if (using_nanos_api)
+                    {
+                        atomic_tree = nanos_api_call(expr);
+                        info_printf("%s: info: 'atomic' directive implemented using Nanos++ API calls\n",
+                                expr.get_locus_str().c_str());
+                    }
+                    else if (using_builtin)
                     {
                         atomic_tree = builtin_atomic_int_op(expr);
                         info_printf("%s: info: 'atomic' directive implemented using GCC atomic builtins\n",

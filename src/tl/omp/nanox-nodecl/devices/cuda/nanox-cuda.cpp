@@ -286,7 +286,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for CUDA devices is not supported yet\n");
 
-    _cuda_tasks_processed=true;
+    _cuda_tasks_processed = true;
     // Unpack DTO
     const std::string& device_outline_name = cuda_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -311,82 +311,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             running_error("%s: error: nested functions are not supported\n",
                     original_statements.get_locus_str().c_str());
-    }
-
-    Source unpacked_arguments, private_entities;
-
-    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        switch ((*it)->get_sharing())
-        {
-            case OutlineDataItem::SHARING_PRIVATE:
-                {
-                    if (IS_CXX_LANGUAGE)
-                    {
-                        // We need the declarations of the private symbols!
-                        private_entities << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), (*it)->get_symbol()));
-                    }
-                    break;
-                }
-            case OutlineDataItem::SHARING_SHARED:
-            case OutlineDataItem::SHARING_CAPTURE:
-            case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                {
-                    TL::Type param_type = (*it)->get_in_outline_type();
-
-                    Source argument;
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
-                        // Normal shared items are passed by reference from a pointer,
-                        // derreference here
-                        if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
-                                && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
-                        {
-                            argument << "*(args." << (*it)->get_field_name() << ")";
-                        }
-                        // Any other thing is passed by value
-                        else
-                        {
-                            argument << "args." << (*it)->get_field_name();
-                        }
-
-                        if (IS_CXX_LANGUAGE
-                                && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
-                        {
-                            internal_error("Not yet implemented: call the destructor", 0);
-                        }
-                    }
-                    else
-                    {
-                        internal_error("running error", 0);
-                    }
-
-                    unpacked_arguments.append_with_separator(argument, ", ");
-                    break;
-                }
-            case OutlineDataItem::SHARING_REDUCTION:
-                {
-                    // Pass the original reduced variable as if it were a shared
-                    Source argument;
-                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    {
-                        argument << "*(args." << (*it)->get_field_name() << ")";
-                    }
-                    else
-                    {
-                        internal_error("running error", 0);
-                    }
-                    unpacked_arguments.append_with_separator(argument, ", ");
-                    break;
-                }
-            default:
-                {
-                    internal_error("Unexpected data sharing kind", 0);
-                }
-        }
     }
 
 
@@ -420,14 +344,14 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // Create the new unpacked function
-    Source dummy_initial_statements, dummy_final_statements;
+    Source initial_statements, final_statements;
     TL::Symbol unpacked_function = new_function_symbol_unpacked(
             current_function,
             device_outline_name + "_unpacked",
             info,
             symbol_map,
-            dummy_initial_statements,
-            dummy_final_statements);
+            initial_statements,
+            final_statements);
 
     Source ndrange_code;
     TL::ObjectList<Nodecl::NodeclBase> new_ndrange_args, new_shmem_args;
@@ -441,8 +365,9 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     }
 
     // The unpacked function must not be static and must have external linkage because
-    // this function is called from the original source but It is defined in cudacc_filename.cu
+    // It's called from the original source but It's defined in cudacc_filename.cu
     unpacked_function.get_internal_symbol()->entity_specs.is_static = 0;
+    unpacked_function.get_internal_symbol()->entity_specs.is_inline = 0;
     if (IS_C_LANGUAGE)
     {
         unpacked_function.get_internal_symbol()->entity_specs.linkage_spec = "\"C\"";
@@ -456,9 +381,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     Source unpacked_source;
     unpacked_source
         << "{"
-        << private_entities
+        << initial_statements
         << ndrange_code
         << statement_placeholder(outline_placeholder)
+        << final_statements
         << "}"
         ;
 
@@ -511,6 +437,99 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_body);
+
+    // Prepare arguments for the call to the unpack (or forward in Fortran)
+    TL::Scope outline_function_scope(outline_function_body.retrieve_context());
+    TL::Symbol structure_symbol = outline_function_scope.get_symbol_from_name("args");
+    ERROR_CONDITION(!structure_symbol.is_valid(), "Argument of outline function not found", 0);
+
+    Source unpacked_arguments/*, private_entities*/;
+    TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        switch ((*it)->get_sharing())
+        {
+            case OutlineDataItem::SHARING_PRIVATE:
+                {
+                    // if (IS_CXX_LANGUAGE)
+                    // {
+                    //     // We need the declarations of the private symbols!
+                    //     private_entities << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), (*it)->get_symbol()));
+                    // }
+                    break;
+                }
+            case OutlineDataItem::SHARING_SHARED:
+            case OutlineDataItem::SHARING_CAPTURE:
+            case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                {
+                    TL::Type param_type = (*it)->get_in_outline_type();
+
+                    Source argument;
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        // Normal shared items are passed by reference from a pointer,
+                        // derreference here
+                        if (
+                                ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
+                                && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
+                        {
+                            if (!param_type.no_ref().depends_on_nonconstant_values())
+                            {
+                                argument << "*(args." << (*it)->get_field_name() << ")";
+                            }
+                            else
+                            {
+                                TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+
+                                argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                            }
+                        }
+                        // Any other parameter is bound to the storage of the struct
+                        else
+                        {
+                            if (!param_type.no_ref().depends_on_nonconstant_values())
+                            {
+                                argument << "args." << (*it)->get_field_name();
+                            }
+                            else
+                            {
+                                TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
+                                argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        internal_error("running error", 0);
+                    }
+
+                    unpacked_arguments.append_with_separator(argument, ", ");
+                    break;
+                }
+            case OutlineDataItem::SHARING_REDUCTION:
+                {
+                    // Pass the original reduced variable as if it were a shared
+                    Source argument;
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        argument << "*(args." << (*it)->get_field_name() << ")";
+                    }
+                    else
+                    {
+                        internal_error("running error", 0);
+                    }
+                    unpacked_arguments.append_with_separator(argument, ", ");
+                    break;
+                }
+            default:
+                {
+                    internal_error("Unexpected data sharing kind", 0);
+                }
+        }
+    }
 
     Source outline_src,
            instrument_before,
@@ -585,13 +604,17 @@ void DeviceCUDA::add_included_cuda_files(FILE* file)
     for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
     {
         std::string line = (*it).get_preprocessor_line();
-        std::string extension = line.substr(line.find_last_of("."));
-
-        if (extension == cuda_file_ext || extension == cuda_header_ext)
+        size_t found = line.find_last_of(".");
+        if (found != std::string::npos)
         {
-            int output = fprintf(file, "%s\n", line.c_str());
-            if (output < 0)
-                internal_error("Error trying to write the intermediate cuda file\n", 0);
+            std::string extension = line.substr(found);
+
+            if (extension == cuda_file_ext || extension == cuda_header_ext)
+            {
+                int output = fprintf(file, "%s\n", line.c_str());
+                if (output < 0)
+                    internal_error("Error trying to write the intermediate cuda file\n", 0);
+            }
         }
     }
 }

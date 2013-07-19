@@ -492,7 +492,8 @@ namespace TL
                 bool is_local_to_current_function(TL::Symbol sym)
                 {
                     return (sym.get_scope().is_block_scope()
-                            && sym.get_scope().get_related_symbol() == _sc.get_related_symbol());
+                            && (sym.get_scope() == _sc
+                                || _sc.scope_is_enclosed_by(sym.get_scope())));
                 }
 
                 void walk_type(TL::Type t)
@@ -567,7 +568,8 @@ namespace TL
                 virtual Ret visit(const Nodecl::Symbol &n)
                 {
                     TL::Symbol sym = n.get_symbol();
-                    if (sym.is_saved_expression())
+                    if (sym.is_saved_expression()
+                            && is_local_to_current_function(sym))
                     {
                         symbols.insert(sym);
                     }

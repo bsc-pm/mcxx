@@ -189,13 +189,9 @@ namespace TL { namespace OpenMP {
                     {
                         // The inline tasks are always SMP tasks
                         Nodecl::List exec_environment;
-                        exec_environment.append(Nodecl::OpenMP::Target::make(
-                                    Nodecl::List::make(Nodecl::Text::make("smp", make_locus("", 0, 0))),
-                                    nodecl_null(),
-                                    make_locus("", 0, 0)));
 
-                        TL::ObjectList<Nodecl::NodeclBase> input_alloca_dependence,
-                            inout_dependences, output_dependences, assumed_firstprivates, alloca_exprs;
+                        TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
+                            in_alloca_deps, inout_deps, out_deps, assumed_firstprivates, alloca_exprs;
 
                         Nodecl::NodeclBase expr, lhs_expr, rhs_expr;
                         expr = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest();
@@ -230,11 +226,13 @@ namespace TL { namespace OpenMP {
                         {
                             if (expr.is<Nodecl::Assignment>())
                             {
-                                output_dependences.append(lhs_expr.shallow_copy());
+                                out_deps.append(lhs_expr.shallow_copy());
+                                copy_out.append(lhs_expr.shallow_copy());
                             }
                             else
                             {
-                                inout_dependences.append(lhs_expr.shallow_copy());
+                                inout_deps.append(lhs_expr.shallow_copy());
+                                copy_inout.append(lhs_expr.shallow_copy());
                             }
                         }
 
@@ -263,9 +261,15 @@ namespace TL { namespace OpenMP {
                                 Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
                                 sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
-                                input_alloca_dependence.append(
+                                in_alloca_deps.append(
                                         Nodecl::Dereference::make(
                                             sym_nodecl,
+                                            sym.get_type().points_to().get_lvalue_reference_to(),
+                                            make_locus("", 0, 0)));
+
+                                copy_in.append(
+                                        Nodecl::Dereference::make(
+                                            sym_nodecl.shallow_copy(),
                                             sym.get_type().points_to().get_lvalue_reference_to(),
                                             make_locus("", 0, 0)));
 
@@ -308,29 +312,60 @@ namespace TL { namespace OpenMP {
                                         make_locus("", 0, 0)));
                         }
 
-                        if (!input_alloca_dependence.empty())
+                        if (!in_alloca_deps.empty())
                         {
                             exec_environment.append(
                                     Nodecl::OpenMP::DepInAlloca::make(
-                                        Nodecl::List::make(input_alloca_dependence),
+                                        Nodecl::List::make(in_alloca_deps),
                                         make_locus("", 0, 0)));
                         }
 
-                        if (!inout_dependences.empty())
+                        if (!inout_deps.empty())
                         {
                             exec_environment.append(
                                     Nodecl::OpenMP::DepOut::make(
-                                        Nodecl::List::make(inout_dependences),
+                                        Nodecl::List::make(inout_deps),
                                         make_locus("", 0, 0)));
                         }
 
-                        if (!output_dependences.empty())
+                        if (!out_deps.empty())
                         {
                             exec_environment.append(
                                     Nodecl::OpenMP::DepOut::make(
-                                        Nodecl::List::make(output_dependences),
+                                        Nodecl::List::make(out_deps),
                                         make_locus("", 0, 0)));
                         }
+
+                        if (!copy_in.empty())
+                        {
+                            target_items.append(
+                                    Nodecl::OpenMP::CopyIn::make(
+                                        Nodecl::List::make(copy_in),
+                                        make_locus("", 0, 0)));
+                        }
+
+                        if (!copy_out.empty())
+                        {
+                            target_items.append(
+                                    Nodecl::OpenMP::CopyOut::make(
+                                        Nodecl::List::make(copy_out),
+                                        make_locus("", 0, 0)));
+                        }
+
+
+                        if (!copy_inout.empty())
+                        {
+                            target_items.append(
+                                    Nodecl::OpenMP::CopyInout::make(
+                                        Nodecl::List::make(copy_inout),
+                                        make_locus("", 0, 0)));
+                        }
+
+                        exec_environment.append(Nodecl::OpenMP::Target::make(
+                                    Nodecl::List::make(Nodecl::Text::make("smp", make_locus("", 0, 0))),
+                                    Nodecl::List::make(target_items),
+                                    make_locus("", 0, 0)));
+
 
                         join_task = Nodecl::OpenMP::Task::make(
                                 exec_environment,
@@ -532,7 +567,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 // Build the tree which contains the target information
-                TargetInfo target_info = function_task_info.get_target_info();
+                TargetInfo& target_info = function_task_info.get_target_info();
 
                 TL::ObjectList<Nodecl::NodeclBase> devices;
                 TL::ObjectList<Nodecl::NodeclBase> target_items;
@@ -1167,8 +1202,13 @@ namespace TL { namespace OpenMP {
                             return_argument.get_locus()));
 
                 FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
-
                 new_function_task_info.add_function_task_dependency(result_dependence);
+
+                TargetInfo& target_info = new_function_task_info.get_target_info();
+                TL::ObjectList<CopyItem> new_copies;
+                new_copies.append(CopyItem(data_ref_dep, TL::OpenMP::COPY_DIR_OUT));
+                target_info.append_to_copy_out(new_copies);
+
                 _function_task_set->add_function_task(new_function, new_function_task_info);
             }
 
@@ -2622,7 +2662,7 @@ namespace TL { namespace OpenMP {
         }
 
         // Build the tree which contains the target information
-        TargetInfo target_info = data_sharing_env.get_target_info();
+        TargetInfo& target_info = data_sharing_env.get_target_info();
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;
@@ -2790,7 +2830,7 @@ namespace TL { namespace OpenMP {
                 result_list);
 
         // Build the tree which contains the target information
-        TargetInfo target_info = data_sharing_env.get_target_info();
+        TargetInfo& target_info = data_sharing_env.get_target_info();
 
         TL::ObjectList<Nodecl::NodeclBase> devices;
         TL::ObjectList<Nodecl::NodeclBase> target_items;

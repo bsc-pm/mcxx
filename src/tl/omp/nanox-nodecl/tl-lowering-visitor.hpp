@@ -333,16 +333,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase construct,
                 Nodecl::NodeclBase statements);
 
-        void fill_allocatable_dimensions(
-                TL::Symbol symbol,
-                TL::Type current_type,
-                int current_rank,
-                int rank_size,
-                Source &fill_outline_arguments, 
-                Source &fill_immediate_arguments, 
-                int &lower_bound_index, 
-                int &upper_bound_index);
-
         Source emit_allocate_statement(TL::Symbol sym, 
                 int &lower_bound_index, int &upper_bound_index);
 
@@ -409,13 +399,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& task_construct,
                 Nodecl::NodeclBase& statements_of_task_seq,
                 Nodecl::NodeclBase& new_environment);
-
-        void get_nanos_in_final_condition(
-                TL::ReferenceScope scope,
-                const locus_t* locus,
-                // out
-                Nodecl::NodeclBase& is_in_final_nodecl,
-                TL::ObjectList<Nodecl::NodeclBase>& items);
 };
 
 } }

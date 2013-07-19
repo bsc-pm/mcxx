@@ -118,9 +118,17 @@ dnl ----- SQLITE - Required only for fortran ---
 
 PKG_PROG_PKG_CONFIG
 
+
 PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
                   [],
-                  AC_MSG_ERROR([Fortran support requires sqlite 3.6.16]))
+AC_MSG_ERROR([Fortran support requires development files of sqlite3.
+ * In Ubuntu/Debian: apt-get install libsqlite3-dev.
+ * In RHEL/Fedora: yum install sqlite-devel.
+ * In SuSE: zypper install sqlite3-devel
+ * Install from sources at http://www.sqlite.org:
+   - Use sqlite-autoconf-xxx.tar.gz
+   - Make sure PKG_CONFIG_PATH points to <sqlite3-install-dir>/lib/pkgconfig])
+)
 
 AC_SUBST([sqlite3_CFLAGS])
 AC_SUBST([sqlite3_LIBS])
@@ -568,6 +576,7 @@ if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
 else
    DISABLE_OPENCL="\#do not uncomment"
 fi 
+AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
@@ -1484,6 +1493,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-serial-simd-svml
            tests/config/mercurium-parallel-simd
            tests/config/mercurium-cuda
+           tests/config/mercurium-opencl
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium

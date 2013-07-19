@@ -671,70 +671,139 @@ namespace InputValueUtils
     }
 }
 
-void LoweringVisitor::get_nanos_in_final_condition(
-        TL::ReferenceScope ref_scope,
-        const locus_t* locus,
-        // out
-        Nodecl::NodeclBase& is_in_final_nodecl,
-        TL::ObjectList<Nodecl::NodeclBase>& items)
+
+static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expressions(
+        const TL::ObjectList<Nodecl::NodeclBase>& expressions,
+        const sym_to_argument_expr_t& param_to_arg_expr,
+        const std::string& clause_name,
+        OutlineInfo& arguments_outline_info,
+        OutlineInfoRegisterEntities& outline_register_entities,
+        TL::Scope& new_block_context_sc,
+        TL::Source& initializations_src)
 {
-    TL::Scope sc = ref_scope.get_scope();
-
-    TL::Symbol nanos_in_final = sc.get_symbol_from_name("nanos_in_final");
-    ERROR_CONDITION(!nanos_in_final.is_valid(), "The 'nanos_in_final' function is not defined", 0);
-
-    TL::Symbol nanos_err_t = sc.get_symbol_from_name("nanos_err_t");
-    ERROR_CONDITION(!nanos_err_t.is_valid(), "The 'nanos_err_t' type is not defined", 0);
-
-    Counter& final_counter = CounterManager::get_counter("nanos++-final-counter");
-
-    std::stringstream ss1, ss2;
-    ss1 << "mcc_is_in_final_" << (int)final_counter;
-    TL::Symbol is_in_final_var = sc.new_symbol(ss1.str());
-    is_in_final_var.get_internal_symbol()->kind = SK_VARIABLE;
-    is_in_final_var.get_internal_symbol()->type_information = TL::Type::get_bool_type().get_internal_type();
-    is_in_final_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-    is_in_final_nodecl = Nodecl::Symbol::make(is_in_final_var);
-    is_in_final_nodecl.set_type(lvalue_ref(is_in_final_var.get_type().get_internal_type()));
-
-    ss2 << "mcc_err_in_final_" << (int)final_counter;
-    TL::Symbol err_in_final_var = sc.new_symbol(ss2.str());
-    err_in_final_var.get_internal_symbol()->kind = SK_VARIABLE;
-    err_in_final_var.get_internal_symbol()->type_information = nanos_err_t.get_user_defined_type().get_internal_type();
-    err_in_final_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-    Nodecl::Symbol err_in_final_nodecl = Nodecl::Symbol::make(err_in_final_var);
-    err_in_final_nodecl.set_type(lvalue_ref(err_in_final_var.get_type().get_internal_type()));
-    final_counter++;
-
-    if (IS_CXX_LANGUAGE)
+    struct ReplaceParamsByArgs : public Nodecl::ExhaustiveVisitor<void>
     {
-        items.append(Nodecl::CxxDef::make( /* context */ nodecl_null(), is_in_final_var, locus));
-        items.append(Nodecl::CxxDef::make( /* context */ nodecl_null(), err_in_final_var, locus));
+        const sym_to_argument_expr_t& _param_to_arg_expr;
+        ReplaceParamsByArgs(const sym_to_argument_expr_t &param_to_arg_expr) :
+            _param_to_arg_expr(param_to_arg_expr)
+        {
+        }
+
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+
+            sym_to_argument_expr_t::const_iterator it_param = _param_to_arg_expr.find(sym);
+            if (it_param != _param_to_arg_expr.end())
+            {
+                node.replace(it_param->second.shallow_copy());
+            }
+        }
+    };
+
+    Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
+    int num_id = (int) arg_counter;
+    arg_counter++;
+
+    int num_argument = 0;
+    TL::ObjectList<Nodecl::NodeclBase> new_expresssions;
+    for (ObjectList<Nodecl::NodeclBase>::const_iterator it = expressions.begin();
+            it != expressions.end();
+            it++)
+    {
+        Nodecl::NodeclBase arg = *it;
+        Nodecl::NodeclBase new_arg;
+        if (arg.is_constant())
+        {
+            // Contants don't need to be captured
+            const_value_t* value = arg.get_constant();
+            new_arg = const_value_to_nodecl(value);
+        }
+        else
+        {
+            Nodecl::NodeclBase arg_copy = it->shallow_copy();
+
+            ReplaceParamsByArgs visitor(param_to_arg_expr);
+            visitor.walk(arg_copy);
+
+            // Create a new variable holding the value of the argument
+            std::stringstream ss;
+            ss << "mcc_" << clause_name << "_"<< num_id << "_" << num_argument;
+            TL::Symbol new_symbol = new_block_context_sc.new_symbol(ss.str());
+            num_argument++;
+
+            // FIXME - Wrap this sort of things
+            new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+            new_symbol.get_internal_symbol()->type_information = arg_copy.get_type().no_ref().get_internal_type();
+            new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            //param_sym_to_arg_sym[parameter] = new_symbol;
+            new_symbol.get_internal_symbol()->value = arg_copy.get_internal_nodecl();
+
+            Nodecl::Symbol sym_ref = Nodecl::Symbol::make(new_symbol);
+            sym_ref.set_type(arg_copy.get_type().no_ref().get_lvalue_reference_to());
+
+            outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
+
+            new_arg = sym_ref;
+
+            if (IS_CXX_LANGUAGE)
+            {
+                initializations_src
+                    << as_statement(Nodecl::CxxDef::make(/* context */ Nodecl::NodeclBase::null(), new_symbol));
+            }
+        }
+        new_expresssions.append(new_arg);
     }
+    return new_expresssions;
+}
 
-    Nodecl::NodeclBase in_final_function_call = Nodecl::FunctionCall::make(
-            Nodecl::Symbol::make(nanos_in_final),
-            Nodecl::List::make(
-                Nodecl::Reference::make(
-                    is_in_final_nodecl,
-                    is_in_final_var.get_type().get_pointer_to(),
-                    locus)),
-            /* alternate name */ nodecl_null(),
-            /* function_form */ nodecl_null(),
-            nanos_in_final.get_type().returns(),
-            locus);
+static void copy_target_info_from_params_to_args(
+        const OutlineInfo::implementation_table_t& implementation_table,
+        const sym_to_argument_expr_t& param_to_arg_expr,
+        OutlineInfo& arguments_outline_info,
+        OutlineInfoRegisterEntities& outline_register_entities,
+        TL::Scope& new_block_context_sc,
+        TL::Source& initializations_src)
+{
+    //Copy target info table from parameter_outline_info to arguments_outline_info
+    for (OutlineInfo::implementation_table_t::const_iterator it = implementation_table.begin();
+            it != implementation_table.end();
+            ++it)
+    {
+        TL::Nanox::TargetInformation target_info = it->second;
 
-    Nodecl::ExpressionStatement expr = Nodecl::ExpressionStatement::make(
-            Nodecl::Assignment::make(
-                err_in_final_nodecl,
-                in_final_function_call,
-                err_in_final_nodecl.get_type()));
+        ObjectList<Nodecl::NodeclBase> new_ndrange_args =
+            capture_the_values_of_these_expressions(
+                    target_info.get_ndrange(),
+                    param_to_arg_expr,
+                    "ndrange",
+                    arguments_outline_info,
+                    outline_register_entities,
+                    new_block_context_sc,
+                    initializations_src);
 
-    items.append(expr);
+        ObjectList<Nodecl::NodeclBase> new_shmem_args =
+            capture_the_values_of_these_expressions(
+                    target_info.get_shmem(),
+                    param_to_arg_expr,
+                    "shmem",
+                    arguments_outline_info,
+                    outline_register_entities,
+                    new_block_context_sc,
+                    initializations_src);
 
-    is_in_final_nodecl = is_in_final_nodecl.shallow_copy();
+        ObjectList<std::string> devices= target_info.get_device_names();
+        for (ObjectList<std::string>::iterator it2 = devices.begin();
+                it2 != devices.end();
+                ++it2)
+        {
+            arguments_outline_info.add_implementation(*it2, it->first);
+            arguments_outline_info.append_to_ndrange(it->first, new_ndrange_args);
+            arguments_outline_info.append_to_shmem(it->first, new_shmem_args);
+            arguments_outline_info.append_to_onto(it->first, target_info.get_onto());
+            arguments_outline_info.set_file(it->first, target_info.get_file());
+        }
+    }
 }
 
 void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression)
@@ -757,24 +826,13 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
-    //Copy target info table from parameter_outline_info to arguments_outline_info
-    OutlineInfo::implementation_table_t implementation_table = parameters_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = implementation_table.begin();
-            it != implementation_table.end();
-            ++it)
-    {
-        ObjectList<std::string> devices=it->second.get_device_names();
-        for (ObjectList<std::string>::iterator it2 = devices.begin();
-                it2 != devices.end();
-                ++it2)
-        {
-                arguments_outline_info.add_implementation(*it2, it->first);
-                arguments_outline_info.append_to_ndrange(it->first, it->second.get_ndrange());
-                arguments_outline_info.append_to_shmem(it->first, it->second.get_shmem());
-                arguments_outline_info.append_to_onto(it->first, it->second.get_onto());
-                arguments_outline_info.set_file(it->first, it->second.get_file());
-        }
-    }
+
+    Scope sc = construct.retrieve_context();
+    Scope new_block_context_sc = new_block_context(sc.get_decl_context());
+
+    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
+
+    Source initializations_src;
 
     // This map associates every parameter symbol with its argument expression
     sym_to_argument_expr_t param_to_arg_expr;
@@ -782,12 +840,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
 
-    Scope sc = construct.retrieve_context();
-    Scope new_block_context_sc = new_block_context(sc.get_decl_context());
 
-    TL::ObjectList<Nodecl::NodeclBase> new_arguments;
 
-    Source initializations_src;
+    // Make sure we allocate the argument size
+    TL::ObjectList<Nodecl::NodeclBase> new_arguments(arguments.size());
+    int parameter_position_offset = 0; // Will be 1 if "this" implicit argument if present
+
 
     // If the current function is a non-static function and It is member of a
     // class, the first argument of the arguments list represents the object of
@@ -823,11 +881,12 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
         Nodecl::Symbol new_symbol_nodecl = Nodecl::Symbol::make(new_symbol);
         new_symbol_nodecl.set_type(new_symbol.get_type());
 
-        new_arguments.append(
+        new_arguments[0] =
                 Nodecl::Dereference::make(
                     new_symbol_nodecl,
                     new_symbol_nodecl.get_type().points_to(),
-                    new_symbol_nodecl.get_locus()));
+                    new_symbol_nodecl.get_locus());
+        parameter_position_offset = 1;
 
         OutlineDataItem& argument_outline_data_item = arguments_outline_info.get_entity_for_symbol(new_symbol);
 
@@ -843,7 +902,6 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     function_call.get_locus()));
     }
 
-    OutlineInfoRegisterEntities outline_register_entities(arguments_outline_info, new_block_context_sc);
 
     TL::ObjectList<OutlineDataItem*> data_items = parameters_outline_info.get_data_items();
     //Map so the device provider can translate between parameters and arguments
@@ -867,6 +925,9 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                 parameter.get_name().c_str());
 
         ERROR_CONDITION(found.size() > 1, "unreachable code", 0);
+
+        int position = parameter.get_parameter_position() + parameter_position_offset;
+        ERROR_CONDITION(position > (signed int)new_arguments.size(), "Too many parameters!", 0);
 
         OutlineDataItem* current_item = found[0];
 
@@ -901,7 +962,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
                     argument,
                     initializations_src);
 
-            new_arguments.append(new_updated_argument);
+            new_arguments[position] = new_updated_argument;
 
             // Note that the current argument may create more than one
             // SHARING_SHARED_WITH_CAPTURE outline data items and They are not
@@ -966,7 +1027,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
 
             sym_ref.set_type(t);
 
-            new_arguments.append(sym_ref);
+            new_arguments[position] = sym_ref;
 
             if (parameter.get_type().is_any_reference()
                     && !parameter.get_type().is_const())
@@ -1006,6 +1067,14 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             param_to_args_map.add_map(parameter, new_symbol);
         }
     }
+
+    copy_target_info_from_params_to_args(
+            parameters_outline_info.get_implementation_table(),
+            param_to_arg_expr,
+            arguments_outline_info,
+            outline_register_entities,
+            new_block_context_sc,
+            initializations_src);
 
     // For every existant implementation we should create a new map and store it in their target information
     // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
@@ -1155,37 +1224,34 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             && arguments_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase enclosing_expr_stmt = construct.get_parent();
-        ERROR_CONDITION(!enclosing_expr_stmt.is<Nodecl::ExpressionStatement>(),
-                "Unexpected node '%s'\n", ast_print_node_type(enclosing_expr_stmt.get_kind()));
-
-        TL::ObjectList<Nodecl::NodeclBase> items;
-        Nodecl::NodeclBase is_in_final_nodecl;
-        get_nanos_in_final_condition(enclosing_expr_stmt, function_call.get_locus(), is_in_final_nodecl, items);
-
-        Nodecl::Utils::prepend_items_before(enclosing_expr_stmt, Nodecl::List::make(items));
-
         Nodecl::NodeclBase expr_direct_call_to_function =
             Nodecl::ExpressionStatement::make(
                     function_call.shallow_copy(),
                     function_call.get_locus());
 
-        Nodecl::NodeclBase if_else_stmt =
-            Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl.shallow_copy(),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(expr_direct_call_to_function),
-                            nodecl_null(),
-                            function_call.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(new_construct),
-                            nodecl_null(),
-                            function_call.get_locus())),
-                    function_call.get_locus());
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(expr_direct_call_to_function)
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(new_construct)
+            <<      "}"
+            << "}"
+            ;
 
-        new_code = if_else_stmt;
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
+
+        new_code = code.parse_statement(construct);
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
     }
     else
     {
@@ -1457,7 +1523,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
         Nodecl::NodeclBase& statements_of_task_seq,
         Nodecl::NodeclBase& new_environment)
 {
-    TL::ObjectList<Nodecl::NodeclBase> statements_of_function;
+    Nodecl::List statements_of_function;
 
     TL::ObjectList<Nodecl::NodeclBase> statements_of_task_list;
     // Create one object init per save expression
@@ -1528,35 +1594,38 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             && dummy_outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        Nodecl::NodeclBase is_in_final_nodecl;
-        TL::ObjectList<Nodecl::NodeclBase> items;
-        get_nanos_in_final_condition(adapter_function.get_related_scope(), call_to_original.get_locus(), is_in_final_nodecl, items);
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(call_to_original.shallow_copy())
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(task_construct)
+            <<      "}"
+            << "}"
+            ;
 
-        statements_of_function.append(items);
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
 
-        Nodecl::NodeclBase if_else_stmt =
-            Nodecl::IfElseStatement::make(
-                    is_in_final_nodecl,
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(call_to_original.shallow_copy()),
-                            nodecl_null(),
-                            call_to_original.get_locus())),
-                    Nodecl::List::make(
-                        Nodecl::CompoundStatement::make(
-                            Nodecl::List::make(task_construct),
-                            nodecl_null(),
-                            call_to_original.get_locus())),
-                    call_to_original.get_locus());
+        Nodecl::NodeclBase if_else_tree = code.parse_statement(adapter_function.get_related_scope());
 
-        statements_of_function.append(if_else_stmt);
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
+
+        statements_of_function.append(if_else_tree);
     }
     else
     {
         statements_of_function.append(task_construct);
     }
 
-    Nodecl::NodeclBase in_context = Nodecl::List::make(statements_of_function);
+    Nodecl::NodeclBase in_context = statements_of_function;
 
     // Now get all the needed internal functions and duplicate them in the adapter function
     Nodecl::Utils::Fortran::InternalFunctions internal_functions;

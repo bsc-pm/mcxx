@@ -39,7 +39,8 @@ namespace TL { namespace Nanox {
             TL::Symbol new_class_symbol,
             Nodecl::NodeclBase construct)
     {
-        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
+        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE
+                || outline_data_item.get_sharing() == OutlineDataItem::SHARING_ALLOCA)
         {
             std::string field_name = outline_data_item.get_field_name() + "_storage";
             TL::Symbol field = class_scope.new_symbol(field_name);

@@ -204,6 +204,7 @@ static temporal_file_t new_temporal_dir_unix(void)
 
     if (directory_name == NULL)
     {
+        running_error("Cannot create temporary directory in %s (Reason: %s)\n", dir, strerror(errno));
         return NULL;
     }
 
@@ -243,6 +244,7 @@ static temporal_file_t new_temporal_file_unix(void)
 
     if (file_descriptor < 0) 
     {
+        running_error("Cannot create temporary file in %s (Reason: %s)\n", dir, strerror(errno));
         return NULL;
     }
     close(file_descriptor);
