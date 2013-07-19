@@ -1527,9 +1527,24 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
             switch (result->parameters[i]->kind)
             {
                 case TPK_TYPE :
+                    {
+                        result->arguments[i]->type = simplify_types_template_arguments_rec(result->arguments[i]->type);
+                        break;
+                    }
                 case TPK_NONTYPE :
                     {
                         result->arguments[i]->type = simplify_types_template_arguments_rec(result->arguments[i]->type);
+
+                        if (nodecl_is_constant(result->arguments[i]->value)
+                                && !is_dependent_type(result->parameters[i]->entry->type_information))
+                        {
+                            if (!is_enum_type(result->parameters[i]->entry->type_information))
+                            {
+                                result->arguments[i]->value = const_value_to_nodecl_with_basic_type(
+                                        nodecl_get_constant(result->arguments[i]->value),
+                                        result->parameters[i]->entry->type_information);
+                            }
+                        }
                         break;
                     }
                 case TPK_TEMPLATE :
