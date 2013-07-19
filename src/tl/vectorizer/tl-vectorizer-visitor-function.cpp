@@ -106,10 +106,36 @@ namespace TL
                 parameters_vector_type.append(mask_sym.get_type());
                 vect_func_sym.set_related_symbols(parameters);
 
+                // Take care of default_argument_info_t*
+                //TODO: Move this into a function
+                {
+                int num_parameters =
+                    vect_func_sym.get_internal_symbol()->entity_specs.num_parameters;
+                default_argument_info_t** default_argument_info =
+                    vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
+
+                num_parameters++;
+                default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
+                        num_parameters * sizeof(*default_argument_info));
+                default_argument_info[num_parameters-1] = NULL;
+
+                vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
+                vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
+                }
+
                 Nodecl::Symbol mask_nodecl_sym = 
                     mask_sym.make_nodecl(true, function_code.get_locus());
 
                 _environment._mask_list.push_back(mask_nodecl_sym);
+            }
+            else // Add MaskLiteral to mask_list
+            {
+                Nodecl::MaskLiteral all_one_mask =
+                    Nodecl::MaskLiteral::make(
+                            const_value_get_minus_one(_environment._mask_size, 1),
+                            make_locus("", 0, 0));
+
+                _environment._mask_list.push_back(all_one_mask);
             }
 
             vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _environment._vector_length).
@@ -139,11 +165,7 @@ namespace TL
             
 
             _environment._analysis_scopes.pop_back();
-
-            if(_masked_version)
-            {
-                _environment._mask_list.pop_back();
-            }
+            _environment._mask_list.pop_back();
         }
  
 

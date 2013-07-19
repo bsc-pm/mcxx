@@ -33,18 +33,131 @@ namespace TL
     {
         namespace Utils
         {
-            LookForReturnVisitor::LookForReturnVisitor(bool* return_inside)
-                : _return_inside(return_inside)
+            LookForReturnVisitor::LookForReturnVisitor()
             {
-                *_return_inside = false;
             }
 
-            void LookForReturnVisitor::visit(const Nodecl::ReturnStatement& n)
+            bool LookForReturnVisitor::join_list(ObjectList<bool>& list) 
             {
-                *_return_inside = true;
+                for(ObjectList<bool>::const_iterator it = list.begin(); 
+                        it != list.end();
+                        it++)
+                {
+                    if ((*it) == true)
+                        return true;
+                }
+
+                return false;
             }
 
-            Nodecl::NodeclBase get_new_mask_symbol(TL::Scope& scope,
+            bool LookForReturnVisitor::visit(const Nodecl::ReturnStatement& n)
+            {
+                return true;
+            }
+
+            MaskCheckCostEstimation::MaskCheckCostEstimation()
+                : 
+                _add_cost(1),
+                _minus_cost(1),
+                _mul_cost(3),
+                _div_cost(5),
+                _return_cost(3),
+                _if_statement_cost(4), 
+                _else_statement_cost(1),
+                _static_for_statement_cost(10),
+                _masked_for_statement_cost(3),
+                _function_call_cost(1000),
+                _nesting_threshold(0)
+            {
+            }
+
+            unsigned int MaskCheckCostEstimation::get_mask_check_cost(
+                    const Nodecl::NodeclBase& n, unsigned int initial_cost,
+                    const unsigned int cost_threshold)
+            {
+                if (initial_cost < cost_threshold)
+                    _cost = initial_cost;
+                else
+                    _cost = 0;
+
+                this->walk(n);
+
+                return _cost;
+            }
+
+            void MaskCheckCostEstimation::binary_operation(const Nodecl::NodeclBase& n, 
+                    const unsigned int cost)
+            {
+                _cost += cost;
+                walk(n.as<Nodecl::Add>().get_lhs());
+                walk(n.as<Nodecl::Add>().get_rhs());
+            }
+
+            void MaskCheckCostEstimation::visit(const Nodecl::Add& n)
+            {
+                binary_operation(n, _add_cost);
+            }
+
+            void MaskCheckCostEstimation::visit(const Nodecl::Minus& n)
+            {
+                binary_operation(n, _minus_cost);
+            }
+ 
+            void MaskCheckCostEstimation::visit(const Nodecl::Mul& n)
+            {
+                binary_operation(n, _mul_cost);
+            }
+
+            void MaskCheckCostEstimation::visit(const Nodecl::Div& n)
+            {
+                binary_operation(n, _div_cost);
+            }
+
+            void MaskCheckCostEstimation::visit(const Nodecl::ReturnStatement& n)
+            {
+                _cost += _return_cost;
+                walk(n.get_value());
+            }
+ 
+            void MaskCheckCostEstimation::visit(const Nodecl::IfElseStatement& n)
+            {
+                _cost += _if_statement_cost + _else_statement_cost;
+
+                if (_nesting_level < _nesting_threshold)
+                {
+                    _nesting_level++;
+                    walk(n.get_then());
+                    _nesting_level--;
+
+                    if(!n.get_else().is_null())
+                    {
+                        _nesting_level++;
+                        walk(n.get_else());
+                        _nesting_level--;
+                    }
+                }
+            }
+
+            void MaskCheckCostEstimation::visit(const Nodecl::ForStatement& n)
+            {
+                _cost += _static_for_statement_cost;
+
+                if (_nesting_level < _nesting_threshold)
+                {
+                    _nesting_level++;
+                    walk(n.get_statement());
+                    _nesting_level--;
+                }
+            }
+
+            void MaskCheckCostEstimation::visit(const Nodecl::FunctionCall& n)
+            {
+                _cost += _function_call_cost;
+            }
+
+
+
+            Nodecl::NodeclBase get_new_mask_symbol(TL::Scope scope,
                     const int mask_size)
             {
                 TL::Symbol new_mask_sym = scope.new_symbol("__mask_" + 
@@ -106,6 +219,22 @@ namespace TL
                 {
                     return false;
                 }
+            }
+
+            bool is_all_one_mask(const Nodecl::NodeclBase& n)
+            {
+                if (n.is<Nodecl::MaskLiteral>())
+                {
+                    Nodecl::MaskLiteral ml = n.as<Nodecl::MaskLiteral>();
+
+                    if (ml.is_constant())
+                    {
+                        if (const_value_is_minus_one(ml.get_constant()))
+                            return true;
+                    }
+                }
+
+                return false;
             }
         }
     }

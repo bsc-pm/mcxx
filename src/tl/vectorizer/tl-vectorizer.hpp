@@ -57,6 +57,7 @@ namespace TL
                 std::list<Nodecl::NodeclBase> _mask_list;
                 std::list<Nodecl::NodeclBase> _analysis_scopes;
                 std::list<bool> _inside_inner_masked_bb;
+                std::list<unsigned int> _mask_check_bb_cost;
 
                 TL::Symbol _function_return;
 
@@ -149,7 +150,7 @@ namespace TL
                 friend class VectorizerVisitorFunction;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
-                friend Nodecl::NodeclBase Utils::get_new_mask_symbol(TL::Scope& scope,
+                friend Nodecl::NodeclBase Utils::get_new_mask_symbol(TL::Scope scope,
                         const int mask_size);
         };
 

@@ -42,7 +42,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorAdd vector_add =
                     Nodecl::VectorAdd::make(
@@ -72,7 +72,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorMinus vector_minus =
                     Nodecl::VectorMinus::make(
@@ -102,7 +102,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorMul vector_mul =
                     Nodecl::VectorMul::make(
@@ -133,7 +133,7 @@ namespace TL
             walk(n.get_rhs());
 
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorDiv vector_div =
                     Nodecl::VectorDiv::make(
@@ -282,7 +282,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorBitwiseAnd vector_ba =
                     Nodecl::VectorBitwiseAnd::make(
@@ -313,7 +313,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorBitwiseOr vector_bo =
                     Nodecl::VectorBitwiseOr::make(
@@ -377,7 +377,7 @@ namespace TL
             Nodecl::NodeclBase prev_mask =
                 _environment._mask_list.back();
 
-            if(prev_mask.is_null())
+            if(Utils::is_all_one_mask(prev_mask))
             {
                 _environment._mask_list.push_back(condition);
                 _environment._local_scope_list.push_back(n.get_true().retrieve_context());
@@ -509,7 +509,7 @@ namespace TL
                         printf("VECTORIZER: Store access '%s' is ALIGNED\n",
                                 lhs.prettyprint().c_str());
 
-                        if(_environment._mask_list.back().is_null())
+                        if(Utils::is_all_one_mask(_environment._mask_list.back()))
                         {
                             const Nodecl::VectorStore vector_store =
                                 Nodecl::VectorStore::make(
@@ -550,7 +550,7 @@ namespace TL
                         printf("VECTORIZER: Store access '%s' is UNALIGNED\n",
                                 lhs.prettyprint().c_str());
 
-                        if(_environment._mask_list.back().is_null())
+                        if(Utils::is_all_one_mask(_environment._mask_list.back()))
                         {
                             const Nodecl::UnalignedVectorStore vector_store =
                                 Nodecl::UnalignedVectorStore::make(
@@ -602,7 +602,7 @@ namespace TL
                     Nodecl::NodeclBase strides = *subscripts.begin();
                     walk(strides);
 
-                    if(_environment._mask_list.back().is_null())
+                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
                     {
                         const Nodecl::VectorScatter vector_scatter =
                             Nodecl::VectorScatter::make(
@@ -633,7 +633,7 @@ namespace TL
             {
                 walk(lhs);
 
-                if(_environment._mask_list.back().is_null())
+                if(Utils::is_all_one_mask(_environment._mask_list.back()))
                 {
                     const Nodecl::VectorAssignment vector_assignment =
                         Nodecl::VectorAssignment::make(
@@ -809,7 +809,7 @@ namespace TL
                     printf("VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
 
-                    if(_environment._mask_list.back().is_null())
+                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
                     {
                         const Nodecl::VectorLoad vector_load =
                             Nodecl::VectorLoad::make(
@@ -848,7 +848,7 @@ namespace TL
                     printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
                             n.prettyprint().c_str());
 
-                    if(_environment._mask_list.back().is_null())
+                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
                     {
                         const Nodecl::UnalignedVectorLoad vector_load =
                             Nodecl::UnalignedVectorLoad::make(
@@ -896,7 +896,7 @@ namespace TL
                 Nodecl::NodeclBase strides = *subscripts.begin();
                 walk(strides);
 
-                if(_environment._mask_list.back().is_null())
+                if(Utils::is_all_one_mask(_environment._mask_list.back()))
                 {
                     const Nodecl::VectorGather vector_gather =
                         Nodecl::VectorGather::make(
@@ -935,7 +935,7 @@ namespace TL
             walk(n.get_arguments());
 
             // Special functions
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 if (called_sym.get_symbol().get_name() == "fabsf")
                 {

@@ -96,9 +96,18 @@ namespace TL
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
             // Vectorize Loop Body
+
+            // Add MaskLiteral to mask_list
+            Nodecl::MaskLiteral all_one_mask =
+                Nodecl::MaskLiteral::make(
+                        const_value_get_minus_one(_environment._mask_size, 1),
+                        make_locus("", 0, 0));
+            _environment._mask_list.push_back(all_one_mask);
+
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(for_statement.get_statement());
 
+            _environment._mask_list.pop_back();
             _environment._analysis_scopes.pop_back();
             _environment._local_scope_list.pop_back();
 
@@ -497,20 +506,16 @@ namespace TL
             VectorizerVisitorExpression visitor_mask(_environment);
             visitor_mask.walk(mask_value);
            
-            TL::Symbol mask_sym = comp_statement.retrieve_context().
-                new_symbol("__mask_" + Vectorizer::_vectorizer->get_var_counter());
-            mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-            mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
-            
-            Nodecl::Symbol mask_nodecl_sym = mask_sym.make_nodecl(true, for_statement.get_locus());
+            Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
+                    comp_statement.retrieve_context(),
+                    _environment._mask_size);
 
             // Compute mask expression
             Nodecl::ExpressionStatement mask_exp =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
                             mask_value,
-                            mask_sym.get_type(),
+                            mask_nodecl_sym.get_type(),
                             for_statement.get_locus()));
 
             // Vectorize Loop Body

@@ -47,14 +47,14 @@ namespace TL
            _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
            _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
-            _mask_list.push_back(Nodecl::NodeclBase::null());
             _inside_inner_masked_bb.push_back(false);
+            _mask_check_bb_cost.push_back(0);
         }
  
         VectorizerEnvironment::~VectorizerEnvironment()
         {
-            _mask_list.pop_back();
             _inside_inner_masked_bb.pop_back();
+            _mask_check_bb_cost.pop_back();
         }
 
         Vectorizer *Vectorizer::_vectorizer = 0;

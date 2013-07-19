@@ -37,18 +37,58 @@ namespace TL
     {
         namespace Utils
         {
-            class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<void>
+            class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<bool>
             {
-                private:
-                    bool* _return_inside;
-
                 public:
-                    LookForReturnVisitor(bool * return_inside);
+                    LookForReturnVisitor();
 
-                    virtual void visit(const Nodecl::ReturnStatement& n);
+                    virtual Ret join_list(ObjectList<bool>& list);
+
+                    virtual Ret visit(const Nodecl::ReturnStatement& n);
             };
 
-            Nodecl::NodeclBase get_new_mask_symbol(TL::Scope& scope,
+            class MaskCheckCostEstimation : public Nodecl::ExhaustiveVisitor<void>
+            {
+                private:
+                    const unsigned int _add_cost;
+                    const unsigned int _minus_cost;
+                    const unsigned int _mul_cost;
+                    const unsigned int _div_cost;
+                    const unsigned int _return_cost;
+                    const unsigned int _if_statement_cost;
+                    const unsigned int _else_statement_cost;
+                    const unsigned int _static_for_statement_cost;
+                    const unsigned int _masked_for_statement_cost;
+                    const unsigned int _function_call_cost;
+
+                    const unsigned int _nesting_threshold;
+
+                    unsigned int _nesting_level;
+                    unsigned int _cost;
+
+                    void binary_operation(const Nodecl::NodeclBase& n,
+                            const unsigned int cost);
+
+                public:
+                    MaskCheckCostEstimation();
+
+                    unsigned int get_mask_check_cost(
+                            const Nodecl::NodeclBase& n, 
+                            unsigned int initial_cost,
+                            const unsigned int cost_threshold);
+
+                    virtual void visit(const Nodecl::IfElseStatement& n);
+                    virtual void visit(const Nodecl::ForStatement& n);
+                    virtual void visit(const Nodecl::FunctionCall& n);
+                    virtual void visit(const Nodecl::Add& n);
+                    virtual void visit(const Nodecl::Minus& n);
+                    virtual void visit(const Nodecl::Mul& n);
+                    virtual void visit(const Nodecl::Div& n);
+                    virtual void visit(const Nodecl::ReturnStatement& n);
+
+            };
+
+            Nodecl::NodeclBase get_new_mask_symbol(TL::Scope scope,
                     const int masks_size);
             Nodecl::NodeclBase emit_disjunction_mask(
                     const ObjectList<Nodecl::NodeclBase>& bb_exit_mask_list,
@@ -58,6 +98,9 @@ namespace TL
 
             bool is_declared_in_scope(const scope_t *const  target_scope,
                     const scope_t *const symbol_scope);
+
+            bool is_all_one_mask(const Nodecl::NodeclBase& n);
+ 
         }
     }
 }
