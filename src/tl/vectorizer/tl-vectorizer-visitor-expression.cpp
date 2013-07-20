@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-visitor-expression.hpp"
+#include "tl-vectorizer-utils.hpp"
 
 namespace TL
 {
@@ -41,7 +42,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorAdd vector_add =
                     Nodecl::VectorAdd::make(
@@ -71,7 +72,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorMinus vector_minus =
                     Nodecl::VectorMinus::make(
@@ -101,7 +102,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorMul vector_mul =
                     Nodecl::VectorMul::make(
@@ -132,7 +133,7 @@ namespace TL
             walk(n.get_rhs());
 
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorDiv vector_div =
                     Nodecl::VectorDiv::make(
@@ -201,6 +202,21 @@ namespace TL
             n.replace(vector_lt);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::LowerOrEqualThan& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorLowerOrEqualThan vector_lt =
+                Nodecl::VectorLowerOrEqualThan::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_lt);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::GreaterThan& n)
         {
             walk(n.get_lhs());
@@ -208,6 +224,21 @@ namespace TL
 
             const Nodecl::VectorGreaterThan vector_gt =
                 Nodecl::VectorGreaterThan::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_gt);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::GreaterOrEqualThan& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorGreaterOrEqualThan vector_gt =
+                Nodecl::VectorGreaterOrEqualThan::make(
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         get_qualified_vector_to(n.get_type(), _environment._vector_length),
@@ -231,12 +262,27 @@ namespace TL
             n.replace(vector_eq);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::Different& n)
+        {
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorDifferent vector_dif =
+                Nodecl::VectorDifferent::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_dif);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)
         {
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorBitwiseAnd vector_ba =
                     Nodecl::VectorBitwiseAnd::make(
@@ -267,7 +313,7 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 const Nodecl::VectorBitwiseOr vector_bo =
                     Nodecl::VectorBitwiseOr::make(
@@ -331,7 +377,7 @@ namespace TL
             Nodecl::NodeclBase prev_mask =
                 _environment._mask_list.back();
 
-            if(prev_mask.is_null())
+            if(Utils::is_all_one_mask(prev_mask))
             {
                 _environment._mask_list.push_back(condition);
                 _environment._local_scope_list.push_back(n.get_true().retrieve_context());
@@ -463,7 +509,7 @@ namespace TL
                         printf("VECTORIZER: Store access '%s' is ALIGNED\n",
                                 lhs.prettyprint().c_str());
 
-                        if(_environment._mask_list.back().is_null())
+                        if(Utils::is_all_one_mask(_environment._mask_list.back()))
                         {
                             const Nodecl::VectorStore vector_store =
                                 Nodecl::VectorStore::make(
@@ -504,7 +550,7 @@ namespace TL
                         printf("VECTORIZER: Store access '%s' is UNALIGNED\n",
                                 lhs.prettyprint().c_str());
 
-                        if(_environment._mask_list.back().is_null())
+                        if(Utils::is_all_one_mask(_environment._mask_list.back()))
                         {
                             const Nodecl::UnalignedVectorStore vector_store =
                                 Nodecl::UnalignedVectorStore::make(
@@ -556,7 +602,7 @@ namespace TL
                     Nodecl::NodeclBase strides = *subscripts.begin();
                     walk(strides);
 
-                    if(_environment._mask_list.back().is_null())
+                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
                     {
                         const Nodecl::VectorScatter vector_scatter =
                             Nodecl::VectorScatter::make(
@@ -587,7 +633,7 @@ namespace TL
             {
                 walk(lhs);
 
-                if(_environment._mask_list.back().is_null())
+                if(Utils::is_all_one_mask(_environment._mask_list.back()))
                 {
                     const Nodecl::VectorAssignment vector_assignment =
                         Nodecl::VectorAssignment::make(
@@ -763,7 +809,7 @@ namespace TL
                     printf("VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
 
-                    if(_environment._mask_list.back().is_null())
+                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
                     {
                         const Nodecl::VectorLoad vector_load =
                             Nodecl::VectorLoad::make(
@@ -802,7 +848,7 @@ namespace TL
                     printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
                             n.prettyprint().c_str());
 
-                    if(_environment._mask_list.back().is_null())
+                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
                     {
                         const Nodecl::UnalignedVectorLoad vector_load =
                             Nodecl::UnalignedVectorLoad::make(
@@ -850,7 +896,7 @@ namespace TL
                 Nodecl::NodeclBase strides = *subscripts.begin();
                 walk(strides);
 
-                if(_environment._mask_list.back().is_null())
+                if(Utils::is_all_one_mask(_environment._mask_list.back()))
                 {
                     const Nodecl::VectorGather vector_gather =
                         Nodecl::VectorGather::make(
@@ -889,7 +935,7 @@ namespace TL
             walk(n.get_arguments());
 
             // Special functions
-            if(_environment._mask_list.back().is_null())
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
             {
                 if (called_sym.get_symbol().get_name() == "fabsf")
                 {
@@ -1031,7 +1077,8 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n", n.prettyprint().c_str()); 
+                        fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n",
+                                n.prettyprint().c_str()); 
                     }
 
                     // Computing IV offset {0, 1, 2, 3}
@@ -1041,7 +1088,8 @@ namespace TL
                             _environment._analysis_scopes.back(), n);
 
                     for(const_value_t *i = const_value_get_zero(4, 0);
-                            const_value_is_nonzero(const_value_lt(i, const_value_get_unsigned_int(_environment._unroll_factor)));
+                            const_value_is_nonzero(const_value_lt(i, 
+                                    const_value_get_unsigned_int(_environment._unroll_factor)));
                             i = const_value_add(i, ind_var_increment))
                     {
                         literal_list.prepend(const_value_to_nodecl(i));
@@ -1072,7 +1120,7 @@ namespace TL
                     n.replace(vector_induction_var);
                 }
                 // Vectorize symbols declared in the SIMD scope
-                else if (is_declared_in_scope(
+                else if (Utils::is_declared_in_scope(
                             _environment._local_scope_list.back().get_decl_context().current_scope,
                             n.get_symbol().get_scope().get_decl_context().current_scope))
                 {
@@ -1126,7 +1174,8 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", n.prettyprint().c_str()); 
+                        fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", 
+                                n.prettyprint().c_str()); 
                     }
 
                     const Nodecl::VectorPromotion vector_prom =
@@ -1137,10 +1186,25 @@ namespace TL
 
                     n.replace(vector_prom);
                 }
+                else if(_environment._reduction_list != NULL)
+                {
+                    if(_environment._reduction_list->contains(tl_sym))
+                    {
+                        // If symbol is in the map
+                        Nodecl::Symbol new_red_symbol;
+
+                        std::map<TL::Symbol, TL::Symbol>::iterator it =
+                            _environment._new_external_vector_symbol_map->find(tl_sym);
+
+                        new_red_symbol = it->second.make_nodecl(true, n.get_locus());
+
+                        n.replace(new_red_symbol);
+                    }
+                }
                 else
                 {
                     //TODO: If you are from outside of the loop -> Vector local copy.
-                    running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV or Constant or Local.",
+                    running_error("Vectorizer: Loop is not vectorizable. '%s' is not IV, Constant, Local, Reduction or LastPrivate.",
                             n.get_symbol().get_name().c_str());
                 }
             }
@@ -1186,25 +1250,11 @@ namespace TL
         {
             std::cerr << "Vectorizer: Unknown 'Expression' node "
                 << ast_print_node_type(n.get_kind())
+                //<< "(" << n.prettyprint() << ")"
                 << " at " << n.get_locus()
                 << std::endl;
 
             return Ret();
-        }
-
-        bool VectorizerVisitorExpression::is_declared_in_scope(const scope_t *const  target_scope,
-                const scope_t *const symbol_scope) const
-        {
-            if (symbol_scope == NULL)
-                return false;
-            else if (target_scope == NULL)
-                return false;
-            else if (target_scope == symbol_scope)
-                return true;
-            else
-            {
-                return false;
-            }
         }
     }
 }

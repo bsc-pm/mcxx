@@ -78,9 +78,23 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-                virtual Nodecl::FunctionCode common_simd_function(const Nodecl::FunctionCode& function_code,
+                virtual Nodecl::FunctionCode common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        const Nodecl::FunctionCode& function_code,
                         const Nodecl::List& suitable_expresions,
                         const bool masked_version);
+        };
+
+        class FunctionDeepCopyFixVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                const TL::Symbol& _orig_symbol;
+                const TL::Symbol& _new_symbol;
+
+            public:
+                FunctionDeepCopyFixVisitor(const TL::Symbol& orig_symbol,
+                        const TL::Symbol& new_symbol);
+                
+                virtual void visit(const Nodecl::Symbol& n);
         };
     }
 }

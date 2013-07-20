@@ -35,23 +35,30 @@ namespace Analysis {
     
     bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n ) const
     {
-        bool result = true;
+        bool result = false;
         
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
+            result = true;
+
             Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
             Nodecl::List::iterator it = subscript.begin( );
             for( ; it != subscript.end( ) - 1; ++it )
             {   // All dimensions but the less significant must be constant
                 if( !is_constant( *it ) )
                 {
-                    result = false;
-                    break;
+                    return false;
                 }
             }
             // The less significant dimension must be accessed by an (+/-)c +/- IV, where c is a constant
             if( it == subscript.end( ) - 1 )
             {
+                // If the subscript is another ArraySubscript, then it is not adjacent
+                if (it->is<Nodecl::ArraySubscript>())
+                {
+                    return false;
+                }
+
                 Nodecl::Utils::ReduceExpressionVisitor v;
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
@@ -69,8 +76,6 @@ namespace Analysis {
     {
         bool result = false;
         
-//         std::cout << "Access: " << n.prettyprint() << "\n";
-
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
             Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
@@ -111,7 +116,7 @@ namespace Analysis {
         return result;
     }
         
-    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List suitable_expressions, 
+    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List* suitable_expressions, 
                                                    int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -155,7 +160,7 @@ namespace Analysis {
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
                                                         ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        Nodecl::List suitable_expressions, int unroll_factor, int type_size)
+                                                        const Nodecl::List* suitable_expressions, int unroll_factor, int type_size)
             : _subscripted( subscripted ), _induction_variables( induction_variables), _suitable_expressions( suitable_expressions ), 
               _unroll_factor( unroll_factor ), _type_size(type_size)
     {
@@ -173,8 +178,11 @@ namespace Analysis {
 
     bool SuitableAlignmentVisitor::is_suitable_expression(Nodecl::NodeclBase n)
     {
-        if( _suitable_expressions.end() == std::find_if(_suitable_expressions.begin(), _suitable_expressions.end(), 
-                std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
+        if(_suitable_expressions == NULL)
+            return false;
+
+        if( _suitable_expressions->end() == std::find_if(_suitable_expressions->begin(), _suitable_expressions->end(), 
+                    std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
             return false;
 
         return true;

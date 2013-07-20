@@ -30,6 +30,7 @@
 #include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
+#include "tl-vectorizer-utils.hpp"
 #include <string>
 #include <list>
 
@@ -45,12 +46,20 @@ namespace TL
                 const unsigned int _unroll_factor;
                 const unsigned int _mask_size;
                 const bool _support_masking;
-
                 const TL::Type& _target_type;
-                const Nodecl::List& _suitable_expr_list;
+                const Nodecl::List* _suitable_expr_list;
+
+                const TL::ObjectList<TL::Symbol>* _reduction_list;
+                std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
+
+                TL::Scope _external_scope;
                 std::list<TL::Scope> _local_scope_list;
                 std::list<Nodecl::NodeclBase> _mask_list;
                 std::list<Nodecl::NodeclBase> _analysis_scopes;
+                std::list<bool> _inside_inner_masked_bb;
+                std::list<unsigned int> _mask_check_bb_cost;
+
+                TL::Symbol _function_return;
 
            public:
                 VectorizerEnvironment(const std::string& device,
@@ -58,8 +67,9 @@ namespace TL
                         const bool support_masking,
                         const unsigned int mask_size,
                         const TL::Type& target_type,
-                        const TL::Scope& local_scope, 
-                        const Nodecl::List& suitable_expr_list);
+                        const Nodecl::List* suitable_expr_list,
+                        const TL::ObjectList<TL::Symbol>* reduction_list,
+                        std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
                 ~VectorizerEnvironment();
 
@@ -71,6 +81,7 @@ namespace TL
             friend class VectorizerVisitorFunction;
             friend class VectorizerVisitorStatement;
             friend class VectorizerVisitorExpression;
+            friend class VectorizerVectorReduction;
         };
 
         class Vectorizer
@@ -104,6 +115,19 @@ namespace TL
                 void process_epilog(const Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
 
+                bool is_supported_reduction(bool is_builtin,
+                        const std::string& reduction_name,
+                        const TL::Type& reduction_type,
+                        const VectorizerEnvironment& environment);
+                void vectorize_reduction(const TL::Symbol& scalar_symbol,
+                        TL::Symbol& vector_symbol,
+                        const Nodecl::NodeclBase& initializer,
+                        const std::string& reduction_name,
+                        const TL::Type& reduction_type,
+                        const VectorizerEnvironment& environment,
+                        Nodecl::List& pre_nodecls,
+                        Nodecl::List& post_nodecls);
+
                 void add_vector_function_version(const std::string& func_name, 
                         const Nodecl::NodeclBase& func_version, const std::string& device, 
                         const unsigned int vector_length, const TL::Type& target_type, 
@@ -126,6 +150,8 @@ namespace TL
                 friend class VectorizerVisitorFunction;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
+                friend Nodecl::NodeclBase Utils::get_new_mask_symbol(TL::Scope scope,
+                        const int mask_size);
         };
 
         TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);

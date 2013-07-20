@@ -56,6 +56,12 @@ namespace TL
         bool VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
             bool needs_epilog = false;
+    
+            // Set up enviroment
+            _environment._external_scope =
+                for_statement.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
 
             // Get analysis info
             Nodecl::NodeclBase enclosing_func = 
@@ -90,10 +96,20 @@ namespace TL
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
             // Vectorize Loop Body
+
+            // Add MaskLiteral to mask_list
+            Nodecl::MaskLiteral all_one_mask =
+                Nodecl::MaskLiteral::make(
+                        const_value_get_minus_one(_environment._mask_size, 1),
+                        make_locus("", 0, 0));
+            _environment._mask_list.push_back(all_one_mask);
+
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(for_statement.get_statement());
 
+            _environment._mask_list.pop_back();
             _environment._analysis_scopes.pop_back();
+            _environment._local_scope_list.pop_back();
 
             return needs_epilog;
         }
@@ -466,6 +482,12 @@ namespace TL
 
         void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement)
         {
+            // Set up enviroment
+            _environment._external_scope =
+                for_statement.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+
             // Get analysis info
             Nodecl::NodeclBase enclosing_func = 
                 Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
@@ -474,23 +496,6 @@ namespace TL
                 front().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().
                 as<Nodecl::CompoundStatement>();
 
-            // Get analysis info
-/*            Nodecl::NodeclBase enclosing_func = 
-                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
-
-            if ((Vectorizer::_analysis_info == 0) || 
-                (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
-            {
-                if (Vectorizer::_analysis_info != 0)
-                    delete Vectorizer::_analysis_info;
-
-                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
-                        enclosing_func.as<Nodecl::FunctionCode>(),
-                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, 100);
-            }
-*/
             // Push ForStatement as scope for analysis
             _environment._analysis_scopes.push_back(for_statement);
 
@@ -500,26 +505,20 @@ namespace TL
            
             VectorizerVisitorExpression visitor_mask(_environment);
             visitor_mask.walk(mask_value);
-            
-            TL::Symbol mask_sym = comp_statement.retrieve_context().
-                new_symbol("__mask_" + Vectorizer::_vectorizer->get_var_counter());
-            mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-            mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
-            
-            Nodecl::Symbol mask_nodecl_sym = mask_sym.make_nodecl(true, for_statement.get_locus());
+           
+            Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
+                    comp_statement.retrieve_context(),
+                    _environment._mask_size);
 
+            // Compute mask expression
             Nodecl::ExpressionStatement mask_exp =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
                             mask_value,
-                            mask_sym.get_type(),
+                            mask_nodecl_sym.get_type(),
                             for_statement.get_locus()));
 
-            comp_statement.as<Nodecl::CompoundStatement>().
-                get_statements().as<Nodecl::List>().prepend(mask_exp); 
-
-                // Vectorize Loop Body
+            // Vectorize Loop Body
             _environment._mask_list.push_back(mask_nodecl_sym);
 
             VectorizerVisitorStatement visitor_stmt(_environment);
@@ -527,19 +526,31 @@ namespace TL
 
             _environment._mask_list.pop_back();
 
+            // Add mask expression after vectorization
+            comp_statement.as<Nodecl::CompoundStatement>().
+                get_statements().as<Nodecl::List>().prepend(mask_exp); 
+
             // Remove loop header
             for_statement.replace(for_statement.get_statement());
 
             _environment._analysis_scopes.pop_back();
+            _environment._local_scope_list.pop_back();
         }
 
 
         void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement)
         {
+            // Set up environment
+            _environment._external_scope = for_statement.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+
             Nodecl::LoopControl loop_control =
                 for_statement.get_loop_header().as<Nodecl::LoopControl>();
 
             loop_control.set_init(Nodecl::NodeclBase::null());
+
+            _environment._local_scope_list.pop_back();
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorForEpilog::unhandled_node(const Nodecl::NodeclBase& n)

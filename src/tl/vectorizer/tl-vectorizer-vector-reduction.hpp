@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,37 +24,39 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_VISITOR_STATEMENT_HPP
-#define TL_VECTORIZER_VISITOR_STATEMENT_HPP
+#ifndef TL_VECTORIZER_VECTOR_REDUCTION_HPP
+#define TL_VECTORIZER_VECTOR_REDUCTION_HPP
 
-#include "tl-nodecl-visitor.hpp"
-#include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer.hpp"
 
 namespace TL 
 { 
-    namespace Vectorization
+    namespace Vectorization 
     {
-        class VectorizerVisitorStatement : public Nodecl::NodeclVisitor<void>
+        class VectorizerVectorReduction
         {
             private:
-                VectorizerEnvironment& _environment;
+                const VectorizerEnvironment& _environment;
 
             public:
-                VectorizerVisitorStatement(VectorizerEnvironment& environment);
 
-                virtual void visit(const Nodecl::Context& n);
-                virtual void visit(const Nodecl::CompoundStatement& n);
-                virtual void visit(const Nodecl::ForStatement& n);
-                virtual void visit(const Nodecl::IfElseStatement& n);
-                virtual void visit(const Nodecl::ExpressionStatement& n);
-                virtual void visit(const Nodecl::ObjectInit& n);
-                virtual void visit(const Nodecl::ReturnStatement& n);
-                virtual void visit(const Nodecl::BreakStatement& n);
+            VectorizerVectorReduction(const VectorizerEnvironment& environment);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+            bool is_supported_reduction(bool is_builtin,
+                    const std::string& reduction_name,
+                    const TL::Type& reduction_type);
+
+            void vectorize_reduction(const TL::Symbol& scalar_symbol,
+                    TL::Symbol& vector_symbol,
+                    const Nodecl::NodeclBase& reduction_initializer,
+                    const std::string& reduction_name,
+                    const TL::Type& reduction_type,
+                    Nodecl::List& pre_nodecls,
+                    Nodecl::List& post_nodecls);
         };
     }
 }
 
-#endif //TL_VECTORIZER_VISITOR_STATEMENT_HPP
+#endif //TL_VECTORIZER_VECTOR_REDUCTION_HPP
+
+

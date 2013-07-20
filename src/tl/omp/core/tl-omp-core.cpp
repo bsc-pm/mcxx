@@ -1565,8 +1565,14 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
-        void Core::simd_handler_pre(TL::PragmaCustomStatement construct) { }
-        void Core::simd_handler_post(TL::PragmaCustomStatement construct) { }
+        void Core::simd_handler_pre(TL::PragmaCustomStatement construct)
+        { 
+            for_handler_pre(construct);
+        }
+        void Core::simd_handler_post(TL::PragmaCustomStatement construct)
+        { 
+            for_handler_post(construct);
+        }
         void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
         void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 

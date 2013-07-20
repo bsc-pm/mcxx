@@ -559,6 +559,29 @@ def generate_visitor_class_header(rule_map):
          print "     virtual Ret visit_post(const Nodecl::%s & n) { return Ret(); }" % (qualified_name)
          print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
          print "     {"
+         print "        TL::ObjectList<Ret> values;"
+         print "        values.append(this->visit_pre(n));"
+         child_num = 0
+         for child_name in children_name:
+              print "        values.append(this->walk(n.get_%s()));" % (child_name)
+              child_num = child_num + 1
+         print "        values.append(this->visit_post(n));"
+         print "        return this->join_list(values);"
+         print "     }"
+    print "};"
+    # ExhaustiveVisitor<void>
+    print "template <>"
+    print "class ExhaustiveVisitor<void> : public NodeclVisitor<void>"
+    print "{"
+    print "public:"
+    print "     typedef typename NodeclVisitor<void>::Ret Ret;"
+    classes_and_children = get_all_class_names_and_children_names_namespaces_and_modules(rule_map)
+    for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
+         qualified_name = get_qualified_name(namespaces, class_name)
+         print "     virtual Ret visit_pre(const Nodecl::%s & n) { }" % (qualified_name)
+         print "     virtual Ret visit_post(const Nodecl::%s & n) { }" % (qualified_name)
+         print "     virtual Ret visit(const Nodecl::%s & n)" % (qualified_name)
+         print "     {"
          print "        this->visit_pre(n);"
          child_num = 0
          for child_name in children_name:

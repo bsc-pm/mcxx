@@ -1,27 +1,27 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
-                          Centro Nacional de Supercomputacion
-  
-  This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information
-  regarding developers and contributors.
-  
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 3 of the License, or (at your option) any later version.
-  
-  Mercurium C/C++ source-to-source compiler is distributed in the hope
-  that it will be useful, but WITHOUT ANY WARRANTY; without even the
-  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the GNU Lesser General Public License for more
-  details.
-  
-  You should have received a copy of the GNU Lesser General Public
-  License along with Mercurium C/C++ source-to-source compiler; if
-  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-  Cambridge, MA 02139, USA.
+(C) Copyright 2006-2013 Barcelona Supercomputing Center
+                      Centro Nacional de Supercomputacion
+
+This file is part of Mercurium C/C++ source-to-source compiler.
+
+See AUTHORS file in the top level directory for information
+regarding developers and contributors.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 3 of the License, or (at your option) any later version.
+
+Mercurium C/C++ source-to-source compiler is distributed in the hope
+that it will be useful, but WITHOUT ANY WARRANTY; without even the
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.  See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with Mercurium C/C++ source-to-source compiler; if
+not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
@@ -52,89 +52,89 @@
 
 namespace TL
 {
-    //! All OpenMP related classes are defined in this namespace
-    namespace OpenMP
-    {
-        //! \addtogroup OpenMP OpenMP related classes
-        // @{
+//! All OpenMP related classes are defined in this namespace
+namespace OpenMP
+{
+    //! \addtogroup OpenMP OpenMP related classes
+    // @{
 #define BITMAP(x) (1<<x)
-        //! Data attribute for data-sharing
-        /*!
-         * This is a bitmap and some values are already combined to express inclusion
-         * of some data-sharing attributes within others
-         */
-        enum DataSharingAttribute
-        {
-            DS_UNDEFINED = 0,
-            //! Shared data sharing
-            DS_SHARED = BITMAP(0),
-            //! Private data sharing
-            DS_PRIVATE = BITMAP(1),
-            //! Firstprivate data sharing
-            DS_FIRSTPRIVATE = BITMAP(2) | DS_PRIVATE,
-            //! Lastprivate data sharing
-            DS_LASTPRIVATE = BITMAP(3) | DS_PRIVATE,
-            //! Both lastprivate and firstprivate
-            DS_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
-            //! Reduction data-sharing 
-            DS_REDUCTION = BITMAP(4),
-            //! Threadprivate data-sharing
-            DS_THREADPRIVATE = BITMAP(5),
-            //! Copy in data-sharing
-            DS_COPYIN = BITMAP(6),
-            //! Copy private data-sharing
-            DS_COPYPRIVATE = BITMAP(7),
+    //! Data attribute for data-sharing
+    /*!
+     * This is a bitmap and some values are already combined to express inclusion
+     * of some data-sharing attributes within others
+     */
+    enum DataSharingAttribute
+    {
+        DS_UNDEFINED = 0,
+        //! Shared data sharing
+        DS_SHARED = BITMAP(0),
+        //! Private data sharing
+        DS_PRIVATE = BITMAP(1),
+        //! Firstprivate data sharing
+        DS_FIRSTPRIVATE = BITMAP(2) | DS_PRIVATE,
+        //! Lastprivate data sharing
+        DS_LASTPRIVATE = BITMAP(3) | DS_PRIVATE,
+        //! Both lastprivate and firstprivate
+        DS_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
+        //! Reduction data-sharing 
+        DS_REDUCTION = BITMAP(4),
+        //! Threadprivate data-sharing
+        DS_THREADPRIVATE = BITMAP(5),
+        //! Copy in data-sharing
+        DS_COPYIN = BITMAP(6),
+        //! Copy private data-sharing
+        DS_COPYPRIVATE = BITMAP(7),
 
-            //! Special to state no data sharing
-            DS_NONE = BITMAP(8),
+        //! Special to state no data sharing
+        DS_NONE = BITMAP(8),
 
-            //! Auto data sharing
-            DS_AUTO = BITMAP(9),
+        //! Auto data sharing
+        DS_AUTO = BITMAP(9),
 
-            //! States that the data sharing is implicit. Special attribute that makes no difference
-            DS_IMPLICIT = BITMAP(15)
-        };
+        //! States that the data sharing is implicit. Special attribute that makes no difference
+        DS_IMPLICIT = BITMAP(15)
+    };
 
 #undef BITMAP
 
 
-        enum CopyDirection
-        {
-            COPY_DIR_INVALID = 0,
-            COPY_DIR_IN = 1 << 1,
-            COPY_DIR_OUT = 1 << 2,
-            COPY_DIR_INOUT = COPY_DIR_IN | COPY_DIR_OUT,
-        };
+    enum CopyDirection
+    {
+        COPY_DIR_INVALID = 0,
+        COPY_DIR_IN = 1 << 1,
+        COPY_DIR_OUT = 1 << 2,
+        COPY_DIR_INOUT = COPY_DIR_IN | COPY_DIR_OUT,
+    };
 
-        class LIBTL_CLASS CopyItem : public TL::Object
-        {
-            private:
-                DataReference _copy_expr;
-                CopyDirection _kind;
-            public:
-                CopyItem() { }
+    class LIBTL_CLASS CopyItem : public TL::Object
+    {
+        private:
+            DataReference _copy_expr;
+            CopyDirection _kind;
+        public:
+            CopyItem() { }
 
-                CopyItem(DataReference data_reference, CopyDirection direction);
+            CopyItem(DataReference data_reference, CopyDirection direction);
 
-                CopyDirection get_kind() const;
-                DataReference get_copy_expression() const;
+            CopyDirection get_kind() const;
+            DataReference get_copy_expression() const;
 
-                // Convenience operator
-                bool operator==(const CopyItem& c) const
-                {
-                    return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
-                }
+            // Convenience operator
+            bool operator==(const CopyItem& c) const
+            {
+                return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
+            }
 
-                void module_write(ModuleWriter& mw);
-                void module_read(ModuleReader& mw);
-        };
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mw);
+    };
 
-        //! Auxiliar class used in reduction clauses. Ties a TL::Symbol with an OpenMP::Reduction
-        class LIBTL_CLASS ReductionSymbol 
-        {
-            private:
-                Symbol _symbol;
-                Reduction *_reduction;
+    //! Auxiliar class used in reduction clauses. Ties a TL::Symbol with an OpenMP::Reduction
+    class LIBTL_CLASS ReductionSymbol 
+    {
+        private:
+            Symbol _symbol;
+            Reduction *_reduction;
 
             public:
                 ReductionSymbol(Symbol s, Reduction *reduction)

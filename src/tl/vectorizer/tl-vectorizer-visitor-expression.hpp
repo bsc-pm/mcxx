@@ -40,9 +40,6 @@ namespace TL
             private:
                 VectorizerEnvironment& _environment;
 
-                bool is_declared_in_scope(const scope_t *const target_scope , 
-                        const scope_t *const symbol_scope) const;
-
             public:
                 VectorizerVisitorExpression(VectorizerEnvironment& environment);
 
@@ -53,8 +50,11 @@ namespace TL
                 virtual void visit(const Nodecl::Neg& n);
 
                 virtual void visit(const Nodecl::LowerThan& n);
+                virtual void visit(const Nodecl::LowerOrEqualThan& n);
                 virtual void visit(const Nodecl::GreaterThan& n);
+                virtual void visit(const Nodecl::GreaterOrEqualThan& n);
                 virtual void visit(const Nodecl::Equal& n);
+                virtual void visit(const Nodecl::Different& n);
                 virtual void visit(const Nodecl::BitwiseAnd& n);
                 virtual void visit(const Nodecl::BitwiseOr& n);
                 virtual void visit(const Nodecl::LogicalAnd& n);

@@ -2183,7 +2183,8 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            Nodecl::List environment;
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(stmt);
+            Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
             // Suitable
             PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
@@ -2241,7 +2242,8 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-            Nodecl::List environment;
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(decl);
+            Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
             // Suitable
             PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
@@ -2366,6 +2368,7 @@ namespace TL { namespace OpenMP {
         TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
         pragma_line.diagnostic_unused_clauses();
         // FIXME - What is supposed to happen here?
+        // It is still not supported
     }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }
