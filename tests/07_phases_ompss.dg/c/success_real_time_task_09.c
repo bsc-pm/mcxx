@@ -42,10 +42,12 @@ void foo(int n)
         //do something
         e += n;
     }
+#pragma omp taskwait
 } 
 
 int main() 
 {
     int e = 1;
     foo(e);
+    return 0;
 }

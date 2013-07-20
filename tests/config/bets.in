@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #constants
-readonly bets_version=0.9
+readonly bets_version=0.9.1
 
 #color constants
 
@@ -132,10 +132,16 @@ passfail ()
      fi
      let pass=pass+1
    else
-     filtered_message "${RED}failed${NORMAL}!"
-     log "failed!"
-     junit_log "<error />"
-     let fail=fail+1
+     if [ ! "$test_ignore_fail" ]; then
+       filtered_message "${RED}failed${NORMAL}!"
+       log "failed!"
+       junit_log "<error />"
+       let fail=fail+1
+     else
+       # Note in jUnit output these tests are not flagged in any special way!
+       filtered_message "${YELLOW}failed (ignored)${NORMAL}!"
+       log "failed (ignored)"
+     fi
    fi
 
    escaped_xml_OUT=$(mktemp)
@@ -202,7 +208,7 @@ compile_c ()
    fi
 
    pushd $tmpdir
-   logcmd $cc $cflags $ldflags -o $exec $srcdir/$source 
+   logcmd $cc $cflags -o $exec $srcdir/$source $ldflags 
    local ret=$?
    popd
 
@@ -243,7 +249,7 @@ compile_cpp ()
    fi
 
    pushd $tmpdir
-   logcmd $cxx $cxxflags $ldflags -o $exec $srcdir/$source 
+   logcmd $cxx $cxxflags -o $exec $srcdir/$source $ldflags 
    local ret=$?
    popd
 
@@ -292,6 +298,54 @@ compile_fortran ()
    return $ret
 }
 
+runner_local ()
+{
+   local tmpdir
+   local exe
+   local args
+   local env
+
+   tmpdir="$1"
+   exe="$2"
+   args="$3"
+   env="$4"
+
+   echo > $tmpfile
+   echo $env $tmpdir/$exec $args >> $tmpfile
+
+   log sh $tmpfile
+   sh $tmpfile >> $logfile
+   local ret=$?
+
+   return $ret
+}
+
+runner_ssh()
+{
+   local tmpdir
+   local exe
+   local args
+   local env
+
+   tmpdir="$1"
+   exe="$2"
+   args="$3"
+   env="$4"
+
+
+   echo > $tmpfile
+
+   echo $ssh_remote_commands >> $tmpfile
+   echo $env $tmpdir/$exec $args >> $tmpfile
+
+   log ssh -oBatchMode=yes ${ssh_user:-$(whoami)}@$ssh_host "sh $tmpfile"
+   ssh -oBatchMode=yes ${ssh_user:-$(whoami)}@$ssh_host "sh $tmpfile" >> $logfile
+
+   local ret=$?
+
+   return $ret
+}
+
 execute ()
 {
    local version=$1
@@ -302,13 +356,10 @@ execute ()
 
    eval env=\"$test_ENV \${test_ENV_$version} \${test_ENV_$cversion}\"
    eval args=\"$test_ARGS \${test_ARGS_$version}\"
- 
+
    log $env ./$exec $args
 
-   echo > $tmpfile
-   echo $env $tmpdir/$exec $args >> $tmpfile
-  
-   sh $tmpfile >> $logfile
+   ${runner:-runner_local} "$tmpdir" "$exe" "$args" "$env"
    local ret=$?
 
    return $ret
@@ -420,6 +471,7 @@ clean_test_vars ()
    unset test_noexec
    unset test_ignore
    unset test_ignore_reason
+   unset test_ignore_fail
 }
 
 # run functions
@@ -449,6 +501,11 @@ run_gen_test ()
    local all_exec_versions=
    local exec_versions=
    local compile_versions=
+   local test_max_cpus=
+   local test_schedule=
+   local test_deps_plugins=
+   local test_mode=
+   local generator_args=
    clean_test_vars
    clean_${type}_compile_vars
    clean_exec_vars
@@ -480,12 +537,25 @@ run_gen_test ()
    all_exec_versions=$exec_versions
    compile_versions=
    exec_versions=
+   
+   if [ "$test_max_cpus" ]; then
+      export NX_TEST_MAX_CPUS="$test_max_cpus"
+   fi
+   if [ "$test_schedule" ]; then
+      export NX_TEST_SCHEDULE="$test_schedule"
+   fi
+   if [ "$test_deps_plugins" ]; then
+      generator_args="-d $test_deps_plugins"
+   fi
+   if [ "$test_mode" ]; then
+      generator_args="-m $test_mode"
+   fi
 
    if [ "$test_generator" ]; then
       debug "Using version generator $test_generator"
       export TEST_LANGUAGE=$type
       export TEST_SOURCE=$source
-      $basedir/$test_generator > $tmpfile
+      $basedir/$test_generator $generator_args > $tmpfile
       unset TEST_LANGUAGE
       unset TEST_SOURCE
       source $tmpfile >> $logfile
@@ -570,12 +640,21 @@ run_gen_test ()
              eval test_faulty=\${test_exec_faulty_${v}_${e}}
              eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
              test_faulty=${test_faulty:-$test_exec_faulty}
+             eval test_ignore_fail=\${test_ignore_fail}
              passfail "$name-$v-$e" execute $e $name $v
              log "***End execute test $name-$v-$e"
           done
         fi
 
      done
+   fi
+   
+   if [ "$test_max_cpus" ]; then
+      unset NX_TEST_MAX_CPUS
+   fi
+
+   if [ "$test_schedule" ]; then
+      unset NX_TEST_SCHEDULE
    fi
    
    for v in $all_compile_versions; do

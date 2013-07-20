@@ -108,7 +108,7 @@ AC_COMPILE_IFELSE(
 
 dnl --------------------- end check of old gcc ---
 
-TL_EXTENSIONS=""
+TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
@@ -118,9 +118,17 @@ dnl ----- SQLITE - Required only for fortran ---
 
 PKG_PROG_PKG_CONFIG
 
+
 PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
                   [],
-                  AC_MSG_ERROR([Fortran support requires sqlite 3.6.16]))
+AC_MSG_ERROR([Fortran support requires development files of sqlite3.
+ * In Ubuntu/Debian: apt-get install libsqlite3-dev.
+ * In RHEL/Fedora: yum install sqlite-devel.
+ * In SuSE: zypper install sqlite3-devel
+ * Install from sources at http://www.sqlite.org:
+   - Use sqlite-autoconf-xxx.tar.gz
+   - Make sure PKG_CONFIG_PATH points to <sqlite3-install-dir>/lib/pkgconfig])
+)
 
 AC_SUBST([sqlite3_CFLAGS])
 AC_SUBST([sqlite3_LIBS])
@@ -479,7 +487,7 @@ AC_SUBST([CUDA_RPATH])
 if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
-   COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else
@@ -568,6 +576,7 @@ if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
 else
    DISABLE_OPENCL="\#do not uncomment"
 fi 
+AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
@@ -817,7 +826,6 @@ if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
-   TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 
    if test x$is_enabled_tl_omp_profile = xyes;
    then
@@ -948,7 +956,7 @@ AC_ARG_ENABLE([tl-examples],
 
 if test x$is_enabled_tl_examples = xyes;
 then
-   TL_EXTENSIONS="${TL_EXTENSIONS} examples"
+   TL_EXTRAS="${TL_EXTRAS} examples"
 fi
 
 dnl ------------------------------------
@@ -977,7 +985,7 @@ AC_ARG_ENABLE([tl-tests],
 
 if test x$is_enabled_tl_tests = xyes;
 then
-   TL_EXTENSIONS="${TL_EXTENSIONS} testing"
+   TL_EXTRAS="${TL_EXTRAS} testing"
 fi
 
 dnl ------------------------------------
@@ -1396,7 +1404,7 @@ AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
 AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
-AC_SUBST([TL_EXTENSIONS])
+AC_SUBST([TL_EXTRAS])
 AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
@@ -1453,6 +1461,10 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
+           src/tl/examples/Makefile
+           src/tl/examples/01_basic_phase/Makefile
+           src/tl/examples/02_parameters/Makefile
+           src/tl/examples/03_visitor/Makefile
            src/tl/old_examples/Makefile
            src/tl/old_examples/basic_phase/Makefile
            src/tl/old_examples/parameters/Makefile
@@ -1481,6 +1493,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-serial-simd-svml
            tests/config/mercurium-parallel-simd
            tests/config/mercurium-cuda
+           tests/config/mercurium-opencl
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium

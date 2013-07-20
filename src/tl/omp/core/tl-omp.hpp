@@ -37,11 +37,11 @@
 #include "tl-handler.hpp"
 #include "tl-dto.hpp"
 
-#include "tl-pragmasupport.hpp"
-#include "tl-omp-reduction.hpp"
-#include "tl-omp-deps.hpp"
-
 #include "tl-datareference.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "tl-omp-deps.hpp"
+#include "tl-omp-reduction.hpp"
+#include "tl-pragmasupport.hpp"
 
 #include <map>
 #include <set>
@@ -204,7 +204,10 @@ namespace TL
 
                 ~RealTimeInfo();
 
-                RealTimeInfo (const RealTimeInfo& rt_copy);
+                RealTimeInfo(const RealTimeInfo& rt_copy);
+
+                RealTimeInfo(const RealTimeInfo& rt_copy,
+                        Nodecl::Utils::SimpleSymbolMap& translation_map);
 
                 RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
@@ -265,6 +268,11 @@ namespace TL
                 bool _copy_deps;
             public:
                 TargetInfo();
+
+                TargetInfo(const TargetInfo& target_info,
+                        Nodecl::Utils::SimpleSymbolMap translation_map,
+                        TL::Symbol target_symbol);
+
                 bool can_be_ommitted();
 
                 void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
@@ -374,7 +382,7 @@ namespace TL
 
                 void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
-                TargetInfo get_target_info();
+                TargetInfo& get_target_info();
                 void set_target_info(const TargetInfo & target_info);
 
                 void set_real_time_info(const RealTimeInfo & rt_info);
@@ -463,6 +471,7 @@ namespace TL
                 RealTimeInfo _real_time_info;
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
+                Nodecl::NodeclBase _final_clause_cond_expr;
 
                 implementation_table_t get_implementation_table() const;
 
@@ -478,7 +487,14 @@ namespace TL
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info);
 
+                FunctionTaskInfo(
+                        const FunctionTaskInfo& task_info,
+                        Nodecl::Utils::SimpleSymbolMap& translation_map,
+                        TL::Symbol function_sym);
+
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
+
+                void add_function_task_dependency(const FunctionTaskDependency& dep);
 
                 ObjectList<Symbol> get_involved_parameters() const;
 
@@ -494,7 +510,7 @@ namespace TL
 
                 ObjectList<implementation_pair_t> get_devices_with_implementation() const;
 
-                TargetInfo get_target_info() const;
+                TargetInfo& get_target_info();
                 void set_target_info(const TargetInfo& target_info);
 
                 RealTimeInfo get_real_time_info();
@@ -502,6 +518,9 @@ namespace TL
 
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
+
+                void set_final_clause_conditional_expression(Nodecl::NodeclBase expr);
+                Nodecl::NodeclBase get_final_clause_conditional_expression() const;
 
                 void set_priority_clause_expression(Nodecl::NodeclBase expr);
                 Nodecl::NodeclBase get_priority_clause_expression() const;
@@ -521,16 +540,20 @@ namespace TL
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
         {
             private:
-                typedef std::map<Symbol, FunctionTaskInfo> map_t;
-                map_t _map;
+                std::map<Symbol, FunctionTaskInfo> _map;
+
             public:
                 FunctionTaskSet();
+
+                std::map<Symbol, FunctionTaskInfo> get_function_task_set() const;
 
                 bool is_function_task(Symbol sym) const;
 
                 FunctionTaskInfo& get_function_task(Symbol sym);
                 const FunctionTaskInfo& get_function_task(Symbol sym) const;
+
                 void add_function_task(Symbol sym, const FunctionTaskInfo&);
+                void remove_function_task(Symbol sym);
 
                 bool empty() const;
 

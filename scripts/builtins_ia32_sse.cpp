@@ -485,6 +485,8 @@ VECTOR_INTRIN(__builtin_ia32_blendvpd) \
 VECTOR_INTRIN(__builtin_ia32_blendvpd256) \
 VECTOR_INTRIN(__builtin_ia32_blendvps) \
 VECTOR_INTRIN(__builtin_ia32_blendvps256) \
+VECTOR_INTRIN(__builtin_ia32_bsrdi) \
+VECTOR_INTRIN(__builtin_ia32_bsrsi) \
 VECTOR_INTRIN(__builtin_ia32_clflush) \
 VECTOR_INTRIN(__builtin_ia32_cmpeqpd) \
 VECTOR_INTRIN(__builtin_ia32_cmpeqps) \
@@ -901,6 +903,13 @@ VECTOR_INTRIN(__builtin_ia32_pxor128) \
 VECTOR_INTRIN(__builtin_ia32_rcpps) \
 VECTOR_INTRIN(__builtin_ia32_rcpps256) \
 VECTOR_INTRIN(__builtin_ia32_rcpss) \
+VECTOR_INTRIN(__builtin_ia32_rdpmc) \
+VECTOR_INTRIN(__builtin_ia32_rdtsc) \
+VECTOR_INTRIN(__builtin_ia32_rdtscp) \
+VECTOR_INTRIN(__builtin_ia32_rolhi) \
+VECTOR_INTRIN(__builtin_ia32_rolqi) \
+VECTOR_INTRIN(__builtin_ia32_rorhi) \
+VECTOR_INTRIN(__builtin_ia32_rorqi) \
 VECTOR_INTRIN(__builtin_ia32_roundpd) \
 VECTOR_INTRIN(__builtin_ia32_roundpd256) \
 VECTOR_INTRIN(__builtin_ia32_roundps) \

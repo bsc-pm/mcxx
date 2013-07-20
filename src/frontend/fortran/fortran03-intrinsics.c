@@ -162,7 +162,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, fraction, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, gamma, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, get_command, "?COMMAND,?LENGTH,?STATUS", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, get_command_argument, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, get_environment_variable, "NUMBER,?VALUE,?LENGTH,?STATUS", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, get_environment_variable, "NAME,?VALUE,?LENGTH,?STATUS,?TRIM_NAME", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, huge, "X", I, simplify_huge) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hypot, "X,Y", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, iachar, "C,?KIND", E, simplify_iachar) \
@@ -218,7 +218,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, move_alloc, "FROM,TO", PS, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, mvbits, "FROM,FROMPOS,LEN,TO,TOPOS", ES, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, nearest, "X,S", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, new_line, "A", I, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, nint, "A,?KIND", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, nint, "A,?KIND", E, simplify_nint) \
 FORTRAN_GENERIC_INTRINSIC(NULL, not, "I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, norm2, "X,?DIM", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, null, "?MOLD", T, simplify_null) \
@@ -328,6 +328,7 @@ MERCURIUM_SPECIFIC_INTRINSICS
 
 #define MERCURIUM_SPECIFIC_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_loc, "X", I, simplify_mcc_loc) \
+  FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_null, "", I, simplify_mcc_null) \
 
 #define IEEE_EXCEPTIONS_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_support_flag, "FLAG,?X", I, NULL) \
@@ -516,6 +517,10 @@ static char generic_keyword_check(
         int i;
         for (i = 0; i < (*num_arguments); i++)
         {
+            ERROR_CONDITION(!nodecl_is_null(argument_expressions[i])
+                    && nodecl_get_kind(argument_expressions[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT,
+                    "This node must be a NODECL_FORTRAN_ACTUAL_ARGUMENT", 0);
+
             nodecl_t expr = nodecl_get_child(argument_expressions[i], 0);
 
             reordered_types[i] = nodecl_get_type(expr);
@@ -535,6 +540,10 @@ static char generic_keyword_check(
     char seen_keywords = 0;
     for (i = 0; i < (*num_arguments) && ok; i++)
     {
+        ERROR_CONDITION(!nodecl_is_null(argument_expressions[i])
+                && nodecl_get_kind(argument_expressions[i]) != NODECL_FORTRAN_ACTUAL_ARGUMENT,
+                "This node must be a NODECL_FORTRAN_ACTUAL_ARGUMENT", 0);
+
         const char* keyword = NULL;
         nodecl_t expr = nodecl_null();
 
@@ -3190,13 +3199,13 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
             && (t3 == NULL || is_integer_type(t3))
             && (t4 == NULL || is_bool_type(t4)))
     {
-        return GET_INTRINSIC_IMPURE(symbol, "get_environment_variable", 
+        return GET_INTRINSIC_IMPURE(symbol, "get_environment_variable",
                 get_void_type(), // is a subroutine
                 t0,
                 t1 == NULL ? fortran_get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? fortran_get_default_integer_type() : t2,
                 t3 == NULL ? fortran_get_default_integer_type() : t3,
-                t3 == NULL ? fortran_get_default_logical_type() : t4);
+                t4 == NULL ? fortran_get_default_logical_type() : t4);
     }
 
     return NULL;
@@ -5277,8 +5286,14 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         return NULL;
 
     // t1 shall be of constant size
-    nodecl_t arr_shape_size = array_type_get_array_size_expr(t1);
-    if (nodecl_is_null(arr_shape_size) 
+    nodecl_t arr_shape_size = nodecl_null();
+
+    if (array_type_has_region(t1))
+        arr_shape_size = array_type_get_region_size_expr(t1);
+    else
+        arr_shape_size = array_type_get_array_size_expr(t1);
+
+    if (nodecl_is_null(arr_shape_size)
             || !nodecl_is_constant(arr_shape_size))
         return NULL;
 
@@ -6032,7 +6047,9 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
                 get_unqualified_type(fortran_get_rank0_type(t0)))
             && fortran_are_conformable_types(t2, t0))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "unpack", t0, t0, t1, t2);
+        type_t* result = fortran_get_n_ranked_type(fortran_get_rank0_type(t0),
+                fortran_get_rank_of_type(t1), CURRENT_COMPILED_FILE->global_decl_context);
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "unpack", result, t0, t1, t2);
     }
 
     return NULL;
@@ -6482,6 +6499,15 @@ scope_entry_t* compute_intrinsic_mercurium_loc(scope_entry_t* symbol,
     type_t* t0 = no_ref(argument_types[0]);
 
     return GET_INTRINSIC_INQUIRY(symbol, "mercurium_loc", get_pointer_type(get_void_type()), t0);
+}
+
+scope_entry_t* compute_intrinsic_mercurium_null(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return GET_INTRINSIC_INQUIRY(symbol, "mercurium_loc", get_pointer_type(get_void_type()));
 }
 
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,

@@ -1909,7 +1909,7 @@ namespace Analysis {
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( task_entry, task_exit ) );
-        walk( n.get_site_environment( ) );
+        walk( n.get_environment( ) );
         task_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );

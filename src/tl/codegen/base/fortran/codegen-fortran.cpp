@@ -1406,6 +1406,13 @@ OPERATOR_TABLE
         // because this node was created in C
         subscripted = advance_parenthesized_expression(subscripted);
 
+        while (subscripted.is<Nodecl::Conversion>())
+        {
+            // Skip this conversion that may arise when we convert from
+            // T (&)[10][20] to T (*)[20] because of C
+            subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
+        }
+
         walk(subscripted);
         file << "(";
         codegen_reverse_comma_separated_list(subscripts);
@@ -2549,13 +2556,15 @@ OPERATOR_TABLE
     }
 
     void FortranBase::codegen_casting(
-            TL::Type dest_type, 
-            TL::Type source_type, 
+            TL::Type orig_dest_type, 
+            TL::Type orig_source_type, 
             Nodecl::NodeclBase nest)
     {
+        TL::Type dest_type = orig_dest_type;
+        TL::Type source_type = orig_source_type;
+
         if (dest_type.is_any_reference())
             dest_type = dest_type.references_to();
-
         if (source_type.is_any_reference())
             source_type = source_type.references_to();
 
@@ -4849,6 +4858,16 @@ OPERATOR_TABLE
                 TL::ObjectList<TL::Symbol> specific_interfaces = entry.get_related_symbols();
                 for (TL::ObjectList<TL::Symbol>::iterator it = specific_interfaces.begin(); 
                         it != specific_interfaces.end();
+                        it++)
+                {
+                    emit_use_statement_if_symbol_comes_from_module(*it, sc, use_stmt_info);
+                }
+            }
+            else if (entry.is_function())
+            {
+                TL::ObjectList<TL::Symbol> parameters = entry.get_related_symbols();
+                for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin(); 
+                        it != parameters.end();
                         it++)
                 {
                     emit_use_statement_if_symbol_comes_from_module(*it, sc, use_stmt_info);

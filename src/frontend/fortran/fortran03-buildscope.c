@@ -8554,7 +8554,7 @@ static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_cont
         nodecl_t nodecl_statement = nodecl_null();
         fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
-        *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_statement);
     }
 }
 
@@ -8597,9 +8597,11 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
 
     if (where_construct_body == NULL)
     {
-        nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
-                    nodecl_mask_expr, nodecl_null(), ast_get_locus(a)));
-        *nodecl_output = 
+        nodecl_t nodecl_where_parts = nodecl_make_list_1(
+                nodecl_make_fortran_where_pair(
+                    nodecl_mask_expr, nodecl_null(),
+                    ast_get_locus(a)));
+        *nodecl_output =
             nodecl_make_list_1(
                     nodecl_make_fortran_where(nodecl_where_parts, ast_get_locus(a))
                     );
@@ -8616,13 +8618,16 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
         {
             build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
 
-            nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
-                        nodecl_mask_expr, nodecl_list_head(nodecl_body), 
+            nodecl_where_parts = nodecl_make_list_1(
+                    nodecl_make_fortran_where_pair(
+                        nodecl_mask_expr,
+                        nodecl_body,
                         ast_get_locus(a)));
         }
         else
         {
-            nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
+            nodecl_where_parts = nodecl_make_list_1(
+                    nodecl_make_fortran_where_pair(
                         nodecl_mask_expr, nodecl_null(),
                         ast_get_locus(a)));
         }
@@ -8643,13 +8648,14 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
             nodecl_t nodecl_elsewhere_body = nodecl_null();
             build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
             nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
-                    nodecl_make_list_1(nodecl_make_fortran_where_pair(nodecl_null(), 
-                            nodecl_list_head(nodecl_elsewhere_body), 
+                    nodecl_make_list_1(nodecl_make_fortran_where_pair(
+                            nodecl_null(),
+                            nodecl_elsewhere_body,
                             ast_get_locus(a))));
         }
 
 
-        *nodecl_output = 
+        *nodecl_output =
             nodecl_make_list_1(
                     nodecl_make_fortran_where(nodecl_where_parts, ast_get_locus(a))
                     );

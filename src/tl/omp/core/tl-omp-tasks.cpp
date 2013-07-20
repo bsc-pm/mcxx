@@ -66,6 +66,74 @@ namespace TL
         {
         }
 
+        TargetInfo::TargetInfo(const TargetInfo& target_info,
+                Nodecl::Utils::SimpleSymbolMap translation_map,
+                TL::Symbol target_symbol) :
+            _target_symbol(target_symbol),
+            _device_list(target_info._device_list),
+            _file(target_info._file),
+            _name(target_info._name)
+        {
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
+                    it != target_info._copy_in.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                        data_ref, data_ref.retrieve_context(), translation_map);
+
+                DataReference updated_data_ref(updated_expr);
+                _copy_in.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_out.begin();
+                    it != target_info._copy_out.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                        data_ref, data_ref.retrieve_context(), translation_map);
+
+                DataReference updated_data_ref(updated_expr);
+                _copy_out.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_inout.begin();
+                    it != target_info._copy_inout.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                        data_ref, data_ref.retrieve_context(), translation_map);
+
+                DataReference updated_data_ref(updated_expr);
+                _copy_inout.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = target_info._ndrange.begin();
+                    it != target_info._ndrange.end();
+                    it++)
+            {
+                _ndrange.append(Nodecl::Utils::deep_copy(*it, target_info._target_symbol.get_scope(), translation_map));
+            }
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = target_info._onto.begin();
+                    it != target_info._onto.end();
+                    it++)
+            {
+                _onto.append(Nodecl::Utils::deep_copy(*it, target_info._target_symbol.get_scope(), translation_map));
+            }
+        }
+
         bool TargetInfo::can_be_ommitted()
         {
             return _copy_in.empty()
@@ -204,7 +272,7 @@ namespace TL
         {
             return _file;
         }
-  
+
         void TargetInfo::set_name(std::string name)
         {
             _name = name;
@@ -214,11 +282,12 @@ namespace TL
         {
             return _name;
         }
+
         void TargetInfo::set_target_symbol(Symbol funct_symbol)
         {
-            _target_symbol=funct_symbol;
+            _target_symbol = funct_symbol;
         }
-        
+
         Symbol TargetInfo::get_target_symbol() const
         {
             return _target_symbol;
@@ -248,6 +317,64 @@ namespace TL
             _parameters(parameter_info),
             _implementation_table()
         {
+        }
+
+        FunctionTaskInfo::FunctionTaskInfo(
+                const FunctionTaskInfo& task_info,
+                Nodecl::Utils::SimpleSymbolMap& translation_map,
+                TL::Symbol function_sym) :
+            _sym(function_sym),
+            _untied(task_info._untied)
+        {
+            // Copy the implementations table
+            ERROR_CONDITION(_implementation_table.size() > 1,
+                    "More than one implementation of a nonvoid task '%s' is not currently supported",
+                    task_info._sym.get_name().c_str());
+
+           for (implementation_table_t::const_iterator it = task_info._implementation_table.begin();
+                   it != task_info._implementation_table.end();
+                   ++it)
+           {
+               _implementation_table.insert(make_pair(it->first, function_sym));
+           }
+
+           // Copy the target information
+           set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
+
+           // Copy the real time information
+           set_real_time_info(RealTimeInfo(task_info._real_time_info, translation_map));
+
+            // Copy the function task dependences
+           for (TL::ObjectList<FunctionTaskDependency>::const_iterator it = task_info._parameters.begin();
+                   it != task_info._parameters.end();
+                   it++)
+           {
+               FunctionTaskDependency dep_item = *it;
+               DependencyDirection dir = dep_item.get_direction();
+               DataReference data_ref = dep_item.get_data_reference();
+
+               Nodecl::NodeclBase updated_expr = Nodecl::Utils::deep_copy(
+                       data_ref,
+                       data_ref.retrieve_context(),
+                       translation_map);
+
+               DataReference updated_data_ref(updated_expr);
+
+               FunctionTaskDependency updated_dep_item(updated_data_ref, dir);
+               _parameters.append(updated_dep_item);
+           }
+
+           _if_clause_cond_expr = Nodecl::Utils::deep_copy(
+                   task_info._if_clause_cond_expr, task_info._sym.get_scope(), translation_map);
+
+           _final_clause_cond_expr = Nodecl::Utils::deep_copy(
+                   task_info._final_clause_cond_expr, task_info._sym.get_scope(), translation_map);
+
+           _priority_clause_expr = Nodecl::Utils::deep_copy(
+                   task_info._priority_clause_expr, task_info._sym.get_scope(), translation_map);
+
+           _task_label = Nodecl::Utils::deep_copy(
+                   task_info._task_label, task_info._sym.get_scope(), translation_map);
         }
 
         Symbol FunctionTaskInfo::get_symbol() const
@@ -280,6 +407,11 @@ namespace TL
         ObjectList<FunctionTaskDependency> FunctionTaskInfo::get_parameter_info() const
         {
             return _parameters;
+        }
+
+        void FunctionTaskInfo::add_function_task_dependency(const FunctionTaskDependency& dependence)
+        {
+            _parameters.append(dependence);
         }
 
         void FunctionTaskInfo::add_device(const std::string& device_name)
@@ -325,7 +457,7 @@ namespace TL
             return result;
         }
 
-        TargetInfo FunctionTaskInfo::get_target_info() const
+        TargetInfo& FunctionTaskInfo::get_target_info()
         {
             return _target_info;
         }
@@ -360,6 +492,16 @@ namespace TL
             _priority_clause_expr = expr;
         }
 
+        void FunctionTaskInfo::set_final_clause_conditional_expression(Nodecl::NodeclBase expr)
+        {
+            _final_clause_cond_expr = expr;
+        }
+
+        Nodecl::NodeclBase FunctionTaskInfo::get_final_clause_conditional_expression() const
+        {
+            return _final_clause_cond_expr;
+        }
+
         Nodecl::NodeclBase FunctionTaskInfo::get_priority_clause_expression() const
         {
             return _priority_clause_expr;
@@ -377,6 +519,11 @@ namespace TL
 
         FunctionTaskSet::FunctionTaskSet()
         {
+        }
+
+        std::map<Symbol, FunctionTaskInfo> FunctionTaskSet::get_function_task_set() const
+        {
+            return _map;
         }
 
         bool FunctionTaskSet::is_function_task(Symbol sym) const
@@ -412,6 +559,7 @@ namespace TL
             mw.write(_target_info);
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
+            mw.write(_final_clause_cond_expr);
             mw.write(_untied);
             mw.write(_task_label);
         }
@@ -424,6 +572,7 @@ namespace TL
             mr.read(_target_info);
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
+            mr.read(_final_clause_cond_expr);
             mr.read(_untied);
             mr.read(_task_label);
         }
@@ -432,6 +581,11 @@ namespace TL
         {
             std::pair<Symbol, FunctionTaskInfo> pair(sym, function_info);
             _map.insert(pair);
+        }
+
+        void FunctionTaskSet::remove_function_task(Symbol sym)
+        {
+            _map.erase(sym);
         }
 
         bool FunctionTaskSet::empty() const
@@ -451,7 +605,7 @@ namespace TL
             module_map_t module_map;
 
             // First group everyone by module
-            for (map_t::iterator it = _map.begin();
+            for (std::map<Symbol, FunctionTaskInfo>::iterator it = _map.begin();
                     it != _map.end();
                     it++)
             {
@@ -593,7 +747,7 @@ namespace TL
                                         expr.prettyprint().c_str());
                                 return true;
                             }
-                            else
+                            else if (_direction != DEP_DIR_IN_VALUE)
                             {
                                 warn_printf("%s: warning: skipping useless dependence %s(%s). The value of a parameter "
                                     "is always copied in and will never define such dependence\n",
@@ -678,7 +832,7 @@ namespace TL
         //
         //  void foo(int* c) { }
         //
-        ObjectList<Nodecl::NodeclBase> Core::update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
+        static ObjectList<Nodecl::NodeclBase> update_clauses(const ObjectList<Nodecl::NodeclBase>& clauses,
                 Symbol function_symbol)
         {
             ObjectList<Nodecl::NodeclBase> updated_clauses;
@@ -719,6 +873,37 @@ namespace TL
             return updated_clauses;
         }
 
+        static void separate_input_arguments(
+                const ObjectList<Nodecl::NodeclBase>& all_input_args,
+                ObjectList<Nodecl::NodeclBase>& input_args,
+                ObjectList<Nodecl::NodeclBase>& input_value_args,
+                Symbol function_symbol)
+        {
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = all_input_args.begin();
+                    it != all_input_args.end();
+                    it++)
+            {
+                Nodecl::NodeclBase input_argument = *it;
+                if (input_argument.is<Nodecl::Symbol>())
+                {
+                    Symbol sym = input_argument.get_symbol();
+                    if (sym.is_parameter()
+                            && !sym.get_type().is_any_reference())
+                    {
+                        input_value_args.append(input_argument);
+                    }
+                    else
+                    {
+                        input_args.append(input_argument);
+                    }
+                }
+                else
+                {
+                    input_args.append(input_argument);
+                }
+            }
+        }
+
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
             Nodecl::NodeclBase param_ref_tree = construct.get_context_of_parameters();
@@ -747,10 +932,11 @@ namespace TL
             if (function_sym.is_member()
                     && !function_sym.is_static())
             {
-                TL::Symbol this_symbol = scope.get_symbol_from_name("this");
+                TL::Scope class_scope = function_sym.get_scope();
+                TL::Symbol this_symbol = class_scope.get_symbol_from_name("this");
                 if (!this_symbol.is_valid())
                 {
-                    this_symbol = scope.new_symbol("this");
+                    this_symbol = class_scope.new_symbol("this");
                     Type pointed_this = function_sym.get_class_type();
                     Type this_type = pointed_this.get_pointer_to().get_const_type();
 
@@ -764,10 +950,14 @@ namespace TL
             PragmaCustomClause input_clause = pragma_line.get_clause("in",
                     /* deprecated name */ "input");
             ObjectList<Nodecl::NodeclBase> input_arguments;
+            ObjectList<Nodecl::NodeclBase> input_value_arguments;
             if (input_clause.is_defined())
             {
-                input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
-                input_arguments = update_clauses(input_arguments, function_sym);
+                ObjectList<Nodecl::NodeclBase> all_input_arguments;
+                all_input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
+                all_input_arguments = update_clauses(all_input_arguments, function_sym);
+
+               separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
             }
 
             PragmaCustomClause output_clause = pragma_line.get_clause("out",
@@ -822,10 +1012,11 @@ namespace TL
                 return;
             }
 
-            if (!function_type.returns().is_void())
+            if (IS_FORTRAN_LANGUAGE
+                    && !function_type.returns().is_void())
             {
                 std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to functions returning non-void, skipping" << std::endl;
+                    << ": warning: non-void tasks are not currently supported in Fortran, skipping" << std::endl;
                 return;
             }
 
@@ -835,6 +1026,9 @@ namespace TL
             dependence_list.append(input_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
+
+            dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE);
+            dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT);
             dependence_list.append(output_arguments
@@ -906,7 +1100,7 @@ namespace TL
             //Add real time information to the task
             task_info.set_real_time_info(rt_info);
 
-            // Support if clause 
+            // Support if clause
             PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())
             {
@@ -917,6 +1111,19 @@ namespace TL
                             construct.get_locus_str().c_str());
                 }
                 task_info.set_if_clause_conditional_expression(expr_list[0]);
+            }
+
+            // Support final clause
+            PragmaCustomClause final_clause = pragma_line.get_clause("final");
+            if (final_clause.is_defined())
+            {
+                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(param_ref_tree);
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'final' requires just one argument\n",
+                            construct.get_locus_str().c_str());
+                }
+                task_info.set_final_clause_conditional_expression(expr_list[0]);
             }
 
             // Support priority clause

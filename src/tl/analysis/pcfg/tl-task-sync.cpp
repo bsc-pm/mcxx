@@ -332,7 +332,7 @@ namespace TL { namespace Analysis {
             else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
             {
                 Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
-                task_source_env = task_source.get_site_environment().as<Nodecl::List>();
+                task_source_env = task_source.get_environment().as<Nodecl::List>();
             }
             else
             {
@@ -431,7 +431,7 @@ namespace TL { namespace Analysis {
             else if (task_node_source.is<Nodecl::OpenMP::TaskCall>())
             {
                 Nodecl::OpenMP::TaskCall task_source(task_node_source.as<Nodecl::OpenMP::TaskCall>());
-                task_source_env = task_source.get_site_environment().as<Nodecl::List>();
+                task_source_env = task_source.get_environment().as<Nodecl::List>();
             }
             else
             {
@@ -470,7 +470,7 @@ namespace TL { namespace Analysis {
             else if (task_node_target.is<Nodecl::OpenMP::TaskCall>())
             {
                 Nodecl::OpenMP::TaskCall task_target(task_node_target.as<Nodecl::OpenMP::TaskCall>());
-                task_target_env = task_target.get_site_environment().as<Nodecl::List>();
+                task_target_env = task_target.get_environment().as<Nodecl::List>();
             }
             else
             {

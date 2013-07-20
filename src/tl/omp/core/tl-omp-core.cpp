@@ -492,7 +492,8 @@ namespace TL
                 bool is_local_to_current_function(TL::Symbol sym)
                 {
                     return (sym.get_scope().is_block_scope()
-                            && sym.get_scope().get_related_symbol() == _sc.get_related_symbol());
+                            && (sym.get_scope() == _sc
+                                || _sc.scope_is_enclosed_by(sym.get_scope())));
                 }
 
                 void walk_type(TL::Type t)
@@ -567,7 +568,8 @@ namespace TL
                 virtual Ret visit(const Nodecl::Symbol &n)
                 {
                     TL::Symbol sym = n.get_symbol();
-                    if (sym.is_saved_expression())
+                    if (sym.is_saved_expression()
+                            && is_local_to_current_function(sym))
                     {
                         symbols.insert(sym);
                     }
@@ -610,6 +612,7 @@ namespace TL
                     {
                         return (sym.is_variable()
                                 && sym.get_scope().get_decl_context().current_scope == _sc
+                                && !sym.is_fortran_parameter()
                                 && !_result.contains(
                                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol),
                                     sym));
@@ -718,7 +721,8 @@ namespace TL
                 Symbol sym = it->get_symbol();
 
                 if (!sym.is_valid()
-                        || !sym.is_variable())
+                        || !sym.is_variable()
+                        || sym.is_fortran_parameter())
                     continue;
 
                 // We should ignore these ones lest they slipped in because
@@ -1449,6 +1453,18 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::workshare_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+            _openmp_info->push_current_data_sharing(data_sharing);
+            common_workshare_handler(construct, data_sharing);
+        }
+
+        void Core::workshare_handler_post(TL::PragmaCustomStatement construct)
+        {
+            _openmp_info->pop_current_data_sharing();
+        }
+
         void Core::threadprivate_handler_pre(TL::PragmaCustomDirective construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
@@ -1638,6 +1654,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(sections)
         INVALID_DECLARATION_HANDLER(section)
         INVALID_DECLARATION_HANDLER(single)
+        INVALID_DECLARATION_HANDLER(workshare)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \

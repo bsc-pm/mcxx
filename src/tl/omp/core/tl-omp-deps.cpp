@@ -50,12 +50,23 @@ namespace TL { namespace OpenMP {
             void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
+                if (!sym.is_valid()
+                        || !sym.is_variable()
+                        || sym.is_fortran_parameter())
+                    return;
+
                 if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
                         == DS_UNDEFINED)
                 {
                     // Mark this as an implicit firstprivate
                     _data_sharing.set_data_sharing(sym, TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT) );
-                    std::cerr << node.get_locus_str() << ": warning: assuming '" << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+
+                    // Do not warn saved expressions, it confuses users
+                    if (!sym.is_saved_expression())
+                    {
+                        std::cerr << node.get_locus_str() << ": warning: assuming '"
+                            << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+                    }
                 }
             }
 
@@ -299,6 +310,7 @@ namespace TL { namespace OpenMP {
             case DEP_DIR_UNDEFINED:
                 return "<<undefined-dependence>>";
             case DEP_DIR_IN:
+            case DEP_DIR_IN_VALUE:
                 return "in";
             case DEP_DIR_OUT:
                 return "out";

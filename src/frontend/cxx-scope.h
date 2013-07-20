@@ -141,6 +141,9 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 // A simpler version of get_fully_qualified_symbol_name
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
+// Specific query for C++ conversion functions like 'operator T'
+LIBMCXX_EXTERN scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* t);
+
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,

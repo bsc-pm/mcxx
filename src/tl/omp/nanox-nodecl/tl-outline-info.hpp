@@ -55,6 +55,10 @@ namespace TL
                 {
                     SHARING_UNDEFINED = 0,
                     SHARING_SHARED,
+                    // Only used in input dependences over a parameter passed by value
+                    SHARING_SHARED_WITH_CAPTURE,
+                    // Only used in task expressions to store the return results
+                    SHARING_ALLOCA,
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
@@ -69,10 +73,12 @@ namespace TL
                 {
                     DEP_NONE = 0,
                     DEP_IN =   1 << 0,
-                    DEP_OUT =  1 << 1,
+                    DEP_IN_VALUE =   1 << 1,
+                    DEP_IN_ALLOCA =   1 << 2,
+                    DEP_OUT =  1 << 3,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 2,
-                    DEP_COMMUTATIVE = 1 << 3
+                    DEP_CONCURRENT = 1 << 4,
+                    DEP_COMMUTATIVE = 1 << 5
                 };
                 struct DependencyItem
                 {
@@ -90,6 +96,7 @@ namespace TL
                     COPY_OUT,
                     COPY_INOUT
                 };
+
                 struct CopyItem
                 {
                     Nodecl::NodeclBase expression;
@@ -97,6 +104,26 @@ namespace TL
 
                     CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
                         : expression(expr_), directionality(dir_) { }
+                };
+
+                // The first level of TaskwaitOnNode does not generate taskwaits!
+                struct TaskwaitOnNode
+                {
+                    Nodecl::NodeclBase expression;
+                    TL::ObjectList<TaskwaitOnNode*> depends_on;
+
+                    TaskwaitOnNode(Nodecl::NodeclBase expr_)
+                        : expression(expr_) { }
+
+                    ~TaskwaitOnNode()
+                    {
+                        for (TL::ObjectList<TaskwaitOnNode*>::iterator it = depends_on.begin();
+                                it != depends_on.end();
+                                it++)
+                        {
+                            delete (*it);
+                        }
+                    }
                 };
 
                 enum AllocationPolicyFlags
@@ -150,6 +177,8 @@ namespace TL
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
+                TaskwaitOnNode* _taskwait_on_after_wd_creation;
+
                 bool _is_lastprivate;
 
                 // This outline data item represents the C++ this object
@@ -159,7 +188,7 @@ namespace TL
                 OutlineDataItem(TL::Symbol symbol, const std::string& field_name)
                     : _sym(symbol),
                     _field_symbol(),
-                    _field_name(field_name), 
+                    _field_name(field_name),
                     _field_type(_sym.get_type()),
                     _in_outline_type(_field_type),
                     _private_type(TL::Type::get_void_type()),
@@ -170,9 +199,15 @@ namespace TL
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
                     _base_symbol_of_argument(),
+                    _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
                 {
+                }
+
+                ~OutlineDataItem()
+                {
+                    delete _taskwait_on_after_wd_creation;
                 }
 
                 //! Returns the symbol of this item
@@ -290,7 +325,7 @@ namespace TL
                 {
                     ERROR_CONDITION(
                             (_base_address_expression.is_null()
-                            && _sharing == SHARING_CAPTURE_ADDRESS),
+                             && _sharing == SHARING_CAPTURE_ADDRESS),
                             "Shared expression is missing!", 0);
                     return _base_address_expression;
                 }
@@ -368,6 +403,30 @@ namespace TL
                 TL::Symbol get_base_symbol_of_argument() const
                 {
                     return _base_symbol_of_argument;
+                }
+
+                bool has_an_input_value_dependence() const
+                {
+                    bool has_input_value = false;
+                    for (ObjectList<DependencyItem>::const_iterator it = _dependences.begin();
+                            it != _dependences.end() && !has_input_value;
+                            it++)
+                    {
+                        DependencyItem current_item = *it;
+                        has_input_value = current_item.directionality == DEP_IN_VALUE;
+                    }
+
+                    return has_input_value;
+                }
+
+                TaskwaitOnNode* get_taskwait_on_after_wd_creation() const
+                {
+                    return _taskwait_on_after_wd_creation;
+                }
+
+                void set_taskwait_on_after_wd_creation(TaskwaitOnNode* taskwait_on)
+                {
+                    _taskwait_on_after_wd_creation = taskwait_on;
                 }
 
                 void set_is_cxx_this(bool b)
@@ -459,6 +518,8 @@ namespace TL
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);
 
+                bool only_has_smp_or_mpi_implementations() const;
+
             private:
                 std::string get_outline_name(TL::Symbol function_symbol);
         };
@@ -477,6 +538,8 @@ namespace TL
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
+                void add_shared_with_capture(Symbol sym);
+                void add_alloca(Symbol sym, TL::DataReference& data_ref);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
                 void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);
@@ -492,6 +555,8 @@ namespace TL
                         OutlineDataItem* outline_data_item,
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
+
+                void set_taskwait_on_after_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
 
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };

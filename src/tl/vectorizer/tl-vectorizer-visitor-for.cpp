@@ -385,33 +385,7 @@ namespace TL
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
         {
-            const Nodecl::NodeclBase lhs = node.get_lhs();
-
-            if (Vectorizer::_analysis_info->is_induction_variable(
-                        _environment._analysis_scopes.back(),
-                        lhs))
-            {
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            lhs,
-                            Nodecl::Add::make(
-                                Nodecl::ParenthesizedExpression::make(
-                                    node.get_rhs(),
-                                    node.get_type(),
-                                    node.get_locus()),
-                                Nodecl::IntegerLiteral::make(
-                                    node.get_type(),
-                                    Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        _environment._analysis_scopes.back(),
-                                        lhs),
-                                    node.get_locus()),
-                                node.get_type(),
-                                node.get_locus()),
-                            node.get_type(),
-                            node.get_locus());
-
-                node.replace(new_node);
-            }
+            visit_increment(node, node.get_lhs());
         }
 
         void VectorizerVisitorLoopNext::visit(const Nodecl::Comma& node)
@@ -426,6 +400,19 @@ namespace TL
                         _environment._analysis_scopes.back(),
                         lhs))
             {
+                const Nodecl::AddAssignment new_node =
+                    Nodecl::AddAssignment::make(
+                            lhs.shallow_copy(),
+                            const_value_to_nodecl(
+                                const_value_mul(const_value_get_signed_int(_environment._unroll_factor), 
+                                    Vectorizer::_analysis_info->get_induction_variable_increment(
+                                        _environment._analysis_scopes.back(),
+                                        lhs))),
+                            node.get_type(),
+                            node.get_locus());
+
+
+/*
                 const Nodecl::AddAssignment new_node =
                     Nodecl::AddAssignment::make(
                             lhs.shallow_copy(),
@@ -444,7 +431,7 @@ namespace TL
                                 node.get_locus()),
                             node.get_type(),
                             node.get_locus());
-
+*/
                 node.replace(new_node);
             }
         }

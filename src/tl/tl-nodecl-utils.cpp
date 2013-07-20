@@ -803,6 +803,30 @@ namespace Nodecl
         return result;
     }
 
+    Nodecl::NodeclBase Utils::get_enclosing_list(Nodecl::NodeclBase n)
+    {
+        while (!n.is_null() && !n.is<Nodecl::List>())
+        {
+            n = n.get_parent();
+        }
+
+        return n;
+    }
+
+    Nodecl::NodeclBase Utils::get_enclosing_node_in_list(Nodecl::NodeclBase n)
+    {
+        ERROR_CONDITION(n.is<Nodecl::List>(), "Node cannot be a list", 0);
+
+        while (!n.get_parent().is_null() && !n.get_parent().is<Nodecl::List>())
+        {
+            n = n.get_parent();
+        }
+
+        ERROR_CONDITION(n.get_parent().is_null(), "The original node was not enclosed by any list", 0);
+
+        return n;
+    }
+
     void Utils::append_to_top_level_nodecl(Nodecl::NodeclBase n)
     {
         Nodecl::TopLevel top_level = Nodecl::NodeclBase(CURRENT_COMPILED_FILE->nodecl).as<Nodecl::TopLevel>();
@@ -877,7 +901,10 @@ namespace Nodecl
 
     void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
-        ERROR_CONDITION(!Utils::is_in_list(n), "Node is not in a list", 0);
+        if (!Utils::is_in_list(n))
+        {
+            n = Utils::get_enclosing_node_in_list(n);
+        }
 
         if (!items.is<Nodecl::List>())
         {
@@ -901,7 +928,10 @@ namespace Nodecl
 
     void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
-        ERROR_CONDITION(!Utils::is_in_list(n), "Node is not in a list", 0);
+        if (!Utils::is_in_list(n))
+        {
+            n = Utils::get_enclosing_node_in_list(n);
+        }
 
         if (!items.is<Nodecl::List>())
         {

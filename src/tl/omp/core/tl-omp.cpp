@@ -186,7 +186,7 @@ namespace TL
             symbols = _reduction_symbols;
         }
 
-        TargetInfo DataSharingEnvironment::get_target_info()
+        TargetInfo& DataSharingEnvironment::get_target_info()
         {
             return _target_info;
         }
@@ -394,6 +394,25 @@ namespace TL
             if(rt_copy.has_deadline_time())
             {
                 _time_deadline = new Nodecl::NodeclBase(rt_copy.get_time_deadline());
+            }
+        }
+
+        RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy,
+                Nodecl::Utils::SimpleSymbolMap& translation_map) :
+            _time_deadline(NULL),
+            _time_release(NULL),
+            _map_error_behavior(rt_copy._map_error_behavior)
+        {
+            if (rt_copy.has_release_time())
+            {
+                _time_release = new Nodecl::NodeclBase(
+                        Nodecl::Utils::deep_copy(*(rt_copy._time_release), rt_copy._time_release->retrieve_context(), translation_map));
+            }
+
+            if (rt_copy.has_deadline_time())
+            {
+                _time_deadline = new Nodecl::NodeclBase(
+                        Nodecl::Utils::deep_copy(*(rt_copy._time_deadline), rt_copy._time_deadline->retrieve_context(), translation_map));
             }
         }
 

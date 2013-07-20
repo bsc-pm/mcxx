@@ -27,7 +27,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-parallel-simd
-test_ignore=yes
 </testinfo>
 */
 
@@ -40,8 +39,8 @@ void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int 
     int j;
 #pragma omp parallel
     {
-#pragma omp simd for
-        for (j=0; j<N; j++)
+#pragma omp simd for 
+        for (j=0; j<N; j+=1)
         {
             z[j] = a * x[j] + y[j];
         }

@@ -69,7 +69,7 @@ UNUSED_PARAMETER static void print_ast_dot(const Nodecl::NodeclBase &node)
 void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map)
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map)
 {
     if (IS_FORTRAN_LANGUAGE)
         running_error("Fortran for FPGA devices is not supported yet\n");
@@ -79,6 +79,8 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     const Nodecl::NodeclBase& original_statements = info._original_statements;
     const TL::Symbol& arguments_struct = info._arguments_struct;
     const TL::Symbol& called_task = info._called_task;
+
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
     TL::Symbol current_function =
         original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
@@ -188,7 +190,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         //if function is in the list, do not add it again
         if (!found)
         {
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task);
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_hls");
 
             Nodecl::Utils::SimpleSymbolMap map;
             map.add_map(called_task, new_function);
@@ -213,10 +215,10 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 //            add_hls_pragmas(tmp_task, outline_info);
 
 
-            Nodecl::NodeclBase wrapper = gen_hls_wrapper(called_task, info._data_items);
+            Nodecl::NodeclBase wrapper = gen_hls_wrapper(new_function, info._data_items);
 
-            _fpga_file_code.append(wrapper);
             _fpga_file_code.append(tmp_task);
+            _fpga_file_code.append(wrapper);
             //TODO: Add inline pragma to called task #pragma HLS inline
         }
     }
@@ -401,7 +403,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 
 bool DeviceFPGA::remove_function_task_from_original_source() const
 {
-    return true;
+    return false;
 }
 
 //write/close intermediate files, free temporal nodes, etc.
@@ -496,8 +498,7 @@ Source DeviceFPGA::fpga_param_code(
             it++)
     {
 //        print_dataItem_info(*it, sc);
-        Symbol outline_symbol = (*it)->get_symbol();
-//        OutlineDataItem::CopyDirectionality directionality = (*it)->get_directionality();
+        Symbol outline_symbol = symbol_map->map((*it)->get_symbol());
         const TL::ObjectList<OutlineDataItem::CopyItem> &copies = (*it)->get_copies();
 
         //if copies are empty, we need to set the scalar value
@@ -876,6 +877,30 @@ Nodecl::NodeclBase DeviceFPGA::gen_hls_wrapper(const Symbol &func_symbol, Object
 
     return wrapper_node;
 
+}
+
+void DeviceFPGA::copy_stuff_to_device_file(
+        const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied)
+{
+    for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stuff_to_be_copied.begin();
+            it != stuff_to_be_copied.end();
+            ++it)
+    {
+        if (it->is<Nodecl::FunctionCode>()
+                || it->is<Nodecl::TemplateFunctionCode>())
+        {
+            TL::Symbol function = it->get_symbol();
+            TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_hls");
+
+            Nodecl::Utils::SimpleSymbolMap symbol_map;
+            symbol_map.add_map(function, new_function);
+            _fpga_file_code.append(Nodecl::Utils::deep_copy(*it, *it, symbol_map));
+        }
+        else
+        {
+            _fpga_file_code.append(Nodecl::Utils::deep_copy(*it, *it));
+        }
+    }
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceFPGA);

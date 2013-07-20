@@ -4140,6 +4140,26 @@ static char same_type_conversion(scope_entry_t* entry, void *p)
     }
 }
 
+scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* t)
+{
+    ERROR_CONDITION(decl_context.class_scope == NULL, "We need a class scope here", 0);
+    decl_context_t class_context = decl_context;
+    class_context.current_scope = class_context.class_scope;
+
+    struct same_type_conversion_info_tag same_info;
+    same_info.t = t;
+    // I guess the appropiate one is the class context!
+    same_info.decl_context = class_context;
+
+    scope_entry_list_t* entry_list = query_name_in_scope(class_context.class_scope, "$.operator");
+
+    scope_entry_list_t* result = filter_symbol_using_predicate(entry_list, same_type_conversion, &same_info);
+
+    entry_list_free(entry_list);
+
+    return result;
+}
+
 static scope_entry_list_t* query_nodecl_conversion_name(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context,
@@ -4157,17 +4177,14 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         return NULL;
     }
 
-    // We keep this tree because of the double lookup required for conversion-id
-    AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 1));
-
-    // Lookup first in class scope
-    decl_context_t class_context = decl_context;
-    class_context.current_scope = class_context.class_scope;
+    // We kept this tree because of the complicated lookup required for conversion-id
+    AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 2));
+    ERROR_CONDITION(type_id == NULL, "Invalid node created by compute_nodecl_name_from_unqualified_id\n", 0);
 
     AST type_specifier_seq = ASTSon0(type_id);
     AST type_spec = ASTSon1(type_specifier_seq);
 
-    //FIXME: The type specifier may be a struct/class
+    // Build the type tree
     if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
     {
         AST id_expression = ASTSon0(type_spec);
@@ -4181,36 +4198,75 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
     }
 
-    type_t* t = compute_type_for_type_id_tree(type_id, class_context);
-    if (t == NULL)
-    {
-        // Try the current scope
-        t = compute_type_for_type_id_tree(type_id, top_level_decl_context);
+    type_t* type_looked_up_in_class = get_error_type();
+    type_t* type_looked_up_in_enclosing = get_error_type();
 
-        if (t == NULL)
+    decl_context_t class_context = decl_context;
+    if (decl_context.class_scope != NULL)
+    {
+        // Lookup in class scope if available
+        class_context.current_scope = class_context.class_scope;
+
+        enter_test_expression();
+        type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context);
+        leave_test_expression();
+    }
+
+    enter_test_expression();
+    type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context);
+    leave_test_expression();
+
+    type_t* t = type_looked_up_in_class;
+    if (is_error_type(t))
+    {
+        t = type_looked_up_in_enclosing;
+    }
+    else
+    {
+        if (!is_error_type(type_looked_up_in_enclosing))
         {
-            if (!checking_ambiguity())
+            if (!equivalent_types(t, type_looked_up_in_enclosing))
             {
-                error_printf("%s: error: type-id %s of conversion-id not found\n",
-                        nodecl_locus_to_str(nodecl_name),
-                        prettyprint_in_buffer(type_id));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: type of conversion found in class scope (%s) and the type in "
+                            "scope of the id-expression (%s) should match\n",
+                            nodecl_locus_to_str(nodecl_name),
+                            print_type_str(type_looked_up_in_class, class_context),
+                            print_type_str(type_looked_up_in_enclosing, top_level_decl_context)
+                            );
+                }
+                return NULL;
             }
         }
     }
 
-    scope_entry_list_t* entry_list = query_name_in_scope(class_context.class_scope, "$.operator");
+    // If still not found, error
+    if (is_error_type(t))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: type-id %s of conversion-id not found\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    prettyprint_in_buffer(type_id));
+        }
+        return NULL;
+    }
 
-    struct same_type_conversion_info_tag same_info;
-    same_info.t = t;
-    // I guess the appropiate one is the class context!
-    same_info.decl_context = class_context;
+    if (class_context.class_scope == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: 'operator %s' requires a class scope\n", 
+                    nodecl_locus_to_str(nodecl_name),
+                    prettyprint_in_buffer(type_id));
+        }
+        return NULL;
+    }
 
-    scope_entry_list_t* result = filter_symbol_using_predicate(entry_list, same_type_conversion, &same_info);
-
-    entry_list_free(entry_list);
-
-    return result;
+    return query_conversion_function_info(class_context, t);
 }
+
 
 static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_context,
         nodecl_t nodecl_name,
@@ -4842,11 +4898,12 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                             /* optional statement sequence */ nodecl_null(),
                             decl_context,
                             ast_get_locus(unqualified_id)),
+                        nodecl_null(),
                         ast_get_locus(unqualified_id));
 
                 // This is ugly but we need to keep the original tree around before lowering it into nodecl
                 AST conversion_type_id = ast_copy(ASTSon0(unqualified_id));
-                ast_set_child(nodecl_get_ast(*nodecl_output), 1, conversion_type_id);
+                ast_set_child(nodecl_get_ast(*nodecl_output), 2, conversion_type_id);
                 break;
             }
         case AST_DESTRUCTOR_ID:

@@ -154,6 +154,95 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
     }
 }
 
+void LoweringVisitor::check_pendant_writes_on_subexpressions(OutlineDataItem::TaskwaitOnNode* c, TL::Source& code)
+{
+    if (c != NULL)
+    {
+        for (unsigned int i = 0; i < c->depends_on.size(); ++i)
+        {
+            check_pendant_writes_on_subexpressions(c->depends_on[i], code);
+
+            TL::Source dependency_regions, dependency_init, dependence;
+            code
+                << "err = nanos_dependence_pendant_writes(&result, (void *) &(" << c->depends_on[i]->expression.prettyprint() <<  "));"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "if (result)"
+                << "{"
+                <<     dependence
+                <<     "nanos_err_t err = nanos_wait_on(1, dependences);"
+                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
+                ;
+
+            dependence
+                << dependency_regions
+                << "nanos_data_access_t dependences[1]"
+                ;
+
+            if (IS_C_LANGUAGE
+                    || IS_CXX_LANGUAGE)
+            {
+                dependence << " = {"
+                    << dependency_init
+                    << "};"
+                    ;
+            }
+
+            dependence << ";"
+                ;
+
+            TL::DataReference dep_expr(c->depends_on[i]->expression);
+            handle_dependency_item(c->depends_on[i]->expression, dep_expr,
+                    OutlineDataItem::DEP_IN, 0, dependency_regions, dependency_init, dependence);
+        }
+    }
+}
+
+void LoweringVisitor::generate_mandatory_taskwaits(
+        OutlineInfo& outline_info,
+        TL::Source& taskwait_on_after_wd_creation_opt)
+{
+    taskwait_on_after_wd_creation_opt << comment("Check pendant writes on subexpressions");
+
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
+            it++)
+    {
+        if (!(*it)->get_symbol().is_valid())
+            continue;
+
+        TL::Source lvalue_subexpressions_code;
+        OutlineDataItem::TaskwaitOnNode* toplevel_lvalue = (*it)->get_taskwait_on_after_wd_creation();
+        if (toplevel_lvalue != NULL)
+        {
+            check_pendant_writes_on_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
+            TL::Source update_outline_data_item;
+            taskwait_on_after_wd_creation_opt
+                <<"{"
+                <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+                <<      "nanos_err_t err;"
+                <<      lvalue_subexpressions_code
+                <<      update_outline_data_item
+                <<"}"
+                ;
+
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
+            {
+                update_outline_data_item
+                    << as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");";
+            }
+            else
+            {
+                update_outline_data_item
+                    << as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";";
+            }
+        }
+    }
+    taskwait_on_after_wd_creation_opt << comment("End check pendant writes on subexpressions");
+}
+
+
 Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
@@ -410,13 +499,16 @@ void LoweringVisitor::emit_async_common(
         Nodecl::NodeclBase statements,
         Nodecl::NodeclBase priority_expr,
         Nodecl::NodeclBase if_condition,
+        Nodecl::NodeclBase final_condition,
         Nodecl::NodeclBase task_label,
         bool is_untied,
 
         OutlineInfo& outline_info,
 
         /* this is non-NULL only for function tasks */
-        OutlineInfo* parameter_outline_info)
+        OutlineInfo* parameter_outline_info,
+        /* this is non-NULL only for task expressions */
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
     Source spawn_code;
 
@@ -431,7 +523,8 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           xlate_function_name;
+           xlate_function_name,
+           taskwait_on_after_wd_creation_opt;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
@@ -507,11 +600,24 @@ void LoweringVisitor::emit_async_common(
         priority_expr = const_value_to_nodecl(const_value_get_signed_int(0));
     }
 
+    if (final_condition.is_null())
+    {
+        final_condition = const_value_to_nodecl(const_value_get_signed_int(0));
+    }
+
     dynamic_wd_info
         << "nanos_wd_dyn_props_t nanos_wd_dyn_props;"
         << "nanos_wd_dyn_props.tie_to = 0;"
         << "nanos_wd_dyn_props.priority = " << as_expression(priority_expr) << ";"
         ;
+
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024))
+    {
+        dynamic_wd_info
+            << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
+            ;
+    }
 
     Source dynamic_size;
     struct_size << "sizeof(imm_args)" << dynamic_size;
@@ -577,16 +683,16 @@ void LoweringVisitor::emit_async_common(
                     real_called_task);
 
             Nodecl::NodeclBase outline_placeholder, output_statements;
-            Nodecl::Utils::SymbolMap *symbol_map = NULL;
+            Nodecl::Utils::SimpleSymbolMap* symbol_map = NULL;
             device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
 
             Nodecl::NodeclBase outline_statements_code =
                     Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
 
-            delete symbol_map;
-
             outline_placeholder.replace(outline_statements_code);
+
+            delete symbol_map;
         }
     }
 
@@ -601,6 +707,29 @@ void LoweringVisitor::emit_async_common(
 
     Source err_name;
     err_name << "err";
+
+    Source placeholder_task_expression_opt, update_alloca_decls_opt;
+    if (placeholder_task_expr_transformation != NULL)
+    {
+        placeholder_task_expression_opt
+            << statement_placeholder(*placeholder_task_expr_transformation);
+
+
+        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            if ((*it)->get_sharing() != OutlineDataItem::SHARING_ALLOCA)
+                continue;
+
+            TL::Symbol sym = (*it)->get_symbol();
+            update_alloca_decls_opt
+                << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
+                ;
+
+        }
+    }
 
     Source if_condition_begin_opt, if_condition_end_opt;
     if (!if_condition.is_null())
@@ -628,6 +757,9 @@ void LoweringVisitor::emit_async_common(
         <<                 copy_ol_arg << ");"
         <<     "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
         <<     if_condition_end_opt
+        <<     update_alloca_decls_opt
+        <<     placeholder_task_expression_opt
+        <<     taskwait_on_after_wd_creation_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -653,6 +785,8 @@ void LoweringVisitor::emit_async_common(
         <<     "}"
         << "}"
         ;
+
+    generate_mandatory_taskwaits(outline_info, taskwait_on_after_wd_creation_opt);
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
@@ -727,6 +861,15 @@ void LoweringVisitor::emit_async_common(
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
 {
+    visit_task(construct, /* inside_task_expression */ false, /* placeholder_task_expr_transformation */ NULL);
+}
+
+// This function is called by the visitors of a OpenMP::Task and OpenMP::TaskExpression
+void LoweringVisitor::visit_task(
+        const Nodecl::OpenMP::Task& construct,
+        bool inside_task_expression,
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
+{
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
@@ -765,20 +908,59 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Task& construct)
         argument_outline_data_item.set_base_address_expression(sym_ref);
     }
 
-    Symbol called_task_dummy = Symbol::invalid();
+    Nodecl::NodeclBase new_construct;
+    if (!_lowering->final_clause_transformation_disabled()
+            && Nanos::Version::interface_is_at_least("master", 5024)
+            && outline_info.only_has_smp_or_mpi_implementations()
+            && !inside_task_expression)
+    {
+        new_construct = construct.shallow_copy();
+        TL::Source code;
+        code
+            << "{"
+            <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
+            <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_is_in_final)"
+            <<      "{"
+            <<          as_statement(statements.shallow_copy())
+            <<      "}"
+            <<      "else"
+            <<      "{"
+            <<          as_statement(new_construct)
+            <<      "}"
+            << "}"
+            ;
 
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase if_else_tree = code.parse_statement(construct);
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
+
+        construct.replace(if_else_tree);
+    }
+    else
+    {
+        new_construct = construct;
+    }
+
+    Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
-            construct,
+            new_construct,
             function_symbol,
             called_task_dummy,
             statements,
             task_environment.priority,
             task_environment.if_condition,
+            task_environment.final_condition,
             task_environment.task_label,
             task_environment.is_untied,
 
             outline_info,
-            /* parameter_outline_info */ NULL);
+            /* parameter_outline_info */ NULL,
+            placeholder_task_expr_transformation);
 }
 
 void LoweringVisitor::fill_arguments(
@@ -962,6 +1144,51 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
+
+                 case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
+                    {
+                        OutlineDataItem::TaskwaitOnNode* toplevel_lvalue = (*it)->get_taskwait_on_after_wd_creation();
+                        TL::Source common_code;
+                        common_code
+                            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
+                            <<      "nanos_err_t err;"
+                            <<      "err = nanos_dependence_pendant_writes(&result, (void *) &(" << toplevel_lvalue->expression.prettyprint() <<  "));"
+                            <<      "if (err != NANOS_OK) nanos_handle_error(err);"
+                            ;
+
+                        fill_outline_arguments
+                            << "{"
+                            <<      common_code
+                            <<      "if (result)"
+                            <<      "{"
+                            <<           "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                            <<      "}"
+                            <<      "else"
+                            <<      "{"
+                            <<           "ol_args->" << (*it)->get_field_name() << " = &(ol_args->" << (*it)->get_field_name() << "_storage);"
+                            <<           "ol_args->" << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
+                            //  If the value can be captured safely, we should remove the dependence. See nanox ticket #818
+                            <<           as_symbol((*it)->get_symbol()) << " = 0;"
+                            <<      "}"
+                            << "}"
+                            ;
+
+                        fill_immediate_arguments
+                            << "{"
+                            <<      common_code
+                            <<      "if (result)"
+                            <<      "{"
+                            <<           "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
+                            <<      "}"
+                            <<      "else"
+                            <<      "{"
+                            <<           "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
+                            <<           "imm_args." << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
+                            <<      "}"
+                            << "}"
+                            ;
+                        break;
+                    }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_REDUCTION: // Reductions are passed as if they were shared
                     {
@@ -985,6 +1212,17 @@ void LoweringVisitor::fill_arguments(
                                 "imm_args." << (*it)->get_field_name() << " = &" << as_symbol((*it)->get_symbol()) << ";"
                                 ;
                         }
+                        break;
+                    }
+                case OutlineDataItem::SHARING_ALLOCA:
+                    {
+                        fill_outline_arguments
+                            << "ol_args->" << (*it)->get_field_name() << "= &(ol_args->" << (*it)->get_field_name() << "_storage);"
+                            ;
+
+                        fill_immediate_arguments
+                            << "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
+                            ;
                         break;
                     }
                 case  OutlineDataItem::SHARING_CAPTURE_ADDRESS:
@@ -1111,7 +1349,13 @@ void LoweringVisitor::fill_arguments(
                         if (t.is_any_reference())
                             t = t.references_to();
 
-                        if (t.is_pointer() 
+                        if (sym.is_optional())
+                        {
+                            fill_outline_arguments << "IF (PRESENT(" << sym.get_name() << ")) THEN\n";
+                            fill_immediate_arguments << "IF (PRESENT(" << sym.get_name() << ")) THEN\n";
+                        }
+
+                        if (t.is_pointer()
                                 || sym.is_allocatable())
                         {
                             TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
@@ -1154,6 +1398,19 @@ void LoweringVisitor::fill_arguments(
                                 "imm_args % " << (*it)->get_field_name() << " => MERCURIUM_LOC("
                                 << (*it)->get_symbol().get_name() << lbound_specifier << ") \n"
                                 ;
+                        }
+
+                        if (sym.is_optional())
+                        {
+                            fill_outline_arguments
+                                << "ELSE\n"
+                                <<    "ol_args %" << (*it)->get_field_name() << " => MERCURIUM_NULL()\n"
+                                << "END IF\n";
+
+                            fill_immediate_arguments
+                                << "ELSE\n"
+                                <<    "imm_args %" << (*it)->get_field_name() << " => MERCURIUM_NULL()\n"
+                                << "END IF\n";
                         }
 
                         break;
@@ -1210,61 +1467,6 @@ void LoweringVisitor::fill_arguments(
                         internal_error("Unexpected sharing kind", 0);
                     }
             }
-        }
-    }
-}
-
-void LoweringVisitor::fill_allocatable_dimensions(
-        TL::Symbol symbol,
-        TL::Type current_type,
-        int current_rank,
-        int rank_size,
-        Source &fill_outline_arguments, 
-        Source &fill_immediate_arguments, 
-        int &lower_bound_index, 
-        int &upper_bound_index)
-{
-    if (current_type.is_array())
-    {
-        fill_allocatable_dimensions(
-                symbol,
-                current_type.array_element(),
-                current_rank - 1,
-                rank_size,
-                fill_outline_arguments, 
-                fill_immediate_arguments,
-                lower_bound_index,
-                upper_bound_index);
-
-        Nodecl::NodeclBase lower, upper;
-        current_type.array_get_bounds(lower, upper);
-
-        if (lower.is_null())
-        {
-            fill_outline_arguments
-                << "ol_args % mcc_lower_bound_" << lower_bound_index
-                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-            fill_immediate_arguments
-                << "imm_args % mcc_lower_bound_" << lower_bound_index
-                << " = LBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-
-            lower_bound_index++;
-        }
-
-        if (upper.is_null())
-        {
-            fill_outline_arguments
-                << "ol_args % mcc_upper_bound_" << upper_bound_index
-                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-            fill_immediate_arguments
-                << "imm_args % mcc_upper_bound_" << upper_bound_index
-                << " = UBOUND(" << symbol.get_name() <<", " << (current_rank+1) <<")\n"
-                ;
-
-            upper_bound_index++;
         }
     }
 }
@@ -1597,13 +1799,13 @@ void LoweringVisitor::fill_copies_region(
                 << num_dimensions_count;
 
 
-            for (int dim = 0; dim < num_dimensions_count; dim++)
+            for (int dim = num_dimensions_count - 1; dim >= 0; dim--, current_dimension_descriptor++)
             {
                 // Sanity check
                 ERROR_CONDITION(current_dimension_descriptor >= num_copies_dimensions, "Wrong number of dimensions %d >= %d",
                         current_dimension_descriptor, num_copies_dimensions);
 
-                if (dim == 0)
+                if (dim == num_dimensions_count - 1)
                 {
                     // In bytes
                     ol_dimension_descriptors
@@ -1647,9 +1849,7 @@ void LoweringVisitor::fill_copies_region(
                         << as_expression(lower_bounds[dim].shallow_copy()) << ") + 1;"
                         ;
                 }
-                current_dimension_descriptor++;
             }
-            
 
             if (Nanos::Version::interface_is_at_least("copies_api", 1003))
             {
@@ -1843,6 +2043,7 @@ struct RewriteAddressExpression : public Nodecl::ExhaustiveVisitor<void>
                     Nodecl::ClassMemberAccess::make(
                         struct_node,
                         field_node,
+                        /* member-form */ Nodecl::NodeclBase::null(),
                         field_node.get_type().get_lvalue_reference_to())
                     );
         }
@@ -2087,6 +2288,283 @@ void LoweringVisitor::fill_dependences(
     fill_dependences_internal(ctr, outline_info, arguments_accessor, /* on_wait */ false, result_src);
 }
 
+void LoweringVisitor::handle_dependency_item(
+        Nodecl::NodeclBase ctr,
+        TL::DataReference dep_expr,
+        OutlineDataItem::DependencyDirectionality dir,
+        int current_dep_num,
+        Source& dependency_regions,
+        Source& dependency_init,
+        Source& result_src)
+
+{
+    ERROR_CONDITION(!dep_expr.is_valid(),
+            "%s: Invalid dependency detected '%s'. Reason: %s\n",
+            dep_expr.get_locus_str().c_str(),
+            dep_expr.prettyprint().c_str(),
+            dep_expr.get_error_log().c_str());
+
+    Source dependency_offset,
+           dependency_flags,
+           dependency_flags_in,
+           dependency_flags_out,
+           dependency_flags_concurrent,
+           dependency_flags_commutative;
+
+    Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
+
+    // if (!(*it)->get_base_address_expression().is_null())
+    // {
+    //     // This is only for function task dependences
+    //     // Outline tasks do not need any of this
+    //     dep_source_expr = base_address = (*it)->get_base_address_expression();
+
+    //     if ((IS_CXX_LANGUAGE
+    //                 || IS_FORTRAN_LANGUAGE)
+    //             && (*it)->get_symbol().get_type().is_lvalue_reference())
+    //     {
+    //         // If the parameter type
+    //         TL::Type t = base_address.get_type();
+    //         if (t.is_any_reference())
+    //             t = t.references_to();
+    //         t = t.get_pointer_to();
+    //         // Create a reference here
+    //         base_address = Nodecl::Reference::make(
+    //                 base_address.shallow_copy(),
+    //                 t,
+    //                 base_address.get_filename(),
+    //                 base_address.get_line());
+    //     }
+    // }
+    // else
+    {
+        base_address = dep_expr.get_base_address().shallow_copy();
+    }
+
+    dependency_flags
+        << "{"
+        << dependency_flags_in << ","
+        << dependency_flags_out << ", "
+        << /* renaming has not yet been implemented */ "0, "
+        << dependency_flags_concurrent << ","
+        << dependency_flags_commutative
+        << "}"
+        ;
+
+    Type dependency_type = dep_expr.get_data_type();
+
+    int num_dimensions = dependency_type.get_num_dimensions();
+
+    bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+    bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+    bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+    bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
+
+    dependency_flags_in << ( input || input_value || input_alloca || concurrent || commutative);
+
+    dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
+            || concurrent || commutative);
+    dependency_flags_concurrent << concurrent;
+    dependency_flags_commutative << commutative;
+    //
+    // Compute the base type of the dependency and the array containing the size of each dimension
+    Type dependency_base_type = dependency_type;
+
+    Nodecl::NodeclBase dimension_sizes[num_dimensions];
+    for (int dim = 0; dim < num_dimensions; dim++)
+    {
+        dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
+
+        dependency_base_type = dependency_base_type.array_element();
+    }
+
+    std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
+
+    dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
+        ;
+
+    Source dims_description;
+
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        dependency_regions << "=  { " << dims_description << "}";
+    }
+
+    dependency_regions << ";"
+        ;
+
+    Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
+
+    if (dep_expr_offset.is_null())
+    {
+        dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
+    }
+    ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
+
+    dependency_offset << as_expression(dep_expr_offset);
+
+    if (num_dimensions == 0)
+    {
+        // This is a scalar
+        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+
+        dimension_size << "sizeof(" << base_type_name << ")";
+        dimension_lower_bound << "0";
+        dimension_accessed_length << dimension_size;
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            dims_description
+                << "{"
+                << dimension_size << ","
+                << dimension_lower_bound << ","
+                << dimension_accessed_length
+                << "}"
+                ;
+        }
+        else
+        {
+            dependency_regions
+                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
+                ;
+        }
+
+    }
+    else
+    {
+        // This an array
+        Source dimension_size, dimension_lower_bound, dimension_accessed_length;
+
+        // Compute the contiguous array type
+        Type contiguous_array_type = dependency_type;
+        while (contiguous_array_type.array_element().is_array())
+        {
+            contiguous_array_type = contiguous_array_type.array_element();
+        }
+
+        Nodecl::NodeclBase lb, ub, size;
+        if (contiguous_array_type.array_is_region())
+        {
+            // This should be the lower bound of the array region minus lower bound of the array
+            Nodecl::NodeclBase array_lb, array_ub;
+            Nodecl::NodeclBase region_lb, region_ub;
+
+            contiguous_array_type.array_get_bounds(array_lb, array_ub);
+            contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
+
+            if (array_lb.is_null()
+                    && IS_FORTRAN_LANGUAGE)
+            {
+                // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
+                array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
+            }
+
+            // Meaning that in this context A(:) is OK
+            if (region_lb.is_null())
+                region_lb = array_lb;
+
+            Source diff;
+            diff
+                << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
+
+            lb = diff.parse_expression(ctr);
+
+            size = contiguous_array_type.array_get_region_size();
+
+            if (size.is_null())
+                size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
+        }
+        else
+        {
+            // Lower bound here should be zero since we want all the array
+            lb = const_value_to_nodecl(const_value_get_signed_int(0));
+
+            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
+        }
+
+        dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
+        dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
+        dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
+
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            dims_description
+                << "{"
+                << dimension_size << ","
+                << dimension_lower_bound << ","
+                << dimension_accessed_length
+                << "}"
+                ;
+        }
+        else
+        {
+            dependency_regions
+                << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
+                << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
+                << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
+                ;
+        }
+
+        if (num_dimensions > 1)
+        {
+            // All the remaining dimensions (but 0) are filled here
+            fill_dimensions(
+                    num_dimensions,
+                    /* current_dim */ num_dimensions,
+                    current_dep_num,
+                    dep_source_expr,
+                    dimension_sizes,
+                    dependency_type,
+                    dims_description,
+                    dependency_regions,
+                    dep_source_expr.retrieve_context());
+        }
+    }
+
+    int num_dimension_items = num_dimensions;
+    if (num_dimension_items == 0)
+        num_dimension_items = 1;
+
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        if (current_dep_num > 0)
+        {
+            dependency_init << ", ";
+        }
+
+        dependency_init
+            << "{"
+            << "(void *) " << as_expression(base_address) << ", "
+            << dependency_flags << ", "
+            << num_dimension_items << ", "
+            << "dimensions_" << current_dep_num << ","
+            << dependency_offset
+            << "}";
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        result_src
+            << "dependences[" << current_dep_num << "].address = "
+            << as_expression(base_address) << ";"
+            << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
+            << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
+            << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
+            << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
+            << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
+            << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
+            << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
+            << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
+            ;
+    }
+}
+
 void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
@@ -2139,7 +2617,6 @@ void LoweringVisitor::fill_dependences_internal(
             ;
 
         int current_dep_num = 0;
-        int num_handled_dependences = 0;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
                 it != data_items.end();
                 it++)
@@ -2156,269 +2633,8 @@ void LoweringVisitor::fill_dependences_internal(
                 OutlineDataItem::DependencyDirectionality dir = dep_it->directionality;
                 TL::DataReference dep_expr(dep_it->expression);
 
-                ERROR_CONDITION(!dep_expr.is_valid(),
-                        "%s: Invalid dependency detected '%s'. Reason: %s\n",
-                        dep_expr.get_locus_str().c_str(),
-                        dep_expr.prettyprint().c_str(),
-                        dep_expr.get_error_log().c_str());
-
-                Source dependency_offset,
-                       dependency_flags,
-                       dependency_flags_in,
-                       dependency_flags_out,
-                       dependency_flags_concurrent,
-                       dependency_flags_commutative;
-
-                Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
-
-                // if (!(*it)->get_base_address_expression().is_null())
-                // {
-                //     // This is only for function task dependences
-                //     // Outline tasks do not need any of this
-                //     dep_source_expr = base_address = (*it)->get_base_address_expression();
-
-                //     if ((IS_CXX_LANGUAGE
-                //                 || IS_FORTRAN_LANGUAGE)
-                //             && (*it)->get_symbol().get_type().is_lvalue_reference())
-                //     {
-                //         // If the parameter type
-                //         TL::Type t = base_address.get_type();
-                //         if (t.is_any_reference())
-                //             t = t.references_to();
-                //         t = t.get_pointer_to();
-                //         // Create a reference here
-                //         base_address = Nodecl::Reference::make(
-                //                 base_address.shallow_copy(),
-                //                 t,
-                //                 base_address.get_filename(),
-                //                 base_address.get_line());
-                //     }
-                // }
-                // else
-                {
-                    base_address = dep_expr.get_base_address().shallow_copy();
-                }
-
-                dependency_flags 
-                    << "{" 
-                    << dependency_flags_in << "," 
-                    << dependency_flags_out << ", "
-                    << /* renaming has not yet been implemented */ "0, " 
-                    << dependency_flags_concurrent << ","
-                    << dependency_flags_commutative
-                    << "}"
-                    ;
-
-                Type dependency_type = dep_expr.get_data_type();
-
-                int num_dimensions = dependency_type.get_num_dimensions();
-
-                int concurrent = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-                int commutative = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
-
-                dependency_flags_in << (((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN) 
-                        || concurrent || commutative);
-                dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT) 
-                        || concurrent || commutative);
-                dependency_flags_concurrent << concurrent;
-                dependency_flags_commutative << commutative;
-                //
-                // Compute the base type of the dependency and the array containing the size of each dimension
-                Type dependency_base_type = dependency_type;
-
-                Nodecl::NodeclBase dimension_sizes[num_dimensions];
-                for (int dim = 0; dim < num_dimensions; dim++)
-                {
-                    dimension_sizes[dim] = get_size_for_dimension(dependency_base_type, num_dimensions - dim, dep_source_expr);
-
-                    dependency_base_type = dependency_base_type.array_element();
-                }
-
-                std::string base_type_name = dependency_base_type.get_declaration(dep_expr.retrieve_context(), "");
-
-                dependency_regions << "nanos_region_dimension_t dimensions_" << current_dep_num << "[" << std::max(num_dimensions, 1) << "]"
-                    ;
-
-                Source dims_description;
-
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    dependency_regions << "=  { " << dims_description << "}";
-                }
-
-                dependency_regions << ";"
-                    ;
-
-                 Nodecl::NodeclBase dep_expr_offset = dep_expr.get_offsetof();
-
-                 if (dep_expr_offset.is_null())
-                 {
-                     dep_expr_offset = dep_expr.get_offsetof(/* base symbol */ dep_source_expr, ctr.retrieve_context());
-                 }
-                 ERROR_CONDITION(dep_expr_offset.is_null(), "Failed to synthesize an expression denoting offset", 0);
-
-                dependency_offset << as_expression(dep_expr_offset);
-
-                if (num_dimensions == 0)
-                {
-                    // This is a scalar
-                    Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-
-                    dimension_size << "sizeof(" << base_type_name << ")";
-                    dimension_lower_bound << "0";
-                    dimension_accessed_length << dimension_size;
-
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        dims_description
-                            << "{"
-                            << dimension_size << ","
-                            << dimension_lower_bound << ","
-                            << dimension_accessed_length
-                            << "}"
-                            ;
-                    }
-                    else
-                    {
-                        dependency_regions
-                            << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                            << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                            << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                            ;
-                    }
-
-                }
-                else
-                {
-                    // This an array
-                    Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-
-                    // Compute the contiguous array type
-                    Type contiguous_array_type = dependency_type;
-                    while (contiguous_array_type.array_element().is_array())
-                    {
-                        contiguous_array_type = contiguous_array_type.array_element();
-                    }
-
-                    Nodecl::NodeclBase lb, ub, size;
-                    if (contiguous_array_type.array_is_region())
-                    {
-                        // This should be the lower bound of the array region minus lower bound of the array
-                        Nodecl::NodeclBase array_lb, array_ub;
-                        Nodecl::NodeclBase region_lb, region_ub;
-
-                        contiguous_array_type.array_get_bounds(array_lb, array_ub);
-                        contiguous_array_type.array_get_region_bounds(region_lb, region_ub);
-
-                        if (array_lb.is_null()
-                                && IS_FORTRAN_LANGUAGE)
-                        {
-                            // Compute a LBOUND on it. The contiguous dimension is always 1 in Fortran
-                            array_lb = get_lower_bound(dep_source_expr, /* dimension */ 1);
-                        }
-
-                        // Meaning that in this context A(:) is OK
-                        if (region_lb.is_null())
-                            region_lb = array_lb;
-
-                        Source diff;
-                        diff
-                            << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
-
-                        lb = diff.parse_expression(ctr);
-
-                        size = contiguous_array_type.array_get_region_size();
-
-                        if (size.is_null())
-                            size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
-                    }
-                    else
-                    {
-                        // Lower bound here should be zero since we want all the array
-                        lb = const_value_to_nodecl(const_value_get_signed_int(0));
-
-                        size = get_size_for_dimension(contiguous_array_type, 1, dep_source_expr);
-                    }
-
-                    dimension_size << "sizeof(" << base_type_name << ") * " << as_expression(dimension_sizes[num_dimensions - 1]);
-                    dimension_lower_bound << "sizeof(" << base_type_name << ") * " << as_expression(lb);
-                    dimension_accessed_length << "sizeof(" << base_type_name << ") * " << as_expression(size);
-
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        dims_description
-                            << "{"
-                            << dimension_size << ","
-                            << dimension_lower_bound << ","
-                            << dimension_accessed_length
-                            << "}"
-                            ;
-                    }
-                    else
-                    {
-                        dependency_regions
-                            << "dimensions_" << current_dep_num << "[0].size = " << dimension_size << ";"
-                            << "dimensions_" << current_dep_num << "[0].lower_bound = " << dimension_lower_bound << ";"
-                            << "dimensions_" << current_dep_num << "[0].accessed_length = " << dimension_accessed_length << ";"
-                            ;
-                    }
-
-                    if (num_dimensions > 1)
-                    {
-                        // All the remaining dimensions (but 0) are filled here
-                        fill_dimensions(
-                                num_dimensions,
-                                /* current_dim */ num_dimensions,
-                                current_dep_num,
-                                dep_source_expr,
-                                dimension_sizes,
-                                dependency_type,
-                                dims_description,
-                                dependency_regions,
-                                dep_source_expr.retrieve_context());
-                    }
-                }
-
-                int num_dimension_items = num_dimensions;
-                if (num_dimension_items == 0) 
-                    num_dimension_items = 1;
-
-                if (IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                {
-                    if (num_handled_dependences > 0)
-                    {
-                        dependency_init << ", ";
-                    }
-
-                    dependency_init
-                        << "{"
-                        << as_expression(base_address) << ", "
-                        << dependency_flags << ", "
-                        << num_dimension_items << ", "
-                        << "dimensions_" << current_dep_num << ","
-                        << dependency_offset
-                        << "}";
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    result_src
-                        << "dependences[" << current_dep_num << "].address = "
-                                   << as_expression(base_address) << ";"
-                        << "dependences[" << current_dep_num << "].offset = " << dependency_offset << ";"
-                        << "dependences[" << current_dep_num << "].flags.input = " << dependency_flags_in << ";"
-                        << "dependences[" << current_dep_num << "].flags.output = " << dependency_flags_out << ";"
-                        << "dependences[" << current_dep_num << "].flags.can_rename = 0;"
-                        << "dependences[" << current_dep_num << "].flags.concurrent = " << dependency_flags_concurrent << ";"
-                        << "dependences[" << current_dep_num << "].flags.commutative = " << dependency_flags_commutative << ";"
-                        << "dependences[" << current_dep_num << "].dimension_count = " << num_dimension_items << ";"
-                        << "dependences[" << current_dep_num << "].dimensions = &dimensions_" << current_dep_num << ";"
-                        ;
-                }
-                num_handled_dependences++;
+                handle_dependency_item(ctr, dep_expr, dir,
+                        current_dep_num, dependency_regions, dependency_init, result_src);
             }
         }
     }

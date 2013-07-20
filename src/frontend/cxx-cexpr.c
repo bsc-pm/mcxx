@@ -983,7 +983,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
             {
                 // Zero is special
                 if (integer_type == NULL && v->value.i == 0)
-                    return nodecl_make_integer_literal(get_zero_type(), v, make_locus("", 0, 0));
+                    return nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0));
 
                 type_t* t = integer_type;
                 if (t == NULL)
@@ -1408,7 +1408,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
             || is_signed_int_type(t))
     {
         cvalue_uint_t mask = ~(cvalue_uint_t)0;
-        mask >>= (sizeof(cvalue_uint_t) - type_get_size(t)*8 + 1);
+        mask >>= 8*(sizeof(cvalue_uint_t) - type_get_size(t)) + 1;
         return const_value_get_integer(~mask, type_get_size(t), /* sign */ 1);
     }
 
@@ -1437,7 +1437,7 @@ const_value_t* integer_type_get_maximum(type_t* t)
     else if (is_signed_integral_type(t))
     {
         cvalue_uint_t mask = ~(cvalue_uint_t)0;
-        mask >>= (sizeof(cvalue_uint_t) - type_get_size(t)*8 + 1);
+        mask >>= 8*(sizeof(cvalue_uint_t) - type_get_size(t)) + 1;
         return const_value_get_integer(mask, type_get_size(t), /* sign */ 1);
     }
 

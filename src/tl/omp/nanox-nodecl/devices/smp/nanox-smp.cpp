@@ -62,7 +62,7 @@ namespace TL { namespace Nanox {
     void DeviceSMP::create_outline(CreateOutlineInfo& info,
             Nodecl::NodeclBase& outline_placeholder,
             Nodecl::NodeclBase& output_statements,
-            Nodecl::Utils::SymbolMap* &symbol_map)
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map)
     {
         // Unpack DTO
         const std::string& outline_name = smp_outline_name(info._outline_name);
@@ -84,6 +84,8 @@ namespace TL { namespace Nanox {
             //     running_error("%s: error: internal subprograms are not supported\n",
             //             original_statements.get_locus().c_str());
         }
+
+        symbol_map = new Nodecl::Utils::SimpleSymbolMap();
 
         Source extra_declarations;
         Source final_statements, initial_statements;
@@ -270,8 +272,10 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
 
@@ -280,7 +284,8 @@ namespace TL { namespace Nanox {
                         {
                             // Normal shared items are passed by reference from a pointer,
                             // derreference here
-                            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED
+                            if (
+                                 ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
                                 if (!param_type.no_ref().depends_on_nonconstant_values())

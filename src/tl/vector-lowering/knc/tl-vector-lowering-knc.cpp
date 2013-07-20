@@ -32,7 +32,7 @@ namespace TL
     namespace Vectorization
     {
         KNCVectorLowering::KNCVectorLowering() 
-            : _vector_length(64)
+            : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()), _vector_length(64) 
         {
         }
 
@@ -128,11 +128,6 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }      
             
-
-            walk(node.get_lhs());
-            walk(node.get_rhs());
-            walk(node.get_mask());
-
             if (_old_m512.empty())
             {
                 intrin_src << undef;
@@ -143,6 +138,9 @@ namespace TL
                 _old_m512.pop_back();
             }
 
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+            walk(node.get_mask());
 
             intrin_src << ", "
                 << as_expression(node.get_mask())
@@ -234,10 +232,6 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }      
 
-            walk(node.get_lhs());
-            walk(node.get_rhs());
-            walk(node.get_mask());
-
             if (_old_m512.empty())
             {
                 intrin_src << undef;
@@ -247,6 +241,10 @@ namespace TL
                 intrin_src << as_expression(_old_m512.back());
                 _old_m512.pop_back();
             }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+            walk(node.get_mask());
 
             intrin_src << ", "
                 << as_expression(node.get_mask())
@@ -382,10 +380,6 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }      
 
-            walk(node.get_rhs());
-            walk(node.get_lhs());
-            walk(node.get_mask());
-
             if (_old_m512.empty())
             {
                 intrin_src << undef;
@@ -395,6 +389,10 @@ namespace TL
                 intrin_src << as_expression(_old_m512.back());
                 _old_m512.pop_back();
             }
+
+            walk(node.get_rhs());
+            walk(node.get_lhs());
+            walk(node.get_mask());
 
             intrin_src << ", "
                 << as_expression(node.get_mask())
@@ -486,10 +484,6 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }      
 
-            walk(node.get_lhs());
-            walk(node.get_rhs());
-            walk(node.get_mask());
-
             if (_old_m512.empty())
             {
                 intrin_src << undef;
@@ -499,6 +493,10 @@ namespace TL
                 intrin_src << as_expression(_old_m512.back());
                 _old_m512.pop_back();
             }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+            walk(node.get_mask());
 
             intrin_src << ", "
                 << as_expression(node.get_mask())
@@ -697,7 +695,59 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseOr& node) 
+        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseAndMask& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
+            TL::Source casting_src;
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                casting_src << "_mm512_castps_si512i(";
+            } 
+            else if (type.is_integral_type())
+            { 
+                casting_src << "(";
+            } 
+            else
+            {
+                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+
+            // Intrinsic name
+            intrin_src << casting_src << "_mm512_mask_and_epi32(";
+
+            if (_old_m512.empty())
+            {
+                intrin_src << "_mm512_undefined_epi32()";
+            }
+            else
+            {
+                intrin_src << as_expression(_old_m512.back());
+                _old_m512.pop_back();
+            }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << ", ";
+            intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
+            intrin_src << ", ";
+            intrin_src << casting_src << as_expression(node.get_rhs()) << ")";
+            intrin_src << "))";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
+
+       void KNCVectorLowering::visit(const Nodecl::VectorBitwiseOr& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -725,7 +775,6 @@ namespace TL
             // Intrinsic name
             intrin_src << casting_src << "_mm512_or_epi32";
 
-
             intrin_src << "(";
             intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
             intrin_src << ", ";
@@ -738,6 +787,58 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
+        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseOrMask& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
+            TL::Source casting_src;
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                casting_src << "_mm512_castps_si512(";
+            } 
+            else if (type.is_integral_type())
+            { 
+            } 
+            else
+            {
+                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+
+            // Intrinsic name
+            intrin_src << casting_src << "_mm512_mask_or_epi32(";
+
+            if (_old_m512.empty())
+            {
+                intrin_src << "_mm512_undefined_epi32()";
+            }
+            else
+            {
+                intrin_src << as_expression(_old_m512.back());
+                _old_m512.pop_back();
+            }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << ", ";
+            intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
+            intrin_src << ", ";
+            intrin_src << casting_src << as_expression(node.get_rhs()) << ")";
+            intrin_src << "))";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
+
+ 
         void KNCVectorLowering::visit(const Nodecl::VectorBitwiseXor& node) 
         { 
             TL::Type type = node.get_type().basic_type();
@@ -767,6 +868,7 @@ namespace TL
             // Intrinsic name
             intrin_src << casting_src << "_mm512_xor_epi32";
 
+            intrin_src << ", ";
             intrin_src << "(";
             intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
             intrin_src << ", ";
@@ -778,6 +880,61 @@ namespace TL
 
             node.replace(function_call);
         }   
+
+
+        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseXorMask& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src;
+            TL::Source casting_src;
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                casting_src << "_mm512_castps_si512(";
+            } 
+            else if (type.is_integral_type())
+            { 
+                casting_src << "(";
+            }
+            else
+            {
+                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+
+            // Intrinsic name
+            intrin_src << casting_src << "_mm512_xor_epi32(";
+
+            if (_old_m512.empty())
+            {
+                intrin_src << "_mm512_undefined_epi32()";
+            }
+            else
+            {
+                intrin_src << as_expression(_old_m512.back());
+                _old_m512.pop_back();
+            }
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+
+            intrin_src << ", ";
+            intrin_src << casting_src << as_expression(node.get_lhs()) << ")";
+            intrin_src << ", ";
+            intrin_src << casting_src << as_expression(node.get_rhs()) << ")";
+            intrin_src << "))";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }   
+
 
         void KNCVectorLowering::visit(const Nodecl::VectorLogicalOr& node) 
         { 
@@ -1268,10 +1425,6 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }
 
-
-            walk(node.get_rhs());
-            walk(node.get_mask());
-
             if (_old_m512.empty())
             {
                 intrin_src << undef;
@@ -1281,6 +1434,9 @@ namespace TL
                 intrin_src << as_expression(_old_m512.back());
                 _old_m512.pop_back();
             }
+
+            walk(node.get_rhs());
+            walk(node.get_mask());
 
             intrin_src << ", "
                 << as_expression(node.get_mask())
@@ -1432,10 +1588,6 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }
 
-
-            walk(node.get_rhs());
-            walk(node.get_mask());
-
             if (_old_m512.empty())
             {
                 args_lo << undef;
@@ -1445,6 +1597,10 @@ namespace TL
                 args_lo << as_expression(_old_m512.back());
                 _old_m512.pop_back();
             }
+
+            walk(node.get_rhs());
+            walk(node.get_mask());
+
 
             args_lo << ", "
                 << as_expression(node.get_mask())
@@ -1805,7 +1961,7 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
             
-            TL::Source intrin_src;
+            TL::Source intrin_src, undef;
 
             intrin_src << "_mm512_mask_i32gather";
 
@@ -1814,11 +1970,13 @@ namespace TL
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_src << "_ps";
+                intrin_src << "_ps(";
+                undef << "_mm512_undefined()";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32";
+                intrin_src << "_epi32(";
+                undef << "_mm512_undefined_epi32()";
             }
             else
             {
@@ -1834,19 +1992,29 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }
 
+            if (_old_m512.empty())
+            {
+                intrin_src << undef;
+            }
+            else
+            {
+                intrin_src << as_expression(_old_m512.back());
+                _old_m512.pop_back();
+            }
+
+
             walk(node.get_base());
             walk(node.get_strides());
             walk(node.get_mask());
 
-            intrin_src << "("; 
-
-            intrin_src << as_expression(node.get_base());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_strides());
-            intrin_src << ", ";
-            intrin_src << type.get_size();
-
-            intrin_src << ")";
+            intrin_src << as_expression(node.get_mask())
+               << ", "
+               << as_expression(node.get_base())
+               << ", "
+               << as_expression(node.get_strides())
+               << ", "
+               << type.get_size()
+               << ")";
 
             
             Nodecl::NodeclBase function_call =
@@ -1895,17 +2063,15 @@ namespace TL
             walk(node.get_strides());
             walk(node.get_source());
 
-            intrin_src << "(";
-
-            intrin_src << as_expression(node.get_base());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_strides());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_source());
-            intrin_src << ", ";
-            intrin_src << type.get_size();
-
-            intrin_src << ")";
+            intrin_src << "("
+                << as_expression(node.get_base())
+                << ", "
+                << as_expression(node.get_strides())
+                << ", "
+                << as_expression(node.get_source())
+                << ", "
+                << type.get_size()
+                << ")";
 
 
             Nodecl::NodeclBase function_call =
@@ -1955,17 +2121,17 @@ namespace TL
             walk(node.get_source());
             walk(node.get_mask());
 
-            intrin_src << "(";
-
-            intrin_src << as_expression(node.get_base());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_strides());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_source());
-            intrin_src << ", ";
-            intrin_src << type.get_size();
-
-            intrin_src << ")";
+            intrin_src << "("
+                << as_expression(node.get_mask())
+                << ", "
+                << as_expression(node.get_base())
+                << ", "
+                << as_expression(node.get_strides())
+                << ", "
+                << as_expression(node.get_source())
+                << ", "
+                << type.get_size()
+                << ")";
 
 
             Nodecl::NodeclBase function_call =
@@ -1984,13 +2150,78 @@ namespace TL
             node.replace(function_call);
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorFunctionCallMask& node) 
+        {
+            Nodecl::FunctionCall function_call =
+                node.get_function_call().as<Nodecl::FunctionCall>();
+
+            TL::Type type = node.get_type().basic_type();
+            Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
+            Nodecl::NodeclBase mask = node.get_mask();
+            
+            walk(mask);
+
+            TL::Symbol scalar_sym =
+                node.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
+
+            if(_vectorizer.is_svml_function(scalar_sym.get_name(),
+                        "knc",
+                        64,
+                        NULL,
+                        true)) // TODO
+            {
+                arguments.prepend(mask.shallow_copy());
+
+                if (_old_m512.empty())
+                {
+                    TL::Source undef;
+
+                    if (type.is_float()) 
+                    { 
+                        undef << "_mm512_undefined()";
+                    } 
+                    else if (type.is_double()) 
+                    { 
+                        undef << "_mm512_undefined_pd()";
+                    } 
+                    else if (type.is_integral_type()) 
+                    { 
+                        undef << "_mm512_undefined_epi32()";
+                    }
+
+                    Nodecl::NodeclBase undef_function_call =
+                        undef.parse_expression(node.retrieve_context());
+
+                    walk(arguments);
+                    arguments.prepend(undef_function_call);
+                }
+                else
+                {
+                    Nodecl::NodeclBase old_m512 = _old_m512.back();
+                    _old_m512.pop_back();
+
+                    walk(arguments);
+                    arguments.prepend(old_m512);
+                }
+
+                function_call.set_arguments(arguments);
+            }
+            else
+            {
+                walk(arguments);
+
+                arguments.append(mask.shallow_copy());
+                function_call.set_arguments(arguments);
+            }
+                    
+            node.replace(function_call);
+        }
+
         void KNCVectorLowering::visit(const Nodecl::VectorFabs& node) 
         {
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src;
-
-            walk(node.get_argument());
 
             // Handcoded implementations for float and double
             if (type.is_float()) 
@@ -2004,6 +2235,102 @@ namespace TL
                 intrin_src << "_mm512_castsi512_pd(_mm512_and_epi32(_mm512_castpd_si512(";
                 intrin_src << as_expression(node.get_argument());
                 intrin_src << "), _mm512_set1_epi64(0x7FFFFFFFFFFFFFFFLL)))"; 
+            }
+            else
+            {
+                /*
+                // Intrinsic name
+                intrin_src << "_mm512_abs";
+
+                // Postfix
+                if (type.is_signed_int() ||
+                        type.is_unsigned_int()) 
+                { 
+                    intrin_src << "_epi32"; 
+                } 
+                else if (type.is_signed_short_int() ||
+                        type.is_unsigned_short_int()) 
+                { 
+                    intrin_src << "_epi16"; 
+                } 
+                else if (type.is_char() || 
+                        type.is_signed_char() ||
+                        type.is_unsigned_char()) 
+                { 
+                    intrin_src << "_epi8"; 
+                } 
+                else
+                {
+                */
+                    running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                            ast_print_node_type(node.get_kind()),
+                            locus_to_str(node.get_locus()));
+                //}
+            }
+            
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+            
+            node.replace(function_call);
+        }
+
+        void KNCVectorLowering::visit(const Nodecl::VectorFabsMask& node) 
+        {
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, old_m512;
+
+            if (_old_m512.empty())
+            {
+                old_m512 << "_mm512_undefined_epi32()";
+            }
+            else
+            {
+                TL::Type old_m512_type = _old_m512.back().get_type().basic_type();
+                if (old_m512_type.is_float()) 
+                { 
+                    old_m512 << "_mm512_castps_si512";
+                }
+
+                else if (old_m512_type.is_double()) 
+                {
+                    old_m512 << "_mm512_castpd_si512";
+                } 
+                else
+                {
+                    running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                            ast_print_node_type(node.get_kind()),
+                            locus_to_str(node.get_locus()));
+                }
+
+                old_m512 << "("
+                    << as_expression(_old_m512.back())
+                    << ")";
+
+                _old_m512.pop_back();
+            }
+ 
+            walk(node.get_argument());
+            walk(node.get_mask());
+
+            // Handcoded implementations for float and double
+            if (type.is_float()) 
+            { 
+                intrin_src << "_mm512_castsi512_ps(_mm512_mask_and_epi32("
+                    << old_m512 << ", "
+                    << as_expression(node.get_mask()) << ", "
+                    << "_mm512_castps_si512("
+                    << as_expression(node.get_argument())
+                    << "), _mm512_set1_epi32(0x7FFFFFFF)))"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_mm512_castsi512_pd(_mm512_mask_and_epi32("
+                    << old_m512 << ", "
+                    << as_expression(node.get_mask()) << ", "
+                    << "_mm512_castpd_si512("
+                    << as_expression(node.get_argument())
+                    << "), _mm512_set1_epi64(0x7FFFFFFFFFFFFFFFLL)))"; 
             }
             else
             {

@@ -34,13 +34,13 @@
 
 namespace TL { namespace Nanox {
 
-    struct ExpandVisitor : public Nodecl::ExhaustiveVisitor<void>
+    struct BasicReductionExpandVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
             TL::Symbol _orig_omp_in, _new_omp_in, _orig_omp_out, _new_omp_out;
             TL::Symbol _index;
         public:
-        ExpandVisitor(
+        BasicReductionExpandVisitor(
                 TL::Symbol orig_omp_in, 
                 TL::Symbol new_omp_in,
                 TL::Symbol orig_omp_out, 
@@ -104,10 +104,10 @@ namespace TL { namespace Nanox {
         }
     };
 
-    TL::Symbol LoweringVisitor::create_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    TL::Symbol LoweringVisitor::create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
     {
-        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
-        if (it != _reduction_map_openmp.end())
+        reduction_map_t::iterator it = _basic_reduction_map_openmp.find(red);
+        if (it != _basic_reduction_map_openmp.end())
         {
             return it->second;
         }
@@ -160,7 +160,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase expanded_combiner =
             red->get_combiner().shallow_copy();
-        ExpandVisitor expander_visitor(
+        BasicReductionExpandVisitor expander_visitor(
                 red->get_omp_in(),
                 param_omp_in,
                 red->get_omp_out(),
@@ -171,17 +171,155 @@ namespace TL { namespace Nanox {
         function_body.replace(
                 Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
 
-        _reduction_map_openmp[red] = function_sym;
+        _basic_reduction_map_openmp[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
         return function_sym;
     }
 
-    TL::Symbol LoweringVisitor::create_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    struct VectorReductionExpandVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
-        reduction_map_t::iterator it = _reduction_map_openmp.find(red);
-        if (it != _reduction_map_openmp.end())
+        private:
+            TL::Symbol _orig_omp_in, _new_omp_in, _orig_omp_out, _new_omp_out;
+            TL::Symbol _index;
+        public:
+        VectorReductionExpandVisitor(
+                TL::Symbol orig_omp_in, 
+                TL::Symbol privates_sym,
+                TL::Symbol orig_omp_out, 
+                TL::Symbol original,
+                TL::Symbol index)
+            : _orig_omp_in(orig_omp_in),
+            _new_omp_in(privates_sym),
+            _orig_omp_out(orig_omp_out),
+            _new_omp_out(original),
+            _index(index)
+        {
+        }
+
+        void visit(const Nodecl::Symbol &node)
+        {
+            bool must_expand = false, must_expand_scalar = false;
+            TL::Symbol sym = node.get_symbol();
+            TL::Symbol new_sym;
+            if (sym == _orig_omp_in)
+            {
+                must_expand = true;
+                must_expand_scalar = true;
+                new_sym = _new_omp_in;
+            }
+            else if (sym == _orig_omp_out)
+            {
+                must_expand = true;
+                new_sym = _new_omp_out;
+            }
+
+            if (!must_expand)
+                return;
+
+            Nodecl::NodeclBase new_sym_ref = Nodecl::Symbol::make(new_sym);
+            new_sym_ref.set_type(new_sym.get_type().get_lvalue_reference_to());
+
+            if (must_expand_scalar)
+            {
+                Nodecl::NodeclBase index_ref = Nodecl::Symbol::make(_index);
+                index_ref.set_type(_index.get_type().get_lvalue_reference_to());
+
+                TL::Type new_type = new_sym.get_type().points_to().get_lvalue_reference_to();
+                node.replace(
+                        Nodecl::ArraySubscript::make(
+                            new_sym_ref,
+                            Nodecl::List::make(
+                                index_ref),
+                            new_type
+                            )
+                        );
+            }
+            else
+            {
+                node.replace(
+                        Nodecl::Dereference::make(
+                            new_sym_ref,
+                            new_sym_ref.get_type().references_to().points_to().get_lvalue_reference_to()));
+            }
+        }
+    };
+
+
+    TL::Symbol LoweringVisitor::create_vector_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    {
+        reduction_map_t::iterator it = _vector_reduction_map_openmp.find(red);
+        if (it != _vector_reduction_map_openmp.end())
+        {
+            return it->second;
+        }
+
+        std::string fun_name;
+        {
+            std::stringstream ss;
+            ss << "nanos_v_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            fun_name = ss.str();
+        }
+
+        Nodecl::NodeclBase function_body;
+        Source src;
+        src << "void " << fun_name << "("
+            <<    "int team_size,"
+            <<    "void *v_original,"
+            <<    "void *v_privates)"
+            << "{"
+            <<    as_type(red->get_type().get_pointer_to())
+            <<      " original = (" << as_type(red->get_type().get_pointer_to()) << ")v_original;"
+            <<    as_type(red->get_type().get_pointer_to())
+            <<      " privates = (" << as_type(red->get_type().get_pointer_to()) << ")v_privates;"
+            <<    "int i;"
+            <<    "for (i = 0; i < team_size; i++)"
+            <<    "{"
+            <<           statement_placeholder(function_body)
+            <<    "}"
+            << "}"
+            ;
+
+        Nodecl::NodeclBase function_code = src.parse_global(construct);
+
+        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
+
+        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
+
+        TL::Symbol index = inside_function.get_symbol_from_name("i");
+        ERROR_CONDITION(!index.is_valid(), "Symbol %s not found", "i");
+
+        TL::Symbol privates_sym = inside_function.get_symbol_from_name("privates");
+        ERROR_CONDITION(!privates_sym.is_valid(), "Symbol %s not found", "privates");
+
+        TL::Symbol original_sym = inside_function.get_symbol_from_name("original");
+        ERROR_CONDITION(!original_sym.is_valid(), "Symbol %s not found", "original");
+
+        Nodecl::NodeclBase expanded_combiner =
+            red->get_combiner().shallow_copy();
+        VectorReductionExpandVisitor expander_visitor(
+                red->get_omp_in(),
+                privates_sym,
+                red->get_omp_out(),
+                original_sym,
+                index);
+        expander_visitor.walk(expanded_combiner);
+
+        function_body.replace(
+                Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
+
+        _vector_reduction_map_openmp[red] = function_sym;
+
+        Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
+
+        return function_sym;
+    }
+
+    TL::Symbol LoweringVisitor::create_basic_reduction_function_fortran(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    {
+        reduction_map_t::iterator it = _basic_reduction_map_openmp.find(red);
+        if (it != _basic_reduction_map_openmp.end())
         {
             return it->second;
         }
@@ -237,7 +375,7 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase expanded_combiner =
             red->get_combiner().shallow_copy();
-        ExpandVisitor expander_visitor(
+        BasicReductionExpandVisitor expander_visitor(
                 red->get_omp_in(),
                 param_omp_in,
                 red->get_omp_out(),
@@ -252,22 +390,26 @@ namespace TL { namespace Nanox {
                             expanded_combiner)),
                     Nodecl::NodeclBase::null()));
 
-        _reduction_map_openmp[red] = function_sym;
+        _basic_reduction_map_openmp[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
         return function_sym;
     }
 
-    TL::Symbol LoweringVisitor::create_reduction_function(OpenMP::Reduction* red, Nodecl::NodeclBase construct)
+    void LoweringVisitor::create_reduction_function(OpenMP::Reduction* red,
+            Nodecl::NodeclBase construct,
+            TL::Symbol& basic_reduction_function,
+            TL::Symbol& vector_reduction_function)
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            return create_reduction_function_c(red, construct);
+            basic_reduction_function = create_basic_reduction_function_c(red, construct);
+            vector_reduction_function = create_vector_reduction_function_c(red, construct);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            return create_reduction_function_fortran(red, construct);
+            basic_reduction_function = create_basic_reduction_function_fortran(red, construct);
         }
         else
         {
@@ -408,7 +550,8 @@ namespace TL { namespace Nanox {
 
             Source num_scalars;
 
-            TL::Symbol basic_reduction_function = create_reduction_function(reduction, construct);
+            TL::Symbol basic_reduction_function, vector_reduction_function;
+            create_reduction_function(reduction, construct, basic_reduction_function, vector_reduction_function);
             (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
@@ -418,7 +561,8 @@ namespace TL { namespace Nanox {
                 <<     "nanos_handle_error(err);"
                 << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
                 << allocate_private_buffer
-                << nanos_red_name << "->vop = 0;"
+                << nanos_red_name << "->vop = "
+                <<      (vector_reduction_function.is_valid() ? as_symbol(vector_reduction_function) : "0") << ";"
                 << nanos_red_name << "->bop = (void(*)(void*,void*,int))" << as_symbol(basic_reduction_function) << ";"
                 << nanos_red_name << "->element_size = " << element_size << ";"
                 << nanos_red_name << "->num_scalars = " << num_scalars << ";"

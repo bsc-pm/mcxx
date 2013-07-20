@@ -1,0 +1,105 @@
+Parameters Example
+==================
+
+This example is a simple phase which simply registers two parameters. Parameters
+are registered in the constructor of the phase and they appear in the help
+of the driver, if the profile used to invoke the compiler loads the phase.
+
+To register a parameter the function use the function register_parameter. It
+expects the name of the parameter, a description, a backing std::string& where
+the value of the variable will be stored and a default string value.
+
+-- tl-example-parameters.cpp --
+ register_parameter("param1",
+         "This is the parameter number one",
+         _parameter_1_value,
+         "val1");
+--
+
+This function returns a Signal1<std::string>. This signal is fired after the
+driver updates the value of the variable (the third parameter of
+register_parameter), so you can do sanity checks on your input. Just connect a
+valid functor for a Signal1<std::string>.  In the example we use a nonstatic
+member function ('*this' is required for these functors, non-member functions
+or static member functions do not required it).
+
+--
+ register_parameter("param2",
+         "This is the parameter number two",
+         _parameter_2_value,
+         "val2").connect(functor(&ExampleParameters::check_param2, *this));
+--
+
+The ExampleParameters::check_param2 function simply checks that what was passed is either
+'val2' or 'val3', otherwise prints a message and defaults to 'val3'. Note that the functor
+is not invoked if the argument does not specify a value for the parameter (so make sure
+your default value makes sense).
+
+--
+ void ExampleParameters::check_param2(const std::string& str)
+ {
+     if (str != "val2" && str != "val3")
+     {
+         std::cerr << "Invalid value for 'param2', it will be assumed to be 'val2'" << std::endl;
+         _parameter_2_value = "val2";
+     }
+     else
+     {
+         _parameter_2_value = "val3";
+     }
+ }
+--
+
+This phase prints the values of param1 and param2, so you can test passing
+arguments. Phase parameters are passed through the driver using the syntax
+--variable=param_name:value. See below for an example
+
+Several phases may share the same variable name, the driver will update the
+values of each one. Imagine two phases which register an 'instrumentation'
+parameter. Passing '--variable=instrumentation:on' to the driver will update
+both variables of each class to have the value 'on'. This is useful for a chain
+of phases and you want to control all them with a single variable.
+
+Testing
+-------
+
+To test this phase, compile it (make) and install it (make install). Modify a profile of the compiler,
+for instance "plaincc" to include a line like
+
+  compiler_phase = libtl_example_parameters
+
+If you run the compiler with --help you will see the registered parameters.
+
+--
+ $ plaincc --help
+ [... Lots of help messages ...]
+ Phase: Example phase with parameters
+
+    This phase does nothing but registering some parameters and printing them
+
+    --variable=param1
+    This is the parameter number one
+    Default value : 'val1'
+
+    --variable=param2
+    This is the parameter number two
+    Default value : 'val2'
+--
+
+Let's pass some values
+
+--
+ $ plaincc -c test.c
+ Parameter 1 -> val1
+ Parameter 2 -> val2
+ $ plaincc -c test.c --variable=param1:hello
+ Parameter 1 -> hello
+ Parameter 2 -> val2
+ $ plaincc -c test.c --variable=param1:hullo --variable=param2:val3
+ Parameter 1 -> hullo
+ Parameter 2 -> val3
+ $ plaincc -c test.c --variable=param1:hullo --variable=param2:val9
+ Invalid value for 'param2', it will be assumed to be 'val2'
+ Parameter 1 -> hullo
+ Parameter 2 -> val2
+--

@@ -471,8 +471,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
         bool is_non_ref = is_non_language_reference_type(node.get_type());
         if (is_non_ref)
         {
-            // Here we assume that casts in C always yield rvalues
-            file << "(*";
+            if (node.get_type().no_ref().is_array())
+            {
+                // Special case for arrays, themselves are an address
+                file << "(";
+            }
+            else
+            {
+                file << "(*";
+            }
 
             // This avoids a warning in some compilers which complain on (T* const)e
             t = t.get_unqualified_type();
@@ -554,6 +561,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
+    Nodecl::NodeclBase member_form = node.get_member_form();
 
     TL::Symbol sym = rhs.get_symbol();
 
@@ -610,7 +618,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             file << "(";
         }
 
-        walk(rhs);
+        // This will only emit the unqualified name
+        TL::Symbol rhs_symbol = rhs.get_symbol();
+        if (!rhs_symbol.is_valid()
+                || (!member_form.is_null()
+                    && member_form.is<Nodecl::CxxMemberFormQualified>()))
+        {
+            // This will print the qualified name
+            walk(rhs);
+        }
+        else
+        {
+
+            // Simply print the name
+            file << rhs_symbol.get_name();
+        }
+
         if (needs_parentheses)
         {
             file << ")";
@@ -757,36 +780,32 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
+        // This expression is a logical-or-expression, so an assignment (or comma)
+        // needs parentheses
         file << "(";
     }
     walk(cond);
-    if (operand_has_lower_priority(node, cond))
+    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
     {
         file << ")";
     }
 
     file << " ? ";
 
-    if (operand_has_lower_priority(node, then))
-    {
-        file << "(";
-    }
+    // This is a top level expression, no parentheses should be required
     walk(then);
-    if (operand_has_lower_priority(node, then))
-    {
-        file << ")";
-    }
 
     file << " : ";
 
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
+        // Only comma operator could get here actually
         file << "(";
     }
     walk(_else);
-    if (operand_has_lower_priority(node, _else))
+    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
     {
         file << ")";
     }
@@ -865,7 +884,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepGlobalNameNested& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameConversion& node)
 {
-    file << "operator " << this->get_declaration(node.get_type(), this->get_current_scope(), "");
+    file
+        << "operator "
+        << this->get_declaration(node.get_conversion_type().get_type(), this->get_current_scope(), "");
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNameNested& node)
@@ -1309,6 +1330,24 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
                         actual_arg = actual_arg.as<Nodecl::Dereference>().get_rhs();
                     }
                 }
+                else if (type_it->references_to().is_array()
+                        && actual_arg.get_type().is_valid()
+                        && actual_arg.get_type().no_ref().is_array())
+                {
+                    // Consider this case                 [ Emitted C ]
+                    // void f(int (&v)[10])    ->         void f(int * const v)
+                    // {
+                    // }
+                    //
+                    // void g()                           void g()
+                    // {                                  {
+                    //    int k[10];                         int k[10];
+                    //    f(k);                              f(k); // Emitting f(&k) would yield a wrong
+                    //                                             // type (with the proper value, though)
+                    // }                                  }
+                    //
+                    // Note that "k" has type "int[10]" (not a reference)
+                }
                 else
                 {
                     do_reference = true;
@@ -1387,7 +1426,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                 ::template_arguments_to_str(
                         deduced_template_args.get_internal_template_parameter_list(),
                         /* first_template_argument_to_be_printed */ template_args.get_num_parameters(),
-                        /* print_first_level_bracket */ 1,
+                        /* print_first_level_bracket */ 0,
                         called_symbol.get_scope().get_decl_context());
 
             // Reason of this: A<::B> it's not legal
@@ -1399,7 +1438,13 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
             {
                 file << "<";
             }
-            file << template_args_str << "/*, " << deduced_template_args_str <<"*/>";
+
+            file << template_args_str;
+
+            if (deduced_template_args_str != "")
+                file << " /*, " << deduced_template_args_str << " */ ";
+
+            file << ">";
         }
     }
     else
@@ -1860,14 +1905,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
     if (symbol.is_inline())
     {
-        C_LANGUAGE()
-        {
-            decl_spec_seq += "__inline ";
-        }
-        CXX_LANGUAGE()
-        {
-            decl_spec_seq += "inline ";
-        }
+        decl_spec_seq += "inline ";
     }
 
     if (symbol.is_explicit_constructor()
@@ -2125,6 +2163,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (symbol.is_extern() && symbol.get_value().is_null())
     {
         decl_spec_seq += "extern ";
+    }
+    if (symbol.is_virtual() && symbol.is_defined_inside_class())
+    {
+        decl_spec_seq += "virtual ";
     }
     if (symbol.is_inline())
     {
@@ -2590,7 +2632,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     Nodecl::NodeclBase type = node.get_init_real_type();
     TL::Type init_real_type = type.get_type();
 
-    file << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+    file << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
 
     // new[] cannot have an initializer, so just print the init_real_type
     if (init_real_type.is_array())
@@ -3227,7 +3269,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Throw& node)
     if (!expr.is_null())
     {
         file << " ";
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            // A comma operator could slip in
+            file << "(";
+        }
         walk(expr);
+        if (get_rank(expr) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+        {
+            file << ")";
+        }
     }
 }
 
@@ -4219,20 +4270,11 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 bool member_declaration_does_define = true;
 
                 // If we are declaring a static member it is not a definition
-                // unless it is const integral type or const enum type
+                // unless it has been declared inside the class
                 if (member.is_variable()
-                        && member.is_static()
-                        && (!member.get_type().is_const()
-                            || (!member.get_type().is_integral_type()
-                                && !member.get_type().is_enum())))
+                        && member.is_static())
                 {
-                    member_declaration_does_define = false;
-                }
-
-                // Override whatever we might have deduced so far
-                if (member.is_defined_inside_class())
-                {
-                    member_declaration_does_define = true;
+                    member_declaration_does_define = member.is_defined_inside_class();
                 }
 
                 if (member_declaration_does_define)
@@ -4722,12 +4764,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
     char emit_initializer = 0;
     if (!symbol.get_value().is_null()
             && (!symbol.is_member()
-                || ((symbol.is_static()
-                        && (!state.in_member_declaration
-                            || ((symbol.get_type().is_integral_type()
-                                    || symbol.get_type().is_enum())
-                                && symbol.get_type().is_const())))
-                    || symbol.is_defined_inside_class())))
+                || (state.in_member_declaration == symbol.is_defined_inside_class())))
     {
         emit_initializer = 1;
     }
@@ -4919,9 +4956,13 @@ void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, b
         std::string variable_name =
             define_or_declare_variable_get_name_variable(symbol);
 
+        std::string declarator = this->get_declaration_only_declarator(symbol.get_type(),
+            symbol.get_scope(),
+            variable_name);
+
         set_codegen_status(symbol, codegen_status);
 
-        file <<  ", " << variable_name;
+        file <<  ", " << declarator;
 
         define_or_declare_variable_emit_initializer(symbol, is_definition);
     }
@@ -5902,6 +5943,15 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
 
         (this->*symbol_to_define)(t.get_symbol());
     }
+    else if (t.is_indirect())
+    {
+        walk_type_for_symbols(
+                t.get_symbol().get_type(),
+                symbol_to_declare,
+                symbol_to_define,
+                define_entities_in_tree,
+                needs_definition);
+    }
     else if (t.is_pointer())
     {
         walk_type_for_symbols(t.points_to(), symbol_to_declare, symbol_to_define,
@@ -6341,6 +6391,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_COMPOUND_EXPRESSION:
 
         case NODECL_CXX_DEP_NAME_SIMPLE:
+        case NODECL_CXX_DEP_NAME_CONVERSION:
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
         case NODECL_CXX_DEP_TEMPLATE_ID:
@@ -7027,7 +7078,6 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
 }
 
-
 const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
 {
     // We obtain the current codegen from the data
@@ -7154,6 +7204,21 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
             /* we need to store the current codegen */ (void*) this);
 }
 
+std::string CxxBase::get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name)
+{
+    t = fix_references(t);
+
+    return get_declarator_name_string_ex(
+            scope.get_decl_context(),
+            t.get_internal_type(),
+            name.c_str(),
+            /* num_parameter_names */ 0,
+            /* parameter_names */ NULL,
+            /* parameter_attributes */ NULL,
+            /* is_parameter */ 0,
+            print_name_str,
+            /* we need to store the current codegen */ (void*) this);
+}
 
 std::string CxxBase::get_qualified_name(TL::Symbol sym, bool without_template_id) const
 {

@@ -1181,7 +1181,10 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
 
 static char standard_conversion_is_pointer_to_bool(standard_conversion_t scs)
 {
-    return ((is_pointer_type(no_ref(scs.orig)) || is_pointer_to_member_type(no_ref(scs.orig)))
+    return ((is_pointer_type(no_ref(scs.orig))
+                || is_pointer_to_member_type(no_ref(scs.orig))
+                // Array types may get here if we applied array to pointer
+                || (is_array_type(no_ref(scs.orig)) && (scs.conv[0] == SCI_ARRAY_TO_POINTER)))
             && is_bool_type(no_ref(scs.dest)));
 }
 
@@ -1616,30 +1619,38 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                         && candidate->entity_specs.is_member
                         && !candidate->entity_specs.is_constructor)
                 {
-                    // Set 'this' parameter (not argument!)
-                    type_t* member_object_type = NULL;
-
-                    // Using entities use the class where they are used, not
-                    // their original type
-                    if (orig_candidate->kind == SK_USING)
+                    if (argument_types[0] != NULL)
                     {
-                        member_object_type = orig_candidate->entity_specs.class_type;
+                        // Set 'this' parameter (not argument!)
+                        type_t* member_object_type = NULL;
+
+                        // Using entities use the class where they are used, not
+                        // their original type
+                        if (orig_candidate->kind == SK_USING)
+                        {
+                            member_object_type = orig_candidate->entity_specs.class_type;
+                        }
+                        else
+                        {
+                            member_object_type = candidate->entity_specs.class_type;
+                        }
+                        member_object_type = get_cv_qualified_type(member_object_type,
+                                get_cv_qualifier(candidate->type_information));
+                        member_object_type = get_lvalue_reference_type(member_object_type);
+
+                        compute_ics_flags(argument_types[0],
+                                member_object_type,
+                                decl_context,
+                                &ics_to_candidate,
+                                /* no_user_defined_conversions */ 1,
+                                /* is_implicit_argument */ 1,
+                                locus);
                     }
                     else
                     {
-                        member_object_type = candidate->entity_specs.class_type;
+                        // The (missing) implicit argument will not play any role in overload
+                        continue;
                     }
-                    member_object_type = get_cv_qualified_type(member_object_type, 
-                            get_cv_qualifier(candidate->type_information));
-                    member_object_type = get_lvalue_reference_type(member_object_type);
-
-                    compute_ics_flags(argument_types[i], 
-                            member_object_type,
-                            decl_context, 
-                            &ics_to_candidate,
-                            /* no_user_defined_conversions */ 1,
-                            /* is_implicit_argument */ 1,
-                            locus);
                 }
                 else
                 {
@@ -1656,13 +1667,13 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                     else
                     {
                         parameter_type = function_type_get_parameter_type_num(
-                                candidate->type_information, 
+                                candidate->type_information,
                                 argument_number);
                     }
 
-                    compute_ics(argument_types[i], 
+                    compute_ics(argument_types[i],
                             parameter_type,
-                            decl_context, 
+                            decl_context,
                             &ics_to_candidate, locus);
                 }
 
@@ -2796,16 +2807,15 @@ candidate_t* add_to_candidate_set(candidate_t* candidate_set,
     result->num_args = num_args;
     result->args = args;
 
-    // For static members ignore the implicit argument
+    // For members ignore the implicit argument which we allow to be NULL
     int i = 0;
-    if (entry->entity_specs.is_member 
-            && entry->entity_specs.is_static)
+    if (entry->entity_specs.is_member)
         i = 1;
 
     for (; i < result->num_args; i++)
     {
         // Sanity check
-        ERROR_CONDITION(result->args[i] == NULL, "An argument type cannot be NULL", 0);
+        ERROR_CONDITION(result->args[i] == NULL, "An argument type (except the implicit argument object) cannot be NULL", 0);
     }
 
     return result;

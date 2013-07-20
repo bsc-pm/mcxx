@@ -1,0 +1,50 @@
+Visitors Example
+================
+
+This example is a simple phase that shows how an ExhaustiveVisitor can be used.
+
+NodeclVisitor
+-------------
+
+By default a NodeclVisitor implements the Visitor pattern, so in every visit
+node we can explicit control the visit by issuing walks on the different
+children of the node. So, for every node (starting from Nodecl::TopLevel) you
+should override visit method for every const Nodecl::YourSpecificNode&.
+
+Note that a visitor can have a return type Ret. If you are unsure, make your
+visitor return void. If your visitor returns non void, every non-overriden
+visit method will return a default constructed value of the return type Ret().
+
+For visitors returning non-void types you will also have to override
+join_list(TL::ObjectList<Ret>).  join_list is called when the traversal
+encounters a list and must construct a Ret from a list of Ret. For instance if
+your visitor returns a boolean value synthesized during the traversal,
+join_list may apply an OR operation. For another example, if your visitor
+returns a set of items synthesized during the traversal, join_list may create
+another set which is the union of all the synthesized sets.
+
+ExhaustiveVisitor
+-----------------
+
+A NodeclVisitor can be inconvenient when we just want to search for a simple node.
+
+An ExhaustiveVisitor visits all the nodes by providing default ::visit methods.
+These methods have the following schema
+
+  Ret YourVisitor::visit(const Nodecl::YourSpecificNode& n)
+  {
+      this->visit_pre(n);
+      /* walk the children of YourSpecificNode */
+      this->visit_post(n);
+  }
+
+The default visit_pre and visit_post do nothing, but you can override them to
+know when a node has been visited before its children (visit_pre) and when it
+has been visited after its children have (visit_post).
+
+You can override visit methods themselves if for some reason you want an
+ExhaustiveVisitor which does not follow the traversal scheme shown above for
+some node. This may be useful, for instance, if you are looking for
+FunctionCode nodes at the top level. Once you find a Nodecl::FunctionCode there
+is no need to traverse all the children. In this case you would override visit
+to stop the traversal.

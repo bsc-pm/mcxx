@@ -85,7 +85,7 @@ namespace Nodecl { namespace Utils { namespace Fortran {
             }
 
         public:
-            ExtraDeclsVisitor(Nodecl::Utils::SymbolMap*& symbol_map,
+            ExtraDeclsVisitor(Nodecl::Utils::SimpleSymbolMap*& symbol_map,
                     TL::Scope new_scope,
                     TL::Symbol reference_function)
                 : _scope(new_scope), _reference_function(reference_function)
@@ -135,6 +135,19 @@ namespace Nodecl { namespace Utils { namespace Fortran {
                 else if (sym.is_fortran_namelist())
                 {
                     _extra_new_sym.insert(sym);
+                }
+                else if (sym.is_fortran_parameter())
+                {
+                    _extra_insert_sym.insert(sym);
+
+                    walk(sym.get_value());
+
+                    TL::Type t = sym.get_type();
+                    if (t.is_named_class()
+                            && in_scope_of_reference_function(t.get_symbol()))
+                    {
+                        _extra_insert_sym.insert(t.get_symbol());
+                    }
                 }
             }
 

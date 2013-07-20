@@ -403,14 +403,11 @@ void DeviceMPI::generate_additional_mpi_code(
 void DeviceMPI::create_outline(CreateOutlineInfo &info,
         Nodecl::NodeclBase &outline_placeholder,
         Nodecl::NodeclBase &output_statements,
-        Nodecl::Utils::SymbolMap* &symbol_map) {
+        Nodecl::Utils::SimpleSymbolMap* &symbol_map) {
     
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
     preprocess_datasharing(data_items);
     
-    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
-        
-
     // Unpack DTO 
     const std::string& device_outline_name = get_outline_name(info._outline_name);
     const Nodecl::NodeclBase& original_statements = info._original_statements;
@@ -418,7 +415,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     bool is_function_task = called_task.is_valid();
 
     output_statements = original_statements;
-    
+
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+
     //OutlineInfo& outline_info = info._outline_info;
     
     //At first time we process a task, declare a function
@@ -962,10 +961,10 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         //(user can specify any rank and any comm using onto clause)
         std::string assignedComm = "0";
         std::string assignedRank = "-2";
-        if (onto_clause.size() >= 1) {
+        if (onto_clause.size() >= 1 && onto_clause.at(0).get_symbol().is_valid() ) {
             assignedComm = as_symbol(param_to_args_map.map(onto_clause.at(0).get_symbol()));
         }
-        if (onto_clause.size() >= 2) {
+        if (onto_clause.size() >= 2 && onto_clause.at(1).get_symbol().is_valid()) {
             assignedRank = as_symbol(param_to_args_map.map(onto_clause.at(1).get_symbol()));
         }
         
@@ -1194,7 +1193,11 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                Nodecl::Utils::append_to_top_level_nodecl(newompss_main); 
                Nodecl::Utils::append_to_top_level_nodecl(new_main); 
                main.set_name("ompss___user_main");
-               _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
+               if (Nanos::Version::interface_is_at_least("copies_api", 1003)){
+                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
+               } else {
+                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");                   
+               }
             }
     }
     

@@ -41,9 +41,8 @@ namespace TL
             private:
 
                 Nodecl::List _cuda_file_code;
-
-                // This list is used to store the set of functions that are in the intermediate file
-                TL::ObjectList<Nodecl::NodeclBase> _cuda_functions;
+                Nodecl::List _extra_c_code;
+                Nodecl::Utils::SimpleSymbolMap _copied_cuda_functions;
 
                 bool _cuda_tasks_processed;
                 Nodecl::NodeclBase _root;
@@ -69,6 +68,12 @@ namespace TL
                         Nodecl::NodeclBase& output_statements);
 
                 void add_included_cuda_files(FILE* file);
+
+                void add_forward_code_to_extra_c_code(
+                        const std::string& outline_name,
+                        TL::ObjectList<OutlineDataItem*> data_items,
+                        Nodecl::NodeclBase parse_context);
+
             public:
 
                 // This phase does nothing
@@ -82,7 +87,7 @@ namespace TL
                 virtual void create_outline(CreateOutlineInfo &info,
                         Nodecl::NodeclBase &outline_placeholder,
                         Nodecl::NodeclBase &output_statements,
-                        Nodecl::Utils::SymbolMap* &symbol_map);
+                        Nodecl::Utils::SimpleSymbolMap* &symbol_map);
 
                 virtual void get_device_descriptor(DeviceDescriptorInfo& info,
                         Source &ancillary_device_description,

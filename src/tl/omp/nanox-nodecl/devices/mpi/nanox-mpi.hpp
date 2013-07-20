@@ -85,7 +85,7 @@ namespace TL
                   void create_outline(CreateOutlineInfo &info,
                           Nodecl::NodeclBase &outline_placeholder,
                           Nodecl::NodeclBase &output_statements,
-                          Nodecl::Utils::SymbolMap* &symbol_map);
+                          Nodecl::Utils::SimpleSymbolMap* &symbol_map);
 
                   void get_device_descriptor(DeviceDescriptorInfo& info,
                           Source &ancillary_device_description,

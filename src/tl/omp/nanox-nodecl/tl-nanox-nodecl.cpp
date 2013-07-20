@@ -62,6 +62,13 @@ namespace TL { namespace Nanox {
                 "Enables Nanos++ instrumentation", 
                 _instrumentation_str,
                 "0").connect(functor(&Lowering::set_instrumentation, *this));
+
+
+        register_parameter("disable_final_clause_transformation",
+                "Disables the OpenMP/OmpSs transformation of the 'final' clause",
+                _final_clause_transformation_str,
+                "0").connect(functor(&Lowering::set_disable_final_clause_transformation, *this));
+
     }
 
     void Lowering::run(DTO& dto)
@@ -102,6 +109,11 @@ namespace TL { namespace Nanox {
         parse_boolean_option("instrument", str, _instrumentation_enabled, "Assuming false.");
     }
 
+    void Lowering::set_disable_final_clause_transformation(const std::string& str)
+    {
+        parse_boolean_option("disable_final_clause_transformation", str, _final_clause_transformation_disabled, "Assuming false.");
+    }
+
     bool Lowering::instrumentation_enabled() const
     {
         return _instrumentation_enabled;
@@ -110,6 +122,11 @@ namespace TL { namespace Nanox {
     bool Lowering::in_ompss_mode() const
     {
         return _ompss_mode;
+    }
+
+    bool Lowering::final_clause_transformation_disabled() const
+    {
+        return _final_clause_transformation_disabled;
     }
 
     void Lowering::set_openmp_programming_model(Nodecl::NodeclBase global_node)

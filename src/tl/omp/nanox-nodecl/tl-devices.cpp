@@ -447,7 +447,7 @@ namespace TL { namespace Nanox {
             const std::string& function_name,
             CreateOutlineInfo& info,
             // Out
-            Nodecl::Utils::SymbolMap*& out_symbol_map,
+            Nodecl::Utils::SimpleSymbolMap*& symbol_map,
             Source &initial_statements,
             Source &final_statements)
     {
@@ -474,8 +474,6 @@ namespace TL { namespace Nanox {
         }
 
         // Create all the symbols and an appropiate mapping
-        Nodecl::Utils::SimpleSymbolMap *symbol_map = new Nodecl::Utils::SimpleSymbolMap();
-
         TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
         TL::ObjectList<TL::Type> update_vla_types;
 
@@ -542,6 +540,8 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
+                case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
+                case OutlineDataItem::SHARING_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
@@ -861,8 +861,6 @@ namespace TL { namespace Nanox {
         function_context.block_scope->related_entry = new_function_sym;
 
         new_function_sym->related_decl_context = function_context;
-
-        out_symbol_map = symbol_map;
         return new_function_sym;
     }
 
@@ -901,6 +899,7 @@ namespace TL { namespace Nanox {
                     new_class_member_access = Nodecl::ClassMemberAccess::make(
                             new_args_ref,
                             field_ref,
+                            /* member-form */ Nodecl::NodeclBase::null(),
                             // The type of this node should be the same
                             node.get_type());
 
@@ -979,11 +978,33 @@ namespace TL
 
         namespace {
 
+            std::set<TL::Type> _used_types;
+
             void add_used_types_rec(TL::Type t, TL::Scope sc)
             {
-                if (t.is_named_class() && t.get_symbol().is_from_module())
+                if (!t.is_valid())
+                    return;
+
+                std::pair<std::set<TL::Type>::iterator, bool> p = _used_types.insert(t);
+                if (!p.second)
+                    return;
+
+                if (t.is_named_class())
                 {
-                    Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    if (t.get_symbol().is_from_module())
+                    {
+                        Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    }
+                    else
+                    {
+                        TL::ObjectList<TL::Symbol> members = t.get_fields();
+                        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                                it != members.end();
+                                it++)
+                        {
+                            add_used_types_rec(it->get_type(), sc);
+                        }
+                    }
                 }
                 else if (t.is_lvalue_reference())
                 {
@@ -997,6 +1018,8 @@ namespace TL
                 {
                     add_used_types_rec(t.array_element(), sc);
                 }
+
+                _used_types.erase(t);
             }
 
         }
@@ -1016,7 +1039,7 @@ namespace TL
     void Nanox::duplicate_internal_subprograms(
             TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
             TL::Scope scope_of_unpacked,
-            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             )
     {
@@ -1050,7 +1073,7 @@ namespace TL
     void Nanox::duplicate_nested_functions(
             TL::ObjectList<Nodecl::NodeclBase>& internal_function_codes,
             TL::Scope scope_of_unpacked,
-            Nodecl::Utils::SymbolMap* &symbol_map,
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map,
             Nodecl::NodeclBase& output_statements
             )
     {

@@ -84,7 +84,7 @@ namespace Nodecl { namespace Utils { namespace C {
             }
 
         public:
-            ExtraDeclsVisitor(Nodecl::Utils::SymbolMap*& symbol_map,
+            ExtraDeclsVisitor(Nodecl::Utils::SimpleSymbolMap*& symbol_map,
                     TL::Scope new_scope,
                     TL::Symbol reference_function)
                 : _scope(new_scope), _reference_function(reference_function)
@@ -206,6 +206,10 @@ namespace Nodecl { namespace Utils { namespace C {
                 {
                     scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context.current_scope, it2->get_name().c_str());
                     new_symbols.append(new_sym);
+
+                    new_sym->kind = it2->get_internal_symbol()->kind;
+                    new_sym->type_information = it2->get_type().get_internal_type();
+
                     _symbol_map->add_map(*it2, new_sym);
                 }
                 // Second fill them
