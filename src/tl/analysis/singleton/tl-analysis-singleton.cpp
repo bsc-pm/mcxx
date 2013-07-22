@@ -236,8 +236,9 @@ namespace Analysis {
         if( result == NULL )
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
-            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. "\
-                             "You probably misstepped during the analysis.",
+            WARNING_MESSAGE( "Nodecl '%s' do not found in current analysis state. "\
+                             "You might have modified the code you used to compute the analyses and"\
+                             "the nodecl you are asking for now did not exist before.",
                              codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
         }
 
