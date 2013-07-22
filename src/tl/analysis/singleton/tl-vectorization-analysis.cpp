@@ -83,30 +83,30 @@ namespace Analysis {
         return result;
     }
 
-    bool NodeclStaticInfo::is_induction_variable_dependent_access( const Nodecl::NodeclBase& n ) const
+    bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
         
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
-            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+            Nodecl::Utils::ReduceExpressionVisitor v;
+            Nodecl::NodeclBase s = n.shallow_copy( );
+            v.walk( s );
 
-            for( Nodecl::List::iterator it = subscript.begin( ); it != subscript.end( ); it++ )
-            { 
-                Nodecl::Utils::ReduceExpressionVisitor v;
-                Nodecl::NodeclBase s = it->shallow_copy( );
-                v.walk( s );
-                
-                AdjacentAccessVisitor iv_v( _induction_variables, _killed );
-                /* bool constant = */ iv_v.walk( s );
-                
-                Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
-                if( iv != NULL )
-                {
-                    result = true;
-                    break;
-                }
+            AdjacentAccessVisitor iv_v( _induction_variables, _killed );
+            iv_v.walk( s );
+
+            Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
+            if( iv != NULL )
+            {
+                return true;
             }
+        }
+        else
+        {
+            // TODO: Write an appropriate message such us unsupported case.
+            std::cerr << "warning: returning false '" 
+                      << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
         }
         
         return result;
@@ -398,7 +398,10 @@ namespace Analysis {
     bool AdjacentAccessVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         bool res = true;
-        Utils::InductionVariableData* iv = variable_is_iv( n );
+
+        // Check IV in subscripted (a[b[i]] -> a)
+        Utils::InductionVariableData* iv = variable_is_iv( n.get_subscripted() );
+
         if( !_iv_found && iv != NULL)
         {
             _iv = iv;
@@ -406,7 +409,18 @@ namespace Analysis {
         }
         else
         {
-            res = walk( n.get_subscripts( ) );
+            // Check IV in the whole ArraySubscript (a[b[i]] -> a[b[i]])
+            iv = variable_is_iv( n );
+
+            if( !_iv_found && iv != NULL)
+            {
+                _iv = iv;
+                _iv_found = true;
+            }
+            else // Check IV in the subscripts (a[b[i]] -> b[i])
+            {
+                res = walk( n.get_subscripts( ) );
+            }
         }
         return res;
     }

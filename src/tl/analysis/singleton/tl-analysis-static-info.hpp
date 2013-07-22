@@ -122,7 +122,7 @@ namespace Analysis {
             
             bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
             
-            bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& n ) const;
+            bool contains_induction_variable( const Nodecl::NodeclBase& n ) const;
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 

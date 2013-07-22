@@ -424,7 +424,7 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.is_induction_variable_dependent_access( n );
+            result = current_info.contains_induction_variable( n );
         }
 
         return result;
