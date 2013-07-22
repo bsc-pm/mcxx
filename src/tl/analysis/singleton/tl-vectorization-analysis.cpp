@@ -311,6 +311,18 @@ namespace Analysis {
         return -1;
     }
 
+    // TODO: Not implemented!
+    int SuitableAlignmentVisitor::visit( const Nodecl::ArraySubscript& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+
+        return -1;
+    }
+ 
+
     int SuitableAlignmentVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
         std::cerr << "Suitable Alignment Visitor: Unknown node "

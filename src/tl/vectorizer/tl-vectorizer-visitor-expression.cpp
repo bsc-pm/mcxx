@@ -1086,11 +1086,11 @@ namespace TL
 
                     const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
                             _environment._analysis_scopes.back(), n);
-
-                    for(const_value_t *i = const_value_get_zero(4, 0);
-                            const_value_is_nonzero(const_value_lt(i, 
-                                    const_value_get_unsigned_int(_environment._unroll_factor)));
-                            i = const_value_add(i, ind_var_increment))
+                    
+                    const_value_t *i = const_value_get_zero(4, 0);
+                    for(unsigned int j = 0;
+                            j < _environment._unroll_factor;
+                            i = const_value_add(i, ind_var_increment), j++)
                     {
                         literal_list.prepend(const_value_to_nodecl(i));
                     }

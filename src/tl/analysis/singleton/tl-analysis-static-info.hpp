@@ -386,6 +386,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Symbol& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
 
         Ret unhandled_node(const Nodecl::NodeclBase& n);
     };
