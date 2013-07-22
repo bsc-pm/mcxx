@@ -78,7 +78,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t *gather_decl_spec_list);
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
-        char is_template, char is_explicit_instantiation,
+        char is_template, char is_explicit_specialization,
         nodecl_t *nodecl_output, 
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
@@ -105,7 +105,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         access_specifier_t current_access,
         type_t* class_info,
         char is_template,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
@@ -115,7 +115,7 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info, 
         char is_template,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
@@ -226,20 +226,20 @@ static void build_scope_template_template_parameter(AST a,
 
 static void build_scope_member_template_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info, 
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
 
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context, AST a,
         access_specifier_t current_access, type_t* class_info,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output);
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context);
@@ -255,7 +255,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
 
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
-        char is_explicit_instantiation, 
+        char is_explicit_specialization, 
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols, 
         gather_decl_spec_list_t* gather_decl_spec_list);
@@ -270,7 +270,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
 static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context, 
-        char is_explicit_instantiation, 
+        char is_explicit_specialization, 
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
@@ -666,7 +666,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 // [thing] means that thing is optional
                 build_scope_simple_declaration(a, decl_context, 
                         /* is_template */ 0,
-                        /* is_explicit_instantiation */ 0,
+                        /* is_explicit_specialization */ 0,
                         nodecl_output, 
                         declared_symbols, 
                         gather_decl_spec_list);
@@ -695,7 +695,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 //     ...
                 //   }
                 build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
-                        /* is_template */ 0, /* is_explicit_instantiation */ 0, 
+                        /* is_template */ 0, /* is_explicit_specialization */ 0, 
                         nodecl_output, declared_symbols, gather_decl_spec_list);
                 break;
             }
@@ -1459,7 +1459,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
 
 // Builds scope for a simple declaration
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
-        char is_template, char is_explicit_instantiation,
+        char is_template, char is_explicit_specialization,
         nodecl_t *nodecl_output, 
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
@@ -1475,7 +1475,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     memset(&gather_info, 0, sizeof(gather_info));
 
     gather_info.is_template = is_template;
-    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
 
     /* A simple declaration has two parts
      *
@@ -3467,7 +3467,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
         // Check the enclosing namespace scope
         // This is only valid if the scope of the entry is an inlined namespace of the current one
-        if (!class_gather_info.is_explicit_instantiation
+        if (!class_gather_info.is_explicit_specialization
+                && !class_gather_info.is_explicit_instantiation
                 && is_template_specialized_type(class_entry->type_information)
                 && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
@@ -3487,7 +3488,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         //  3. It is not a explicit instantiation (they have not template parameters!)
         if (!class_entry->defined
                 && is_template_specialized_type(class_entry->type_information)
-                && !class_gather_info.is_explicit_instantiation)
+                && !class_gather_info.is_explicit_specialization)
         {
             template_specialized_type_update_template_parameters(class_entry->type_information,
                     decl_context.template_parameters);
@@ -4657,6 +4658,10 @@ enum nesting_check_tag
 
 static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, template_parameter_list_t* template_parameters)
 {
+    // Do not pass SK_TEMPLATE here
+    ERROR_CONDITION(entry->kind != SK_CLASS
+            && entry->kind != SK_FUNCTION, "Invalid symbol", 0);
+
     if (is_template_specialized_type(entry->type_information))
     {
         if (!entry->entity_specs.is_user_declared)
@@ -4670,7 +4675,42 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
 
             if (entry->entity_specs.is_member)
             {
-                return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type), template_parameters->enclosing);
+                template_parameter_list_t* current_template_args = template_specialized_type_get_template_arguments(
+                        entry->type_information);
+
+                if (entry->kind == SK_CLASS
+                        && current_template_args->num_parameters == 0)
+                {
+                    // This is a non-template member class, which looks like a
+                    // specialized template type with zero template arguments.
+                    // Handle it as if this were not an explicit specialization
+                    //
+                    // In the example below, when B is instantiated it will be like a template
+                    // but with "zero" parameters. We do this because C++ standard makes these
+                    // classes behave much in this way.
+                    //
+                    // template <typename T>
+                    // struct A
+                    // {
+                    //   struct B
+                    //   {
+                    //      template <typename Q>
+                    //      void f(T, Q);
+                    //   };
+                    // };
+                    //
+                    // template <>
+                    // template <>
+                    // void A<int>::B::f(int, float) { }
+                    //
+                    return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
+                            template_parameters);
+                }
+                else
+                {
+                    return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
+                            template_parameters->enclosing);
+                }
             }
             else
             {
@@ -5871,7 +5911,7 @@ struct delayed_function_tag
     scope_entry_t* entry;
     decl_context_t decl_context;
     char is_template;
-    char is_explicit_instantiation;
+    char is_explicit_specialization;
 };
 
 static int _next_delayed_function = 0;
@@ -5881,7 +5921,7 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
         scope_entry_t* entry,
         decl_context_t decl_context,
         char is_template,
-        char is_explicit_instantiation)
+        char is_explicit_specialization)
 {
     ERROR_CONDITION(_next_delayed_function == MCXX_MAX_FUNCTIONS_PER_CLASS,
             "Too many delayed member functions!\n", 0);
@@ -5896,7 +5936,7 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
     _max_delayed_functions[_next_delayed_function].entry = entry;
     _max_delayed_functions[_next_delayed_function].decl_context = decl_context;
     _max_delayed_functions[_next_delayed_function].is_template = is_template;
-    _max_delayed_functions[_next_delayed_function].is_explicit_instantiation = is_explicit_instantiation;
+    _max_delayed_functions[_next_delayed_function].is_explicit_specialization = is_explicit_specialization;
     _next_delayed_function++;
 }
 
@@ -5920,7 +5960,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
         decl_context_t decl_context = current.decl_context;
         scope_entry_t* previous_symbol = current.entry;
         char is_template = current.is_template;
-        char is_explicit_instantiation = current.is_explicit_instantiation;
+        char is_explicit_specialization = current.is_explicit_specialization;
 
         DEBUG_CODE()
         {
@@ -5931,7 +5971,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
         nodecl_t nodecl_funct_def = nodecl_null();
 
         build_scope_function_definition(function_def, previous_symbol, decl_context, 
-                is_template, is_explicit_instantiation, 
+                is_template, is_explicit_specialization, 
                 &nodecl_funct_def,
                 /* declared_symbols */ NULL, /* gather_decl_spec_list_t */ NULL);
 
@@ -6384,7 +6424,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     return;
                 }
 
-                if (!gather_info->is_explicit_instantiation)
+                if (!gather_info->is_explicit_specialization)
                 {
                     template_specialized_type_update_template_parameters(class_entry->type_information,
                             decl_context.template_parameters);
@@ -9206,7 +9246,7 @@ static char find_function_declaration(AST declarator_id,
     char declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID
             || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 
-    // Template function declarations that are friend declared cannot be partial specialized
+    // Template function declarations that are friend declared cannot be partially specialized
     if (gather_info->is_friend
             && gather_info->is_template
             && declarator_is_template_id)
@@ -9256,6 +9296,7 @@ static char find_function_declaration(AST declarator_id,
     }
     else
     {
+        // Friends:
         // Restrict the lookup to the innermost enclosing namespace
         // if the declarator_id is unqualified and we are not naming a template
         // C++ Standard 7.3.1.2 Namespace member definitions
@@ -9283,200 +9324,8 @@ static char find_function_declaration(AST declarator_id,
         }
     }
 
-    scope_entry_list_t* entry_list
-        = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
-
-    type_t* function_type_being_declared = declarator_type;
-
-    scope_entry_t* equal_entry = NULL;
-
-    char found_equal = 0;
-
-    char templates_available = 0;
-
-    // First attempt an exact match against either SK_FUNCTION or
-    // the primary of every SK_TEMPLATE
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it) && !found_equal;
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-
-        // Ignore this case unless we are in a friend declaration
-        if (entry->kind == SK_DEPENDENT_ENTITY)
-        {
-            if (gather_info->is_friend)
-            {
-                *result_entry = entry;
-                return 1;
-            }
-            continue;
-        }
-
-        // This is so C90's ;)
-        if (entry->kind == SK_CLASS
-                || entry->kind == SK_ENUM)
-            continue;
-
-        // Using symbols are filtered!
-        if (entry->kind == SK_USING
-                || entry->kind == SK_USING_TYPENAME)
-            continue;
-
-        if (entry->kind != SK_FUNCTION
-                && (entry->kind != SK_TEMPLATE
-                    || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_FUNCTION))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: name '%s' has already been declared as a different entity kind\n",
-                        ast_location(declarator_id),
-                        prettyprint_in_buffer(declarator_id));
-            }
-            return 0;
-        }
-
-        scope_entry_t* considered_symbol = NULL;
-        if (entry->kind == SK_TEMPLATE)
-        {
-            type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
-            considered_symbol = named_type_get_symbol(primary_named_type);
-            templates_available |= 1;
-            if (!gather_info->is_friend)
-            {
-                entry->entity_specs.is_friend_declared = 0;
-                considered_symbol->entity_specs.is_friend_declared = 0;
-            }
-        }
-        else if (entry->kind == SK_FUNCTION)
-        {
-            considered_symbol = entry;
-        }
-        else
-        {
-            internal_error("Unreachable code", 0);
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
-                    prettyprint_in_buffer(declarator_id),
-                    ast_location(declarator_id),
-                    print_declarator(function_type_being_declared),
-                    locus_to_str(considered_symbol->locus),
-                    print_declarator(considered_symbol->type_information)
-                   );
-        }
-
-        type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
-
-        found_equal = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
-
-        if (found_equal
-                // We have matched with a template specialized type, so we have
-                // to check the current template parameters
-                && is_template_specialized_type(considered_type))
-        {
-            template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
-
-            if (decl_template_parameters == NULL)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "BUILDSCOPE: Types match with a template specialization but there "
-                            "are no template parameters available\n");
-                }
-                found_equal = 0;
-            }
-            else if (decl_template_parameters->is_explicit_specialization)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "BUILDSCOPE: Types match with a template specialization but current "
-                            "declaration is a template specialization, we will check it later\n");
-                }
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "BUILDSCOPE: Types match with a template specialization and this is a plain"
-                            "template declaration, we have to check template parameters\n");
-                }
-
-                template_parameter_list_t* considered_type_template_parameters =
-                    template_specialized_type_get_template_parameters(considered_type);
-
-                found_equal =
-                    (decl_template_parameters->num_parameters
-                     == considered_type_template_parameters->num_parameters)
-                    && same_template_parameter_list(
-                            decl_template_parameters,
-                            considered_type_template_parameters,
-                            entry->decl_context);
-
-                DEBUG_CODE()
-                {
-                    if (!found_equal)
-                    {
-                        fprintf(stderr, "BUILDSCOPE: Template parameters did NOT match\n");
-                    }
-                    else
-                    {
-                        fprintf(stderr, "BUILDSCOPE: Template parameters DID match\n");
-                    }
-                }
-            }
-        }
-
-        if (found_equal)
-        {
-            equal_entry = considered_symbol;
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "BUILDSCOPE: Function declarator '%s' at '%s' matches symbol '%s' declared at '%s'\n",
-                        prettyprint_in_buffer(declarator_id),
-                        ast_location(declarator_id),
-                        considered_symbol->symbol_name,
-                        locus_to_str(considered_symbol->locus));
-            }
-        }
-        else
-        {
-            C_LANGUAGE()
-            {
-                if (!function_type_get_lacking_prototype(function_type_being_declared)
-                        && !function_type_get_lacking_prototype(considered_type))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: function '%s' has been declared with different prototype (see '%s')\n",
-                                ast_location(declarator_id),
-                                ASTText(declarator_id),
-                                locus_to_str(entry->locus)
-                                );
-                    }
-                    return 0;
-                }
-                equal_entry = considered_symbol;
-                found_equal = 1;
-            }
-        }
-    }
-    entry_list_iterator_free(it);
-
-    // Preparation for the second attempt
-    template_parameter_list_t *explicit_template_parameters = NULL;
-    if (declarator_is_template_id)
-    {
-        explicit_template_parameters =
-            get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
-    }
-
     // Dependent friends are handled first
-    if (templates_available
-            && !gather_info->is_template
+    if (!gather_info->is_template
             && gather_info->is_friend
             && is_dependent_type(declarator_type))
     {
@@ -9502,34 +9351,373 @@ static char find_function_declaration(AST declarator_id,
         return 1;
     }
 
-    // Second attempt, match a specialization of a template function
-    if (templates_available
-            && (gather_info->is_explicit_instantiation
-                || declarator_is_template_id))
+    scope_entry_list_t* entry_list
+        = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
+
+    type_t* function_type_being_declared = declarator_type;
+
+    scope_entry_list_t* candidates = NULL;
+
+    // First we compute a set of candidates
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* result = solve_template_function(
-                entry_list,
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        // Ignore this case unless we are in a friend declaration
+        if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            if (gather_info->is_friend)
+            {
+                *result_entry = entry;
+                return 1;
+            }
+            continue;
+        }
+
+        // This is so C90's ;)
+        if (entry->kind == SK_CLASS
+                || entry->kind == SK_ENUM)
+            continue;
+
+        // Ignore using symbols
+        if (entry->kind == SK_USING
+                || entry->kind == SK_USING_TYPENAME)
+            continue;
+
+        // At this point this must a function or a template function
+        if (entry->kind != SK_FUNCTION
+                && (entry->kind != SK_TEMPLATE
+                    || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_FUNCTION))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: name '%s' has already been declared as a different entity kind\n",
+                        ast_location(declarator_id),
+                        prettyprint_in_buffer(declarator_id));
+            }
+            return 0;
+        }
+
+        scope_entry_t* considered_symbol = NULL;
+        if (entry->kind == SK_TEMPLATE)
+        {
+            type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+            considered_symbol = named_type_get_symbol(primary_named_type);
+        }
+        else if (entry->kind == SK_FUNCTION)
+        {
+            considered_symbol = entry;
+        }
+        else
+        {
+            internal_error("Unreachable code", 0);
+        }
+
+        if (!gather_info->is_explicit_instantiation)
+        {
+            nesting_check_t nest_check = check_template_nesting_of_name(considered_symbol, decl_context.template_parameters);
+
+            if (nest_check == NESTING_CHECK_OK)
+            {
+                // Do nothing, this is fine
+            }
+            else if (nest_check == NESTING_CHECK_NOT_A_TEMPLATE)
+            {
+                // We will enter here when we find the (nontemplate) 'A::f(bool, bool)'
+                //
+                // struct A
+                // {
+                //    template <typename T> void f(T, T);
+                //    void f(bool, bool);
+                // };
+                //
+                // template <>
+                // void A::f(bool, bool)
+                // {
+                // }
+                //
+                // Skip
+                continue;
+            }
+            else if (nest_check == NESTING_CHECK_INVALID)
+            {
+                // We will enter here when we find 'template <typename Q> A<int>::f(Q, Q)'
+                //
+                // template <typename T>
+                // struct B
+                // {
+                //    template <typename Q> void f(Q, Q);
+                //    void f(bool, bool);
+                // };
+                //
+                // template <>
+                // void B<int>::f(bool, bool)
+                // {
+                // }
+                //
+                continue;
+            }
+            else
+            {
+                internal_error("Unexpected nesting check value", 0);
+            }
+        }
+
+        candidates = entry_list_add(candidates, entry);
+
+    }
+    entry_list_iterator_free(it);
+
+    scope_entry_list_t* result_function_list = NULL;
+
+    // 1. Non template functions or template functions not when the declaration
+    // is an explicit specialization or instantiation
+    {
+        // In this case a simple scan through the candidates should be enough
+        for (it = entry_list_iterator_begin(candidates);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            char function_matches = 0;
+
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
+            scope_entry_t* considered_symbol = NULL;
+            if (entry->kind == SK_TEMPLATE)
+            {
+                // Do not handle these here if this is an explicit specialization
+                // or explicit instantiation. We will handle them later
+                if (gather_info->is_explicit_specialization
+                        || gather_info->is_explicit_instantiation)
+                    continue;
+
+                type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+                considered_symbol = named_type_get_symbol(primary_named_type);
+            }
+            else if (entry->kind == SK_FUNCTION)
+            {
+                considered_symbol = entry;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
+                        prettyprint_in_buffer(declarator_id),
+                        ast_location(declarator_id),
+                        print_declarator(function_type_being_declared),
+                        locus_to_str(considered_symbol->locus),
+                        print_declarator(considered_symbol->type_information)
+                       );
+            }
+
+            type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
+
+            if (entry->kind == SK_TEMPLATE)
+            {
+                // A simple match by types in this case because this is
+                // not an explicit specialization
+                //
+                // struct A
+                // {
+                //    template <typename T>
+                //    void f(T);
+                // };
+                //
+                // template <typename T>
+                // void A::f(T)
+                // {
+                // }
+                //
+                if (equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context))
+                {
+                    template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
+
+                    // Now the types match, but it might happen that template parameters don't, like here
+                    //
+                    // We do not want it to be confused with 'template <typename T, typename Q> void A::f(T)'
+                    //
+                    // struct A
+                    // {
+                    //    template <typename T, typename Q>
+                    //    void f(T);
+                    //
+                    //    template <typename T>
+                    //    void f(T);
+                    // };
+                    //
+                    // template <typename T>
+                    // void A::f(T) { }
+
+                    if (decl_template_parameters == NULL)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "BUILDSCOPE: Types match with a template specialization but there "
+                                    "are no template parameters available\n");
+                        }
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "BUILDSCOPE: Types match with a template specialization and this is a plain "
+                                    "template declaration, we have to check template parameters\n");
+                        }
+
+                        template_parameter_list_t* considered_type_template_parameters =
+                            template_specialized_type_get_template_parameters(considered_type);
+
+                        function_matches =
+                            (decl_template_parameters->num_parameters
+                             == considered_type_template_parameters->num_parameters)
+                            && same_template_parameter_list(
+                                    decl_template_parameters,
+                                    considered_type_template_parameters,
+                                    entry->decl_context);
+
+                        DEBUG_CODE()
+                        {
+                            if (!function_matches)
+                            {
+                                fprintf(stderr, "BUILDSCOPE: Template parameters did NOT match\n");
+                            }
+                            else
+                            {
+                                fprintf(stderr, "BUILDSCOPE: Template parameters DID match\n");
+                            }
+                        }
+                    }
+                }
+            }
+            else if (entry->kind == SK_FUNCTION)
+            {
+                // Just attempt a match by type
+                function_matches = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
+            }
+
+            if (function_matches)
+            {
+                result_function_list = entry_list_add(result_function_list, considered_symbol);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: Function declarator '%s' at '%s' matches symbol '%s' declared at '%s'\n",
+                            prettyprint_in_buffer(declarator_id),
+                            ast_location(declarator_id),
+                            considered_symbol->symbol_name,
+                            locus_to_str(considered_symbol->locus));
+                }
+            }
+            else
+            {
+                C_LANGUAGE()
+                {
+                    // We found something but it did not match the current type
+                    if (!function_type_get_lacking_prototype(function_type_being_declared)
+                            && !function_type_get_lacking_prototype(considered_type))
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: function '%s' has been declared with different prototype (see '%s')\n",
+                                    ast_location(declarator_id),
+                                    ASTText(declarator_id),
+                                    locus_to_str(entry->locus)
+                                    );
+                        }
+                        return 0;
+                    }
+                    result_function_list = entry_list_add(result_function_list, considered_symbol);
+                }
+            }
+        }
+        entry_list_iterator_free(it);
+    }
+
+    // 2. Template functions when the declaration is an explicit specialization/instantiation
+    if (gather_info->is_explicit_specialization
+            || gather_info->is_explicit_instantiation)
+    {
+        // This is an explicit specialization
+        //
+        // struct A
+        // {
+        //   template <typename T> void f(T);
+        // };
+        //
+        // template <>
+        // void A::f(int) { }
+        //
+        // We have to solve the template
+
+        template_parameter_list_t *explicit_template_parameters = NULL;
+        if (declarator_is_template_id)
+        {
+            explicit_template_parameters =
+                get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
+        }
+
+        // This function ignores non-templates
+        scope_entry_list_t* solved_templates = solve_template_function(
+                candidates,
                 explicit_template_parameters,
                 function_type_being_declared,
                 ast_get_locus(declarator_id));
 
-        if (result != NULL)
+        if (solved_templates != NULL)
         {
-            found_equal = 1;
-            equal_entry = result;
+            result_function_list = entry_list_merge(result_function_list, solved_templates);
         }
     }
 
-    entry_list_free(entry_list);
+    entry_list_free(candidates);
 
-    if (found_equal)
+    if (result_function_list != NULL)
     {
-        *result_entry = equal_entry;
+        if (entry_list_size(result_function_list) == 1)
+        {
+            *result_entry = entry_list_head(result_function_list);
+            entry_list_free(result_function_list);
 
-        (*result_entry)->entity_specs.is_friend =
-            (*result_entry)->entity_specs.is_friend || gather_info->is_friend;
+            // No error
+            return 1;
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                const char* full_name = prettyprint_in_buffer(declarator_id);
+
+                error_printf("%s: error: ambiguous template specialization '%s'\n",
+                        locus_to_str(ast_get_locus(declarator_id)),
+                        print_decl_type_str(function_type_being_declared, decl_context, full_name));
+
+                for (it = entry_list_iterator_begin(result_function_list);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current_entry = entry_list_iterator_current(it);
+
+                    info_printf("%s: note:   %s\n",
+                            locus_to_str(current_entry->locus),
+                            print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
+                                get_qualified_symbol_name(current_entry, current_entry->decl_context)));
+                }
+                entry_list_iterator_free(it);
+            }
+            entry_list_free(result_function_list);
+
+            // Error due to ambiguity
+            return 0;
+        }
     }
 
+    // No error
     return 1;
 }
 
@@ -9647,7 +9835,7 @@ static void build_scope_template_declaration(AST a,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_template_function_definition(templated_decl, template_context,
-                        /* is_explicit_instantiation */ 0, nodecl_output,
+                        /* is_explicit_specialization */ 0, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
 
                 break;
@@ -9655,7 +9843,7 @@ static void build_scope_template_declaration(AST a,
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_template_simple_declaration(templated_decl, template_context,
-                        /* is_explicit_instantiation */ 0, nodecl_output,
+                        /* is_explicit_specialization */ 0, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
 
                 break;
@@ -9795,14 +9983,14 @@ static void build_scope_explicit_template_specialization(AST a,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_template_function_definition(ASTSon0(a), template_context,
-                        /* is_explicit_instantiation */ 1, nodecl_output,
+                        /* is_explicit_specialization */ 1, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
                 break;
             }
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_template_simple_declaration(ASTSon0(a), template_context,
-                        /* is_explicit_instantiation */ 1, nodecl_output,
+                        /* is_explicit_specialization */ 1, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
                 break;
             }
@@ -9828,18 +10016,18 @@ static void build_scope_explicit_template_specialization(AST a,
 }
 
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
 {
     /* scope_entry_t* entry = */ build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context,
-            /* is_template */ 1, is_explicit_instantiation, nodecl_output, 
+            /* is_template */ 1, is_explicit_specialization, nodecl_output, 
             declared_symbols, gather_decl_spec_list);
 }
 
 static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
@@ -9876,7 +10064,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
     memset(&gather_info, 0, sizeof(gather_info));
 
     gather_info.is_template = 1;
-    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
 
     char is_constructor = 0;
 
@@ -10995,7 +11183,7 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
 scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol,
         decl_context_t decl_context,
         char is_template,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
@@ -11013,7 +11201,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     memset(&gather_info, 0, sizeof(gather_info));
 
     gather_info.is_template = is_template;
-    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
 
     type_t* type_info = NULL;
 
@@ -11429,14 +11617,14 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_MEMBER_DECLARATION :
             {
                 build_scope_member_simple_declaration(inner_decl_context, a, current_access, class_info, 
-                        /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                        /* is_template */ 0, /* is_explicit_specialization */ 0,
                         nodecl_output, declared_symbols, gather_decl_spec_list);
                 break;
             }
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_member_function_definition(inner_decl_context, a, current_access, class_info, 
-                        /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                        /* is_template */ 0, /* is_explicit_specialization */ 0,
                         nodecl_output,
                         declared_symbols, gather_decl_spec_list);
                 break;
@@ -11460,7 +11648,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_TEMPLATE_DECLARATION :
             {
                 build_scope_member_template_declaration(inner_decl_context, a, current_access,
-                        class_info, /* is_explicit_instantiation */ 0, nodecl_output,
+                        class_info, /* is_explicit_specialization */ 0, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
                 break;
             }
@@ -11529,7 +11717,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
  */
 static void build_scope_member_template_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list
@@ -11582,13 +11770,13 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_member_template_function_definition(template_context, ASTSon1(a), current_access, class_info, 
-                        is_explicit_instantiation, nodecl_output, declared_symbols, gather_decl_spec_list);
+                        is_explicit_specialization, nodecl_output, declared_symbols, gather_decl_spec_list);
             }
             break;
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_member_template_simple_declaration(template_context, ASTSon1(a), current_access, class_info, 
-                        is_explicit_instantiation, nodecl_output);
+                        is_explicit_specialization, nodecl_output);
                 break;
             }
         default :
@@ -11599,25 +11787,25 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
 
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info, 
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
 {
     // Define the function within st scope but being visible template_scope
     build_scope_member_function_definition(decl_context, a, current_access, class_info, 
-            /* is_template */ 1, is_explicit_instantiation,
+            /* is_template */ 1, is_explicit_specialization,
             nodecl_output,
             declared_symbols, gather_decl_spec_list);
 }
 
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output)
 {
     build_scope_member_simple_declaration(decl_context, a, current_access, class_info, 
-            /* is_template */ 1, is_explicit_instantiation,
+            /* is_template */ 1, is_explicit_specialization,
             nodecl_output, /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 }
 
@@ -11894,7 +12082,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         access_specifier_t current_access,
         type_t* class_info,
         char is_template,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
@@ -11922,7 +12110,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     memset(&gather_info, 0, sizeof(gather_info));
 
     gather_info.is_template = is_template;
-    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
 
     type_t* type_info = NULL;
 
@@ -12052,7 +12240,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     // Propagate the __extension__ attribute to the symbol
     entry->entity_specs.gcc_extension = gcc_extension;
 
-    build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
+    build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_specialization);
 
     return entry;
 }
@@ -12201,7 +12389,7 @@ void build_scope_friend_declarator(decl_context_t decl_context,
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info, 
         char is_template,
-        char is_explicit_instantiation,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t *gather_decl_spec_list)
@@ -12210,7 +12398,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     memset(&gather_info, 0, sizeof(gather_info));
 
     gather_info.is_template = is_template;
-    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
     gather_info.current_access = current_access;
 
     type_t* class_type = NULL;
@@ -12339,7 +12527,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         solve_ambiguous_init_declarator(declarator, decl_context);
                         // Restart the function
                         build_scope_member_simple_declaration(decl_context, a, current_access, class_info, 
-                                is_template, is_explicit_instantiation,
+                                is_template, is_explicit_specialization,
                                 nodecl_output, declared_symbols, gather_decl_spec_list);
                         return;
                         break;
@@ -13453,7 +13641,7 @@ static void build_scope_for_statement(AST a,
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         build_scope_simple_declaration(for_init_statement, block_context, 
-                /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                /* is_template */ 0, /* is_explicit_specialization */ 0,
                 &nodecl_loop_init, 
                 /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 
@@ -14323,7 +14511,7 @@ static void build_scope_upc_forall_statement(AST a,
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         build_scope_simple_declaration(for_init_statement, block_context, 
-                /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                /* is_template */ 0, /* is_explicit_specialization */ 0,
                 &nodecl_for_init,
                 /* declared_symbols */ NULL, /* gather_decl_spec_list_t */ NULL);
     }

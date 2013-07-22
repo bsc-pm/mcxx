@@ -851,12 +851,40 @@ static void instantiate_dependent_friend_function(
                         context_of_being_instantiated, explicit_temp_params, locus);
             }
 
-            new_friend = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
+            scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
+
+            if (new_friend_list != NULL)
+            {
+                if (entry_list_size(new_friend_list) == 1)
+                {
+                    new_friend = entry_list_head(new_friend_list);
+                }
+                else
+                {
+                    error_printf("%s: error: friend function declaration is ambiguous '%s'\n",
+                            locus_to_str(locus), friend->symbol_name);
+
+                    scope_entry_list_iterator_t* it = NULL;
+                    for (it = entry_list_iterator_begin(new_friend_list);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
+                    {
+                        scope_entry_t* current_entry = entry_list_iterator_current(it);
+
+                        info_printf("%s: info:   %s\n",
+                                locus_to_str(current_entry->locus),
+                                print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
+                                    get_qualified_symbol_name(current_entry, current_entry->decl_context)));
+                    }
+                    entry_list_iterator_free(it);
+                }
+                entry_list_free(new_friend_list);
+            }
         }
 
         if (new_friend == NULL)
         {
-            error_printf("%s: function '%s' shall refer a specialization of a function template\n",
+            error_printf("%s: error: function '%s' shall refer a specialization of a function template\n",
                     locus_to_str(locus), friend->symbol_name);
             return;
         }
@@ -935,7 +963,35 @@ static void instantiate_dependent_friend_function(
                             context_of_being_instantiated, nodecl_templ_param, locus);
                 }
 
-                new_friend = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
+                scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
+
+                if (new_friend_list != NULL)
+                {
+                    if (entry_list_size(new_friend_list) == 1)
+                    {
+                        new_friend = entry_list_head(new_friend_list);
+                    }
+                    else
+                    {
+                        error_printf("%s: error: friend function declaration is ambiguous '%s'\n",
+                                locus_to_str(locus), friend->symbol_name);
+
+                        for (it = entry_list_iterator_begin(new_friend_list);
+                                !entry_list_iterator_end(it);
+                                entry_list_iterator_next(it))
+                        {
+                            scope_entry_t* current_entry = entry_list_iterator_current(it);
+
+                            info_printf("%s: info:   %s\n",
+                                    locus_to_str(current_entry->locus),
+                                    print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
+                                        get_qualified_symbol_name(current_entry, current_entry->decl_context)));
+                        }
+                        entry_list_iterator_free(it);
+                    }
+                    entry_list_free(new_friend_list);
+                }
+
                 if (new_friend == NULL)
                 {
                     error_printf("%s: function '%s' shall refer a nontemplate function or a specialization of a function template\n",
@@ -1645,7 +1701,7 @@ static void instantiate_template_function(scope_entry_t* entry, const locus_t* l
     //         instantiation_context, 
     //         // This is not entirely true
     //         /* is_template */ 1,
-    //         /* is_explicit_instantiation */ 1,
+    //         /* is_explicit_specialization */ 1,
     //         &nodecl_function_code);
 
     // entry->entity_specs.definition_tree = dupl_function_definition;
@@ -1846,7 +1902,7 @@ static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMET
             entry->decl_context, 
             // FIXME - This is not entirely true
             /* is_template */ 1,
-            /* is_explicit_instantiation */ 1,
+            /* is_explicit_specialization */ 1,
             &nodecl_function_code);
 
     entry->entity_specs.definition_tree = dupl_function_definition;

@@ -468,7 +468,7 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
     return result_type;
 }
 
-scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
+scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
         template_parameter_list_t* explicit_template_parameters,
         type_t* function_type, const locus_t* locus)
 {
@@ -519,35 +519,16 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
             feasible_templates, locus);
 
     if (result == NULL)
+    {
+        // Not found
         return NULL;
+    }
 
-    scope_entry_t* entry = entry_list_head(template_set);
     if (is_unresolved_overloaded_type(result))
     {
-        const char* full_name = get_qualified_symbol_name(
-                entry, entry->decl_context);
-
+        // Ambiguous case
         scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(result);
-        scope_entry_t* head = entry_list_head(entry_list);
-
-        fprintf(stderr, "%s: note: ambiguous template functions list\n", locus_to_str(locus));
-        for (it = entry_list_iterator_begin(entry_list);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* current_entry = entry_list_iterator_current(it);
-
-            fprintf(stderr, "%s: note:   %s\n",
-                    locus_to_str(current_entry->locus),
-                    print_decl_type_str(current_entry->type_information, current_entry->decl_context, full_name));
-        }
-        entry_list_iterator_free(it);
-        entry_list_free(entry_list);
-
-        running_error("%s: error: ambiguous template specialization '%s' for '%s'\n",
-                locus_to_str(locus),
-                entry->symbol_name,
-                print_decl_type_str(function_type, head->decl_context, full_name));
+        return entry_list;
     }
 
     template_parameter_list_t* selected_deduction = NULL;
@@ -575,5 +556,5 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
             primary_template->decl_context, 
             locus);
 
-    return named_type_get_symbol(result_specialized);
+    return entry_list_new(named_type_get_symbol(result_specialized));
 }
