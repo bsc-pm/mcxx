@@ -339,7 +339,9 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
-                TL::Symbol new_function = current_function.get_scope().new_symbol(called_task.get_name());
+                std::string name_clause_arg = target_info.get_name();
+                std::string called_task_name = !name_clause_arg.empty() ? name_clause_arg : called_task.get_name();
+                TL::Symbol new_function = current_function.get_scope().new_symbol(called_task_name);
                 scope_entry_t* new_function_internal = new_function.get_internal_symbol();
 
                 new_function_internal->kind = called_task.get_internal_symbol()->kind;
