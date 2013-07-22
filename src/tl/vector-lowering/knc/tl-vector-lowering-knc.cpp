@@ -1785,9 +1785,10 @@ namespace TL
  
                 ;
 
-            args_hi << "("
+            args_hi  
                 << as_expression(node.get_mask())
                 << ", "
+                << "("
                 << as_expression(node.get_rhs())
                 << ") + "
                 << _vector_length
