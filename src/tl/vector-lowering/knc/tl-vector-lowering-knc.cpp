@@ -2180,12 +2180,13 @@ namespace TL
             walk(node.get_strides());
             walk(node.get_mask());
 
-            intrin_src << as_expression(node.get_mask())
+            intrin_src << ", "
+                << as_expression(node.get_mask())
+                << ", "
+                << as_expression(node.get_strides())
                 << ", "
                 << as_expression(node.get_base()) 
                 << ", " 
-                << as_expression(node.get_strides())
-                << ", "
                 << conv
                 << ", "
                 << type.get_size()
