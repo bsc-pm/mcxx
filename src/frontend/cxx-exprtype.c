@@ -3151,30 +3151,32 @@ void compute_bin_operator_mod_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
 {
     // <arithmetic> - <arithmetic>
-    return ((is_arithmetic_type(lhs)
-                && is_arithmetic_type(rhs))
+    return ((is_arithmetic_type(no_ref(lhs))
+                && is_arithmetic_type(no_ref(rhs)))
             // T* - <arithmetic>
-            || ((is_pointer_type(lhs) || is_array_type(lhs))
-                && is_arithmetic_type(rhs)));
+            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(lhs)))
+                && is_arithmetic_type(no_ref(rhs))));
 }
 
 static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
 {
-    if (is_arithmetic_type(*lhs)
-        && is_arithmetic_type(*rhs))
+    if (is_arithmetic_type(no_ref(*lhs))
+        && is_arithmetic_type(no_ref(*rhs)))
     {
-        if (is_promoteable_integral_type(*lhs))
-            *lhs = promote_integral_type(*lhs);
+        if (is_promoteable_integral_type(no_ref(*lhs)))
+            *lhs = promote_integral_type(no_ref(*lhs));
 
-        if (is_promoteable_integral_type(*rhs))
-            *rhs = promote_integral_type(*rhs);
+        if (is_promoteable_integral_type(no_ref(*rhs)))
+            *rhs = promote_integral_type(no_ref(*rhs));
 
-        return usual_arithmetic_conversions(*lhs, *rhs);
+        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
     }
-    else if(((is_pointer_type(*lhs) || is_array_type(*rhs))
-                && is_arithmetic_type(*rhs)))
+    else if (((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*rhs)))
+                && is_arithmetic_type(no_ref(*rhs))))
     {
         type_t** pointer_type = lhs;
+
+        *pointer_type = no_ref(*pointer_type);
 
         if (is_array_type(*pointer_type))
         {
