@@ -59,41 +59,64 @@ void DeviceCUDA::update_ndrange_and_shmem_arguments(
         const TL::Symbol& called_task,
         const TL::Symbol& unpacked_function,
         const TargetInformation& target_info,
+        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
         // out
         TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
         TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args)
 {
     TL::ObjectList<TL::Symbol> parameters_called = called_task.get_function_parameters();
     TL::ObjectList<TL::Symbol> parameters_unpacked = unpacked_function.get_function_parameters();
-    ERROR_CONDITION(parameters_called.size() != parameters_unpacked.size(), "Code unreachable", 0);
-
-    Nodecl::Utils::SimpleSymbolMap translate_parameters_map;
-    for (unsigned int i = 0; i < parameters_called.size(); ++i)
-    {
-        translate_parameters_map.add_map(
-                parameters_called[i],
-                parameters_unpacked[i]);
-    }
 
     TL::ObjectList<Nodecl::NodeclBase> ndrange_args = target_info.get_ndrange();
-    for (unsigned int i = 0; i < ndrange_args.size(); ++i)
+    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
+    if (IS_FORTRAN_LANGUAGE)
     {
-
-        new_ndrange_args.append(Nodecl::Utils::deep_copy(
+        for (unsigned int i = 0; i < ndrange_args.size(); ++i)
+        {
+            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
                     ndrange_args[i],
                     unpacked_function.get_related_scope(),
-                    translate_parameters_map));
-    }
+                    *called_fun_to_outline_data_map);
 
+            new_ndrange_args.append(Nodecl::Utils::deep_copy(
+                        argument,
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
 
-    TL::ObjectList<Nodecl::NodeclBase> shmem_args = target_info.get_shmem();
-    for (unsigned int i = 0; i < shmem_args.size(); ++i)
-    {
-
-        new_shmem_args.append(Nodecl::Utils::deep_copy(
+        for (unsigned int i = 0; i < shmem_args.size(); ++i)
+        {
+            Nodecl::NodeclBase argument = Nodecl::Utils::deep_copy(
                     shmem_args[i],
                     unpacked_function.get_related_scope(),
-                    translate_parameters_map));
+                    *called_fun_to_outline_data_map);
+
+            new_shmem_args.append(Nodecl::Utils::deep_copy(
+                        argument,
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
+    }
+    else
+    {
+        for (unsigned int i = 0; i < ndrange_args.size(); ++i)
+        {
+
+            new_ndrange_args.append(Nodecl::Utils::deep_copy(
+                        ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
+
+        for (unsigned int i = 0; i < shmem_args.size(); ++i)
+        {
+
+            new_shmem_args.append(Nodecl::Utils::deep_copy(
+                        shmem_args[i],
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
     }
 }
 
@@ -406,8 +429,12 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     if (is_function_task
             && target_info.get_ndrange().size() > 0)
     {
-        update_ndrange_and_shmem_arguments(called_task, unpacked_function,
-                target_info, new_ndrange_args, new_shmem_args);
+
+        Nodecl::Utils::SimpleSymbolMap param_to_args_map =
+            info._target_info.get_param_arg_map();
+
+        update_ndrange_and_shmem_arguments(called_task, unpacked_function, target_info,
+                &param_to_args_map, symbol_map, new_ndrange_args, new_shmem_args);
 
         generate_ndrange_additional_code(new_ndrange_args, ndrange_code);
     }
