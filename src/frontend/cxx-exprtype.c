@@ -6165,25 +6165,6 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     }
 }
 
-
-static char check_builtin_subscript_type(nodecl_t subscript,
-        type_t* subscript_type,
-        decl_context_t decl_context)
-{
-    if (!is_integral_type(no_ref(subscript_type)) &&
-            !is_enum_type(no_ref(subscript_type)))
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid type '%s' for subscript\n",
-                    locus_to_str(nodecl_get_locus(subscript)),
-                    print_type_str(no_ref(subscript_type), decl_context));
-        }
-        return false;
-    }
-    return true;
-}
-
 static void check_nodecl_array_subscript_expression(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
@@ -6232,17 +6213,85 @@ static void check_nodecl_array_subscript_expression(
     if (is_array_type(no_ref(subscripted_type))
             || is_pointer_type(no_ref(subscripted_type)))
     {
-        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+        if (IS_C_LANGUAGE)
         {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
+            if (!is_integral_type(no_ref(subscript_type)) &&
+                    !is_enum_type(no_ref(subscript_type)))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                            locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                            codegen_to_str(nodecl_subscript, decl_context),
+                            print_type_str(no_ref(subscript_type), decl_context),
+                            print_type_str(get_ptrdiff_t_type(), decl_context));
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+            else
+            {
+                // convert int -> ptrdiff_t
+                unary_record_conversion_to_result(
+                        get_ptrdiff_t_type(),
+                        &nodecl_subscript);
+            }
         }
+        else if (IS_CXX_LANGUAGE)
+        {
+            // Try to see if there is an ICS for this type -> ptrdiff_t
+            scope_entry_t* conversor = NULL;
+            char ambiguous_conversion = 0;
+            if (type_can_be_implicitly_converted_to(subscript_type, get_ptrdiff_t_type(), decl_context,
+                    &ambiguous_conversion, &conversor, locus)
+                    && !ambiguous_conversion)
+            {
+                if (conversor == NULL)
+                {
+                    unary_record_conversion_to_result(
+                            no_ref(nodecl_get_type(nodecl_subscript)),
+                            &nodecl_subscript);
+                }
+                else
+                {
+                    if (function_has_been_deleted(decl_context, conversor, locus))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(locus);
+                        return;
+                    }
 
-        // lvalue-to-rvalue of the subscript
-        unary_record_conversion_to_result(
-                no_ref(nodecl_get_type(nodecl_subscript)),
-                &nodecl_subscript);
+                    nodecl_subscript = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversor, locus),
+                            /* called_name */ nodecl_null(),
+                            nodecl_make_list_1(nodecl_subscript),
+                            nodecl_make_cxx_function_form_implicit(
+                                locus),
+                            actual_type_of_conversor(conversor),
+                            locus);
 
+                    unary_record_conversion_to_result(
+                            get_ptrdiff_t_type(),
+                            &nodecl_subscript);
+                }
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                                locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                                codegen_to_str(nodecl_subscript, decl_context),
+                                print_type_str(no_ref(subscript_type), decl_context),
+                                print_type_str(get_ptrdiff_t_type(), decl_context)
+                                );
+                    }
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+        }
     }
 
     if (is_array_type(no_ref(subscripted_type)))
@@ -6557,8 +6606,8 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         else if (is_class_type(no_ref(from_t1))
                 || is_class_type(no_ref(to_t2)))
         {
-            return type_can_be_implicitly_converted_to(from_t1, 
-                    to_t2, 
+            return type_can_be_implicitly_converted_to(from_t1,
+                    to_t2,
                     decl_context,
                     is_ambiguous_conversion, /* conversor */ NULL,
                     locus);
@@ -13030,11 +13079,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
     if (!is_class_type(declared_type_no_cv))
     {
-        if (!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, 
-                    decl_context,
-                    &ambiguous_conversion, &conversor, 
-                    nodecl_get_locus(nodecl_expr))
-                && !(is_array_type(declared_type_no_cv)
+        if ((!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv,
+                        decl_context,
+                        &ambiguous_conversion, &conversor,
+                        nodecl_get_locus(nodecl_expr))
+                    || ambiguous_conversion)
+                & !(is_array_type(declared_type_no_cv)
                     && is_character_type(array_type_get_element_type(declared_type_no_cv))
                     && is_array_type(no_ref(initializer_expr_type))
                     && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))

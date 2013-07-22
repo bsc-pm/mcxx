@@ -13192,7 +13192,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 char ambiguous_conversion = 0;
                 scope_entry_t* conversor = NULL;
                 if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
-                            &ambiguous_conversion, &conversor, ast_get_locus(initializer)))
+                            &ambiguous_conversion, &conversor, ast_get_locus(initializer))
+                        || ambiguous_conversion)
                 {
                     if (!checking_ambiguity())
                     {
