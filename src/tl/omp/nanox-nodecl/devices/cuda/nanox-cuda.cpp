@@ -310,13 +310,6 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                     original_statements.get_locus_str().c_str());
     }
 
-    if (IS_FORTRAN_LANGUAGE
-            && target_info.get_ndrange().size() == 0)
-    {
-            running_error("%s: error: a CUDA task in Fortran must have defined the 'ndrange' clause\n",
-                    original_statements.get_locus_str().c_str());
-    }
-
     // Update the kernel configurations of every cuda function call of the current task
     Nodecl::NodeclBase task_code =
         (is_function_task) ? called_task.get_function_code() : output_statements;
@@ -354,15 +347,19 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
                 new_function_internal->entity_specs.is_user_declared = 1;
                 new_function_internal->entity_specs.is_extern = 1;
 
-                gather_gcc_attribute_t intern_global_attr;
-                intern_global_attr.attribute_name = uniquestr("global");
-                intern_global_attr.expression_list = nodecl_null();
+                // if the 'ndrange' clause is defined, the called task is __global__
+                if (target_info.get_ndrange().size() != 0)
+                {
+                    gather_gcc_attribute_t intern_global_attr;
+                    intern_global_attr.attribute_name = uniquestr("global");
+                    intern_global_attr.expression_list = nodecl_null();
 
-                new_function_internal->entity_specs.num_gcc_attributes = 1;
-                new_function_internal->entity_specs.gcc_attributes =
-                    (gather_gcc_attribute_t*) xcalloc(1, sizeof(gather_gcc_attribute_t));
+                    new_function_internal->entity_specs.num_gcc_attributes = 1;
+                    new_function_internal->entity_specs.gcc_attributes =
+                        (gather_gcc_attribute_t*) xcalloc(1, sizeof(gather_gcc_attribute_t));
 
-                memcpy(new_function_internal->entity_specs.gcc_attributes, &intern_global_attr, 1 * sizeof(gather_gcc_attribute_t));
+                    memcpy(new_function_internal->entity_specs.gcc_attributes, &intern_global_attr, 1 * sizeof(gather_gcc_attribute_t));
+                }
 
                 _copied_cuda_functions.add_map(called_task, new_function);
             }
