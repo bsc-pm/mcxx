@@ -1851,11 +1851,15 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             CXX_LANGUAGE()
             {
+                nodecl_t nodecl_context =
+                    nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                            decl_context, ast_get_locus(init_declarator));
+
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
                         nodecl_make_list_1(
                             make_cxx_decl_or_def(
-                                /* optative context */ nodecl_null(),
+                                nodecl_context,
                                 entry,
                                 ast_get_locus(init_declarator))));
             }
@@ -3693,12 +3697,16 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
     CXX_LANGUAGE()
     {
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ast_get_locus(a));
+
         *nodecl_output =
             nodecl_concat_lists(
                     *nodecl_output,
                     nodecl_make_list_1(
                         nodecl_make_cxx_decl(
-                            /* optative context */ nodecl_null(),
+                            nodecl_context,
                             entry,
                             ast_get_locus(a))));
     }
@@ -10284,12 +10292,16 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ast_get_locus(init_declarator));
+
         // Keep declaration
         *nodecl_output = nodecl_concat_lists(
                 *nodecl_output,
                 nodecl_make_list_1(
                     make_cxx_decl_or_def(
-                        /* optative context */ nodecl_null(),
+                        nodecl_context,
                         entry,
                         ast_get_locus(init_declarator))));
     }
