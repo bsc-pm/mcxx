@@ -13,7 +13,7 @@ PROGRAM MAIN
 
        !$OMP ATOMIC
        L1_A = L1_A .EQV. L1_B
-       IF (L1_A) CALL ABORT()
+       IF (L1_A) STOP 1
     !----
 
     !----
@@ -22,7 +22,7 @@ PROGRAM MAIN
 
        !$OMP ATOMIC
        L1_A = L1_A .NEQV. L1_B
-       IF (.NOT. L1_A) CALL ABORT()
+       IF (.NOT. L1_A) STOP 1
     !----
 
     !----
@@ -31,7 +31,7 @@ PROGRAM MAIN
 
        !$OMP ATOMIC
        L2_A = L2_A .EQV. L2_B
-       IF (L2_A) CALL ABORT()
+       IF (L2_A) STOP 1
     !----
 
     !----
@@ -40,7 +40,7 @@ PROGRAM MAIN
 
        !$OMP ATOMIC
        L2_A = L2_A .NEQV. L2_B
-       IF (.NOT. L2_A) CALL ABORT()
+       IF (.NOT. L2_A) STOP 1
     !----
 
     !----
@@ -49,7 +49,7 @@ PROGRAM MAIN
 
        !$OMP ATOMIC
        L4_A = L4_A .EQV. L4_B
-       IF (L4_A) CALL ABORT()
+       IF (L4_A) STOP 1
     !----
 
     !----
@@ -58,6 +58,6 @@ PROGRAM MAIN
 
        !$OMP ATOMIC
        L4_A = L4_A .NEQV. L4_B
-       IF (.NOT. L4_A) CALL ABORT()
+       IF (.NOT. L4_A) STOP 1
     !----
 END PROGRAM MAIN
