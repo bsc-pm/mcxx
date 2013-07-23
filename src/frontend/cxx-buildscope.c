@@ -1458,9 +1458,9 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
 }
 
 // Builds scope for a simple declaration
-static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
+static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         char is_template, char is_explicit_specialization,
-        nodecl_t *nodecl_output, 
+        nodecl_t *nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list)
 {
@@ -3479,7 +3479,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         //  3. It is not a explicit instantiation (they have not template parameters!)
         if (!class_entry->defined
                 && is_template_specialized_type(class_entry->type_information)
-                && !class_gather_info.is_explicit_specialization)
+                && !class_gather_info.is_explicit_specialization
+                && !class_gather_info.is_explicit_instantiation)
         {
             template_specialized_type_update_template_parameters(class_entry->type_information,
                     decl_context.template_parameters);
@@ -3502,7 +3503,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         class_entry->entity_specs.is_user_declared = 1;
         class_entry->entity_specs.is_instantiable = 1;
     }
-    
+
     // Do not modify the class entry with the gcc attributes of the gather info
 
     *type_info = get_user_defined_type(class_entry);
@@ -4765,7 +4766,23 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
         }
 
         if (template_parameters != NULL)
+        {
+            // Local classes cannot have template parameters but may inherit them from an enclosing declaration
+            //
+            // template <typename T>
+            // void f(T)
+            // {
+            //   struct A
+            //   {
+            //      void f(T) { } // Here f(T)::A::f(T) inherits the enclosing template parameters
+            //   };
+            // }
+            if (entry->kind == SK_CLASS
+                    && entry->decl_context.current_scope->kind == BLOCK_SCOPE)
+                return NESTING_CHECK_OK;
+
             return NESTING_CHECK_NOT_A_TEMPLATE;
+        }
     }
 
     return NESTING_CHECK_OK;
@@ -8047,6 +8064,64 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     }
 }
 
+static void set_parameters_as_related_symbols(scope_entry_t* entry, 
+        gather_decl_spec_t* gather_info,
+        char is_definition,
+        const locus_t* locus);
+
+static void update_function_specifiers(scope_entry_t* entry,
+        gather_decl_spec_t* gather_info,
+        type_t* declarator_type,
+        const locus_t* locus)
+{
+    // Merge inline attribute
+    entry->entity_specs.is_inline |= gather_info->is_inline;
+
+    // Remove the friend-declared attribute if we find the function but
+    // this is not a friend declaration
+    if (!gather_info->is_friend)
+    {
+        entry->entity_specs.is_friend_declared = 0;
+        if (is_template_specialized_type(entry->type_information))
+        {
+            // Propagate it to the template name as well if this is the primary
+            if (named_type_get_symbol(
+                        template_type_get_primary_type(
+                            template_specialized_type_get_related_template_type(entry->type_information))) == entry)
+            {
+                template_type_get_related_symbol(
+                        template_specialized_type_get_related_template_type(entry->type_information)
+                        )->entity_specs.is_friend_declared = 0;
+            }
+        }
+    }
+
+    // Update parameter names
+    set_parameters_as_related_symbols(entry,
+            gather_info,
+            /* is_definition */ 0,
+            locus);
+
+    // An existing function was found
+    CXX_LANGUAGE()
+    {
+        update_function_default_arguments(entry, declarator_type, gather_info);
+    }
+
+    C_LANGUAGE()
+    {
+        // If the type we got does not have prototype but the new declaration
+        // has, use the type coming from the new declaration
+        if (!function_type_get_lacking_prototype(declarator_type)
+                && function_type_get_lacking_prototype(entry->type_information))
+        {
+            // Update the type
+            entry->type_information = declarator_type;
+        }
+    }
+}
+
+
 /*
  * This function fills information for a declarator_id_expr. Actually only
  * unqualified names can be signed up since qualified names should have been
@@ -8113,9 +8188,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                     CXX_LANGUAGE()
                     {
-                        if (ok && entry != NULL)
+                        if (ok
+                                && entry != NULL
+                                && entry->kind == SK_FUNCTION)
                         {
-                            update_function_default_arguments(entry, declarator_type, gather_info);
+                            update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
                         }
                     }
                     return entry;
@@ -8234,9 +8311,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                     CXX_LANGUAGE()
                     {
-                        if (ok && entry != NULL)
+                        if (ok
+                                && entry != NULL
+                                && entry->kind == SK_FUNCTION)
                         {
-                            update_function_default_arguments(entry, declarator_type, gather_info);
+                            update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
                         }
                     }
                     return entry;
@@ -8266,10 +8345,6 @@ static void copy_related_symbols(scope_entry_t* dest, scope_entry_t* orig)
     }
 }
 
-static void set_parameters_as_related_symbols(scope_entry_t* entry, 
-        gather_decl_spec_t* gather_info,
-        char is_definition,
-        const locus_t* locus);
 
 /*
  * This function registers a new typedef name.
@@ -8446,7 +8521,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         entry->entity_specs.exceptions = gather_info->exceptions;
 
-        set_parameters_as_related_symbols(entry, gather_info, /* is_definition */ 0, 
+        set_parameters_as_related_symbols(entry, gather_info, /* is_definition */ 0,
                 ast_get_locus(declarator_id));
     }
 
@@ -8641,8 +8716,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             else
             {
                 // Keep parameter names
-                set_parameters_as_related_symbols(new_entry, 
-                        gather_info, 
+                set_parameters_as_related_symbols(new_entry,
+                        gather_info,
                         /* is_definition */ 0,
                         ast_get_locus(declarator_id));
             }
@@ -8828,13 +8903,12 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             counted_xcalloc(gather_info->num_parameters,
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
-        
 
         new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
-        
+
         // If the declaration context is CLASS_SCOPE and the function definition is friend,
         // It is not a member class
-        if(decl_context.current_scope->kind == CLASS_SCOPE
+        if (decl_context.current_scope->kind == CLASS_SCOPE
             && !new_entry->entity_specs.is_friend_declared)
         {
             new_entry->entity_specs.is_member = 1;
@@ -8902,53 +8976,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     }
     else if (entry->kind == SK_FUNCTION)
     {
-        // Merge inline attribute
-        entry->entity_specs.is_inline |= gather_info->is_inline;
-
-        // Remove the friend-declared attribute if we find the function but
-        // this is not a friend declaration
-        if (!is_template_specialized_type(entry->type_information))
-        {
-            if (!gather_info->is_friend
-                    && entry->entity_specs.is_friend_declared)
-            {
-                entry->entity_specs.is_friend_declared = 0;
-            }
-        }
-        else
-        {
-            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
-            scope_entry_t* template_symbol = template_type_get_related_symbol(template_type);
-            if (!gather_info->is_friend
-                    && template_symbol->entity_specs.is_friend_declared)
-            {
-                template_symbol->entity_specs.is_friend_declared = 0;
-            }
-        }
-        
-        // Update parameter names
-        set_parameters_as_related_symbols(entry, 
-                gather_info, 
-                /* is_definition */ 0,
-                ast_get_locus(declarator_id));
-
-        // An existing function was found
-        CXX_LANGUAGE()
-        {
-            update_function_default_arguments(entry, declarator_type, gather_info);
-        }
-
-        C_LANGUAGE()
-        {
-            // If the type we got does not have prototype but the new declaration
-            // has, use the type coming from the new declaration
-            if (!function_type_get_lacking_prototype(declarator_type)
-                    && function_type_get_lacking_prototype(entry->type_information))
-            {
-                // Update the type
-                entry->type_information = declarator_type;
-            }
-        }
+        update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
     }
     else if (entry->kind == SK_DEPENDENT_FRIEND_FUNCTION)
     {
@@ -9445,7 +9473,8 @@ static char find_function_declaration(AST declarator_id,
             internal_error("Unreachable code", 0);
         }
 
-        if (!gather_info->is_explicit_instantiation)
+        if (!gather_info->is_explicit_instantiation
+                && !(gather_info->is_friend && declarator_is_template_id))
         {
             nesting_check_t nest_check = check_template_nesting_of_name(considered_symbol, decl_context.template_parameters);
 
@@ -9517,10 +9546,11 @@ static char find_function_declaration(AST declarator_id,
             scope_entry_t* considered_symbol = NULL;
             if (entry->kind == SK_TEMPLATE)
             {
-                // Do not handle these here if this is an explicit specialization
-                // or explicit instantiation. We will handle them later
+                // Do not handle these here if this is an explicit specialization,
+                // explicit instantiation or a friend with template-id. We will handle them later
                 if (gather_info->is_explicit_specialization
-                        || gather_info->is_explicit_instantiation)
+                        || gather_info->is_explicit_instantiation
+                        || (gather_info->is_friend && declarator_is_template_id))
                     continue;
 
                 type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
@@ -9668,9 +9698,12 @@ static char find_function_declaration(AST declarator_id,
         entry_list_iterator_free(it);
     }
 
-    // 2. Template functions when the declaration is an explicit specialization/instantiation
+    // 2. Template functions when the declaration is an explicit
+    // specialization/instantiation or when this is a friend declaration with a
+    // template-id in the unqualified-id of the id-expression
     if (gather_info->is_explicit_specialization
-            || gather_info->is_explicit_instantiation)
+            || gather_info->is_explicit_instantiation
+            || (gather_info->is_friend && declarator_is_template_id))
     {
         // This is an explicit specialization
         //
