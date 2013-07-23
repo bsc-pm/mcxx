@@ -8074,6 +8074,9 @@ static void update_function_specifiers(scope_entry_t* entry,
         type_t* declarator_type,
         const locus_t* locus)
 {
+    ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
+    entry->entity_specs.is_user_declared = 1;
+
     // Merge inline attribute
     entry->entity_specs.is_inline |= gather_info->is_inline;
 
@@ -8186,14 +8189,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                     char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
 
-                    CXX_LANGUAGE()
+                    if (ok
+                            && entry != NULL
+                            && entry->kind == SK_FUNCTION)
                     {
-                        if (ok
-                                && entry != NULL
-                                && entry->kind == SK_FUNCTION)
-                        {
-                            update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
-                        }
+                        update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
                     }
                     return entry;
                 }
@@ -8221,7 +8221,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID:
-        case AST_OPERATOR_FUNCTION_ID_TEMPLATE: 
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE:
             {
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
@@ -8246,9 +8246,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 {
                     scope_entry_t *entry = NULL;
                     char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
-                    if (ok && entry != NULL)
+                    if (ok
+                            && entry != NULL
+                            && entry->kind == SK_FUNCTION)
                     {
-                        update_function_default_arguments(entry, declarator_type, gather_info);
+                        update_function_specifiers(entry, gather_info, declarator_type, ast_get_locus(declarator_id));
                     }
                     return entry;
                 }
