@@ -2245,7 +2245,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2263,6 +2263,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        candidate_set_free(&candidate_set);
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
             return get_error_type();
@@ -2407,6 +2408,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     /* implicit_argument */ NULL,
                     locus);
         }
+        candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
     return overloaded_type;
@@ -2444,7 +2446,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             // operator has zero parameters, so discard templates at this point
             if (entry->kind != SK_TEMPLATE)
             {
-                candidate_set = add_to_candidate_set(candidate_set,
+                candidate_set = candidate_set_add(candidate_set,
                         orig_entry,
                         num_arguments,
                         argument_types);
@@ -2479,7 +2481,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2497,6 +2499,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        candidate_set_free(&candidate_set);
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
             return get_error_type();
@@ -2577,6 +2580,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                     /* implicit_argument */ NULL,
                     locus);
         }
+        candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
     return overloaded_type;
@@ -6390,7 +6394,7 @@ static void check_nodecl_array_subscript_expression(
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry_list_iterator_current(it),
                     num_arguments,
                     argument_types);
@@ -6414,9 +6418,11 @@ static void check_nodecl_array_subscript_expression(
                         /* implicit_argument_type */ subscripted_type,
                         locus);
             }
+            candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+        candidate_set_free(&candidate_set);
 
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
@@ -7000,7 +7006,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                     !entry_list_iterator_end(it);
                     entry_list_iterator_next(it))
             {
-                candidate_set = add_to_candidate_set(candidate_set,
+                candidate_set = candidate_set_add(candidate_set,
                         entry_list_iterator_current(it),
                         num_arguments,
                         argument_types);
@@ -7024,9 +7030,11 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                             /* implicit argument */ NULL,
                             locus);
                 }
+                candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
+            candidate_set_free(&candidate_set);
 
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
@@ -7454,14 +7462,14 @@ static void check_new_expression_impl(
         scope_entry_t* entry = entry_advance_aliases(orig_entry);
         if (entry->entity_specs.is_member)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments,
                     arguments);
         }
         else
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments - 1,
                     arguments + 1);
@@ -7472,6 +7480,7 @@ static void check_new_expression_impl(
     scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
             decl_context, locus,
             conversors);
+    candidate_set_free(&candidate_set);
 
     if (chosen_operator_new == NULL)
     {
@@ -9275,14 +9284,14 @@ static void check_nodecl_function_call_cxx(
         if (entry->entity_specs.is_member 
                 || entry->entity_specs.is_surrogate_function)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments,
                     argument_types);
         }
         else
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments - 1,
                     argument_types + 1);
@@ -9309,9 +9318,11 @@ static void check_nodecl_function_call_cxx(
                     /* implicit_argument */ argument_types[0],
                     locus);
         }
+        candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
+    candidate_set_free(&candidate_set);
 
     type_t* function_type_of_called = NULL;
 
@@ -10115,7 +10126,7 @@ static void check_nodecl_member_access(
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry,
                     /* num_arguments */ 1,
                     argument_types);
@@ -10141,9 +10152,11 @@ static void check_nodecl_member_access(
                         /* implicit_argument */ argument_types[0],
                         nodecl_get_locus(nodecl_accessed));
             }
+            candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+        candidate_set_free(&candidate_set);
 
         if (function_has_been_deleted(decl_context, selected_operator_arrow, 
                     nodecl_get_locus(nodecl_accessed)))
@@ -10476,7 +10489,7 @@ static void check_postoperator_user_defined(
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -10501,8 +10514,10 @@ static void check_postoperator_user_defined(
         }
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
+        candidate_set_free(&candidate_set);
         return;
     }
+    candidate_set_free(&candidate_set);
 
     if (function_has_been_deleted(decl_context, overloaded_call, 
                 nodecl_get_locus(postoperated_expr)))
@@ -10623,7 +10638,7 @@ static void check_preoperator_user_defined(AST operator,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -10645,9 +10660,11 @@ static void check_preoperator_user_defined(AST operator,
                     /* implicit_argument */ NULL,
                     nodecl_get_locus(preoperated_expr));
         }
+        candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
         return;
     }
+    candidate_set_free(&candidate_set);
 
     if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_locus(preoperated_expr)))
     {
@@ -15069,7 +15086,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry_list_iterator_current(it),
                     num_arguments,
                     arguments);
@@ -15096,10 +15113,12 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                         locus);
                 entry_list_free(operator_overload_set);
             }
+            candidate_set_free(&candidate_set);
             return 0;
         }
         else
         {
+            candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
             if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
             {
