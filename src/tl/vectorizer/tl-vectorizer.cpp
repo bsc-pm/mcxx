@@ -69,7 +69,7 @@ namespace TL
             return *_vectorizer;
         }
 
-        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _ffast_math_enabled(false)
+        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _fast_math_enabled(false)
         {
             _var_counter = 0;
         }
@@ -174,12 +174,12 @@ namespace TL
         {
             fprintf(stderr, "Enabling SVML SSE\n");
 
-            if (!_ffast_math_enabled)
+            if (!_fast_math_enabled)
             {
-                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
+                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
             }
 
-            if (!_svml_sse_enabled && _ffast_math_enabled)
+            if (!_svml_sse_enabled && _fast_math_enabled)
             {
                 _svml_sse_enabled = true;
 
@@ -224,12 +224,12 @@ namespace TL
         {
             fprintf(stderr, "Enabling SVML KNC\n");
 
-            if (!_ffast_math_enabled)
+            if (!_fast_math_enabled)
             {
-                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
+                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
             }
 
-            if (!_svml_sse_enabled && _ffast_math_enabled)
+            if (!_svml_sse_enabled && _fast_math_enabled)
             {
                 _svml_sse_enabled = true;
 
@@ -301,9 +301,9 @@ namespace TL
         }
 
 
-        void Vectorizer::enable_ffast_math()
+        void Vectorizer::enable_fast_math()
         {
-            _ffast_math_enabled = true;
+            _fast_math_enabled = true;
         }
 
         TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size) 

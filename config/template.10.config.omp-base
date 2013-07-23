@@ -28,7 +28,7 @@ linker_options = -Xlinker --add-needed
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {mmic} linker_options = -mmic
-{ffast-math} options = --variable=ffast_math_enabled:1
+{fast-math} options = --variable=fast_math_enabled:1
 {mmic} options = --variable=mic_enabled:1
 {mmic} preprocessor_options = -include immintrin.h
 {ompss} options = --variable=ompss_mode:1

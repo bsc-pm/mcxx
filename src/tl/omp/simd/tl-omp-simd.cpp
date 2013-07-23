@@ -35,7 +35,7 @@ namespace TL {
 
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),  
-            _simd_enabled(false), _svml_enabled(false), _ffast_math_enabled(false), _mic_enabled(false)
+            _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), _mic_enabled(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -51,10 +51,10 @@ namespace TL {
                     _svml_enabled_str,
                     "0").connect(functor(&Simd::set_svml, *this));
 
-            register_parameter("ffast_math_enabled",
-                    "If set to '1' enables ffast_math operations, otherwise it is disabled",
-                    _ffast_math_enabled_str,
-                    "0").connect(functor(&Simd::set_ffast_math, *this));
+            register_parameter("fast_math_enabled",
+                    "If set to '1' enables fast_math operations, otherwise it is disabled",
+                    _fast_math_enabled_str,
+                    "0").connect(functor(&Simd::set_fast_math, *this));
 
             register_parameter("mic_enabled",
                     "If set to '1' enables compilation for MIC architecture, otherwise it is disabled",
@@ -78,11 +78,11 @@ namespace TL {
             }
         }
 
-        void Simd::set_ffast_math(const std::string ffast_math_enabled_str)
+        void Simd::set_fast_math(const std::string fast_math_enabled_str)
         {
-            if (ffast_math_enabled_str == "1")
+            if (fast_math_enabled_str == "1")
             {
-                _ffast_math_enabled = true;
+                _fast_math_enabled = true;
             }
         }
 
@@ -109,16 +109,16 @@ namespace TL {
 
             if (_simd_enabled)
             {
-                SimdVisitor simd_visitor(_ffast_math_enabled, _svml_enabled, _mic_enabled);
+                SimdVisitor simd_visitor(_fast_math_enabled, _svml_enabled, _mic_enabled);
                 simd_visitor.walk(translation_unit);
             }
         }
 
-        SimdVisitor::SimdVisitor(bool ffast_math_enabled, bool svml_enabled, bool mic_enabled)
+        SimdVisitor::SimdVisitor(bool fast_math_enabled, bool svml_enabled, bool mic_enabled)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
-            if (ffast_math_enabled)
-                _vectorizer.enable_ffast_math();
+            if (fast_math_enabled)
+                _vectorizer.enable_fast_math();
 
             if (mic_enabled)
             {

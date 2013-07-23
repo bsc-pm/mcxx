@@ -94,7 +94,7 @@ namespace TL
 
                 bool _svml_sse_enabled;
                 bool _svml_knc_enabled;
-                bool _ffast_math_enabled;
+                bool _fast_math_enabled;
 
                 unsigned int _var_counter;
 
@@ -141,7 +141,7 @@ namespace TL
 
                 void enable_svml_sse();
                 void enable_svml_knc();
-                void enable_ffast_math();
+                void enable_fast_math();
 
                 friend class VectorizerVisitorFor;
                 friend class VectorizerVisitorForEpilog;
