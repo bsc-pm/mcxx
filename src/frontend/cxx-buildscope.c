@@ -2891,8 +2891,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     class_entry = entry;
     if (entry != NULL)
     {
-        entry->entity_specs.is_friend = 1;
-
         scope_entry_t* alias_to_entry = class_entry;
         if (gather_info->is_template
                 || ASTType(id_expression) == AST_TEMPLATE_ID
@@ -2908,7 +2906,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             alias_to_entry->symbol_name = class_name;
             alias_to_entry->decl_context = decl_context;
 
-            alias_to_entry->entity_specs.is_friend = 1;
             alias_to_entry->entity_specs.is_friend_declared = 1;
             alias_to_entry->entity_specs.is_user_declared = 0;
 
@@ -2950,7 +2947,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 primary_symbol->kind = SK_DEPENDENT_FRIEND_CLASS;
                 primary_symbol->locus = ast_get_locus(a);
 
-                primary_symbol->entity_specs.is_friend = 1;
                 primary_symbol->entity_specs.is_friend_declared = 1;
                 primary_symbol->entity_specs.is_user_declared = 0;
 
@@ -2983,7 +2979,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
             new_class->locus = ast_get_locus(id_expression);
             
-            new_class->entity_specs.is_friend = 1;
             new_class->entity_specs.is_friend_declared = 1;
             new_class->entity_specs.is_user_declared = 0;
 
@@ -3012,7 +3007,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 // Update some fields
                 class_entry->locus = ast_get_locus(a);
 
-                class_entry->entity_specs.is_friend = 1;
                 class_entry->entity_specs.is_friend_declared = 1;
                 class_entry->entity_specs.is_user_declared = 0;
 
@@ -3300,9 +3294,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
             new_class->locus = ast_get_locus(id_expression);
-
-            new_class->entity_specs.is_friend =
-                new_class->entity_specs.is_friend || class_gather_info.is_friend;
 
             new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
@@ -8637,7 +8628,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             new_entry->entity_specs.linkage_spec = linkage_current_get_name();
             new_entry->entity_specs.is_explicit = gather_info->is_explicit;
-            new_entry->entity_specs.is_friend = gather_info->is_friend;
             new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
             if (is_named_type(declarator_type))
@@ -8703,7 +8693,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->kind = SK_TEMPLATE;
             new_entry->locus = ast_get_locus(declarator_id);
 
-            new_entry->entity_specs.is_friend = gather_info->is_friend;
             new_entry->entity_specs.is_friend_declared = 0;
 
             if (decl_context.current_scope->kind == CLASS_SCOPE
@@ -8841,7 +8830,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     &_bytes_used_buildscope);
         
 
-        new_entry->entity_specs.is_friend = gather_info->is_friend;
         new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
         
         // If the declaration context is CLASS_SCOPE and the function definition is friend,
@@ -9154,7 +9142,6 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
         func_templ->kind = SK_TEMPLATE;
         func_templ->locus = ast_get_locus(declarator_id);
-        func_templ->entity_specs.is_friend = 1;
         func_templ->entity_specs.is_friend_declared = 1;
 
         func_templ->decl_context = decl_context;
@@ -9193,7 +9180,6 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     //The symbol name has been computed by Codegen!!
     new_entry->symbol_name = codegen_to_str(nodecl_name, decl_context);
 
-    new_entry->entity_specs.is_friend = 1;
     new_entry->entity_specs.is_friend_declared = 1;
     new_entry->entity_specs.any_exception = gather_info->any_exception;
     new_entry->entity_specs.num_parameters = gather_info->num_parameters;
@@ -12234,7 +12220,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
 
-    if (entry->entity_specs.is_friend
+    if (gather_info.is_friend
             && is_template_specialized_type(entry->type_information)
             && !gather_info.is_template)
     {

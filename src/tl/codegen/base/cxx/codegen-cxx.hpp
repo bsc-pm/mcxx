@@ -508,6 +508,8 @@ namespace Codegen
             bool is_pointer_arithmetic_add_helper(TL::Type op1, TL::Type op2);
             bool is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &pointer_type);
 
+            bool is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym);
+
         protected:
 
             void walk_list(const Nodecl::List&,

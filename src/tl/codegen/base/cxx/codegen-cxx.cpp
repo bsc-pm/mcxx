@@ -1847,7 +1847,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
 
-    if (!symbol.is_friend())
+    if (!symbol.get_class_type().is_valid()
+            || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
         if (symbol.is_member())
         {
@@ -1880,13 +1881,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     std::string decl_spec_seq;
 
-    if (symbol.is_friend()
+    if (symbol.get_class_type().is_valid()
             // The function is friend of a class
+            && is_friend_of_class(symbol, symbol.get_class_type().get_symbol())
             && symbol.is_defined_inside_class()
             // The friend function is defined within this class
             && !state.classes_being_defined.empty()
             && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
-            // The friend function is defined in the current being defined class
+        // The friend function is defined in the current being defined class
     {
         decl_spec_seq += "friend ";
     }
@@ -2085,7 +2087,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     bool is_template_specialized = symbol_type.is_template_specialized_type();
 
-    if(!symbol.is_friend())
+    if (!symbol.get_class_type().is_valid()
+            || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
         if (symbol.is_member())
         {
@@ -2141,16 +2144,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     std::string decl_spec_seq;
 
-    if (symbol.is_friend()
+    if (symbol.get_class_type().is_valid()
             // The function is friend of a class
+            && is_friend_of_class(symbol, symbol.get_class_type().get_symbol())
             && symbol.is_defined_inside_class()
             // The friend function is defined within this class
             && !state.classes_being_defined.empty()
             && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
-            // The friend function is defined in the current being defined class
-    {
-        decl_spec_seq += "friend ";
-    }
+        // The friend function is defined in the current being defined class
+     {
+         decl_spec_seq += "friend ";
+     }
 
     if (symbol.is_static()
             && (!symbol.is_member()
@@ -4361,8 +4365,6 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
 
 void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_symbol)
 {
-    ERROR_CONDITION(!friend_symbol.is_friend(), "This symbol must be a friend", 0);
-
     bool is_template_friend_declaration = false;
 
     if (friend_symbol.is_template())
@@ -5732,6 +5734,15 @@ bool CxxBase::is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &point
         pointer_type = pointer_type.references_to();
 
     return true;
+}
+
+bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
+{
+    ERROR_CONDITION(!class_sym.is_class(), "Invalid symbol", 0);
+
+    TL::ObjectList<TL::Symbol> friends = class_sym.get_type().class_get_friends();
+
+    return friends.contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,

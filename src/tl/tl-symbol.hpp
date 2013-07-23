@@ -455,9 +455,6 @@ namespace TL
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
 
-            //! States whether this symbol is friend of the class
-            bool is_friend() const;
-
             //! States whether symbol exists just because was mentioned in a friend declaration
             /*!
              * This symbol has not been technically declared by the user but the compiler
