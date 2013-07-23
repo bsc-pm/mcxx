@@ -246,12 +246,12 @@ namespace TL
                     ;
 
                 // Mask
-                svml_sse_vector_math << "__m512 __svml_mask_expf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_sqrtf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_logf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_sinf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_sincosf16(__m512, __mmask16, __m512*, __m512*);\n"
-                    << "__m512 __svml_mask_floorf16(__m512, __mmask16, __m512);\n"
+                svml_sse_vector_math << "__m512 __svml_expf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_sqrtf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_logf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_sinf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_sincosf16_mask(__m512, __mmask16, __m512*, __m512*);\n"
+                    << "__m512 __svml_floorf16_mask(__m512, __mmask16, __m512);\n"
                     ;
 
                 // Parse SVML declarations
@@ -280,22 +280,22 @@ namespace TL
                 
                 // Add SVML math masked function as vector version of the scalar one
                 add_vector_function_version("expf", 
-                            global_scope.get_symbol_from_name("__svml_mask_expf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_expf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
-                            global_scope.get_symbol_from_name("__svml_mask_sqrtf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_sqrtf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
-                            global_scope.get_symbol_from_name("__svml_mask_logf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_logf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
-                            global_scope.get_symbol_from_name("__svml_mask_sinf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_sinf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
-                            global_scope.get_symbol_from_name("__svml_mask_sincosf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_sincosf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
-                            global_scope.get_symbol_from_name("__svml_mask_floorf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_floorf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
             }
         }
