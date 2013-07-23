@@ -78,6 +78,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLogicalOr& node);
 
                 virtual void visit(const Nodecl::VectorConversion& node);
+                virtual void visit(const Nodecl::VectorConversionMask& node);
                 virtual void visit(const Nodecl::VectorConditionalExpression& node);
                 virtual void visit(const Nodecl::VectorPromotion& node);
                 virtual void visit(const Nodecl::VectorLiteral& node);
