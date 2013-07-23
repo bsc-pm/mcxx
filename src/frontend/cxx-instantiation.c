@@ -62,9 +62,30 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.is_instantiable = 0;
     new_member->entity_specs.is_user_declared = 0;
+    new_member->entity_specs.is_defined_inside_class_specifier = 0;
     new_member->entity_specs.is_member_of_anonymous = 0;
     new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
+
+#define COPY_ARRAY(arr, num) \
+    if (new_member->entity_specs.arr != NULL) \
+    { \
+        new_member->entity_specs.arr = \
+            (__typeof__(new_member->entity_specs.arr)) \
+            xcalloc(sizeof(*new_member->entity_specs.arr), \
+                    new_member->entity_specs.num); \
+        memcpy(new_member->entity_specs.arr, \
+                member_of_template->entity_specs.arr, \
+                sizeof(*new_member->entity_specs.arr) \
+                * new_member->entity_specs.num); \
+    }
+
+    // Decouple the arrays, lest we have to modify them
+    COPY_ARRAY(related_symbols, num_related_symbols);
+    COPY_ARRAY(function_parameter_info, num_function_parameter_info);
+    COPY_ARRAY(default_argument_info, num_parameters);
+    COPY_ARRAY(gcc_attributes, num_gcc_attributes);
+    COPY_ARRAY(ms_attributes, num_ms_attributes);
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
 
