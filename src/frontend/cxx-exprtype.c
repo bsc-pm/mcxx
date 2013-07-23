@@ -15823,7 +15823,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         result = nodecl_make_symbol(nodecl_get_symbol(node), nodecl_get_locus(node));
         nodecl_set_type(result, nodecl_get_type(node));
-        nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+        if (nodecl_expr_is_value_dependent(node))
+            nodecl_expr_set_is_value_dependent(result, 1);
+        else
+            nodecl_set_constant(result, nodecl_get_constant(node));
     }
 
     v->nodecl_result = result;
