@@ -2889,7 +2889,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
     decl_context_t new_template_context = template_name_context;
     new_template_context.template_parameters = result;
-    
+
     // Now review template parameters
     int i;
     for (i = 0; i < primary_template_parameters->num_parameters; i++)
@@ -2949,14 +2949,14 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 return NULL;
             }
         }
-        
+
         // Nontype template arguments must be adjusted first
         if (result->arguments[i]->kind == TPK_NONTYPE)
         {
             // We need to do this because of cases like this
             //
-            // N in    template <typename T, T N>                       
-            // PF in   template <typename R, typename A, R (*PF)(A)>    
+            // N in    template <typename T, T N>
+            // PF in   template <typename R, typename A, R (*PF)(A)>
             result->arguments[i]->type = update_type(
                     result->parameters[i]->entry->type_information,
                     new_template_context,
