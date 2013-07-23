@@ -170,6 +170,7 @@ expression : literal
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression) type const-value-opt 
            | NODECL_VECTOR_DIV_MASK([lhs]expression, [rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_NEG([rhs]expression) type const-value-opt 
+           | NODECL_VECTOR_NEG_MASK([rhs]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_ADD_MASK([scalar_dst]expression, [vector_src]expression, [mask]expression) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression) type const-value-opt 
@@ -296,7 +297,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | mask-expressions
 
 
-mask-expressions : NODECL_MASK_LITERAL() const-value
+mask-expressions : NODECL_MASK_LITERAL() type const-value
 
 # This is only for dependent parts of C++. These nodecls exist because
 # usual nodecls may not retain enough semantic information for a successful

@@ -32,6 +32,8 @@
 #include "tl-nodecl-visitor.hpp"
 #include <list>
 
+#define MASK_BIT_SIZE 16
+
 namespace TL
 {
     namespace Vectorization
@@ -58,6 +60,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorDiv& node);
                 virtual void visit(const Nodecl::VectorDivMask& node);
                 virtual void visit(const Nodecl::VectorNeg& node);
+                virtual void visit(const Nodecl::VectorNegMask& node);
 
                 virtual void visit(const Nodecl::VectorLowerThan& node);
                 virtual void visit(const Nodecl::VectorLowerOrEqualThan& node);
@@ -101,6 +104,7 @@ namespace TL
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
                 
                 virtual void visit(const Nodecl::VectorReductionAdd& node);
+                virtual void visit(const Nodecl::VectorReductionMinus& node);
 
                 virtual void visit(const Nodecl::VectorMaskAssignment& node);
                 virtual void visit(const Nodecl::VectorMaskOr& node);
@@ -109,6 +113,8 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMaskAnd1Not& node);
                 virtual void visit(const Nodecl::VectorMaskAnd2Not& node);
                 virtual void visit(const Nodecl::VectorMaskXor& node);
+                
+                virtual void visit(const Nodecl::MaskLiteral& node);
 
                 virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

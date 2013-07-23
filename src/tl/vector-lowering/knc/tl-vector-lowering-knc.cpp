@@ -1129,6 +1129,74 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
+        void KNCVectorLowering::visit(const Nodecl::VectorNegMask& node) 
+        {
+            TL::Type type = node.get_type().basic_type();
+            Nodecl::NodeclBase mask = node.get_mask();
+
+            walk(mask);
+
+            TL::Source intrin_src, old_value;
+
+            if (_old_m512.empty())
+            {
+                old_value << "_mm512_castps_si512(_mm512_undefined())";
+            }
+            else
+            {
+                old_value << as_expression(_old_m512.back());
+                _old_m512.pop_back();
+            }
+
+
+            if (type.is_float()) 
+            { 
+                intrin_src << "_mm512_castsi512_ps(_mm512_mask_xor_epi32("
+                    << old_value  
+                    << ", "
+                    << as_expression(mask)
+                    << ", "
+                    << "_mm512_set1_epi32(0x80000000), _mm512_castps_si512( ";
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_src << "_mm512_castsi512_pd(_mm512_xor_epi32("
+                    << old_value  
+                    << ", "
+                    << as_expression(mask)
+                    << ", "
+                    << "_mm512_set1_epi64(0x8000000000000000LL), _mm512_castpd_si512(";
+            }
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int())
+            {
+                intrin_src << "(_mm512_mask_sub_epi32("
+                    << old_value
+                    << ", "
+                    << as_expression(mask)
+                    << ", "
+                    << "_mm512_setzero_si512(),";
+            }
+            else
+            {
+                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            } 
+
+            walk(node.get_rhs());
+
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")))";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
+
+
+
         void KNCVectorLowering::visit(const Nodecl::VectorConversion& node) 
         {
             const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
@@ -2612,6 +2680,24 @@ namespace TL
                     intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
+        }
+
+        void KNCVectorLowering::visit(const Nodecl::VectorReductionMinus& node) 
+        { 
+            Nodecl::NodeclBase vector_src = node.get_vector_src();
+
+            Nodecl::VectorNegMask negation
+                = Nodecl::VectorNegMask::make(
+                        vector_src.shallow_copy(),
+                        Nodecl::MaskLiteral::make(
+                            TL::Type::get_mask_type(MASK_BIT_SIZE),
+                            const_value_get_integer(0xFFF7, /* bytes */ 2, /* signed */ 0)),
+                        vector_src.get_type(),
+                        vector_src.get_locus());
+
+            vector_src.replace(negation);
+
+            visit(node.as<Nodecl::VectorReductionAdd>());
         }        
 
         void KNCVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
@@ -2749,6 +2835,17 @@ namespace TL
                 intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
+        }
+
+
+        void KNCVectorLowering::visit(const Nodecl::MaskLiteral& node)
+        {
+            Nodecl::IntegerLiteral int_mask = 
+                Nodecl::IntegerLiteral::make(
+                        TL::Type::get_short_int_type(),
+                        node.get_constant());
+
+            node.replace(int_mask);
         }
 
         Nodecl::NodeclVisitor<void>::Ret KNCVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 

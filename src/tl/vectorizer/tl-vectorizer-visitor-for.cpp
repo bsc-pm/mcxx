@@ -100,6 +100,7 @@ namespace TL
             // Add MaskLiteral to mask_list
             Nodecl::MaskLiteral all_one_mask =
                 Nodecl::MaskLiteral::make(
+                        TL::Type::get_mask_type(_environment._mask_size),
                         const_value_get_minus_one(_environment._mask_size, 1),
                         make_locus("", 0, 0));
             _environment._mask_list.push_back(all_one_mask);

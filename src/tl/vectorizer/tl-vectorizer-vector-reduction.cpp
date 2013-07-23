@@ -53,9 +53,18 @@ namespace TL
                 }
                 else if(_environment._device.compare("knc") == 0)
                 {
-                    if(reduction_name.compare("+") == 0)
+                    if((reduction_name.compare("+") == 0) ||
+                            (reduction_name.compare("-") == 0))
                     {
                         if(reduction_type.is_signed_int())
+                        {
+                            return true;
+                        }
+                        else if(reduction_type.is_float())
+                        {
+                            return true;
+                        }
+                        else if (reduction_type.is_double())
                         {
                             return true;
                         }
@@ -92,6 +101,17 @@ namespace TL
                 Nodecl::ExpressionStatement post_reduction_stmt =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::VectorReductionAdd::make(
+                                scalar_symbol.make_nodecl(true),
+                                vector_symbol.make_nodecl(true),
+                                scalar_symbol.get_type()));
+
+                post_nodecls.append(post_reduction_stmt);
+            }
+            else if (reduction_name.compare("-") == 0)
+            {
+                Nodecl::ExpressionStatement post_reduction_stmt =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorReductionMinus::make(
                                 scalar_symbol.make_nodecl(true),
                                 vector_symbol.make_nodecl(true),
                                 scalar_symbol.get_type()));

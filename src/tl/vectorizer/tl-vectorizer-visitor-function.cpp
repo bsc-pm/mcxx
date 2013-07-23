@@ -132,6 +132,7 @@ namespace TL
             {
                 Nodecl::MaskLiteral all_one_mask =
                     Nodecl::MaskLiteral::make(
+                            TL::Type::get_mask_type(_environment._mask_size),
                             const_value_get_minus_one(_environment._mask_size, 1),
                             make_locus("", 0, 0));
 
