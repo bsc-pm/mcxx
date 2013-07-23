@@ -469,7 +469,8 @@ namespace Codegen
 
             void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     TL::ObjectList<std::string>& parameter_names,
-                    TL::ObjectList<std::string>& parameter_attributes);
+                    TL::ObjectList<std::string>& parameter_attributes,
+                    bool emit_default_arguments);
 
             static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
             static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);

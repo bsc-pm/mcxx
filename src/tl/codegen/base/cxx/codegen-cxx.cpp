@@ -1877,7 +1877,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
 
     std::string decl_spec_seq;
 
@@ -2140,7 +2140,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
 
     std::string decl_spec_seq;
 
@@ -5513,6 +5513,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         CXX_LANGUAGE()
         {
+            TL::TemplateParameters template_parameters =
+                (scope != NULL) ? scope->get_template_parameters() : symbol.get_scope().get_template_parameters();
             if (symbol.get_type().is_template_specialized_type())
             {
                 TL::Type template_type = symbol.get_type().get_related_template_type();
@@ -5520,25 +5522,36 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 TL::Symbol primary_symbol = primary_template.get_symbol();
                 (this->*decl_sym_fun)(primary_symbol);
 
-                if (primary_symbol != symbol)
+                if (primary_symbol == symbol)
                 {
-                    indent();
-                    file << "template <>\n";
+                    is_primary_template = 1;
+                }
+                if (symbol.is_member())
+                {
+                    codegen_template_headers_bounded(template_parameters,
+                            symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                            /* show_default_values */ is_primary_template);
                 }
                 else
                 {
-                    TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                    codegen_template_header(template_parameters,
-                            /*show default values*/ false);
-                    is_primary_template = 1;
+                    codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
                 }
+            }
+            else if (symbol.is_member())
+            {
+                // It may be a non-template function inside a template class
+                codegen_template_headers_bounded(template_parameters,
+                        symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                        /* show_default_values */ false);
             }
         }
 
         int num_parameters = symbol.get_related_symbols().size();
         TL::ObjectList<std::string> parameter_names(num_parameters);
         TL::ObjectList<std::string> parameter_attributes(num_parameters);
-        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
+        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes,
+                !symbol.get_type().is_template_specialized_type() || is_primary_template);
+
 
         std::string decl_spec_seq;
 
@@ -5554,7 +5567,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             decl_spec_seq += "extern ";
         }
-        if (symbol.is_virtual())
+        if (symbol.is_virtual()
+                && !state.classes_being_defined.empty()
+                && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
         {
             decl_spec_seq += "virtual ";
         }
@@ -5571,7 +5586,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         if (symbol.is_explicit_constructor()
-                && symbol.is_defined_inside_class())
+                && !state.classes_being_defined.empty()
+                && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
         {
             decl_spec_seq += "explicit ";
         }
@@ -7287,7 +7303,8 @@ std::string CxxBase::get_qualified_name(TL::Symbol sym, TL::Scope sc, bool witho
 
 void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
         TL::ObjectList<std::string>& parameter_names,
-        TL::ObjectList<std::string>& parameter_attributes)
+        TL::ObjectList<std::string>& parameter_attributes,
+        bool emit_default_arguments)
 {
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "This symbol should be a function\n", -1);
@@ -7311,7 +7328,8 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                 parameter_attributes[i] = gcc_attributes_to_str(current_param);
             }
 
-            if (get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
+            if (emit_default_arguments
+                    && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
                 parameter_attributes[i] += " = " + codegen(symbol.get_default_argument_num(i));
