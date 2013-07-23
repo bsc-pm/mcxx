@@ -503,15 +503,25 @@ namespace TL
             // Get mask for epilog instructions
             Nodecl::NodeclBase mask_value = for_statement.get_loop_header().
                 as<Nodecl::LoopControl>().get_cond();
-           
+          
+            // Add MaskLiteral to mask_list
+            Nodecl::MaskLiteral all_one_mask =
+                Nodecl::MaskLiteral::make(
+                        TL::Type::get_mask_type(_environment._mask_size),
+                        const_value_get_minus_one(_environment._mask_size, 1),
+                        make_locus("", 0, 0));
+            _environment._mask_list.push_back(all_one_mask);
+
             VectorizerVisitorExpression visitor_mask(_environment);
             visitor_mask.walk(mask_value);
+
+            _environment._mask_list.pop_back();
            
             Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                     comp_statement.retrieve_context(),
                     _environment._mask_size);
 
-            // Compute mask expression
+            // Compute epilog mask expression
             Nodecl::ExpressionStatement mask_exp =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 

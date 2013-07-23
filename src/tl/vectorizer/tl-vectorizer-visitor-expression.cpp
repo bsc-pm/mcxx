@@ -102,7 +102,9 @@ namespace TL
             walk(n.get_lhs());
             walk(n.get_rhs());
 
-            if(Utils::is_all_one_mask(_environment._mask_list.back()))
+            Nodecl::NodeclBase mask = _environment._mask_list.back();
+
+            if(Utils::is_all_one_mask(mask))
             {
                 const Nodecl::VectorMul vector_mul =
                     Nodecl::VectorMul::make(
@@ -119,7 +121,7 @@ namespace TL
                     Nodecl::VectorMulMask::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
-                            _environment._mask_list.back().shallow_copy(),
+                            mask.shallow_copy(),
                             get_qualified_vector_to(n.get_type(), _environment._vector_length),
                             n.get_locus());
 
@@ -478,6 +480,8 @@ namespace TL
         void VectorizerVisitorExpression::visit(const Nodecl::Assignment& n)
         {
             Nodecl::NodeclBase lhs = n.get_lhs();
+            Nodecl::NodeclBase mask = _environment._mask_list.back();
+
             walk(n.get_rhs());
 
             // Computing new vector type
@@ -509,7 +513,7 @@ namespace TL
                         printf("VECTORIZER: Store access '%s' is ALIGNED\n",
                                 lhs.prettyprint().c_str());
 
-                        if(Utils::is_all_one_mask(_environment._mask_list.back()))
+                        if(Utils::is_all_one_mask(mask))
                         {
                             const Nodecl::VectorStore vector_store =
                                 Nodecl::VectorStore::make(
@@ -538,7 +542,7 @@ namespace TL
                                             basic_type.get_pointer_to(),
                                             n.get_locus()),
                                         n.get_rhs().shallow_copy(),
-                                        _environment._mask_list.back().shallow_copy(),
+                                        mask.shallow_copy(),
                                         vector_type,
                                         n.get_locus());
 
@@ -550,7 +554,7 @@ namespace TL
                         printf("VECTORIZER: Store access '%s' is UNALIGNED\n",
                                 lhs.prettyprint().c_str());
 
-                        if(Utils::is_all_one_mask(_environment._mask_list.back()))
+                        if(Utils::is_all_one_mask(mask))
                         {
                             const Nodecl::UnalignedVectorStore vector_store =
                                 Nodecl::UnalignedVectorStore::make(
@@ -579,7 +583,7 @@ namespace TL
                                             basic_type.get_pointer_to(),
                                             n.get_locus()),
                                         n.get_rhs().shallow_copy(),
-                                        _environment._mask_list.back().shallow_copy(),
+                                        mask.shallow_copy(),
                                         vector_type,
                                         n.get_locus());
 
@@ -602,7 +606,7 @@ namespace TL
                     Nodecl::NodeclBase strides = *subscripts.begin();
                     walk(strides);
 
-                    if(Utils::is_all_one_mask(_environment._mask_list.back()))
+                    if(Utils::is_all_one_mask(mask))
                     {
                         const Nodecl::VectorScatter vector_scatter =
                             Nodecl::VectorScatter::make(
@@ -621,7 +625,7 @@ namespace TL
                                     base.shallow_copy(),
                                     strides,
                                     n.get_rhs().shallow_copy(),
-                                    _environment._mask_list.back().shallow_copy(),
+                                    mask.shallow_copy(),
                                     vector_type,
                                     n.get_locus());
 
@@ -633,7 +637,7 @@ namespace TL
             {
                 walk(lhs);
 
-                if(Utils::is_all_one_mask(_environment._mask_list.back()))
+                if(Utils::is_all_one_mask(mask))
                 {
                     const Nodecl::VectorAssignment vector_assignment =
                         Nodecl::VectorAssignment::make(
@@ -650,7 +654,7 @@ namespace TL
                         Nodecl::VectorAssignmentMask::make(
                                 lhs.shallow_copy(),
                                 n.get_rhs().shallow_copy(),
-                                _environment._mask_list.back().shallow_copy(),
+                                mask.shallow_copy(),
                                 vector_type,
                                 n.get_locus());
 
