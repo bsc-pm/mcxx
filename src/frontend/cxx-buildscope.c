@@ -4666,6 +4666,49 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
     {
         if (!entry->entity_specs.is_user_declared)
         {
+            /*
+             * We check for non user declared because of explicit
+             * specializations cannot have a template header (they are somehow
+             * already specialized, nothing is left for specialization)
+             *
+             * a)
+             *
+             * template <typename T>
+             * struct A
+             * {
+             *   template <typename Q>
+             *   void f(T, Q);
+             * };
+             *
+             * template <>
+             * template <>
+             * void A<int>::f(int, float)
+             * {
+             * }
+             *
+             * b)
+             *
+             * template <typename T>
+             * struct A
+             * {
+             *   template <typename Q>
+             *   void f(T, Q);
+             * };
+             *
+             * template <>
+             * struct A<int>
+             * {
+             *   template <typename Q>
+             *   void f(int, Q);
+             * };
+             *
+             * template <>
+             * void A<int>::f(int, float)
+             * {
+             * }
+             *
+             */
+
             if (template_parameters == NULL ||
                     (!template_parameters->is_explicit_specialization &&
                         template_parameters->num_parameters == 0))
