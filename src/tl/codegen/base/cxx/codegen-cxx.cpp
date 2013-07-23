@@ -5602,6 +5602,22 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string function_name = unmangle_symbol_name(symbol);
+        if  (!symbol.is_member())
+        {
+            function_name = unmangle_symbol_name(symbol);
+        }
+        else
+        {
+            if (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
+            {
+                function_name = unmangle_symbol_name(symbol);
+            }
+            else
+            {
+                function_name = symbol.get_class_qualification(symbol.get_scope(), /* without_template */ true);
+            }
+        }
 
         if (symbol.get_type().is_template_specialized_type()
                 // Conversions do not allow templates
