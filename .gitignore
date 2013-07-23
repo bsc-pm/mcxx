@@ -132,9 +132,10 @@ tests/config/mercurium-nanox
 tests/config/mercurium-omp
 tests/config/mercurium-ompss
 tests/config/mercurium-parallel-simd
+tests/config/mercurium-parallel-simd-mic
 tests/config/mercurium-run
 tests/config/mercurium-serial-simd
-tests/config/mercurium-serial-simd-svml
+tests/config/mercurium-serial-simd-mic
 tests/test.log
 tests/test.log.xml
 test.log
