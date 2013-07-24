@@ -11,7 +11,7 @@ SUBROUTINE S_I_4
        Y = 7
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= 32) CALL ABORT()
+       IF (X /= 32) STOP 1
     ! ---
 
     ! ---
@@ -19,7 +19,7 @@ SUBROUTINE S_I_4
        Y = 7
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= 18) CALL ABORT()
+       IF (X /= 18) STOP 2
     ! ---
 
     ! ---
@@ -27,7 +27,7 @@ SUBROUTINE S_I_4
        Y = 7
        !$OMP ATOMIC
        X = X * Y
-       IF (X /= 175) CALL ABORT()
+       IF (X /= 175) STOP 3
     ! ---
 
     ! ---
@@ -35,7 +35,7 @@ SUBROUTINE S_I_4
        Y = 7
        !$OMP ATOMIC
        X = X / Y
-       IF (X /= 3) CALL ABORT()
+       IF (X /= 3) STOP 4
     ! ---
 
     ! ---
@@ -43,7 +43,7 @@ SUBROUTINE S_I_4
        Y = B"110010"
        !$OMP ATOMIC
        X = IAND(X, Y)
-       IF (X /= B"100010") CALL ABORT()
+       IF (X /= B"100010") STOP 5
     ! ---
 
     ! ---
@@ -51,7 +51,7 @@ SUBROUTINE S_I_4
        Y = B"110010"
        !$OMP ATOMIC
        X = IOR(X, Y)
-       IF (X /= B"111011") CALL ABORT()
+       IF (X /= B"111011") STOP 6
     ! ---
 
     ! ---
@@ -59,7 +59,7 @@ SUBROUTINE S_I_4
        Y = B"110010"
        !$OMP ATOMIC
        X = IEOR(X, Y)
-       IF (X /= B"011001") CALL ABORT()
+       IF (X /= B"011001") STOP 7
     ! ---
 
     ! ---
@@ -67,7 +67,7 @@ SUBROUTINE S_I_4
        Y = 7
        !$OMP ATOMIC
        X = MAX(X, Y)
-       IF (X /= 25) CALL ABORT()
+       IF (X /= 25) STOP 8
     ! ---
 
     ! ---
@@ -75,7 +75,7 @@ SUBROUTINE S_I_4
        Y = 7
        !$OMP ATOMIC
        X = MIN(X, Y)
-       IF (X /= 7) CALL ABORT()
+       IF (X /= 7) STOP 9
     ! ---
 END
 
@@ -89,7 +89,7 @@ SUBROUTINE S_I_2
        Y = 7
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= 32) CALL ABORT()
+       IF (X /= 32) STOP 10
     ! ---
 
     ! ---
@@ -97,7 +97,7 @@ SUBROUTINE S_I_2
        Y = 7
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= 18) CALL ABORT()
+       IF (X /= 18) STOP 11
     ! ---
 
     ! ---
@@ -105,7 +105,7 @@ SUBROUTINE S_I_2
        Y = 7
        !$OMP ATOMIC
        X = X * Y
-       IF (X /= 175) CALL ABORT()
+       IF (X /= 175) STOP 12
     ! ---
 
     ! ---
@@ -113,7 +113,7 @@ SUBROUTINE S_I_2
        Y = 7
        !$OMP ATOMIC
        X = X / Y
-       IF (X /= 3) CALL ABORT()
+       IF (X /= 3) STOP 13
     ! ---
 
     ! ---
@@ -121,7 +121,7 @@ SUBROUTINE S_I_2
        Y = B"110010"
        !$OMP ATOMIC
        X = IAND(X, Y)
-       IF (X /= B"100010") CALL ABORT()
+       IF (X /= B"100010") STOP 14
     ! ---
 
     ! ---
@@ -129,7 +129,7 @@ SUBROUTINE S_I_2
        Y = B"110010"
        !$OMP ATOMIC
        X = IOR(X, Y)
-       IF (X /= B"111011") CALL ABORT()
+       IF (X /= B"111011") STOP 15
     ! ---
 
     ! ---
@@ -137,7 +137,7 @@ SUBROUTINE S_I_2
        Y = B"110010"
        !$OMP ATOMIC
        X = IEOR(X, Y)
-       IF (X /= B"011001") CALL ABORT()
+       IF (X /= B"011001") STOP 16
     ! ---
 
     ! ---
@@ -145,7 +145,7 @@ SUBROUTINE S_I_2
        Y = 7
        !$OMP ATOMIC
        X = MAX(X, Y)
-       IF (X /= 25) CALL ABORT()
+       IF (X /= 25) STOP 17
     ! ---
 
     ! ---
@@ -153,7 +153,7 @@ SUBROUTINE S_I_2
        Y = 7
        !$OMP ATOMIC
        X = MIN(X, Y)
-       IF (X /= 7) CALL ABORT()
+       IF (X /= 7) STOP 18
     ! ---
 END
 
@@ -167,7 +167,7 @@ SUBROUTINE S_I_1
        Y = 7
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= 32) CALL ABORT()
+       IF (X /= 32) STOP 19
     ! ---
 
     ! ---
@@ -175,7 +175,7 @@ SUBROUTINE S_I_1
        Y = 7
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= 18) CALL ABORT()
+       IF (X /= 18) STOP 20
     ! ---
 
     ! ---
@@ -183,7 +183,7 @@ SUBROUTINE S_I_1
        Y = 5
        !$OMP ATOMIC
        X = X * Y
-       IF (X /= 110) CALL ABORT()
+       IF (X /= 110) STOP 21
     ! ---
 
     ! ---
@@ -191,7 +191,7 @@ SUBROUTINE S_I_1
        Y = 7
        !$OMP ATOMIC
        X = X / Y
-       IF (X /= 3) CALL ABORT()
+       IF (X /= 3) STOP 22
     ! ---
 
     ! ---
@@ -199,7 +199,7 @@ SUBROUTINE S_I_1
        Y = B"110010"
        !$OMP ATOMIC
        X = IAND(X, Y)
-       IF (X /= B"100010") CALL ABORT()
+       IF (X /= B"100010") STOP 23
     ! ---
 
     ! ---
@@ -207,7 +207,7 @@ SUBROUTINE S_I_1
        Y = B"110010"
        !$OMP ATOMIC
        X = IOR(X, Y)
-       IF (X /= B"111011") CALL ABORT()
+       IF (X /= B"111011") STOP 24
     ! ---
 
     ! ---
@@ -215,7 +215,7 @@ SUBROUTINE S_I_1
        Y = B"110010"
        !$OMP ATOMIC
        X = IEOR(X, Y)
-       IF (X /= B"011001") CALL ABORT()
+       IF (X /= B"011001") STOP 25
     ! ---
 
     ! ---
@@ -223,7 +223,7 @@ SUBROUTINE S_I_1
        Y = 7
        !$OMP ATOMIC
        X = MAX(X, Y)
-       IF (X /= 25) CALL ABORT()
+       IF (X /= 25) STOP 26
     ! ---
 
     ! ---
@@ -231,7 +231,7 @@ SUBROUTINE S_I_1
        Y = 7
        !$OMP ATOMIC
        X = MIN(X, Y)
-       IF (X /= 7) CALL ABORT()
+       IF (X /= 7) STOP 27
     ! ---
 END
 
@@ -245,7 +245,7 @@ SUBROUTINE S_I_8
        Y = 7
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= 32) CALL ABORT()
+       IF (X /= 32) STOP 28
     ! ---
 
     ! ---
@@ -253,7 +253,7 @@ SUBROUTINE S_I_8
        Y = 7
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= 18) CALL ABORT()
+       IF (X /= 18) STOP 29
     ! ---
 
     ! ---
@@ -261,7 +261,7 @@ SUBROUTINE S_I_8
        Y = 7
        !$OMP ATOMIC
        X = X * Y
-       IF (X /= 175) CALL ABORT()
+       IF (X /= 175) STOP 30
     ! ---
 
     ! ---
@@ -269,7 +269,7 @@ SUBROUTINE S_I_8
        Y = 7
        !$OMP ATOMIC
        X = X / Y
-       IF (X /= 3) CALL ABORT()
+       IF (X /= 3) STOP 31
     ! ---
 
     ! ---
@@ -277,7 +277,7 @@ SUBROUTINE S_I_8
        Y = B"110010"
        !$OMP ATOMIC
        X = IAND(X, Y)
-       IF (X /= B"100010") CALL ABORT()
+       IF (X /= B"100010") STOP 32
     ! ---
 
     ! ---
@@ -285,7 +285,7 @@ SUBROUTINE S_I_8
        Y = B"110010"
        !$OMP ATOMIC
        X = IOR(X, Y)
-       IF (X /= B"111011") CALL ABORT()
+       IF (X /= B"111011") STOP 33
     ! ---
 
     ! ---
@@ -293,7 +293,7 @@ SUBROUTINE S_I_8
        Y = B"110010"
        !$OMP ATOMIC
        X = IEOR(X, Y)
-       IF (X /= B"011001") CALL ABORT()
+       IF (X /= B"011001") STOP 34
     ! ---
 
     ! ---
@@ -301,7 +301,7 @@ SUBROUTINE S_I_8
        Y = 7
        !$OMP ATOMIC
        X = MAX(X, Y)
-       IF (X /= 25) CALL ABORT()
+       IF (X /= 25) STOP 35
     ! ---
 
     ! ---
@@ -309,7 +309,7 @@ SUBROUTINE S_I_8
        Y = 7
        !$OMP ATOMIC
        X = MIN(X, Y)
-       IF (X /= 7) CALL ABORT()
+       IF (X /= 7) STOP 36
     ! ---
 END
 
@@ -323,7 +323,7 @@ SUBROUTINE S_R_4
        Y = 7
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= 32) CALL ABORT()
+       IF (X /= 32) STOP 37
     ! ---
 
     ! ---
@@ -331,7 +331,7 @@ SUBROUTINE S_R_4
        Y = 7
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= 18) CALL ABORT()
+       IF (X /= 18) STOP 38
     ! ---
 
     ! ---
@@ -339,7 +339,7 @@ SUBROUTINE S_R_4
        Y = 7
        !$OMP ATOMIC
        X = X * Y
-       IF (X /= 175) CALL ABORT()
+       IF (X /= 175) STOP 39
     ! ---
 
     ! ---
@@ -347,7 +347,7 @@ SUBROUTINE S_R_4
        Y = 4
        !$OMP ATOMIC
        X = X / Y
-       IF (ABS(X - 6.25) > 1e-6) CALL ABORT()
+       IF (ABS(X - 6.25) > 1e-6) STOP 40
     ! ---
 
     ! ---
@@ -355,7 +355,7 @@ SUBROUTINE S_R_4
        Y = 7
        !$OMP ATOMIC
        X = MAX(X, Y)
-       IF (X /= 25) CALL ABORT()
+       IF (X /= 25) STOP 41
     ! ---
 
     ! ---
@@ -363,7 +363,7 @@ SUBROUTINE S_R_4
        Y = 7
        !$OMP ATOMIC
        X = MIN(X, Y)
-       IF (X /= 7) CALL ABORT()
+       IF (X /= 7) STOP 42
     ! ---
 END
 
@@ -377,7 +377,7 @@ SUBROUTINE S_R_8
        Y = 7
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= 32) CALL ABORT()
+       IF (X /= 32) STOP 43
     ! ---
 
     ! ---
@@ -385,7 +385,7 @@ SUBROUTINE S_R_8
        Y = 7
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= 18) CALL ABORT()
+       IF (X /= 18) STOP 44
     ! ---
 
     ! ---
@@ -393,7 +393,7 @@ SUBROUTINE S_R_8
        Y = 7
        !$OMP ATOMIC
        X = X * Y
-       IF (X /= 175) CALL ABORT()
+       IF (X /= 175) STOP 45
     ! ---
 
     ! ---
@@ -401,7 +401,7 @@ SUBROUTINE S_R_8
        Y = 4
        !$OMP ATOMIC
        X = X / Y
-       IF (ABS(X - 6.25) > 1e-6) CALL ABORT()
+       IF (ABS(X - 6.25) > 1e-6) STOP 46
     ! ---
 
     ! ---
@@ -409,7 +409,7 @@ SUBROUTINE S_R_8
        Y = 7
        !$OMP ATOMIC
        X = MAX(X, Y)
-       IF (X /= 25) CALL ABORT()
+       IF (X /= 25) STOP 47
     ! ---
 
     ! ---
@@ -417,7 +417,7 @@ SUBROUTINE S_R_8
        Y = 7
        !$OMP ATOMIC
        X = MIN(X, Y)
-       IF (X /= 7) CALL ABORT()
+       IF (X /= 7) STOP 48
     ! ---
 END
 
@@ -431,7 +431,7 @@ SUBROUTINE S_C_4
        Y = (7, 3)
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= (32, 4)) CALL ABORT()
+       IF (X /= (32, 4)) STOP 49
     ! ---
 
     ! ---
@@ -439,7 +439,7 @@ SUBROUTINE S_C_4
        Y = (7, 2)
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= (18, 3)) CALL ABORT()
+       IF (X /= (18, 3)) STOP 50
     ! ---
 
     ! ---
@@ -447,7 +447,8 @@ SUBROUTINE S_C_4
        Y = (7, 4)
        !$OMP ATOMIC
        X = X * Y
-       IF (ABS(ABS(X) - ABS((114.0_4, 167.0_4))) > 1e-9) CALL ABORT()
+      
+       IF (ABS(ABS(X) - ABS((114.0_4, 167.0_4))) > 1e-5) STOP 51
     ! ---
 
     ! ---
@@ -455,7 +456,7 @@ SUBROUTINE S_C_4
        Y = (1,1)
        !$OMP ATOMIC
        X = X / Y
-       IF (ABS(ABS(X) - 2.0_4) > 1e-9) CALL ABORT()
+       IF (ABS(ABS(X) - 2.0_4) > 1e-9) STOP 52
     ! ---
 END
 
@@ -469,7 +470,7 @@ SUBROUTINE S_C_8
        Y = (7, 3)
        !$OMP ATOMIC
        X = X + Y
-       IF (X /= (32, 4)) CALL ABORT()
+       IF (X /= (32, 4)) STOP 53
     ! ---
 
     ! ---
@@ -477,7 +478,7 @@ SUBROUTINE S_C_8
        Y = (7, 2)
        !$OMP ATOMIC
        X = X - Y
-       IF (X /= (18, 3)) CALL ABORT()
+       IF (X /= (18, 3)) STOP 54
     ! ---
 
     ! ---
@@ -485,7 +486,7 @@ SUBROUTINE S_C_8
        Y = (7, 4)
        !$OMP ATOMIC
        X = X * Y
-       IF (ABS(ABS(X) - ABS((114.0_8, 167.0_8))) > 1e-9) CALL ABORT()
+       IF (ABS(ABS(X) - ABS((114.0_8, 167.0_8))) > 1e-9) STOP 55
     ! ---
 
     ! ---
@@ -493,7 +494,7 @@ SUBROUTINE S_C_8
        Y = (1,1)
        !$OMP ATOMIC
        X = X / Y
-       IF (ABS(ABS(X) - 2.0_8) > 1e-9) CALL ABORT()
+       IF (ABS(ABS(X) - 2.0_8) > 1e-9) STOP 56
     ! ---
 END
 

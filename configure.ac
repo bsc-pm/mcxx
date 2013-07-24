@@ -487,7 +487,7 @@ AC_SUBST([CUDA_RPATH])
 if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
-   COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else

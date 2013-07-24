@@ -11,6 +11,7 @@ linker_options = -lnanox-gpu-api
 codegen_phase = libcodegen-cuda.so
 target_options[sscc] = no_sublink embed:bfd
 target_options[sscxx] = no_sublink embed:bfd
+target_options[mnvfc] = no_sublink embed:bfd
 target_options[mnvcc] = no_sublink embed:bfd
 target_options[mnvcxx] = no_sublink embed:bfd
 target_options[mcc] = no_sublink embed:bfd
