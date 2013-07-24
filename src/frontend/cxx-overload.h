@@ -36,10 +36,12 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN candidate_t* add_to_candidate_set(candidate_t* candidate_set,
+LIBMCXX_EXTERN candidate_t* candidate_set_add(candidate_t* candidate_set,
         scope_entry_t* entry,
         int num_args,
         type_t** args);
+
+LIBMCXX_EXTERN void candidate_set_free(candidate_t** candidate_set);
 
 LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,

@@ -2245,7 +2245,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2263,6 +2263,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        candidate_set_free(&candidate_set);
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
             return get_error_type();
@@ -2407,6 +2408,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     /* implicit_argument */ NULL,
                     locus);
         }
+        candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
     return overloaded_type;
@@ -2444,7 +2446,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             // operator has zero parameters, so discard templates at this point
             if (entry->kind != SK_TEMPLATE)
             {
-                candidate_set = add_to_candidate_set(candidate_set,
+                candidate_set = candidate_set_add(candidate_set,
                         orig_entry,
                         num_arguments,
                         argument_types);
@@ -2479,7 +2481,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2497,6 +2499,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        candidate_set_free(&candidate_set);
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
             return get_error_type();
@@ -2577,6 +2580,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                     /* implicit_argument */ NULL,
                     locus);
         }
+        candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
     return overloaded_type;
@@ -3151,30 +3155,32 @@ void compute_bin_operator_mod_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
 {
     // <arithmetic> - <arithmetic>
-    return ((is_arithmetic_type(lhs)
-                && is_arithmetic_type(rhs))
+    return ((is_arithmetic_type(no_ref(lhs))
+                && is_arithmetic_type(no_ref(rhs)))
             // T* - <arithmetic>
-            || ((is_pointer_type(lhs) || is_array_type(lhs))
-                && is_arithmetic_type(rhs)));
+            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(lhs)))
+                && is_arithmetic_type(no_ref(rhs))));
 }
 
 static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
 {
-    if (is_arithmetic_type(*lhs)
-        && is_arithmetic_type(*rhs))
+    if (is_arithmetic_type(no_ref(*lhs))
+        && is_arithmetic_type(no_ref(*rhs)))
     {
-        if (is_promoteable_integral_type(*lhs))
-            *lhs = promote_integral_type(*lhs);
+        if (is_promoteable_integral_type(no_ref(*lhs)))
+            *lhs = promote_integral_type(no_ref(*lhs));
 
-        if (is_promoteable_integral_type(*rhs))
-            *rhs = promote_integral_type(*rhs);
+        if (is_promoteable_integral_type(no_ref(*rhs)))
+            *rhs = promote_integral_type(no_ref(*rhs));
 
-        return usual_arithmetic_conversions(*lhs, *rhs);
+        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
     }
-    else if(((is_pointer_type(*lhs) || is_array_type(*rhs))
-                && is_arithmetic_type(*rhs)))
+    else if (((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*rhs)))
+                && is_arithmetic_type(no_ref(*rhs))))
     {
         type_t** pointer_type = lhs;
+
+        *pointer_type = no_ref(*pointer_type);
 
         if (is_array_type(*pointer_type))
         {
@@ -6163,25 +6169,6 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     }
 }
 
-
-static char check_builtin_subscript_type(nodecl_t subscript,
-        type_t* subscript_type,
-        decl_context_t decl_context)
-{
-    if (!is_integral_type(no_ref(subscript_type)) &&
-            !is_enum_type(no_ref(subscript_type)))
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid type '%s' for subscript\n",
-                    locus_to_str(nodecl_get_locus(subscript)),
-                    print_type_str(no_ref(subscript_type), decl_context));
-        }
-        return false;
-    }
-    return true;
-}
-
 static void check_nodecl_array_subscript_expression(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
@@ -6230,17 +6217,85 @@ static void check_nodecl_array_subscript_expression(
     if (is_array_type(no_ref(subscripted_type))
             || is_pointer_type(no_ref(subscripted_type)))
     {
-        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+        if (IS_C_LANGUAGE)
         {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
+            if (!is_integral_type(no_ref(subscript_type)) &&
+                    !is_enum_type(no_ref(subscript_type)))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                            locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                            codegen_to_str(nodecl_subscript, decl_context),
+                            print_type_str(no_ref(subscript_type), decl_context),
+                            print_type_str(get_ptrdiff_t_type(), decl_context));
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+            else
+            {
+                // convert int -> ptrdiff_t
+                unary_record_conversion_to_result(
+                        get_ptrdiff_t_type(),
+                        &nodecl_subscript);
+            }
         }
+        else if (IS_CXX_LANGUAGE)
+        {
+            // Try to see if there is an ICS for this type -> ptrdiff_t
+            scope_entry_t* conversor = NULL;
+            char ambiguous_conversion = 0;
+            if (type_can_be_implicitly_converted_to(subscript_type, get_ptrdiff_t_type(), decl_context,
+                    &ambiguous_conversion, &conversor, locus)
+                    && !ambiguous_conversion)
+            {
+                if (conversor == NULL)
+                {
+                    unary_record_conversion_to_result(
+                            no_ref(nodecl_get_type(nodecl_subscript)),
+                            &nodecl_subscript);
+                }
+                else
+                {
+                    if (function_has_been_deleted(decl_context, conversor, locus))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(locus);
+                        return;
+                    }
 
-        // lvalue-to-rvalue of the subscript
-        unary_record_conversion_to_result(
-                no_ref(nodecl_get_type(nodecl_subscript)),
-                &nodecl_subscript);
+                    nodecl_subscript = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversor, locus),
+                            /* called_name */ nodecl_null(),
+                            nodecl_make_list_1(nodecl_subscript),
+                            nodecl_make_cxx_function_form_implicit(
+                                locus),
+                            actual_type_of_conversor(conversor),
+                            locus);
 
+                    unary_record_conversion_to_result(
+                            get_ptrdiff_t_type(),
+                            &nodecl_subscript);
+                }
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                                locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                                codegen_to_str(nodecl_subscript, decl_context),
+                                print_type_str(no_ref(subscript_type), decl_context),
+                                print_type_str(get_ptrdiff_t_type(), decl_context)
+                                );
+                    }
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+        }
     }
 
     if (is_array_type(no_ref(subscripted_type)))
@@ -6339,7 +6394,7 @@ static void check_nodecl_array_subscript_expression(
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry_list_iterator_current(it),
                     num_arguments,
                     argument_types);
@@ -6363,9 +6418,11 @@ static void check_nodecl_array_subscript_expression(
                         /* implicit_argument_type */ subscripted_type,
                         locus);
             }
+            candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+        candidate_set_free(&candidate_set);
 
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
@@ -6555,8 +6612,8 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         else if (is_class_type(no_ref(from_t1))
                 || is_class_type(no_ref(to_t2)))
         {
-            return type_can_be_implicitly_converted_to(from_t1, 
-                    to_t2, 
+            return type_can_be_implicitly_converted_to(from_t1,
+                    to_t2,
                     decl_context,
                     is_ambiguous_conversion, /* conversor */ NULL,
                     locus);
@@ -6949,7 +7006,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                     !entry_list_iterator_end(it);
                     entry_list_iterator_next(it))
             {
-                candidate_set = add_to_candidate_set(candidate_set,
+                candidate_set = candidate_set_add(candidate_set,
                         entry_list_iterator_current(it),
                         num_arguments,
                         argument_types);
@@ -6973,9 +7030,11 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                             /* implicit argument */ NULL,
                             locus);
                 }
+                candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
+            candidate_set_free(&candidate_set);
 
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
@@ -7403,14 +7462,14 @@ static void check_new_expression_impl(
         scope_entry_t* entry = entry_advance_aliases(orig_entry);
         if (entry->entity_specs.is_member)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments,
                     arguments);
         }
         else
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments - 1,
                     arguments + 1);
@@ -7421,6 +7480,7 @@ static void check_new_expression_impl(
     scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
             decl_context, locus,
             conversors);
+    candidate_set_free(&candidate_set);
 
     if (chosen_operator_new == NULL)
     {
@@ -9224,14 +9284,14 @@ static void check_nodecl_function_call_cxx(
         if (entry->entity_specs.is_member 
                 || entry->entity_specs.is_surrogate_function)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments,
                     argument_types);
         }
         else
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments - 1,
                     argument_types + 1);
@@ -9258,9 +9318,11 @@ static void check_nodecl_function_call_cxx(
                     /* implicit_argument */ argument_types[0],
                     locus);
         }
+        candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
+    candidate_set_free(&candidate_set);
 
     type_t* function_type_of_called = NULL;
 
@@ -10064,7 +10126,7 @@ static void check_nodecl_member_access(
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry,
                     /* num_arguments */ 1,
                     argument_types);
@@ -10090,9 +10152,11 @@ static void check_nodecl_member_access(
                         /* implicit_argument */ argument_types[0],
                         nodecl_get_locus(nodecl_accessed));
             }
+            candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+        candidate_set_free(&candidate_set);
 
         if (function_has_been_deleted(decl_context, selected_operator_arrow, 
                     nodecl_get_locus(nodecl_accessed)))
@@ -10425,7 +10489,7 @@ static void check_postoperator_user_defined(
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -10450,8 +10514,10 @@ static void check_postoperator_user_defined(
         }
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
+        candidate_set_free(&candidate_set);
         return;
     }
+    candidate_set_free(&candidate_set);
 
     if (function_has_been_deleted(decl_context, overloaded_call, 
                 nodecl_get_locus(postoperated_expr)))
@@ -10572,7 +10638,7 @@ static void check_preoperator_user_defined(AST operator,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -10594,9 +10660,11 @@ static void check_preoperator_user_defined(AST operator,
                     /* implicit_argument */ NULL,
                     nodecl_get_locus(preoperated_expr));
         }
+        candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
         return;
     }
+    candidate_set_free(&candidate_set);
 
     if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_locus(preoperated_expr)))
     {
@@ -13028,11 +13096,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
     if (!is_class_type(declared_type_no_cv))
     {
-        if (!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, 
-                    decl_context,
-                    &ambiguous_conversion, &conversor, 
-                    nodecl_get_locus(nodecl_expr))
-                && !(is_array_type(declared_type_no_cv)
+        if ((!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv,
+                        decl_context,
+                        &ambiguous_conversion, &conversor,
+                        nodecl_get_locus(nodecl_expr))
+                    || ambiguous_conversion)
+                & !(is_array_type(declared_type_no_cv)
                     && is_character_type(array_type_get_element_type(declared_type_no_cv))
                     && is_array_type(no_ref(initializer_expr_type))
                     && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
@@ -15017,7 +15086,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry_list_iterator_current(it),
                     num_arguments,
                     arguments);
@@ -15044,10 +15113,12 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                         locus);
                 entry_list_free(operator_overload_set);
             }
+            candidate_set_free(&candidate_set);
             return 0;
         }
         else
         {
+            candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
             if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
             {
@@ -15752,7 +15823,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         result = nodecl_make_symbol(nodecl_get_symbol(node), nodecl_get_locus(node));
         nodecl_set_type(result, nodecl_get_type(node));
-        nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+        if (nodecl_expr_is_value_dependent(node))
+            nodecl_expr_set_is_value_dependent(result, 1);
+        else
+            nodecl_set_constant(result, nodecl_get_constant(node));
     }
 
     v->nodecl_result = result;

@@ -299,8 +299,11 @@ namespace TL { namespace Nanox {
 
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
-                << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+                << "{"
+                << "nanos_err_t err;"
+                << "err = nanos_omp_set_implicit(nanos_current_wd());"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
                 << outline_distribute_loop_source
                 ;
 
