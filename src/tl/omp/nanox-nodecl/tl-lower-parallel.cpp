@@ -55,19 +55,10 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase environment = construct.get_environment();
         Nodecl::NodeclBase statements = construct.get_statements();
 
-        if (_lowering->in_ompss_mode())
-        {
-                warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
-                        locus_to_str(construct.get_locus()));
-        }
+        ERROR_CONDITION (_lowering->in_ompss_mode(),
+                "A parallel reached Nanos++ lowering but we are in OmpSs mode", 0);
 
         walk(statements);
-
-        if (_lowering->in_ompss_mode())
-        {
-            construct.replace(statements);
-            return;
-        }
 
         // Get the new statements
         statements = construct.get_statements();

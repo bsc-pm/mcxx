@@ -61,9 +61,7 @@ namespace TL { namespace Nanox {
             << final_barrier
             ;
 
-        if (!environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null()
-                // See #1577
-                || _lowering->in_ompss_mode())
+        if (!environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
             final_barrier
             << full_barrier_source();
