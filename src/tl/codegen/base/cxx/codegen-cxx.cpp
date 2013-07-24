@@ -1044,7 +1044,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
 
     if (IS_CXX_LANGUAGE)
     {
-        file << " /* ";
+        file << start_inline_comment();
     }
 
     file << ".";
@@ -1058,7 +1058,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
 
     if (IS_CXX_LANGUAGE)
     {
-        file << " */ ";
+        file << end_inline_comment();
     }
 
     walk(next);
@@ -1275,7 +1275,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
             // Default arguments are printed in a comment
             if (!default_arguments)
             {
-                file << "/* ";
+                file << start_inline_comment();
                 default_arguments = true;
             }
 
@@ -1387,7 +1387,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
 
     // Close the comment if needed
     if (default_arguments)
-        file << " */";
+        file << end_inline_comment();
 }
 
 template <typename Node>
@@ -1442,7 +1442,11 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
             file << template_args_str;
 
             if (deduced_template_args_str != "")
-                file << " /*, " << deduced_template_args_str << " */ ";
+            {
+                file << start_inline_comment();
+                file << ", " << deduced_template_args_str << " ";
+                file << end_inline_comment();
+            }
 
             file << ">";
         }
@@ -1456,13 +1460,13 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
         {
             TL::TemplateParameters deduced_template_args =
                 called_symbol.get_type().template_specialized_type_get_template_arguments();
-            file << "/*";
+            file << start_inline_comment();
             file << ::template_arguments_to_str(
                     deduced_template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
                     called_symbol.get_scope().get_decl_context());
-            file << "*/";
+            file << end_inline_comment();
         }
     }
 }
@@ -2378,7 +2382,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
 
     if (IS_CXX_LANGUAGE)
     {
-        file << " /* ";
+        file << start_inline_comment();
     }
 
     file << "[";
@@ -2393,7 +2397,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     }
     if (IS_CXX_LANGUAGE)
     {
-        file << " */ ";
+        file << end_inline_comment();
     }
 
     walk(next);
@@ -2834,9 +2838,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     indent();
 
     // FIXME  parallel|for must be printed as parallel for
-    file << "/* decl: #pragma " << node.get_text() << " ";
+    file << start_inline_comment();
+    file << "decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
-    file << "' " << this->get_qualified_name(symbol) << "' */\n";
+    file << "' " << this->get_qualified_name(symbol) << "'";
+    file << end_inline_comment();
+    file << "\n";
     walk(nested_pragma);
 }
 
@@ -3623,7 +3630,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::UpcSyncStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::SourceComment& node)
 {
     indent();
-    file << "/* " << node.get_text() << " */\n";
+    file << start_inline_comment();
+    file << node.get_text();
+    file << end_inline_comment();
+    file << "\n";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PreprocessorLine& node)
@@ -6316,7 +6326,7 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, 
             if (!default_argument)
             {
                 default_argument = true;
-                file << "/* ";
+                file << start_inline_comment();
             }
             current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
         }
@@ -6336,7 +6346,7 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, 
     }
 
     if (default_argument)
-        file << " */";
+        file << end_inline_comment();
 }
 
 void CxxBase::walk_expression_list(const Nodecl::List& node)
@@ -7098,7 +7108,7 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 {
     indent();
-    file << "/* >>> " << ast_print_node_type(n.get_kind()) << " >>> */\n";
+    file << start_inline_comment() << ">>> " << ast_print_node_type(n.get_kind()) << " >>>" << end_inline_comment() << " \n";
 
     inc_indent();
 
@@ -7110,7 +7120,9 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
             it++, i++)
     {
         indent();
-        file << "/* Children " << i << " */\n";
+        file << start_inline_comment();
+        file << "Children " << i;
+        file << end_inline_comment() << "\n";
 
         walk(*it);
     }
@@ -7118,7 +7130,10 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     dec_indent();
 
     indent();
-    file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
+    file << start_inline_comment();
+    file << "<<< " << ast_print_node_type(n.get_kind()) << " <<<";
+    file << end_inline_comment();
+    file << "\n";
 }
 
 const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
@@ -7519,6 +7534,23 @@ void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)
 void CxxBase::set_prune_saved_variables(const std::string& str)
 {
     TL::parse_boolean_option("prune_saved_variables", str, _prune_saved_variables, "Assuming true.");
+}
+
+std::string CxxBase::start_inline_comment()
+{
+    if (state._inline_comment_nest++ == 0)
+        return " /* ";
+    else
+        return "";
+}
+
+std::string CxxBase::end_inline_comment()
+{
+    if (--state._inline_comment_nest == 0)
+        return " */ ";
+    else
+        return "";
+    ERROR_CONDITION(state._inline_comment_nest < 0, "Wrong nesting of comments", 0);
 }
 
 } // Codegen
