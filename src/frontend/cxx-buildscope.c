@@ -1646,7 +1646,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 entry->entity_specs.is_extern = 1;
             }
 
-            if (entry->kind == SK_VARIABLE)
+            if (entry->kind == SK_VARIABLE
+                    || entry->kind == SK_TYPEDEF)
             {
                 if (decl_context.current_scope->kind == BLOCK_SCOPE)
                 {
@@ -1665,8 +1666,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     current_gather_info.num_vla_dimension_symbols = 0;
                     xfree(current_gather_info.vla_dimension_symbols);
                     current_gather_info.vla_dimension_symbols = NULL;
-                }
 
+                }
+            }
+
+            if (entry->kind == SK_VARIABLE)
+            {
                 if (entry->defined
                         && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
                         && !current_gather_info.is_extern
@@ -1830,6 +1835,26 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                             ast_get_locus(init_declarator)))); 
                         }
             }
+
+            // For typedefs we will emit a nodecl_cxx_decl if they involve
+            // variably modified types
+            //
+            // (We could use an object init but we reserve those for real data
+            // entities)
+            if (entry->kind == SK_TYPEDEF
+                    && is_variably_modified_type(entry->type_information))
+            {
+                *nodecl_output = nodecl_concat_lists(
+                        *nodecl_output,
+                        nodecl_make_list_1(
+                            nodecl_make_cxx_decl(
+                                nodecl_make_context(nodecl_null(),
+                                    decl_context,
+                                    ast_get_locus(init_declarator)),
+                                entry,
+                                ast_get_locus(init_declarator))));
+            }
+
 
             // GCC weird stuff
             if (asm_specification != NULL)
