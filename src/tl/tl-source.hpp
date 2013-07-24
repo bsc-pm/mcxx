@@ -381,6 +381,16 @@ namespace TL
              */
             Nodecl::NodeclBase parse_id_expression(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
+
+            //! Parse type-id from C/C++
+            /*!
+             * Use this to parse C/C++ type-ids like int, int[10], int* or T
+             *
+             * If called from Fortran it will behave as if it were C.
+             * If some problem happens, the result will be an error type
+             */
+            TL::Type parse_c_type_id(ReferenceScope sc, ParseFlags flags = DEFAULT);
+
             //! Generic parser
             /*!
              * Use this one for custom created subparsers. Make sure you provide everything
