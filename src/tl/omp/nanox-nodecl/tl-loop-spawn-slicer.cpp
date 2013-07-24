@@ -50,9 +50,14 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase upper = range.get_upper();
         Nodecl::NodeclBase step = range.get_step();
 
-        Source struct_size;
-        Source dynamic_size;
-        Source struct_arg_type_name = structure_symbol.get_name();
+        Source struct_size, dynamic_size, struct_arg_type_name;
+
+        struct_arg_type_name
+            << ((structure_symbol.get_type().is_template_specialized_type()
+                        &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
+            << structure_symbol.get_qualified_name(enclosing_function.get_scope())
+            ;
+
         struct_size << "sizeof( " << struct_arg_type_name << " )" << dynamic_size;
 
         Source immediate_decl;
@@ -137,9 +142,13 @@ namespace TL { namespace Nanox {
         ;
 
 
-        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null()
+                // See ticket #1577
+                // #pragma omp parallel for will always have barrier in OmpSs
+                // because we ignore the parallel bit
+                || _lowering->in_ompss_mode())
         {
-            barrier_code 
+            barrier_code
                 << "err = nanos_wg_wait_completion(nanos_current_wd(), 0);"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
                 ;
@@ -152,6 +161,7 @@ namespace TL { namespace Nanox {
             // Parse in C
             Source::source_language = SourceLanguage::C;
         }
+
         Nodecl::NodeclBase spawn_code_tree = spawn_code.parse_statement(construct);
         FORTRAN_LANGUAGE()
         {

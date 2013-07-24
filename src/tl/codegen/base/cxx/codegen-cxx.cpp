@@ -1044,7 +1044,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
 
     if (IS_CXX_LANGUAGE)
     {
-        file << " /* ";
+        file << start_inline_comment();
     }
 
     file << ".";
@@ -1058,7 +1058,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FieldDesignator& node)
 
     if (IS_CXX_LANGUAGE)
     {
-        file << " */ ";
+        file << end_inline_comment();
     }
 
     walk(next);
@@ -1275,7 +1275,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
             // Default arguments are printed in a comment
             if (!default_arguments)
             {
-                file << "/* ";
+                file << start_inline_comment();
                 default_arguments = true;
             }
 
@@ -1387,7 +1387,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
 
     // Close the comment if needed
     if (default_arguments)
-        file << " */";
+        file << end_inline_comment();
 }
 
 template <typename Node>
@@ -1442,7 +1442,11 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
             file << template_args_str;
 
             if (deduced_template_args_str != "")
-                file << " /*, " << deduced_template_args_str << " */ ";
+            {
+                file << start_inline_comment();
+                file << ", " << deduced_template_args_str << " ";
+                file << end_inline_comment();
+            }
 
             file << ">";
         }
@@ -1456,13 +1460,13 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
         {
             TL::TemplateParameters deduced_template_args =
                 called_symbol.get_type().template_specialized_type_get_template_arguments();
-            file << "/*";
+            file << start_inline_comment();
             file << ::template_arguments_to_str(
                     deduced_template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
                     called_symbol.get_scope().get_decl_context());
-            file << "*/";
+            file << end_inline_comment();
         }
     }
 }
@@ -1847,7 +1851,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
 
-    if (!symbol.is_friend())
+    if (!symbol.get_class_type().is_valid()
+            || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
         if (symbol.is_member())
         {
@@ -1876,17 +1881,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
 
     std::string decl_spec_seq;
 
-    if (symbol.is_friend()
+    if (symbol.get_class_type().is_valid()
             // The function is friend of a class
+            && is_friend_of_class(symbol, symbol.get_class_type().get_symbol())
             && symbol.is_defined_inside_class()
             // The friend function is defined within this class
             && !state.classes_being_defined.empty()
             && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
-            // The friend function is defined in the current being defined class
+        // The friend function is defined in the current being defined class
     {
         decl_spec_seq += "friend ";
     }
@@ -2085,7 +2091,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     bool is_template_specialized = symbol_type.is_template_specialized_type();
 
-    if(!symbol.is_friend())
+    if (!symbol.get_class_type().is_valid()
+            || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
         if (symbol.is_member())
         {
@@ -2137,20 +2144,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
 
     std::string decl_spec_seq;
 
-    if (symbol.is_friend()
+    if (symbol.get_class_type().is_valid()
             // The function is friend of a class
+            && is_friend_of_class(symbol, symbol.get_class_type().get_symbol())
             && symbol.is_defined_inside_class()
             // The friend function is defined within this class
             && !state.classes_being_defined.empty()
             && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
-            // The friend function is defined in the current being defined class
-    {
-        decl_spec_seq += "friend ";
-    }
+        // The friend function is defined in the current being defined class
+     {
+         decl_spec_seq += "friend ";
+     }
 
     if (symbol.is_static()
             && (!symbol.is_member()
@@ -2374,7 +2382,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
 
     if (IS_CXX_LANGUAGE)
     {
-        file << " /* ";
+        file << start_inline_comment();
     }
 
     file << "[";
@@ -2389,7 +2397,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     }
     if (IS_CXX_LANGUAGE)
     {
-        file << " */ ";
+        file << end_inline_comment();
     }
 
     walk(next);
@@ -2830,9 +2838,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     indent();
 
     // FIXME  parallel|for must be printed as parallel for
-    file << "/* decl: #pragma " << node.get_text() << " ";
+    file << start_inline_comment();
+    file << "decl: #pragma " << node.get_text() << " ";
     walk(pragma_line);
-    file << "' " << this->get_qualified_name(symbol) << "' */\n";
+    file << "' " << this->get_qualified_name(symbol) << "'";
+    file << end_inline_comment();
+    file << "\n";
     walk(nested_pragma);
 }
 
@@ -3619,7 +3630,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::UpcSyncStatement& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::SourceComment& node)
 {
     indent();
-    file << "/* " << node.get_text() << " */\n";
+    file << start_inline_comment();
+    file << node.get_text();
+    file << end_inline_comment();
+    file << "\n";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::PreprocessorLine& node)
@@ -4361,8 +4375,6 @@ void CxxBase::define_class_symbol(TL::Symbol symbol,
 
 void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_symbol)
 {
-    ERROR_CONDITION(!friend_symbol.is_friend(), "This symbol must be a friend", 0);
-
     bool is_template_friend_declaration = false;
 
     if (friend_symbol.is_template())
@@ -5511,6 +5523,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         CXX_LANGUAGE()
         {
+            TL::TemplateParameters template_parameters =
+                (scope != NULL) ? scope->get_template_parameters() : symbol.get_scope().get_template_parameters();
             if (symbol.get_type().is_template_specialized_type())
             {
                 TL::Type template_type = symbol.get_type().get_related_template_type();
@@ -5518,25 +5532,36 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 TL::Symbol primary_symbol = primary_template.get_symbol();
                 (this->*decl_sym_fun)(primary_symbol);
 
-                if (primary_symbol != symbol)
+                if (primary_symbol == symbol)
                 {
-                    indent();
-                    file << "template <>\n";
+                    is_primary_template = 1;
+                }
+                if (symbol.is_member())
+                {
+                    codegen_template_headers_bounded(template_parameters,
+                            symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                            /* show_default_values */ is_primary_template);
                 }
                 else
                 {
-                    TL::TemplateParameters template_parameters = template_type.template_type_get_template_parameters();
-                    codegen_template_header(template_parameters,
-                            /*show default values*/ false);
-                    is_primary_template = 1;
+                    codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
                 }
+            }
+            else if (symbol.is_member())
+            {
+                // It may be a non-template function inside a template class
+                codegen_template_headers_bounded(template_parameters,
+                        symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                        /* show_default_values */ false);
             }
         }
 
         int num_parameters = symbol.get_related_symbols().size();
         TL::ObjectList<std::string> parameter_names(num_parameters);
         TL::ObjectList<std::string> parameter_attributes(num_parameters);
-        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes);
+        fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes,
+                !symbol.get_type().is_template_specialized_type() || is_primary_template);
+
 
         std::string decl_spec_seq;
 
@@ -5552,7 +5577,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             decl_spec_seq += "extern ";
         }
-        if (symbol.is_virtual())
+        if (symbol.is_virtual()
+                && !state.classes_being_defined.empty()
+                && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
         {
             decl_spec_seq += "virtual ";
         }
@@ -5569,7 +5596,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         if (symbol.is_explicit_constructor()
-                && symbol.is_defined_inside_class())
+                && !state.classes_being_defined.empty()
+                && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
         {
             decl_spec_seq += "explicit ";
         }
@@ -5600,6 +5628,22 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string function_name = unmangle_symbol_name(symbol);
+        if  (!symbol.is_member())
+        {
+            function_name = unmangle_symbol_name(symbol);
+        }
+        else
+        {
+            if (!state.classes_being_defined.empty()
+                    && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
+            {
+                function_name = unmangle_symbol_name(symbol);
+            }
+            else
+            {
+                function_name = symbol.get_class_qualification(symbol.get_scope(), /* without_template */ true);
+            }
+        }
 
         if (symbol.get_type().is_template_specialized_type()
                 // Conversions do not allow templates
@@ -5732,6 +5776,15 @@ bool CxxBase::is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &point
         pointer_type = pointer_type.references_to();
 
     return true;
+}
+
+bool CxxBase::is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym)
+{
+    ERROR_CONDITION(!class_sym.is_class(), "Invalid symbol", 0);
+
+    TL::ObjectList<TL::Symbol> friends = class_sym.get_type().class_get_friends();
+
+    return friends.contains(sym);
 }
 
 void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
@@ -6273,7 +6326,7 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, 
             if (!default_argument)
             {
                 default_argument = true;
-                file << "/* ";
+                file << start_inline_comment();
             }
             current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
         }
@@ -6293,7 +6346,7 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, 
     }
 
     if (default_argument)
-        file << " */";
+        file << end_inline_comment();
 }
 
 void CxxBase::walk_expression_list(const Nodecl::List& node)
@@ -7055,7 +7108,7 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 {
     indent();
-    file << "/* >>> " << ast_print_node_type(n.get_kind()) << " >>> */\n";
+    file << start_inline_comment() << ">>> " << ast_print_node_type(n.get_kind()) << " >>>" << end_inline_comment() << " \n";
 
     inc_indent();
 
@@ -7067,7 +7120,9 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
             it++, i++)
     {
         indent();
-        file << "/* Children " << i << " */\n";
+        file << start_inline_comment();
+        file << "Children " << i;
+        file << end_inline_comment() << "\n";
 
         walk(*it);
     }
@@ -7075,7 +7130,10 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
     dec_indent();
 
     indent();
-    file << "/* <<< " << ast_print_node_type(n.get_kind()) << " <<< */\n";
+    file << start_inline_comment();
+    file << "<<< " << ast_print_node_type(n.get_kind()) << " <<<";
+    file << end_inline_comment();
+    file << "\n";
 }
 
 const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)
@@ -7260,7 +7318,8 @@ std::string CxxBase::get_qualified_name(TL::Symbol sym, TL::Scope sc, bool witho
 
 void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
         TL::ObjectList<std::string>& parameter_names,
-        TL::ObjectList<std::string>& parameter_attributes)
+        TL::ObjectList<std::string>& parameter_attributes,
+        bool emit_default_arguments)
 {
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "This symbol should be a function\n", -1);
@@ -7284,7 +7343,8 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                 parameter_attributes[i] = gcc_attributes_to_str(current_param);
             }
 
-            if (get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
+            if (emit_default_arguments
+                    && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
                 parameter_attributes[i] += " = " + codegen(symbol.get_default_argument_num(i));
@@ -7474,6 +7534,23 @@ void CxxBase::set_emit_saved_variables_as_unused(const std::string& str)
 void CxxBase::set_prune_saved_variables(const std::string& str)
 {
     TL::parse_boolean_option("prune_saved_variables", str, _prune_saved_variables, "Assuming true.");
+}
+
+std::string CxxBase::start_inline_comment()
+{
+    if (state._inline_comment_nest++ == 0)
+        return " /* ";
+    else
+        return "";
+}
+
+std::string CxxBase::end_inline_comment()
+{
+    if (--state._inline_comment_nest == 0)
+        return " */ ";
+    else
+        return "";
+    ERROR_CONDITION(state._inline_comment_nest < 0, "Wrong nesting of comments", 0);
 }
 
 } // Codegen

@@ -26,28 +26,39 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-run
+</testinfo>
+*/
 
-#ifndef CXX_SOLVETEMPLATE_H
-#define CXX_SOLVETEMPLATE_H
+#include <assert.h>
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
+int foo = 1;
 
-#include "cxx-typeunif.h"
-#include "cxx-buildscope-decls.h"
-#include "cxx-scope-decls.h"
+template <typename T>
+struct A
+{
+    A(int b)
+    {
+    }
+};
 
-MCXX_BEGIN_DECLS
+template <>
+A<int>::A(int m)
+{
+    foo = m;
+}
 
-LIBMCXX_EXTERN struct type_tag* solve_class_template(struct type_tag* template_type,
-        struct type_tag* specialized_type,
-        template_parameter_list_t** deduced_template_arguments,
-        const locus_t* locus);
+int main(int argc, char *argv[])
+{
+    A<float> a(10);
 
-LIBMCXX_EXTERN scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
-        template_parameter_list_t* explicit_template_parameters,
-        type_t* function_type, const locus_t* locus);
+    assert(foo == 1);
 
-MCXX_END_DECLS
+    A<int> b(42);
 
-#endif // CXX_SOLVETEMPLATE_H
+    assert(foo == 42);
+
+    return 0;
+}

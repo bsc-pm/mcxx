@@ -226,7 +226,11 @@ namespace TL { namespace Nanox {
 
         lastprivate_code << update_lastprivates(outline_info);
 
-        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null()
+                // See #1577
+                // This is for the sake of completeness because in the current
+                // form, worksharings do not work in OmpSs mode at all
+                || _lowering->in_ompss_mode())
         {
             barrier_code
                 << full_barrier_source();
@@ -299,8 +303,11 @@ namespace TL { namespace Nanox {
 
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
-                << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+                << "{"
+                << "nanos_err_t err;"
+                << "err = nanos_omp_set_implicit(nanos_current_wd());"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
                 << outline_distribute_loop_source
                 ;
 

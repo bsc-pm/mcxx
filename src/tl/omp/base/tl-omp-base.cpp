@@ -1942,9 +1942,25 @@ namespace TL { namespace OpenMP {
             std::string schedule = arguments[0];
             schedule = strtolower(schedule.c_str());
 
+            std::string checked_schedule_name = schedule;
+
+            // Allow OpenMP schedules be prefixed with 'ompss_', 'omp_' and 'openmp_'
+
+            std::string valid_prefixes[] = { "ompss_", "omp_", "openmp_", ""};
+            int i = 0;
+            bool found = false;
+            while (valid_prefixes[i] != "" && !found)
+            {
+                found = checked_schedule_name.substr(0,valid_prefixes[i].size()) == valid_prefixes[i];
+                if (found)
+                    checked_schedule_name = checked_schedule_name.substr(valid_prefixes[i].size());
+
+                ++i;
+            }
+
             if (arguments.size() == 1)
             {
-                if (schedule == "static" || schedule == "ompss_static")
+                if (checked_schedule_name == "static")
                 {
                     chunk = const_value_to_nodecl(const_value_get_signed_int(0));
                 }
@@ -1963,14 +1979,6 @@ namespace TL { namespace OpenMP {
                 internal_error("Invalid values in schedule clause", 0);
             }
 
-            std::string checked_schedule_name = schedule;
-
-            // Allow OpenMP schedules be prefixed with ompss_
-            std::string ompss_prefix = "ompss_";
-            if (checked_schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix)
-            {
-                checked_schedule_name = checked_schedule_name.substr(ompss_prefix.size());
-            }
 
             if (checked_schedule_name == "static"
                     || checked_schedule_name == "dynamic"

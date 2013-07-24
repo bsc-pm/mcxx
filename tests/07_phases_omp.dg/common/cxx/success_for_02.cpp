@@ -26,28 +26,30 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 
-#ifndef CXX_SOLVETEMPLATE_H
-#define CXX_SOLVETEMPLATE_H
+#include <assert.h>
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
+template < typename T>
+void foo(T& x, int n)
+{
+    int i;
+    #pragma omp for schedule(static) shared(x)
+    for (i = 0; i <= n; ++i)
+    {
+        #pragma omp atomic
+        x += i;
+    }
+}
 
-#include "cxx-typeunif.h"
-#include "cxx-buildscope-decls.h"
-#include "cxx-scope-decls.h"
-
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN struct type_tag* solve_class_template(struct type_tag* template_type,
-        struct type_tag* specialized_type,
-        template_parameter_list_t** deduced_template_arguments,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
-        template_parameter_list_t* explicit_template_parameters,
-        type_t* function_type, const locus_t* locus);
-
-MCXX_END_DECLS
-
-#endif // CXX_SOLVETEMPLATE_H
+int main()
+{
+    int x = 0;
+    int n = 1000;
+    foo(x, n);
+    assert(x == (((n + 1)* n) / 2));
+}
