@@ -226,7 +226,11 @@ namespace TL { namespace Nanox {
 
         lastprivate_code << update_lastprivates(outline_info);
 
-        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null()
+                // See #1577
+                // This is for the sake of completeness because in the current
+                // form, worksharings do not work in OmpSs mode at all
+                || _lowering->in_ompss_mode())
         {
             barrier_code
                 << full_barrier_source();

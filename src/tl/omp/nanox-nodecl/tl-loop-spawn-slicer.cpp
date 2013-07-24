@@ -142,9 +142,13 @@ namespace TL { namespace Nanox {
         ;
 
 
-        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
+        if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null()
+                // See ticket #1577
+                // #pragma omp parallel for will always have barrier in OmpSs
+                // because we ignore the parallel bit
+                || _lowering->in_ompss_mode())
         {
-            barrier_code 
+            barrier_code
                 << "err = nanos_wg_wait_completion(nanos_current_wd(), 0);"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
                 ;
