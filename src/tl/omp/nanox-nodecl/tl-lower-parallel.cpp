@@ -105,7 +105,8 @@ namespace TL { namespace Nanox {
         Source outline_source, reduction_code_src, reduction_initialization_src;
         Nodecl::NodeclBase inner_placeholder;
         outline_source
-            << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+            << "nanos_err_t err;"
+            << "err = nanos_omp_set_implicit(nanos_current_wd());"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
             << "err = nanos_enter_team();"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
