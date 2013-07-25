@@ -72,8 +72,9 @@ namespace TL { namespace Nanox {
                 immediate_decl,
                 dynamic_size);
 
-        Source translation_fun_arg_name, xlate_function_name;
+        TL::Symbol xlate_function_symbol;
 
+        TL::Source translation_fun_arg_name;
         translation_fun_arg_name << "(nanos_translate_args_t)0";
 
         Source copy_ol_decl,
@@ -229,7 +230,7 @@ namespace TL { namespace Nanox {
                 copy_ol_setup,
                 copy_imm_arg,
                 copy_imm_setup,
-                xlate_function_name);
+                xlate_function_symbol);
 
         fill_dependences(construct, 
                 outline_info, 

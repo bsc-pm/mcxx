@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -32,27 +32,27 @@ test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#include<assert.h>
+#include <assert.h>
 
-class A
+template <typename T>
+void f()
 {
-    public:
-        int bar()
-        {
-            int x = foo() + foo();
-            #pragma omp taskwait on(x)
-            return x;
-        }
+    int a[10];
+    for (int i = 0; i < 10; i++)
+        a[i] = i;
+#pragma omp target device(smp) copy_deps
+#pragma omp task inout([10]a)
+    {
+        for (int i = 0; i < 10; i++)
+            a[i]++;
+    }
+#pragma omp taskwait
+    for (int i = 0; i < 10; i++)
+        assert(a[i] == (i + 1));
+}
 
-    private:
-        #pragma omp task
-        int foo() { return 1; }
-};
-
-int main()
+int main(int argc, char *argv[])
 {
-    A a;
-    int x = a.bar();
-
-    assert(x == 2);
+    f<int>();
+    return 0;
 }

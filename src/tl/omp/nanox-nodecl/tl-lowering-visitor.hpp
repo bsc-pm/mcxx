@@ -114,7 +114,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& copy_ol_setup,
                 Source& copy_imm_arg,
                 Source& copy_imm_setup,
-                Source& xlate_function_name);
+                Symbol& xlate_function_symbol);
 
         void fill_copies_nonregion(
                 Nodecl::NodeclBase ctr,
@@ -146,14 +146,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 OutlineInfo* parameter_outline_info,
                 TL::Symbol structure_symbol,
                 bool allow_multiple_copies,
-                TL::Source& xlate_function_name);
+                TL::Symbol& xlate_function_symbol);
 
         void emit_translation_function_region(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 OutlineInfo* parameter_outline_info,
                 TL::Symbol structure_symbol,
-                TL::Source& xlate_function_name);
+                TL::Symbol& xlate_function_symbol);
 
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
