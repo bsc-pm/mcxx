@@ -13643,6 +13643,10 @@ static void build_scope_expression_statement(AST a,
                     prettyprint_in_buffer(ASTSon0(a)),
                     ast_location(ASTSon0(a)));
         }
+
+        *nodecl_output = nodecl_append_to_list(
+                *nodecl_output,
+                nodecl_make_err_statement(ast_get_locus(a)));
         return;
     }
 
