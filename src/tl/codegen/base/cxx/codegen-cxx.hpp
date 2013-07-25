@@ -260,6 +260,9 @@ namespace Codegen
                 // This means that we are doing &X and X is a rebindable reference
                 bool do_not_derref_rebindable_reference;
 
+                // Not to be used directly. Use start_inline_comment and end_inline_comment
+                int _inline_comment_nest;
+
                 // Not meant to be used directly, use functions 
                 // get_indent_level, set_indent_level
                 // inc_indent, dec_indent
@@ -283,6 +286,7 @@ namespace Codegen
                     walked_symbols(),
                     must_be_object_init(),
                     do_not_derref_rebindable_reference(false),
+                    _inline_comment_nest(0),
                     _indent_level(0) { }
             } state;
             // End of State
@@ -469,7 +473,8 @@ namespace Codegen
 
             void fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     TL::ObjectList<std::string>& parameter_names,
-                    TL::ObjectList<std::string>& parameter_attributes);
+                    TL::ObjectList<std::string>& parameter_attributes,
+                    bool emit_default_arguments);
 
             static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
             static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
@@ -507,6 +512,11 @@ namespace Codegen
 
             bool is_pointer_arithmetic_add_helper(TL::Type op1, TL::Type op2);
             bool is_pointer_arithmetic_add(const Nodecl::Add &node, TL::Type &pointer_type);
+
+            bool is_friend_of_class(TL::Symbol sym, TL::Symbol class_sym);
+
+            std::string start_inline_comment();
+            std::string end_inline_comment();
 
         protected:
 

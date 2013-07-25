@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,28 +26,16 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+void f()
+{
+    const int &N = 3;
 
-#ifndef CXX_SOLVETEMPLATE_H
-#define CXX_SOLVETEMPLATE_H
+    enum E { V };
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
-
-#include "cxx-typeunif.h"
-#include "cxx-buildscope-decls.h"
-#include "cxx-scope-decls.h"
-
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN struct type_tag* solve_class_template(struct type_tag* template_type,
-        struct type_tag* specialized_type,
-        template_parameter_list_t** deduced_template_arguments,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN scope_entry_list_t* solve_template_function(scope_entry_list_t* template_set,
-        template_parameter_list_t* explicit_template_parameters,
-        type_t* function_type, const locus_t* locus);
-
-MCXX_END_DECLS
-
-#endif // CXX_SOLVETEMPLATE_H
+    const int K = N - V;
+}

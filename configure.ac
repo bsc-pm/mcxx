@@ -606,6 +606,7 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
                     MPICXX=$MPIPATH/$MPI_CXXNAME
                     MPIFORT=$MPIPATH/$MPI_FORTNAME
                     MPIMODULE=mpich
+                    DISABLEMPI_GCC="\#do not uncomment"
       else
                     mpi_valid=no
       fi
@@ -618,6 +619,7 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
                       MPICXX=$MPIPATH/bin/$MPI_CXXNAME
                       MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
                       MPIMODULE=mpich
+                      DISABLEMPI_GCC="\#do not uncomment"
          else
                       mpi_valid=no
          fi
@@ -626,13 +628,14 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
        MPI_CXXNAME=mpicxx
        MPI_FORTNAME=mpif90
        if test -f $MPIPATH/$MPI_CNAME; then	
-                            mpi_found=yes 
-                            MPICC=$MPIPATH/$MPI_CNAME
-                            MPICXX=$MPIPATH/$MPI_CXXNAME
-                            MPIFORT=$MPIPATH/$MPI_FORTNAME                            
-                            MPIMODULE=openmpi
+            mpi_found=yes 
+            MPICC=$MPIPATH/$MPI_CNAME
+            MPICXX=$MPIPATH/$MPI_CXXNAME
+            MPIFORT=$MPIPATH/$MPI_FORTNAME                            
+            MPIMODULE=openmpi
+            DISABLEMPI_ICC="\#do not uncomment"
        else
-                      mpi_valid=no
+            mpi_valid=no
        fi
        #search in the path without bin
        if test x$mpi_found = xno; then		
@@ -643,8 +646,9 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
             MPICXX=$MPIPATH/bin/$MPI_CXXNAME
             MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
             MPIMODULE=openmpi
+            DISABLEMPI_ICC="\#do not uncomment"
           else
-                       mpi_valid=no
+            mpi_valid=no
           fi
        fi
 
@@ -686,6 +690,8 @@ then
 else
    DISABLE_MPI="\#do not uncomment"
 fi
+AC_SUBST([DISABLEMPI_ICC])
+AC_SUBST([DISABLEMPI_GCC])
 AC_SUBST([MPICC])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])

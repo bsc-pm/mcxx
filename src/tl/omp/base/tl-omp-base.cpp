@@ -1316,6 +1316,11 @@ namespace TL { namespace OpenMP {
                 _allow_shared_without_copies_str,
                 "0").connect(functor(&Base::set_allow_shared_without_copies, *this));
 
+        register_parameter("ompss_mode",
+                "Enables OmpSs semantics instead of OpenMP semantics",
+                _ompss_mode_str,
+                "0").connect(functor(&Base::set_ompss_mode, *this));
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -1438,6 +1443,16 @@ namespace TL { namespace OpenMP {
                 simd_enabled_str,
                 _simd_enabled,
                 "Assuming false");
+    }
+
+    void Base::set_ompss_mode(const std::string& str)
+    {
+        parse_boolean_option("ompss_mode", str, _ompss_mode, "Assuming false.");
+    }
+
+    bool Base::in_ompss_mode() const
+    {
+        return _ompss_mode;
     }
 
     void Base::set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str)
@@ -1719,9 +1734,24 @@ namespace TL { namespace OpenMP {
         directive.replace(async_code);
     }
 
-    void Base::parallel_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::parallel_handler_pre(TL::PragmaCustomStatement)
+    {
+        if (this->in_ompss_mode())
+        {
+            return;
+        }
+    }
     void Base::parallel_handler_post(TL::PragmaCustomStatement directive)
     {
+        if (this->in_ompss_mode())
+        {
+            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
+                    locus_to_str(directive.get_locus()));
+            // Ignore parallel
+            directive.replace(directive.get_statements());
+            return;
+        }
+
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
@@ -1942,9 +1972,25 @@ namespace TL { namespace OpenMP {
             std::string schedule = arguments[0];
             schedule = strtolower(schedule.c_str());
 
+            std::string checked_schedule_name = schedule;
+
+            // Allow OpenMP schedules be prefixed with 'ompss_', 'omp_' and 'openmp_'
+
+            std::string valid_prefixes[] = { "ompss_", "omp_", "openmp_", ""};
+            int i = 0;
+            bool found = false;
+            while (valid_prefixes[i] != "" && !found)
+            {
+                found = checked_schedule_name.substr(0,valid_prefixes[i].size()) == valid_prefixes[i];
+                if (found)
+                    checked_schedule_name = checked_schedule_name.substr(valid_prefixes[i].size());
+
+                ++i;
+            }
+
             if (arguments.size() == 1)
             {
-                if (schedule == "static" || schedule == "ompss_static")
+                if (checked_schedule_name == "static")
                 {
                     chunk = const_value_to_nodecl(const_value_get_signed_int(0));
                 }
@@ -1963,14 +2009,6 @@ namespace TL { namespace OpenMP {
                 internal_error("Invalid values in schedule clause", 0);
             }
 
-            std::string checked_schedule_name = schedule;
-
-            // Allow OpenMP schedules be prefixed with ompss_
-            std::string ompss_prefix = "ompss_";
-            if (checked_schedule_name.substr(0, ompss_prefix.size()) == ompss_prefix)
-            {
-                checked_schedule_name = checked_schedule_name.substr(ompss_prefix.size());
-            }
 
             if (checked_schedule_name == "static"
                     || checked_schedule_name == "dynamic"
@@ -2049,9 +2087,25 @@ namespace TL { namespace OpenMP {
         directive.replace(code);
     }
 
-    void Base::parallel_do_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::parallel_do_handler_pre(TL::PragmaCustomStatement directive)
+    {
+        if (this->in_ompss_mode())
+        {
+            do_handler_pre(directive);
+            return;
+        }
+    }
     void Base::parallel_do_handler_post(TL::PragmaCustomStatement directive)
     {
+        if (this->in_ompss_mode())
+        {
+            // In OmpSs this is like a simple DO
+            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
+                    locus_to_str(directive.get_locus()));
+            do_handler_post(directive);
+            return;
+        }
+
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
@@ -2386,9 +2440,24 @@ namespace TL { namespace OpenMP {
         directive.replace(sections_code);
     }
 
-    void Base::parallel_sections_handler_pre(TL::PragmaCustomStatement) { }
+    void Base::parallel_sections_handler_pre(TL::PragmaCustomStatement directive)
+    {
+        if (this->in_ompss_mode())
+        {
+            sections_handler_pre(directive);
+            return;
+        }
+    }
     void Base::parallel_sections_handler_post(TL::PragmaCustomStatement directive)
     {
+        if (this->in_ompss_mode())
+        {
+            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
+                    locus_to_str(directive.get_locus()));
+            sections_handler_post(directive);
+            return;
+        }
+
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
 
@@ -2449,10 +2518,25 @@ namespace TL { namespace OpenMP {
         directive.replace(parallel_code);
     }
 
-    void Base::parallel_for_handler_pre(TL::PragmaCustomStatement) { }
-
+    void Base::parallel_for_handler_pre(TL::PragmaCustomStatement directive)
+    {
+        if (this->in_ompss_mode())
+        {
+            for_handler_pre(directive);
+            return;
+        }
+    }
     void Base::parallel_for_handler_post(TL::PragmaCustomStatement directive)
     {
+        if (this->in_ompss_mode())
+        {
+            // In OmpSs this is like a simple for
+            warn_printf("%s: warning: explicit parallel regions do not have any effect in OmpSs\n",
+                    locus_to_str(directive.get_locus()));
+            for_handler_post(directive);
+            return;
+        }
+
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);

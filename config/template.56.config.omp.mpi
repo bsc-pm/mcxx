@@ -1,4 +1,5 @@
-[mpimcc : omp-base]
+@DISABLEMPI_ICC@[mpimcc : imcc]
+@DISABLEMPI_GCC@[mpimcc : mcc]
 language = C
 options= --variable=allow_shared_without_copies:1
 preprocessor_name = @MPICC@
@@ -11,7 +12,8 @@ linker_options = -mt_mpi
 compiler_phase = libtlnanox-mpi.so
 
 
-[mpimcxx : omp-base]
+@DISABLEMPI_ICC@[mpimcxx : imcxx]
+@DISABLEMPI_GCC@[mpimcxx : mcxx]
 language = C++
 options= --variable=allow_shared_without_copies:1
 preprocessor_name = @MPICXX@
@@ -20,10 +22,11 @@ preprocessor_name = @MPICXX@
 compiler_name = @MPICXX@
 compiler_options=  -mt_mpi
 linker_name = @MPICXX@
-linker_options = -mt_mpi
+linker_options = -mt_mpi 
 compiler_phase = libtlnanox-mpi.so
 
-[mpimfc : omp-base]
+@DISABLEMPI_ICC@[mpimfc : imfc]
+@DISABLEMPI_GCC@[mpimfc : mfc]
 language = Fortran
 options = -I @PKGDATADIR@/fortran/openmp -I @PKGDATADIR@/fortran/openmp -I @PKGDATADIR@/fortran/mpi/@MPIMODULE@ --variable=allow_shared_without_copies:1
 preprocessor_name = @MPICC@

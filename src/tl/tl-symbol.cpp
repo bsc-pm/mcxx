@@ -522,11 +522,6 @@ namespace TL
         return (_symbol->entity_specs.is_explicit);
     }
 
-    bool Symbol::is_friend() const
-    {
-        return (_symbol->entity_specs.is_friend);
-    }
-
     bool Symbol::is_friend_declared() const
     {
         return (_symbol->entity_specs.is_friend_declared);

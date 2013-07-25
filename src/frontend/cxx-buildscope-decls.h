@@ -48,7 +48,8 @@ struct gather_decl_spec_tag {
     char no_declarators;
     char parameter_declaration;
     char is_template;
-    char is_explicit_instantiation;
+    char is_explicit_specialization; // template<> void A<int>::f();
+    char is_explicit_instantiation;  // template   void A<int>::f();
 
     // type-specifiers and decl-specifiers
     char is_auto;
