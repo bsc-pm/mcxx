@@ -103,8 +103,10 @@ namespace TL
                 std::string get_var_counter();
  
             public:
-                ~Vectorizer();
                 static Vectorizer& get_vectorizer();
+                static void initialize_analysis(const Nodecl::FunctionCode& enclosing_function);
+
+                ~Vectorizer();
 
                 bool vectorize(const Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);

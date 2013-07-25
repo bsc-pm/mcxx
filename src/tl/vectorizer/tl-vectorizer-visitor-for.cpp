@@ -67,18 +67,7 @@ namespace TL
             Nodecl::NodeclBase enclosing_func = 
                 Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
 
-            if ((Vectorizer::_analysis_info == 0) || 
-                (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_func))
-            {
-                if (Vectorizer::_analysis_info != 0)
-                    delete Vectorizer::_analysis_info;
-
-                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
-                        enclosing_func.as<Nodecl::FunctionCode>(),
-                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
-            }
+            Vectorizer::initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
 
             // Push ForStatement as scope for analysis
             _environment._analysis_scopes.push_back(for_statement);
@@ -504,7 +493,7 @@ namespace TL
             Nodecl::NodeclBase mask_value = for_statement.get_loop_header().
                 as<Nodecl::LoopControl>().get_cond();
           
-            // Add MaskLiteral to mask_list
+            // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
             Nodecl::MaskLiteral all_one_mask =
                 Nodecl::MaskLiteral::make(
                         TL::Type::get_mask_type(_environment._mask_size),

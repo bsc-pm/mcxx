@@ -49,16 +49,7 @@ namespace TL
                     function_code.get_statements().retrieve_context());
 
             // Get analysis info
-            if ((Vectorizer::_analysis_info == 0) || 
-                    (Vectorizer::_analysis_info->get_nodecl_origin() != function_code))
-            {
-                if(Vectorizer::_analysis_info != 0)
-                    delete Vectorizer::_analysis_info;
-
-                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
-                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
-            }
+            Vectorizer::initialize_analysis(function_code);
 
             // Push FunctionCode as scope for analysis
             _environment._analysis_scopes.push_back(function_code);
@@ -139,8 +130,8 @@ namespace TL
                 _environment._mask_list.push_back(all_one_mask);
             }
 
-            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _environment._vector_length).
-                    get_function_returning(parameters_vector_type));
+            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), 
+                        _environment._vector_length).get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);
@@ -150,7 +141,8 @@ namespace TL
             if (_environment._function_return.is_valid())
             {
                 // Return value
-                Nodecl::Symbol return_value= _environment._function_return.make_nodecl(false, function_code.get_locus());
+                Nodecl::Symbol return_value= _environment._function_return.make_nodecl(
+                        false, function_code.get_locus());
 
 //                VectorizerVisitorExpression visitor_sym(_environment);
 //                visitor_sym.walk(return_value);

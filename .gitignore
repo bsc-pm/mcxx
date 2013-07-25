@@ -136,6 +136,7 @@ tests/config/mercurium-parallel-simd-mic
 tests/config/mercurium-run
 tests/config/mercurium-serial-simd
 tests/config/mercurium-serial-simd-mic
+tests/config/mercurium-opencl
 tests/test.log
 tests/test.log.xml
 test.log

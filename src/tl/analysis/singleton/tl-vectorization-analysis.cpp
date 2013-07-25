@@ -82,6 +82,11 @@ namespace Analysis {
             Nodecl::NodeclBase s = n.shallow_copy( );
             v.walk( s );
 
+            ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
+            iv_v.walk( s );
+            result = iv_v.depends_on_induction_vars( );
+
+/*
             for( Nodecl::List::iterator it = subscript.begin( ); it != subscript.end( ); it++ )
             { 
                 Nodecl::Utils::ReduceExpressionVisitor v;
@@ -92,6 +97,7 @@ namespace Analysis {
                 iv_v.walk( s );
                 result = iv_v.depends_on_induction_vars( );
             }
+*/
         }
         else
         {
@@ -399,39 +405,12 @@ namespace Analysis {
     
     bool ArrayAccessInfoVisitor::join_list( ObjectList<bool>& list )
     {
-<<<<<<< HEAD
-        bool res = true;
-
-        // Check IV in subscripted (a[b[i]] -> a)
-        Utils::InductionVariableData* iv = variable_is_iv( n.get_subscripted() );
-
-        if( !_iv_found && iv != NULL)
-        {
-            _iv = iv;
-            _iv_found = true;
-        }
-        else
-        {
-            // Check IV in the whole ArraySubscript (a[b[i]] -> a[b[i]])
-            iv = variable_is_iv( n );
-
-            if( !_iv_found && iv != NULL)
-            {
-                _iv = iv;
-                _iv_found = true;
-            }
-            else // Check IV in the subscripts (a[b[i]] -> b[i])
-            {
-                res = walk( n.get_subscripts( ) );
-            }
-=======
         _is_adjacent_access = false;
         
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
             result = result && ( *it );
->>>>>>> analysis
         }
         return result;
     }

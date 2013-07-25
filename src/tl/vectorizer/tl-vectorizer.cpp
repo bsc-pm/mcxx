@@ -69,6 +69,38 @@ namespace TL
             return *_vectorizer;
         }
 
+        void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
+        {
+            if ((Vectorizer::_analysis_info == 0) || 
+                    (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function))
+            {
+                std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
+               
+                /* 
+                if (Vectorizer::_analysis_info != 0 && Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function)
+                {
+                    std::cerr << _analysis_info->get_nodecl_origin().prettyprint()
+                        << std::endl
+                        << std::endl
+                        << enclosing_function.prettyprint();
+                }
+                */
+
+                if(Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                        enclosing_function,
+                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+            }
+            else
+            {
+                std::cerr << "VECTORIZER: Reusing previous analysis" << std::endl;
+            }
+        }
+
         Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _fast_math_enabled(false)
         {
             _var_counter = 0;
