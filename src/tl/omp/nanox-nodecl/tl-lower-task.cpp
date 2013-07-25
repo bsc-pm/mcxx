@@ -524,8 +524,9 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           xlate_function_name,
            taskwait_on_after_wd_creation_opt;
+
+    TL::Symbol xlate_function_symbol;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
     Source fill_outline_arguments,
@@ -807,7 +808,7 @@ void LoweringVisitor::emit_async_common(
             copy_ol_setup,
             copy_imm_arg,
             copy_imm_setup,
-            xlate_function_name);
+            xlate_function_symbol);
 
     if (num_copies == 0)
     {
@@ -815,10 +816,20 @@ void LoweringVisitor::emit_async_common(
     }
     else
     {
-        translation_function << "(nanos_translate_args_t)" << xlate_function_name;
+        Source reference_to_xlate;
+        if (xlate_function_symbol.get_type().is_template_specialized_type())
+        {
+            // Extra cast needed for g++ 4.6 or lower (otherwise the
+            // compilation may fail or the template function not be emitted)
+            reference_to_xlate << "(" << as_type(xlate_function_symbol.get_type().get_pointer_to()) << ")";
+        }
+        reference_to_xlate << xlate_function_symbol.get_qualified_name();
+
+        translation_function << "(nanos_translate_args_t)" << reference_to_xlate;
 
         copy_ol_setup
-            << err_name << " = nanos_set_translate_function(nanos_wd_, (nanos_translate_args_t)" << xlate_function_name << ");"
+            << err_name << " = nanos_set_translate_function(nanos_wd_, (nanos_translate_args_t)"
+            << reference_to_xlate << ");"
             << "if (" << err_name << " != NANOS_OK) nanos_handle_error(" << err_name << ");"
             ;
     }
@@ -1949,7 +1960,7 @@ void LoweringVisitor::fill_copies(
         Source& copy_ol_setup,
         Source& copy_imm_arg,
         Source& copy_imm_setup,
-        Source& xlate_function_name
+        TL::Symbol& xlate_function_symbol
         )
 {
     num_copies = count_copies(outline_info);
@@ -1981,7 +1992,7 @@ void LoweringVisitor::fill_copies(
                         outline_info,
                         parameter_outline_info,
                         structure_symbol,
-                        xlate_function_name);
+                        xlate_function_symbol);
             }
             else
             {
@@ -1990,7 +2001,7 @@ void LoweringVisitor::fill_copies(
                         parameter_outline_info,
                         structure_symbol,
                         allow_multiple_copies,
-                        xlate_function_name);
+                        xlate_function_symbol);
             }
         }
     }
@@ -2017,7 +2028,7 @@ void LoweringVisitor::fill_copies(
                     parameter_outline_info,
                     structure_symbol,
                     /* allow_multiple_copies */ false,
-                    xlate_function_name);
+                    xlate_function_symbol);
         }
     }
 }
@@ -2063,7 +2074,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
         TL::Symbol structure_symbol,
         bool allow_multiple_copies,
         // Out
-        TL::Source& xlate_function_name
+        TL::Symbol& translation_function_symbol
         )
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
@@ -2088,7 +2099,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
     parameter_names.append("wd");
     parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
 
-    TL::Symbol translation_function_symbol = SymbolUtils::new_function_symbol(
+    translation_function_symbol = SymbolUtils::new_function_symbol(
             Nodecl::Utils::get_enclosing_function(ctr),
             fun_name.get_source(),
             TL::Type::get_void_type(),
@@ -2100,8 +2111,6 @@ void LoweringVisitor::emit_translation_function_nonregion(
             translation_function_symbol,
             function_code,
             empty_statement);
-
-    xlate_function_name = translation_function_symbol.get_qualified_name();
 
     TL::ObjectList<OutlineDataItem*> data_items;
     data_items = outline_info.get_fields();
@@ -2202,7 +2211,7 @@ void LoweringVisitor::emit_translation_function_region(
         TL::Symbol structure_symbol,
 
         // Out
-        TL::Source& xlate_function_name
+        TL::Symbol& translation_function_symbol
         )
 {
     TL::Counter &fun_num = TL::CounterManager::get_counter("nanos++-translation-functions");
@@ -2227,7 +2236,7 @@ void LoweringVisitor::emit_translation_function_region(
     parameter_names.append("wd");
     parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
 
-    TL::Symbol translation_function_symbol = SymbolUtils::new_function_symbol(
+    translation_function_symbol = SymbolUtils::new_function_symbol(
             Nodecl::Utils::get_enclosing_function(ctr),
             fun_name.get_source(),
             TL::Type::get_void_type(),
@@ -2239,8 +2248,6 @@ void LoweringVisitor::emit_translation_function_region(
             translation_function_symbol,
             function_code,
             empty_statement);
-
-    xlate_function_name = translation_function_symbol.get_qualified_name();
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
