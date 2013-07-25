@@ -38,7 +38,7 @@ namespace Codegen
     {
         protected:
 
-            virtual std::string codegen(const Nodecl::NodeclBase&);
+            virtual void codegen(const Nodecl::NodeclBase&, std::ostream* out);
             virtual void codegen_cleanup();
 
         public:

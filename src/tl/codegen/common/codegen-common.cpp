@@ -30,7 +30,7 @@ namespace Codegen
 {
 
 CodegenVisitor::CodegenVisitor()
-: _is_file_output(false)
+: _is_file_output(false), file(NULL)
 {
 }
 
@@ -46,11 +46,13 @@ void CodegenVisitor::set_is_file_output(bool b)
 
 std::string CodegenVisitor::codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc)
 {
+    std::stringstream out;
+
     this->push_scope(sc);
-    std::string result = this->codegen(n);
+    this->codegen(n, &out);
     this->pop_scope();
 
-    return result;
+    return out.str();
 }
 
 void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
@@ -60,17 +62,20 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
 
     this->codegen_cleanup();
 
-    std::string str ( this->codegen(n) );
+    std::stringstream out;
+
+    this->codegen(n, &out);
     this->pop_scope();
 
-    fprintf(f, "%s", str.c_str());
+    fprintf(f, "%s", out.str().c_str());
+
     this->set_is_file_output(false);
 }
 
 CodegenVisitor::Ret CodegenVisitor::unhandled_node(const Nodecl::NodeclBase & n)
 { 
     internal_error("Unhandled node %s\n", ast_print_node_type(n.get_kind()));
-    return Ret(); 
+    return Ret();
 }
 
 }
