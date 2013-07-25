@@ -73,7 +73,7 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
             "Invalid file descriptor: must be opened for write only", 0);
 
     // g++ extension
-    __gnu_cxx::stdio_filebuf<char> filebuf(::fileno(f), std::ios::out);
+    __gnu_cxx::stdio_filebuf<char> filebuf(f, std::ios::out | std::ios::app);
     std::ostream out(&filebuf);
 
     this->codegen(n, &out);
