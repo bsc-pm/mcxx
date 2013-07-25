@@ -3285,15 +3285,19 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         if (CURRENT_CONFIGURATION->column_width != 0)
         {
             temporal_file_t raw_prettyprint = new_temporal_file();
-            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit);
+            fclose(raw_prettyprint_file);
 
-            rewind(raw_prettyprint_file);
-
+            raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
             fclose(raw_prettyprint_file);
         }
