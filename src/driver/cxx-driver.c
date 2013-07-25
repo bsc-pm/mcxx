@@ -2913,7 +2913,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             // * Codegen
             const char* prettyprinted_filename = NULL;
-            if (!file_not_processed)
+            if (!file_not_processed
+                    && !CURRENT_CONFIGURATION->debug_options.do_not_codegen)
             {
                 prettyprinted_filename
                     = codegen_translation_unit(translation_unit, parsed_filename);
@@ -3721,7 +3722,8 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* prettyprinted_filename, 
         char remove_input)
 {
-    if (CURRENT_CONFIGURATION->do_not_compile)
+    if (CURRENT_CONFIGURATION->do_not_compile
+            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
     if (remove_input)
@@ -4336,7 +4338,8 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
 static void link_objects(void)
 {
-    if (CURRENT_CONFIGURATION->do_not_link)
+    if (CURRENT_CONFIGURATION->do_not_link
+            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
     int j;
