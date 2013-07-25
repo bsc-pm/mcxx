@@ -26,6 +26,9 @@
 
 #include "codegen-common.hpp"
 
+// This is a g++ extension
+#include <ext/stdio_filebuf.h>
+
 namespace Codegen
 {
 
@@ -62,12 +65,12 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
 
     this->codegen_cleanup();
 
-    std::stringstream out;
+    // g++ extension
+    __gnu_cxx::stdio_filebuf<char> filebuf(::fileno(f), std::ios::out);
+    std::ostream out(&filebuf);
 
     this->codegen(n, &out);
     this->pop_scope();
-
-    fprintf(f, "%s", out.str().c_str());
 
     this->set_is_file_output(false);
 }
