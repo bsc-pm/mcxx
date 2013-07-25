@@ -26,6 +26,9 @@
 
 #include "codegen-common.hpp"
 
+#include <unistd.h>
+#include <fcntl.h>
+
 // This is a g++ extension
 #include <ext/stdio_filebuf.h>
 
@@ -64,6 +67,10 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
     this->push_scope( n.retrieve_context() );
 
     this->codegen_cleanup();
+
+    int acc_mode = (::fcntl(fileno(f), F_GETFL) & O_ACCMODE);
+    ERROR_CONDITION(acc_mode != O_WRONLY,
+            "Invalid file descriptor: must be opened for write only", 0);
 
     // g++ extension
     __gnu_cxx::stdio_filebuf<char> filebuf(::fileno(f), std::ios::out);
