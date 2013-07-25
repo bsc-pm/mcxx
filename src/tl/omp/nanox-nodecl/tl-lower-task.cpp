@@ -31,6 +31,7 @@
 #include "tl-nodecl-utils.hpp"
 #include "tl-datareference.hpp"
 #include "tl-devices.hpp"
+#include "tl-symbol-utils.hpp"
 #include "fortran03-typeutils.h"
 #include "cxx-diagnostic.h"
 #include "cxx-cexpr.h"
@@ -2072,31 +2073,35 @@ void LoweringVisitor::emit_translation_function_nonregion(
     filename.erase(std::remove_if(filename.begin(), filename.end(), (bool(*)(int))is_not_alnum), filename.end());
     fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
-    xlate_function_name = fun_name;
-
-    Source function_def;
-
-    Nodecl::NodeclBase function_body;
 
     TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
     argument_type = argument_type.get_lvalue_reference_to();
 
-    function_def
-        << "static void " << fun_name << "(" << as_type(argument_type) << " arg, nanos_wd_t wd)"
-        << "{"
-        <<      statement_placeholder(function_body)
-        << "}"
-        ;
+    ObjectList<std::string> parameter_names;
+    ObjectList<TL::Type> parameter_types;
 
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        Source::source_language = SourceLanguage::C;
-    }
-    Nodecl::NodeclBase function_def_tree = function_def.parse_global(ctr);
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        Source::source_language = SourceLanguage::Current;
-    }
+    parameter_names.append("arg");
+    parameter_types.append(argument_type);
+
+    TL::Symbol sym_nanos_wd_t = ReferenceScope(ctr).get_scope().get_symbol_from_name("nanos_wd_t");
+    ERROR_CONDITION(!sym_nanos_wd_t.is_valid(), "Typename nanos_wd_t not found", 0);
+    parameter_names.append("wd");
+    parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
+
+    TL::Symbol translation_function_symbol = SymbolUtils::new_function_symbol(
+            Nodecl::Utils::get_enclosing_function(ctr),
+            fun_name.get_source(),
+            TL::Type::get_void_type(),
+            parameter_names,
+            parameter_types);
+
+    Nodecl::NodeclBase function_code, empty_statement;
+    SymbolUtils::build_empty_body_for_function(
+            translation_function_symbol,
+            function_code,
+            empty_statement);
+
+    xlate_function_name = translation_function_symbol.get_qualified_name();
 
     TL::ObjectList<OutlineDataItem*> data_items;
     data_items = outline_info.get_fields();
@@ -2107,7 +2112,7 @@ void LoweringVisitor::emit_translation_function_nonregion(
 
     // Initialize the rewrite visitor
     RewriteAddressExpression rewrite_base_address;
-    TL::Symbol argument_structure_symbol = ReferenceScope(function_body).get_scope().get_symbol_from_name("arg");
+    TL::Symbol argument_structure_symbol = ReferenceScope(empty_statement).get_scope().get_symbol_from_name("arg");
     ERROR_CONDITION(!argument_structure_symbol.is_valid(), "Invalid symbol 'arg' just created!", 0);
     rewrite_base_address.structure = argument_structure_symbol;
 
@@ -2179,15 +2184,15 @@ void LoweringVisitor::emit_translation_function_nonregion(
     {
         Source::source_language = SourceLanguage::C;
     }
-    Nodecl::NodeclBase translations_tree = translations.parse_statement(function_body);
+    Nodecl::NodeclBase translations_tree = translations.parse_statement(empty_statement);
     if (IS_FORTRAN_LANGUAGE)
     {
         Source::source_language = SourceLanguage::Current;
     }
 
-    function_body.replace(translations_tree);
+    empty_statement.replace(translations_tree);
 
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_def_tree);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_code);
 }
 
 void LoweringVisitor::emit_translation_function_region(
@@ -2207,31 +2212,35 @@ void LoweringVisitor::emit_translation_function_region(
     Source fun_name;
     fun_name << "nanos_xlate_fun_" << filename << "_" << fun_num;
     fun_num++;
-    xlate_function_name = fun_name;
-
-    Source function_def;
-
-    Nodecl::NodeclBase function_body;
 
     TL::Type argument_type = ::get_user_defined_type(structure_symbol.get_internal_symbol());
     argument_type = argument_type.get_lvalue_reference_to();
 
-    function_def
-        << "static void " << fun_name << "(" << as_type(argument_type) << " arg, nanos_wd_t wd)"
-        << "{"
-        <<      statement_placeholder(function_body)
-        << "}"
-        ;
+    ObjectList<std::string> parameter_names;
+    ObjectList<TL::Type> parameter_types;
 
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        Source::source_language = SourceLanguage::C;
-    }
-    Nodecl::NodeclBase function_def_tree = function_def.parse_global(ctr);
-    if (IS_FORTRAN_LANGUAGE)
-    {
-        Source::source_language = SourceLanguage::Current;
-    }
+    parameter_names.append("arg");
+    parameter_types.append(argument_type);
+
+    TL::Symbol sym_nanos_wd_t = ReferenceScope(ctr).get_scope().get_symbol_from_name("nanos_wd_t");
+    ERROR_CONDITION(!sym_nanos_wd_t.is_valid(), "Typename nanos_wd_t not found", 0);
+    parameter_names.append("wd");
+    parameter_types.append(sym_nanos_wd_t.get_user_defined_type());
+
+    TL::Symbol translation_function_symbol = SymbolUtils::new_function_symbol(
+            Nodecl::Utils::get_enclosing_function(ctr),
+            fun_name.get_source(),
+            TL::Type::get_void_type(),
+            parameter_names,
+            parameter_types);
+
+    Nodecl::NodeclBase function_code, empty_statement;
+    SymbolUtils::build_empty_body_for_function(
+            translation_function_symbol,
+            function_code,
+            empty_statement);
+
+    xlate_function_name = translation_function_symbol.get_qualified_name();
 
     TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
@@ -2266,15 +2275,15 @@ void LoweringVisitor::emit_translation_function_region(
     {
         Source::source_language = SourceLanguage::C;
     }
-    Nodecl::NodeclBase translations_tree = translations.parse_statement(function_body);
+    Nodecl::NodeclBase translations_tree = translations.parse_statement(empty_statement);
     if (IS_FORTRAN_LANGUAGE)
     {
         Source::source_language = SourceLanguage::Current;
     }
 
-    function_body.replace(translations_tree);
+    empty_statement.replace(translations_tree);
 
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_def_tree);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr, function_code);
 }
 
 void LoweringVisitor::fill_dependences(
