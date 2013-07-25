@@ -1663,15 +1663,16 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
-        internal_error( "Reduction not yet implemented", 0 );
-//         walk( n.get_reductions( ) );
+//        internal_error( "Reduction not yet implemented", 0 );
+        std::cerr << "Warning: Reduction item not yet implemented" << std::endl;
+        walk( n.get_reductions( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
-        internal_error( "Reduction item not yet implemented", 0 );
-//         walk( n.get_reductor( ) );
-//         walk( n.get_reduced_symbol( ) );
+//        internal_error( "Reduction item not yet implemented", 0 );
+         walk( n.get_reductor( ) );
+         walk( n.get_reduced_symbol( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
