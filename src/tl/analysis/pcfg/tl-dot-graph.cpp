@@ -31,6 +31,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <time.h>
+
+#include "filename.h"
+
 #include "cxx-codegen.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-extensible-graph.hpp"
@@ -71,7 +75,31 @@ namespace Analysis {
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
             }
         }
-        std::string dot_file_name = directory_name + _name + ".dot";
+
+        std::string date_str;
+        {
+            time_t t = time(NULL);
+            struct tm* tmp = localtime(&t);
+            if (tmp == NULL)
+            {
+                internal_error("localtime failed", 0);
+            }
+            char outstr[200];
+            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
+            {
+                internal_error("strftime failed", 0);
+            }
+            outstr[199] = '\0';
+            date_str = outstr;
+        }
+
+        Nodecl::NodeclBase node = this->get_nodecl();
+        std::string filename = ::give_basename(node.get_filename().c_str());
+        int line = node.get_line();
+
+        std::stringstream ss; ss << filename << "_" << line;
+
+        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + ".dot";
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( dot_pcfg.good( ) )
         {   // Create the dot graphs
@@ -137,17 +165,34 @@ namespace Analysis {
                 print_node_analysis_info( current, dot_analysis_info, cluster_name,
                                           usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
 
-                for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
+                std::vector<std::string> new_outer_edges_inner;
+                std::vector<Node*> new_outer_nodes_inner;
+                // This is a bit awkward
+                do
                 {
-                    std::vector<std::string> new_outer_edges_2;
-                    std::vector<Node*> new_outer_nodes_2;
-                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id,
-                                        usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
-                }
-                for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
-                {
-                    dot_graph += indent + ( *it );
-                }
+                    for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
+                    {
+                        std::vector<std::string> new_outer_edges_current;
+                        std::vector<Node*> new_outer_nodes_current;
+                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, new_outer_edges_current,
+                                new_outer_nodes_current, indent, subgraph_id,
+                                usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
+
+                        new_outer_edges_inner.insert(new_outer_edges_inner.end(),
+                                new_outer_edges_current.begin(), new_outer_edges_current.end());
+                        new_outer_nodes_inner.insert(new_outer_nodes_inner.end(),
+                                new_outer_nodes_current.begin(), new_outer_nodes_current.end());
+                    }
+                    for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
+                    {
+                        dot_graph += indent + ( *it );
+                    }
+                    new_outer_edges = new_outer_edges_inner;
+                    new_outer_nodes = new_outer_nodes_inner;
+
+                    new_outer_edges_inner.clear();
+                    new_outer_nodes_inner.clear();
+                } while (!new_outer_edges.empty() || !new_outer_nodes.empty());
             }
 
             if( current->is_exit_node( ) )
@@ -212,22 +257,18 @@ namespace Analysis {
                             extra_edge_attrs = ", style=dashed";
                         }
 
+                        std::string mes = sss.str( ) + " -> " + sst.str( ) +
+                            " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                         if( belongs_to_the_same_graph( *it ) )
                         {
-                            dot_graph += indent + sss.str( ) + " -> " + sst.str( ) +
-                                         " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                            dot_graph += mes;
+
                             get_nodes_dot_data( ( *it )->get_target( ), dot_graph, dot_analysis_info,
                                                 outer_edges, outer_nodes, indent, subgraph_id,
                                                 usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
                         }
                         else
                         {
-//                             if( !current->is_graph_node( ) )
-//                             {
-//                                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
-//                             }
-                            std::string mes = sss.str( ) + " -> " + sst.str( ) +
-                                              " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back( mes );
                             outer_nodes.push_back( ( *it )->get_target( ) );
                         }
@@ -273,8 +314,10 @@ namespace Analysis {
             case OMP_TASK:
                 dot_graph += "color=red4;\nstyle=bold;\n";
                 break;
-            case SIMD:
-            case SIMD_FUNCTION:
+            case OMP_SIMD:
+            case OMP_SIMD_FOR:
+            case OMP_SIMD_PARALLEL_FOR:
+            case OMP_SIMD_FUNCTION:
                 dot_graph += "color=indianred2;\n";
                 break;
             default:
@@ -324,9 +367,19 @@ namespace Analysis {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
                 break;
             }
+            case OMP_WAITON_DEPS:
+            {
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] WAITON_DEPS\", shape=ellipse]\n";
+                break;
+            }
             case OMP_VIRTUAL_TASKSYNC:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
+                break;
+            }
+            case OMP_TASK_CREATION:
+            {
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASK_CREATION\", shape=ellipse]\n";
                 break;
             }
             case BREAK:
@@ -376,7 +429,7 @@ namespace Analysis {
                 break;
             }
             default:
-                internal_error( "Undefined type of node '%s' founded while printing the graph.",
+                internal_error( "Undefined type of node '%s' found while printing the graph.",
                                 current->get_type_as_string( ).c_str( ) );
         };
     }

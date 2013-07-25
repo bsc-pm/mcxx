@@ -272,73 +272,44 @@ namespace Analysis {
     // ***************** Visitor retrieving adjacent array accesses within a loop ****************** //
     
     // The return value indicates whether the visit returns a constant value
-    class LIBTL_CLASS AdjacentAccessVisitor : public Nodecl::NodeclVisitor<bool>
+    class LIBTL_CLASS ArrayAccessInfoVisitor : public Nodecl::NodeclVisitor<bool>
     {
     private:
-        ObjectList<Utils::InductionVariableData*> _induction_variables;
-        Utils::ext_sym_set _killed;
-        Utils::InductionVariableData* _iv;
-        bool _iv_found;
+        ObjectList<Utils::InductionVariableData*> _induction_variables; /* All IVs in the containing loop */
+        Utils::ext_sym_set _killed;                                     /* All killed variables in the containing loop */
+        ObjectList<Utils::InductionVariableData*> _ivs;                 /* IVs found during traversal */
+        bool _is_adjacent_access;
         
-        Utils::InductionVariableData* variable_is_iv( const Nodecl::NodeclBase& n );
+        bool variable_is_iv( const Nodecl::NodeclBase& n );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
         
     public:
         // *** Constructor *** //
-        AdjacentAccessVisitor( ObjectList<Utils::InductionVariableData*> ivs, 
+        ArrayAccessInfoVisitor( ObjectList<Utils::InductionVariableData*> ivs, 
                                Utils::ext_sym_set killed );
         
-        // *** Getters and Setters *** //
-        Utils::InductionVariableData* get_induction_variable( );
+        // *** Consultants *** //
+        bool is_adjacent_access( );
+        bool depends_on_induction_vars( );
         
         // *** Visiting methods *** //
+        Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret join_list( ObjectList<bool>& list );
         
         Ret visit( const Nodecl::Add& n );
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShr& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAnd& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseNot& n );
-        Ret visit( const Nodecl::BitwiseOr& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShl& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShr& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n);
-        Ret visit( const Nodecl::BitwiseXor& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
         Ret visit( const Nodecl::BooleanLiteral& n );
         Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
         Ret visit( const Nodecl::Conversion& n );
-        Ret visit( const Nodecl::Different& n );
         Ret visit( const Nodecl::Div& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::Equal& n );
         Ret visit( const Nodecl::FloatingLiteral& n );
         Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::GreaterOrEqualThan& n );
-        Ret visit( const Nodecl::GreaterThan& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
-        Ret visit( const Nodecl::LogicalAnd& n );
-        Ret visit( const Nodecl::LogicalNot& n );
-        Ret visit( const Nodecl::LogicalOr& n );
-        Ret visit( const Nodecl::LowerOrEqualThan& n );
-        Ret visit( const Nodecl::LowerThan& n );
         Ret visit( const Nodecl::Minus& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::Mod& n );
-        Ret visit( const Nodecl::ModAssignment& n );
         Ret visit( const Nodecl::Mul& n );
-        Ret visit( const Nodecl::MulAssignment& n );
         Ret visit( const Nodecl::Neg& n );
-        Ret visit( const Nodecl::ObjectInit& n );
-        Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );

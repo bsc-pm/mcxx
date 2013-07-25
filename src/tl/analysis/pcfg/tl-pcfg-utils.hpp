@@ -229,11 +229,6 @@ namespace Analysis {
         //! creates new nodes
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
 
-        //! Container to store TASK nodes to be used when synchronizations are reached
-        std::vector<ObjectList<ObjectList<Node*> > > _tasks_to_sync;
-        //! Integer indicating the level of nested tasks we are traversing
-        unsigned int _task_level;
-
         //! Counter used to create a unique key for each new node
         unsigned int _nid;
 
@@ -251,6 +246,41 @@ namespace Analysis {
 
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
+    
+    // ******************************************************************************************* //
+    // **************************** Class for task synchronizations ****************************** //
+    
+    struct AliveTaskItem
+    {
+        Node* node;
+        // Arbitrary domain id. Every nesting domain has its own domain id
+        int domain;
+        
+        AliveTaskItem(Node* node_, int domain_)
+            : node(node_), domain(domain_)
+        {
+        }
+        
+        bool operator<(const AliveTaskItem& it) const
+        {
+            return (this->node < it.node)
+                    || (!(it.node < this->node) && 
+                    (this->domain < it.domain));
+        }
+        
+        bool operator==(const AliveTaskItem& it) const
+        {
+            return (this->node == it.node)
+                    && (this->domain == it.domain);
+        }
+        
+    };
+    
+    typedef std::set<AliveTaskItem> StaticSyncTaskSet;
+    typedef std::set<AliveTaskItem> AliveTaskSet;
+    
+    // ************************** END class for task synchronizations **************************** //
+    // ******************************************************************************************* //
 }
 }
 

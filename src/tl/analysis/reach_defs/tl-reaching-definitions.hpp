@@ -114,6 +114,7 @@ namespace Analysis {
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::ModAssignment& n );
         Ret visit( const Nodecl::MulAssignment& n );
+        Ret visit( const Nodecl::ObjectInit& n );
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Predecrement& n );

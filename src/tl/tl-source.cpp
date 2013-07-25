@@ -767,6 +767,38 @@ namespace TL
         return Nodecl::NodeclBase::null();
     }
 
+    static void compute_nodecl_parse_c_type(AST type_id, decl_context_t decl_context, nodecl_t* nodecl_output)
+    {
+        nodecl_t nodecl_out_type = nodecl_null();
+
+        type_t* type_info = NULL;
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        AST type_specifier_seq = ASTSon0(type_id);
+        AST abstract_decl = ASTSon1(type_id);
+
+        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
+                decl_context, /* first_declarator */ NULL, &nodecl_out_type);
+
+        type_t* declarator_type = type_info;
+        compute_declarator_type(abstract_decl, &gather_info, type_info,
+                &declarator_type, decl_context, abstract_decl, &nodecl_out_type);
+
+        *nodecl_output = nodecl_make_type(declarator_type, ast_get_locus(type_id));
+    }
+
+    TL::Type Source::parse_c_type_id(ReferenceScope ref_scope, ParseFlags parse_flags)
+    {
+        Nodecl::NodeclBase node_type = Source::parse_generic(ref_scope,
+                parse_flags,
+                "@TYPE@",
+                compute_nodecl_parse_c_type,
+                decl_context_identity);
+
+        return node_type.get_type();
+    }
+
     std::string preprocessor_line(const std::string& str)
     {
         std::string result;

@@ -32,6 +32,7 @@
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-task-sync.hpp"
 #include "tl-use-def.hpp"
 #include "tl-liveness.hpp"
 #include "tl-reaching-definitions.hpp"
@@ -156,7 +157,7 @@ namespace Analysis {
     {
         _auto_deps = true;
     }
-
+    
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
@@ -235,8 +236,9 @@ namespace Analysis {
         if( result == NULL )
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
-            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. "\
-                             "You probably misstepped during the analysis.",
+            WARNING_MESSAGE( "Nodecl '%s' do not found in current analysis state. "\
+                             "You might have modified the code you used to compute the analyses and"\
+                             "the nodecl you are asking for now did not exist before.",
                              codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
         }
 
@@ -352,6 +354,12 @@ namespace Analysis {
                 PCFGVisitor v( pcfg_name, *it );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
+                // Synchronize the tasks, if applies
+                if( VERBOSE )
+                    printf( "Task sync of PCFG '%s'\n", pcfg_name.c_str( ) );
+                TaskSynchronizations task_sync_analysis( pcfg );
+                task_sync_analysis.compute_task_synchronizations( );
+                
                 // Store the pcfg in the singleton
                 memento.set_pcfg( pcfg_name, pcfg );
                 result.append( pcfg );

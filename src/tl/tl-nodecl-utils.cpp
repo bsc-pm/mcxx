@@ -44,7 +44,12 @@ namespace Nodecl
             {
                 get_all_symbols_rec(n.get_symbol().get_value(), result);
             }
-            result.insert(n.get_symbol());
+
+            // Ignore the internal symbol which represents the C++ NULL constant
+            if (n.get_symbol().get_name() != "__null")
+            {
+                result.insert(n.get_symbol());
+            }
         }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
@@ -140,7 +145,9 @@ namespace Nodecl
         if (n.is_null())
             return;
 
-        if (n.is<Nodecl::Symbol>())
+        if (n.is<Nodecl::Symbol>()
+                // Ignore the internal symbol which represents the C++ NULL constant
+                && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
             result.append(n.as<Nodecl::Symbol>());
         }
@@ -217,7 +224,9 @@ namespace Nodecl
         if (n.is_null())
             return;
 
-        if (n.is<Nodecl::Symbol>())
+        if (n.is<Nodecl::Symbol>()
+                // Ignore the internal symbol which represents the C++ NULL constant
+                && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
             result.insert(n.as<Nodecl::Symbol>(),
                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));

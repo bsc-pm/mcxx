@@ -170,7 +170,7 @@ namespace Analysis {
                     if( Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                         // TODO
-                        WARNING_MESSAGE( "Part of nodecl '%s' founded in the current var must be avoided. " \
+                        WARNING_MESSAGE( "Part of nodecl '%s' found in the current var must be avoided. " \
                                          "A subpart is killed.", itk->get_nodecl( ).prettyprint( ).c_str( ),
                                          var.prettyprint( ).c_str( ) );
                         //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
@@ -193,7 +193,7 @@ namespace Analysis {
                         if( Utils::ext_sym_set_contains_englobing_nodecl( itu->get_nodecl( ), aux_set_2 ) )
                         {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                             // TODO
-                            WARNING_MESSAGE( "Part of nodecl founded in the current var must be avoided. "\
+                            WARNING_MESSAGE( "Part of nodecl found in the current var must be avoided. "\
                                              "A subpart is undefined.", itu->get_nodecl( ).prettyprint( ).c_str( ),
                                              var.prettyprint( ).c_str( ) );
                             undef.erase( itu );
@@ -598,13 +598,11 @@ namespace Analysis {
 
             if( side_effects && VERBOSE )
             {
-/*
                 WARNING_MESSAGE( "Function's '%s' code not reached. Usage of global variables and "\
                                   "reference parameters will be limited. If you know the side effects of this function, "\
                                   "add it to the file and recompile your code. \n(If you recompile the compiler, "\
                                   "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
                                   func_sym.get_name( ).c_str( ), cLibFuncsPath.c_str( ) );
-*/
             }
             cLibFuncs.close();
         }

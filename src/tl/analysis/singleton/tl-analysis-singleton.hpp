@@ -106,7 +106,7 @@ namespace Analysis {
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
-
+        
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
 

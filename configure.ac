@@ -112,7 +112,7 @@ TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx"
+COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx analysisfc"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -487,7 +487,7 @@ AC_SUBST([CUDA_RPATH])
 if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
-   COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else
@@ -606,6 +606,7 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
                     MPICXX=$MPIPATH/$MPI_CXXNAME
                     MPIFORT=$MPIPATH/$MPI_FORTNAME
                     MPIMODULE=mpich
+                    DISABLEMPI_GCC="\#do not uncomment"
       else
                     mpi_valid=no
       fi
@@ -618,6 +619,7 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
                       MPICXX=$MPIPATH/bin/$MPI_CXXNAME
                       MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
                       MPIMODULE=mpich
+                      DISABLEMPI_GCC="\#do not uncomment"
          else
                       mpi_valid=no
          fi
@@ -626,13 +628,14 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
        MPI_CXXNAME=mpicxx
        MPI_FORTNAME=mpif90
        if test -f $MPIPATH/$MPI_CNAME; then	
-                            mpi_found=yes 
-                            MPICC=$MPIPATH/$MPI_CNAME
-                            MPICXX=$MPIPATH/$MPI_CXXNAME
-                            MPIFORT=$MPIPATH/$MPI_FORTNAME                            
-                            MPIMODULE=openmpi
+            mpi_found=yes 
+            MPICC=$MPIPATH/$MPI_CNAME
+            MPICXX=$MPIPATH/$MPI_CXXNAME
+            MPIFORT=$MPIPATH/$MPI_FORTNAME                            
+            MPIMODULE=openmpi
+            DISABLEMPI_ICC="\#do not uncomment"
        else
-                      mpi_valid=no
+            mpi_valid=no
        fi
        #search in the path without bin
        if test x$mpi_found = xno; then		
@@ -643,8 +646,9 @@ AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
             MPICXX=$MPIPATH/bin/$MPI_CXXNAME
             MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
             MPIMODULE=openmpi
+            DISABLEMPI_ICC="\#do not uncomment"
           else
-                       mpi_valid=no
+            mpi_valid=no
           fi
        fi
 
@@ -686,6 +690,8 @@ then
 else
    DISABLE_MPI="\#do not uncomment"
 fi
+AC_SUBST([DISABLEMPI_ICC])
+AC_SUBST([DISABLEMPI_GCC])
 AC_SUBST([MPICC])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])

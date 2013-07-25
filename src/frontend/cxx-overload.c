@@ -2159,7 +2159,20 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         }
     }
 
-    return entry_advance_aliases(best_viable->candidate->entry);
+    scope_entry_t* best_viable_function = entry_advance_aliases(best_viable->candidate->entry);
+
+    // Cleanup: overload_entry_list_t is an incredibly big structure
+    // because of a big array of MCXX_MAX_FUNCTION_CALL_ARGUMENTS
+    it = viable_functions;
+    while (it != NULL)
+    {
+        overload_entry_list_t* next = it->next;
+        _bytes_overload -= sizeof(*it);
+        xfree(it);
+        it = next;
+    }
+
+    return best_viable_function;
 }
 
 scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
@@ -2667,7 +2680,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2793,7 +2806,7 @@ scope_entry_t* solve_init_list_constructor(
     }
 }
 
-candidate_t* add_to_candidate_set(candidate_t* candidate_set,
+candidate_t* candidate_set_add(candidate_t* candidate_set,
         scope_entry_t* entry,
         int num_args,
         type_t** args)
@@ -2819,4 +2832,23 @@ candidate_t* add_to_candidate_set(candidate_t* candidate_set,
     }
 
     return result;
+}
+
+void candidate_set_free(candidate_t** p_candidate_set)
+{
+    static int i = 0;
+    i++;
+
+    ERROR_CONDITION(p_candidate_set == NULL, "This cannot be NULL", 0);
+    candidate_t* candidate_set = *p_candidate_set;
+    while (candidate_set != NULL)
+    {
+        candidate_t* next = candidate_set->next;
+        _bytes_overload -= sizeof(*candidate_set);
+        xfree(candidate_set);
+        candidate_set = next;
+    }
+
+    // Early detection of bugs
+    *p_candidate_set = NULL;
 }

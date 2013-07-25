@@ -706,8 +706,9 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
     if (right_symbol != NULL)
     {
-        // Advance right value
-        if (!nodecl_is_null(right_symbol->value))
+        // Advance right value except for enumerators
+        if (right_symbol->kind != SK_ENUMERATOR
+                && !nodecl_is_null(right_symbol->value))
             return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set, flags);
     }
 
@@ -735,10 +736,11 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             current_deduced_parameter.value = right_tree;
             current_deduced_parameter.type = left_symbol->type_information;
 
-            // Fold if possible
-            if (nodecl_is_constant(right_tree))
+            // Fold if possible (except for enums)
+            if (nodecl_is_constant(right_tree)
+                    && !is_enum_type(left_symbol->type_information))
             {
-                current_deduced_parameter.value = 
+                current_deduced_parameter.value =
                     const_value_to_nodecl(nodecl_get_constant(right_tree));
             }
 

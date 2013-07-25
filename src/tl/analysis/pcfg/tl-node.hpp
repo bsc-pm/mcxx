@@ -291,8 +291,14 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP TASK node
             bool is_omp_task_node( );
 
+            //! Returns true when the node is an OpenMP TASK CREATION node
+            bool is_omp_task_creation_node( );
+
             //! Returns true when the node is a TASKWAIT node
             bool is_omp_taskwait_node( );
+
+            //! Returns true when the node is a WAITON_DEPS node
+            bool is_ompss_taskwait_on_node( );
 
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
@@ -400,8 +406,28 @@ namespace Analysis {
             // ******** END Getters and setters for PCFG structural nodes and types ********* //
             // ****************************************************************************** //
 
+            
+            
+            // ****************************************************************************** //
+            // ****************** Getters and setters for PCFG analysis ********************* //
+            
+            //! Returns the set of tasks that are alive at the entry of the node
+            AliveTaskSet& get_live_in_tasks( );
+            
+            //! Returns the set of tasks that are alive at the exit of the node
+            AliveTaskSet& get_live_out_tasks( );
+ 
+            //! Returns the set of tasks that are alive at the entry of the node
+            StaticSyncTaskSet& get_static_sync_in_tasks( );
+            
+            //! Returns the set of tasks that are alive at the exit of the node
+            StaticSyncTaskSet& get_static_sync_out_tasks( );
 
-
+            // **************** END getters and setters for PCFG analysis ******************* //
+            // ****************************************************************************** //
+            
+            
+            
             // ****************************************************************************** //
             // **************** Getters and setters for constants analysis ****************** //
 

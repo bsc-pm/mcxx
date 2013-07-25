@@ -2005,44 +2005,11 @@ template_parameter_list_t* update_template_argument_list(
     return result;
 }
 
-static type_t* update_dependent_typename(
-        type_t* dependent_entry_type,
+static nodecl_t update_dependent_typename_dependent_parts(
         nodecl_t dependent_parts,
         decl_context_t decl_context,
         const locus_t* locus)
 {
-    ERROR_CONDITION(
-            !nodecl_is_null(dependent_parts)
-            && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree", 0);
-
-    scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
-
-    if (is_dependent_type(dependent_entry_type))
-    {
-        return get_dependent_typename_type_from_parts(dependent_entry,
-                dependent_parts);
-    }
-     
-    if (dependent_entry->kind == SK_TYPEDEF)
-    {
-        type_t* advanced_type = advance_over_typedefs(dependent_entry->type_information);
-
-        ERROR_CONDITION(!is_named_type(advanced_type), "This is not a named type", 0);
-
-        dependent_entry = named_type_get_symbol(advanced_type);
-    }
-
-    ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
-
-    if(nodecl_is_null(dependent_parts))
-    {
-        return get_user_defined_type(dependent_entry);
-    }
-
-    scope_entry_t* current_member = dependent_entry;
-
-    instantiate_template_class_if_needed(current_member, current_member->decl_context, locus);
-
     // We need to update dependent parts, lest there was a template-id
     int num_parts = 0;
     int i;
@@ -2067,7 +2034,51 @@ static type_t* update_dependent_typename(
         new_dependent_parts_list = nodecl_append_to_list(new_dependent_parts_list,
                 new_current_part);
     }
+
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, locus);
+
+    return new_dependent_parts;
+}
+
+static type_t* update_dependent_typename(
+        type_t* dependent_entry_type,
+        nodecl_t dependent_parts,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(
+            !nodecl_is_null(dependent_parts)
+            && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree", 0);
+
+    scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
+
+    if (is_dependent_type(dependent_entry_type))
+    {
+        return get_dependent_typename_type_from_parts(dependent_entry,
+                dependent_parts);
+    }
+
+    if (dependent_entry->kind == SK_TYPEDEF)
+    {
+        type_t* advanced_type = advance_over_typedefs(dependent_entry->type_information);
+
+        ERROR_CONDITION(!is_named_type(advanced_type), "This is not a named type", 0);
+
+        dependent_entry = named_type_get_symbol(advanced_type);
+    }
+
+    ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
+
+    if(nodecl_is_null(dependent_parts))
+    {
+        return get_user_defined_type(dependent_entry);
+    }
+
+    scope_entry_t* current_member = dependent_entry;
+
+    instantiate_template_class_if_needed(current_member, current_member->decl_context, locus);
+
+    nodecl_t new_dependent_parts = update_dependent_typename_dependent_parts(dependent_parts, decl_context, locus);
 
     scope_entry_list_t* entry_list = query_nodecl_name(
             class_type_get_inner_context(current_member->type_information),
@@ -2878,7 +2889,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
     decl_context_t new_template_context = template_name_context;
     new_template_context.template_parameters = result;
-    
+
     // Now review template parameters
     int i;
     for (i = 0; i < primary_template_parameters->num_parameters; i++)
@@ -2938,14 +2949,14 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 return NULL;
             }
         }
-        
+
         // Nontype template arguments must be adjusted first
         if (result->arguments[i]->kind == TPK_NONTYPE)
         {
             // We need to do this because of cases like this
             //
-            // N in    template <typename T, T N>                       
-            // PF in   template <typename R, typename A, R (*PF)(A)>    
+            // N in    template <typename T, T N>
+            // PF in   template <typename R, typename A, R (*PF)(A)>
             result->arguments[i]->type = update_type(
                     result->parameters[i]->entry->type_information,
                     new_template_context,
@@ -3581,10 +3592,26 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
         }
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Template parameter (%d, %d) found with value. Name '%s'\n",
+            fprintf(stderr, "SCOPE: Template parameter (%d, %d) found with value. Symbol='%s' ",
                     template_parameter_nesting,
                     template_parameter_position,
                     value->entry->symbol_name);
+            fprintf(stderr, " Type='%s' ",
+                    print_declarator(value->entry->type_information));
+            if (value->kind == TPK_NONTYPE)
+            {
+                if (!nodecl_is_constant(value->entry->value))
+                {
+                    fprintf(stderr, " Value='<<nonconstant>>'");
+                }
+                else
+                {
+                    fprintf(stderr, " Value='%s'", 
+                            codegen_to_str(const_value_to_nodecl(nodecl_get_constant(value->entry->value)),
+                                context));
+                }
+            }
+            fprintf(stderr, "\n");
         }
         return value->entry;
     }
@@ -4267,8 +4294,11 @@ static scope_entry_list_t* query_nodecl_conversion_name(
     return query_conversion_function_info(class_context, t);
 }
 
-
-static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_qualified_name_internal(
+        decl_context_t decl_context,
+        decl_context_t current_context,
+        scope_entry_t* previous_symbol,
+        char allow_namespaces,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags,
         char check_symbol_in_nest(scope_entry_t* previous_sym, 
@@ -4282,10 +4312,6 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             && nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
             "Invalid nodecl", 0);
 
-    char is_global = (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
-
-    scope_entry_t* previous_symbol = NULL;
-
     decl_flags_t nested_flags = decl_flags;
     nested_flags &= ~DF_LABEL;
     nested_flags &= ~DF_CONSTRUCTOR;
@@ -4293,16 +4319,6 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
 
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
-
-    decl_context_t current_context = decl_context;
-
-    if (is_global)
-    {
-        current_context.current_scope = current_context.global_scope;
-        previous_symbol = current_context.global_scope->related_entry;
-    }
-
-    char allow_namespaces = 1;
 
     int i;
     // Note that we do not handle the last name here
@@ -4588,13 +4604,47 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
     return result;
 }
 
+static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t decl_context,
+        nodecl_t nodecl_name,
+        decl_flags_t decl_flags,
+        char allow_namespaces,
+        char check_symbol_in_nest(scope_entry_t* previous_sym,
+            scope_entry_t* current_sym,
+            char is_last,
+            const locus_t* locus,
+            void* data),
+        void *check_symbol_data)
+{
+    scope_entry_t* previous_symbol = NULL;
+    char is_global = (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
+
+    decl_context_t current_context = decl_context;
+    if (is_global)
+    {
+        current_context.current_scope = current_context.global_scope;
+        previous_symbol = current_context.global_scope->related_entry;
+        allow_namespaces = 1;
+    }
+
+    return query_nodecl_qualified_name_internal(
+            decl_context,
+            current_context,
+            previous_symbol,
+            allow_namespaces,
+            nodecl_name,
+            decl_flags,
+            check_symbol_in_nest,
+            check_symbol_data);
+}
+
 static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_context,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags)
 {
-    return query_nodecl_qualified_name_aux(decl_context,
+    return query_nodecl_qualified_name_common(decl_context,
             nodecl_name,
             decl_flags,
+            /* allow_namespaces */ 1,
             NULL, NULL);
 
 }
@@ -4677,9 +4727,10 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
         nodecl_t nodecl_name,
         decl_flags_t decl_flags)
 {
-    return query_nodecl_qualified_name_aux(decl_context,
+    return query_nodecl_qualified_name_common(decl_context,
             nodecl_name,
             decl_flags,
+            /* allow_namespaces */ 0,
             check_symbol_is_base_or_member,
             class_symbol);
 }
@@ -5113,12 +5164,34 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                     {
                         scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
-                        instantiate_template_class_if_needed(class_sym, class_sym->decl_context,
+                        // Make sure class_type_get_inner_context does not return a bogus context below
+                        instantiate_template_class_if_needed(class_sym, class_sym->decl_context, locus);
+
+                        nodecl_t update_dependent_parts = update_dependent_typename_dependent_parts(
+                                dependent_parts,
+                                decl_context,
                                 locus);
 
-                        return query_nodecl_name_flags(
-                                class_type_get_inner_context(class_sym->type_information),
-                                dependent_parts, DF_DEPENDENT_TYPENAME);
+                        ERROR_CONDITION(nodecl_get_kind(update_dependent_parts) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
+                                "This is not possible here", 0);
+                        if (nodecl_get_kind(update_dependent_parts) != NODECL_CXX_DEP_NAME_NESTED)
+                        {
+                            return query_nodecl_name_flags(
+                                    class_type_get_inner_context(class_sym->type_information),
+                                    update_dependent_parts, DF_DEPENDENT_TYPENAME);
+                        }
+                        else
+                        {
+                            return query_nodecl_qualified_name_internal(
+                                    decl_context,
+                                    /* current_context */ class_type_get_inner_context(class_sym->type_information),
+                                    class_sym,
+                                    /* allow_namespaces */ 0,
+                                    update_dependent_parts,
+                                    DF_DEPENDENT_TYPENAME,
+                                    check_symbol_is_base_or_member,
+                                    class_sym);
+                        }
                     }
                     else
                     {

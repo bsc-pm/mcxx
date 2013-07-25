@@ -45,12 +45,14 @@ namespace Analysis {
         FUNCTION_CALL,       //! Node containing a Function Call
         GOTO,                //! Node containing a GotoStatement
         LABELED,             //! Node containing an only Labeled Statement
-        NORMAL,              //! Node representing a Basic Bloc
+        NORMAL,              //! Node representing a Basic Block
         // OMP
         OMP_BARRIER,
         OMP_FLUSH,
         OMP_TASKWAIT,
+        OMP_WAITON_DEPS,
         OMP_TASKYIELD,
+        OMP_TASK_CREATION,
         OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
                              //! when the function that creates the task has ended
         // COMPOSITE
@@ -74,10 +76,12 @@ namespace Analysis {
         OMP_PARALLEL,
         OMP_SECTION,
         OMP_SECTIONS,
+        OMP_SIMD,
+        OMP_SIMD_FOR,
+        OMP_SIMD_FUNCTION,
+        OMP_SIMD_PARALLEL_FOR,
         OMP_SINGLE,
         OMP_TASK,
-        SIMD,
-        SIMD_FUNCTION,
         SPLIT_STMT,          //! Expression being split because it contains a sub-expression with a separated node
         SWITCH               //! Switch statement
     };
@@ -201,6 +205,28 @@ namespace Analysis {
     // *********************************** End constant propagation ************************************ //
     // ************************************************************************************************* //
 
+
+    
+    // ************************************************************************************************* //
+    // ***************************************** PCFG analysis ***************************************** //
+    
+    /*! \def _LIVE_IN_TASKS
+     * Set of tasks that are alive at the Entry of a node
+     * Available in all nodes during PCFG construction
+     * FIXME Think about deleting this data after PCFG construction
+     */
+    #define _LIVE_IN_TASKS      "live_in_tasks"
+    
+    /*! \def _LIVE_OUT_TASKS
+     * Set of tasks that are alive at the Exit of a node
+     * Available in all nodes during PCFG construction
+     * FIXME Think about deleting this data after PCFG construction
+     */
+    #define _LIVE_OUT_TASKS      "live_out_tasks"
+    
+    // *************************************** End PCFG analysis *************************************** //
+    // ************************************************************************************************* //
+    
 
 
     // ************************************************************************************************* //

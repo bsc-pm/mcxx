@@ -485,6 +485,7 @@ critical-construct : NODECL_OPEN_M_P*CRITICAL([environment]exec-environment-seq-
 task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [statements]statement-seq-opt)
 
 # function task
+# Note: do not rely on the information in site_environment
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
 # task expression

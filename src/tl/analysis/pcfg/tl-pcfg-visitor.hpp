@@ -82,12 +82,6 @@ namespace Analysis {
         */
         Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
 
-        //! This method creates a virtual synchronization node when tasks are not synchronized
-        //! within the same function they are created, or they are synchronized in conditional situations
-        void synchronize_tasks( );
-
-        bool task_is_surely_synchronized( Node* task );
-
         bool same_parent_task( Node* task_1, Node* task_2 );
 
         // ************************************************************************************** //
@@ -137,8 +131,11 @@ namespace Analysis {
          */
         Ret visit_literal_node( const Nodecl::NodeclBase& n );
 
-        //! This method implements the visitor for any kind of taskwait: TaskwaitDeep, TaskwaitShallow
+        //! This method implements the visitor for any kind of taskwait without dependences: TaskwaitDeep, TaskwaitShallow
         Ret visit_taskwait( );
+
+        //! This method implements the visitor for taskwait on dependences
+        Ret visit_taskwait( const Nodecl::OpenMP::WaitOnDependences& n );
 
         //! This method implements the visitor for unary nodecls
         /*!
