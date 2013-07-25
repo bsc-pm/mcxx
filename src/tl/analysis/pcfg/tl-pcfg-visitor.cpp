@@ -1666,6 +1666,7 @@ namespace Analysis {
 //        internal_error( "Reduction not yet implemented", 0 );
         std::cerr << "Warning: Reduction item not yet implemented" << std::endl;
         walk( n.get_reductions( ) );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
@@ -1673,6 +1674,7 @@ namespace Analysis {
 //        internal_error( "Reduction item not yet implemented", 0 );
          walk( n.get_reductor( ) );
          walk( n.get_reduced_symbol( ) );
+         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
