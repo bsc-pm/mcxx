@@ -101,6 +101,11 @@ namespace TL
             _environment._analysis_scopes.pop_back();
             _environment._local_scope_list.pop_back();
 
+            // If epilog is not necessary, analysis won't be reused
+            // and must be freed
+            if (!needs_epilog)
+                Vectorizer::finalize_analysis();
+
             return needs_epilog;
         }
 
@@ -468,6 +473,10 @@ namespace TL
             {
                 visit_scalar_epilog(for_statement);
             }
+
+            // Epilog reused the analysis from the original ForStatement
+            // Now it must be freed
+            Vectorizer::finalize_analysis();
         }
 
         void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement)

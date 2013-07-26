@@ -159,6 +159,9 @@ namespace TL
 
             _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
+
+            // Analysis in functions won't be reused anywhere so it must be freed
+            Vectorizer::finalize_analysis();
         }
  
 

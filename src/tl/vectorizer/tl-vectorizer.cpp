@@ -73,6 +73,21 @@ namespace TL
 
         void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
         {
+            std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
+
+            if(Vectorizer::_analysis_info != 0)
+                running_error("VECTORIZER: Analysis was previously initialize", 0);
+
+            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                    enclosing_function,
+                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+        }
+
+#if 0
+        void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
+        {
             if ((Vectorizer::_analysis_info == 0) || 
                     (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function))
             {
@@ -100,6 +115,17 @@ namespace TL
             else
             {
                 std::cerr << "VECTORIZER: Reusing previous analysis" << std::endl;
+            }
+        }
+#endif
+        void Vectorizer::finalize_analysis()
+        {
+            std::cerr << "VECTORIZER: Finalizing analysis" << std::endl;
+
+            if(Vectorizer::_analysis_info != 0)
+            {
+                delete Vectorizer::_analysis_info;
+                Vectorizer::_analysis_info = 0;
             }
         }
 

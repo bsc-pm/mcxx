@@ -105,6 +105,7 @@ namespace TL
             public:
                 static Vectorizer& get_vectorizer();
                 static void initialize_analysis(const Nodecl::FunctionCode& enclosing_function);
+                static void finalize_analysis();
 
                 ~Vectorizer();
 
