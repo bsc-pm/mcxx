@@ -914,7 +914,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
                     nodecl_t nodecl_expr = nodecl_null();
-                    if (expression != NULL 
+                    if (expression != NULL
                             && !check_expression(expression, decl_context, &nodecl_expr))
                     {
                         if (!checking_ambiguity())
@@ -2549,7 +2549,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                         if (is_unresolved_overloaded_type(computed_type))
                         {
-                            scope_entry_list_t* entry_list = 
+                            scope_entry_list_t* entry_list =
                                 unresolved_overloaded_type_get_overload_set(computed_type);
 
                             if (entry_list_size(entry_list) > 1)
@@ -2557,7 +2557,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                 if (!checking_ambiguity())
                                 {
                                     error_printf("%s: error: '%s' yields an unresolved overload type\n",
-                                            ast_location(a), 
+                                            ast_location(a),
                                             prettyprint_in_buffer(a));
                                 }
                                 *simple_type_info = get_error_type();
@@ -2575,7 +2575,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                             else
                             {
                                 computed_type = get_pointer_to_member_type(
-                                        entry->type_information, 
+                                        entry->type_information,
                                         named_type_get_symbol(entry->entity_specs.class_type));
                             }
                         }
@@ -2688,7 +2688,11 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 }
                 else
                 {
-                    running_error("%s: error: __int64 not supported\n", ast_location(a));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: __int64 not supported\n", ast_location(a));
+                    }
+                    *simple_type_info = get_error_type();
                 }
                 break;
             }
@@ -12717,7 +12721,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         bitfield_symbol->entity_specs.is_bitfield = 1;
                         bitfield_symbol->entity_specs.bitfield_size = nodecl_bit_size;
-                        bitfield_symbol->entity_specs.bitfield_size_context = decl_context;
+                        bitfield_symbol->related_decl_context = decl_context;
 
                         bitfield_symbol->defined = 1;
 
@@ -13415,7 +13419,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         solve_condition_ambiguity(a, decl_context);
     }
 
-    if (ASTSon0(a) != NULL 
+    if (ASTSon0(a) != NULL
             && ASTSon1(a) != NULL)
     {
         // This condition declares something in this scope
@@ -13447,12 +13451,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         nodecl_t nodecl_expr = nodecl_null();
         if (!check_initialization(initializer, decl_context, entry->type_information, &nodecl_expr))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: initializer '%s' could not be checked\n",
-                        ast_location(initializer),
-                        prettyprint_in_buffer(initializer));
-            }
+            *nodecl_output = nodecl_expr;
+            return;
         }
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the initialization expression", 0);
@@ -13470,6 +13470,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                             ast_location(a),
                             print_type_str(entry->type_information, decl_context));
                 }
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
+                return;
             }
 
             *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
@@ -13490,6 +13492,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                                 ast_location(a),
                                 print_type_str(entry->type_information, decl_context));
                     }
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
+                    return;
                 }
 
                 *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
@@ -13516,15 +13520,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
     else
     {
-        if (!check_expression(ASTSon2(a), decl_context, nodecl_output))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: condition '%s' could not be checked\n",
-                        ast_location(ASTSon2(a)),
-                        prettyprint_in_buffer(ASTSon2(a)));
-            }
-        }
+        check_expression(ASTSon2(a), decl_context, nodecl_output);
 
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the expression", 0);
@@ -13643,6 +13639,10 @@ static void build_scope_expression_statement(AST a,
                     prettyprint_in_buffer(ASTSon0(a)),
                     ast_location(ASTSon0(a)));
         }
+
+        *nodecl_output = nodecl_append_to_list(
+                *nodecl_output,
+                nodecl_make_err_statement(ast_get_locus(a)));
         return;
     }
 
@@ -13741,9 +13741,9 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_loop_init = nodecl_null();
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
-        build_scope_simple_declaration(for_init_statement, block_context, 
+        build_scope_simple_declaration(for_init_statement, block_context,
                 /* is_template */ 0, /* is_explicit_specialization */ 0,
-                &nodecl_loop_init, 
+                &nodecl_loop_init,
                 /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 
         if (IS_CXX_LANGUAGE)
@@ -13796,16 +13796,7 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_loop_iter = nodecl_null();
     if (expression != NULL)
     {
-        if (!check_expression(expression, block_context, &nodecl_loop_iter))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: could not check iterating expression '%s'\n",
-                        ast_location(expression),
-                        prettyprint_in_buffer(expression));
-            }
-        }
-
+        check_expression(expression, block_context, &nodecl_loop_iter);
     }
 
 
@@ -13930,9 +13921,9 @@ static void build_scope_case_statement(AST a,
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(constant_expression, decl_context, &nodecl_expr))
     {
-        warn_printf("%s: could not check case expression '%s'\n",
-                ast_location(constant_expression),
-                prettyprint_in_buffer(constant_expression));
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a)));
+        return;
     }
 
     nodecl_t nodecl_statement = nodecl_null();
@@ -14144,14 +14135,10 @@ static void build_scope_do_statement(AST a,
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(expression, decl_context, &nodecl_expr))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: could not check do expression '%s'\n",
-                    ast_location(expression),
-                    prettyprint_in_buffer(expression));
-        }
+        *nodecl_output = nodecl_make_list_1(
+            nodecl_make_err_statement(ast_get_locus(a)));
+        return;
     }
-
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_do_statement(nodecl_statement, 
                 nodecl_expr, ast_get_locus(a)));

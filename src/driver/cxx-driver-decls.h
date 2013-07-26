@@ -154,6 +154,7 @@ typedef struct debug_options_tag
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;
+    char do_not_codegen;
 } debug_options_t;
 
 typedef struct external_var_tag {

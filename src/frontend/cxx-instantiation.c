@@ -325,8 +325,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size)));
                         }
 
-                        new_member->entity_specs.bitfield_size_context =
-                            context_of_being_instantiated;
+                        new_member->related_decl_context = context_of_being_instantiated;
                     }
                     else
                     {

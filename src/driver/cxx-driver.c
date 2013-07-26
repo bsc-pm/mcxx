@@ -2913,7 +2913,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             // * Codegen
             const char* prettyprinted_filename = NULL;
-            if (!file_not_processed)
+            if (!file_not_processed
+                    && !CURRENT_CONFIGURATION->debug_options.do_not_codegen)
             {
                 prettyprinted_filename
                     = codegen_translation_unit(translation_unit, parsed_filename);
@@ -3284,15 +3285,19 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         if (CURRENT_CONFIGURATION->column_width != 0)
         {
             temporal_file_t raw_prettyprint = new_temporal_file();
-            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit);
+            fclose(raw_prettyprint_file);
 
-            rewind(raw_prettyprint_file);
-
+            raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
             fclose(raw_prettyprint_file);
         }
@@ -3721,7 +3726,8 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* prettyprinted_filename, 
         char remove_input)
 {
-    if (CURRENT_CONFIGURATION->do_not_compile)
+    if (CURRENT_CONFIGURATION->do_not_compile
+            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
     if (remove_input)
@@ -4336,7 +4342,8 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
 static void link_objects(void)
 {
-    if (CURRENT_CONFIGURATION->do_not_link)
+    if (CURRENT_CONFIGURATION->do_not_link
+            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
     int j;
@@ -4598,16 +4605,15 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
 
 static void print_memory_report(void)
 {
-#ifdef HAVE_MALLINFO
     char c[256];
-
-    struct mallinfo mallinfo_report = mallinfo();
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Memory report\n");
     fprintf(stderr, "-------------\n");
     fprintf(stderr, "\n");
 
+#ifdef HAVE_MALLINFO
+    struct mallinfo mallinfo_report = mallinfo();
     print_human(c, mallinfo_report.arena);
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
             c);
@@ -4634,6 +4640,7 @@ static void print_memory_report(void)
             c);
 
     fprintf(stderr, "\n");
+#endif
 
     unsigned long long accounted_memory = 0;
     //
@@ -4668,7 +4675,7 @@ static void print_memory_report(void)
         fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
         fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
     }
-    
+
     accounted_memory += char_trie_used_memory();
     print_human(c, char_trie_used_memory());
     fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
@@ -4680,10 +4687,14 @@ static void print_memory_report(void)
     accounted_memory += symbols_used_memory();
     print_human(c, symbols_used_memory());
     fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
+    fprintf(stderr, "    - Size of each symbol (bytes): %zu\n", sizeof(scope_entry_t));
+    fprintf(stderr, "    - Size of entity specifiers (bytes): %zu\n", sizeof(entity_specifiers_t));
 
     accounted_memory += scope_used_memory();
     print_human(c, scope_used_memory());
     fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
+    fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
+    fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
 
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
@@ -4745,9 +4756,6 @@ static void print_memory_report(void)
     }
 
     fprintf(stderr, "\n");
-#else
-    fprintf(stderr, "Memory statistics are not available in this environment\n");
-#endif
 }
 
 type_environment_t* get_environment(const char* env_id)
