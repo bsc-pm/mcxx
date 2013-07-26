@@ -185,255 +185,11 @@ namespace TL { namespace OpenMP {
                             "Unexpected '%s' node",
                             ast_print_node_type(enclosing_stmt.get_kind()));
 
-                    Nodecl::OpenMP::Task join_task;
-                    {
-                        // The inline tasks are always SMP tasks
-                        Nodecl::List exec_environment;
+                    // Generate the inline task and It's execution environment
+                    Nodecl::OpenMP::Task join_task = generate_join_task(enclosing_stmt);
 
-                        TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
-                            in_alloca_deps, inout_deps, out_deps, assumed_firstprivates, alloca_exprs;
-
-                        Nodecl::NodeclBase expr, lhs_expr, rhs_expr;
-                        expr = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest();
-                        if (expr.is<Nodecl::AddAssignment>())
-                            get_assignment_expressions<Nodecl::AddAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::ArithmeticShrAssignment>())
-                            get_assignment_expressions<Nodecl::ArithmeticShrAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::Assignment>())
-                            get_assignment_expressions<Nodecl::Assignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::BitwiseAndAssignment>())
-                            get_assignment_expressions<Nodecl::BitwiseAndAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::BitwiseOrAssignment>())
-                            get_assignment_expressions<Nodecl::BitwiseOrAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::BitwiseShlAssignment>())
-                            get_assignment_expressions<Nodecl::BitwiseShlAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::BitwiseShrAssignment>())
-                            get_assignment_expressions<Nodecl::BitwiseShrAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::BitwiseXorAssignment>())
-                            get_assignment_expressions<Nodecl::BitwiseXorAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::DivAssignment>())
-                            get_assignment_expressions<Nodecl::DivAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::MinusAssignment>())
-                            get_assignment_expressions<Nodecl::MinusAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::ModAssignment>())
-                            get_assignment_expressions<Nodecl::ModAssignment>(expr, lhs_expr, rhs_expr);
-                        else if (expr.is<Nodecl::MulAssignment>())
-                            get_assignment_expressions<Nodecl::MulAssignment>(expr, lhs_expr, rhs_expr);
-                        else rhs_expr = expr;
-
-                        // Create the output depedence if needed
-                        if (!lhs_expr.is_null())
-                        {
-                            if (expr.is<Nodecl::Assignment>())
-                            {
-                                out_deps.append(lhs_expr.shallow_copy());
-                                copy_out.append(lhs_expr.shallow_copy());
-                            }
-                            else
-                            {
-                                inout_deps.append(lhs_expr.shallow_copy());
-                                copy_inout.append(lhs_expr.shallow_copy());
-                            }
-                        }
-
-                        // Obtain the nonlocal symbols from the right expression
-                        TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(rhs_expr);
-                        for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
-                                it2 != nonlocal_symbols.end();
-                                ++it2)
-                        {
-                            TL::Symbol sym = it2->get_symbol();
-
-                            if (!sym.is_variable()
-                                    || (sym.is_member()
-                                        && !sym.is_static()))
-                                continue;
-
-                            std::set<TL::Symbol>::iterator it_sym = return_arguments.find(sym);
-                            if (it_sym == return_arguments.end())
-                            {
-                                // The expressions that are not return arguments are passed as firstprivates
-                                assumed_firstprivates.append((*it2).shallow_copy());
-                            }
-                            else
-                            {
-                                // The return arguments present in the enclosing statement are added as alloca input dependences
-                                Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                                sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
-
-                                in_alloca_deps.append(
-                                        Nodecl::Dereference::make(
-                                            sym_nodecl,
-                                            sym.get_type().points_to().get_lvalue_reference_to(),
-                                            make_locus("", 0, 0)));
-
-                                copy_in.append(
-                                        Nodecl::Dereference::make(
-                                            sym_nodecl.shallow_copy(),
-                                            sym.get_type().points_to().get_lvalue_reference_to(),
-                                            make_locus("", 0, 0)));
-
-                                // Remove this item from the return arguments set!
-                                return_arguments.erase(it_sym);
-                            }
-                        }
-
-                        // The resting return arguments are added as alloca expressions (i. e. they need to be allocated in the
-                        // join task but they should not generate any dependence)
-                        for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
-                                it2 != return_arguments.end();
-                                ++it2)
-                        {
-                            TL::Symbol sym = *it2;
-
-                            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-                            sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
-
-                            alloca_exprs.append(
-                                    Nodecl::Dereference::make(
-                                        sym_nodecl,
-                                        sym.get_type().points_to().get_lvalue_reference_to(),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!assumed_firstprivates.empty())
-                        {
-                            exec_environment.append(
-                                    Nodecl::OpenMP::Firstprivate::make(
-                                        Nodecl::List::make(assumed_firstprivates),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!alloca_exprs.empty())
-                        {
-                            exec_environment.append(
-                                    Nodecl::OpenMP::Alloca::make(
-                                        Nodecl::List::make(alloca_exprs),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!in_alloca_deps.empty())
-                        {
-                            exec_environment.append(
-                                    Nodecl::OpenMP::DepInAlloca::make(
-                                        Nodecl::List::make(in_alloca_deps),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!inout_deps.empty())
-                        {
-                            exec_environment.append(
-                                    Nodecl::OpenMP::DepOut::make(
-                                        Nodecl::List::make(inout_deps),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!out_deps.empty())
-                        {
-                            exec_environment.append(
-                                    Nodecl::OpenMP::DepOut::make(
-                                        Nodecl::List::make(out_deps),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!copy_in.empty())
-                        {
-                            target_items.append(
-                                    Nodecl::OpenMP::CopyIn::make(
-                                        Nodecl::List::make(copy_in),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        if (!copy_out.empty())
-                        {
-                            target_items.append(
-                                    Nodecl::OpenMP::CopyOut::make(
-                                        Nodecl::List::make(copy_out),
-                                        make_locus("", 0, 0)));
-                        }
-
-
-                        if (!copy_inout.empty())
-                        {
-                            target_items.append(
-                                    Nodecl::OpenMP::CopyInout::make(
-                                        Nodecl::List::make(copy_inout),
-                                        make_locus("", 0, 0)));
-                        }
-
-                        exec_environment.append(Nodecl::OpenMP::Target::make(
-                                    Nodecl::List::make(Nodecl::Text::make("smp", make_locus("", 0, 0))),
-                                    Nodecl::List::make(target_items),
-                                    make_locus("", 0, 0)));
-
-
-                        join_task = Nodecl::OpenMP::Task::make(
-                                exec_environment,
-                                Nodecl::List::make(enclosing_stmt.shallow_copy()),
-                                make_locus("", 0 ,0));
-                    }
-
-                    Nodecl::List sequential_code;
-                    {
-                        Scope scope = enclosing_stmt.retrieve_context();
-                        return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
-                        for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
-                                it2 != return_arguments.end();
-                                ++it2)
-                        {
-                            TL::Symbol current_ret_arg = *it2;
-
-                            Nodecl::NodeclBase current_ret_arg_ref = Nodecl::Symbol::make(current_ret_arg);
-                            current_ret_arg_ref.set_type(lvalue_ref(current_ret_arg.get_type().get_internal_type()));
-
-                            TL::Symbol alloca_sym = scope.get_symbol_from_name("__builtin_alloca");
-                            ERROR_CONDITION(!alloca_sym.is_valid(), "__builtin_alloca not found", 0);
-
-                            Nodecl::NodeclBase called_entity_alloca = Nodecl::Symbol::make(
-                                    alloca_sym,
-                                    make_locus("", 0, 0));
-
-                            called_entity_alloca.set_type(lvalue_ref(alloca_sym.get_type().get_internal_type()));
-
-                            Nodecl::List arguments_alloca;
-                            int bytes_to_allocate = current_ret_arg.get_type().points_to().get_size();
-                            arguments_alloca.append(
-                                    Nodecl::IntegerLiteral::make(::get_signed_int_type(),
-                                        const_value_get_signed_int(bytes_to_allocate),
-                                        make_locus("", 0, 0)));
-
-                            Nodecl::NodeclBase alloca_function_call = Nodecl::FunctionCall::make(
-                                    called_entity_alloca,
-                                    arguments_alloca,
-                                    /* alternate_name */ nodecl_null(),
-                                    /* function_form */ nodecl_null(),
-                                    TL::Type::get_void_type(),
-                                    make_locus("", 0, 0));
-
-                            Nodecl::NodeclBase cast_alloca = Nodecl::Cast::make(
-                                    alloca_function_call,
-                                    current_ret_arg.get_type(),
-                                    "C",
-                                    make_locus("", 0, 0));
-
-                            sequential_code.append(
-                                    Nodecl::ExpressionStatement::make(
-                                        Nodecl::Assignment::make(current_ret_arg_ref,
-                                            cast_alloca, current_ret_arg.get_type(),
-                                            make_locus("", 0, 0))));
-                        }
-
-                        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = task_calls.begin();
-                                it2 != task_calls.end();
-                                ++it2)
-                        {
-                            Nodecl::ExpressionStatement current_expr_stmt = it2->as<Nodecl::ExpressionStatement>();
-                            Nodecl::OpenMP::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
-                            sequential_code.append(Nodecl::ExpressionStatement::make(current_task_call.get_call().shallow_copy()));
-                        }
-
-                        sequential_code.append(join_task.get_statements().shallow_copy());
-                    }
+                    // This code will be executed if the current task is in a final context
+                    Nodecl::List sequential_code = generate_sequential_code(enclosing_stmt, task_calls, join_task);
 
                     Nodecl::NodeclBase task_expr = Nodecl::ExpressionStatement::make(
                             Nodecl::OpenMP::TaskExpression::make(
@@ -709,6 +465,284 @@ namespace TL { namespace OpenMP {
             {
                 lhs_expr = expr.as<T>().get_lhs();
                 rhs_expr = expr.as<T>().get_rhs();
+            }
+
+            Nodecl::OpenMP::Task generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
+            {
+                Nodecl::List exec_environment;
+
+                TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
+                    in_alloca_deps, inout_deps, out_deps, assumed_firstprivates, alloca_exprs;
+
+                Nodecl::NodeclBase expr, lhs_expr, rhs_expr;
+                expr = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+                if (expr.is<Nodecl::AddAssignment>())
+                    get_assignment_expressions<Nodecl::AddAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::ArithmeticShrAssignment>())
+                    get_assignment_expressions<Nodecl::ArithmeticShrAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::Assignment>())
+                    get_assignment_expressions<Nodecl::Assignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::BitwiseAndAssignment>())
+                    get_assignment_expressions<Nodecl::BitwiseAndAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::BitwiseOrAssignment>())
+                    get_assignment_expressions<Nodecl::BitwiseOrAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::BitwiseShlAssignment>())
+                    get_assignment_expressions<Nodecl::BitwiseShlAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::BitwiseShrAssignment>())
+                    get_assignment_expressions<Nodecl::BitwiseShrAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::BitwiseXorAssignment>())
+                    get_assignment_expressions<Nodecl::BitwiseXorAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::DivAssignment>())
+                    get_assignment_expressions<Nodecl::DivAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::MinusAssignment>())
+                    get_assignment_expressions<Nodecl::MinusAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::ModAssignment>())
+                    get_assignment_expressions<Nodecl::ModAssignment>(expr, lhs_expr, rhs_expr);
+                else if (expr.is<Nodecl::MulAssignment>())
+                    get_assignment_expressions<Nodecl::MulAssignment>(expr, lhs_expr, rhs_expr);
+                else rhs_expr = expr;
+
+                // Create the output depedence if needed
+                if (!lhs_expr.is_null())
+                {
+                    if (expr.is<Nodecl::Assignment>())
+                    {
+                        out_deps.append(lhs_expr.shallow_copy());
+                        copy_out.append(lhs_expr.shallow_copy());
+                    }
+                    else
+                    {
+                        inout_deps.append(lhs_expr.shallow_copy());
+                        copy_inout.append(lhs_expr.shallow_copy());
+                    }
+                }
+
+                // Obtain the nonlocal symbols from the right expression
+                std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
+                TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(rhs_expr);
+                for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
+                        it2 != nonlocal_symbols.end();
+                        ++it2)
+                {
+                    TL::Symbol sym = it2->get_symbol();
+
+                    if (!sym.is_variable()
+                            || (sym.is_member()
+                                && !sym.is_static()))
+                        continue;
+
+                    std::set<TL::Symbol>::iterator it_sym = return_arguments.find(sym);
+                    if (it_sym == return_arguments.end())
+                    {
+                        // The expressions that are not return arguments are passed as firstprivates
+                        assumed_firstprivates.append((*it2).shallow_copy());
+                    }
+                    else
+                    {
+                        // The return arguments present in the enclosing statement are added as alloca input dependences
+                        Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                        sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
+
+                        in_alloca_deps.append(
+                                Nodecl::Dereference::make(
+                                    sym_nodecl,
+                                    sym.get_type().points_to().get_lvalue_reference_to(),
+                                    make_locus("", 0, 0)));
+
+                        copy_in.append(
+                                Nodecl::Dereference::make(
+                                    sym_nodecl.shallow_copy(),
+                                    sym.get_type().points_to().get_lvalue_reference_to(),
+                                    make_locus("", 0, 0)));
+
+                        // Remove this item from the return arguments set!
+                        return_arguments.erase(it_sym);
+                    }
+                }
+
+                // The resting return arguments are added as alloca expressions (i. e. they need to be allocated in the
+                // join task but they should not generate any dependence)
+                for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
+                        it2 != return_arguments.end();
+                        ++it2)
+                {
+                    TL::Symbol sym = *it2;
+
+                    Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                    sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
+
+                    alloca_exprs.append(
+                            Nodecl::Dereference::make(
+                                sym_nodecl,
+                                sym.get_type().points_to().get_lvalue_reference_to(),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!assumed_firstprivates.empty())
+                {
+                    exec_environment.append(
+                            Nodecl::OpenMP::Firstprivate::make(
+                                Nodecl::List::make(assumed_firstprivates),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!alloca_exprs.empty())
+                {
+                    exec_environment.append(
+                            Nodecl::OpenMP::Alloca::make(
+                                Nodecl::List::make(alloca_exprs),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!in_alloca_deps.empty())
+                {
+                    exec_environment.append(
+                            Nodecl::OpenMP::DepInAlloca::make(
+                                Nodecl::List::make(in_alloca_deps),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!inout_deps.empty())
+                {
+                    exec_environment.append(
+                            Nodecl::OpenMP::DepOut::make(
+                                Nodecl::List::make(inout_deps),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!out_deps.empty())
+                {
+                    exec_environment.append(
+                            Nodecl::OpenMP::DepOut::make(
+                                Nodecl::List::make(out_deps),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!copy_in.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::CopyIn::make(
+                                Nodecl::List::make(copy_in),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!copy_out.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::CopyOut::make(
+                                Nodecl::List::make(copy_out),
+                                make_locus("", 0, 0)));
+                }
+
+
+                if (!copy_inout.empty())
+                {
+                    target_items.append(
+                            Nodecl::OpenMP::CopyInout::make(
+                                Nodecl::List::make(copy_inout),
+                                make_locus("", 0, 0)));
+                }
+
+                // The inline tasks are always SMP tasks
+                exec_environment.append(Nodecl::OpenMP::Target::make(
+                            Nodecl::List::make(Nodecl::Text::make("smp", make_locus("", 0, 0))),
+                            Nodecl::List::make(target_items),
+                            make_locus("", 0, 0)));
+
+                Nodecl::OpenMP::Task join_task = Nodecl::OpenMP::Task::make(
+                        exec_environment,
+                        Nodecl::List::make(enclosing_stmt.shallow_copy()),
+                        make_locus("", 0 ,0));
+
+                return join_task;
+            }
+
+            Nodecl::List generate_sequential_code(
+                    const Nodecl::NodeclBase& enclosing_stmt,
+                    const TL::ObjectList<Nodecl::NodeclBase>& task_calls,
+                    const Nodecl::NodeclBase& join_task)
+            {
+                Nodecl::List sequential_code;
+                // Allocate the return arguments of every Nonvoid function task call involved in the current expression
+                Scope scope = enclosing_stmt.retrieve_context();
+                std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
+                for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
+                        it2 != return_arguments.end();
+                        ++it2)
+                {
+                    TL::Symbol current_ret_arg = *it2;
+
+                    Nodecl::NodeclBase current_ret_arg_ref = Nodecl::Symbol::make(current_ret_arg);
+                    current_ret_arg_ref.set_type(lvalue_ref(current_ret_arg.get_type().get_internal_type()));
+
+                    TL::Symbol alloca_sym = scope.get_symbol_from_name("__builtin_alloca");
+                    ERROR_CONDITION(!alloca_sym.is_valid(), "__builtin_alloca not found", 0);
+
+                    Nodecl::NodeclBase called_entity_alloca = Nodecl::Symbol::make(
+                            alloca_sym,
+                            make_locus("", 0, 0));
+
+                    called_entity_alloca.set_type(lvalue_ref(alloca_sym.get_type().get_internal_type()));
+
+                    Nodecl::List arguments_alloca;
+                    int bytes_to_allocate = current_ret_arg.get_type().points_to().get_size();
+                    arguments_alloca.append(
+                            Nodecl::IntegerLiteral::make(::get_signed_int_type(),
+                                const_value_get_signed_int(bytes_to_allocate),
+                                make_locus("", 0, 0)));
+
+                    Nodecl::NodeclBase alloca_function_call = Nodecl::FunctionCall::make(
+                            called_entity_alloca,
+                            arguments_alloca,
+                            /* alternate_name */ nodecl_null(),
+                            /* function_form */ nodecl_null(),
+                            TL::Type::get_void_type(),
+                            make_locus("", 0, 0));
+
+                    Nodecl::NodeclBase cast_alloca = Nodecl::Cast::make(
+                            alloca_function_call,
+                            current_ret_arg.get_type(),
+                            "C",
+                            make_locus("", 0, 0));
+
+                    sequential_code.append(
+                            Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(current_ret_arg_ref,
+                                    cast_alloca, current_ret_arg.get_type(),
+                                    make_locus("", 0, 0))));
+                }
+
+                for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it2 = task_calls.begin();
+                        it2 != task_calls.end();
+                        ++it2)
+                {
+                    Nodecl::ExpressionStatement current_expr_stmt = it2->as<Nodecl::ExpressionStatement>();
+                    Nodecl::OpenMP::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
+                    sequential_code.append(Nodecl::ExpressionStatement::make(current_task_call.get_call().shallow_copy()));
+                }
+
+                class RemoveTasks : public Nodecl::NodeclVisitor<void>
+                {
+                    void visit(const Nodecl::ExpressionStatement & expr_stmt)
+                    {
+                        walk(expr_stmt.get_nest());
+                    }
+
+                    void visit(const Nodecl::OpenMP::TaskCall& task)
+                    {
+                        Nodecl::NodeclBase stmt = task.get_call();
+                        task.replace(stmt);
+                    }
+                };
+
+                Nodecl::NodeclBase join_task_stmt =
+                    join_task.as<Nodecl::OpenMP::Task>().get_statements().shallow_copy();
+
+                RemoveTasks visitor;
+                visitor.walk(join_task_stmt);
+                sequential_code.append(join_task_stmt);
+
+                return sequential_code;
             }
     };
 
