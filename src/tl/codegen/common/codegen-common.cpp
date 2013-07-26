@@ -69,8 +69,8 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
     this->codegen_cleanup();
 
     int acc_mode = (::fcntl(fileno(f), F_GETFL) & O_ACCMODE);
-    ERROR_CONDITION(acc_mode != O_WRONLY,
-            "Invalid file descriptor: must be opened for write only", 0);
+    ERROR_CONDITION((acc_mode != O_WRONLY) && (acc_mode != O_RDWR),
+            "Invalid file descriptor: must be opened for read/write or write", 0);
 
     // g++ extension
     __gnu_cxx::stdio_filebuf<char> filebuf(f, std::ios::out | std::ios::app);
