@@ -2256,17 +2256,16 @@ namespace TL { namespace OpenMP {
 
             if (vectorlengthfor_clause.is_defined())
             {
-/*                TL::Source target_type_src;
+                TL::Source target_type_src;
 
-                target_type_src << vectorlengthfor_clause.get_raw_arguments();
+                target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
 
-                TL::Type target_type;// = target_type_src.parse_
+                TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
 
                 environment.append(
                         Nodecl::OpenMP::VectorLengthFor::make(
                             target_type,
                             stmt.get_locus()));
-                            */
             }
 
             // Skipping AST_LIST_NODE

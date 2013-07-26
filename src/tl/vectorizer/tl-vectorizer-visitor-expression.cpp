@@ -1001,7 +1001,6 @@ namespace TL
             }
             else
             {
-
                 if (called_sym.get_symbol().get_name() == "fabsf")
                 {
                     const Nodecl::VectorFabsMask vector_fabs_call =
@@ -1079,49 +1078,7 @@ namespace TL
                             _environment._analysis_scopes.back(),
                             n))
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n",
-                                n.prettyprint().c_str()); 
-                    }
-
-                    // Computing IV offset {0, 1, 2, 3}
-                    TL::ObjectList<Nodecl::NodeclBase> literal_list;
-
-                    const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
-                            _environment._analysis_scopes.back(), n);
-                    
-                    const_value_t *i = const_value_get_zero(4, 0);
-                    for(unsigned int j = 0;
-                            j < _environment._unroll_factor;
-                            i = const_value_add(i, ind_var_increment), j++)
-                    {
-                        literal_list.prepend(const_value_to_nodecl(i));
-                    }
-
-                    Nodecl::List offset = Nodecl::List::make(literal_list);
-
-                    // IV cannot be a reference
-                    TL::Type ind_var_type = get_qualified_vector_to(n.get_type(), _environment._vector_length).no_ref();
-
-                    TL::Type offset_type = ind_var_type;
-                    Nodecl::ParenthesizedExpression vector_induction_var =
-                        Nodecl::ParenthesizedExpression::make(
-                                Nodecl::VectorAdd::make(
-                                    Nodecl::VectorPromotion::make(
-                                        n.shallow_copy(),
-                                        ind_var_type,
-                                        n.get_locus()),
-                                    Nodecl::VectorLiteral::make(
-                                        offset,
-                                        offset_type,
-                                        n.get_locus()),
-                                    get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                                    n.get_locus()),
-                                get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                                n.get_locus());
-
-                    n.replace(vector_induction_var);
+                    vectorize_basic_induction_variable(n);
                 }
                 // Vectorize symbols declared in the SIMD scope
                 else if (Utils::is_declared_in_scope(
@@ -1248,6 +1205,57 @@ namespace TL
 
             n.replace(reference);
         } 
+
+        void VectorizerVisitorExpression::vectorize_basic_induction_variable(const Nodecl::Symbol& n)
+        {
+            unsigned int vector_length = n.get_type().get_size() * _environment._unroll_factor;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n",
+                        n.prettyprint().c_str()); 
+            }
+
+            // Computing IV offset {0, 1, 2, 3}
+            TL::ObjectList<Nodecl::NodeclBase> literal_list;
+
+            const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
+                    _environment._analysis_scopes.back(), n);
+
+            const_value_t *i = const_value_get_zero(4, 0);
+            for(unsigned int j = 0;
+                    j < _environment._unroll_factor;
+                    i = const_value_add(i, ind_var_increment), j++)
+            {
+                literal_list.prepend(const_value_to_nodecl(i));
+            }
+
+            Nodecl::List offset = Nodecl::List::make(literal_list);
+
+            // IV cannot be a reference
+            TL::Type ind_var_type = get_qualified_vector_to(
+                    n.get_type(), _environment._vector_length).no_ref();
+
+            TL::Type offset_type = ind_var_type;
+            Nodecl::ParenthesizedExpression vector_induction_var =
+                Nodecl::ParenthesizedExpression::make(
+                        Nodecl::VectorAdd::make(
+                            Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
+                                ind_var_type,
+                                n.get_locus()),
+                            Nodecl::VectorLiteral::make(
+                                offset,
+                                offset_type,
+                                n.get_locus()),
+                            get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus()),
+                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                        n.get_locus());
+
+            n.replace(vector_induction_var);
+        }
+
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(
                 const Nodecl::NodeclBase& n)

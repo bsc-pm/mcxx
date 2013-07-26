@@ -1436,17 +1436,6 @@ namespace TL
             { 
                 intrin_src << "_epi32"; 
             } 
-            else if (type.is_signed_short_int() ||
-                    type.is_unsigned_short_int()) 
-            { 
-                intrin_src << "_epi16"; 
-            } 
-            else if (type.is_char() || 
-                    type.is_signed_char() ||
-                    type.is_unsigned_char()) 
-            { 
-                intrin_src << "_epi8"; 
-            } 
             else
             {
                 running_error("KNC Lowering: Node %s at %s has an unsupported type.", 

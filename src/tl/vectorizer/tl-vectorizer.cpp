@@ -42,11 +42,13 @@ namespace TL
                 const Nodecl::List * suitable_expr_list,
                 const TL::ObjectList<TL::Symbol> * reduction_list,
                 std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
-           _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
+           _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
            _mask_size(mask_size), _support_masking(support_masking), _target_type(target_type), 
            _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
            _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
+            std::cerr << "VECTORIZER: Target type size: " << target_type.get_size() << std::endl;
+
             _inside_inner_masked_bb.push_back(false);
             _mask_check_bb_cost.push_back(0);
         }
