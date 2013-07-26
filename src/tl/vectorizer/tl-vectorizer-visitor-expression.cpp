@@ -55,8 +55,8 @@ namespace TL
             }
             else
             {
-                const Nodecl::VectorAddMask vector_add =
-                    Nodecl::VectorAddMask::make(
+                const Nodecl::MaskedVectorAdd vector_add =
+                    Nodecl::MaskedVectorAdd::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             _environment._mask_list.back().shallow_copy(),
@@ -85,8 +85,8 @@ namespace TL
             }
             else
             {
-                const Nodecl::VectorMinusMask vector_minus =
-                    Nodecl::VectorMinusMask::make(
+                const Nodecl::MaskedVectorMinus vector_minus =
+                    Nodecl::MaskedVectorMinus::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             _environment._mask_list.back().shallow_copy(),
@@ -117,8 +117,8 @@ namespace TL
             }
             else
             {
-                const Nodecl::VectorMulMask vector_mul =
-                    Nodecl::VectorMulMask::make(
+                const Nodecl::MaskedVectorMul vector_mul =
+                    Nodecl::MaskedVectorMul::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             mask.shallow_copy(),
@@ -148,8 +148,8 @@ namespace TL
             }
             else
             {
-                const Nodecl::VectorDivMask vector_div =
-                    Nodecl::VectorDivMask::make(
+                const Nodecl::MaskedVectorDiv vector_div =
+                    Nodecl::MaskedVectorDiv::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             _environment._mask_list.back().shallow_copy(),
@@ -297,8 +297,8 @@ namespace TL
             }
             else
             {
-                const Nodecl::VectorBitwiseAndMask vector_ba =
-                    Nodecl::VectorBitwiseAndMask::make(
+                const Nodecl::MaskedVectorBitwiseAnd vector_ba =
+                    Nodecl::MaskedVectorBitwiseAnd::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             _environment._mask_list.back().shallow_copy(),
@@ -328,8 +328,8 @@ namespace TL
             }
             else
             {
-                const Nodecl::VectorBitwiseOrMask vector_bo =
-                    Nodecl::VectorBitwiseOrMask::make(
+                const Nodecl::MaskedVectorBitwiseOr vector_bo =
+                    Nodecl::MaskedVectorBitwiseOr::make(
                             n.get_lhs().shallow_copy(),
                             n.get_rhs().shallow_copy(),
                             _environment._mask_list.back().shallow_copy(),
@@ -532,8 +532,8 @@ namespace TL
                         }
                         else
                         {
-                            const Nodecl::VectorStoreMask vector_store =
-                                Nodecl::VectorStoreMask::make(
+                            const Nodecl::MaskedVectorStore vector_store =
+                                Nodecl::MaskedVectorStore::make(
                                         Nodecl::Reference::make(
                                             Nodecl::ParenthesizedExpression::make(
                                                 lhs.shallow_copy(),
@@ -573,8 +573,8 @@ namespace TL
                         }
                         else
                         {
-                            const Nodecl::UnalignedVectorStoreMask vector_store =
-                                Nodecl::UnalignedVectorStoreMask::make(
+                            const Nodecl::UnalignedMaskedVectorStore vector_store =
+                                Nodecl::UnalignedMaskedVectorStore::make(
                                         Nodecl::Reference::make(
                                             Nodecl::ParenthesizedExpression::make(
                                                 lhs.shallow_copy(),
@@ -620,8 +620,8 @@ namespace TL
                     }
                     else
                     {
-                        const Nodecl::VectorScatterMask vector_scatter =
-                            Nodecl::VectorScatterMask::make(
+                        const Nodecl::MaskedVectorScatter vector_scatter =
+                            Nodecl::MaskedVectorScatter::make(
                                     base.shallow_copy(),
                                     strides,
                                     n.get_rhs().shallow_copy(),
@@ -650,8 +650,8 @@ namespace TL
                 }
                 else
                 {
-                    const Nodecl::VectorAssignmentMask vector_assignment =
-                        Nodecl::VectorAssignmentMask::make(
+                    const Nodecl::MaskedVectorAssignment vector_assignment =
+                        Nodecl::MaskedVectorAssignment::make(
                                 lhs.shallow_copy(),
                                 n.get_rhs().shallow_copy(),
                                 mask.shallow_copy(),
@@ -831,8 +831,8 @@ namespace TL
                     }
                     else
                     {
-                        const Nodecl::VectorLoadMask vector_load =
-                            Nodecl::VectorLoadMask::make(
+                        const Nodecl::MaskedVectorLoad vector_load =
+                            Nodecl::MaskedVectorLoad::make(
                                     Nodecl::Reference::make(
                                         Nodecl::ParenthesizedExpression::make(
                                             n.shallow_copy(),
@@ -870,8 +870,8 @@ namespace TL
                     }
                     else
                     {
-                        const Nodecl::UnalignedVectorLoadMask vector_load =
-                            Nodecl::UnalignedVectorLoadMask::make(
+                        const Nodecl::UnalignedMaskedVectorLoad vector_load =
+                            Nodecl::UnalignedMaskedVectorLoad::make(
                                     Nodecl::Reference::make(
                                         Nodecl::ParenthesizedExpression::make(
                                             n.shallow_copy(),
@@ -913,8 +913,8 @@ namespace TL
                 }
                 else
                 {
-                    const Nodecl::VectorGatherMask vector_gather =
-                        Nodecl::VectorGatherMask::make(
+                    const Nodecl::MaskedVectorGather vector_gather =
+                        Nodecl::MaskedVectorGather::make(
                                 base.shallow_copy(),
                                 strides,
                                 _environment._mask_list.back().shallow_copy(),
@@ -1003,8 +1003,8 @@ namespace TL
             {
                 if (called_sym.get_symbol().get_name() == "fabsf")
                 {
-                    const Nodecl::VectorFabsMask vector_fabs_call =
-                        Nodecl::VectorFabsMask::make(
+                    const Nodecl::MaskedVectorFabs vector_fabs_call =
+                        Nodecl::MaskedVectorFabs::make(
                                 n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
                                 _environment._mask_list.back().shallow_copy(),
                                 get_qualified_vector_to(n.get_type(), _environment._vector_length),
@@ -1044,8 +1044,8 @@ namespace TL
                                 ast_print_node_type(best_version.get_kind()));
                     }
 
-                    const Nodecl::VectorFunctionCallMask vector_function_call =
-                        Nodecl::VectorFunctionCallMask::make(
+                    const Nodecl::MaskedVectorFunctionCall vector_function_call =
+                        Nodecl::MaskedVectorFunctionCall::make(
                                 Nodecl::FunctionCall::make(
                                     new_called,
                                     n.get_arguments().shallow_copy(),

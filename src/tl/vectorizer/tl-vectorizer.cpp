@@ -76,7 +76,7 @@ namespace TL
             std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
 
             if(Vectorizer::_analysis_info != 0)
-                running_error("VECTORIZER: Analysis was previously initialize", 0);
+                running_error("VECTORIZER: Analysis was previously initialize");
 
             Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
                     enclosing_function,

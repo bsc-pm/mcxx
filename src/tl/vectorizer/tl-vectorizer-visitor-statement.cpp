@@ -336,7 +336,7 @@ namespace TL
 
                 Nodecl::ExpressionStatement new_exp_stmt =
                     Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorAssignmentMask::make(
+                            Nodecl::MaskedVectorAssignment::make(
                                 _environment._function_return.make_nodecl(true, n.get_locus()),
                                 return_value.shallow_copy(),
                                 mask.shallow_copy(),

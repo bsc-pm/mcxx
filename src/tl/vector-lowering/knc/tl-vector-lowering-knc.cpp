@@ -97,7 +97,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorAddMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorAdd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef;
@@ -201,7 +201,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMinusMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorMinus& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef;
@@ -328,7 +328,7 @@ namespace TL
             node.replace(function_call);
         }    
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMulMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorMul& node) 
         {
             TL::Type result_type = node.get_type().basic_type();
             TL::Type first_op_type = node.get_rhs().get_type().basic_type();
@@ -453,7 +453,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorDivMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorDiv& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef;
@@ -835,7 +835,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseAndMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorBitwiseAnd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -926,7 +926,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseOrMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorBitwiseOr& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -1021,7 +1021,7 @@ namespace TL
         }   
 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseXorMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorBitwiseXor& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -1129,7 +1129,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorNegMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorNeg& node) 
         {
             TL::Type type = node.get_type().basic_type();
             Nodecl::NodeclBase mask = node.get_mask();
@@ -1276,7 +1276,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorConversionMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorConversion& node) 
         {
             const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
             const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
@@ -1543,7 +1543,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorAssignmentMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorAssignment& node) 
         {
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, intrin_name, args, dst;
@@ -1645,7 +1645,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorLoadMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef, casting;
@@ -1792,7 +1792,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorLoadMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::UnalignedMaskedVectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, intrin_name_hi, intrin_name_lo, args_lo, args_hi, undef, ext;
@@ -1935,7 +1935,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorStoreMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
             TL::Source intrin_src;
@@ -2070,7 +2070,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorStoreMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::UnalignedMaskedVectorStore& node) 
         { 
             TL::Source intrin_src, intrin_name_hi, intrin_name_lo, args_lo, args_hi, tmp_var, ext;
             TL::Type type = node.get_lhs().get_type().basic_type();
@@ -2216,7 +2216,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorGatherMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorGather& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
@@ -2350,7 +2350,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorScatterMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorScatter& node) 
         { 
             TL::Type type = node.get_source().get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
@@ -2426,7 +2426,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorFunctionCallMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorFunctionCall& node) 
         {
             Nodecl::FunctionCall function_call =
                 node.get_function_call().as<Nodecl::FunctionCall>();
@@ -2550,7 +2550,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorFabsMask& node) 
+        void KNCVectorLowering::visit(const Nodecl::MaskedVectorFabs& node) 
         {
             TL::Type type = node.get_type().basic_type();
 
