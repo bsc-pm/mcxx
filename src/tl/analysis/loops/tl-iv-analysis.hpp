@@ -73,10 +73,12 @@ namespace Analysis {
          * @return True, when the variable ends up being a real Induction Variable
          */
         bool check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                 ObjectList<Nodecl::NodeclBase>& incr_list,
                                                  Nodecl::NodeclBase stmt, Node* loop );
 
         //! This method is overloaded to deal with graph visits
         bool check_potential_induction_variable_rec( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                     ObjectList<Nodecl::NodeclBase>& incr_list,
                                                      Nodecl::NodeclBase stmt, Node* node, Node* loop );
 
         /*!Deletes those induction variables included in the list during a previous traverse through the loop control
@@ -102,7 +104,8 @@ namespace Analysis {
         void compute_induction_variables( );
 
         Nodecl::NodeclBase is_basic_induction_variable( Nodecl::NodeclBase st, Node* loop,
-                                                        Nodecl::NodeclBase& incr );
+                                                        Nodecl::NodeclBase& incr, 
+                                                        ObjectList<Nodecl::NodeclBase>& incr_list );
 
         Nodecl::NodeclBase is_derived_induction_variable( Nodecl::NodeclBase st, Node* current,
                                                           Node* loop, Nodecl::NodeclBase& family );
@@ -124,6 +127,7 @@ namespace Analysis {
         // Input info
         Nodecl::NodeclBase _iv;
         Nodecl::NodeclBase* _incr;
+        ObjectList<Nodecl::NodeclBase>* _incr_list;
         Node* _loop;
 
         // Output info
@@ -139,7 +143,8 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase *incr, Node* loop );
+        FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase *incr, 
+                                        ObjectList<Nodecl::NodeclBase>* incr_list, Node* loop );
 
         // *** Getters and Setters*** //
         bool get_is_induction_variable( ) const;
@@ -147,6 +152,8 @@ namespace Analysis {
         // *** Visiting methods *** //
         Ret join_list( TL::ObjectList<bool>& list );
 
+        Ret unhandled_node( const Nodecl::NodeclBase& n );
+        
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::Assignment& n );

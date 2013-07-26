@@ -109,6 +109,8 @@ namespace Analysis {
 
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
 
+            ObjectList<const_value_t*> get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const;
+            
             bool is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const;
 
             //! Returns the induction variable containing the given nodecl
@@ -186,6 +188,10 @@ namespace Analysis {
             const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;
 
+            //! Returns the list of const_values containing the increments of an induction variable in a given scope
+            ObjectList<const_value_t*> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
+                                                                              const Nodecl::NodeclBase& n ) const;
+                                                             
             //! Returns true when the increment of a given induction variable is constant and equal to 1
             bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 

@@ -50,6 +50,10 @@ namespace Utils {
         Nodecl::NodeclBase _ub;         /*!< Upper bound within a loop (included) */
         Nodecl::NodeclBase _incr;       /*!< Stride within a loop */
 
+        ObjectList<Nodecl::NodeclBase> _incrs;  /*!< List of modifications to an Induction Variable */
+                                                // Example: loop { iv = iv + 100; iv = iv + 200 }
+                                                // _incrs = { 100, 200 } 
+        
         InductionVarType _type;         /*!< Type of iv: '1' = basic, '2' = derived */
         Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
 
@@ -78,6 +82,9 @@ namespace Utils {
         void set_increment( Nodecl::NodeclBase incr );
         bool is_increment_one( ) const;
 
+        ObjectList<Nodecl::NodeclBase> get_increment_list( ) const;
+        void set_increment_list( ObjectList<Nodecl::NodeclBase> incr_list );
+        
         std::string get_type_as_string( ) const;
 
         Nodecl::NodeclBase get_family( ) const;

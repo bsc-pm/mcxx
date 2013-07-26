@@ -661,11 +661,24 @@ namespace Analysis {
             for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
             {
                 Utils::InductionVariableData* iv = *it;
-                induction_vars = iv->get_variable( ).get_nodecl( ).prettyprint( ) 
-                                 + " [ " + iv->get_lb( ).prettyprint( ) 
-                                 + ":" + iv->get_ub( ).prettyprint( ) 
-                                 + ":" + iv->get_increment( ).prettyprint( ) 
-                                 + ":" + iv->get_type_as_string( ) + " ]\\n";
+                Nodecl::NodeclBase lb = iv->get_lb( );
+                Nodecl::NodeclBase ub = iv->get_ub( );
+                Nodecl::NodeclBase incr = iv->get_increment( );
+                ObjectList<Nodecl::NodeclBase> incr_list = iv->get_increment_list( );
+                std::string list_of_incrs = "";
+                for( ObjectList<Nodecl::NodeclBase>::iterator it2 = incr_list.begin( ); it2 != incr_list.end( ); ++it2 )
+                {
+                    list_of_incrs += it2->prettyprint( ) + ", ";
+                }
+                int l_incrs_size = list_of_incrs.size( );
+                if( !list_of_incrs.empty( ) )
+                    list_of_incrs = list_of_incrs.substr( 0, l_incrs_size - 2 );
+                induction_vars += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+                                  + " [ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
+                                  + ":"   + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
+                                  + ":"   + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
+                                  + ( ( incr_list.size( ) > 1 ) ? ( "( " + list_of_incrs + " )" ) : "" )
+                                  + ":"   + iv->get_type_as_string( ) + " ]\\n";
             }
         }
         int l_size = induction_vars.size( );
