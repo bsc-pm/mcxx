@@ -348,7 +348,7 @@ namespace Analysis {
     {
         // Build case nodes
         ObjectList<Node*> case_stmts = walk( case_stmt );
-
+        
         // Set the edge between the Case and the Switch condition
         if( !case_stmts.empty( ) )
         {
@@ -369,6 +369,7 @@ namespace Analysis {
             }
             else
             {
+#warning label = dafault?
                 label = "dafault";
             }
             e->set_label( label );
