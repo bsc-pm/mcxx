@@ -4605,16 +4605,15 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
 
 static void print_memory_report(void)
 {
-#ifdef HAVE_MALLINFO
     char c[256];
-
-    struct mallinfo mallinfo_report = mallinfo();
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Memory report\n");
     fprintf(stderr, "-------------\n");
     fprintf(stderr, "\n");
 
+#ifdef HAVE_MALLINFO
+    struct mallinfo mallinfo_report = mallinfo();
     print_human(c, mallinfo_report.arena);
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
             c);
@@ -4641,6 +4640,7 @@ static void print_memory_report(void)
             c);
 
     fprintf(stderr, "\n");
+#endif
 
     unsigned long long accounted_memory = 0;
     //
@@ -4675,7 +4675,7 @@ static void print_memory_report(void)
         fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
         fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
     }
-    
+
     accounted_memory += char_trie_used_memory();
     print_human(c, char_trie_used_memory());
     fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
@@ -4687,10 +4687,14 @@ static void print_memory_report(void)
     accounted_memory += symbols_used_memory();
     print_human(c, symbols_used_memory());
     fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
+    fprintf(stderr, "    - Size of each symbol (bytes): %zu\n", sizeof(scope_entry_t));
+    fprintf(stderr, "    - Size of entity specifiers (bytes): %zu\n", sizeof(entity_specifiers_t));
 
     accounted_memory += scope_used_memory();
     print_human(c, scope_used_memory());
     fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
+    fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
+    fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
 
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
@@ -4752,9 +4756,6 @@ static void print_memory_report(void)
     }
 
     fprintf(stderr, "\n");
-#else
-    fprintf(stderr, "Memory statistics are not available in this environment\n");
-#endif
 }
 
 type_environment_t* get_environment(const char* env_id)
