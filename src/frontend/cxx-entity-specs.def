@@ -9,7 +9,7 @@
 # TYPE -> bool 
 #      -> integer
 #      -> AST
-#      -> scope
+#      -> scope /* Avoid at all costs to use these, they take a lot of memory */
 #      -> symbol
 #      -> typeof("literal-c-typename")
 #      -> array(TYPE)
@@ -88,13 +88,13 @@ bool|fortran|is_saved_program_unit|States that all non-automatic entities are SA
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|The generic symbol of an intrinsic (Fortran). The template that must be used to emit this specialization (C++)
 nodecl|all|anonymous_accessor|Is this symbol is_member_of_anonymous it must be accessed using this nodecl
-typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
+typeof(intent_kind_t,enum)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist
 array(symbol)|all|related_symbols|Related symbols for this entity. Meaningful for NAMELIST, COMMON, FUNCTION, SUBROUTINE and MODULE and C/C++ functions
 array(symbol)|all|friend_candidates|Candidates friend symbols for this entity. Meaningful for C++ dependent friend functions
 symbol|fortran|specific_intrinsic|For some INTRINSICs they have a specific function to be used when referenced not in a call. See is_builtin
-typeof(access_specifier_t)|all|access|Accessibility: public, private, protected
+typeof(access_specifier_t,enum)|all|access|Accessibility: public, private, protected
 integer|all|template_parameter_nesting|Nesting in the template parameter scoping hierarchy. See is_template_parameter
 integer|all|template_parameter_position|Position in the template parameter scoping hierarchy. See is_template_parameter
 type|all|class_type|The class type where a member belongs. See is_member
@@ -108,15 +108,14 @@ array(type)|all|exceptions|Exception specifier for functions. Can be empty. See 
 array(typeof(function_parameter_info_t))|all|function_parameter_info|Information kept for a symbol that is a parameter of a function
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
 nodecl|all|bitfield_size|Expression of the bitfield
-scope|all|bitfield_size_context|Context for the bitfield expression
-typeof(_size_t)|all|bitfield_offset|Offset in bytes since the beginning of the struct (does not have to be tha same as storage unit)
+typeof(_size_t,intptr)|all|bitfield_offset|Offset in bytes since the beginning of the struct (does not have to be tha same as storage unit)
 integer|all|bitfield_first|Significance order of the first bit of this bitfield
 integer|all|bitfield_last|Significance order of the last bit of this bitfield (the same as first if the bitfield is just 1 bit wide)
-typeof(_size_t)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
+typeof(_size_t,intptr)|all|field_offset|Offset of the storage unit of a field/nonstatic data-member
 array(typeof(gather_gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
 array(typeof(gather_gcc_attribute_t))|all|ms_attributes|MS __declspec attributes
-typeof(simplify_function_t)|all|simplify_function|Function used to simplify expressions
-typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
+typeof(simplify_function_t,pointer)|all|simplify_function|Function used to simplify expressions
+typeof(emission_handler_t,pointer)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|fortran|bind_info|Information of a BIND(lang, X)
 nodecl|all|asm_specification|__asm specification of GCC
 nodecl|all|*function_code|Nodecl statement of a function
