@@ -932,6 +932,7 @@ void LoweringVisitor::visit_task(
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
             <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
             <<          as_statement(statements.shallow_copy())

@@ -49,8 +49,8 @@ namespace Codegen
         private:
             bool _is_file_output;
         protected:
-            std::stringstream file;
-            virtual std::string codegen(const Nodecl::NodeclBase&) = 0;
+            std::ostream *file;
+            virtual void codegen(const Nodecl::NodeclBase&, std::ostream *out) = 0;
             virtual void codegen_cleanup() = 0;
 
         public:
@@ -80,7 +80,7 @@ namespace Codegen
         }
 
         protected:
-            std::stringstream& file;
+            std::ostream* file;
     };
 }
 

@@ -58,6 +58,8 @@ prepare-check: ./config/bets
 
 BETS_DIRS=$(srcdir)
 
+BETS_OPTIONS="-only-fails"
+
 do-check : prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .

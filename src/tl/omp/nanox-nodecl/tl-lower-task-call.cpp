@@ -1234,6 +1234,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
             <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
             <<          as_statement(expr_direct_call_to_function)
@@ -1599,6 +1600,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
             <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
             <<          as_statement(call_to_original.shallow_copy())

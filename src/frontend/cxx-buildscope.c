@@ -12721,7 +12721,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         bitfield_symbol->entity_specs.is_bitfield = 1;
                         bitfield_symbol->entity_specs.bitfield_size = nodecl_bit_size;
-                        bitfield_symbol->entity_specs.bitfield_size_context = decl_context;
+                        bitfield_symbol->related_decl_context = decl_context;
 
                         bitfield_symbol->defined = 1;
 
