@@ -126,6 +126,11 @@ namespace Analysis {
         TARGET,
         UNDEFINED_CLAUSE,
         UNTIED,
+        VECTOR_DEVICE,
+        VECTOR_LENGTH_FOR,
+        VECTOR_MASK,
+        VECTOR_NO_MASK,
+        VECTOR_SUITABLE,
         WAITON
     };
 
