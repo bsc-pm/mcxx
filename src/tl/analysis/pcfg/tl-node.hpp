@@ -303,6 +303,9 @@ namespace Analysis {
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
 
+            //! Returns true when the node is any type of vector node
+            bool is_vector_node( );
+            
             //! Returns true when the node is connected to any parent and/or any child
             bool is_connected( );
 

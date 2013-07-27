@@ -320,6 +320,9 @@ namespace Analysis {
             case OMP_SIMD_FUNCTION:
                 dot_graph += "color=indianred2;\n";
                 break;
+            case VECTOR_COND_EXPR:
+            case VECTOR_FUNC_CALL:
+                dot_graph += "color=limegreen;\n";
             default:
                 internal_error( "Unexpected node type while printing dot\n", 0 );
         };
@@ -429,8 +432,17 @@ namespace Analysis {
                 break;
             }
             default:
-                internal_error( "Undefined type of node '%s' found while printing the graph.",
-                                current->get_type_as_string( ).c_str( ) );
+            {
+                if( current->is_vector_node( ) )
+                {   // No codegen for these nodes, we generate a node containing only the type in the DOT file
+                    dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] " + current->get_type_as_string( ) + "\", shape=hexagon]\n";
+                }
+                else
+                {
+                    internal_error( "Undefined type of node '%s' found while printing the graph.",
+                                    current->get_type_as_string( ).c_str( ) );
+                }
+            }
         };
     }
 

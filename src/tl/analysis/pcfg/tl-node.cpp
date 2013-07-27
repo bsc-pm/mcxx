@@ -477,6 +477,30 @@ namespace Analysis {
         return ( get_type( ) == OMP_TASKYIELD );
     }
 
+    bool Node::is_vector_node( )
+    {
+        bool result = false;
+        if( is_graph_node( ) )
+        {
+            Graph_type gt = get_graph_type( );
+            if( ( gt == VECTOR_COND_EXPR ) || ( gt == VECTOR_FUNC_CALL ) )
+            {    
+                result = true;
+            }
+        }
+        else
+        {
+            Node_type nt = get_type( );
+            if( ( nt == VECTOR_FUNCTION_CALL ) || ( nt == VECTOR_GATHER ) || ( nt == VECTOR_LOAD ) || 
+                ( nt == VECTOR_NORMAL ) || ( nt == VECTOR_REDUCTION ) || ( nt == VECTOR_SCATTER ) || 
+                ( nt == VECTOR_STORE ) )
+            {
+                result = true;
+            }
+        }
+        return result;
+    }
+    
     bool Node::is_connected( )
     {
         return (!_entry_edges.empty( ) || !_exit_edges.empty( ));
@@ -586,6 +610,13 @@ namespace Analysis {
                 case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
                 case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
                 case OMP_TASK_CREATION:     type = "OMP_TASK_CREATION";     break;
+                case VECTOR_FUNCTION_CALL:  type = "VECTOR_FUNCTION_CALL";  break;
+                case VECTOR_GATHER:         type = "VECTOR_GATHER";         break;
+                case VECTOR_LOAD:           type = "VECTOR_LOAD";           break;
+                case VECTOR_NORMAL:         type = "VECTOR_NORMAL";         break;
+                case VECTOR_REDUCTION:      type = "VECTOR_REDUCTION";      break;
+                case VECTOR_SCATTER:        type = "VECTOR_SCATTER";        break;
+                case VECTOR_STORE:          type = "VECTOR_STORE";          break;
                 case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
                 case GRAPH:                 type = "GRAPH";                 break;
                 case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
@@ -630,6 +661,8 @@ namespace Analysis {
                 case OMP_TASK:              graph_type = "OMP_TASK";                break;
                 case SPLIT_STMT:            graph_type = "SPLIT_STMT";              break;
                 case SWITCH:                graph_type = "SWITCH";                  break;
+                case VECTOR_COND_EXPR:      graph_type = "VECTOR_COND_EXPR";        break;
+                case VECTOR_FUNC_CALL:      graph_type = "VECTOR_FUNC_CALL";        break;
                 default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
