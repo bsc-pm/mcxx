@@ -239,7 +239,7 @@ namespace Analysis {
     // **************************** User interface for static analysis ***************************** //
 
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
-                                            WhereAnalysis nested_analysis_mask, int nesting_level)
+                                            WhereAnalysis nested_analysis_mask, int nesting_level )
     {
         _node = n;
 
@@ -257,7 +257,7 @@ namespace Analysis {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
         if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS
-                              | WhichAnalysis::CONSTANTS_ANALYSIS ) )
+                                              | WhichAnalysis::CONSTANTS_ANALYSIS ) )
         {
             analysis.use_def( analysis_state, n );
         }
@@ -277,7 +277,10 @@ namespace Analysis {
         {
             analysis.auto_scoping( analysis_state, n );
         }
-
+        
+        if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
+            analysis.print_all_pcfg( analysis_state );
+        
         // Save static analysis
         NestedBlocksStaticInfoVisitor v( analysis_mask, nested_analysis_mask, analysis_state, nesting_level );
         v.walk( n );
