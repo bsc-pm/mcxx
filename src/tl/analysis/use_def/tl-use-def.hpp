@@ -138,15 +138,18 @@ namespace Analysis {
 
         // *********************** Private methods *********************** //
 
-        //! This method implements the visitor for any Binary operation
-        Ret binary_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
-
+        
+        template<typename T>
+        void visit_assignment( const T& n );
+        
         //! This method implements the visitor for any Binary Assignment operation
-        Ret binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs );
+        template<typename T>
+        void visit_binary_assignment( const T& n );
 
         void function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments );
 
-        Ret unary_in_de_crement_visit( Nodecl::NodeclBase rhs );
+        template<typename T>
+        Ret visit_increment( const T& n );
 
         //!Prevents copy construction.
         UsageVisitor( const UsageVisitor& v );
@@ -187,6 +190,9 @@ namespace Analysis {
         Ret visit( const Nodecl::Dereference& n );
         Ret visit( const Nodecl::DivAssignment& n );
         Ret visit( const Nodecl::FunctionCall& n );
+        Ret visit( const Nodecl::MaskedVectorAssignment& n );
+        Ret visit( const Nodecl::MaskedVectorScatter& n );
+        Ret visit( const Nodecl::MaskedVectorStore& n );
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::ModAssignment& n );
         Ret visit( const Nodecl::MulAssignment& n );
@@ -199,6 +205,12 @@ namespace Analysis {
         Ret visit( const Nodecl::Range& n );
         Ret visit( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
+        Ret visit( const Nodecl::UnalignedMaskedVectorStore& n );
+        Ret visit( const Nodecl::UnalignedVectorStore& n );
+        Ret visit( const Nodecl::VectorAssignment& n );
+        Ret visit( const Nodecl::VectorMaskAssignment& n );
+        Ret visit( const Nodecl::VectorScatter& n );
+        Ret visit( const Nodecl::VectorStore& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };
 

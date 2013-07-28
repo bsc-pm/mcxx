@@ -499,15 +499,26 @@ namespace Analysis {
                          ast_print_node_type( n.get_kind( ) ) );
     }
 
-    void UsageVisitor::binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
+    template<typename T>
+    void UsageVisitor::visit_assignment( const T& n )
+    {
+        _define = false;
+        walk( n.get_rhs( ) );
+        _define = true;
+        walk( n.get_lhs( ) );
+        _define = false;
+    }
+    
+    template<typename T>
+    void UsageVisitor::visit_binary_assignment( const T& n )
     {
         // Traverse the use of both the lhs and the rhs
-        walk( rhs );
-        walk( lhs );
+        walk( n.get_rhs( ) );
+        walk( n.get_lhs( ) );
 
         // Traverse the definition of the lhs
         _define = true;
-        walk( lhs );
+        walk( n.get_lhs( ) );
         _define = false;
     }
 
@@ -833,16 +844,17 @@ namespace Analysis {
         }
     }
 
-    void UsageVisitor::unary_in_de_crement_visit( Nodecl::NodeclBase rhs )
+    template<typename T>
+    void UsageVisitor::visit_increment( const T& n )
     {
         // Use of the rhs
-        walk( rhs );
+        walk( n.get_rhs( ) );
 
         // Definition of the rhs
         _define = true;
         Nodecl::NodeclBase current_nodecl = _current_nodecl;
         _current_nodecl = Nodecl::NodeclBase::null( );
-        walk( rhs );
+        walk( n.get_rhs( ) );
         _current_nodecl = current_nodecl;
         _define = false;
 
@@ -850,12 +862,12 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::AddAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ArraySubscript& n )
@@ -885,39 +897,35 @@ namespace Analysis {
             walk( n.get_subscripted( ) );
         }
     }
-
+    
     void UsageVisitor::visit( const Nodecl::Assignment& n )
     {
-        _define = false;
-        walk( n.get_rhs( ) );
-        _define = true;
-        walk( n.get_lhs( ) );
-        _define = false;
+        visit_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
@@ -965,7 +973,7 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::DivAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::FunctionCall& n )
@@ -973,19 +981,37 @@ namespace Analysis {
         function_visit( n.get_called( ), n.get_arguments( ) );
     }
 
+    void UsageVisitor::visit( const Nodecl::MaskedVectorAssignment& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::MaskedVectorScatter& n )
+    {
+        WARNING_MESSAGE( "MaskedVectorScatter not yet implemented during UseDef analysis. Ignoring node", 0 );
+//         walk( get_base( ) );
+//         walk( get_strides( ) );
+//         walk( get_source( ) );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::MaskedVectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
     void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ModAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::MulAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ObjectInit& n )
@@ -1004,22 +1030,22 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::Postdecrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Postincrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Predecrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Preincrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Range& n )
@@ -1059,7 +1085,39 @@ namespace Analysis {
             }
         }
     }
-
+    
+    void UsageVisitor::visit( const Nodecl::UnalignedMaskedVectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::UnalignedVectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorAssignment& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorMaskAssignment& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorScatter& n )
+    {
+        WARNING_MESSAGE( "VectorScatter not yet implemented during UseDef analysis. Ignoring node", 0 );
+//         walk( get_base( ) );
+//         walk( get_strides( ) );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
     void UsageVisitor::visit( const Nodecl::VirtualFunctionCall& n )
     {
         function_visit( n.get_called( ), n.get_arguments( ) );
