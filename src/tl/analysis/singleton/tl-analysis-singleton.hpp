@@ -87,7 +87,8 @@ namespace Analysis {
 
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
-
+        ObjectList<ExtensibleGraph*> get_pcfgs( );
+        
         bool is_constants_propagation_computed( ) const;
         void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
@@ -200,6 +201,8 @@ namespace Analysis {
         // ********************* Utils ******************** //
 
         void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
+        
+        void print_all_pcfg( PCFGAnalysis_memento& memento );
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //

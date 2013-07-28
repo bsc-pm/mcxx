@@ -68,6 +68,16 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
+    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs( )
+    {
+        ObjectList<ExtensibleGraph*> result;
+        for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            result.insert( it->second );
+        }
+        return result;
+    }
+    
     bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
     {
         return _constants_propagation;
@@ -528,6 +538,20 @@ namespace Analysis {
                                   memento.is_reaching_definitions_computed( ),
                                   memento.is_induction_variables_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
+    }
+    
+    void AnalysisSingleton::print_all_pcfg( PCFGAnalysis_memento& memento )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs( );
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        {
+            if( VERBOSE )
+                printf( "Printing to DOT  PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+            ( *it )->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
+                                         memento.is_reaching_definitions_computed( ),
+                                         memento.is_induction_variables_computed( ),
+                                         memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
+        }
     }
 }
 }
