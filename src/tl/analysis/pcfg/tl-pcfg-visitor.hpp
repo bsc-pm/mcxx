@@ -70,19 +70,17 @@ namespace Analysis {
         * The nodes that are not a GRAPH NODE are deleted. The rest remain there to be the parents of the new node.
         * \param n Nodecl containing a Expression which will be wrapped in the new node
         * \param nodes_l List of nodes containing the different parts of an expression
-        * \param is_vector Boolean indicating whether we are merging vector nodes or not
         * \return The new node created
         */
-        Node* merge_nodes( Nodecl::NodeclBase n, ObjectList<Node*> nodes_l, bool is_vector );
+        Node* merge_nodes( Nodecl::NodeclBase n, ObjectList<Node*> nodes_l );
 
         //! This is a wrapper method of #merge_nodes for the case having only one or two nodes to be merged
         /*!
         * \param n Nodecl containing a Expression which will be wrapped in the new node
         * \param first Pointer to the node containing one part of the new node
         * \param second Pointer to the node containing other part of the new node
-        * \param is_vector Boolean indicating whether we are merging vector nodes or not
         */
-        Node* merge_nodes( Nodecl::NodeclBase n, Node* first, Node* second, bool is_vector );
+        Node* merge_nodes( Nodecl::NodeclBase n, Node* first, Node* second );
 
         bool same_parent_task( Node* task_1, Node* task_2 );
 
@@ -105,11 +103,9 @@ namespace Analysis {
          * \param lhs Nodecl to be visited
          * \param lhs Left-hand side of the nodecl
          * \param rhs Right-hand side of the nodecl
-         * \param is_vector Visiting a vector binary node
          */
         Ret visit_binary_node( const Nodecl::NodeclBase& n,
-                               const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs,
-                               bool is_vector );
+                               const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
 
         //! This method implements the visitor for a CaseStatement and for DefaultStatement
         /*!
@@ -121,20 +117,18 @@ namespace Analysis {
         //! This method implements the visitor for a ConditionalExpression and a VectorConditionalExpression
         /*!
          * \param n Nodecl containing the VirtualFunctionCall or the FunctionCall
-         * \param is_vector boolean indicating whether the conditional expression is a vector node or not
          * \return The graph node created while the expression has been parsed
          */
         template <typename T>
-        ObjectList<Node*> visit_conditional_expression( const T& n, bool is_vector );
+        ObjectList<Node*> visit_conditional_expression( const T& n );
         
         //! This method implements the visitor for a VirtualFunctionCall and a FunctionCall
         /*!
          * \param n Nodecl containing the VirtualFunctionCall or the FunctionCall
-         * \param is_vector boolean indicating whether the function call is a vector node or not
          * \return The graph node created while the function call has been parsed
          */
         template <typename T>
-        Ret visit_function_call( const T& n, bool is_vector );
+        Ret visit_function_call( const T& n );
 
         //! This method implements the visitor for nodecls generating a unique node containing itself
         /*!
@@ -142,9 +136,8 @@ namespace Analysis {
          *   BooleanLiteral, ComplexLiteral, EmptyStatement, FloatingLiteral,
          *   IntegerLiteral, StringLiteral, Symbol, Type
          * \param n The nodecl
-         * \param is_vector Visiting a vector node
          */
-        Ret visit_literal_node( const Nodecl::NodeclBase& n, bool is_vector );
+        Ret visit_literal_node( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for any kind of taskwait without dependences: TaskwaitDeep, TaskwaitShallow
         Ret visit_taskwait( );
@@ -159,13 +152,16 @@ namespace Analysis {
          *   Postdecrement, Postincrement, Predecrement, Preincrement, Reference, Sizeof,
          *   Typeid
          * \param rhs Right-hand side
-         * \param is_vector Visiting a vector node
          */
-        Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs, bool is_vector );
+        Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
         
         //! This method implements the visitor for VectorFunctionCall and MaskedVectorFunctionCall
         template <typename T>
         ObjectList<Node*> visit_vector_function_call( const T& n );
+        
+        //! Wrapper of visit_binary_node for vector nodecls
+        Ret visit_vector_binary_node( const Nodecl::NodeclBase& n,
+                                      const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         
         //! This method implements the visitor for vector memory accesses 
         /*!
@@ -176,6 +172,10 @@ namespace Analysis {
          *                        '3' => store, '4' => scatter
          */
         Ret visit_vector_memory_func( const Nodecl::NodeclBase& n, char mem_access_type );
+        
+        //! Wrapper of visit_unary_node for vector nodecls
+        Ret visit_vector_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
+        
         
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //

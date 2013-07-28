@@ -147,7 +147,7 @@ namespace Analysis {
      * So, before iterate the list to get the parents of the new merging node
      * we are going to purge the list deleting those nodes depending on other nodes in the same list
      */
-    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, ObjectList<Node*> nodes_l, bool is_vector )
+    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, ObjectList<Node*> nodes_l )
     {
         Node* result;
 
@@ -155,14 +155,14 @@ namespace Analysis {
         Node_type ntype;
         if( n.is<Nodecl::FunctionCall>( ) || n.is<Nodecl::VirtualFunctionCall>( ) )
         {
-            if( is_vector )
+            if( _utils->_is_vector )
                 ntype = VECTOR_FUNCTION_CALL;
             else
                 ntype = FUNCTION_CALL;
         }
         else if( n.is<Nodecl::LabeledStatement>( ) )
         {
-            if( is_vector )
+            if( _utils->_is_vector )
             {
                 internal_error( "Merging vector node with labeled statement is not yet implemented\n", 0 );
             }
@@ -170,7 +170,7 @@ namespace Analysis {
         }
         else
         {
-            if( is_vector )
+            if( _utils->_is_vector )
                 ntype = VECTOR_NORMAL;
             else
                 ntype = NORMAL;
@@ -299,8 +299,15 @@ namespace Analysis {
                     ObjectList<Node*> aux = (*it)->get_parents();
                     if( !aux.empty( ) )
                     {
-                        internal_error( "Deleting a non-graph node that have '%d' parents. Those nodes shouldn't have any parent'",
-                                        aux.size( ) );
+                        ObjectList<Nodecl::NodeclBase> stmts = (*it)->get_statements( );
+                        std::string stmts_str = "";
+                        for( ObjectList<Nodecl::NodeclBase>::iterator it2 = stmts.begin(); it2 != stmts.end( ); ++it2 )
+                        {
+                            stmts_str += it2->prettyprint( ) + "\n";
+                        }
+                        internal_error( "Deleting node (%d) of type %s that has '%d' parents. \n" \
+                                        "This type of node shouldn't be already connected.",
+                                        (*it)->get_id( ), (*it)->get_type_as_string( ).c_str( ), aux.size( ) );
                     }
 
                     delete ( *it );
@@ -314,21 +321,21 @@ namespace Analysis {
         {
             result = new Node(_utils->_nid, ntype, _utils->_outer_nodes.top(), n );
         }
-
+        
         return result;
     }
 
-    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, Node* first, Node* second, bool is_vector )
+    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, Node* first, Node* second )
     {
         ObjectList<Node*> previous_nodes;
 
         previous_nodes.append( first );
         if( second != NULL )
-        {   // Only second node must be NULL and it will be the case of unary operations
+        {   // Only second node can be NULL and it will be the case of unary operations
             previous_nodes.append( second );
         }
 
-        return merge_nodes( n, previous_nodes, is_vector );
+        return merge_nodes( n, previous_nodes );
     }
 
     // ************************************************************************************** //
@@ -346,12 +353,14 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit_binary_node( const Nodecl::NodeclBase& n,
                                                       const Nodecl::NodeclBase& lhs,
-                                                      const Nodecl::NodeclBase& rhs,
-                                                      bool is_vector )
+                                                      const Nodecl::NodeclBase& rhs )
     {
+        bool is_vector = _utils->_is_vector;
         Node* left = walk( lhs )[0];
+        _utils->_is_vector = is_vector;
         Node* right = walk( rhs )[0];
-        return ObjectList<Node*>( 1, merge_nodes( n, left, right, is_vector ) );
+        _utils->_is_vector = is_vector;
+        return ObjectList<Node*>( 1, merge_nodes( n, left, right ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit_case_or_default( const Nodecl::NodeclBase& case_stmt,
@@ -396,10 +405,10 @@ namespace Analysis {
     }
     
     template <typename T>
-    ObjectList<Node*> PCFGVisitor::visit_conditional_expression( const T& n, bool is_vector )
+    ObjectList<Node*> PCFGVisitor::visit_conditional_expression( const T& n )
     {
         Graph_type n_type;
-        if( is_vector )
+        if( _utils->_is_vector )
             n_type = VECTOR_COND_EXPR;
         else
             n_type = COND_EXPR;
@@ -408,17 +417,21 @@ namespace Analysis {
         Node* entry_node = cond_expr_node->get_graph_entry_node( );
         
         // Build condition node
+        bool is_vector = _utils->_is_vector;
         Node* condition_node = walk( n.get_condition( ) )[0];
+        _utils->_is_vector = is_vector;
         _pcfg->connect_nodes( entry_node, condition_node );
         ObjectList<Node*> exit_parents;
         
         // Build true node
         Node* true_node = walk( n.get_true( ) )[0];
+        _utils->_is_vector = is_vector;
         _pcfg->connect_nodes( condition_node, true_node );
         exit_parents.append( true_node );
         
         // Build false node
         Node* false_node = walk( n.get_false( ) )[0];
+        _utils->_is_vector = is_vector;
         _pcfg->connect_nodes( condition_node, false_node );
         exit_parents.append( false_node );
         
@@ -432,14 +445,14 @@ namespace Analysis {
     }
     
     template <typename T>
-    ObjectList<Node*> PCFGVisitor::visit_function_call( const T& n, bool is_vector )
+    ObjectList<Node*> PCFGVisitor::visit_function_call( const T& n )
     {
         // Add the current Function Call to the list of called functions
         _pcfg->add_func_call_symbol( n.get_called( ).get_symbol( ) );
 
         // Create the new Function Call node and build it
         Node* func_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, 
-                                                          ( is_vector ? VECTOR_FUNC_CALL : FUNC_CALL ) );
+                                                          ( _utils->_is_vector ? VECTOR_FUNC_CALL : FUNC_CALL ) );
         if( !_utils->_last_nodes.empty( ) )
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _pcfg->connect_nodes( _utils->_last_nodes, func_graph_node );
@@ -448,15 +461,17 @@ namespace Analysis {
 
         // Create the nodes for the arguments
         Node* func_node;
+        bool is_vector = _utils->_is_vector;
         Nodecl::List args = n.get_arguments( ).template as<Nodecl::List>( );
         ObjectList<Node*> arguments_l = walk( args );
+        _utils->_is_vector = is_vector;
         if( !arguments_l.empty( ) )
         {   // Method merge_nodes connects properly the nodes created
-            func_node = merge_nodes( n, arguments_l, is_vector );
+            func_node = merge_nodes( n, arguments_l );
         }
         else
         {
-            func_node = new Node( _utils->_nid, ( is_vector ? VECTOR_FUNCTION_CALL : FUNCTION_CALL ), 
+            func_node = new Node( _utils->_nid, ( _utils->_is_vector ? VECTOR_FUNCTION_CALL : FUNCTION_CALL ), 
                                   func_graph_node, n );
         }
         _pcfg->connect_nodes( _utils->_last_nodes, func_node );
@@ -471,10 +486,10 @@ namespace Analysis {
         return ObjectList<Node*>( 1, func_graph_node );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_literal_node( const Nodecl::NodeclBase& n, bool is_vector )
+    ObjectList<Node*> PCFGVisitor::visit_literal_node( const Nodecl::NodeclBase& n )
     {
         Node_type n_type;
-        if( is_vector )
+        if( _utils->_is_vector )
             n_type = VECTOR_NORMAL;
         else
             n_type = NORMAL;
@@ -506,11 +521,22 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit_unary_node( const Nodecl::NodeclBase& n,
-                                                     const Nodecl::NodeclBase& rhs,
-                                                     bool is_vector )
+                                                     const Nodecl::NodeclBase& rhs )
     {
+        bool is_vector = _utils->_is_vector;
         Node* right = walk( rhs )[0];
-        return ObjectList<Node*>( 1, merge_nodes( n, right, NULL, is_vector ) );
+        _utils->_is_vector = is_vector;
+        return ObjectList<Node*>( 1, merge_nodes( n, right, NULL ) );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit_vector_binary_node( const Nodecl::NodeclBase& n, 
+                                                             const Nodecl::NodeclBase& lhs, 
+                                                             const Nodecl::NodeclBase& rhs )
+    {
+        _utils->_is_vector = true;
+        ObjectList<Node*> result = visit_binary_node( n, lhs, rhs );
+        _utils->_is_vector = false;
+        return result;
     }
     
     template <typename T>
@@ -522,11 +548,21 @@ namespace Analysis {
             internal_error( "Unexpected nodecl type '%s' as function call member of a vector function call\n", 
                             ast_print_node_type( called_func.get_kind( ) ) );
         }
-        ObjectList<Node*> vector_func_node_l = visit_function_call( called_func.as<Nodecl::FunctionCall>( ), 
-                                                                    /*is_vector*/ true );
+        _utils->_is_vector = true;
+        ObjectList<Node*> vector_func_node_l = visit_function_call( called_func.as<Nodecl::FunctionCall>( ) );
+        _utils->_is_vector = false;
         // Reset the label, since the label assigned to vector_func_node has been called_fun
         vector_func_node_l[0]->set_graph_label( n );
         return vector_func_node_l;
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit_vector_unary_node( const Nodecl::NodeclBase& n, 
+                                                            const Nodecl::NodeclBase& rhs )
+    {
+        _utils->_is_vector = true;
+        ObjectList<Node*> result = visit_unary_node( n, rhs );
+        _utils->_is_vector = false;
+        return result;
     }
     
     ObjectList<Node*> PCFGVisitor::visit_vector_memory_func( const Nodecl::NodeclBase& n, char mem_access_type )
@@ -553,111 +589,112 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        std::cerr << "Unhandled node while PCFG construction '"
-                    << codegen_to_str( n.get_internal_nodecl( ),
-                                        nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-                    << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        WARNING_MESSAGE( "Unhandled node of type '%s' while PCFG construction.\n '%s' ", 
+                         ast_print_node_type( n.get_kind( ) ), n.prettyprint( ).c_str( ) );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Add& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::AddAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Alignof& n )
     {
-        return visit_unary_node( n, n.get_align_type( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_align_type( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ArithmeticShr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ArraySubscript& n )
     {
+        bool is_vector = _utils->_is_vector;
         ObjectList<Node*> subscripted = walk( n.get_subscripted( ) );
+        _utils->_is_vector = is_vector;
         ObjectList<Node*> subscripts = walk( n.get_subscripts( ) );
-
+        _utils->_is_vector = is_vector;
+        
         ObjectList<Node*> nodes = subscripted;
         nodes.insert( subscripts );
-        return ObjectList<Node*>( 1, merge_nodes( n, nodes, /*is_vector*/ false ) );
+        return ObjectList<Node*>( 1, merge_nodes( n, nodes ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Assignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseAnd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseNot& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseOr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShl& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseXor& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BooleanLiteral& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
@@ -680,7 +717,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Cast& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CatchHandler& n )
@@ -691,7 +728,7 @@ namespace Analysis {
         // Build the handler nodes
         _utils->_last_nodes = current_tryblock->_handler_parents;
         ObjectList<Node*> catchs = walk( n.get_statement( ) );
-
+        
         current_tryblock->_handler_exits.append( catchs[0] );
 
         // Set the type of the edge between each handler parent and the actual handler
@@ -719,20 +756,23 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_member( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_member( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Comma& n )
     {
         ObjectList<Node*> comma_nodes;
+        bool is_vector = _utils->_is_vector;
         comma_nodes.append( walk( n.get_rhs( ) ) );
+        _utils->_is_vector = is_vector;
         comma_nodes.append( walk( n.get_lhs( ) ) );
+        _utils->_is_vector = is_vector;
         return comma_nodes;
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ComplexLiteral& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CompoundExpression& n )
@@ -747,12 +787,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Concat& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ConditionalExpression& n )
     {
-        return visit_conditional_expression( n, /*is_vector*/ false );
+        return visit_conditional_expression( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Context& n )
@@ -788,32 +828,32 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Delete& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DeleteArray& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Dereference& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Different& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Div& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DivAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DoStatement& n )
@@ -870,12 +910,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::EmptyStatement& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Equal& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ExpressionStatement& n )
@@ -894,7 +934,7 @@ namespace Analysis {
             }
             else
             {   // expression_nodes.size() > 1
-                last_node = merge_nodes( n, expression_nodes, /*is_vector*/ false );
+                last_node = merge_nodes( n, expression_nodes );
             }
 
             if( !last_node->is_empty_node( ) )
@@ -941,7 +981,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FloatingLiteral& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ForStatement& n )
@@ -1030,7 +1070,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FunctionCall& n )
     {
-        return visit_function_call( n, /*is_vector*/ false );
+        return visit_function_call( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FunctionCode& n )
@@ -1121,12 +1161,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GreaterOrEqualThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GreaterThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IfElseStatement& n )
@@ -1204,12 +1244,14 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LabeledStatement& n )
     {
+        bool is_vector = _utils->_is_vector;
         Node* labeled_node = walk( n.get_statement( ) )[0];
+        _utils->_is_vector = is_vector;
         labeled_node->set_type( LABELED );
         labeled_node->set_label( n.get_symbol( ) );
 
@@ -1240,17 +1282,17 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LogicalAnd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LogicalNot& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LogicalOr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LoopControl& n )
@@ -1303,57 +1345,60 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LowerOrEqualThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::LowerThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorAdd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorBitwiseAnd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorBitwiseNot& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorBitwiseOr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorBitwiseXor& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorConversion& n )
     {
-        return walk( n.get_nest( ) );
+        _utils->_is_vector = true;
+        ObjectList<Node*> result = walk( n.get_nest( ) );
+        _utils->_is_vector = false;
+        return result;
     }    
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorDiv& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorFabs& n )
     {
-        return visit_unary_node( n, n.get_argument( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_argument( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorFunctionCall& n )
@@ -1373,34 +1418,34 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorMinus& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorMul& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorNeg& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorReductionAdd& n )
     {
-        std::cerr << "Warning: MaskedVectorReductionAdd not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "MaskedVectorReductionAdd not yet implemented. Ignoring nodecl", 0 );
         return ObjectList<Node*>( );        
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorReductionMinus& n )
     {
-        std::cerr << "Warning: MaskedVectorReductionMinus not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "MaskedVectorReductionMinus not yet implemented. Ignoring nodecl", 0 );
         return ObjectList<Node*>( );        
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorReductionMul& n )
     {
-        std::cerr << "Warning: MaskedVectorReductionMul not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "MaskedVectorReductionMul not yet implemented. Ignoring nodecl", 0 );
         return ObjectList<Node*>( );        
     }
     
@@ -1416,42 +1461,42 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Minus& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MinusAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Mod& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ModAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Mul& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MulAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Neg& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::New& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ObjectInit& n )
@@ -1472,7 +1517,7 @@ namespace Analysis {
                 return ObjectList<Node*>( );
             }
 
-            Node* merged_node = merge_nodes( n, init_sym[0], init_expr[0], /*is_vector*/ false );
+            Node* merged_node = merge_nodes( n, init_sym[0], init_expr[0] );
             _pcfg->connect_nodes( object_init_last_nodes, merged_node );
             _utils->_last_nodes = ObjectList<Node*>( 1, merged_node );
             return ObjectList<Node*>( 1, merged_node );
@@ -1481,12 +1526,12 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Offset& n )
     {
-        return visit_binary_node( n, n.get_base( ), n.get_offset( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_base( ), n.get_offset( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Offsetof& n )
     {
-        return visit_binary_node( n, n.get_offset_type( ), n.get_designator( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_offset_type( ), n.get_designator( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Atomic& n )
@@ -1553,18 +1598,21 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierSignal& n )
     {
-        internal_error( "BarrierSignal not yet implemented", 0 );
+        WARNING_MESSAGE( "BarrierSignal not yet implemented. Ignoring nodecl", 0 );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierWait& n )
     {
-        internal_error( "BarrierWait not yet implemented", 0 );
+        WARNING_MESSAGE( "BarrierWait not yet implemented. Ignoring nodecl", 0 );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
     {   // No deeper Nodecls
-        internal_error( "CombinedWorksharing not yet implemented ( %s )", codegen_to_str( n.get_internal_nodecl( ),
-                                                                                          nodecl_retrieve_context( n.get_internal_nodecl( ) ) ) );
+        WARNING_MESSAGE( "MaskedVectorReductionAdd not yet implemented. Ignoring nodecl \n%s", 
+                         n.prettyprint( ).c_str( ) );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
@@ -1836,14 +1884,14 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
-        std::cerr << "Warning: Reduction not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "Reduction not yet implemented. Ignoring nodecl", 0 );
 //         walk( n.get_reductions( ) );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
-        std::cerr << "Warning: Reduction item not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "ReductionItem not yet implemented. Ignoring nodecl", 0 );
 //          walk( n.get_reductor( ) );
 //          walk( n.get_reduced_symbol( ) );
          return ObjectList<Node*>( );
@@ -2155,15 +2203,17 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ParenthesizedExpression& n )
     {
         ObjectList<Node*> current_last_nodes = _utils->_last_nodes;
+        bool is_vector = _utils->_is_vector;
         ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
-        Node* parenthesized_node = merge_nodes( n, expression_nodes, /*is_vector*/ false );
-        _pcfg->connect_nodes( current_last_nodes, parenthesized_node );
+        _utils->_is_vector = is_vector;
+        Node* parenthesized_node = merge_nodes( n, expression_nodes );
+//         _pcfg->connect_nodes( current_last_nodes, parenthesized_node );
         return ObjectList<Node*>( 1, parenthesized_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Plus& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     // FIXME This may not be correct
@@ -2185,34 +2235,33 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Postdecrement& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Postincrement& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Power& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ false );
+        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
     {
-        WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
-                         n.prettyprint( ).c_str( ) );
+        WARNING_MESSAGE( "Ignoring PragmaCustomStatement \n'%s'", n.prettyprint( ).c_str( ) );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Predecrement& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Preincrement& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Range& n )
@@ -2221,8 +2270,8 @@ namespace Analysis {
         ObjectList<Node*> upper = walk( n.get_upper( ) );
         ObjectList<Node*> stride = walk( n.get_stride( ) );
 
-        Node* merged_limits = merge_nodes( n, lower[0], upper[0], /*is_vector*/ false );
-        Node* merged = merge_nodes( n, merged_limits, stride[0], /*is_vector*/ false );
+        Node* merged_limits = merge_nodes( n, lower[0], upper[0] );
+        Node* merged = merge_nodes( n, merged_limits, stride[0] );
         _utils->_last_nodes = ObjectList<Node*>( 1, merged );
 
         return ObjectList<Node*>( 1, merged );
@@ -2230,14 +2279,14 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Reference& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ReturnStatement& n )
     {
         ObjectList<Node*> return_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> returned_value = walk( n.get_value( ) );
-        Node* return_node = merge_nodes( n, returned_value, /*is_vector*/ false );
+        Node* return_node = merge_nodes( n, returned_value );
         _pcfg->connect_nodes( return_last_nodes, return_node );
         _utils->_last_nodes.clear( );
         _utils->_return_nodes.append( return_node );
@@ -2246,18 +2295,18 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Sizeof& n )
     {
-        return visit_unary_node( n, n.get_size_type( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_size_type( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::StringLiteral& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::StructuredValue& n )
     {
         ObjectList<Node*> items = walk( n.get_items( ) );
-        return ObjectList<Node*>( 1, merge_nodes( n, items, /*is_vector*/ false ) );
+        return ObjectList<Node*>( 1, merge_nodes( n, items ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::SwitchStatement& n )
@@ -2313,12 +2362,12 @@ namespace Analysis {
         }
 
         // Create the node
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Text& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Throw& n )
@@ -2331,7 +2380,7 @@ namespace Analysis {
         }
         else
         {   // Some expression has been built. We merge here the node with the whole throw node
-            throw_node = merge_nodes( n, right[0], NULL, /*is_vector*/ false );
+            throw_node = merge_nodes( n, right[0], NULL );
             _pcfg->connect_nodes( _utils->_last_nodes, throw_node );
         }
 
@@ -2399,12 +2448,12 @@ namespace Analysis {
     //TODO Test this kind of node
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Type& n )
     {
-        return visit_literal_node( n, /*is_vector*/ false );
+        return visit_literal_node( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Typeid& n )
     {
-        return visit_unary_node( n, n.get_arg( ), /*is_vector*/ false );
+        return visit_unary_node( n, n.get_arg( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedMaskedVectorLoad& n )
@@ -2435,62 +2484,68 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorAdd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorAssignment& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseAnd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseNot& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseOr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorBitwiseXor& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorConditionalExpression& n )
     {
-        return visit_conditional_expression( n, /*is_vector*/ true );
+        _utils->_is_vector = true;
+        ObjectList<Node*> result = visit_conditional_expression( n );
+        _utils->_is_vector = false;
+        return result;
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorConversion& n )
     {
-        return walk( n.get_nest( ) );
+        _utils->_is_vector = true;
+        ObjectList<Node*> result = walk( n.get_nest( ) );
+        _utils->_is_vector = false;
+        return result;
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorDifferent& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorDiv& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorEqual& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorFabs& n )
     {
-        return visit_unary_node( n, n.get_argument( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_argument( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorFunctionCall& n )
@@ -2505,17 +2560,20 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorGreaterOrEqualThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorGreaterThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLiteral& n )
     {
-        return visit_literal_node( n, /*is_vector*/ true );
+        _utils->_is_vector = true;
+        ObjectList<Node*> result = visit_literal_node( n );
+        _utils->_is_vector = false;
+        return result;
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLoad& n )
@@ -2525,99 +2583,99 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLogicalAnd& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLogicalNot& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLogicalOr& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLowerOrEqualThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorLowerThan& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd& n )
-    {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd1Not& n )
-    {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd2Not& n )
-    {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAssignment& n )
-    {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskNot& n )
-    {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskOr& n )
-    {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskXor& n )
-    {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+    {   // We don need a node for the mask
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMinus& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMul& n )
     {
-        return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorNeg& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorPromotion& n )
     {
-        return visit_unary_node( n, n.get_rhs( ), /*is_vector*/ true );
+        return visit_vector_unary_node( n, n.get_rhs( ) );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorReductionAdd& n )
     {
-        std::cerr << "Warning: VectorReductionAdd not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "VectorReductionAdd not yet implemented. Ignoring nodecl", 0 );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorReductionMinus& n )
     {
-        std::cerr << "Warning: VectorReductionMinus not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "VectorReductionMinus not yet implemented. Ignoring nodecl", 0 );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorReductionMul& n )
     {
-        std::cerr << "Warning: VectorReductionMul not yet implemented. Ignoring nodecl" << std::endl;
+        WARNING_MESSAGE( "VectorReductionMul not yet implemented. Ignoring nodecl", 0 );
         return ObjectList<Node*>( );
     }
     
@@ -2633,7 +2691,7 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VirtualFunctionCall& n )
     {
-        return visit_function_call( n, /*is_vector*/ false );
+        return visit_function_call( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::WhileStatement& n )
