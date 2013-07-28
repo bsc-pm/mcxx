@@ -234,6 +234,9 @@ namespace Analysis {
         //! creates new nodes
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
 
+        //! Boolean indicating whether we are building vector nodes or not
+        bool _is_vector;
+        
         //! Counter used to create a unique key for each new node
         unsigned int _nid;
 
