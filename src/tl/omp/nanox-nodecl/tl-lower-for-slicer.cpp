@@ -291,14 +291,32 @@ namespace TL { namespace Nanox {
                 Source::source_language = SourceLanguage::Current;
             }
 
+            ERROR_CONDITION(!output_statements.is<Nodecl::List>(), "Unreachable code", 0);
+
             // Duplicate labels
             Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, output_statements, outline_placeholder);
-            outline_placeholder1.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder1, label_symbol_map1));
+            Nodecl::List updated_output_statements =
+                Nodecl::Utils::deep_copy(output_statements, outline_placeholder1, label_symbol_map1).as<Nodecl::List>();
+
+            // Split the output statements in two new lists: one for the nested
+            // function definitions and other for the rest of nodes
+            Nodecl::List output_statements_filtered, nested_function_definitions;
+            for (Nodecl::List::iterator it2 = updated_output_statements.begin();
+                    it2 != updated_output_statements.end();
+                    ++it2)
+            {
+                if (it2->is<Nodecl::FunctionCode>())
+                    nested_function_definitions.append(*it2);
+                else
+                    output_statements_filtered.append(*it2);
+            }
+
+            outline_placeholder1.replace(output_statements_filtered);
 
             if (!outline_placeholder2.is_null())
             {
-                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, output_statements, outline_placeholder);
-                outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder2, label_symbol_map2));
+                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, output_statements_filtered, outline_placeholder);
+                outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements_filtered, outline_placeholder2, label_symbol_map2));
             }
 
             if (there_are_reductions(outline_info))
@@ -307,8 +325,10 @@ namespace TL { namespace Nanox {
                 perform_partial_reduction_slicer(outline_info, reduction_code, symbol_map);
             }
 
-            outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
+            Nodecl::NodeclBase updated_outline_code = Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map);
+            outline_placeholder.replace(updated_outline_code);
 
+            Nodecl::Utils::append_items_after(outline_placeholder, nested_function_definitions);
             delete symbol_map;
         }
 
