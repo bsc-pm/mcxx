@@ -108,6 +108,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorReductionMinus& node);
 
                 virtual void visit(const Nodecl::VectorMaskAssignment& node);
+                virtual void visit(const Nodecl::VectorMaskConversion& node);
                 virtual void visit(const Nodecl::VectorMaskOr& node);
                 virtual void visit(const Nodecl::VectorMaskAnd& node);
                 virtual void visit(const Nodecl::VectorMaskNot& node);

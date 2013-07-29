@@ -1461,6 +1461,19 @@ namespace TL
                 intrin_src << as_expression(*it);
             }
 
+            /* 
+#warning Remove this from here!
+            {
+                it = scalar_values.begin();
+                for (; it != scalar_values.end();
+                        it++)
+                {
+                    intrin_src << ", ";
+                    intrin_src << as_expression(*it);
+                }
+            }
+            */
+
             intrin_src << ")"; 
 
             Nodecl::NodeclBase function_call =
@@ -2091,21 +2104,21 @@ namespace TL
                 intrin_name_hi << "_ps"; 
                 intrin_name_lo << "_ps"; 
                 tmp_var << "__m512 ";
-                ext << "_MM_DOWNONV_PS_NONE";
+                ext << "_MM_DOWNCONV_PS_NONE";
             } 
             else if (type.is_double()) 
             { 
                 intrin_name_hi << "_pd";
                 intrin_name_lo << "_pd";
                 tmp_var << "__m512d ";
-                ext << "_MM_DOWNONV_PD_NONE";
+                ext << "_MM_DOWNCONV_PD_NONE";
             } 
             else if (type.is_integral_type()) 
             { 
                 intrin_name_hi << "_epi32";
                 intrin_name_lo << "_epi32";
                 tmp_var << "__m512i ";
-                ext << "_MM_DOWNONV_EPI32_NONE";
+                ext << "_MM_DOWNCONV_EPI32_NONE";
 /*
                 casting << "(" 
                     << print_type_str(
@@ -2715,9 +2728,9 @@ namespace TL
 
             intrin_src << as_expression(node.get_lhs())
                 << " = "
-                << "_mm512_kmov("
+//                << "_mm512_kmov("
                 << as_expression(node.get_rhs())
-                << ")"
+//                << ")"
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -2725,6 +2738,18 @@ namespace TL
 
             node.replace(function_call);
         }
+
+        //TODO
+        void KNCVectorLowering::visit(const Nodecl::VectorMaskConversion& node)
+        {
+            walk(node.get_nest());
+
+            node.get_nest().set_type(node.get_type());
+
+            node.replace(node.get_nest());
+        }
+
+
 
         void KNCVectorLowering::visit(const Nodecl::VectorMaskNot& node)
         {
