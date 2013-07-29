@@ -5041,13 +5041,23 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = fortran_get_rank0_type(argument_types[0]);
 
-    int dr = fortran_get_default_real_type_kind();
+    int dr;
+    if (is_complex_type(t0))
+    {
+        // Get as a default kind, that of the complex
+        dr = type_get_size(complex_type_get_base_type(t0));
+    }
+    else
+    {
+        dr = fortran_get_default_real_type_kind();
+    }
+
     if ((is_integer_type(t0)
                 || is_floating_type(t0)
                 || is_complex_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL(symbol, "real", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "real",
                 choose_float_type_from_kind(argument_expressions[1], dr),
                 t0, fortran_get_default_integer_type());
     }
