@@ -47,7 +47,8 @@ namespace TL
            _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
            _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
-            std::cerr << "VECTORIZER: Target type size: " << target_type.get_size() << std::endl;
+            std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
+               << " . Unroll factor: " << _unroll_factor << std::endl;
 
             _inside_inner_masked_bb.push_back(false);
             _mask_check_bb_cost.push_back(0);
@@ -211,8 +212,11 @@ namespace TL
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "VECTORIZER: Adding '%s' function version (device=%s, vector_length=%u, priority=%d)\n",
-                        func_name.c_str(), device.c_str(), vector_length, priority);
+                fprintf(stderr, "VECTORIZER: Adding '%s' function version (device=%s, vector_length=%u, target_type=%s, SVML=%d, masked=%d priority=%d)\n",
+                        func_name.c_str(), device.c_str(), vector_length, 
+                        target_type.get_simple_declaration(TL::Scope::get_global_scope(), "").c_str(),
+                        masked, is_svml,
+                        priority);
             }
 
             _function_versioning.add_version(func_name,
@@ -255,28 +259,28 @@ namespace TL
                     ;
 
                 // Parse SVML declarations
-                TL::Scope global_scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
+                TL::Scope global_scope = TL::Scope::get_global_scope();
                 svml_sse_vector_math.parse_global(global_scope);
 
                 // Add SVML math function as vector version of the scalar one
                 add_vector_function_version("expf", 
                         global_scope.get_symbol_from_name("__svml_expf4").make_nodecl(true),
-                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
                             global_scope.get_symbol_from_name("__svml_sqrtf4").make_nodecl(true),
-                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
                             global_scope.get_symbol_from_name("__svml_logf4").make_nodecl(true),
-                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
                             global_scope.get_symbol_from_name("__svml_sinf4").make_nodecl(true),
-                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
                             global_scope.get_symbol_from_name("__svml_sincosf4").make_nodecl(true),
-                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("__svml_floorf4").make_nodecl(true),
-                            "smp", 16, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 
@@ -315,48 +319,48 @@ namespace TL
                     ;
 
                 // Parse SVML declarations
-                TL::Scope global_scope = TL::Scope(CURRENT_COMPILED_FILE->global_decl_context);
+                TL::Scope global_scope = TL::Scope::get_global_scope();
                 svml_sse_vector_math.parse_global(global_scope);
 
                 // Add SVML math function as vector version of the scalar one
                 add_vector_function_version("expf", 
                             global_scope.get_symbol_from_name("__svml_expf16").make_nodecl(true),
-                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
                             global_scope.get_symbol_from_name("__svml_sqrtf16").make_nodecl(true),
-                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
                             global_scope.get_symbol_from_name("__svml_logf16").make_nodecl(true),
-                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
                             global_scope.get_symbol_from_name("__svml_sinf16").make_nodecl(true),
-                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
                             global_scope.get_symbol_from_name("__svml_sincosf16").make_nodecl(true),
-                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("__svml_floorf16").make_nodecl(true),
-                            "knc", 64, NULL, false, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 
                 // Add SVML math masked function as vector version of the scalar one
                 add_vector_function_version("expf", 
                             global_scope.get_symbol_from_name("__svml_expf16_mask").make_nodecl(true),
-                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
                             global_scope.get_symbol_from_name("__svml_sqrtf16_mask").make_nodecl(true),
-                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
                             global_scope.get_symbol_from_name("__svml_logf16_mask").make_nodecl(true),
-                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
                             global_scope.get_symbol_from_name("__svml_sinf16_mask").make_nodecl(true),
-                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
                             global_scope.get_symbol_from_name("__svml_sincosf16_mask").make_nodecl(true),
-                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("__svml_floorf16_mask").make_nodecl(true),
-                            "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
+                            "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 

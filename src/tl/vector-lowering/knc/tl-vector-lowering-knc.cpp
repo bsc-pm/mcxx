@@ -2444,7 +2444,7 @@ namespace TL
             Nodecl::FunctionCall function_call =
                 node.get_function_call().as<Nodecl::FunctionCall>();
 
-            TL::Type type = node.get_type().basic_type();
+            TL::Type scalar_type = node.get_type().basic_type();
             Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
             Nodecl::NodeclBase mask = node.get_mask();
             
@@ -2456,8 +2456,8 @@ namespace TL
             if(_vectorizer.is_svml_function(scalar_sym.get_name(),
                         "knc",
                         64,
-                        NULL,
-                        true)) // TODO
+                        scalar_type,
+                        true))
             {
                 arguments.prepend(mask.shallow_copy());
 
@@ -2465,15 +2465,15 @@ namespace TL
                 {
                     TL::Source undef;
 
-                    if (type.is_float()) 
+                    if (scalar_type.is_float()) 
                     { 
                         undef << "_mm512_undefined()";
                     } 
-                    else if (type.is_double()) 
+                    else if (scalar_type.is_double()) 
                     { 
                         undef << "_mm512_castps_pd(_mm512_undefined())";
                     } 
-                    else if (type.is_integral_type()) 
+                    else if (scalar_type.is_integral_type()) 
                     { 
                         undef << "_mm512_castps_si512(_mm512_undefined())";
                     }

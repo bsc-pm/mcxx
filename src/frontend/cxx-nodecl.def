@@ -217,6 +217,7 @@ expression : literal
            | NODECL_VECTOR_FABS([argument] argument) type const-value-opt 
            | NODECL_MASKED_VECTOR_FABS([argument] argument, [mask] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_MASK_CONVERSION([nest] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt 
            | NODECL_VECTOR_MASK_OR([lhs] expression, [rhs] expression) type const-value-opt 

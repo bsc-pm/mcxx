@@ -72,6 +72,13 @@ namespace TL
                 std::string _device_name;
                 bool _support_masking;
 
+                void process_suitable_clause(const Nodecl::List& environment,
+                        Nodecl::List& suitable_expressions);
+                void process_vectorlengthfor_clause(const Nodecl::List& environment, 
+                        TL::Type& vectorlengthfor_type);
+                void process_reduction_clause(const Nodecl::List& environment,
+                        TL::ObjectList<TL::Symbol>& reductions);
+
             public:
                 SimdVisitor(bool fast_math_enabled, bool svml_enabled, bool mic_enabled);
                 
@@ -81,6 +88,7 @@ namespace TL
                 virtual Nodecl::FunctionCode common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
                         const Nodecl::FunctionCode& function_code,
                         const Nodecl::List& suitable_expresions,
+                        const TL::Type& vectorlengthfor_type,
                         const bool masked_version);
         };
 

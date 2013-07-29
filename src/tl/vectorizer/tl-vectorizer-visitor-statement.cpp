@@ -83,7 +83,7 @@ namespace TL
                 // *******
                 // New symbol mask
                 Nodecl::NodeclBase if_mask_nodecl = Utils::get_new_mask_symbol(
-                        scope, _environment._mask_size); 
+                        scope, _environment._unroll_factor); 
 
                 // Mask value
                 Nodecl::NodeclBase if_mask_value;
@@ -101,12 +101,21 @@ namespace TL
                 }
 
                 // Expression that sets the mask
-                Nodecl::ExpressionStatement if_mask_exp =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(if_mask_nodecl.shallow_copy(), 
-                                if_mask_value.shallow_copy(),
-                                if_mask_nodecl.get_type(),
-                                n.get_locus()));
+                Nodecl::ExpressionStatement if_mask_exp;
+#warning
+                // Mask types have the same type
+                if(if_mask_nodecl.get_type() == if_mask_value.get_type())
+                {
+                    if_mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(if_mask_nodecl.shallow_copy(), 
+                                    if_mask_value.shallow_copy(),
+                                    if_mask_nodecl.get_type(),
+                                    n.get_locus()));
+                }
+                else
+                {
+                }
 
                 // Add masks to the source code
                 list.append(if_mask_exp);
@@ -116,7 +125,7 @@ namespace TL
                 // ***********
                 // New symbol mask
                 Nodecl::NodeclBase else_mask_nodecl = Utils::get_new_mask_symbol(
-                        scope, _environment._mask_size);
+                        scope, _environment._unroll_factor);
 
                 // Mask value
                 Nodecl::NodeclBase else_mask_value;
@@ -262,7 +271,7 @@ namespace TL
                     bb_predecessor_masks.push_back(else_mask_nodecl);
 
                     Nodecl::NodeclBase new_exit_mask = Utils::emit_disjunction_mask(bb_predecessor_masks,
-                            list, scope, _environment._mask_size);
+                            list, scope, _environment._unroll_factor);
 
                     _environment._mask_list.push_back(new_exit_mask);
                 }

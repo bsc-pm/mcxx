@@ -89,8 +89,8 @@ namespace TL
             // Add MaskLiteral to mask_list
             Nodecl::MaskLiteral all_one_mask =
                 Nodecl::MaskLiteral::make(
-                        TL::Type::get_mask_type(_environment._mask_size),
-                        const_value_get_minus_one(_environment._mask_size, 1),
+                        TL::Type::get_mask_type(_environment._unroll_factor),
+                        const_value_get_minus_one(_environment._unroll_factor, 1),
                         make_locus("", 0, 0));
             _environment._mask_list.push_back(all_one_mask);
 
@@ -505,8 +505,8 @@ namespace TL
             // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
             Nodecl::MaskLiteral all_one_mask =
                 Nodecl::MaskLiteral::make(
-                        TL::Type::get_mask_type(_environment._mask_size),
-                        const_value_get_minus_one(_environment._mask_size, 1),
+                        TL::Type::get_mask_type(_environment._unroll_factor),
+                        const_value_get_minus_one(_environment._unroll_factor, 1),
                         make_locus("", 0, 0));
             _environment._mask_list.push_back(all_one_mask);
 
@@ -517,15 +517,37 @@ namespace TL
            
             Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                     comp_statement.retrieve_context(),
-                    _environment._mask_size);
+                    _environment._unroll_factor);
 
             // Compute epilog mask expression
-            Nodecl::ExpressionStatement mask_exp =
-                Nodecl::ExpressionStatement::make(
-                        Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
-                            mask_value,
-                            mask_nodecl_sym.get_type(),
-                            for_statement.get_locus()));
+
+            Nodecl::ExpressionStatement mask_exp;
+            if (mask_nodecl_sym.get_type() == mask_value.get_type())
+            {
+                std::cerr << "Masks have the same type" << std::endl;
+
+                mask_exp =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                                mask_value,
+                                mask_nodecl_sym.get_type(),
+                                for_statement.get_locus()));
+            }
+            else
+            {
+                std::cerr << "Masks don't have the same type" << std::endl;
+
+                mask_exp =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                                Nodecl::VectorMaskConversion::make(
+                                    mask_value,
+                                    mask_nodecl_sym.get_type(),
+                                    for_statement.get_locus()),
+                                mask_nodecl_sym.get_type(),
+                                for_statement.get_locus()));
+            }
+
 
             // Vectorize Loop Body
             _environment._mask_list.push_back(mask_nodecl_sym);

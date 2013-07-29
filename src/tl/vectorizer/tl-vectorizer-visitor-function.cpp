@@ -86,7 +86,7 @@ namespace TL
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
+                mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
                
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(), 
                         vect_func_sym.get_internal_symbol(),
@@ -123,8 +123,8 @@ namespace TL
             {
                 Nodecl::MaskLiteral all_one_mask =
                     Nodecl::MaskLiteral::make(
-                            TL::Type::get_mask_type(_environment._mask_size),
-                            const_value_get_minus_one(_environment._mask_size, 1),
+                            TL::Type::get_mask_type(_environment._unroll_factor),
+                            const_value_get_minus_one(_environment._unroll_factor, 1),
                             make_locus("", 0, 0));
 
                 _environment._mask_list.push_back(all_one_mask);

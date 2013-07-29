@@ -53,10 +53,12 @@ namespace TL
                 const TL::Type& target_type,
                 const bool masked) const
         {
+            bool compatible_type = (_target_type.get_size() == target_type.get_size());
+
             return (_device == device) &&
                 (_vector_length == vector_length) &&
-                (_masked == masked); // &&
-                //_target_type.is_same_type(target_type);
+                compatible_type &&
+                (_masked == masked); 
         }
 
         bool VectorFunctionVersion::is_better_than(const VectorFunctionVersion& func_version) const
@@ -125,8 +127,10 @@ namespace TL
 
             if (best_version == _versions.end())
             {
-                running_error("Error: There is no vector version of function '%s' for '%s' '%d' 'mask=%d'", 
-                    func_name.c_str(), device.c_str(), vector_length, masked);
+                running_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'", 
+                    func_name.c_str(), device.c_str(), 
+                    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(), 
+                    vector_length, masked);
             }
 
             return best_version->second;

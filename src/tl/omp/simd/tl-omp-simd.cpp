@@ -149,23 +149,11 @@ namespace TL {
 
             // Suitable clause
             Nodecl::List suitable_expressions;
-            Nodecl::OpenMP::VectorSuitable omp_suitable = simd_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
-            if(!omp_suitable.is_null())
-            {
-                suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
-            }
+            process_suitable_clause(simd_environment, suitable_expressions);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
-            Nodecl::OpenMP::VectorLengthFor omp_vector_length_for = simd_environment.find_first<Nodecl::OpenMP::VectorLengthFor>();
-            if(!omp_vector_length_for.is_null())
-            {
-                vectorlengthfor_type = omp_vector_length_for.get_type();
-            }
-            else //Float type by default //TODO
-            {
-                vectorlengthfor_type = TL::Type::get_float_type();
-            }
+            process_vectorlengthfor_clause(simd_environment, vectorlengthfor_type);
 
             // Reduction clause
             TL::ObjectList<TL::Symbol> reductions;
@@ -173,6 +161,7 @@ namespace TL {
             Nodecl::List omp_reduction_list;
 
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
+            //TODO: move this to process_reduction_clause
             if(!omp_reductions.is_null())
             {
                 // Extract reduced Nodecl::Symbol from ReductionItems
@@ -307,39 +296,15 @@ namespace TL {
 
             // Suitable clause
             Nodecl::List suitable_expressions;
-            Nodecl::OpenMP::VectorSuitable omp_suitable = omp_simd_for_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
-            if(!omp_suitable.is_null())
-            {
-                suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
-            }
+            process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
-            Nodecl::OpenMP::VectorLengthFor omp_vector_length_for = omp_simd_for_environment.find_first<Nodecl::OpenMP::VectorLengthFor>();
-            if(!omp_vector_length_for.is_null())
-            {
-                vectorlengthfor_type = omp_vector_length_for.get_type();
-            }
-            else //Float type by default //TODO
-            {
-                vectorlengthfor_type = TL::Type::get_float_type();
-            }
+            process_vectorlengthfor_clause(omp_simd_for_environment, vectorlengthfor_type);
 
             // Reduction clause
             TL::ObjectList<TL::Symbol> reductions;
-            Nodecl::OpenMP::Reduction omp_reductions = omp_simd_for_environment.find_first<Nodecl::OpenMP::Reduction>();
-            if(!omp_reductions.is_null())
-            {
-                // Extract reduced Nodecl::Symbol from ReductionItems
-                Nodecl::List omp_reduction_list = omp_reductions.get_reductions().as<Nodecl::List>();
-                for(Nodecl::List::iterator it = omp_reduction_list.begin();
-                        it != omp_reduction_list.end();
-                        it++ )
-                {
-                    reductions.append((*it).as<Nodecl::OpenMP::ReductionItem>().
-                            get_reduced_symbol().as<Nodecl::Symbol>().get_symbol());
-                }
-            }
+            process_reduction_clause(omp_simd_for_environment, reductions);
 
             // Add epilog with single before vectorization
             Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
@@ -415,14 +380,14 @@ namespace TL {
             // Remove SimdFunction node
             simd_node.replace(function_code);
 
-
+            // Suitable clause
             Nodecl::List suitable_expressions;
+            process_suitable_clause(omp_environment, suitable_expressions);
 
-            Nodecl::OpenMP::VectorSuitable omp_suitable = omp_environment.find_first<Nodecl::OpenMP::VectorSuitable>();
-            if(!omp_suitable.is_null())
-            {
-                suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
-            }
+            // Vectorlengthfor clause
+            TL::Type vectorlengthfor_type;
+            process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
+
 
             Nodecl::OpenMP::VectorMask omp_mask = omp_environment.find_first<Nodecl::OpenMP::VectorMask>();
             Nodecl::OpenMP::VectorNoMask omp_nomask = omp_environment.find_first<Nodecl::OpenMP::VectorNoMask>();
@@ -441,19 +406,20 @@ namespace TL {
             if (_support_masking && omp_nomask.is_null())
             {
                 Nodecl::FunctionCode mask_func =
-                    common_simd_function(simd_node, function_code, suitable_expressions, true);
+                    common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, true);
             }
             // Nomask Version
             if (omp_mask.is_null())
             {
                 Nodecl::FunctionCode no_mask_func =
-                    common_simd_function(simd_node, function_code, suitable_expressions, false);
+                    common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, false);
             }
         }
 
         Nodecl::FunctionCode SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
                 const Nodecl::FunctionCode& function_code,
                 const Nodecl::List& suitable_expressions,
+                const TL::Type& vectorlengthfor_type,
                 const bool masked_version)
         {
             TL::Symbol func_sym = function_code.get_symbol();
@@ -492,7 +458,7 @@ namespace TL {
 
             // Add SIMD version to vector function versioning
             _vectorizer.add_vector_function_version(orig_func_name, vector_func_code, 
-                    _device_name, _vector_length, NULL, masked_version, 
+                    _device_name, _vector_length, func_sym.get_type().returns(), masked_version, 
                     TL::Vectorization::SIMD_FUNC_PRIORITY, false);
 
             // Append vectorized function code to scalar function
@@ -504,7 +470,7 @@ namespace TL {
                     _vector_length, 
                     _support_masking,
                     _mask_size,
-                    NULL,
+                    vectorlengthfor_type,
                     &suitable_expressions,
                     NULL,
                     NULL);
@@ -512,6 +478,57 @@ namespace TL {
             _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
 
             return vector_func_code;
+        }
+
+
+        void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,
+                Nodecl::List& suitable_expressions)
+        {
+            Nodecl::OpenMP::VectorSuitable omp_suitable = 
+                environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+
+            if(!omp_suitable.is_null())
+            {
+                suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+            }
+        }
+
+
+        void SimdVisitor::process_vectorlengthfor_clause(const Nodecl::List& environment, 
+                TL::Type& vectorlengthfor_type)
+        {
+            Nodecl::OpenMP::VectorLengthFor omp_vector_length_for = 
+                environment.find_first<Nodecl::OpenMP::VectorLengthFor>();
+
+            if(!omp_vector_length_for.is_null())
+            {
+                vectorlengthfor_type = omp_vector_length_for.get_type();
+            }
+            else //Float type by default //TODO
+            {
+                vectorlengthfor_type = TL::Type::get_float_type();
+            }
+        }
+
+
+        void SimdVisitor::process_reduction_clause(const Nodecl::List& environment,
+                TL::ObjectList<TL::Symbol>& reductions)
+        {
+            Nodecl::OpenMP::Reduction omp_reductions = 
+                environment.find_first<Nodecl::OpenMP::Reduction>();
+
+            if(!omp_reductions.is_null())
+            {
+                // Extract reduced Nodecl::Symbol from ReductionItems
+                Nodecl::List omp_reduction_list = omp_reductions.get_reductions().as<Nodecl::List>();
+                for(Nodecl::List::iterator it = omp_reduction_list.begin();
+                        it != omp_reduction_list.end();
+                        it++ )
+                {
+                    reductions.append((*it).as<Nodecl::OpenMP::ReductionItem>().
+                            get_reduced_symbol().as<Nodecl::Symbol>().get_symbol());
+                }
+            }
         }
 
 
