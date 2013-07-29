@@ -366,11 +366,11 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
-        Ret visit( const Nodecl::OpenMP::VectorDevice& n );
+//        Ret visit( const Nodecl::OpenMP::VectorDevice& n );
         Ret visit( const Nodecl::OpenMP::VectorLengthFor& n );
-        Ret visit( const Nodecl::OpenMP::VectorMask& n );
-        Ret visit( const Nodecl::OpenMP::VectorNoMask& n );
-        Ret visit( const Nodecl::OpenMP::VectorSuitable& n );
+        Ret visit( const Nodecl::OpenMP::Mask& n );
+        Ret visit( const Nodecl::OpenMP::NoMask& n );
+        Ret visit( const Nodecl::OpenMP::Suitable& n );
         Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Plus& n );
@@ -429,6 +429,7 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorMaskAnd1Not& n );
         Ret visit( const Nodecl::VectorMaskAnd2Not& n );
         Ret visit( const Nodecl::VectorMaskAssignment& n );
+        Ret visit( const Nodecl::VectorMaskConversion& n );
         Ret visit( const Nodecl::VectorMaskNot& n );
         Ret visit( const Nodecl::VectorMaskOr& n );
         Ret visit( const Nodecl::VectorMaskXor& n );

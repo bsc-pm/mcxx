@@ -529,10 +529,10 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*TASK_LABEL() text
                  | NODECL_OPEN_M_P*NO_FLUSH()
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
-                 | NODECL_OPEN_M_P*VECTOR_SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*VECTOR_DEVICE([device] text)
-                 | NODECL_OPEN_M_P*VECTOR_MASK()
-                 | NODECL_OPEN_M_P*VECTOR_NO_MASK()
+                 | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*MASK()
+                 | NODECL_OPEN_M_P*NO_MASK()
+#                 | NODECL_OPEN_M_P*VECTOR_DEVICE([device] text)
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)

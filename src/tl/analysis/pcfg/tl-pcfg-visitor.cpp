@@ -2160,12 +2160,14 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    /*
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorDevice& n )
     {
         PCFGClause current_clause( VECTOR_DEVICE, n.get_device( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );         
     }
+    */
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorLengthFor& n )
     {
@@ -2174,23 +2176,23 @@ namespace Analysis {
         return ObjectList<Node*>( ); 
     }
     
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorMask& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Mask& n )
     {
-        PCFGClause current_clause( VECTOR_MASK );
+        PCFGClause current_clause( MASK );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( ); 
     }
     
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorNoMask& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::NoMask& n )
     {
-        PCFGClause current_clause( VECTOR_NO_MASK );
+        PCFGClause current_clause( NO_MASK );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );        
     }
     
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorSuitable& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Suitable& n )
     {
-        PCFGClause current_clause( VECTOR_SUITABLE, n.get_suitable_expressions( ) );
+        PCFGClause current_clause( SUITABLE, n.get_suitable_expressions( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2624,6 +2626,12 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAssignment& n )
     {   // We don need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
+    }
+
+#warning Sara, please, review this node
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskConversion& n )
+    {
+        return walk( n.get_nest( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskNot& n )

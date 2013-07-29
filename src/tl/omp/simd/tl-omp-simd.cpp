@@ -389,8 +389,8 @@ namespace TL {
             process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
 
 
-            Nodecl::OpenMP::VectorMask omp_mask = omp_environment.find_first<Nodecl::OpenMP::VectorMask>();
-            Nodecl::OpenMP::VectorNoMask omp_nomask = omp_environment.find_first<Nodecl::OpenMP::VectorNoMask>();
+            Nodecl::OpenMP::Mask omp_mask = omp_environment.find_first<Nodecl::OpenMP::Mask>();
+            Nodecl::OpenMP::NoMask omp_nomask = omp_environment.find_first<Nodecl::OpenMP::NoMask>();
 
             if((!omp_mask.is_null()) && (!omp_nomask.is_null()))
             {
@@ -484,8 +484,8 @@ namespace TL {
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,
                 Nodecl::List& suitable_expressions)
         {
-            Nodecl::OpenMP::VectorSuitable omp_suitable = 
-                environment.find_first<Nodecl::OpenMP::VectorSuitable>();
+            Nodecl::OpenMP::Suitable omp_suitable = 
+                environment.find_first<Nodecl::OpenMP::Suitable>();
 
             if(!omp_suitable.is_null())
             {
