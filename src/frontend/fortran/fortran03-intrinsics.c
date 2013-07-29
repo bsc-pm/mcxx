@@ -3075,7 +3075,9 @@ scope_entry_t* compute_intrinsic_hostnm(scope_entry_t* symbol UNUSED_PARAMETER,
         else if (num_arguments == 1)
         {
             return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "hostnm",
-                    fortran_get_default_integer_type(),
+                    solving_call_statement ?
+                    /* subroutine */ get_void_type() :
+                    /* function */ fortran_get_default_integer_type(),
                     t0);
         }
     }
