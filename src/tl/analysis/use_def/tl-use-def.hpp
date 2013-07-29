@@ -76,8 +76,7 @@ namespace Analysis {
          */
         void compute_usage( std::set<TL::Symbol> visited_functions,
                             ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
-                            bool ipa = false, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( )
-);
+                            bool ipa = false, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ) );
     };
 
     // ************************** End class implementing use-definition analysis ************************** //
@@ -160,6 +159,8 @@ namespace Analysis {
 
     public:
         // *** Constructors *** //
+        UsageVisitor( Node* fake_node );
+        
         UsageVisitor( Node* n,
                       std::set<Symbol> visited_functions,
                       ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,

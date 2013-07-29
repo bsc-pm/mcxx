@@ -417,6 +417,12 @@ namespace Analysis {
         return non_ref_params_to_args;
     }
 
+    UsageVisitor::UsageVisitor( Node* fake_node )
+        : _node( fake_node ), _define( false ), _current_nodecl( Nodecl::NodeclBase::null( ) ),
+          _visited_functions( ), _visited_global_vars( ),
+          _ipa( ), _sc( ), _ipa_arguments( )
+    {}
+    
     UsageVisitor::UsageVisitor( Node* n,
                                 std::set<Symbol> visited_functions,
                                 ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
@@ -460,7 +466,7 @@ namespace Analysis {
         }
         return false;
     }
-
+    
     void UsageVisitor::compute_statement_usage( Nodecl::NodeclBase st )
     {
         walk( st );

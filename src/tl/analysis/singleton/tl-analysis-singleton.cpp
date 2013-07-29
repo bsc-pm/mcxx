@@ -357,10 +357,9 @@ namespace Analysis {
             // Create the PCFG only if it has not been created previously
             if( memento.get_pcfg( pcfg_name ) == NULL )
             {
+                // Create the PCFG
                 if( VERBOSE )
                     printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
-
-                // Create the PCFG
                 PCFGVisitor v( pcfg_name, *it );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 

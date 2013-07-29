@@ -61,41 +61,40 @@ namespace Analysis {
             bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                         // It is true when the auto-dependencies for the node has been computed
 
-
-            // *** Private constructors *** //
-
-            //! Empty Node Constructor.
-            /*! The method sets to -1 the node identifier and has empty entry and exit edges lists.
-             *  The type of Node_type is, by default, UNCLASSIFIED_NODE.
-             */
-            Node( );
-
             // *** Not allowed construction methods *** //
             Node( const Node& n );
             Node& operator=( const Node& );
 
         public:
             // *** Constructors *** //
-
+            
+            //! Empty Node Constructor.
+            /*! 
+             * The method sets to -1 the node identifier and has empty entry and exit edges lists.
+             * The type of Node_type is, by default, UNCLASSIFIED_NODE.
+             * \internal
+             */
+            Node( );
+            
             //! Node Constructor.
             /*!
-            The entry and exit edges lists are empty.
-            A node may contain other nodes, depending on its type.
-            \param id Last identifier used to built a node (the method increments it by 1).
-            \param outer_node Pointer to the wrapper node. If the node does not belong to other
-                                node, then this parameter must be NULL.
-            */
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                    node, then this parameter must be NULL.
+             */
             Node( unsigned int& id, Node_type type, Node* outer_node );
 
             //! Node Constructor for Basic Normal Nodes.
             /*!
-            * The entry and exit edges lists are empty.
-            * A node may contain other nodes, depending on its type.
-            * \param id Last identifier used to built a node (the method increments it by 1).
-            * \param outer_node Pointer to the wrapper node. If the node does not belong to other
-            *                   node, then this parameter must be NULL.
-            * \param nodecls List of Nodecl containing the Statements to be included in the new node
-            */
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                   node, then this parameter must be NULL.
+             * \param nodecls List of Nodecl containing the Statements to be included in the new node
+             */
             Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls );
 
             //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
