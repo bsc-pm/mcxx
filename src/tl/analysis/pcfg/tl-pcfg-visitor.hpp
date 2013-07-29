@@ -366,7 +366,6 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
-//        Ret visit( const Nodecl::OpenMP::VectorDevice& n );
         Ret visit( const Nodecl::OpenMP::VectorLengthFor& n );
         Ret visit( const Nodecl::OpenMP::Mask& n );
         Ret visit( const Nodecl::OpenMP::NoMask& n );

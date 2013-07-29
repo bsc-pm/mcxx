@@ -171,6 +171,9 @@ namespace Analysis {
 
         void erase_jump_nodes( Node* current );
 
+        //! Looks for nodecl 'n' in 'current' and its successors
+        Node* find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+        
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                        std::string cluster_name,
@@ -342,10 +345,8 @@ namespace Analysis {
         static void clear_visits_aux_backwards( Node* current );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
-
-        //!Returns true if a given nodecl is not modified in a given context
-        static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
-
+        
+        
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
@@ -382,11 +383,23 @@ namespace Analysis {
 
         ObjectList<Symbol> get_function_calls( ) const;
 
+        
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
         static bool node_is_in_loop( Node* current );
         static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
-
+        static bool is_backward_parent( Node* son, Node* parent );
+        static bool node_contains_node( Node* container, Node* contained );
+        
+        // *** Analysis methods *** //
+        //!Returns true if a given nodecl is not modified in a given context
+        static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
+        
+        static bool has_been_defined( Node* current, Node* scope, const Nodecl::NodeclBase& n );
+        
+        Node* find_nodecl( const Nodecl::NodeclBase& n );
+        
+        
         // *** Printing methods *** //
         void print_global_vars( ) const;
 

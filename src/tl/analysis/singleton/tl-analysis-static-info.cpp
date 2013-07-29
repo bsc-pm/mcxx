@@ -27,6 +27,7 @@
 #include "cxx-process.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
+#include "tl-use-def.hpp"
 
 namespace TL  {
 namespace Analysis {
@@ -69,11 +70,26 @@ namespace Analysis {
     // **************** Class to retrieve analysis info about one specific nodecl ****************** //
 
     NodeclStaticInfo::NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
-                                        Utils::ext_sym_set killed, Node* autoscoped_task )
+                                        Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
+                                        Node* autoscoped_task )
             : _induction_variables( induction_variables ), _killed( killed ),
-              _autoscoped_task( autoscoped_task )
+              _pcfgs( pcfgs ), _autoscoped_task( autoscoped_task )
     {}
 
+    Node* NodeclStaticInfo::find_node_from_nodecl( const Nodecl::NodeclBase& n ) const
+    {
+        Node* result = NULL;
+        for( ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            result = ( *it )->find_nodecl( n );
+            if( result != NULL )
+            {
+                break;
+            }
+        }
+        return result;
+    }
+    
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
         bool result = true;
@@ -88,7 +104,78 @@ namespace Analysis {
         }
         return result;
     }
-
+    
+    bool NodeclStaticInfo::has_been_defined( const Nodecl::NodeclBase& n, 
+                                             const Nodecl::NodeclBase& s, 
+                                             const Nodecl::NodeclBase& scope ) const
+    {
+        bool result = false;
+        if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::ArraySubscript>( ) || n.is<Nodecl::ClassMemberAccess>( ) )
+        {
+            Node* s_node = find_node_from_nodecl( s );
+            Node* scope_node = find_node_from_nodecl( s );
+            if( s_node == NULL )
+            {
+                WARNING_MESSAGE( "Nodecl '%s' not found in the current analysis. " \
+                                 "Cannot compute whether '%s' has been defined. Returning false.\n", 
+                                 s.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+            }
+            else if( ExtensibleGraph::node_contains_node( scope_node, s_node ) )
+            {
+                WARNING_MESSAGE( "Nodecl '%s' not found in the given analysis. " \
+                                 "Cannot compute whether '%s' has been defined. Returning false.\n", 
+                                 s.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+            }
+            else
+            {
+                // See if it has been defined in its own node, before 's'
+                if( Utils::ext_sym_set_contains_nodecl( n, _killed ) )
+                {
+                    ObjectList<Nodecl::NodeclBase> stmts = s_node->get_statements( );
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); 
+                         it != stmts.end( ); ++it )
+                    {
+                        if( !Nodecl::Utils::equal_nodecls( n, *it ) )
+                        {
+                            Node* fake_node = new Node( );
+                            UsageVisitor uv( fake_node );
+                            uv.compute_statement_usage( *it );
+                            if( Utils::ext_sym_set_contains_nodecl( n, fake_node->get_killed_vars( ) ) )
+                            {
+                                result = true;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+                
+                // Look for definitions in the parents
+                s_node->set_visited( true );
+                ObjectList<Node*> parents = s_node->get_parents( );
+                for( ObjectList<Node*>::iterator it = parents.begin( ); 
+                     it != parents.end( ) && !result; ++it )
+                {
+                    if( !ExtensibleGraph::is_backward_parent( s_node, *it ) )
+                    {
+                        result = result || ExtensibleGraph::has_been_defined( *it, scope_node, n );
+                    }
+                    ExtensibleGraph::clear_visits_aux( s_node );
+                }
+                ExtensibleGraph::clear_visits_backwards( s_node );
+            }
+        }
+        else
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is neither symbol, ArraySubscript or ClassMemberAccess. " \
+                             "One of these types required as defined option. Returning false.\n", n.prettyprint( ).c_str( ) );
+        }
+        return result;
+    }
+    
     bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -249,9 +336,6 @@ namespace Analysis {
 
         // Compute "dynamic" analysis
 
-        ObjectList<Analysis::Utils::InductionVariableData*> induction_variables;
-        ObjectList<Nodecl::NodeclBase> constants;
-
         if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
         {
             analysis.parallel_control_flow_graph( analysis_state, n );
@@ -314,9 +398,30 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_constant( n );
         }
+        
         return result;
     }
 
+    bool AnalysisStaticInfo::has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                               const Nodecl::NodeclBase& s ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether '%s' has been defined.'",
+                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.has_been_defined( n, s, scope );
+        }
+        return result;
+    }
+    
     bool AnalysisStaticInfo::is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -589,7 +694,8 @@ namespace Analysis {
     {
         // The queries to the analysis info depend on the mask
         ObjectList<Analysis::Utils::InductionVariableData*> induction_variables;
-        Utils::ext_sym_set constants;
+        Utils::ext_sym_set killed;
+        ObjectList<ExtensibleGraph*> pcfgs;
         Node* autoscoped_task;
         if( _analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
@@ -597,7 +703,8 @@ namespace Analysis {
         }
         if( _analysis_mask._which_analysis & WhichAnalysis::CONSTANTS_ANALYSIS )
         {
-            constants = _state.get_killed( n );
+            killed = _state.get_killed( n );
+            pcfgs = _state.get_pcfgs( );
         }
         if( ( _analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
             && n.is<Nodecl::OpenMP::Task>( ) )
@@ -605,7 +712,7 @@ namespace Analysis {
             autoscoped_task = _state.get_autoscoped_task( n );
         }
 
-        NodeclStaticInfo static_info( induction_variables, constants, autoscoped_task );
+        NodeclStaticInfo static_info( induction_variables, killed, pcfgs, autoscoped_task );
         _analysis_info.insert( static_info_pair_t( n, static_info ) );
     }
 

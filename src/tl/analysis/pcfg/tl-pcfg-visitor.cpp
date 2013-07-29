@@ -2160,15 +2160,6 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    /*
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorDevice& n )
-    {
-        PCFGClause current_clause( VECTOR_DEVICE, n.get_device( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( );         
-    }
-    */
-    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorLengthFor& n )
     {
         PCFGClause current_clause( VECTOR_LENGTH_FOR );

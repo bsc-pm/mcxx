@@ -89,17 +89,24 @@ namespace Analysis {
         private:
             ObjectList<Utils::InductionVariableData*> _induction_variables;
             Utils::ext_sym_set _killed;
+            ObjectList<ExtensibleGraph*> _pcfgs;
             Node* _autoscoped_task;
 
+            Node* find_node_from_nodecl( const Nodecl::NodeclBase& n ) const;
+            
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
-                              Utils::ext_sym_set killed, Node* autoscoped_task );
+                              Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
+                              Node* autoscoped_task );
 
             
             // *** Queries about Use-Def analysis *** //
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
 
+            bool has_been_defined( const Nodecl::NodeclBase& n, 
+                                   const Nodecl::NodeclBase& s, 
+                                   const Nodecl::NodeclBase& scope ) const;
 
             // *** Queries about induction variables *** //
 
@@ -175,6 +182,8 @@ namespace Analysis {
             //! Returns true when an object is constant in a given scope
             bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                   const Nodecl::NodeclBase& s ) const;
 
             // *** Queries about induction variables *** //
 
