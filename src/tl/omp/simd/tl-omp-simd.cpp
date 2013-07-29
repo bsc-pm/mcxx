@@ -383,7 +383,7 @@ namespace TL {
                     _vector_length,
                     _support_masking, 
                     _mask_size,
-                    NULL,
+                    vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
                     &new_external_vector_symbol_map);
