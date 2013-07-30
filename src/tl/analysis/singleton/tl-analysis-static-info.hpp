@@ -348,19 +348,20 @@ namespace Analysis {
     class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
     {
     private:
-        const Nodecl::NodeclBase _subscripted;
         const ObjectList<Utils::InductionVariableData*> _induction_variables;
         const Nodecl::List* _suitable_expressions;
         const int _unroll_factor;
         const int _type_size;
+        const int _alignment;
+        int _nesting_level;
         
         bool is_suitable_expression(Nodecl::NodeclBase n);
+        bool is_suitable_constant(int n);
 
     public:
         // *** Constructor *** //
-        SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
-                                  ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  const Nodecl::List* suitable_expressions, int unroll_factor, int type_size);
+        SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
+                                  const Nodecl::List* suitable_expressions, int _unroll_factor, int type_size, int alignment);
         
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );

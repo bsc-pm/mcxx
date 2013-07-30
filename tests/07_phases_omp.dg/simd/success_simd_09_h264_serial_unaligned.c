@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-serial-simd-mic
+test_generator=config/mercurium-serial-simd
 </testinfo>
 */
 
@@ -40,8 +40,8 @@ test_generator=config/mercurium-serial-simd-mic
 /* Array declaration. */
 
 void __attribute__((noinline)) h264(
-        FLOAT_TYPE (* X)[32], 
-        FLOAT_TYPE (* H)[32], 
+        FLOAT_TYPE (* X)[31], 
+        FLOAT_TYPE (* H)[31], 
         FLOAT_TYPE (* K)[16],
         FLOAT_TYPE (* Y)[16], 
         FLOAT_TYPE (* output)[16])
@@ -50,7 +50,7 @@ void __attribute__((noinline)) h264(
 
     for (i = 0; i <= 24; i++)
     {
-//#pragma omp simd
+#pragma omp simd
        for (j = 0; j <= 24; j++)
         {
             X[i][j] = PI * j;
@@ -58,7 +58,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-//#pragma omp simd
+#pragma omp simd
         for (j = 0; j <= 24; j++)
         {
             H[i][j] =
@@ -68,7 +68,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
+        //NOT VECTORIZABLE YET!
         for (j = 0; j <= 14; j++)
         {
             K[i][j] =
@@ -78,7 +78,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-//#pragma omp simd 
+#pragma omp simd 
         for (j = 0; j <= 14; j++)
         {
             Y[i][j] = K[i][j] + H[i][j];
@@ -86,7 +86,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-//#pragma omp simd
+#pragma omp simd
         for (j = 0; j <= 14; j++)
         {
             output[i][j] = Y[i][j];
@@ -95,8 +95,8 @@ void __attribute__((noinline)) h264(
 }
 
 void __attribute__((noinline)) h264_sc(
-        FLOAT_TYPE (* X)[32], 
-        FLOAT_TYPE (* H)[32], 
+        FLOAT_TYPE (* X)[31], 
+        FLOAT_TYPE (* H)[31], 
         FLOAT_TYPE (* K)[16],
         FLOAT_TYPE (* Y)[16], 
         FLOAT_TYPE (* output)[16])
@@ -146,23 +146,23 @@ void __attribute__((noinline)) h264_sc(
 
 int main ()
 {
-    FLOAT_TYPE __attribute__((aligned(64))) X[26][32];
-    FLOAT_TYPE __attribute__((aligned(64))) H[16][32];
-    FLOAT_TYPE __attribute__((aligned(64))) K[16][16];
-    FLOAT_TYPE __attribute__((aligned(64))) Y[16][16];
-    FLOAT_TYPE __attribute__((aligned(64))) output[16][16];
+    FLOAT_TYPE __attribute__((aligned(16))) X[26][31];
+    FLOAT_TYPE __attribute__((aligned(16))) H[16][31];
+    FLOAT_TYPE __attribute__((aligned(16))) K[16][16];
+    FLOAT_TYPE __attribute__((aligned(16))) Y[16][16];
+    FLOAT_TYPE __attribute__((aligned(16))) output[16][16];
 
-    FLOAT_TYPE __attribute__((aligned(64))) X_sc[26][32];
-    FLOAT_TYPE __attribute__((aligned(64))) H_sc[16][32];
-    FLOAT_TYPE __attribute__((aligned(64))) K_sc[16][16];
-    FLOAT_TYPE __attribute__((aligned(64))) Y_sc[16][16];
-    FLOAT_TYPE __attribute__((aligned(64))) output_sc[16][16];
+    FLOAT_TYPE __attribute__((aligned(16))) X_sc[26][31];
+    FLOAT_TYPE __attribute__((aligned(16))) H_sc[16][31];
+    FLOAT_TYPE __attribute__((aligned(16))) K_sc[16][16];
+    FLOAT_TYPE __attribute__((aligned(16))) Y_sc[16][16];
+    FLOAT_TYPE __attribute__((aligned(16))) output_sc[16][16];
 
     int i, j, k;
 
     for (i=0; i<26; i++)
     {
-        for(j=0; j<32; j++)
+        for(j=0; j<31; j++)
         {
             X[i][j] = 0.0f;
             X_sc[i][j] = 0.0f;
@@ -171,7 +171,7 @@ int main ()
    
     for (i=0; i<16; i++)
     {
-        for(j=0; j<32; j++)
+        for(j=0; j<31; j++)
         {
             H[i][j] = 0.0f;
             H_sc[i][j] = 0.0f;
@@ -197,7 +197,7 @@ int main ()
 
     for (i=0; i<26; i++)
     {
-        for(j=0; j<32; j++)
+        for(j=0; j<31; j++)
         {
             if(X[i][j] != X_sc[i][j])
             {
@@ -209,7 +209,7 @@ int main ()
    
     for (i=0; i<16; i++)
     {
-        for(j=0; j<32; j++)
+        for(j=0; j<31; j++)
         {
             if(H[i][j] - H_sc[i][j])
             {

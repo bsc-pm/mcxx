@@ -908,10 +908,10 @@ namespace TL
                 const Nodecl::NodeclBase base = n.get_subscripted();
                 const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
 
+                std::cerr << "Gather: " << n.prettyprint() << "\n";
+
                 ERROR_CONDITION(subscripts.size() > 1,
                     "Vectorizer: Gather on multidimensional array is not supported yet!", 0);
-
-                std::cerr << "Gather: " << n.prettyprint() << "\n";
 
                 Nodecl::NodeclBase strides = *subscripts.begin();
                 walk(strides);

@@ -47,12 +47,19 @@ namespace Analysis {
             {   // All dimensions but the less significant must be constant
                 if( !is_constant( *it ) )
                 {
+                    std::cout << it->prettyprint() << " is NOT constant!" << std::endl;
                     return false;
+                }
+                else
+                {
+                    std::cout << it->prettyprint() << " is constant!" << std::endl;
                 }
             }
             // The less significant dimension must be accessed by an (+/-)c +/- IV, where c is a constant
             if( it == subscript.end( ) - 1 )
             {
+                std::cout << "Last dim: " << it->prettyprint() << std::endl;
+
                 // If the subscript is another ArraySubscript, then it is not adjacent
                 if (it->is<Nodecl::ArraySubscript>())
                 {
@@ -131,7 +138,7 @@ namespace Analysis {
     }
         
     bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List* suitable_expressions, 
-                                                   int unroll_factor, int alignment ) const
+            int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
         {
@@ -140,23 +147,14 @@ namespace Analysis {
             return false;
         }
         
-        Nodecl::List subscripts = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
-        if( subscripts.size( ) != 1 )
-        {
-            std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
-                      << n.prettyprint( ) << "', which is multidimensional. Only one dimension arrays are analyzed" << std::endl;
-            return false;
-        }
         
         bool result = false;
         
         Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>( ).get_subscripted( );
-        Nodecl::NodeclBase subscript = *( subscripts.begin( ) );
-
         int type_size = subscripted.get_type().basic_type().get_size();
 
-        SuitableAlignmentVisitor sa_v( subscripted, _induction_variables, suitable_expressions, unroll_factor, type_size );
-        int subscript_alignment = sa_v.walk( subscript );
+        SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
+        int subscript_alignment = sa_v.walk( n );
         
         if( (subscript_alignment % alignment) == 0 )
             result = true;
@@ -172,12 +170,12 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
-    SuitableAlignmentVisitor::SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
-                                                        ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const Nodecl::List* suitable_expressions, int unroll_factor, int type_size)
-            : _subscripted( subscripted ), _induction_variables( induction_variables), _suitable_expressions( suitable_expressions ), 
-              _unroll_factor( unroll_factor ), _type_size(type_size)
+    SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
+            const Nodecl::List* suitable_expressions, int unroll_factor, int type_size, int alignment)
+            : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
+              _unroll_factor( unroll_factor ), _type_size(type_size), _alignment(alignment)
     {
+        _nesting_level = 0;
     }
     
     int SuitableAlignmentVisitor::join_list( ObjectList<int>& list ) 
@@ -201,7 +199,15 @@ namespace Analysis {
 
         return true;
     }
-    
+
+    bool SuitableAlignmentVisitor::is_suitable_constant(int n)
+    {
+        if ( (n % _alignment) == 0 )
+            return true;
+        else
+            return false;
+    }
+ 
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
         if (is_suitable_expression(n))
@@ -244,7 +250,10 @@ namespace Analysis {
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
 
-        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+       // Something suitable multiplied by anything is suitable
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+            return 0;
+        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
             return lhs_mod * rhs_mod;
 
         return -1;
@@ -283,7 +292,12 @@ namespace Analysis {
         }
         else if( n.is_constant( ) )
         {
-            return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+            int value = const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+
+            if(is_suitable_constant(value))
+                return 0;
+            else
+                return value;
         }
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
@@ -304,19 +318,134 @@ namespace Analysis {
                 }
             }
         }
-        
+
         return -1;
     }
 
-    // TODO: Not implemented!
     int SuitableAlignmentVisitor::visit( const Nodecl::ArraySubscript& n ) 
     {
-        if (is_suitable_expression(n))
+        if (_nesting_level == 0)  // Target access
         {
-            return 0;
-        }
+            _nesting_level++;
 
-        return -1;
+            int i;
+            int alignment = 0;
+
+            Nodecl::NodeclBase subscripted = n.get_subscripted( );
+            TL::Type element_type = subscripted.get_type();
+            // TODO: subscript is aligned
+
+            Nodecl::List subscripts = n.get_subscripts( ).as<Nodecl::List>( );
+            int num_subscripts = subscripts.size();
+
+            // Get dimension sizes
+            int *dimension_sizes = (int *)malloc((num_subscripts-1) * sizeof(int));
+
+            for (i=0; i<(num_subscripts-1); i++) // Skipt the first one. It does not have size
+            {
+                // Iterate on array subscript type
+                if (element_type.is_array())
+                {
+                    element_type = element_type.array_element();
+                }
+                else if(element_type.is_pointer())
+                {
+                    element_type = element_type.points_to();
+                }
+                else
+                {
+                    std::cerr << "warning: Array subscript does not have array type or pointer to array type" << std::endl;
+                    return -1;
+                }
+
+                if(!element_type.array_has_size())
+                {
+                    std::cerr << "warning: array type does not have size" << std::endl;
+                    return -1;
+                }
+ 
+                // Compute dimension alignment 
+                Nodecl::NodeclBase dimension_size_node = element_type.array_get_size();
+
+                int dimension_size = -1;
+
+                if (dimension_size_node.is_constant())
+                {
+                    dimension_size = const_value_cast_to_signed_int(dimension_size_node.get_constant());
+                    
+                    if(is_suitable_constant(dimension_size * _type_size))
+                        dimension_size = 0;
+                }
+                // If dimension size is suitable
+                else if (is_suitable_expression(dimension_size_node))
+                {
+                    dimension_size = 0;
+                }
+
+                printf("Dim %d, size %d\n", i, dimension_size);
+
+                dimension_sizes[i] = dimension_size;
+            }
+
+            int it_alignment;
+
+            Nodecl::List::iterator it = subscripts.begin();
+            // Multiply dimension sizes by indexes
+            for(i=0; it != subscripts.end(); i++)
+            {
+                std::cout << (*it).prettyprint() << std::endl;
+
+
+                it_alignment = walk(*it);
+                
+                it++;
+                if (it == subscripts.end()) break; // Last dimmension does not have to be multiplied
+                
+                // a[i][j][k] -> i -> i*J*K
+                for(int j = i; j < (num_subscripts-1); j++)
+                {
+                    if( (dimension_sizes[j] == 0) || (it_alignment == 0))
+                    {
+                        it_alignment = 0;
+                    }
+                    else if( (dimension_sizes[j] < 0) || (it_alignment < 0))
+                    {
+                        it_alignment = -1;
+                    }
+                    else
+                    {
+                        it_alignment *= dimension_sizes[j];
+                    }
+                }
+
+                if (it_alignment < 0)
+                {
+                    printf ("-1\n");
+                    return -1;
+                }
+
+                alignment += it_alignment;
+            }
+            // Add adjacent dimension
+            alignment += it_alignment;
+
+            free(dimension_sizes);
+
+            _nesting_level--;
+
+            printf("alignment %d\n", alignment);
+            return alignment;
+        }
+        // Nested array subscript
+        else
+        {
+            if (is_suitable_expression(n))
+            {
+                return 0;
+            }
+
+            return -1;
+        }
     }
  
 
