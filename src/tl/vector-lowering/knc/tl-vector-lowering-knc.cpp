@@ -1790,7 +1790,7 @@ namespace TL
                 ;
 
             args_hi << "("
-                << as_expression(node.get_rhs())
+                << "(void *)" << as_expression(node.get_rhs())
                 << ") + "
                 << _vector_length
                 << ", "
@@ -1888,7 +1888,7 @@ namespace TL
                 << as_expression(node.get_mask())
                 << ", "
                 << "("
-                << as_expression(node.get_rhs())
+                << "(void *)" << as_expression(node.get_rhs())
                 << ") + "
                 << _vector_length
                 << ", "
@@ -2066,7 +2066,7 @@ namespace TL
                 ;
 
             args_hi << "("
-                << as_expression(node.get_lhs())
+                << "(void *)" << as_expression(node.get_lhs())
                 << ") + "
                 << _vector_length
                 << ", "
@@ -2155,7 +2155,7 @@ namespace TL
                 ;
 
             args_hi << "("
-                << as_expression(node.get_lhs())
+                << "(void *)" << as_expression(node.get_lhs())
                 << ") + "
                 << _vector_length
                 << ", "
