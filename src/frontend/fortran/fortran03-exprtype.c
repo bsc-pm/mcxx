@@ -876,7 +876,12 @@ static const_value_t* compute_subconstant_of_array(
             0, total_subscripts);
 }
 
-static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
+static void check_array_ref_(
+        AST expr,
+        decl_context_t decl_context,
+        nodecl_t nodecl_subscripted,
+        nodecl_t whole_expression,
+        nodecl_t* nodecl_output)
 {
     char symbol_is_invalid = 0;
 
@@ -1019,7 +1024,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     nodecl_t nodecl_actual_arguments[2] =
                     {
                         nodecl_make_fortran_actual_argument(
-                                nodecl_shallow_copy(nodecl_subscripted),
+                                nodecl_shallow_copy(whole_expression),
                                 ast_get_locus(subscript)),
                         nodecl_make_fortran_actual_argument(
                                 const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
@@ -1065,7 +1070,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     nodecl_t nodecl_actual_arguments[2] =
                     {
                         nodecl_make_fortran_actual_argument(
-                                nodecl_shallow_copy(nodecl_subscripted),
+                                nodecl_shallow_copy(whole_expression),
                                 ast_get_locus(subscript)),
                         nodecl_make_fortran_actual_argument(
                                 const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
@@ -1284,7 +1289,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
             && (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
-        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
+        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_subscripted, nodecl_output);
         return;
     }
     // C(1:2) where 'C' is a scalar CHARACTER
@@ -1755,7 +1760,16 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         if (fortran_is_array_type(component_type)
                 || fortran_is_pointer_to_array_type(component_type))
         {
-            check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+
+            nodecl_t whole_expr =
+                nodecl_make_class_member_access(
+                        nodecl_lhs,
+                        nodecl_rhs,
+                        /* member form */ nodecl_null(),
+                        nodecl_get_type(nodecl_rhs),
+                        ast_get_locus(expr));
+
+            check_array_ref_(rhs, decl_context, nodecl_rhs, whole_expr, &nodecl_rhs);
         }
         else if (fortran_is_character_type(component_type)
                 || fortran_is_pointer_to_character_type(component_type))
