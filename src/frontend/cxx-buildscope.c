@@ -13527,56 +13527,36 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
 }
 
-static nodecl_t normalize_multiple_statements(nodecl_t multiple_statements,
-        decl_context_t context_of_stmts UNUSED_PARAMETER)
+static void build_scope_normalized_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (nodecl_is_null(multiple_statements))
-        return multiple_statements;
+    if (ASTType(a) == AST_COMPOUND_STATEMENT)
+        build_scope_statement(a, decl_context, nodecl_output);
+    else
+    {
+        // Mimick the behaviour of a compound statement
+        decl_context_t block_context = new_block_context(decl_context);
 
-    if (!nodecl_is_list(multiple_statements))
-        return multiple_statements;
+        nodecl_t nodecl_output_list = nodecl_null();
 
-    nodecl_t nodecl_context, nodecl_in_context;
-    if (nodecl_list_length(multiple_statements) == 1
-            && nodecl_get_kind(nodecl_context = nodecl_list_head(multiple_statements)) == NODECL_CONTEXT
-            && !nodecl_is_null(nodecl_in_context)
-            && nodecl_is_list(nodecl_in_context = nodecl_get_child(nodecl_context, 0))
-            && nodecl_list_length(nodecl_in_context) == 1
-            && nodecl_get_kind(nodecl_list_head(nodecl_in_context)) == NODECL_COMPOUND_STATEMENT)
-        return multiple_statements;
+        nodecl_t current_nodecl_output = nodecl_null();
+        build_scope_statement(a, block_context, &current_nodecl_output);
 
-    // We simplify
-    //
-    // if (E)
-    //    S1
-    //
-    //    into
-    //
-    // if (E)
-    // {
-    //   S1
-    // }
-    nodecl_t nodecl_result =
-        nodecl_make_list_1(
-                nodecl_make_compound_statement(
-                    multiple_statements,
-                    /* finalize */ nodecl_null(),
-                    nodecl_get_locus(multiple_statements))
-                );
+        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
 
-    // Note: We are not creating a context for now, but if we have to simply
-    // enable the following code
-    decl_context_t block_context = new_block_context(context_of_stmts);
-    nodecl_result =
-        nodecl_make_list_1(
+        nodecl_t nodecl_destructors = nodecl_null();
+        CXX_LANGUAGE()
+        {
+            call_destructors_of_classes(block_context, ast_get_locus(a), &nodecl_destructors);
+        }
+
+        *nodecl_output = nodecl_make_list_1(
                 nodecl_make_context(
-                    nodecl_result,
-                    block_context,
-                    nodecl_get_locus(multiple_statements)));
-
-    return nodecl_result;
+                    nodecl_make_list_1(
+                        nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ast_get_locus(a))
+                        ),
+                    block_context, ast_get_locus(a)));
+    }
 }
-
 
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
@@ -13590,10 +13570,8 @@ static void build_scope_while_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
-        build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
+        build_scope_normalized_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13696,7 +13674,7 @@ static void build_scope_if_else_statement(AST a,
 
     AST then_branch = ASTSon1(a);
     nodecl_t nodecl_then = nodecl_null();
-    build_scope_statement(then_branch, block_context, &nodecl_then);
+    build_scope_normalized_statement(then_branch, block_context, &nodecl_then);
 
     // Normalize multiple statements
 
@@ -13704,11 +13682,8 @@ static void build_scope_if_else_statement(AST a,
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
-        build_scope_statement(else_branch, block_context, &nodecl_else);
+        build_scope_normalized_statement(else_branch, block_context, &nodecl_else);
     }
-
-    nodecl_then = normalize_multiple_statements(nodecl_then, block_context);
-    nodecl_else = normalize_multiple_statements(nodecl_else, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13801,9 +13776,7 @@ static void build_scope_for_statement(AST a,
 
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, block_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
+    build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ast_get_locus(a));
@@ -13832,9 +13805,7 @@ static void build_scope_switch_statement(AST a,
     build_scope_condition(condition, block_context, &nodecl_condition);
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, block_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
+    build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -14128,9 +14099,7 @@ static void build_scope_do_statement(AST a,
     AST expression = ASTSon1(a);
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, decl_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, decl_context);
+    build_scope_normalized_statement(statement, decl_context, &nodecl_statement);
 
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(expression, decl_context, &nodecl_expr))
