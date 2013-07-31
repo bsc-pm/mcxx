@@ -468,10 +468,16 @@ char* source_language_names[] =
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
     [SOURCE_LANGUAGE_CXX] = "C++",
-    [SOURCE_LANGUAGE_CUDA] = "CUDA C/C++",
-    [SOURCE_LANGUAGE_OPENCL] = "OpenCL C/C++",
     [SOURCE_LANGUAGE_FORTRAN] = "Fortran",
     [SOURCE_LANGUAGE_ASSEMBLER] = "assembler",
+    [SOURCE_SUBLANGUAGE_CUDA] = "CUDA C/C++",
+    [SOURCE_SUBLANGUAGE_OPENCL] = "OpenCL C/C++",
+};
+
+sublanguage_profile_t sublanguage_profile_map[] =
+{
+    { SOURCE_SUBLANGUAGE_CUDA,   "cuda" },
+    { SOURCE_LANGUAGE_UNKNOWN, NULL   }
 };
 
 static void print_version(void);
@@ -529,6 +535,10 @@ static void list_vector_flavors(void);
 static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
 static char show_help_message = 0;
+
+static compilation_configuration_t* get_sublanguage_configuration(
+        source_language_t source_language,
+        compilation_configuration_t* fallback_config);
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit);
 
@@ -863,17 +873,30 @@ int parse_arguments(int argc, const char* argv[],
                     //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, 
                        // parameter_info.argument);
                     linker_files_seen = 1;
-                    
+
                     add_to_linker_command(uniquestr(parameter_info.argument), NULL);
                 }
                 else
                 {
                     P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
-                    
-                    // create a new translation unit 
+
+                    struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+                    compilation_configuration_t* current_configuration = CURRENT_CONFIGURATION;
+
+                    if ((current_extension->source_language & SOURCE_IS_SUBLANGUAGE)
+                            == SOURCE_IS_SUBLANGUAGE)
+                    {
+                        // Use the sublanguage configuration, if any
+                        current_configuration = get_sublanguage_configuration(
+                                current_extension->source_language,
+                                CURRENT_CONFIGURATION);
+                    }
+
+                    // create a new translation unit
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
-                        output_file, CURRENT_CONFIGURATION);
+                        output_file, current_configuration);
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
 
                     add_to_linker_command(uniquestr(parameter_info.argument), ptr_tr);
@@ -2721,7 +2744,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         char old_cuda_flag = CURRENT_CONFIGURATION->enable_cuda;
         // For cuda enable CUDA
-        if (current_extension->source_language == SOURCE_LANGUAGE_CUDA)
+        if (current_extension->source_language == SOURCE_SUBLANGUAGE_CUDA)
         {
             if (!old_cuda_flag)
             {
@@ -3941,7 +3964,8 @@ static void embed_files(void)
 
         // We do not have to embed linker data
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
-                || current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+                // Or languages that we know that cannot be embedded
+                || ((current_extension->source_kind & SOURCE_KIND_DO_NOT_EMBED) == SOURCE_KIND_DO_NOT_EMBED))
         {
             continue;
         }
@@ -3977,7 +4001,7 @@ static void embed_files(void)
                 // Do nothing if we are told not to embed
                 continue;
             }
-            
+
             // Remember the embed mode to run the collective embed procedure later
             ERROR_CONDITION(num_embed_modes_seen == MAX_EMBED_MODES, "Too many embed modes. Max is %d", MAX_EMBED_MODES);
             int k; 
@@ -4523,6 +4547,26 @@ void load_compiler_phases(compilation_configuration_t* config)
                 timing_elapsed(&loading_phases));
     }
 
+}
+
+static compilation_configuration_t* get_sublanguage_configuration(
+        source_language_t source_language,
+        compilation_configuration_t* fallback_config)
+{
+    int i;
+    for (i = 0; sublanguage_profile_map[i].sublanguage != SOURCE_LANGUAGE_UNKNOWN; i++)
+    {
+        if (sublanguage_profile_map[i].sublanguage == source_language)
+        {
+            compilation_configuration_t* profile =
+                get_compilation_configuration(sublanguage_profile_map[i].profile);
+
+            if (profile != NULL)
+                return profile;
+        }
+    }
+
+    return fallback_config;
 }
 
 

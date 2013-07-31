@@ -545,7 +545,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             const char* extension = get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 found = (file == std::string(current_translation_unit->input_filename));
             }
@@ -567,7 +567,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             const char* extension = get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 if (ocl_files > 0)
                     file += ",";
