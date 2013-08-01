@@ -380,6 +380,7 @@ namespace TL
                                     n.get_locus());
                     }
 
+                    /*
                     Nodecl::IfElseStatement if_global_mask_is_zero =
                         Nodecl::IfElseStatement::make(
                                 Nodecl::Equal::make(
@@ -394,7 +395,7 @@ namespace TL
                                         n.get_locus())),
                                 Nodecl::NodeclBase::null(),
                                 n.get_locus());
-
+                    */
                     // Update current mask
                     Nodecl::ExpressionStatement mask_exp =
                         Nodecl::ExpressionStatement::make(
@@ -407,7 +408,7 @@ namespace TL
                                     make_locus("", 0, 0)));
 
                     n.append_sibling(mask_exp);
-                    n.append_sibling(if_global_mask_is_zero);
+                    //n.append_sibling(if_global_mask_is_zero);
                 }
 /*
                 // If return is not in the first SIMD scope, then 

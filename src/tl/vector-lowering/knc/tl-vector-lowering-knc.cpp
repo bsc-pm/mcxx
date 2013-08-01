@@ -2721,16 +2721,22 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
         {
-            TL::Source intrin_src;
+            TL::Source intrin_src, intrin_name;
+
+            TL::Type rhs_type = node.get_rhs().get_type();
+
+            if(rhs_type.is_integral_type())
+                intrin_name << "_mm512_int2mask";
 
             walk(node.get_lhs());
             walk(node.get_rhs());
 
             intrin_src << as_expression(node.get_lhs())
                 << " = "
-//                << "_mm512_kmov("
+                << intrin_name
+                << "("
                 << as_expression(node.get_rhs())
-//                << ")"
+                << ")"
                 ;
 
             Nodecl::NodeclBase function_call =
