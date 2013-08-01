@@ -57,4 +57,12 @@ shape: '[' expression ']'
 }
 ;
 
+iteration_statement : FOR '[' symbol_literal_ref ']' '(' for_init_statement condition_opt ';' expression_opt ')' statement
+{
+    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $6, $7, $9, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_FOR_STATEMENT, loop_control, $11, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+
+}
+;
+
 /*!endif*/

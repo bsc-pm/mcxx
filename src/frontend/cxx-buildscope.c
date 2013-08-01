@@ -13694,6 +13694,25 @@ static void build_scope_if_else_statement(AST a,
                 ast_get_locus(a)));
 }
 
+static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(ASTType(a) != AST_SYMBOL_LITERAL_REF, "Invalid node", 0);
+
+    const char *tmp = ASTText(ASTSon0(a));
+
+    const char * prefix = NULL;
+    void *p = NULL;
+    unpack_pointer(tmp, &prefix, &p);
+
+    ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "symbol") != 0,
+            "Failure during unpack of symbol", 0);
+
+    scope_entry_t* entry = (scope_entry_t*)p;
+
+    *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(a));
+}
+
 static void build_scope_for_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t *nodecl_output)
@@ -13705,6 +13724,9 @@ static void build_scope_for_statement(AST a,
     AST expression = ASTSon2(loop_control);
 
     AST statement = ASTSon1(a);
+
+    // AST end_loop_statement = ASTSon2(a); // Fortran only
+    AST synthesized_loop_name = ASTSon3(a); // Mercurium internal parsing
 
     if (ASTType(for_init_statement) == AST_AMBIGUITY)
     {
@@ -13778,14 +13800,20 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
+    nodecl_t loop_name = nodecl_null();
+    if (synthesized_loop_name != NULL)
+    {
+        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &loop_name);
+    }
+
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ast_get_locus(a));
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
                     nodecl_make_list_1(
                         nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            /* loop name */ nodecl_null(),
+                            loop_name,
                             ast_get_locus(a))),
                     block_context,
                     ast_get_locus(a)
