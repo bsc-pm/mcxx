@@ -55,6 +55,12 @@ namespace TL { namespace Nanox {
         OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
         outline_info_register.add_private(ind_var);
 
+        Source loop_name;
+        if (!construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().is_null())
+        {
+            loop_name << " [ " << as_symbol(construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+        }
+
         if (range.get_step().is_constant())
         {
             const_value_t* cval = range.get_step().get_constant();
@@ -71,7 +77,7 @@ namespace TL { namespace Nanox {
             {
 
                 for_code
-                    << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    << "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                     << ind_var.get_name() << " <= nanos_item_loop.upper;"
                     << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                     << "{"
@@ -80,7 +86,7 @@ namespace TL { namespace Nanox {
             else
             {
                 for_code
-                    << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    << "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                     << ind_var.get_name() << " >= nanos_item_loop.upper;"
                     << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                     << "{"
@@ -107,7 +113,7 @@ namespace TL { namespace Nanox {
                 <<   "while (nanos_item_loop.execute)"
                 <<   "{"
                 <<       instrument_loop_opt
-                <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                <<       "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                 <<         ind_var.get_name() << " <= nanos_item_loop.upper;"
                 <<         ind_var.get_name() << " += nanos_step)"
                 <<       "{"
@@ -122,7 +128,7 @@ namespace TL { namespace Nanox {
                 <<   "while (nanos_item_loop.execute)"
                 <<   "{"
                 <<       instrument_loop_opt
-                <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                <<       "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                 <<         ind_var.get_name() << " >= nanos_item_loop.upper;"
                 <<         ind_var.get_name() << " += nanos_step)"
                 <<       "{"
