@@ -40,7 +40,7 @@ void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int 
     int j;
 #pragma omp parallel
     {
-#pragma omp simd for 
+#pragma omp simd for private(j) firstprivate(N, a) shared(z, x, y)
         for (j=0; j<N; j+=1)
         {
             z[j] = a * x[j] + y[j];

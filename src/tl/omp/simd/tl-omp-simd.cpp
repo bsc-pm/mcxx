@@ -328,11 +328,18 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(flush);
             }
 
-            // Mark the induction variable as a private entity in the Single construct
-            Nodecl::OpenMP::Private ind_var_priv = 
-                Nodecl::OpenMP::Private::make(Nodecl::List::make(
+            // Mark the induction variable as lastprivate entity in the For 
+            // and firstprivate in the Single construct
+            Nodecl::OpenMP::Lastprivate ind_var_lastpriv = 
+                Nodecl::OpenMP::Lastprivate::make(Nodecl::List::make(
                             TL::ForStatement(for_statement).get_induction_variable().make_nodecl()));
-            single_environment.append(ind_var_priv);
+            omp_for_environment.append(ind_var_lastpriv);
+
+            Nodecl::OpenMP::Firstprivate ind_var_firstpriv = 
+                Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(
+                            TL::ForStatement(for_statement).get_induction_variable().make_nodecl()));
+            single_environment.append(ind_var_firstpriv);
+
 
             Nodecl::OpenMP::Single single_epilog =
                 Nodecl::OpenMP::Single::make(single_environment,
