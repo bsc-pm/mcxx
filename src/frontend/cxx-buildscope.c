@@ -10423,7 +10423,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         }
 
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
-            (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+            // Only variables are actually defined, everything else is a declaration
+            (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),

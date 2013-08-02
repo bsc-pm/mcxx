@@ -5552,10 +5552,21 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
             else if (symbol.is_member())
             {
-                // It may be a non-template function inside a template class
-                codegen_template_headers_bounded(template_parameters,
-                        symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
-                        /* show_default_values */ false);
+                if (scope != NULL && scope->is_namespace_scope())
+                {
+                    // We may need zero or more empty template headers
+                    TL::TemplateParameters tpl = template_parameters;
+                    while (tpl.is_valid())
+                    {
+                        // We should ignore some 'fake' empty template headers
+                        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+                        {
+                            indent();
+                            *(file) << "template <>\n";
+                        }
+                        tpl = tpl.get_enclosing_parameters();
+                    }
+                }
             }
         }
 
