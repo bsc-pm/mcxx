@@ -1022,8 +1022,16 @@ namespace TL
         {
             if (!statement.is<Nodecl::ForStatement>())
             {
-                running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        statement.get_locus_str().c_str());
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    running_error("%s: error: a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'",
+                            statement.get_locus_str().c_str());
+                }
+                else
+                {
+                    running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
+                            statement.get_locus_str().c_str());
+                }
             }
 
             TL::ForStatement for_statement(statement.as<Nodecl::ForStatement>());
@@ -1047,17 +1055,20 @@ namespace TL
                 }
                 // We set it to none, later phases must give this symbol appropiate predetermined private behaviour
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
+
+                sanity_check_for_loop(statement);
             }
             else
             {
                 if (IS_FORTRAN_LANGUAGE)
                 {
-                    running_error("%s: error: DO-statement in !$OMP DO directive is not valid", 
+                    running_error("%s: error: DO-statement in !$OMP DO directive is not valid",
                             statement.get_locus_str().c_str());
                 }
                 else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not in OpenMP canonical form",
+                    running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for'"
+                            " is not in OpenMP canonical form",
                             statement.get_locus_str().c_str());
                 }
                 else
@@ -1630,6 +1641,154 @@ namespace TL
         {
         }
 
+        struct SanityCheckForVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+            int nest_of_break;
+            int nest_of_continue;
+
+            TL::Symbol loop_label;
+            TL::ObjectList<TL::Symbol> stack_of_labels;
+
+            public:
+
+            SanityCheckForVisitor(Nodecl::NodeclBase loop_name)
+                : nest_of_break(0), nest_of_continue(0), stack_of_labels()
+            {
+                if (!loop_name.is_null())
+                {
+                    loop_label = loop_name.get_symbol();
+                }
+            }
+
+            virtual void visit_pre(const Nodecl::WhileStatement& n)
+            {
+                nest_of_break++;
+                nest_of_continue++;
+
+                if (!n.get_loop_name().is_null())
+                {
+                    stack_of_labels.push_back(n.get_loop_name().get_symbol());
+                }
+            }
+
+            virtual void visit_post(const Nodecl::WhileStatement& n)
+            {
+                nest_of_break--;
+                nest_of_continue--;
+
+                if (!n.get_loop_name().is_null())
+                {
+                    stack_of_labels.pop_back();
+                }
+            }
+
+            virtual void visit_pre(const Nodecl::ForStatement& n)
+            {
+                nest_of_break++;
+                nest_of_continue++;
+
+                if (!n.get_loop_name().is_null())
+                {
+                    stack_of_labels.push_back(n.get_loop_name().get_symbol());
+                }
+            }
+
+            virtual void visit_post(const Nodecl::ForStatement& n)
+            {
+                nest_of_break--;
+                nest_of_continue--;
+
+                if (!n.get_loop_name().is_null())
+                {
+                    stack_of_labels.pop_back();
+                }
+            }
+
+            virtual void visit_pre(const Nodecl::SwitchStatement& n)
+            {
+                if (!IS_FORTRAN_LANGUAGE)
+                    nest_of_break++;
+            }
+
+            virtual void visit_post(const Nodecl::SwitchStatement& n)
+            {
+                if (!IS_FORTRAN_LANGUAGE)
+                    nest_of_break--;
+            }
+
+            virtual void visit(const Nodecl::ContinueStatement& n)
+            {
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    if (!n.get_construct_name().is_null())
+                    {
+                        TL::Symbol name = n.get_construct_name().get_symbol();
+                        if ((name != loop_label)
+                                && !stack_of_labels.contains(name))
+                        {
+                            // We are doing a CYCLE of a loop not currently nested
+                            error_printf("%s: error: invalid 'CYCLE' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
+                                    n.get_locus_str().c_str());
+                        }
+                    }
+                }
+            }
+
+            virtual void visit(const Nodecl::BreakStatement& n)
+            {
+                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                {
+                    if (nest_of_break == 0)
+                    {
+                        error_printf("%s: error: invalid 'break' inside '#pragma omp for' or '#pragma omp parallel for'\n",
+                                n.get_locus_str().c_str());
+                    }
+                }
+                else if (IS_FORTRAN_LANGUAGE)
+                {
+                    if (n.get_construct_name().is_null() && nest_of_break == 0)
+                    {
+                        error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
+                                n.get_locus_str().c_str());
+                    }
+                    else
+                    {
+                        TL::Symbol name = n.get_construct_name().get_symbol();
+                        if ((name == loop_label)
+                                || !stack_of_labels.contains(name))
+                        {
+                            // We are doing an EXIT of the whole loop or a loop not nested
+                            error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
+                                    n.get_locus_str().c_str());
+                        }
+                    }
+                }
+            }
+        };
+
+        void Core::sanity_check_for_loop(Nodecl::NodeclBase node)
+        {
+            ERROR_CONDITION(!node.is<Nodecl::ForStatement>(), "Invalid node", 0);
+
+            Nodecl::NodeclBase statement_seq = node.as<Nodecl::ForStatement>().get_statement();
+
+            Nodecl::List l = statement_seq.as<Nodecl::List>();
+
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                ERROR_CONDITION(l.size() != 1, "Invalid list", 0);
+                ERROR_CONDITION(!l.front().is<Nodecl::Context>(), "Invalid node", 0);
+                Nodecl::NodeclBase n = l.front().as<Nodecl::Context>().get_in_context();
+                ERROR_CONDITION(!n.is<Nodecl::List>(), "Invalid node", 0);
+                n = n.as<Nodecl::List>().front();
+                ERROR_CONDITION(!n.is<Nodecl::CompoundStatement>(), "Invalid node", 0);
+                l = n.as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>();
+            }
+
+            SanityCheckForVisitor sanity_check(node.as<ForStatement>().get_loop_name());
+            sanity_check.walk(l);
+        }
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \

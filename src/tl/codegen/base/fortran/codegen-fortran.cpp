@@ -1715,17 +1715,13 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
         Nodecl::NodeclBase header = node.get_loop_header();
+        Nodecl::NodeclBase old_loop_next_iter = state.loop_next_iter;
 
         if (header.is<Nodecl::LoopControl>())
         {
             // Not a ranged loop. This is a DO WHILE
-            if (!node.get_loop_name().is_null())
-            {
-                walk(node.get_loop_name());
-                *(file) << " : ";
-            }
-
             Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
+            state.loop_next_iter = lc.get_next();
 
             // Init
             indent();
@@ -1734,6 +1730,11 @@ OPERATOR_TABLE
 
             // Loop
             indent();
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                *(file) << " : ";
+            }
             *(file) << "DO WHILE(";
             walk(lc.get_cond());
             *(file) << ")";
@@ -1745,7 +1746,7 @@ OPERATOR_TABLE
 
             // Advance loop
             indent();
-            walk(lc.get_next());
+            walk(state.loop_next_iter);
             *(file) << "\n";
             dec_indent();
 
@@ -1756,11 +1757,14 @@ OPERATOR_TABLE
             {
                 *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
             *(file) << "\n";
         }
         else if (header.is<Nodecl::RangeLoopControl>())
         {
+            state.loop_next_iter = Nodecl::NodeclBase::null();
+
             indent();
 
             if (!node.get_loop_name().is_null())
@@ -1782,11 +1786,14 @@ OPERATOR_TABLE
             {
                 *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
             *(file) << "\n";
         }
         else if (header.is<Nodecl::UnboundedLoopControl>())
         {
+            state.loop_next_iter = Nodecl::NodeclBase::null();
+
             indent();
 
             if (!node.get_loop_name().is_null())
@@ -1807,6 +1814,7 @@ OPERATOR_TABLE
             {
                 *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
             *(file) << "\n";
         }
@@ -1814,6 +1822,9 @@ OPERATOR_TABLE
         {
             internal_error("Code unreachable", 0);
         }
+
+
+        state.loop_next_iter = old_loop_next_iter;
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
@@ -1839,6 +1850,7 @@ OPERATOR_TABLE
         {
             *(file) << " ";
             walk(node.get_loop_name());
+            set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
         }
         *(file) << "\n";
     }
@@ -1939,6 +1951,13 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ContinueStatement& node)
     {
+        if (!state.loop_next_iter.is_null())
+        {
+            indent();
+            walk(state.loop_next_iter);
+            (*file) << "\n";
+        }
+
         indent();
         *(file) << "CYCLE";
         if (!node.get_construct_name().is_null())
@@ -2689,7 +2708,7 @@ OPERATOR_TABLE
         }
     }
 
-    bool FortranBase::name_has_already_been_used(std::string str)
+    bool FortranBase::name_has_already_been_used(const std::string &str)
     {
         if (_name_set_stack.empty())
             return false;
@@ -2704,6 +2723,33 @@ OPERATOR_TABLE
         return name_has_already_been_used(sym.get_name());
     }
 
+    void FortranBase::set_symbol_name_as_already_used(TL::Symbol sym)
+    {
+        if (_name_set_stack.empty())
+            return;
+
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+                "Mismatch between rename map stack and name set stack", 0);
+
+        name_set_t &last = _name_set_stack.back();
+        last.insert(sym.get_name());
+
+        rename_map_t& rename_map = _rename_map_stack.back();
+
+        // Computes a new rename
+        rename_map[sym] = compute_new_rename(sym);
+    }
+
+    std::string FortranBase::compute_new_rename(TL::Symbol sym)
+    {
+        static int suffix = 0;
+        std::stringstream ss;
+        ss << sym.get_name() << "_" << suffix;
+        suffix++;
+
+        return ss.str();
+    }
+
     std::string FortranBase::rename(TL::Symbol sym)
     {
         if (_name_set_stack.empty())
@@ -2714,8 +2760,6 @@ OPERATOR_TABLE
 
         name_set_t& name_set = _name_set_stack.back();
         rename_map_t& rename_map = _rename_map_stack.back();
-
-        static int prefix = 0;
 
         rename_map_t::iterator it = rename_map.find(sym);
 
@@ -2732,21 +2776,16 @@ OPERATOR_TABLE
         {
             if (it == rename_map.end())
             {
-                std::stringstream ss;
-
                 if (!name_has_already_been_used(sym))
                 {
-                    ss << sym.get_name();
+                    result = sym.get_name();
                 }
                 else
                 {
-                    ss << sym.get_name() << "_" << prefix;
-                    prefix++;
+                    result = compute_new_rename(sym);
                 }
-                name_set.insert(ss.str());
-                rename_map[sym] = ss.str();
-
-                result = ss.str();
+                name_set.insert(sym.get_name());
+                rename_map[sym] = result;
             }
             else
             {

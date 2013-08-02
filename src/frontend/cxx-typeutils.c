@@ -3186,13 +3186,20 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
         result->type->kind = STK_VECTOR;
         result->type->vector_element = element_type;
         result->type->vector_size = vector_size;
-        
+
         result->info->is_dependent = is_dependent_type(element_type);
 
         rb_tree_insert(_vector_hash, element_type, result);
     }
 
     return result;
+}
+
+type_t* get_vector_type_by_elements(type_t* element_type, unsigned int num_elements)
+{
+    return get_vector_type(
+            element_type,
+            num_elements * type_get_size(element_type));
 }
 
 char is_vector_type(type_t* t)
@@ -3228,6 +3235,14 @@ type_t* vector_type_get_element_type(type_t* t)
     t = advance_over_typedefs(t);
 
     return t->type->vector_element;
+}
+
+int vector_type_get_num_elements(type_t* t)
+{
+    ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->type->vector_size / type_get_size(t->type->vector_element);
 }
 
 static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)

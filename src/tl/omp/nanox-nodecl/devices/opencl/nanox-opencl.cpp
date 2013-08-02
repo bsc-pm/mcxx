@@ -120,6 +120,14 @@ void DeviceOpenCL::generate_ndrange_code(
                         unpacked_function.get_related_scope(),
                         *outline_data_to_unpacked_fun_map));
         }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        shmem_args[i],
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
     }
 
     bool dim_const = new_ndrange[0].is_constant();
@@ -545,7 +553,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             const char* extension = get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 found = (file == std::string(current_translation_unit->input_filename));
             }
@@ -567,7 +575,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             const char* extension = get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 if (ocl_files > 0)
                     file += ",";

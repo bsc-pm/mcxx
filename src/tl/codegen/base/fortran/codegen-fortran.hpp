@@ -193,6 +193,9 @@ namespace Codegen
                 // Fun locs
                 bool emit_fun_loc;
 
+                // Used when emitting C for-statements
+                Nodecl::NodeclBase loop_next_iter;
+
                 State()
                     : _indent_level(0),
                     in_forall(false),
@@ -396,8 +399,14 @@ namespace Codegen
             void emit_bitfield_store(const Nodecl::Assignment &node);
             void emit_bitfield_load(const Nodecl::ClassMemberAccess &node);
 
-            bool name_has_already_been_used(std::string str);
+
+            std::string compute_new_rename(TL::Symbol sym);
+
+            bool name_has_already_been_used(const std::string &str);
             bool name_has_already_been_used(TL::Symbol sym);
+
+            void set_symbol_name_as_already_used(TL::Symbol sym);
+
             std::string rename(TL::Symbol sym);
             void clear_renames();
 

@@ -151,6 +151,15 @@ namespace TL
         return result_type;
     }
 
+    Type Type::get_vector_of_elements(unsigned int num_elements)
+    {
+        type_t* work_type = this->_type_info;
+
+        type_t* result_type = get_vector_type_by_elements(work_type, num_elements);
+
+        return result_type;
+    }
+
     Type Type::get_generic_vector_to()
     {
         type_t* work_type = this->_type_info;
@@ -350,6 +359,11 @@ namespace TL
     Type Type::vector_element() const
     {
         return vector_type_get_element_type(_type_info);
+    }
+
+    int Type::vector_num_elements() const
+    {
+        return vector_type_get_num_elements(_type_info);
     }
 
     bool Type::is_any_reference() const

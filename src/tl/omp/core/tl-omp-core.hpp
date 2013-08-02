@@ -156,6 +156,8 @@ namespace TL
 
                 void initialize_builtin_reductions(Scope sc);
 
+                void sanity_check_for_loop(Nodecl::NodeclBase);
+
                 bool _discard_unused_data_sharings;
                 bool _allow_shared_without_copies;
             public:

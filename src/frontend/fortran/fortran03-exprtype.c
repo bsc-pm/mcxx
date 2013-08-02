@@ -876,7 +876,14 @@ static const_value_t* compute_subconstant_of_array(
             0, total_subscripts);
 }
 
-static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
+static void check_array_ref_(
+        AST expr,
+        decl_context_t decl_context,
+        nodecl_t nodecl_subscripted,
+        nodecl_t whole_expression,
+        nodecl_t* nodecl_output,
+        char do_complete_array_ranks,
+        char require_lower_bound)
 {
     char symbol_is_invalid = 0;
 
@@ -953,6 +960,16 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             }
             else
             {
+                if (require_lower_bound)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: lower bound is mandatory\n", ast_location(subscript));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                    return;
+                }
+
                 nodecl_lower = nodecl_shallow_copy(nodecl_lower_dim[num_subscripts]);
             }
 
@@ -972,7 +989,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: array-section of assumed-size array '%s' lacks the upper index\n",
+                        error_printf("%s: error: array-section of assumed-size array '%s' lacks the upper bound\n",
                                 ast_location(subscript),
                                 symbol->symbol_name);
                     }
@@ -1014,12 +1031,13 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             if (!symbol_is_invalid)
             {
                 // Make ranges explicit through the usage of LBOUND and UBOUND
-                if (nodecl_is_null(nodecl_lower))
+                if (do_complete_array_ranks
+                        && nodecl_is_null(nodecl_lower))
                 {
                     nodecl_t nodecl_actual_arguments[2] =
                     {
                         nodecl_make_fortran_actual_argument(
-                                nodecl_shallow_copy(nodecl_subscripted),
+                                nodecl_shallow_copy(whole_expression),
                                 ast_get_locus(subscript)),
                         nodecl_make_fortran_actual_argument(
                                 const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
@@ -1060,12 +1078,13 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     }
                 }
 
-                if (nodecl_is_null(nodecl_upper))
+                if (do_complete_array_ranks
+                        && nodecl_is_null(nodecl_upper))
                 {
                     nodecl_t nodecl_actual_arguments[2] =
                     {
                         nodecl_make_fortran_actual_argument(
-                                nodecl_shallow_copy(nodecl_subscripted),
+                                nodecl_shallow_copy(whole_expression),
                                 ast_get_locus(subscript)),
                         nodecl_make_fortran_actual_argument(
                                 const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
@@ -1136,6 +1155,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                                 nodecl_get_constant(nodecl_stride)));
                 }
             }
+
         }
         else
         {
@@ -1284,7 +1304,8 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
             && (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
-        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
+        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_subscripted, nodecl_output,
+                /* do_complete_array_ranks */ 1, /* require_lower_bound */ 0);
         return;
     }
     // C(1:2) where 'C' is a scalar CHARACTER
@@ -1652,7 +1673,12 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
             ast_get_locus(expr));
 }
 
-static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_component_ref_(AST expr,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        char do_complete_array_ranks,
+        char require_lower_bound,
+        char subscript_must_be_pointer_array)
 {
     // Left hand side first
 
@@ -1752,15 +1778,39 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
     {
-        if (fortran_is_array_type(component_type)
-                || fortran_is_pointer_to_array_type(component_type))
+        if ((subscript_must_be_pointer_array &&
+                    fortran_is_pointer_to_array_type(component_type))
+                || (!subscript_must_be_pointer_array
+                    && (fortran_is_array_type(component_type)
+                        || fortran_is_pointer_to_array_type(component_type))))
         {
-            check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+
+            nodecl_t whole_expr =
+                nodecl_make_class_member_access(
+                        nodecl_lhs,
+                        nodecl_rhs,
+                        /* member form */ nodecl_null(),
+                        nodecl_get_type(nodecl_rhs),
+                        ast_get_locus(expr));
+
+            check_array_ref_(rhs, decl_context, nodecl_rhs, whole_expr, &nodecl_rhs,
+                    do_complete_array_ranks, require_lower_bound);
         }
-        else if (fortran_is_character_type(component_type)
-                || fortran_is_pointer_to_character_type(component_type))
+        else if (!subscript_must_be_pointer_array
+                && (fortran_is_character_type(component_type)
+                    || fortran_is_pointer_to_character_type(component_type)))
         {
             check_substring(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+        }
+        else if (subscript_must_be_pointer_array)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: derived component reference must be a pointer to array\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
         }
     }
 
@@ -1862,7 +1912,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
         nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
-        if (!nodecl_is_null(nodecl_const_val) 
+        if (!nodecl_is_null(nodecl_const_val)
                 // Avoid NULL() be converted to 0
                 && !is_pointer_type(component_symbol->type_information))
         {
@@ -1877,6 +1927,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
         nodecl_set_constant(*nodecl_output, const_value_member);
     }
+}
+
+static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    check_component_ref_(expr, decl_context, nodecl_output,
+            /* do_complete_array_ranks */ 1, /* require_lower_bound */ 0,
+            /* subscript_must_be_pointer_array */ 0);
 }
 
 static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5056,7 +5113,44 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     AST rvalue = ASTSon1(expr);
 
     nodecl_t nodecl_lvalue = nodecl_null();
-    fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
+    // Special handling for array subscripts
+    if (ASTType(lvalue) == AST_ARRAY_SUBSCRIPT)
+    {
+        // A(1:, 2:) => ...
+        nodecl_t nodecl_subscripted = nodecl_null();
+        fortran_check_expression_impl_(ASTSon0(lvalue), decl_context, &nodecl_subscripted);
+        type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
+
+        if (fortran_is_array_type(no_ref(subscripted_type))
+                || fortran_is_pointer_to_array_type(no_ref(subscripted_type)))
+        {
+            check_array_ref_(lvalue, decl_context, nodecl_subscripted, nodecl_subscripted, &nodecl_lvalue,
+                    /* do_complete_array_ranks */ 0, /* require_lower_bound */ 1);
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: subscripted left hand side of pointer assignment is not a pointer to array\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+    }
+    else if (ASTType(lvalue) == AST_CLASS_MEMBER_ACCESS)
+    {
+        // X % A(1:, 2:) => ...
+        check_component_ref_(lvalue, decl_context, &nodecl_lvalue,
+                /* do_complete_array_ranks */ 0,
+                /* require_lower_bound */ 1,
+                /* subscript_must_be_pointer_array */ 1);
+    }
+    else
+    {
+        // X => ...
+        fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
+    }
 
     if (nodecl_is_err_expr(nodecl_lvalue))
     {

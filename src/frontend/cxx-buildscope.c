@@ -5992,8 +5992,74 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     }
 }
 
+// Delayed member function declarations (due to default arguments)
 
-struct delayed_function_tag
+struct delayed_function_decl_tag
+{
+    scope_entry_t* entry;
+    decl_context_t decl_context;
+};
+
+static int _next_delayed_function_decl = 0;
+static struct delayed_function_decl_tag _delayed_functions_decl_list[MCXX_MAX_FUNCTIONS_PER_CLASS];
+
+static void build_scope_delayed_add_function_declaration(scope_entry_t* entry, decl_context_t decl_context)
+{
+    ERROR_CONDITION(_next_delayed_function_decl == MCXX_MAX_FUNCTIONS_PER_CLASS, "Too many function declarations delayed\n", 0);
+
+    _delayed_functions_decl_list[_next_delayed_function_decl].entry = entry;
+    _delayed_functions_decl_list[_next_delayed_function_decl].decl_context = decl_context;
+    _next_delayed_function_decl++;
+}
+
+
+static void build_scope_delayed_function_decl_clear_pending(void)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Clearing pending function declarations\n");
+    }
+    _next_delayed_function_decl = 0;
+}
+
+static void build_scope_delayed_function_decl(void)
+{
+    int i;
+    for (i = 0; i < _next_delayed_function_decl; i++)
+    {
+        scope_entry_t* entry = _delayed_functions_decl_list[i].entry;
+        decl_context_t decl_context = _delayed_functions_decl_list[i].decl_context;
+
+        int num_parameters = function_type_get_num_parameters(entry->type_information);
+        if (function_type_get_has_ellipsis(entry->type_information)) 
+            num_parameters--;
+        int j;
+        for (j = 0; j < num_parameters; j++)
+        {
+            if (entry->entity_specs.default_argument_info[j] != NULL
+                    && nodecl_get_kind(entry->entity_specs.default_argument_info[j]->argument) == NODECL_CXX_PARSE_LATER)
+            {
+                // Let's parse it now
+                AST tree = nodecl_get_ast(nodecl_get_child(entry->entity_specs.default_argument_info[j]->argument, 0));
+                ERROR_CONDITION(tree == NULL, "Invalid tree", 0);
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "=== Delayed default argument parsing at '%s' ===\n",
+                            ast_location(tree));
+                }
+
+                check_expression(tree, decl_context,
+                        &(entry->entity_specs.default_argument_info[j]->argument));
+            }
+        }
+    }
+    build_scope_delayed_function_decl_clear_pending();
+}
+
+// Delayed member function definitions
+
+struct delayed_function_def_tag
 {
     AST function_def_tree;
     scope_entry_t* entry;
@@ -6002,16 +6068,16 @@ struct delayed_function_tag
     char is_explicit_specialization;
 };
 
-static int _next_delayed_function = 0;
-static struct delayed_function_tag _max_delayed_functions[MCXX_MAX_FUNCTIONS_PER_CLASS];
+static int _next_delayed_function_def = 0;
+static struct delayed_function_def_tag _delayed_functions_def_list[MCXX_MAX_FUNCTIONS_PER_CLASS];
 
-static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, 
+static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
         scope_entry_t* entry,
         decl_context_t decl_context,
         char is_template,
         char is_explicit_specialization)
 {
-    ERROR_CONDITION(_next_delayed_function == MCXX_MAX_FUNCTIONS_PER_CLASS,
+    ERROR_CONDITION(_next_delayed_function_def == MCXX_MAX_FUNCTIONS_PER_CLASS,
             "Too many delayed member functions!\n", 0);
 
     DEBUG_CODE()
@@ -6020,29 +6086,29 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
                 ast_location(function_def_tree));
     }
 
-    _max_delayed_functions[_next_delayed_function].function_def_tree = function_def_tree;
-    _max_delayed_functions[_next_delayed_function].entry = entry;
-    _max_delayed_functions[_next_delayed_function].decl_context = decl_context;
-    _max_delayed_functions[_next_delayed_function].is_template = is_template;
-    _max_delayed_functions[_next_delayed_function].is_explicit_specialization = is_explicit_specialization;
-    _next_delayed_function++;
+    _delayed_functions_def_list[_next_delayed_function_def].function_def_tree = function_def_tree;
+    _delayed_functions_def_list[_next_delayed_function_def].entry = entry;
+    _delayed_functions_def_list[_next_delayed_function_def].decl_context = decl_context;
+    _delayed_functions_def_list[_next_delayed_function_def].is_template = is_template;
+    _delayed_functions_def_list[_next_delayed_function_def].is_explicit_specialization = is_explicit_specialization;
+    _next_delayed_function_def++;
 }
 
-static void build_scope_delayed_clear_pending(void)
+static void build_scope_delayed_function_def_clear_pending(void)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "BUILDSCOPE: Clearing pending functions\n");
+        fprintf(stderr, "BUILDSCOPE: Clearing pending function definition\n");
     }
-    _next_delayed_function = 0;
+    _next_delayed_function_def = 0;
 }
 
-static void build_scope_delayed_functions(nodecl_t* nodecl_output)
+static void build_scope_delayed_function_def(nodecl_t* nodecl_output)
 {
     int i;
-    for (i = 0;  i < _next_delayed_function; i++)
+    for (i = 0;  i < _next_delayed_function_def; i++)
     {
-        struct delayed_function_tag current = _max_delayed_functions[i];
+        struct delayed_function_def_tag current = _delayed_functions_def_list[i];
 
         AST function_def = current.function_def_tree;
         decl_context_t decl_context = current.decl_context;
@@ -6066,7 +6132,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
 
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
     }
-    build_scope_delayed_clear_pending();
+    build_scope_delayed_function_def_clear_pending();
 }
 
 static int _class_specifier_nesting = 0;
@@ -6088,9 +6154,14 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Building scope of delayed functions\n");
+            fprintf(stderr, "BUILDSCOPE: Building scope of delayed function declarations\n");
         }
-        build_scope_delayed_functions(nodecl_output);
+        build_scope_delayed_function_decl();
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Building scope of delayed function definitions\n");
+        }
+        build_scope_delayed_function_def(nodecl_output);
     }
     _class_specifier_nesting--;
     ERROR_CONDITION(_class_specifier_nesting < 0,
@@ -7532,17 +7603,40 @@ static void set_function_parameter_clause(type_t** function_type,
             // Check the default argument
             if (default_argument != NULL)
             {
-                if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
+                if (gather_info->inside_class_specifier)
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: could not check default argument expression '%s'\n",
-                                ast_location(default_argument),
-                                prettyprint_in_buffer(default_argument));
-                    }
+                    // We have to allow this case (somebody decided that this made sense)
+                    //
+                    // struct A
+                    // {
+                    //   void f(int i = E);
+                    //   enum { E = 3 };
+                    // };
+                    //
+                    AST parent = ast_get_parent(default_argument);
 
-                    *function_type = get_error_type();
-                    return;
+                    nodecl_default_argument = nodecl_make_cxx_parse_later(ast_get_locus(default_argument));
+                    // Keep the current tree
+                    nodecl_set_child(nodecl_default_argument, 0, _nodecl_wrap(default_argument));
+                    // the parent was changed by nodecl_set_child, so fix it (otherwise the tree becomes inconsistent)
+                    ast_set_parent(default_argument, parent);
+
+                    // We will delay these function declarations in register_function
+                }
+                else
+                {
+                    if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: could not check default argument expression '%s'\n",
+                                    ast_location(default_argument),
+                                    prettyprint_in_buffer(default_argument));
+                        }
+
+                        *function_type = get_error_type();
+                        return;
+                    }
                 }
             }
 
@@ -8956,6 +9050,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
 
         int i;
+        char already_delayed = 0;
         for (i = 0; i < gather_info->num_parameters; i++)
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
@@ -8967,6 +9062,15 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     gather_info->arguments_info[i].argument;
                 new_entry->entity_specs.default_argument_info[i]->context = 
                     gather_info->arguments_info[i].context;
+
+                if (nodecl_get_kind(new_entry->entity_specs.default_argument_info[i]->argument) == NODECL_CXX_PARSE_LATER
+                        && !already_delayed)
+                {
+                    ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE,
+                            "Invalid parse later default argument", 0);
+                    build_scope_delayed_add_function_declaration(new_entry, decl_context);
+                    already_delayed = 1;
+                }
             }
         }
 
@@ -12216,6 +12320,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     gather_info.is_template = is_template;
     gather_info.is_explicit_specialization = is_explicit_specialization;
+    gather_info.inside_class_specifier = 1;
 
     type_t* type_info = NULL;
 
@@ -12355,6 +12460,8 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
         nodecl_t* nodecl_output)
 {
     gather_decl_spec_t gather_info;
+    gather_info.inside_class_specifier = 1;
+
     memset(&gather_info, 0, sizeof(gather_info));
 
     type_t* class_type = get_actual_class_type(class_info);
@@ -12505,6 +12612,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     gather_info.is_template = is_template;
     gather_info.is_explicit_specialization = is_explicit_specialization;
     gather_info.current_access = current_access;
+    gather_info.inside_class_specifier = 1;
 
     type_t* class_type = NULL;
     const char* class_name = "";
@@ -13527,56 +13635,36 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
 }
 
-static nodecl_t normalize_multiple_statements(nodecl_t multiple_statements,
-        decl_context_t context_of_stmts UNUSED_PARAMETER)
+static void build_scope_normalized_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (nodecl_is_null(multiple_statements))
-        return multiple_statements;
+    if (ASTType(a) == AST_COMPOUND_STATEMENT)
+        build_scope_statement(a, decl_context, nodecl_output);
+    else
+    {
+        // Mimick the behaviour of a compound statement
+        decl_context_t block_context = new_block_context(decl_context);
 
-    if (!nodecl_is_list(multiple_statements))
-        return multiple_statements;
+        nodecl_t nodecl_output_list = nodecl_null();
 
-    nodecl_t nodecl_context, nodecl_in_context;
-    if (nodecl_list_length(multiple_statements) == 1
-            && nodecl_get_kind(nodecl_context = nodecl_list_head(multiple_statements)) == NODECL_CONTEXT
-            && !nodecl_is_null(nodecl_in_context)
-            && nodecl_is_list(nodecl_in_context = nodecl_get_child(nodecl_context, 0))
-            && nodecl_list_length(nodecl_in_context) == 1
-            && nodecl_get_kind(nodecl_list_head(nodecl_in_context)) == NODECL_COMPOUND_STATEMENT)
-        return multiple_statements;
+        nodecl_t current_nodecl_output = nodecl_null();
+        build_scope_statement(a, block_context, &current_nodecl_output);
 
-    // We simplify
-    //
-    // if (E)
-    //    S1
-    //
-    //    into
-    //
-    // if (E)
-    // {
-    //   S1
-    // }
-    nodecl_t nodecl_result =
-        nodecl_make_list_1(
-                nodecl_make_compound_statement(
-                    multiple_statements,
-                    /* finalize */ nodecl_null(),
-                    nodecl_get_locus(multiple_statements))
-                );
+        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
 
-    // Note: We are not creating a context for now, but if we have to simply
-    // enable the following code
-    decl_context_t block_context = new_block_context(context_of_stmts);
-    nodecl_result =
-        nodecl_make_list_1(
+        nodecl_t nodecl_destructors = nodecl_null();
+        CXX_LANGUAGE()
+        {
+            call_destructors_of_classes(block_context, ast_get_locus(a), &nodecl_destructors);
+        }
+
+        *nodecl_output = nodecl_make_list_1(
                 nodecl_make_context(
-                    nodecl_result,
-                    block_context,
-                    nodecl_get_locus(multiple_statements)));
-
-    return nodecl_result;
+                    nodecl_make_list_1(
+                        nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ast_get_locus(a))
+                        ),
+                    block_context, ast_get_locus(a)));
+    }
 }
-
 
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
@@ -13590,10 +13678,8 @@ static void build_scope_while_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
-        build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
+        build_scope_normalized_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13696,7 +13782,7 @@ static void build_scope_if_else_statement(AST a,
 
     AST then_branch = ASTSon1(a);
     nodecl_t nodecl_then = nodecl_null();
-    build_scope_statement(then_branch, block_context, &nodecl_then);
+    build_scope_normalized_statement(then_branch, block_context, &nodecl_then);
 
     // Normalize multiple statements
 
@@ -13704,11 +13790,8 @@ static void build_scope_if_else_statement(AST a,
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
-        build_scope_statement(else_branch, block_context, &nodecl_else);
+        build_scope_normalized_statement(else_branch, block_context, &nodecl_else);
     }
-
-    nodecl_then = normalize_multiple_statements(nodecl_then, block_context);
-    nodecl_else = normalize_multiple_statements(nodecl_else, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13717,6 +13800,25 @@ static void build_scope_if_else_statement(AST a,
                         ast_get_locus(a))),
                 block_context,
                 ast_get_locus(a)));
+}
+
+static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(ASTType(a) != AST_SYMBOL_LITERAL_REF, "Invalid node", 0);
+
+    const char *tmp = ASTText(ASTSon0(a));
+
+    const char * prefix = NULL;
+    void *p = NULL;
+    unpack_pointer(tmp, &prefix, &p);
+
+    ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "symbol") != 0,
+            "Failure during unpack of symbol", 0);
+
+    scope_entry_t* entry = (scope_entry_t*)p;
+
+    *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(a));
 }
 
 static void build_scope_for_statement(AST a, 
@@ -13730,6 +13832,9 @@ static void build_scope_for_statement(AST a,
     AST expression = ASTSon2(loop_control);
 
     AST statement = ASTSon1(a);
+
+    // AST end_loop_statement = ASTSon2(a); // Fortran only
+    AST synthesized_loop_name = ASTSon3(a); // Mercurium internal parsing
 
     if (ASTType(for_init_statement) == AST_AMBIGUITY)
     {
@@ -13801,18 +13906,22 @@ static void build_scope_for_statement(AST a,
 
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, block_context, &nodecl_statement);
+    build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
+    nodecl_t loop_name = nodecl_null();
+    if (synthesized_loop_name != NULL)
+    {
+        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &loop_name);
+    }
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ast_get_locus(a));
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
                     nodecl_make_list_1(
                         nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            /* loop name */ nodecl_null(),
+                            loop_name,
                             ast_get_locus(a))),
                     block_context,
                     ast_get_locus(a)
@@ -13832,9 +13941,7 @@ static void build_scope_switch_statement(AST a,
     build_scope_condition(condition, block_context, &nodecl_condition);
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, block_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
+    build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -14128,9 +14235,7 @@ static void build_scope_do_statement(AST a,
     AST expression = ASTSon1(a);
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, decl_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, decl_context);
+    build_scope_normalized_statement(statement, decl_context, &nodecl_statement);
 
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(expression, decl_context, &nodecl_expr))

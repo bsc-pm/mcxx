@@ -4500,23 +4500,22 @@ scope_entry_t* fortran_query_label(AST label,
 }
 
 scope_entry_t* fortran_query_construct_name_str(
-        const char* construct_name, 
+        const char* construct_name,
         decl_context_t decl_context, char is_definition,
         const locus_t* locus
         )
 {
     construct_name = strtolower(construct_name);
 
-    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
-            construct_name,
-            DF_ONLY_CURRENT_SCOPE);
+    scope_entry_t* new_label = fortran_query_name_str(decl_context, construct_name, locus);
 
-    scope_entry_t* new_label = NULL;
-    if (entry_list == NULL)
+    if (new_label == NULL)
     {
         if (is_definition)
         {
-            new_label = new_symbol(decl_context, decl_context.current_scope, construct_name);
+            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
+            new_label = new_symbol(program_unit_context, program_unit_context.current_scope, construct_name);
             new_label->kind = SK_LABEL;
             new_label->locus = locus;
             new_label->do_not_print = 1;
@@ -4525,11 +4524,9 @@ scope_entry_t* fortran_query_construct_name_str(
     }
     else
     {
-        new_label = entry_list_head(entry_list);
-
         if (new_label->kind != SK_LABEL)
         {
-            error_printf("%s: error: name '%s' cannot be used as a construct name\n", 
+            error_printf("%s: error: name '%s' cannot be used as a construct name\n",
                     locus_to_str(locus),
                     new_label->symbol_name);
             return NULL;
@@ -4551,7 +4548,6 @@ scope_entry_t* fortran_query_construct_name_str(
         }
     }
 
-    entry_list_free(entry_list);
     return new_label;
 }
 
