@@ -185,8 +185,19 @@ namespace TL { namespace OpenMP {
                             "Unexpected '%s' node",
                             ast_print_node_type(enclosing_stmt.get_kind()));
 
-                    // Generate the inline task and It's execution environment
-                    Nodecl::OpenMP::Task join_task = generate_join_task(enclosing_stmt);
+                    Nodecl::NodeclBase join_task;
+                    if (enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OpenMP::TaskCall>())
+                    {
+                        // The inline task is not necessarily because the enclosing statement is already a task
+                        //join_task = enclosing_stmt.shallow_copy();
+
+                        join_task = update_join_task(enclosing_stmt);
+                    }
+                    else
+                    {
+                        // Generate the inline task and It's execution environment
+                        join_task = generate_join_task(enclosing_stmt);
+                    }
 
                     // This code will be executed if the current task is in a final context
                     Nodecl::List sequential_code = generate_sequential_code(enclosing_stmt, task_calls, join_task);
@@ -467,6 +478,133 @@ namespace TL { namespace OpenMP {
                 rhs_expr = expr.as<T>().get_rhs();
             }
 
+            Nodecl::NodeclBase update_join_task(const Nodecl::NodeclBase& enclosing_stmt)
+            {
+                Nodecl::NodeclBase new_enclosing_stmt = enclosing_stmt.shallow_copy();
+                ERROR_CONDITION(!new_enclosing_stmt.is<Nodecl::ExpressionStatement>(),
+                        "Unexepected node %d\n",
+                        ast_print_node_type(new_enclosing_stmt.get_kind()));
+
+                Nodecl::ExpressionStatement expr_stmt = new_enclosing_stmt.as<Nodecl::ExpressionStatement>();
+
+                ERROR_CONDITION(!expr_stmt.get_nest().is<Nodecl::OpenMP::TaskCall>(),
+                        "Unexepected node %d\n",
+                        ast_print_node_type(expr_stmt.get_nest().get_kind()));
+
+                Nodecl::OpenMP::TaskCall task_call = expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
+
+                Nodecl::List environment = task_call.get_environment().as<Nodecl::List>();
+
+                TL::ObjectList<Nodecl::NodeclBase>  in_alloca_deps, alloca_exprs;
+
+                // Obtain the nonlocal symbols from the right expression
+                std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
+
+
+                Nodecl::List new_environment;
+                // Remove the dependences defined by the user
+                for (Nodecl::List::iterator it = environment.begin();
+                        it != environment.end();
+                        it++)
+                {
+                    bool found = false;
+                    TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_all_symbols_first_occurrence(*it);
+                    for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
+                            it2 != nonlocal_symbols.end() && !found;
+                            ++it2)
+                    {
+                        TL::Symbol sym = it2->get_symbol();
+                        std::cerr << sym.get_name() <<  std::endl;
+                        // if (!sym.is_variable()
+                        //         || (sym.is_member()
+                        //             && !sym.is_static()))
+                        //     continue;
+                        found = return_arguments.find(sym) != return_arguments.end();
+                    }
+
+                    if (!found)
+                    {
+                        new_environment.append(*it);
+                    }
+                }
+
+
+                TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(task_call);
+                for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
+                        it2 != nonlocal_symbols.end();
+                        ++it2)
+                {
+                    TL::Symbol sym = it2->get_symbol();
+
+                    if (!sym.is_variable()
+                            || (sym.is_member()
+                                && !sym.is_static()))
+                        continue;
+
+                    std::set<TL::Symbol>::iterator it_sym = return_arguments.find(sym);
+                    if (it_sym == return_arguments.end())
+                        continue;
+
+                    // The return arguments present in the enclosing statement are added as alloca input dependences
+                    Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                    sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
+
+                    in_alloca_deps.append(
+                            Nodecl::Dereference::make(
+                                sym_nodecl,
+                                sym.get_type().points_to().get_lvalue_reference_to(),
+                                make_locus("", 0, 0)));
+
+                    // copy_in.append(
+                    //         Nodecl::Dereference::make(
+                    //             sym_nodecl.shallow_copy(),
+                    //             sym.get_type().points_to().get_lvalue_reference_to(),
+                    //             make_locus("", 0, 0)));
+
+                    // Remove this item from the return arguments set!
+                    return_arguments.erase(it_sym);
+
+                }
+
+                // The resting return arguments are added as alloca expressions (i. e. they need to be allocated in the
+                // join task but they should not generate any dependence)
+                for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
+                        it2 != return_arguments.end();
+                        ++it2)
+                {
+                    TL::Symbol sym = *it2;
+
+                    Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                    sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
+
+                    alloca_exprs.append(
+                            Nodecl::Dereference::make(
+                                sym_nodecl,
+                                sym.get_type().points_to().get_lvalue_reference_to(),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!alloca_exprs.empty())
+                {
+                    new_environment.append(
+                            Nodecl::OpenMP::Alloca::make(
+                                Nodecl::List::make(alloca_exprs),
+                                make_locus("", 0, 0)));
+                }
+
+                if (!in_alloca_deps.empty())
+                {
+                    new_environment.append(
+                            Nodecl::OpenMP::DepInAlloca::make(
+                                Nodecl::List::make(in_alloca_deps),
+                                make_locus("", 0, 0)));
+                }
+
+                task_call.set_environment(new_environment);
+
+               return new_enclosing_stmt;
+            }
+
             Nodecl::OpenMP::Task generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
             {
                 Nodecl::List exec_environment;
@@ -735,8 +873,11 @@ namespace TL { namespace OpenMP {
                     }
                 };
 
-                Nodecl::NodeclBase join_task_stmt =
-                    join_task.as<Nodecl::OpenMP::Task>().get_statements().shallow_copy();
+                Nodecl::NodeclBase join_task_stmt;
+                if(join_task.is<Nodecl::OpenMP::Task>())
+                    join_task_stmt = join_task.as<Nodecl::OpenMP::Task>().get_statements().shallow_copy();
+                else
+                    join_task_stmt = join_task.shallow_copy();
 
                 RemoveTasks visitor;
                 visitor.walk(join_task_stmt);
