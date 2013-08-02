@@ -7886,6 +7886,10 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             }
             else
             {
+                // Take care of propagating value dependency
+                nodecl_expr_set_is_value_dependent(nodecl_cast_output,
+                        nodecl_expr_is_value_dependent(nodecl_casted_expr));
+
                 nodecl_casted_expr = nodecl_cast_output;
             }
         }
