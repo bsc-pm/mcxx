@@ -393,9 +393,6 @@ namespace Analysis {
             // Multiply dimension sizes by indexes
             for(i=0; it != subscripts.end(); i++)
             {
-                std::cout << (*it).prettyprint() << std::endl;
-
-
                 it_alignment = walk(*it);
                 
                 it++;

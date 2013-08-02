@@ -2494,16 +2494,54 @@ namespace TL
                 }
 
                 function_call.set_arguments(arguments);
+
+                node.replace(function_call);
             }
-            else
+            else // Compound Expression to avoid infinite recursion
             {
+                TL::Source compound_exp, init_value;
+
+                if (scalar_type.is_float()) 
+                { 
+                    init_value << "float __r = 0.0f";
+                } 
+                else if (scalar_type.is_double()) 
+                {
+                    init_value << "double __r = 0.0";
+                } 
+                else if (scalar_type.is_signed_int()) 
+                {
+                    init_value << "int __r = 0";
+                }
+                else if (scalar_type.is_unsigned_int()) 
+                {
+                    init_value << "unsigned int __r = 0";
+                }
+                else
+                {
+                    running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
+                            ast_print_node_type(node.get_kind()),
+                            locus_to_str(node.get_locus()));
+                }
+
                 walk(arguments);
 
                 arguments.append(mask.shallow_copy());
                 function_call.set_arguments(arguments);
+
+                compound_exp << "({"
+                    << init_value << "; "
+                    << "if(" << as_expression(mask) << "!= "
+                    << "((" << mask.get_type().no_ref().get_simple_declaration(mask.retrieve_context(), "") << ") 0))"
+                    << as_expression(function_call) << ";"
+                    << "})"
+                    ;
+
+                Nodecl::NodeclBase compound_exp_node =
+                    compound_exp.parse_expression(node.retrieve_context());
+
+                node.replace(compound_exp_node);
             }
-                    
-            node.replace(function_call);
         }
 
         void KNCVectorLowering::visit(const Nodecl::VectorFabs& node) 
@@ -2721,22 +2759,24 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
         {
-            TL::Source intrin_src, intrin_name;
+            TL::Source intrin_src, mask_cast;
 
             TL::Type rhs_type = node.get_rhs().get_type();
 
             if(rhs_type.is_integral_type())
-                intrin_name << "_mm512_int2mask";
+                mask_cast << "(" << node.get_lhs().get_type().no_ref().
+                    get_simple_declaration(node.retrieve_context(), "") << ")";
 
             walk(node.get_lhs());
             walk(node.get_rhs());
 
             intrin_src << as_expression(node.get_lhs())
                 << " = "
-                << intrin_name
+                << "("
+                << mask_cast
                 << "("
                 << as_expression(node.get_rhs())
-                << ")"
+                << "))"
                 ;
 
             Nodecl::NodeclBase function_call =
