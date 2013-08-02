@@ -2084,6 +2084,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     bool is_template_specialized = symbol_type.is_template_specialized_type();
 
+    bool is_primary = false;
     if (!symbol.get_class_type().is_valid()
             || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
@@ -2104,6 +2105,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
                 do_declare_symbol(primary_symbol,
                         &CxxBase::declare_symbol_always,
                         &CxxBase::define_symbol_always);
+
+                is_primary = (primary_symbol == symbol);
             }
         }
     }
@@ -2154,6 +2157,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
      }
 
     if (symbol.is_static()
+            // Specializations other than the primary cannot have storage specifier
+            && !(is_template_specialized
+                && !is_primary)
             && (!symbol.is_member()
                 || (!state.classes_being_defined.empty()
                     && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
@@ -2161,7 +2167,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         decl_spec_seq += "static ";
     }
 
-    if (symbol.is_extern() && symbol.get_value().is_null())
+    if (symbol.is_extern()
+            && symbol.get_value().is_null()
+            // Specializations other than the primary cannot have storage specifier
+            && !(is_template_specialized
+                && !is_primary))
     {
         decl_spec_seq += "extern ";
     }
