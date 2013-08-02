@@ -4208,6 +4208,9 @@ static scope_entry_list_t* query_nodecl_conversion_name(
     AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 2));
     ERROR_CONDITION(type_id == NULL, "Invalid node created by compute_nodecl_name_from_unqualified_id\n", 0);
 
+    // Nullify tree so it won't bee freed afterwards if we discard this tree
+    nodecl_set_child(nodecl_name, 2, nodecl_null());
+
     AST type_specifier_seq = ASTSon0(type_id);
     AST type_spec = ASTSon1(type_specifier_seq);
 
@@ -4290,6 +4293,11 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         }
         return NULL;
     }
+
+    // Keep the type
+    nodecl_set_child(
+            nodecl_name, 1,
+            nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
 
     return query_conversion_function_info(class_context, t);
 }
@@ -4953,8 +4961,27 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                         ast_get_locus(unqualified_id));
 
                 // This is ugly but we need to keep the original tree around before lowering it into nodecl
-                AST conversion_type_id = ast_copy(ASTSon0(unqualified_id));
+                AST conversion_type_id = ASTSon0(unqualified_id);
+                AST parent = ast_get_parent(conversion_type_id);
+
                 ast_set_child(nodecl_get_ast(*nodecl_output), 2, conversion_type_id);
+
+                // Make some work to prevent that ambiguities slip in
+                // That ast_set_child actually botched the original AST, fix it
+                ast_set_parent(conversion_type_id, parent);
+                AST type_specifier_seq = ASTSon0(conversion_type_id);
+                AST type_spec = ASTSon1(type_specifier_seq);
+
+                // Build the type tree
+                if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+                {
+                    AST id_expression = ASTSon0(type_spec);
+
+                    nodecl_t nodecl_id_expression = nodecl_null();
+                    // This will fix the tree as a side effect
+                    compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_id_expression);
+                }
+
                 break;
             }
         case AST_DESTRUCTOR_ID:
