@@ -8653,7 +8653,7 @@ static char check_argument_types_of_call(
     return no_arg_is_faulty;
 }
 
-UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidates)
+static char any_is_member_function(scope_entry_list_t* candidates)
 {
     char is_member = 0;
 
@@ -8669,6 +8669,7 @@ UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidat
     return is_member;
 }
 
+UNUSED_PARAMETER
 static char any_is_member_function_of_class_or_derived(scope_entry_list_t* candidates, scope_entry_t* this_symbol)
 {
     char result = 0;
@@ -8995,12 +8996,12 @@ static void check_nodecl_function_call_cxx(
 
     if (this_symbol != NULL
             && is_dependent_type(this_symbol->type_information)
-            && any_is_member_function_of_class_or_derived(candidates, this_symbol))
+            && any_is_member_function(candidates))
     {
         // If we are doing a call F(X) or A::F(X), F (or A::F) is a member
-        // function of a class and this is that same class or a derived one,
-        // then we have to act as if (*this).F(X) (or  (*this).A::F(X)). This
-        // implies that if 'this' is dependent the whole call is dependent
+        // function then we have to act as if (*this).F(X) (or
+        // (*this).A::F(X)). This implies that if 'this' is dependent the whole
+        // call is dependent
         any_arg_is_dependent = 1;
     }
 
