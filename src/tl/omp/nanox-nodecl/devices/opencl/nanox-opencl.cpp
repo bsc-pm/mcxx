@@ -120,6 +120,14 @@ void DeviceOpenCL::generate_ndrange_code(
                         unpacked_function.get_related_scope(),
                         *outline_data_to_unpacked_fun_map));
         }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        shmem_args[i],
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
     }
 
     bool dim_const = new_ndrange[0].is_constant();
