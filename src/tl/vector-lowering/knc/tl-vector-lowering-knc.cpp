@@ -1211,8 +1211,12 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorConversion& node) 
         {
-            const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
-            const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
+            const TL::Type& src_vector_type = node.get_nest().get_type().get_unqualified_type();
+            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type();
+            const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
+            const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
+            const unsigned int src_num_elements = src_vector_type.vector_num_elements();
+            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
             TL::Source intrin_src, intrin_name;
 
@@ -1262,6 +1266,11 @@ namespace TL
             { 
                 // C/C++ requires truncated conversion
                 intrin_name << "_mm512_cvtfxpnt_round_adjustps_epu32";
+            }
+            else if ((src_type.is_float() && (src_num_elements == 8)) &&
+                    dst_type.is_double() && (dst_num_elements == 8))
+            {
+                intrin_name << "_mm512_cvtpslo_pd";
             }
             else
             {
@@ -1415,67 +1424,67 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorLiteral& node) 
         {
-            TL::Type type = node.get_type().basic_type();
+            TL::Type vector_type = node.get_type();
+            TL::Type scalar_type = vector_type.basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, intrin_name, undefined_value, values;
+
+            intrin_src << intrin_name
+                << "("
+                << values
+                << ")"
+                ;
+
 
             // Intrinsic name
-            intrin_src << "_mm512_set";
+            intrin_name << "_mm512_set";
 
             // Postfix
-            if (type.is_float()) 
+            if (scalar_type.is_float()) 
             { 
-                intrin_src << "_ps"; 
+                intrin_name << "_ps"; 
+                undefined_value << "0.0f";
             } 
-            else if (type.is_double()) 
+            else if (scalar_type.is_double()) 
             { 
-                intrin_src << "_pd"; 
+                intrin_name << "_pd";
+                undefined_value << "0.0";
             } 
-            else if (type.is_signed_int() ||
-                    type.is_unsigned_int()) 
+            else if (scalar_type.is_signed_int() ||
+                    scalar_type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_name << "_epi32"; 
+                undefined_value << "0";
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Lowering: Node %s at %s has an unsupported scalar_type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
 
-            intrin_src << "(";
-
             Nodecl::List scalar_values =
                 node.get_scalar_values().as<Nodecl::List>();
 
-            Nodecl::List::const_iterator it = scalar_values.begin();
-            walk((*it));
-            intrin_src << as_expression(*it);
-            it++;
+            // It num elements do not fill the vector_length
+            printf("%d %d\n", vector_type.vector_num_elements(), scalar_type.get_size());
 
-            for (; it != scalar_values.end();
+
+            unsigned int num_undefined_values =
+                _vector_length/scalar_type.get_size() - vector_type.vector_num_elements();
+            
+            for (unsigned int i=0; i<num_undefined_values; i++)
+            {
+                values.append_with_separator(undefined_value, ",");
+            }
+
+            for (Nodecl::List::const_iterator it = scalar_values.begin();
+                    it != scalar_values.end();
                     it++)
             {
-                intrin_src << ", ";
                 walk((*it));
-                intrin_src << as_expression(*it);
+                values.append_with_separator(as_expression(*it), ",");
             }
-
-
-            /* 
-#warning Remove this from here!
-            {
-                it = scalar_values.begin();
-                for (; it != scalar_values.end();
-                        it++)
-                {
-                    intrin_src << ", ";
-                    intrin_src << as_expression(*it);
-                }
-            }
-            */
-
-            intrin_src << ")"; 
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());

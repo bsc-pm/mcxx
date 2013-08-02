@@ -156,9 +156,7 @@ namespace TL
                 friend Nodecl::NodeclBase Utils::get_new_mask_symbol(TL::Scope scope,
                         const int mask_size);
         };
-
-        TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
-    }
+   }
 }
 
 #endif // TL_VECTORIZER_HPP

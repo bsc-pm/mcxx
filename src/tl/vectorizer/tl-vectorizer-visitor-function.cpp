@@ -69,7 +69,7 @@ namespace TL
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
             {
-                TL::Type sym_type = get_qualified_vector_to((*it_type), _environment._vector_length);
+                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type), _environment._unroll_factor);
 
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
@@ -130,8 +130,8 @@ namespace TL
                 _environment._mask_list.push_back(all_one_mask);
             }
 
-            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), 
-                        _environment._vector_length).get_function_returning(parameters_vector_type));
+            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(), 
+                        _environment._unroll_factor).get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);

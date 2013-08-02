@@ -101,6 +101,8 @@ namespace TL
 
             bool is_all_one_mask(const Nodecl::NodeclBase& n);
  
+            TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
+ 
         }
     }
 }

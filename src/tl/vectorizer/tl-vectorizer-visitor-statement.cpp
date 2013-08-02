@@ -300,7 +300,7 @@ namespace TL
             TL::Symbol sym = n.get_symbol();
 
             // Vectorizing symbol type
-            sym.set_type(get_qualified_vector_to(sym.get_type(), _environment._vector_length));
+            sym.set_type(Utils::get_qualified_vector_to(sym.get_type(), _environment._unroll_factor));
 
             // Vectorizing initialization
             Nodecl::NodeclBase init = sym.get_value();

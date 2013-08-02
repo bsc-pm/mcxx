@@ -236,6 +236,21 @@ namespace TL
 
                 return false;
             }
+
+            TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int num_elements) 
+            {
+                cv_qualifier_t cv_qualif = get_cv_qualifier(no_ref(src_type.get_internal_type()));
+                TL::Type result_type = src_type.no_ref().get_unqualified_type().get_vector_of_elements(num_elements);
+
+                result_type = get_cv_qualified_type(result_type.get_internal_type(), cv_qualif);
+
+                if (src_type.is_lvalue_reference())
+                {
+                    result_type = result_type.get_lvalue_reference_to();
+                }
+
+                return result_type;
+            }
         }
     }
 }
