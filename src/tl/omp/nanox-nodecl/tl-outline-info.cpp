@@ -203,7 +203,7 @@ namespace TL { namespace Nanox {
 
 
     // Only used in task expressions to store the return results
-    void OutlineInfoRegisterEntities::add_alloca(Symbol sym, TL::DataReference& data_ref)
+    void OutlineInfoRegisterEntities::add_alloca(Symbol sym)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
 
@@ -646,7 +646,7 @@ namespace TL { namespace Nanox {
 
             if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
             {
-                add_alloca(sym, data_ref);
+                add_alloca(sym);
             }
             else
             {
@@ -903,7 +903,7 @@ namespace TL { namespace Nanox {
 
                     TL::Symbol sym = data_ref.get_base_symbol();
 
-                    add_alloca(sym, data_ref);
+                    add_alloca(sym);
                 }
             }
 
