@@ -2395,11 +2395,20 @@ static char check_argument_association(
         {
             char ok = 0;
             // ... unless the actual argument is an element of an array ...
-            if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT)
+            if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT
+                    || (nodecl_get_kind(real_argument) == NODECL_CLASS_MEMBER_ACCESS
+                        && nodecl_get_kind(nodecl_get_child(real_argument, 1)) == NODECL_ARRAY_SUBSCRIPT))
             {
                 ok = 1;
                 // ... that is _not_ an assumed shape or pointer array ...
-                scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(real_argument, 0));
+
+                nodecl_t array_subscript = real_argument;
+                if (nodecl_get_kind(real_argument) == NODECL_CLASS_MEMBER_ACCESS)
+                {
+                    array_subscript = nodecl_get_child(real_argument, 1);
+                }
+
+                scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(array_subscript, 0));
 
                 if (array != NULL)
                 {
@@ -2407,11 +2416,11 @@ static char check_argument_association(
                     if (fortran_is_character_type(no_ref(array->type_information)))
                     {
                         // The argument was X(1)(1:2), we are now in X(1)  get 'X'
-                        if (nodecl_get_kind(nodecl_get_child(real_argument, 0)) == NODECL_ARRAY_SUBSCRIPT)
+                        if (nodecl_get_kind(nodecl_get_child(array_subscript, 0)) == NODECL_ARRAY_SUBSCRIPT)
                         {
                             array = nodecl_get_symbol(
                                     nodecl_get_child(
-                                        nodecl_get_child(real_argument, 0),
+                                        nodecl_get_child(array_subscript, 0),
                                         0));
                         }
                         else
