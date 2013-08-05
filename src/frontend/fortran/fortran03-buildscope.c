@@ -4447,17 +4447,16 @@ scope_entry_t* fortran_query_label_str_(const char* label,
         const locus_t* locus,
         char is_definition)
 {
-    decl_context_t function_context = decl_context;
-    function_context.current_scope = function_context.function_scope;
-
     const char* label_text = strappend(".label_", label);
-    scope_entry_list_t* entry_list = query_name_str(function_context, label_text);
+    scope_entry_list_t* entry_list = query_name_str(decl_context, label_text);
 
     scope_entry_t* new_label = NULL;
     if (entry_list == NULL)
     {
-        // Sign in the symbol in the function scope
-        new_label = new_symbol(decl_context, decl_context.function_scope, label_text);
+        decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
+        // Sign in the symbol in the program unit scope
+        new_label = new_symbol(program_unit_context, program_unit_context.current_scope, label_text);
         // Fix the symbol name (which for labels does not match the query name)
         new_label->symbol_name = label;
         new_label->kind = SK_LABEL;
@@ -4515,6 +4514,7 @@ scope_entry_t* fortran_query_construct_name_str(
         {
             decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
 
+            // Sign in the symbol in the program unit scope
             new_label = new_symbol(program_unit_context, program_unit_context.current_scope, construct_name);
             new_label->kind = SK_LABEL;
             new_label->locus = locus;
@@ -4561,7 +4561,6 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
-
 
     if (!nodecl_is_null(nodecl_statement))
     {
