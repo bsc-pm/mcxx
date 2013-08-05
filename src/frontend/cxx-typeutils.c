@@ -5696,7 +5696,9 @@ char is_integral_type(type_t* t)
             || is_character_type(t)
             || is_wchar_t_type(t)
             // In C, enumerated types are integral types
-            || (is_enum_type(t) && IS_C_LANGUAGE));
+            || (is_enum_type(t) && IS_C_LANGUAGE)
+            // Mercurium extension
+            || is_mask_type(t));
 }
 
 char is_signed_integral_type(type_t* t)
@@ -5718,7 +5720,8 @@ char is_unsigned_integral_type(type_t* t)
         || is_unsigned_int_type(t)
         || is_unsigned_long_int_type(t)
         || is_unsigned_long_long_int_type(t)
-        || is_unsigned_int128_type(t);
+        || is_unsigned_int128_type(t)
+        || is_mask_type(t);
 }
 
 char is_signed_int_type(type_t *t)
@@ -8883,18 +8886,6 @@ static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
 
 }
 
-static char mask_to_integral(type_t* orig, type_t* dest)
-{
-    orig = no_ref(orig);
-    dest = no_ref(dest);
-
-    return (is_mask_type(orig)
-            && is_integral_type(dest)
-            // Since we do not register any conversion we force their bit
-            // representation size be the same
-            && ((type_get_size(dest) * 8) == mask_type_get_num_bits(orig)));
-}
-
 char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
 {
     DEBUG_CODE()
@@ -9108,6 +9099,24 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
      * Note that the types compared here must be unqualified, since we
      * don't care their qualification here
      */
+
+    // Note: masks are unsigned integers, so now we unpack the mask to its
+    // underlying integer type and proceed their conversion
+    if (is_mask_type(dest))
+    {
+        // Make sure we preserve the cv-qualification
+        dest = get_cv_qualified_type(
+                mask_type_get_underlying_type(dest),
+                get_cv_qualifier(dest));
+    }
+    if (is_mask_type(orig))
+    {
+        // Make sure we preserve the cv-qualification
+        orig = get_cv_qualified_type(
+                mask_type_get_underlying_type(orig),
+                get_cv_qualifier(orig));
+    }
+
     if (!equivalent_types(get_unqualified_type(dest), get_unqualified_type(orig)))
     {
         if (is_signed_int_type(dest)
@@ -9467,16 +9476,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (CURRENT_CONFIGURATION->enable_intel_vector_types
                 && (vector_type_to_vector_struct_type(orig, dest)
                     || vector_type_to_vector_struct_type(dest, orig)))
-        {
-            // We do not account this as a conversion of any kind, we just let
-            // these types be transparently compatible
-            orig = dest;
-        }
-        // Mask conversions
-        // mask type -> integral type
-        else if (CURRENT_CONFIGURATION->enable_intel_vector_types
-                && (mask_to_integral(orig, dest)
-                    || mask_to_integral(dest, orig)))
         {
             // We do not account this as a conversion of any kind, we just let
             // these types be transparently compatible
@@ -11654,7 +11653,7 @@ int generic_type_get_num(type_t* t)
     return -1;
 }
 
-type_t* get_mask_type(unsigned int mask_size)
+type_t* get_mask_type(unsigned int mask_size_bits)
 {
     static rb_red_blk_tree *_mask_hash = NULL;
 
@@ -11663,16 +11662,16 @@ type_t* get_mask_type(unsigned int mask_size)
         _mask_hash = rb_tree_create(uint_comp, null_dtor, null_dtor);
     }
 
-    type_t* result = (type_t*)rb_tree_query_uint(_mask_hash, mask_size);
+    type_t* result = (type_t*)rb_tree_query_uint(_mask_hash, mask_size_bits);
 
     if (result == NULL)
     {
         result = get_simple_type();
         result->type->kind = STK_MASK;
-        result->type->vector_size = mask_size;
+        result->type->vector_size = mask_size_bits;
 
         int *k = counted_xcalloc(sizeof(int), 1, &_bytes_due_to_type_system);
-        *k = mask_size;
+        *k = mask_size_bits;
 
         rb_tree_insert(_mask_hash, k, result);
     }
@@ -11687,6 +11686,36 @@ char is_mask_type(type_t* t)
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_MASK);
+}
+
+type_t* mask_type_get_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_mask_type(t),
+            "This is not a mask type", 0);
+
+
+    type_t* unsigned_integers[] = {
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL,
+    };
+
+    type_t** it = &unsigned_integers[0];
+    unsigned int num_bits = mask_type_get_num_bits(t);
+
+    while (*it != NULL)
+    {
+        if ((8 * type_get_size(*it)) == num_bits)
+            return *it;
+
+        it++;
+    }
+
+    internal_error("Not found a suitable unsigned integer type for a mask of '%d' bits\n",
+            num_bits);
 }
 
 unsigned int mask_type_get_num_bits(type_t* t)

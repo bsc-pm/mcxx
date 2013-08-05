@@ -171,7 +171,12 @@ namespace TL { namespace Nanox {
                 perform_partial_reduction(outline_info, reduction_code);
             }
 
-            Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
+
+            Nodecl::Utils::LabelSymbolMap label_symbol_map(symbol_map, output_statements, outline_placeholder);
+
+            Nodecl::NodeclBase outline_statements_code = Nodecl::Utils::deep_copy(output_statements, outline_placeholder,
+                    label_symbol_map);
+
             delete symbol_map;
 
             inner_placeholder.replace(outline_statements_code);

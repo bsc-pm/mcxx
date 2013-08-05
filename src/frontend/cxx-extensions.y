@@ -3,6 +3,11 @@
 %type<ast> shape_seq
 %type<ast> shape
 %type<ast> noshape_cast_expression
+%type<ast> mercurium_extended_type_specifiers
+
+%token<token_atrib> MCC_BYTE "<byte-type-spec>"
+%token<token_atrib> MCC_BOOL "<bool-type-spec>"
+%token<token_atrib> MCC_MASK "<mask-type-spec>"
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -62,6 +67,32 @@ iteration_statement : FOR '[' symbol_literal_ref ']' '(' for_init_statement cond
     AST loop_control = ASTMake3(AST_LOOP_CONTROL, $6, $7, $9, make_locus($1.token_file, $1.token_line, 0), NULL);
 	$$ = ASTMake4(AST_FOR_STATEMENT, loop_control, $11, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 
+}
+;
+
+/*!if C99*/
+nontype_specifier_without_attribute : mercurium_extended_type_specifiers
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
+/*!if CPLUSPLUS*/
+type_specifier_SUSL : mercurium_extended_type_specifiers
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
+mercurium_extended_type_specifiers : MCC_BOOL
+{
+	$$ = ASTLeaf(AST_MCC_BOOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| MCC_MASK
+{
+	$$ = ASTLeaf(AST_MCC_MASK, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 

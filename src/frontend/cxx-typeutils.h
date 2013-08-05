@@ -215,7 +215,7 @@ LIBMCXX_EXTERN type_t* get_vector_type_by_elements(type_t* element_type, unsigne
 
 LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
 
-LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size);
+LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size_bits);
 
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
@@ -428,6 +428,7 @@ LIBMCXX_EXTERN char is_computed_function_type(type_t* t);
 
 LIBMCXX_EXTERN char is_mask_type(type_t* t);
 LIBMCXX_EXTERN unsigned int mask_type_get_num_bits(type_t* t);
+LIBMCXX_EXTERN type_t* mask_type_get_underlying_type(type_t* t);
 
 LIBMCXX_EXTERN int get_sizeof_type(type_t* t);
 

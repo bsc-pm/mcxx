@@ -454,7 +454,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 if test x$gpu_enabled = xyes ; then
     if test -d "$CUDADIR" ;
     then
-        AC_PATH_PROG([NVCC], [nvcc], [], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
+        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
         if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
             gpu_valid=no
@@ -843,7 +843,7 @@ then
    if test x$disable_icc = xno;
    then
       dnl Check Intel Compiler C
-      AC_PATH_PROG([ICC], [icc], [])
+      AC_PATH_PROG([ICC], [icc], [$ICC])
       if test x$ICC != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} imcc"
@@ -895,7 +895,7 @@ then
          dnl end
       fi
       dnl Check Intel Compiler C++
-      AC_PATH_PROG([ICPC], [icpc], [])
+      AC_PATH_PROG([ICPC], [icpc], [$ICPC])
       if test x$ICPC != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} imcxx"
@@ -905,19 +905,22 @@ then
       then
          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
       fi
+   else
+       ICC=
+       ICPC=
    fi
 
    if test x$disable_xlc = xno;
    then
       dnl XL (gcc driver)
-      AC_PATH_PROG([GXLC], [gxlc], [])
+      AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
       if test x$GXLC != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
       fi
 
       dnl XL (g++ driver)
-      AC_PATH_PROG([GXLCXX], [gxlc++], [])
+      AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
       if test x$GXLCXX != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
@@ -927,17 +930,22 @@ then
       then
          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
       fi
+   else
+       GXLC=
+       GXLCXX=
    fi
 
    dnl Check Intel Fortran
    if test x$disable_ifort = xno;
    then
-      AC_PATH_PROG([IFORT], [ifort], [])
+      AC_PATH_PROG([IFORT], [ifort], [$IFORT])
       if test x$IFORT != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
       fi
+   else
+       IFORT=
    fi
 
    dnl IBM Fortran
@@ -949,6 +957,8 @@ then
           COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
           INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
        fi
+   else
+       XLF=
    fi
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
@@ -1080,13 +1090,15 @@ AC_ARG_ENABLE([distcheck-processing],
 AM_CONDITIONAL(RUNNING_DISTCHECK, test x$distcheck_processing = xyes)
 
 # Make these variables precious
-AC_ARG_VAR([FLEX], [GNU Flex])
+AC_ARG_VAR([FLEX], [Flex])
 AC_ARG_VAR([BISON], [GNU Bison])
 AC_ARG_VAR([NVCC], [nVidia CUDA compiler])
 AC_ARG_VAR([ICC], [Intel C compiler])
 AC_ARG_VAR([ICPC], [Intel C++ compiler])
+AC_ARG_VAR([IFORT], [Intel Fortran])
 AC_ARG_VAR([GXLC], [IBM XL C compiler])
 AC_ARG_VAR([GXLCXX], [IBM XL C++ compiler])
+AC_ARG_VAR([XLF], [IBM XL Fortran compiler])
 AC_ARG_VAR([GPERF], [GNU gperf])
 AC_ARG_VAR([GIT], [git content tracker])
 
@@ -1119,8 +1131,8 @@ then
           ]
   )
 
-  AC_CHECK_PROG(FLEX, flex, flex, no)
-  if test x$FLEX = xno;
+  AC_CHECK_PROG([FLEX], [flex], [flex])
+  if test x$FLEX = x;
   then
      AC_MSG_NOTICE([You will need flex 2.5.4 or 2.5.3x if you intend to modify *.l files])
   else
@@ -1175,8 +1187,8 @@ then
           ]
   )
 
-  AC_CHECK_PROG(BISON, bison, bison, no)
-  if test x$BISON = xno;
+  AC_CHECK_PROG([BISON], [bison], [bison])
+  if test x$BISON = x;
   then
      AC_MSG_NOTICE([You will need GNU bison 2.3 or 2.4 if you intend to modify *.y and *.y.in files])
   else
@@ -1230,8 +1242,8 @@ then
           ]
   )
 
-  AC_CHECK_PROG(GPERF, gperf, gperf, no)
-  if test x$GPERF = xno;
+  AC_CHECK_PROG([GPERF], [gperf], [gperf])
+  if test x$GPERF = x;
   then
      AC_MSG_NOTICE([You will need gperf 3.0.x if you intend to modify *.gperf files])
   else
@@ -1428,7 +1440,7 @@ dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
-   AC_PATH_PROG([GIT], [git], [])
+   AC_PATH_PROG([GIT], [git], [$GIT])
    AC_MSG_CHECKING([revision of git repository])
    run_git=""
    if test x"$GIT" != x;
@@ -1560,22 +1572,53 @@ echo ""
 echo "Mercurium configuration summary"
 echo "==============================="
 echo ""
+echo " * Tools configured:"
+echo ""
+
+function print_tool()
+{
+    tool_name="$1"
+    tool_path="$2"
+    test -z "${tool_path}" && tool_path="(not found)";
+
+    echo "   ${tool_name}: ${tool_path}"
+}
+
+print_tool "Flex " "$FLEX"
+print_tool "GNU bison " "$BISON"
+print_tool "GNU gperf " "$GPERF"
+
+print_tool "git content tracker" "$GIT"
+
+print_tool "SQLite 3 cflags" "$sqlite3_CFLAGS"
+print_tool "SQLite 3 libs" "$sqlite3_LIBS"
+
+print_tool "nVidia CUDA compiler " "$NVCC"
+
+print_tool "Intel C compiler" "$ICC"
+print_tool "Intel C++ compiler" "$ICPC"
+print_tool "Intel Fortran compiler" "$IFORT"
+
+print_tool "IBM XL C compiler " "$GXLC"
+print_tool "IBM XL C++ compiler " "$GXLCXX"
+print_tool "IBM XL Fortran compiler " "$XLF"
+
+echo ""
+
 echo " * Default type environment : " $default_type_environ
+echo ""
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
 echo "   Host supports __int128 : " $have_int128
 echo "   SIMD Support: " $simd_version $simd_math_version
 echo "   Intel Xeon Phi compilation support: " $mic_compilation
 echo "   Intel Xeon Phi remote device used for testing: " $mic_testing_device
 echo ""
-echo " * Fortran support : yes"
-echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
-echo "   SQLite 3 libs: " $sqlite3_LIBS
-echo ""
 echo "   Fortran tests enabled: " $fortran_tests_enabled
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
 echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
+echo ""
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
   echo "   Nanos++ includes :" $nanox_include
@@ -1595,6 +1638,7 @@ echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
+
 
 if test x$flex_good = xno;
 then

@@ -83,7 +83,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool is_untied,
                 OutlineInfo& outline_info,
                 OutlineInfo* parameter_outline_info,
-                Nodecl::NodeclBase* placeholder_task_expr_transformation = NULL);
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -361,9 +361,20 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool inside_task_expression,
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
-        void visit_task_call(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
-        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
-        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call(
+                const Nodecl::OpenMP::TaskCall& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
+
+        void visit_task_call_c(
+                const Nodecl::OpenMP::TaskCall& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
+
+        void visit_task_call_fortran(
+                const Nodecl::OpenMP::TaskCall& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 

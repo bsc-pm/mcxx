@@ -497,6 +497,11 @@ namespace TL { namespace Nanox {
             bool already_mapped = false;
             switch ((*it)->get_sharing())
             {
+                case OutlineDataItem::SHARING_ALLOCA:
+                    {
+                        // Do nothing
+                        break;
+                    }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
@@ -541,7 +546,7 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
-                case OutlineDataItem::SHARING_ALLOCA:
+                case OutlineDataItem::SHARING_SHARED_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
