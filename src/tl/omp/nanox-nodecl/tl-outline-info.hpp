@@ -59,6 +59,8 @@ namespace TL
                     SHARING_SHARED_WITH_CAPTURE,
                     // Only used in task expressions to store the return results
                     SHARING_ALLOCA,
+                    SHARING_SHARED_ALLOCA,
+
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
@@ -539,7 +541,8 @@ namespace TL
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
                 void add_shared_with_capture(Symbol sym);
-                void add_alloca(Symbol sym);
+                void add_shared_alloca(Symbol sym);
+                void add_alloca(Symbol sym, TL::DataReference& data_ref);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
                 void add_dependences(Nodecl::List list, OutlineDataItem::DependencyDirectionality directionality);

@@ -723,14 +723,20 @@ void LoweringVisitor::emit_async_common(
                 it != data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() != OutlineDataItem::SHARING_ALLOCA)
-                continue;
-
-            TL::Symbol sym = (*it)->get_symbol();
-            update_alloca_decls_opt
-                << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
-                ;
-
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_ALLOCA)
+            {
+                TL::Symbol sym = (*it)->get_symbol();
+                update_alloca_decls_opt
+                    << sym.get_name() << " = &(ol_args->" << sym.get_name() << ");"
+                    ;
+            }
+            else if((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_ALLOCA)
+            {
+                TL::Symbol sym = (*it)->get_symbol();
+                update_alloca_decls_opt
+                    << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
+                    ;
+            }
         }
     }
 
@@ -1228,7 +1234,7 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
-                case OutlineDataItem::SHARING_ALLOCA:
+                case OutlineDataItem::SHARING_SHARED_ALLOCA:
                     {
                         fill_outline_arguments
                             << "ol_args->" << (*it)->get_field_name() << "= &(ol_args->" << (*it)->get_field_name() << "_storage);"
@@ -1271,6 +1277,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         // Do nothing
                         break;
@@ -1472,6 +1479,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         // Do nothing
                         break;

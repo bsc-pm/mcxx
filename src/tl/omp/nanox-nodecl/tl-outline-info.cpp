@@ -202,8 +202,41 @@ namespace TL { namespace Nanox {
     }
 
 
+    void OutlineInfoRegisterEntities::add_shared_alloca(Symbol sym)
+    {
+        ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_ALLOCA);
+
+        if (is_new)
+        {
+            Type t = sym.get_type();
+            if (t.is_any_reference())
+            {
+                t = t.references_to();
+            }
+
+            if (t.is_array())
+            {
+                t = t.array_element().get_pointer_to();
+            }
+
+            outline_info.set_field_type(t.get_unqualified_type());
+
+            TL::Type in_outline_type = t.get_unqualified_type();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
     // Only used in task expressions to store the return results
-    void OutlineInfoRegisterEntities::add_alloca(Symbol sym)
+    void OutlineInfoRegisterEntities::add_alloca(Symbol sym, TL::DataReference& data_ref)
     {
         ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
 
@@ -214,7 +247,7 @@ namespace TL { namespace Nanox {
 
         if (is_new)
         {
-            Type t = sym.get_type();
+            Type t = data_ref.get_type();
             if (t.is_any_reference())
             {
                 t = t.references_to();
@@ -646,7 +679,7 @@ namespace TL { namespace Nanox {
 
             if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
             {
-                add_alloca(sym);
+                add_shared_alloca(sym);
             }
             else
             {
@@ -903,7 +936,7 @@ namespace TL { namespace Nanox {
 
                     TL::Symbol sym = data_ref.get_base_symbol();
 
-                    add_alloca(sym);
+                    add_alloca(sym, data_ref);
                 }
             }
 
