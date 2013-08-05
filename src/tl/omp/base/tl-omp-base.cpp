@@ -481,6 +481,7 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase update_join_task(const Nodecl::NodeclBase& enclosing_stmt)
             {
                 Nodecl::NodeclBase new_enclosing_stmt = enclosing_stmt.shallow_copy();
+
                 ERROR_CONDITION(!new_enclosing_stmt.is<Nodecl::ExpressionStatement>(),
                         "Unexepected node %d\n",
                         ast_print_node_type(new_enclosing_stmt.get_kind()));
@@ -500,34 +501,7 @@ namespace TL { namespace OpenMP {
                 // Obtain the nonlocal symbols from the right expression
                 std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
 
-
-                Nodecl::List new_environment;
-                // Remove the dependences defined by the user
-                for (Nodecl::List::iterator it = environment.begin();
-                        it != environment.end();
-                        it++)
-                {
-                    bool found = false;
-                    TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_all_symbols_first_occurrence(*it);
-                    for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
-                            it2 != nonlocal_symbols.end() && !found;
-                            ++it2)
-                    {
-                        TL::Symbol sym = it2->get_symbol();
-                        std::cerr << sym.get_name() <<  std::endl;
-                        // if (!sym.is_variable()
-                        //         || (sym.is_member()
-                        //             && !sym.is_static()))
-                        //     continue;
-                        found = return_arguments.find(sym) != return_arguments.end();
-                    }
-
-                    if (!found)
-                    {
-                        new_environment.append(*it);
-                    }
-                }
-
+                Nodecl::List new_environment = environment;
 
                 TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(task_call);
                 for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
@@ -555,6 +529,7 @@ namespace TL { namespace OpenMP {
                                 sym.get_type().points_to().get_lvalue_reference_to(),
                                 make_locus("", 0, 0)));
 
+                    // FIXME: What happens with copies?
                     // copy_in.append(
                     //         Nodecl::Dereference::make(
                     //             sym_nodecl.shallow_copy(),
@@ -563,7 +538,6 @@ namespace TL { namespace OpenMP {
 
                     // Remove this item from the return arguments set!
                     return_arguments.erase(it_sym);
-
                 }
 
                 // The resting return arguments are added as alloca expressions (i. e. they need to be allocated in the
