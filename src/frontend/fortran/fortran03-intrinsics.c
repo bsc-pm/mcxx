@@ -303,6 +303,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, isnan, "X", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
@@ -3081,6 +3082,25 @@ scope_entry_t* compute_intrinsic_hostnm(scope_entry_t* symbol UNUSED_PARAMETER,
                     t0);
         }
     }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_isnan(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL(symbol, "isnan", fortran_get_default_logical_type(), t0);
+    }
+
     return NULL;
 }
 
@@ -6182,7 +6202,6 @@ scope_entry_t* compute_intrinsic_xor(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-
     if (num_arguments != 2)
         return NULL;
 
