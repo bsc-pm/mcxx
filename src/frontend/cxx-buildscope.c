@@ -2183,7 +2183,7 @@ void build_scope_decl_specifier_seq(AST a,
                 *type_info = get_error_type();
                 return;
             }
-            *type_info = get_mask_type(type_get_size(*type_info));
+            *type_info = get_mask_type(/* mask_size_bits */ 8 * type_get_size(*type_info));
         }
 
         // cv-qualification

@@ -1945,6 +1945,17 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         rhs_type = enum_type_get_underlying_type(rhs_type);
     }
 
+    char is_mask = is_mask_type(lhs_type)
+        || is_mask_type(rhs_type);
+    if (is_mask_type(lhs_type))
+    {
+        lhs_type = mask_type_get_underlying_type(lhs_type);
+    }
+    if (is_mask_type(rhs_type))
+    {
+        rhs_type = mask_type_get_underlying_type(rhs_type);
+    }
+
     char is_complex = is_complex_type(lhs_type)
         || is_complex_type(rhs_type); 
 
@@ -2096,6 +2107,11 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     if (is_complex)
     {
         result = get_complex_type(result);
+    }
+
+    if (is_mask)
+    {
+        result = get_mask_type(type_get_size(result) * 8);
     }
 
     return result;
