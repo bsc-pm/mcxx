@@ -767,13 +767,27 @@ namespace TL
         {
             walk(n.get_nest());
 
-            const Nodecl::VectorConversion vector_conv =
-                Nodecl::VectorConversion::make(
-                        n.get_nest().shallow_copy(),
-                        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
-                        n.get_locus());
+            if(Utils::is_all_one_mask(_environment._mask_list.back()))
+            {
+                const Nodecl::VectorConversion vector_conv =
+                    Nodecl::VectorConversion::make(
+                            n.get_nest().shallow_copy(),
+                            Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
+                            n.get_locus());
 
-            n.replace(vector_conv);
+                n.replace(vector_conv);
+            }
+            else
+            {
+                const Nodecl::MaskedVectorConversion vector_conv =
+                    Nodecl::MaskedVectorConversion::make(
+                            n.get_nest().shallow_copy(),
+                            _environment._mask_list.back().shallow_copy(),
+                            Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
+                            n.get_locus());
+
+                n.replace(vector_conv);
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)

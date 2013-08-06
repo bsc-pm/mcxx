@@ -24,19 +24,23 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "tl-vector-lowering-knc.hpp"
+#include "tl-vector-legalization-knc.hpp"
 #include "tl-source.hpp"
+
+#define NUM_8B_ELEMENTS 8
+#define NUM_4B_ELEMENTS 16
 
 namespace TL 
 {
     namespace Vectorization
     {
-        KNCVectorLowering::KNCVectorLowering() 
-            : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()), _vector_length(64) 
+        KNCVectorLegalization::KNCVectorLegalization() 
+            : _vector_length(KNC_VECTOR_LENGTH) 
         {
+            std::cerr << "--- KNC legalization phase ---" << std::endl;
         }
 
-        void KNCVectorLowering::visit(const Nodecl::ObjectInit& node) 
+        void KNCVectorLegalization::visit(const Nodecl::ObjectInit& node) 
         {
             TL::Source intrin_src;
             
@@ -53,7 +57,8 @@ namespace TL
             }
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorAdd& node) 
+#if 0        
+        void KNCVectorLegalization::visit(const Nodecl::VectorAdd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -77,7 +82,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -97,7 +102,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorAdd& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorAdd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef;
@@ -123,7 +128,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -158,7 +163,7 @@ namespace TL
         }                                                 
 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMinus& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorMinus& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src;
@@ -181,7 +186,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -201,7 +206,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorMinus& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorMinus& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef;
@@ -227,7 +232,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -261,7 +266,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMul& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorMul& node) 
         {
             TL::Type result_type = node.get_type().basic_type();
             TL::Type first_op_type = node.get_rhs().get_type().basic_type();
@@ -311,7 +316,7 @@ namespace TL
              */ 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -328,7 +333,7 @@ namespace TL
             node.replace(function_call);
         }    
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorMul& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorMul& node) 
         {
             TL::Type result_type = node.get_type().basic_type();
             TL::Type first_op_type = node.get_rhs().get_type().basic_type();
@@ -375,7 +380,7 @@ namespace TL
              */ 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -409,7 +414,7 @@ namespace TL
             node.replace(function_call);
         }    
 
-        void KNCVectorLowering::visit(const Nodecl::VectorDiv& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorDiv& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src;
@@ -433,7 +438,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -453,7 +458,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorDiv& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorDiv& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef;
@@ -479,7 +484,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -513,7 +518,7 @@ namespace TL
             node.replace(function_call);
         }    
 
-        void KNCVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorLowerThan& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -537,7 +542,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -559,7 +564,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorLowerOrEqualThan& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorLowerOrEqualThan& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -583,7 +588,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -605,7 +610,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorGreaterThan& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorGreaterThan& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -629,7 +634,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }     
@@ -651,7 +656,7 @@ namespace TL
             node.replace(function_call);
         }   
 
-        void KNCVectorLowering::visit(const Nodecl::VectorGreaterOrEqualThan& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorGreaterOrEqualThan& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -676,7 +681,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }     
@@ -698,7 +703,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorEqual& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorEqual& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -722,7 +727,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -745,7 +750,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorDifferent& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorDifferent& node)
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -769,7 +774,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -794,7 +799,7 @@ namespace TL
 
 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseAnd& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorBitwiseAnd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -812,7 +817,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -835,7 +840,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorBitwiseAnd& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorBitwiseAnd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -853,7 +858,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -886,7 +891,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-       void KNCVectorLowering::visit(const Nodecl::VectorBitwiseOr& node) 
+       void KNCVectorLegalization::visit(const Nodecl::VectorBitwiseOr& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -903,7 +908,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -926,7 +931,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorBitwiseOr& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorBitwiseOr& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -943,7 +948,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -978,7 +983,7 @@ namespace TL
         }                                                 
 
  
-        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseXor& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorBitwiseXor& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -996,7 +1001,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1021,7 +1026,7 @@ namespace TL
         }   
 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorBitwiseXor& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorBitwiseXor& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -1039,7 +1044,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1075,13 +1080,13 @@ namespace TL
         }   
 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorLogicalOr& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorLogicalOr& node) 
         { 
-            running_error("KNC Lowering %s: 'logical or' operation (i.e., operator '||') is not supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
+            running_error("KNC Legalization %s: 'logical or' operation (i.e., operator '||') is not supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                     locus_to_str(node.get_locus()));
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorNeg& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorNeg& node) 
         {
             TL::Type type = node.get_type().basic_type();
 
@@ -1113,7 +1118,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             } 
@@ -1129,7 +1134,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorNeg& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorNeg& node) 
         {
             TL::Type type = node.get_type().basic_type();
             Nodecl::NodeclBase mask = node.get_mask();
@@ -1181,7 +1186,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             } 
@@ -1206,86 +1211,104 @@ namespace TL
 
             node.replace(function_call);
         }                                                 
+#endif
 
 
-
-        void KNCVectorLowering::visit(const Nodecl::VectorConversion& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorConversion& node) 
         {
-            const TL::Type& src_vector_type = node.get_nest().get_type().get_unqualified_type();
-            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type();
+            const TL::Type& src_vector_type = node.get_nest().get_type().get_unqualified_type().no_ref();
+            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
             const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
             const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
+//            const int src_type_size = src_type.get_size();
+//            const int dst_type_size = dst_type.get_size();
+
+            printf("Conversion from %s(%s) to %s(%s)\n",
+                    src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
+
             const unsigned int src_num_elements = src_vector_type.vector_num_elements();
             const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
-            TL::Source intrin_src, intrin_name;
+            walk(node.get_nest());
+
+            if ((src_type.is_float() || 
+                        src_type.is_signed_int() ||
+                        src_type.is_unsigned_int()) 
+                    && (src_num_elements < NUM_4B_ELEMENTS))
+            {
+                if(src_num_elements == 8)
+                {
+                    node.get_nest().set_type(src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                }
+
+                if ((dst_type.is_float() || 
+                            dst_type.is_signed_int() ||
+                            dst_type.is_unsigned_int()) 
+                        && (dst_num_elements < NUM_4B_ELEMENTS))
+                {
+                    if(dst_num_elements == 8)
+                    {
+                        Nodecl::NodeclBase new_node = node.shallow_copy();
+                        new_node.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                        node.replace(new_node);
+                    }
+
+                } 
+            } 
+        }
+
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorConversion& node) 
+        {
+            const TL::Type& src_vector_type = node.get_nest().get_type().get_unqualified_type().no_ref();
+            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
+            const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
+            const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
+//            const int src_type_size = src_type.get_size();
+//            const int dst_type_size = dst_type.get_size();
+
+            printf("Masked conversion from %s(%s) to %s(%s)\n",
+                    src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
+
+            const unsigned int src_num_elements = src_vector_type.vector_num_elements();
+            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
             walk(node.get_nest());
 
-            intrin_src << intrin_name
-                << "("
-                << as_expression(node.get_nest())
-                << ", "
-                << "_MM_ROUND_MODE_NEAREST"
-                << ", "
-                << "_MM_EXPADJ_NONE"
-                << ")"
-                ;
-
-            if (src_type.is_same_type(dst_type))
+            if ((src_type.is_float() || 
+                        src_type.is_signed_int() ||
+                        src_type.is_unsigned_int()) 
+                    && (src_num_elements < NUM_4B_ELEMENTS))
             {
-                node.replace(node.get_nest());
-                return;
-            }
-            else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
-                    (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
-                    (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
-                    (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
-            {
-                node.replace(node.get_nest());
-                return;
-            }
-            else if (src_type.is_signed_int() &&
-                    dst_type.is_float()) 
-            { 
-                intrin_name << "_mm512_cvtfxpnt_round_adjustepi32_ps";
+                if(src_num_elements == 8)
+                {
+                    node.get_nest().set_type(src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                }
             } 
-            else if (src_type.is_unsigned_int() &&
-                    dst_type.is_float()) 
-            { 
-                intrin_name << "_mm512_cvtfxpnt_round_adjustepu32_ps";
+
+            if ((dst_type.is_float() || 
+                        dst_type.is_signed_int() ||
+                        dst_type.is_unsigned_int()) 
+                    && (dst_num_elements < NUM_4B_ELEMENTS))
+            {
+                if(dst_num_elements == 8)
+                {
+                    Nodecl::NodeclBase new_node = node.shallow_copy();
+                    new_node.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                    node.replace(new_node);
+                }
+
             } 
-            else if (src_type.is_float() &&
-                    dst_type.is_signed_int()) 
-            { 
-                // C/C++ requires truncated conversion
-                intrin_name << "_mm512_cvtfxpnt_round_adjustps_epi32";
-            }
-            else if (src_type.is_float() &&
-                    dst_type.is_unsigned_int()) 
-            { 
-                // C/C++ requires truncated conversion
-                intrin_name << "_mm512_cvtfxpnt_round_adjustps_epu32";
-            }
-            else if ((src_type.is_float() && (src_num_elements == 8)) &&
-                    dst_type.is_double() && (dst_num_elements == 8))
-            {
-                intrin_name << "_mm512_cvtpslo_pd";
-            }
-            else
-            {
-                fprintf(stderr, "KNC Lowering: Conversion at '%s' is not supported yet: %s\n", 
-                        locus_to_str(node.get_locus()),
-                        node.get_nest().prettyprint().c_str());
-            }   
 
-            Nodecl::NodeclBase function_call =
-                intrin_src.parse_expression(node.retrieve_context());
-
-            node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorConversion& node) 
+#if 0
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorConversion& node) 
         {
             const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
             const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
@@ -1346,7 +1369,7 @@ namespace TL
             }
             else
             {
-                fprintf(stderr, "KNC Lowering: Conversion at '%s' is not supported yet: %s\n", 
+                fprintf(stderr, "KNC Legalization: Conversion at '%s' is not supported yet: %s\n", 
                         locus_to_str(node.get_locus()),
                         node.get_nest().prettyprint().c_str());
             }   
@@ -1369,7 +1392,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorPromotion& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorPromotion& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -1405,7 +1428,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1422,7 +1445,7 @@ namespace TL
             node.replace(function_call);
         }        
 
-        void KNCVectorLowering::visit(const Nodecl::VectorLiteral& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorLiteral& node) 
         {
             TL::Type vector_type = node.get_type();
             TL::Type scalar_type = vector_type.basic_type();
@@ -1458,7 +1481,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported scalar_type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported scalar_type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1492,7 +1515,7 @@ namespace TL
             node.replace(function_call);
         }        
 
-        void KNCVectorLowering::visit(const Nodecl::VectorConditionalExpression& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorConditionalExpression& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -1525,7 +1548,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1549,7 +1572,7 @@ namespace TL
             node.replace(function_call);
         }        
 
-        void KNCVectorLowering::visit(const Nodecl::VectorAssignment& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorAssignment& node) 
         {
             TL::Source intrin_src;
 
@@ -1566,7 +1589,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorAssignment& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorAssignment& node) 
         {
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, intrin_name, args, dst;
@@ -1617,7 +1640,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorLoad& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, intrin_name, args;
@@ -1653,7 +1676,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1668,7 +1691,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorLoad& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, undef, casting;
@@ -1701,7 +1724,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1732,7 +1755,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorLoad& node) 
+        void KNCVectorLegalization::visit(const Nodecl::UnalignedVectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, intrin_name_hi, intrin_name_lo, args_lo, args_hi, undef, ext;
@@ -1782,7 +1805,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1815,7 +1838,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedMaskedVectorLoad& node) 
+        void KNCVectorLegalization::visit(const Nodecl::UnalignedMaskedVectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Source intrin_src, intrin_name_hi, intrin_name_lo, args_lo, args_hi, undef, ext;
@@ -1864,7 +1887,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1913,7 +1936,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorStore& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
             TL::Source intrin_src;
@@ -1939,7 +1962,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1958,7 +1981,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorStore& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
             TL::Source intrin_src;
@@ -1984,7 +2007,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2006,7 +2029,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorStore& node) 
+        void KNCVectorLegalization::visit(const Nodecl::UnalignedVectorStore& node) 
         { 
             TL::Source intrin_src, intrin_name_hi, intrin_name_lo, args_lo, args_hi, tmp_var, ext;
             TL::Type type = node.get_lhs().get_type().basic_type();
@@ -2054,7 +2077,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2093,7 +2116,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedMaskedVectorStore& node) 
+        void KNCVectorLegalization::visit(const Nodecl::UnalignedMaskedVectorStore& node) 
         { 
             TL::Source intrin_src, intrin_name_hi, intrin_name_lo, args_lo, args_hi, tmp_var, ext;
             TL::Type type = node.get_lhs().get_type().basic_type();
@@ -2140,7 +2163,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2184,7 +2207,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorGather& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorGather& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
@@ -2206,14 +2229,14 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
 
             if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2239,7 +2262,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorGather& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorGather& node) 
         { 
             TL::Type type = node.get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
@@ -2263,14 +2286,14 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
 
             if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2310,7 +2333,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorScatter& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorScatter& node) 
         { 
             TL::Type type = node.get_source().get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
@@ -2325,7 +2348,7 @@ namespace TL
             // Indexes
             if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
             { 
-                running_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2343,7 +2366,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2373,7 +2396,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorScatter& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorScatter& node) 
         { 
             TL::Type type = node.get_source().get_type().basic_type();
             TL::Type index_type = node.get_strides().get_type().basic_type();
@@ -2388,7 +2411,7 @@ namespace TL
             // Indexes
             if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
             { 
-                running_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2406,7 +2429,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -2439,7 +2462,7 @@ namespace TL
             node.replace(function_call);
         }
  
-        void KNCVectorLowering::visit(const Nodecl::VectorFunctionCall& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorFunctionCall& node) 
         {
             Nodecl::FunctionCall function_call =
                 node.get_function_call().as<Nodecl::FunctionCall>();
@@ -2449,7 +2472,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorFunctionCall& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorFunctionCall& node) 
         {
             Nodecl::FunctionCall function_call =
                 node.get_function_call().as<Nodecl::FunctionCall>();
@@ -2529,7 +2552,7 @@ namespace TL
                 }
                 else
                 {
-                    running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
+                    running_error("KNC Legalization: Node %s at %s has an unsupported source type.", 
                             ast_print_node_type(node.get_kind()),
                             locus_to_str(node.get_locus()));
                 }
@@ -2554,7 +2577,7 @@ namespace TL
             }
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorFabs& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorFabs& node) 
         {
             TL::Type type = node.get_type().basic_type();
 
@@ -2599,7 +2622,7 @@ namespace TL
                 else
                 {
                 */
-                    running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                    running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                             ast_print_node_type(node.get_kind()),
                             locus_to_str(node.get_locus()));
                 //}
@@ -2611,7 +2634,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::MaskedVectorFabs& node) 
+        void KNCVectorLegalization::visit(const Nodecl::MaskedVectorFabs& node) 
         {
             TL::Type type = node.get_type().basic_type();
 
@@ -2635,7 +2658,7 @@ namespace TL
                 } 
                 else
                 {
-                    running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                    running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                             ast_print_node_type(node.get_kind()),
                             locus_to_str(node.get_locus()));
                 }
@@ -2695,7 +2718,7 @@ namespace TL
                 else
                 {
                 */
-                    running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                    running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                             ast_print_node_type(node.get_kind()),
                             locus_to_str(node.get_locus()));
                 //}
@@ -2707,7 +2730,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::ParenthesizedExpression& node)
+        void KNCVectorLegalization::visit(const Nodecl::ParenthesizedExpression& node)
         {
             walk(node.get_nest());
 
@@ -2716,7 +2739,7 @@ namespace TL
             node.replace(n);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorReductionAdd& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -2740,7 +2763,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Legalization: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -2761,13 +2784,13 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorReductionMinus& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorReductionMinus& node) 
         {
             // OpenMP defines reduction(-:a) in the same way as reduction(+:a)
             visit(node.as<Nodecl::VectorReductionAdd>());
         }        
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskAssignment& node)
         {
             TL::Source intrin_src, mask_cast;
 
@@ -2796,7 +2819,7 @@ namespace TL
         }
 
         //TODO
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskConversion& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskConversion& node)
         {
             walk(node.get_nest());
 
@@ -2807,7 +2830,7 @@ namespace TL
 
 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskNot& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskNot& node)
         {
             TL::Source intrin_src;
 
@@ -2824,7 +2847,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskAnd& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskAnd& node)
         {
             TL::Source intrin_src;
 
@@ -2844,7 +2867,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskOr& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskOr& node)
         {
             TL::Source intrin_src;
 
@@ -2864,7 +2887,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskAnd1Not& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskAnd1Not& node)
         {
             TL::Source intrin_src;
 
@@ -2884,7 +2907,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskAnd2Not& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskAnd2Not& node)
         {
             TL::Source intrin_src;
 
@@ -2904,7 +2927,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorMaskXor& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorMaskXor& node)
         {
             TL::Source intrin_src;
 
@@ -2925,7 +2948,7 @@ namespace TL
         }
 
 
-        void KNCVectorLowering::visit(const Nodecl::MaskLiteral& node)
+        void KNCVectorLegalization::visit(const Nodecl::MaskLiteral& node)
         {
             Nodecl::IntegerLiteral int_mask = 
                 Nodecl::IntegerLiteral::make(
@@ -2934,10 +2957,10 @@ namespace TL
 
             node.replace(int_mask);
         }
-
-        Nodecl::NodeclVisitor<void>::Ret KNCVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
+#endif
+        Nodecl::NodeclVisitor<void>::Ret KNCVectorLegalization::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            running_error("KNC Lowering:º Unknown node %s at %s.",
+            running_error("KNC Legalization: Unknown node %s at %s.",
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
 

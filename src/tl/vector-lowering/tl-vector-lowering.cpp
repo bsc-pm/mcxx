@@ -26,6 +26,7 @@
 
 #include "tl-vector-lowering.hpp"
 #include "tl-vector-lowering-sse.hpp"
+#include "tl-vector-legalization-knc.hpp"
 #include "tl-vector-lowering-knc.hpp"
 
 namespace TL
@@ -55,6 +56,11 @@ namespace TL
            
             if(_mic_enabled)
             { 
+                // KNC Legalization phase
+                KNCVectorLegalization knc_vector_legalization;
+                knc_vector_legalization.walk(translation_unit);
+
+                // Lowering to intrinsics
                 KNCVectorLowering knc_vector_lowering;
                 knc_vector_lowering.walk(translation_unit);
             }

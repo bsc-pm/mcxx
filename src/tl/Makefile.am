@@ -26,18 +26,18 @@
 
 END=
 
-SUBDIRS = . codegen analysis vectorizer omp vector-lowering hlt @TL_EXTRAS@
+SUBDIRS = . vectorizer vector-lowering omp codegen analysis hlt @TL_EXTRAS@
 
-DIST_SUBDIRS= analysis \
-              vectorizer \
+DIST_SUBDIRS= vectorizer \
+              vector-lowering \
               omp \
+              analysis \
               instr \
               examples \
               old_examples \
               testing \
               hlt \
               old_hlt \
-              vector-lowering \
               codegen \
               $(END)
 

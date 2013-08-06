@@ -24,44 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../Makefile.phases
+include ../../../Makefile.phases
 
-SUBDIRS = sse knc .
-
-
-phases_LTLIBRARIES = libtlvector-lowering.la
+phases_LTLIBRARIES = libtlvector-legalization-knc.la
 
 END=
 
-libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
-                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/lowering \
-                               -I $(top_srcdir)/src/tl/vectorizer/ \
-                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                               -I $(top_srcdir)/src/tl/analysis/common/ \
-                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                               $(END)
-
-libtlvector_lowering_la_CXXFLAGS=$(tl_cflags) -Wall \
-                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/lowering \
-                               -I $(top_srcdir)/src/tl/vectorizer/ \
-                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                               -I $(top_srcdir)/src/tl/analysis/common/ \
-                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                               $(END)
-
-libtlvector_lowering_la_LDFLAGS = $(tl_ldflags)
-
-libtlvector_lowering_la_SOURCES = \
-    tl-vector-lowering.cpp \
-    tl-vector-lowering.hpp \
-	$(END)
-
-libtlvector_lowering_la_LIBADD = \
-    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
-    $(top_builddir)/src/tl/vector-lowering/knc/legalization/libtlvector-legalization-knc.la \
-    $(top_builddir)/src/tl/vector-lowering/knc/lowering/libtlvector-lowering-knc.la \
+libtlvector_legalization_knc_la_CFLAGS = $(tl_cflags) \
     $(END)
+
+libtlvector_legalization_knc_la_CXXFLAGS = $(tl_cflags) \
+    $(END)
+
+libtlvector_legalization_knc_la_LDFLAGS = $(tl_ldflags)
+libtlvector_legalization_knc_la_LIBADD = \
+$(END)
+
+libtlvector_legalization_knc_la_SOURCES = \
+     tl-vector-legalization-knc.hpp \
+     tl-vector-legalization-knc.cpp \
+     $(END)
