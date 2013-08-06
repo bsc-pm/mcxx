@@ -10384,6 +10384,29 @@ static void check_nodecl_member_access(
                     lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                     nodecl_get_locus(nodecl_accessed));
         }
+        else if (entry->kind == SK_ENUMERATOR)
+        {
+            ok = 1;
+
+            *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed));
+            nodecl_set_type(*nodecl_output, entry->type_information);
+
+            if (nodecl_expr_is_value_dependent(entry->value))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
+                            nodecl_locus_to_str(nodecl_accessed), codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)));
+                }
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
+            else
+            {
+                ERROR_CONDITION(!nodecl_is_constant(entry->value), "This should be constant", 0);
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+            }
+
+        }
         // In C++ if we have overload remember it
         else if (entry->kind == SK_FUNCTION
                 || entry->kind == SK_TEMPLATE)
