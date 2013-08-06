@@ -1342,16 +1342,6 @@ static void check_array_ref_(
                 nodecl_indexes,
                 num_subscripts);
 
-        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(subconstant);
-        if (!nodecl_is_null(nodecl_const_val))
-        {
-            nodecl_t nodecl_old = *nodecl_output;
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, synthesized_type);
-
-            nodecl_set_locus_as(*nodecl_output, nodecl_old);
-        }
-
         nodecl_set_constant(*nodecl_output, subconstant);
     }
 }
@@ -1982,19 +1972,6 @@ static void check_component_ref_(AST expr,
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
-        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
-        if (!nodecl_is_null(nodecl_const_val)
-                // Avoid NULL() be converted to 0
-                && !is_pointer_type(component_symbol->type_information))
-        {
-            nodecl_t nodecl_old = *nodecl_output;
-            type_t* orig_type = nodecl_get_type(*nodecl_output);
-
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, orig_type);
-
-            nodecl_set_locus_as(*nodecl_output, nodecl_old);
-        }
 
         nodecl_set_constant(*nodecl_output, const_value_member);
     }
