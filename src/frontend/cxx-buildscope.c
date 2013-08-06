@@ -1974,7 +1974,9 @@ void build_scope_decl_specifier_seq(AST a,
             || gather_info->is_short
             || gather_info->is_long
             || gather_info->is_complex
-            || gather_info->is_boolean_integer)
+            // Mercurium extension
+            || gather_info->is_boolean_integer
+            || gather_info->is_mask_integer)
     {
 
         if (type_spec == NULL)
@@ -1984,7 +1986,8 @@ void build_scope_decl_specifier_seq(AST a,
                     || gather_info->is_short
                     || gather_info->is_long
                     // Mercurium extension
-                    || gather_info->is_boolean_integer)
+                    || gather_info->is_boolean_integer
+                    || gather_info->is_mask_integer)
             {
                 // Manually add the int tree to make things easier
                 ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
@@ -2157,7 +2160,30 @@ void build_scope_decl_specifier_seq(AST a,
         // Mercurium extension
         if (gather_info->is_boolean_integer)
         {
+            if (!is_integer_type(*type_info))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: a boolean type requires an integer type\n", ast_location(a));
+                }
+                *type_info = get_error_type();
+                return;
+            }
             *type_info = get_bool_of_integer_type(*type_info);
+        }
+
+        if (gather_info->is_mask_integer)
+        {
+            if (!is_integer_type(*type_info))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: a mask type requires an integer type\n", ast_location(a));
+                }
+                *type_info = get_error_type();
+                return;
+            }
+            *type_info = get_mask_type(/* mask_size_bits */ 8 * type_get_size(*type_info));
         }
 
         // cv-qualification
@@ -2276,6 +2302,11 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // Mercurium extensions
         case AST_MCC_BOOL:
             gather_info->is_boolean_integer = 1;
+            break;
+        case AST_MCC_MASK:
+            gather_info->is_mask_integer = 1;
+            // Currently masks are always unsigned types
+            gather_info->is_unsigned = 1;
             break;
             // UPC extensions
         case AST_UPC_SHARED :

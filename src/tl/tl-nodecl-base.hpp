@@ -180,13 +180,9 @@ namespace Nodecl {
                     void next()
                     {
                         if (nodecl_get_ast(_current) == nodecl_get_ast(_top))
-                        {
                             _current = nodecl_null();
-                        }
                         else
-                        {
                             _current = nodecl_get_parent(_current);
-                        }
                     }
 
                     void previous()
@@ -357,8 +353,197 @@ namespace Nodecl {
                     friend class List;
             };
 
+            struct reverse_iterator : std::iterator<std::bidirectional_iterator_tag, Nodecl::NodeclBase>
+            {
+                public:
+
+                private:
+                    nodecl_t _top;
+                    nodecl_t _current;
+
+                    mutable std::vector<Nodecl::NodeclBase*> _cleanup;
+
+                    // This is iterator::next
+                    void previous()
+                    {
+                        if (nodecl_get_ast(_current) == nodecl_get_ast(_top))
+                            _current = nodecl_null();
+                        else
+                            _current = nodecl_get_parent(_current);
+                    }
+
+                    // This is iterator::previous
+                    void next()
+                    {
+                        if( nodecl_is_null( _current ) )
+                            _current = _top;
+                        else
+                            _current = nodecl_get_child(_current, 0);
+                    }
+
+                    void rewind()
+                    {
+                        _current = _top;
+                        if (nodecl_is_null(_current))
+                            return;
+
+                        while (!nodecl_is_null(nodecl_get_child(_current, 0)))
+                        {
+                            _current = nodecl_get_child(_current, 0);
+                        }
+                    }
+                public:
+                    bool operator==(const reverse_iterator& it) const
+                    {
+                        return (nodecl_get_ast(this->_current) == nodecl_get_ast(it._current))
+                            && (nodecl_get_ast(this->_top) == nodecl_get_ast(it._top));
+                    }
+
+                    bool operator!=(const reverse_iterator& it) const
+                    {
+                        return !this->operator==(it);
+                    }
+
+                    Nodecl::NodeclBase operator*() const
+                    {
+                        return Nodecl::NodeclBase(nodecl_get_child(_current, 1));
+                    }
+
+                    Nodecl::NodeclBase* operator->() const
+                    {
+                        Nodecl::NodeclBase* p = new Nodecl::NodeclBase(nodecl_get_child(_current, 1));
+
+                        _cleanup.push_back(p);
+
+                        return p;
+                    }
+
+                    reverse_iterator(const reverse_iterator& it)
+                        : _top(it._top), _current(it._current),
+                        // Transfer cleanup ownership
+                        _cleanup(it._cleanup)
+                    {
+                        it._cleanup.clear();
+                    }
+
+                    reverse_iterator& operator=(const reverse_iterator& it)
+                    {
+                        if (this != &it)
+                        {
+                            this->_top = it._top;
+                            this->_current = it._current;
+
+                            // Transfer cleanup ownership
+                            for (std::vector<Nodecl::NodeclBase*>::iterator it2 = it._cleanup.begin();
+                                    it2 != it._cleanup.end();
+                                    it2++)
+                            {
+                                this->_cleanup.push_back(*it2);
+                            }
+
+                            it._cleanup.clear();
+                        }
+                        return *this;
+                    }
+
+                    ~reverse_iterator()
+                    {
+                        for (std::vector<Nodecl::NodeclBase*>::iterator it = _cleanup.begin();
+                                it != _cleanup.end();
+                                it++)
+                        {
+                            Nodecl::NodeclBase* p = *it;
+                            delete p;
+                        }
+                    }
+
+                    reverse_iterator operator+(int n)
+                    {
+                        reverse_iterator it(*this);
+                        for (int i = 0; i < n; i++)
+                        {
+                            it.next();
+                        }
+                        return it;
+                    }
+
+                    reverse_iterator operator-(int n)
+                    {
+                        reverse_iterator it(*this);
+                        for (int i = 0; i < n; i++)
+                        {
+                            it.previous();
+                        }
+                        return it;
+                    }
+
+                    // it++
+                    reverse_iterator operator++(int)
+                    {
+                        reverse_iterator t(*this);
+
+                        this->next();
+
+                        return t;
+                    }
+
+                    // ++it
+                    reverse_iterator operator++()
+                    {
+                        this->next();
+                        return *this;
+                    }
+
+                    // it--
+                    reverse_iterator operator--(int)
+                    {
+                        reverse_iterator t(*this);
+
+                        this->previous();
+
+                        return t;
+                    }
+
+                    // --it
+                    reverse_iterator operator--()
+                    {
+                        this->previous();
+                        return *this;
+                    }
+
+                    private:
+                    // Constructors (only to be used by Nodecl::List)
+                    struct Begin { };
+                    struct Last { };
+                    struct End { };
+
+                    reverse_iterator(nodecl_t top, nodecl_t current)
+                        : _top(top), _current(current), _cleanup()
+                    {
+                    }
+
+                    reverse_iterator(nodecl_t top, Begin)
+                        : _top(top), _current(top), _cleanup()
+                    {
+                    }
+
+                    reverse_iterator(nodecl_t top, Last)
+                        : _top(top), _current(), _cleanup()
+                    {
+                        rewind();
+                    }
+
+                    reverse_iterator(nodecl_t top, End)
+                        : _top(top), _current(), _cleanup()
+                    {
+                    }
+
+                    friend class List;
+            };
+
             // Refine this
             typedef iterator const_iterator;
+            typedef reverse_iterator reverse_const_iterator;
 
             List()
                 : NodeclBase()
@@ -399,6 +584,27 @@ namespace Nodecl {
             const_iterator end() const
             {
                 return const_iterator(this->get_internal_nodecl(), const_iterator::End());
+            }
+
+            // Reverse iterator
+            reverse_iterator rbegin()
+            {
+                return reverse_iterator(this->get_internal_nodecl(), reverse_iterator::Begin());
+            }
+
+            reverse_const_iterator rbegin() const
+            {
+                return reverse_const_iterator(this->get_internal_nodecl(), reverse_const_iterator::Begin());
+            }
+
+            reverse_iterator rend()
+            {
+                return reverse_iterator(this->get_internal_nodecl(), reverse_iterator::End());
+            }
+
+            reverse_const_iterator rend() const
+            {
+                return reverse_const_iterator(this->get_internal_nodecl(), reverse_iterator::End());
             }
 
             size_t size() const

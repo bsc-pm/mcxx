@@ -267,15 +267,16 @@ namespace TL { namespace Nanox {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         // Do nothing
                         break;
                     }
                 case OutlineDataItem::SHARING_SHARED:
                 case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
+                case OutlineDataItem::SHARING_SHARED_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
-                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
 

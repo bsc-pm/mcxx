@@ -1257,8 +1257,11 @@ type {
 @ref@ { parse_token_text(); return '&'; }
  /*!endif*/
 
-@byte@ { parse_token_text(); return MCC_BYTE; }
+@mcc_byte@ { parse_token_text(); return MCC_BYTE; }
+@byte@     { /* Deprecated */
+             parse_token_text(); return MCC_BYTE; }
 @mcc_bool@ { parse_token_text(); return MCC_BOOL; }
+@mcc_mask@ { parse_token_text(); return MCC_MASK; }
 
 @reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 

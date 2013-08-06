@@ -7421,7 +7421,8 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
-                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), this->get_current_scope());
+                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), 
+                        current_param.get_scope());
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }

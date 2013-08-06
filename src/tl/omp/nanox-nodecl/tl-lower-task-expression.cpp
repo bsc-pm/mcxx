@@ -33,7 +33,7 @@ namespace TL { namespace Nanox {
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
 {
-    Nodecl::OpenMP::Task join_task = task_expr.get_join_task().as<Nodecl::OpenMP::Task>();
+    Nodecl::NodeclBase join_task = task_expr.get_join_task();
     Nodecl::List task_calls = task_expr.get_task_calls().as<Nodecl::List>();
 
     if (!_lowering->final_clause_transformation_disabled()
@@ -70,10 +70,29 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
         expr_stmt.replace(if_else_tree);
     }
 
-    // Note: don't walk over the OpenMP::Task node because Its visitor ignores
-    // the placeholder and sets to false the 'inside_task_expression' boolean
     Nodecl::NodeclBase placeholder_task_expr_transformation;
-    visit_task(task_expr.get_join_task().as<Nodecl::OpenMP::Task>(), /* inside_task_expression */ true, &placeholder_task_expr_transformation);
+    if (join_task.is<Nodecl::OpenMP::Task>())
+    {
+        // Note: don't walk over the OpenMP::Task node because Its visitor ignores
+        // the placeholder and sets to false the 'inside_task_expression' boolean
+        visit_task(
+                join_task.as<Nodecl::OpenMP::Task>(),
+                /* inside_task_expression */ true,
+                &placeholder_task_expr_transformation);
+    }
+    else if (join_task.is<Nodecl::ExpressionStatement>() &&
+            join_task.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OpenMP::TaskCall>())
+    {
+        visit_task_call(
+                join_task.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::OpenMP::TaskCall>(),
+                /* inside_task_expression */ true,
+                &placeholder_task_expr_transformation);
+    }
+    else
+    {
+        internal_error("Unreachable code", 0);
+    }
+
 
     // Note: don't walk over the OpenMP::TaskCall because It's visitor sets to
     // false the 'inside_task_expression' boolean
@@ -83,7 +102,10 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::TaskExpression& task_expr)
     {
         Nodecl::ExpressionStatement current_expr_stmt = it->as<Nodecl::ExpressionStatement>();
         Nodecl::OpenMP::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
-        visit_task_call(current_task_call, /* inside_task_expression */ true);
+
+        visit_task_call(current_task_call,
+                /* inside_task_expression */ true,
+                /* placeholder_task_expr_transformation */ NULL);
 
         Nodecl::Utils::prepend_items_before(placeholder_task_expr_transformation, *it);
     }

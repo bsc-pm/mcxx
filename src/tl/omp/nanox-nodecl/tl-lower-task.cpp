@@ -688,9 +688,10 @@ void LoweringVisitor::emit_async_common(
             Nodecl::Utils::SimpleSymbolMap* symbol_map = NULL;
             device->create_outline(info_implementor, outline_placeholder, output_statements, symbol_map);
 
+            Nodecl::Utils::LabelSymbolMap label_symbol_map(symbol_map, output_statements, outline_placeholder);
 
             Nodecl::NodeclBase outline_statements_code =
-                    Nodecl::Utils::deep_copy(output_statements, outline_placeholder, *symbol_map);
+                    Nodecl::Utils::deep_copy(output_statements, outline_placeholder, label_symbol_map);
 
             outline_placeholder.replace(outline_statements_code);
 
@@ -722,14 +723,20 @@ void LoweringVisitor::emit_async_common(
                 it != data_items.end();
                 it++)
         {
-            if ((*it)->get_sharing() != OutlineDataItem::SHARING_ALLOCA)
-                continue;
-
-            TL::Symbol sym = (*it)->get_symbol();
-            update_alloca_decls_opt
-                << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
-                ;
-
+            if ((*it)->get_sharing() == OutlineDataItem::SHARING_ALLOCA)
+            {
+                TL::Symbol sym = (*it)->get_symbol();
+                update_alloca_decls_opt
+                    << sym.get_name() << " = &(ol_args->" << sym.get_name() << ");"
+                    ;
+            }
+            else if((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_ALLOCA)
+            {
+                TL::Symbol sym = (*it)->get_symbol();
+                update_alloca_decls_opt
+                    << sym.get_name() << " = &(ol_args->" << sym.get_name() << "_storage);"
+                    ;
+            }
         }
     }
 
@@ -1227,7 +1234,7 @@ void LoweringVisitor::fill_arguments(
                         }
                         break;
                     }
-                case OutlineDataItem::SHARING_ALLOCA:
+                case OutlineDataItem::SHARING_SHARED_ALLOCA:
                     {
                         fill_outline_arguments
                             << "ol_args->" << (*it)->get_field_name() << "= &(ol_args->" << (*it)->get_field_name() << "_storage);"
@@ -1270,6 +1277,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         // Do nothing
                         break;
@@ -1471,6 +1479,7 @@ void LoweringVisitor::fill_arguments(
                         break;
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         // Do nothing
                         break;

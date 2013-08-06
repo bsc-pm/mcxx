@@ -303,6 +303,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, hostnm, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, isnan, "X", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, loc, NULL, E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, lshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
@@ -3081,6 +3082,25 @@ scope_entry_t* compute_intrinsic_hostnm(scope_entry_t* symbol UNUSED_PARAMETER,
                     t0);
         }
     }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_isnan(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    type_t* t0 = no_ref(argument_types[0]);
+
+    if (is_floating_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL(symbol, "isnan", fortran_get_default_logical_type(), t0);
+    }
+
     return NULL;
 }
 
@@ -6182,7 +6202,6 @@ scope_entry_t* compute_intrinsic_xor(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
-
     if (num_arguments != 2)
         return NULL;
 
@@ -6900,6 +6919,84 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
                 ieee_arithmetic->entity_specs.num_related_symbols,
                 new_var);
+    }
+
+    // OPERATOR(==) for IEEE_CLASS_TYPE and for IEEE_ROUND_TYPE
+    //
+    // OPERATOR(==) IEEE_CLASS_TYPE
+    struct operator_eq_neq_tag
+    {
+        const char* operator_class_type;
+        const char* operator_round_type;
+        const char* operator_generic;
+    }  operator_eq_neq[] =
+    {
+        { "operator_eq_class_type",  "operator_eq_round_type",  ".operator.==" },
+        { "operator_neq_class_type", "operator_neq_round_type", ".operator./=" },
+        { NULL, NULL, NULL }
+    };
+
+    for (i = 0; operator_eq_neq[i].operator_class_type != NULL; i++)
+    {
+        scope_entry_t* new_operator_eq_class_type = NULL;
+
+        new_operator_eq_class_type = new_symbol(module_context, module_context.current_scope,
+                operator_eq_neq[i].operator_class_type);
+        new_operator_eq_class_type->kind = SK_FUNCTION;
+        new_operator_eq_class_type->locus = locus;
+        parameter_info_t eq_class_type_parameter_info[2] =
+        {
+            { 0, get_lvalue_reference_type(ieee_class_type), NULL },
+            { 0, get_lvalue_reference_type(ieee_class_type), NULL }
+        };
+        new_operator_eq_class_type->type_information =
+            get_new_function_type(
+                    fortran_get_default_logical_type(),
+                    eq_class_type_parameter_info, 2);
+        new_operator_eq_class_type->entity_specs.in_module = ieee_arithmetic;
+        new_operator_eq_class_type->entity_specs.access = AS_PRIVATE;
+
+        // OPERATOR IEEE_ROUND_TYPE
+        scope_entry_t* new_operator_eq_round_type = NULL;
+        new_operator_eq_round_type = new_symbol(module_context, module_context.current_scope,
+                operator_eq_neq[i].operator_round_type);
+        new_operator_eq_round_type->kind = SK_FUNCTION;
+        new_operator_eq_round_type->locus = locus;
+        parameter_info_t eq_round_type_parameter_info[2] =
+        {
+            { 0, get_lvalue_reference_type(ieee_round_type), NULL },
+            { 0, get_lvalue_reference_type(ieee_round_type), NULL }
+        };
+        new_operator_eq_round_type->type_information =
+            get_new_function_type(
+                    fortran_get_default_logical_type(),
+                    eq_round_type_parameter_info, 2);
+        new_operator_eq_round_type->entity_specs.in_module = ieee_arithmetic;
+        new_operator_eq_round_type->entity_specs.access = AS_PRIVATE;
+
+        // OPERATOR Generic
+        scope_entry_t* new_operator_eq = NULL;
+
+        new_operator_eq = new_symbol(module_context,
+                module_context.current_scope,
+                operator_eq_neq[i].operator_generic);
+        new_operator_eq->kind = SK_FUNCTION;
+        new_operator_eq->locus = locus;
+        new_operator_eq->type_information = get_void_type();
+        new_operator_eq->entity_specs.in_module = ieee_arithmetic;
+        new_operator_eq->entity_specs.is_generic_spec = 1;
+        new_operator_eq->entity_specs.is_implicit_basic_type = 0;
+
+        P_LIST_ADD(new_operator_eq->entity_specs.related_symbols,
+                new_operator_eq->entity_specs.num_related_symbols,
+                new_operator_eq_class_type);
+        P_LIST_ADD(new_operator_eq->entity_specs.related_symbols,
+                new_operator_eq->entity_specs.num_related_symbols,
+                new_operator_eq_round_type);
+
+        P_LIST_ADD(ieee_arithmetic->entity_specs.related_symbols,
+                ieee_arithmetic->entity_specs.num_related_symbols,
+                new_operator_eq);
     }
 }
 
