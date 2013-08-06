@@ -350,6 +350,8 @@ static void check_add_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
+static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type);
+
 static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
         nodecl_t* nodecl_output, 
         type_t** current_type, int *num_items)
@@ -388,7 +390,13 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
 
             if (do_variable == NULL)
             {
-                running_error("%s: error: unknown symbol '%s' in ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: unknown symbol '%s' in ac-implied-do\n",
+                            ast_location(ac_do_variable), ASTText(ac_do_variable));
+                }
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(ac_do_variable));
+                return;
             }
 
             if (do_variable->kind == SK_UNDEFINED)
@@ -398,7 +406,13 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             }
             else if (do_variable->kind != SK_VARIABLE)
             {
-                running_error("%s: error: invalid name '%s' for ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid name '%s' for ac-implied-do\n",
+                            ast_location(ac_do_variable), ASTText(ac_do_variable));
+                }
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(ac_do_variable));
+                return;
             }
 
             if (nodecl_is_constant(nodecl_lower)
@@ -441,6 +455,9 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
 
                         check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
 
+                        if (nodecl_is_err_expr(*nodecl_output))
+                            return;
+
                         trip_count++;
                     }
                 }
@@ -455,6 +472,9 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                         nodecl_set_locus_as(do_variable->value, nodecl_lower);
 
                         check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+
+                        if (nodecl_is_err_expr(*nodecl_output))
+                            return;
 
                         trip_count++;
                     }
@@ -476,6 +496,12 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                     nodecl_t nodecl_ac_value = nodecl_null();
                     check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
                     // We ignore anything from that expression, though
+
+                    if (nodecl_is_err_expr(nodecl_ac_value))
+                    {
+                        *nodecl_output = nodecl_ac_value;
+                        return;
+                    }
                 }
             }
             else
@@ -483,6 +509,12 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 int current_num_items = 0;
                 nodecl_t nodecl_ac_value = nodecl_null();
                 check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
+
+                if (nodecl_is_err_expr(nodecl_ac_value))
+                {
+                    *nodecl_output = nodecl_ac_value;
+                    return;
+                }
 
                 nodecl_t nodecl_implied_do = 
                     nodecl_make_fortran_implied_do(
@@ -512,6 +544,26 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             else if (*current_type == NULL)
             {
                 *current_type = fortran_get_rank0_type(nodecl_get_type(nodecl_expr));
+            }
+            else if (*current_type != NULL)
+            {
+                if (!is_intrinsic_assignment(*current_type,
+                            fortran_get_rank0_type(nodecl_get_type(nodecl_expr))))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: expression of type '%s' is not conformable in an array constructor of type '%s'\n", 
+                                nodecl_locus_to_str(nodecl_expr),
+                                fortran_print_type_str(fortran_get_rank0_type(nodecl_get_type(nodecl_expr))),
+                                fortran_print_type_str(*current_type));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                    return;
+                }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
 
             if ((*num_items) >= 0)
@@ -546,25 +598,44 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     AST ac_spec = ASTSon0(expr);
     AST type_spec = ASTSon0(ac_spec);
 
+    type_t* ac_value_type = NULL;
     if (type_spec != NULL)
     {
-        error_printf("%s: error: type specifier in array constructors not supported\n",
-                ast_location(type_spec));
-        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
-        return;
+        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context);
+
+        if (is_error_type(ac_value_type))
+        {
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
     }
 
     AST ac_value_list = ASTSon1(ac_spec);
     nodecl_t nodecl_ac_value = nodecl_null();
-    type_t* ac_value_type = NULL;
     int num_items = 0;
-    check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &num_items);
-
-    if (nodecl_is_err_expr(nodecl_ac_value))
+    if (ac_value_list != NULL)
     {
-        *nodecl_output = nodecl_ac_value;
-        return;
+        check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &num_items);
+        if (nodecl_is_err_expr(nodecl_ac_value))
+        {
+            *nodecl_output = nodecl_ac_value;
+            return;
+        }
     }
+    else
+    {
+        if (ac_value_type == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: invalid empty array-constructor without type-specifier\n", 
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+    }
+
 
     // Check for const-ness
     int i, n, num_elements_flattened = 0;

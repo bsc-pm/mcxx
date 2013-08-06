@@ -875,7 +875,22 @@ OPERATOR_TABLE
                     || state.flatten_array_construct)
             {
                 *(file) << "(/ ";
-                codegen_comma_separated_list(node.get_items());
+                if (node.get_items().is_null())
+                {
+                    std::string type_specifier, array_specifier;
+                    codegen_type_extended(
+                            fortran_get_rank0_type(type.get_internal_type()),
+                            type_specifier,
+                            array_specifier, 
+                            /* force_deferred_shape */ false,
+                            /* without_type_qualifier */ true);
+                    // Only in this case we emit the type-specifier
+                    *(file) << type_specifier << ":: ";
+                }
+                else
+                {
+                    codegen_comma_separated_list(node.get_items());
+                }
                 *(file) << " /)";
             }
             else
@@ -3551,7 +3566,8 @@ OPERATOR_TABLE
                 state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
                 codegen_type_extended(declared_type, type_spec, array_specifier,
-                        /* force_deferred_shape */ entry.is_allocatable());
+                        /* force_deferred_shape */ entry.is_allocatable(),
+                        /* without_type_qualifier */ false);
 
                 state.emit_interoperable_types = keep_emit_interop;
             }
@@ -5129,11 +5145,14 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier)
     {
-        codegen_type_extended(t, type_specifier, array_specifier, /* force_deferred_shape */ false);
+        codegen_type_extended(t, type_specifier, array_specifier,
+                /* force_deferred_shape */ false,
+                /* without_type_qualifier */ false);
     }
 
     void FortranBase::codegen_type_extended(TL::Type t, std::string& type_specifier, std::string& array_specifier,
-            bool force_deferred_shape)
+            bool force_deferred_shape,
+            bool without_type_qualifier)
     {
         // We were requested to emit types as literals
         if (state.emit_types_as_literals)
@@ -5364,8 +5383,15 @@ OPERATOR_TABLE
             // std::stringstream ss;
             // ss << " {{" << entry.get_internal_symbol() << "}} ";
             // real_name += ss.str();
-
-            type_specifier = "TYPE(" + real_name + ")";
+            
+            if (without_type_qualifier)
+            {
+                type_specifier = real_name;
+            }
+            else
+            {
+                type_specifier = "TYPE(" + real_name + ")";
+            }
         }
         else if (fortran_is_character_type(t.get_internal_type()))
         {

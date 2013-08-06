@@ -2932,9 +2932,12 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 result = get_derived_type_name(ASTSon0(a), decl_context);
                 if (result == NULL)
                 {
-                    error_printf("%s: error: invalid type-specifier '%s'\n",
-                            ast_location(a),
-                            fortran_prettyprint_in_buffer(a));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid type-specifier '%s'\n",
+                                ast_location(a),
+                                fortran_prettyprint_in_buffer(a));
+                    }
                     result = get_error_type();
                 }
                 break;
@@ -2948,14 +2951,22 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_PIXEL_TYPE:
             {
-                running_error("%s: sorry: PIXEL type-specifier not implemented\n",
-                        ast_location(a));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: sorry: PIXEL type-specifier not implemented\n",
+                            ast_location(a));
+                }
+                result = get_error_type();
                 break;
             }
         case AST_CLASS_NAME:
             {
-                running_error("%s: sorry: CLASS type-specifier not implemented\n",
-                        ast_location(a));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: sorry: CLASS type-specifier not implemented\n",
+                            ast_location(a));
+                }
+                result = get_error_type();
                 break;
             }
             // Special nodes
