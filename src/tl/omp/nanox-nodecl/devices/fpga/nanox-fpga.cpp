@@ -257,11 +257,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     Source unpacked_source;
     unpacked_source
-        << "{"
+        << dummy_init_statements
         << private_entities
         << fpga_params
         << statement_placeholder(outline_placeholder)
-        << "}"
+        << dummy_final_statements
         ;
 
     Nodecl::NodeclBase new_unpacked_body =
@@ -322,7 +322,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     outline_src
         << "{"
         <<      instrument_before
-        <<      device_outline_name << "_unpacked(" << unpacked_arguments << ");"
+        <<      unpacked_function.get_qualified_name() << "(" << unpacked_arguments << ");"
         <<      instrument_after
         << "}"
         ;
@@ -379,26 +379,51 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &fortran_dynamic_init)
 {
 
-    std::string outline_name = info._outline_name;
-    Source device_outline_name;
+    const std::string& outline_name = fpga_outline_name(info._outline_name);
+    const std::string& arguments_struct = info._arguments_struct;
+    TL::Symbol current_function = info._current_function;
 
-    device_outline_name << fpga_outline_name(outline_name);
-    std::string device_args_name = fpga_outline_name(outline_name);
-    if (Nanos::Version::interface_is_at_least("master", 5012))
+    //FIXME: This is confusing. In a future, we should get the template
+    //arguments of the outline function and print them
+
+    //Save the original name of the current function
+    std::string original_name = current_function.get_name();
+
+    current_function.set_name(outline_name);
+    Nodecl::NodeclBase code = current_function.get_function_code();
+
+    Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+        ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+        : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();
+
+    TL::Scope function_scope = context.retrieve_context();
+    std::string qualified_name = current_function.get_qualified_name(function_scope);
+
+    // Restore the original name of the current function
+    current_function.set_name(original_name);
+
+    if (!IS_FORTRAN_LANGUAGE)
     {
+        // Extra cast for solving some issues of GCC 4.6.* and lowers (this
+        // issues seem to be fixed in GCC 4.7 =D)
+        std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
+        std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
+
         ancillary_device_description
-            << comment("FPGA device descriptor")
-            << "static nanos_smp_args_t "
-            << device_args_name << "_args = { (void(*)(void*))" << device_outline_name << "};"
+            << "static nanos_smp_args_t " << outline_name << "_args = {"
+            << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
+            << "};"
+            ;
+        device_descriptor
+            << "{"
+            << /* factory */ "&nanos_fpga_factory, &" << outline_name << "_args"
+            << "}"
             ;
     }
     else
     {
-        internal_error("Unsupported Nanos version.", 0);
+        internal_error("Fortran is not supperted in fpga devices", 0);
     }
-    device_descriptor
-        << "{ &nanos_fpga_factory,  &" << device_args_name << "_args }";
-        ;
 
 }
 
