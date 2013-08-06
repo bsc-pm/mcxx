@@ -6563,24 +6563,43 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
 
         AST name = ASTSon0(common_name);
 
-        scope_entry_t* new_namelist 
-            = new_fortran_symbol(decl_context, ASTText(name));
+        scope_entry_t* new_namelist
+            = fortran_query_name_str(decl_context, ASTText(name), ast_get_locus(name));
+
+        if (new_namelist != NULL
+                && new_namelist->kind != SK_UNDEFINED
+                && new_namelist->kind != SK_NAMELIST)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
+                        ast_location(name),
+                        ASTText(name));
+            }
+            // This will cause an ambiguity later
+            new_namelist = NULL;
+        }
+
+        if (new_namelist == NULL)
+        {
+            new_namelist = new_fortran_symbol(decl_context, ASTText(name));
+
+            if (decl_context.current_scope->related_entry != NULL
+                    && decl_context.current_scope->related_entry->kind == SK_MODULE)
+            {
+                // Make the new namelist a member of this module
+                scope_entry_t* module = decl_context.current_scope->related_entry;
+
+                P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                        module->entity_specs.num_related_symbols,
+                        new_namelist);
+
+                new_namelist->entity_specs.in_module = module;
+            }
+        }
 
         new_namelist->kind = SK_NAMELIST;
         new_namelist->locus = ast_get_locus(a);
-
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
-        {
-            // Make the new namelist a member of this module
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                    module->entity_specs.num_related_symbols,
-                    new_namelist);
-
-            new_namelist->entity_specs.in_module = module;
-        }
 
         remove_unknown_kind_symbol(decl_context, new_namelist);
 
