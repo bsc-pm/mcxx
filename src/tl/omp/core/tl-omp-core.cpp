@@ -1746,7 +1746,7 @@ namespace TL
                         error_printf("%s: error: invalid 'EXIT' inside '!$OMP DO' or '!$OMP PARALLEL DO'\n",
                                 n.get_locus_str().c_str());
                     }
-                    else
+                    else if (!n.get_construct_name().is_null())
                     {
                         TL::Symbol name = n.get_construct_name().get_symbol();
                         if ((name == loop_label)
