@@ -230,7 +230,7 @@ namespace TL { namespace Nanox {
             reduction_code_src << statement_placeholder(reduction_code);
         }
 
-        lastprivate_code << update_lastprivates(outline_info);
+        lastprivate_code << update_lastprivates(outline_info, "nanos_item_loop");
 
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {

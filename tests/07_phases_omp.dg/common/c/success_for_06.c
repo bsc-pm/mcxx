@@ -32,6 +32,9 @@ test_generator=config/mercurium-omp
 </testinfo>
 */
 
+#include <stdlib.h>
+#include <stdio.h>
+
 int a;
 int b;
 
@@ -39,19 +42,22 @@ int main(int argc, char *argv[])
 {
     int i;
 
-    a = 3;
-    b = 4;
+    a = -3;
+    b = -4;
 
-#pragma omp for firstprivate(a, b) lastprivate(a, b)
-    for (i = 0; i < 10; i++)
+#pragma omp parallel for firstprivate(a, b) lastprivate(a, b)
+    for (i = 0; i < 100; i++)
     {
-        a++;
-        b++;
+        if (a < 0) if (a != -3) abort();
+        if (b < 0) if (b != -4) abort();
+
+        a = i;
+        b = i;
     }
 
-    if (a != 13)
+    if (a != 99)
         abort();
-    if (b != 14)
+    if (b != 99)
         abort();
 
     return 0;

@@ -4448,12 +4448,13 @@ scope_entry_t* fortran_query_label_str_(const char* label,
         char is_definition)
 {
     const char* label_text = strappend(".label_", label);
-    scope_entry_list_t* entry_list = query_name_str(decl_context, label_text);
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
+    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, label_text, DF_ONLY_CURRENT_SCOPE);
 
     scope_entry_t* new_label = NULL;
     if (entry_list == NULL)
     {
-        decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
 
         // Sign in the symbol in the program unit scope
         new_label = new_symbol(program_unit_context, program_unit_context.current_scope, label_text);
@@ -4505,15 +4506,16 @@ scope_entry_t* fortran_query_construct_name_str(
         )
 {
     construct_name = strtolower(construct_name);
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
 
-    scope_entry_t* new_label = fortran_query_name_str(decl_context, construct_name, locus);
+    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, construct_name, DF_ONLY_CURRENT_SCOPE);
 
-    if (new_label == NULL)
+    scope_entry_t* new_label = NULL;
+
+    if (entry_list == NULL)
     {
         if (is_definition)
         {
-            decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
-
             // Sign in the symbol in the program unit scope
             new_label = new_symbol(program_unit_context, program_unit_context.current_scope, construct_name);
             new_label->kind = SK_LABEL;
@@ -4524,7 +4526,11 @@ scope_entry_t* fortran_query_construct_name_str(
     }
     else
     {
-        if (new_label->kind != SK_LABEL)
+        new_label = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        if (new_label->kind != SK_LABEL
+                && new_label->kind != SK_UNDEFINED)
         {
             error_printf("%s: error: name '%s' cannot be used as a construct name\n",
                     locus_to_str(locus),
@@ -4543,6 +4549,12 @@ scope_entry_t* fortran_query_construct_name_str(
             }
             else
             {
+                if (new_label == SK_UNDEFINED)
+                {
+                    new_label->kind = SK_LABEL;
+                    remove_unknown_kind_symbol(program_unit_context, new_label);
+                }
+
                 new_label->defined = 1;
             }
         }

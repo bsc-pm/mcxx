@@ -28,39 +28,18 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
-
-#include <stdlib.h>
-
-int a;
-
-int main(int argc, char *argv[])
+struct C
 {
-    int b;
-    int i;
+    enum { N = 1 };
+};
 
-    a = 3;
-    b = 4;
-
-#pragma omp parallel for lastprivate(a, b)
-    for (i = 0; i < 10; i++)
-    {
-        a = i;
-        b = i + 1;
-    }
-
-    if (a != 9)
-    {
-        fprintf(stderr, "a == %d != %d\n", a, 9);
-        abort();
-    }
-    if (b != 10)
-    {
-        fprintf(stderr, "b == %d != %d\n", b, 10);
-        abort();
-    }
-
-    return 0;
+int main()
+{
+    C c;
+    int i = c.N;
+    int x;
+    x = c.N;
 }
