@@ -372,7 +372,7 @@ namespace TL
             ObjectList<DataReference> firstlastprivate_references;
 
             only_firstprivate_references = firstprivate_references.filter(NotInRefList(lastprivate_references));
-            only_lastprivate_references = firstprivate_references.filter(NotInRefList(firstprivate_references));
+            only_lastprivate_references = lastprivate_references.filter(NotInRefList(firstprivate_references));
             firstlastprivate_references = intersect_ref_list(lastprivate_references, firstprivate_references);
 
             std::for_each(only_firstprivate_references.begin(), only_firstprivate_references.end(),

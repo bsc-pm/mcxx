@@ -336,7 +336,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Source emit_allocate_statement(TL::Symbol sym, 
                 int &lower_bound_index, int &upper_bound_index);
 
-        Source update_lastprivates(OutlineInfo& outline_info);
+        Source update_lastprivates(OutlineInfo& outline_info, const std::string& loop_descriptor_name);
 
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);

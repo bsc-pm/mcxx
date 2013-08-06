@@ -28,39 +28,39 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
 #include <stdlib.h>
 
-int a;
+int a[10];
 
 int main(int argc, char *argv[])
 {
-    int b;
+    int b[10];
     int i;
 
-    a = 3;
-    b = 4;
+    a[1] = 3;
+    a[2] = 2;
+    b[4] = 4;
+    b[5] = 5;
 
-#pragma omp parallel for lastprivate(a, b)
+#pragma omp parallel for firstprivate(a, b) lastprivate(a, b)
     for (i = 0; i < 10; i++)
     {
-        a = i;
-        b = i + 1;
+        a[1] = a[2];
+        b[4] = b[5];
     }
 
-    if (a != 9)
-    {
-        fprintf(stderr, "a == %d != %d\n", a, 9);
+    if (a[1] != 2)
         abort();
-    }
-    if (b != 10)
-    {
-        fprintf(stderr, "b == %d != %d\n", b, 10);
+    if (a[2] != 2)
         abort();
-    }
+    if (b[4] != 5)
+        abort();
+    if (b[5] != 5)
+        abort();
 
     return 0;
 }

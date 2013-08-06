@@ -85,7 +85,7 @@ namespace TL { namespace Nanox {
         }
     }
 
-    Source LoweringVisitor::update_lastprivates(OutlineInfo& outline_info)
+    Source LoweringVisitor::update_lastprivates(OutlineInfo& outline_info, const std::string &loop_descriptor_name)
     {
         Source lastprivate_updates;
 
@@ -122,7 +122,7 @@ namespace TL { namespace Nanox {
         if (num_items > 0)
         {
             lastprivate_code
-                << "if (nanos_item_loop.last)"
+                << "if (" << loop_descriptor_name << ".last)"
                 << "{"
                 <<     lastprivate_updates
                 << "}"

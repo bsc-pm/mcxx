@@ -214,7 +214,7 @@ namespace TL { namespace Nanox {
             reduction_code_src << statement_placeholder(reduction_code);
         }
 
-        lastprivate_code << update_lastprivates(outline_info);
+        lastprivate_code << update_lastprivates(outline_info, slicer_descriptor.get_name());
 
         return distribute_loop_source;
     }
