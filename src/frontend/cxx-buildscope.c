@@ -1760,9 +1760,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         type_t* initializer_type = nodecl_get_type(nodecl_initializer);
 
                         if (is_array_type(declarator_type)
-                                && nodecl_get_ast(array_type_get_array_size_expr(declarator_type)) == NULL
+                                && nodecl_is_null(array_type_get_array_size_expr(declarator_type))
                                 && is_array_type(initializer_type)
-                                && nodecl_get_ast(array_type_get_array_size_expr(initializer_type)) != NULL)
+                                && !nodecl_is_null(array_type_get_array_size_expr(initializer_type)))
                         {
                             entry->type_information = initializer_type;
                         }

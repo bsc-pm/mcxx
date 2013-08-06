@@ -1050,8 +1050,12 @@ type_param_value : int_expr
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-type_spec : intrinsic_type_spec
-| derived_type_spec
+/* Prioritize intrinsic types */
+type_spec : intrinsic_type_spec %dprec 2
+| derived_type_spec %dprec 1
+{
+    $$ = ASTMake1(AST_TYPE_NAME, $1, ast_get_locus($1), NULL);
+}
 ;
 declaration_type_spec : intrinsic_type_spec
 | TOK_TYPE '(' derived_type_spec ')'

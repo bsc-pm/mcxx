@@ -13062,6 +13062,18 @@ static void compute_nodecl_initialization(AST initializer, decl_context_t decl_c
     }
 }
 
+static void unary_record_conversion_to_result_for_initializer(type_t* result, nodecl_t* op)
+{
+    type_t* op_type = nodecl_get_type(*op);
+
+    // Do not record array conversions here
+    if (!is_array_type(result)
+            && !equivalent_types(result, op_type))
+    {
+        *op = cxx_nodecl_make_conversion(*op, result,
+                nodecl_get_locus(*op));
+    }
+}
 
 void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         decl_context_t decl_context, 
@@ -13127,8 +13139,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             return;
         }
 
-
         *nodecl_output = nodecl_expr;
+        unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         return;
     }
 
@@ -13224,6 +13236,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             }
 
             *nodecl_output = nodecl_expr;
+            unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         }
     }
     else
