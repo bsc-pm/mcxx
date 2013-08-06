@@ -4448,12 +4448,13 @@ scope_entry_t* fortran_query_label_str_(const char* label,
         char is_definition)
 {
     const char* label_text = strappend(".label_", label);
-    scope_entry_list_t* entry_list = query_name_str(decl_context, label_text);
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
+    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, label_text, DF_ONLY_CURRENT_SCOPE);
 
     scope_entry_t* new_label = NULL;
     if (entry_list == NULL)
     {
-        decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
 
         // Sign in the symbol in the program unit scope
         new_label = new_symbol(program_unit_context, program_unit_context.current_scope, label_text);
