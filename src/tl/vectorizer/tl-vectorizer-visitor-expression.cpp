@@ -838,7 +838,7 @@ namespace TL
                             n,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
-                            _environment._unroll_factor * basic_type.get_size()))
+                            _environment._vector_length))
                 {
                     printf("VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
