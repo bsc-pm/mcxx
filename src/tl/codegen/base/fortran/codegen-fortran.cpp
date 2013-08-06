@@ -3448,12 +3448,12 @@ OPERATOR_TABLE
                 }
                 else if (entry.get_type().is_array())
                 {
-                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n", 
+                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n",
                             entry.get_name().c_str());
                 }
                 else if (entry.get_type().is_class())
                 {
-                    internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
+                    internal_error("Error: struct/class types cannot be passed by value in Fortran\n",
                             entry.get_name().c_str());
                 }
                 else
@@ -5383,7 +5383,7 @@ OPERATOR_TABLE
             // std::stringstream ss;
             // ss << " {{" << entry.get_internal_symbol() << "}} ";
             // real_name += ss.str();
-            
+
             if (without_type_qualifier)
             {
                 type_specifier = real_name;
