@@ -66,14 +66,6 @@ namespace TL
                 virtual void copy_stuff_to_device_file(
                         const TL::ObjectList<Nodecl::NodeclBase>& stuff_to_be_copied);
 
-            private:
-
-                Nodecl::List _extra_c_code;
-
-                void add_forward_code_to_extra_c_code(
-                        const std::string& outline_name,
-                        TL::ObjectList<OutlineDataItem*> data_items,
-                        Nodecl::NodeclBase parse_context);
         };
     }
 }
