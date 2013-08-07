@@ -4063,8 +4063,15 @@ scope_entry_t* query_common_name(decl_context_t decl_context,
         const char* common_name,
         const locus_t* locus)
 {
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
     scope_entry_t* result = fortran_query_name_str(decl_context, 
             get_common_name_str(common_name), locus);
+
+    // Filter COMMON names from enclosing scopes
+    if (result != NULL
+            && result->decl_context.current_scope != program_unit_context.current_scope)
+        result = NULL;
 
     return result;
 }
@@ -4268,9 +4275,11 @@ static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER,
 
 static scope_entry_t* new_common(decl_context_t decl_context, const char* common_name)
 {
-    scope_entry_t* common_sym = new_fortran_symbol(decl_context, get_common_name_str(common_name));
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
+    scope_entry_t* common_sym = new_fortran_symbol(program_unit_context, get_common_name_str(common_name));
     common_sym->kind = SK_COMMON;
-    remove_unknown_kind_symbol(decl_context, common_sym);
+    remove_unknown_kind_symbol(program_unit_context, common_sym);
     return common_sym;
 }
 
@@ -4289,16 +4298,15 @@ static void build_scope_common_stmt(AST a,
 
         const char* common_name_str = NULL;
         AST common_name = ASTSon0(common_block_item);
-        if(common_name != NULL)
+        if (common_name != NULL)
         {
-            //It is a named common statement
             common_name_str = ASTText(common_name);
         }
-       
-        // Looking the symbol in all scopes except program unit global scope 
-        scope_entry_t* common_sym = fortran_query_name_str(decl_context, 
-                get_common_name_str(common_name_str),
+
+        scope_entry_t* common_sym = query_common_name(decl_context, 
+                common_name_str,
                 ast_get_locus(common_block_item));
+
         if (common_sym == NULL)
         {
             // If the symbol is not found, we should create a new one
