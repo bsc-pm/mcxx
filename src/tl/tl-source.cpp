@@ -834,14 +834,13 @@ namespace TL
 
     std::string as_statement(const Nodecl::NodeclBase& n)
     {
+        std::stringstream ss;
+        ss << nodecl_stmt_to_source(n.get_internal_nodecl());
+
         if (IS_FORTRAN_LANGUAGE)
-        {
-            return std::string(nodecl_stmt_to_source(n.get_internal_nodecl())) + "\n";
-        }
-        else
-        {
-            return nodecl_stmt_to_source(n.get_internal_nodecl());
-        }
+            ss << "\n";
+
+        return ss.str();
     }
 
     std::string as_type(TL::Type t)
@@ -858,6 +857,10 @@ namespace TL
     {
         std::stringstream ss;
         ss << "@STATEMENT-PH::" << placeholder.get_internal_tree_address() << "@";
+
+        if (IS_FORTRAN_LANGUAGE)
+            ss << "\n";
+
         return ss.str();
     }
 }
