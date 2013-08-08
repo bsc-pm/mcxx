@@ -27,7 +27,6 @@
 #include "tl-devices.hpp"
 #include "nanox-smp.hpp"
 
-#include "tl-lowering-visitor.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
