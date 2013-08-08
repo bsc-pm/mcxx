@@ -1106,12 +1106,12 @@ namespace Analysis {
     {
         visit_assignment( n );
     }
-/*    
+    
     void UsageVisitor::visit( const Nodecl::VectorMaskAssignment& n )
     {
         visit_assignment( n );
     }
-*/    
+    
     void UsageVisitor::visit( const Nodecl::VectorScatter& n )
     {
         WARNING_MESSAGE( "VectorScatter not yet implemented during UseDef analysis. Ignoring node", 0 );

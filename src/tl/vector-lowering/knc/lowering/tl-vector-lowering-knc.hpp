@@ -45,7 +45,8 @@ namespace TL
                 {
                     MASK_DEFAULT = 0x0,
                     ONLY_MASK = 0x1,
-                    KEEP_OLD = 0x2
+                    KEEP_OLD = 0x2,
+                    ALWAYS_OLD = 0x4
                 } config_mask_processing;
 
                 ConfigMaskProcessing(int a)
@@ -79,7 +80,8 @@ namespace TL
                 std::string get_undef_intrinsic(const TL::Type& type);
                 void process_mask_component(const Nodecl::NodeclBase& mask,
                         TL::Source& mask_prefix, TL::Source& mask_params, 
-                        const TL::Type& type, ConfigMaskProcessing conf);
+                        const TL::Type& type, 
+                        ConfigMaskProcessing conf = ConfigMaskProcessing::MASK_DEFAULT );
 
             public:
 
@@ -106,6 +108,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLogicalOr& node);
 
                 virtual void visit(const Nodecl::VectorConversion& node);
+                virtual void visit(const Nodecl::VectorCast& node);
                 virtual void visit(const Nodecl::VectorConditionalExpression& node);
                 virtual void visit(const Nodecl::VectorPromotion& node);
                 virtual void visit(const Nodecl::VectorLiteral& node);
