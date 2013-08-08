@@ -1457,6 +1457,21 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     // should be signed in as if they were members
 }
 
+static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
+{
+    *dest = *src;
+
+#define COPY_ARRAY(dest, orig, num_items) \
+    (dest) = xcalloc((num_items), sizeof(*(dest))); \
+    memcpy((dest), (orig), sizeof(*(dest))*(num_items));
+
+    COPY_ARRAY(dest->arguments_info, src->arguments_info, dest->num_arguments_info);
+    COPY_ARRAY(dest->gcc_attributes, src->gcc_attributes, dest->num_gcc_attributes);
+    COPY_ARRAY(dest->ms_attributes, src->ms_attributes, dest->num_ms_attributes);
+
+#undef COPY_ARRAY
+}
+
 // Builds scope for a simple declaration
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         char is_template, char is_explicit_specialization,
@@ -1570,7 +1585,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         for_each_element(declarator_list, iter)
         {
             // Copy because of attributes that might modify this info
-            gather_decl_spec_t current_gather_info = gather_info;
+            gather_decl_spec_t current_gather_info;
+            copy_gather_info(&current_gather_info, &gather_info);
+
             AST init_declarator = ASTSon1(iter);
 
             if (ASTType(init_declarator) == AST_AMBIGUITY)
@@ -2006,7 +2023,8 @@ void build_scope_decl_specifier_seq(AST a,
         }
         // We need a local copy of the gather info because some information are
         // not shared between the type and the declarators
-        gather_decl_spec_t local_gather_info = *gather_info;
+        gather_decl_spec_t local_gather_info;
+        copy_gather_info(&local_gather_info, gather_info);
 
         // The management of gcc attributes is a bit fuzzy at this point!
         //
@@ -3135,7 +3153,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
      *
      * *type_info = get_user_defined_type(class_entry);
      */
-    gather_decl_spec_t class_gather_info = *gather_info;
+    gather_decl_spec_t class_gather_info;
+    copy_gather_info(&class_gather_info, gather_info);
 
     scope_entry_t* class_entry = NULL;
     type_t* class_type = NULL;
@@ -7563,21 +7582,17 @@ static void set_function_parameter_clause(type_t** function_type,
                 parameter_info[num_parameters].type_info = get_signed_int_type();
                 parameter_info[num_parameters].nonadjusted_type_info = get_signed_int_type();
 
-                gather_info->arguments_info[num_parameters].entry = new_parameter;
-                gather_info->arguments_info[num_parameters].argument = nodecl_null();
-                gather_info->arguments_info[num_parameters].context = decl_context;
+                arguments_info_t new_argument_info;
+                new_argument_info.entry = new_parameter;
+                new_argument_info.argument = nodecl_null();
+                new_argument_info.context = decl_context;
+
+                P_LIST_ADD(gather_info->arguments_info,
+                        gather_info->num_arguments_info,
+                        new_argument_info);
 
                 num_parameters++;
             }
-        }
-
-        if (parameter_info[num_parameters-1].is_ellipsis)
-        {
-            gather_info->num_parameters = num_parameters - 1;
-        }
-        else
-        {
-            gather_info->num_parameters = num_parameters;
         }
 
         *function_type = get_nonproto_function_type(*function_type, num_parameters);
@@ -7746,6 +7761,37 @@ static void set_function_parameter_clause(type_t** function_type,
                 entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context);
             }
 
+            if (is_void_type(type_info))
+            {
+                if (entry != NULL)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: parameter '%s' declared as void\n", 
+                                ast_location(parameter_decl_spec_seq),
+                                entry->symbol_name);
+                    }
+                    *function_type = get_error_type();
+                    return;
+                }
+                else if (ASTSon0(iter) != NULL
+                        || (num_parameters != 0))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: parameter declared as void\n", 
+                                ast_location(parameter_decl_spec_seq));
+                    }
+                    *function_type = get_error_type();
+                    return;
+                }
+                else // entry == NULL && ASTSon(iter) == NULL && num_parameters == 0
+                {
+                    // We are done: this is of the form f(void)
+                    break;
+                }
+            }
+
             if (entry == NULL)
             {
                 // The declarator was abstract, craft a name
@@ -7804,9 +7850,14 @@ static void set_function_parameter_clause(type_t** function_type,
             ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, 
                     "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
 
-            gather_info->arguments_info[num_parameters].entry = entry;
-            gather_info->arguments_info[num_parameters].argument = nodecl_default_argument;
-            gather_info->arguments_info[num_parameters].context = decl_context;
+            arguments_info_t new_argument_info;
+            new_argument_info.entry = entry;
+            new_argument_info.argument = nodecl_default_argument;
+            new_argument_info.context = decl_context;
+
+            P_LIST_ADD(gather_info->arguments_info,
+                    gather_info->num_arguments_info,
+                    new_argument_info);
 
             // Pass the VLA symbols of this parameter
             int i;
@@ -7823,15 +7874,6 @@ static void set_function_parameter_clause(type_t** function_type,
         }
     }
 
-    if (parameter_info[num_parameters-1].is_ellipsis)
-    {
-        gather_info->num_parameters = num_parameters - 1;
-    }
-    else
-    {
-        gather_info->num_parameters = num_parameters;
-    }
-
     if ((num_parameters == 1)
             && !parameter_info[0].is_ellipsis)
     {
@@ -7841,7 +7883,6 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             // This list was really empty
             num_parameters = 0;
-            gather_info->num_parameters = 0;
         }
     }
 
@@ -8203,13 +8244,13 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     if (!is_named_type(declarator_type))
     {
         // We should mix here default argument info because the declarator has function-type form
-        ERROR_CONDITION(gather_info->num_parameters != function_symbol->entity_specs.num_parameters,
+        ERROR_CONDITION(gather_info->num_arguments_info != function_symbol->entity_specs.num_parameters,
                 "These two should be the same and they are %d != %d", 
-                gather_info->num_parameters, 
+                gather_info->num_arguments_info, 
                 function_symbol->entity_specs.num_parameters);
 
         int i;
-        for (i = 0; i < gather_info->num_parameters; i++)
+        for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (function_symbol->entity_specs.default_argument_info[i] == NULL
                     && !nodecl_is_null(gather_info->arguments_info[i].argument))
@@ -8586,7 +8627,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             {
                 // If the declarator is a functional one, we have to mix the arguments here
                 int i;
-                for (i = 0; i < gather_info->num_parameters; i++)
+                for (i = 0; i < gather_info->num_arguments_info; i++)
                 {
                     if (entry->entity_specs.default_argument_info[i] == NULL
                             && !nodecl_is_null(gather_info->arguments_info[i].argument))
@@ -8661,15 +8702,15 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: This is a typedef to function type, saving gathered information\n");
-            fprintf(stderr, "BUILDSCOPE: Number of parameters %d\n", gather_info->num_parameters);
+            fprintf(stderr, "BUILDSCOPE: Number of parameters %d\n", gather_info->num_arguments_info);
         }
 
-        entry->entity_specs.num_parameters = gather_info->num_parameters;
+        entry->entity_specs.num_parameters = gather_info->num_arguments_info;
         entry->entity_specs.default_argument_info = counted_xcalloc(entry->entity_specs.num_parameters,
                 sizeof(*(entry->entity_specs.default_argument_info)), 
                 &_bytes_used_buildscope);
         int i;
-        for (i = 0; i < gather_info->num_parameters; i++)
+        for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
@@ -9061,10 +9102,10 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         new_entry->entity_specs.exceptions = gather_info->exceptions;
 
-        new_entry->entity_specs.num_parameters = gather_info->num_parameters;
+        new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
         new_entry->entity_specs.default_argument_info =
-            counted_xcalloc(gather_info->num_parameters,
+            counted_xcalloc(gather_info->num_arguments_info,
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
 
@@ -9082,7 +9123,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         int i;
         char already_delayed = 0;
-        for (i = 0; i < gather_info->num_parameters; i++)
+        for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
@@ -9384,12 +9425,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     new_entry->entity_specs.is_friend_declared = 1;
     new_entry->entity_specs.any_exception = gather_info->any_exception;
-    new_entry->entity_specs.num_parameters = gather_info->num_parameters;
+    new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
     new_entry->entity_specs.default_argument_info =
         counted_xcalloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
     int i;
-    for (i = 0; i < gather_info->num_parameters; i++)
+    for (i = 0; i < gather_info->num_arguments_info; i++)
     {
         if (!nodecl_is_null(gather_info->arguments_info[i].argument))
         {
@@ -11123,7 +11164,8 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
             i = 0;
             for_each_element (init_declarator_list, init_declarator_it)
             {
-                gather_decl_spec_t current_gather_info = gather_info;
+                gather_decl_spec_t current_gather_info;
+                copy_gather_info(&current_gather_info, &gather_info);
 
                 AST init_declarator = ASTSon1(init_declarator_it);
 
@@ -11355,27 +11397,27 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     if (entry->entity_specs.related_symbols == NULL)
     {
         // Allocated for the first time
-        entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-        entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
+        entry->entity_specs.num_related_symbols = gather_info->num_arguments_info;
+        entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_arguments_info,
                 sizeof(*entry->entity_specs.related_symbols),
                 &_bytes_used_buildscope);
     }
     else
     {
-        if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
+        if (entry->entity_specs.num_related_symbols != gather_info->num_arguments_info)
         {
             // A mismatching number of parameters, xrealloc
             xfree(entry->entity_specs.related_symbols);
 
-            entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-            entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
+            entry->entity_specs.num_related_symbols = gather_info->num_arguments_info;
+            entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_arguments_info,
                     sizeof(*entry->entity_specs.related_symbols),
                     &_bytes_used_buildscope);
         }
     }
 
     int i;
-    for (i = 0; i < gather_info->num_parameters; i++)
+    for (i = 0; i < gather_info->num_arguments_info; i++)
     {
         // In C they must have name in a definition
         C_LANGUAGE()
@@ -12763,7 +12805,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             AST declarator = ASTSon1(iter);
             char is_constructor = 0;
 
-            gather_decl_spec_t current_gather_info = gather_info;
+            gather_decl_spec_t current_gather_info;
+            copy_gather_info(&current_gather_info, &gather_info);
 
             switch (ASTType(declarator))
             {
@@ -14428,7 +14471,7 @@ static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
     if (entry->kind == SK_FUNCTION)
     {
         int i;
-        for (i = 0; i < gather_info.num_parameters; i++)
+        for (i = 0; i < gather_info.num_arguments_info; i++)
         {
             if (gather_info.arguments_info[i].entry != NULL)
             {
@@ -14456,7 +14499,8 @@ static void finish_pragma_declaration(
             entry_list_iterator_next(it), i++)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        gather_decl_spec_t gather_info = info->gather_decl_spec_list->items[i];
+        gather_decl_spec_t gather_info;
+        copy_gather_info(&gather_info, &(info->gather_decl_spec_list->items[i]));
 
         nodecl_t nodecl_single_pragma_declaration = nodecl_null();
         int j;

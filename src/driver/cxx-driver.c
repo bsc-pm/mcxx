@@ -4739,6 +4739,7 @@ static void print_memory_report(void)
     fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
     fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
     fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
+    fprintf(stderr, "    - Size of a temporary gathering context structure (bytes): %zu\n", sizeof(gather_decl_spec_t));
 
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());

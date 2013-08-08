@@ -547,11 +547,13 @@ void gather_one_gcc_attribute(const char* attribute_name,
         {
             running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
         }
-        gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
-        gather_info->num_gcc_attributes++;
 
-        current_gcc_attribute->attribute_name = uniquestr(attribute_name);
-        current_gcc_attribute->expression_list = nodecl_expression_list;
+        gather_gcc_attribute_t current_gcc_attribute;
+
+        current_gcc_attribute.attribute_name = uniquestr(attribute_name);
+        current_gcc_attribute.expression_list = nodecl_expression_list;
+
+        P_LIST_ADD(gather_info->gcc_attributes, gather_info->num_gcc_attributes, current_gcc_attribute);
     }
 }
 
@@ -604,43 +606,29 @@ void keep_gcc_attributes_in_symbol(
         scope_entry_t* entry,
         gather_decl_spec_t* gather_info)
 {
-    if (entry->entity_specs.num_gcc_attributes == 0)
+    // Combine them
+    int i;
+    for (i = 0; i < gather_info->num_gcc_attributes; i++)
     {
-        entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
-        entry->entity_specs.gcc_attributes = xcalloc(
-                entry->entity_specs.num_gcc_attributes,
-                sizeof(*entry->entity_specs.gcc_attributes));
-        memcpy(entry->entity_specs.gcc_attributes, 
-                gather_info->gcc_attributes, 
-                entry->entity_specs.num_gcc_attributes * sizeof(*entry->entity_specs.gcc_attributes));
-    }
-    else
-    {
-        // Combine them
-        int i;
-        for (i = 0; i < gather_info->num_gcc_attributes; i++)
+        char found = 0;
+        int j;
+        for (j = 0; j < entry->entity_specs.num_gcc_attributes && !found; j++)
         {
-            char found = 0;
-            int j;
-            for (j = 0; j < entry->entity_specs.num_gcc_attributes && !found; j++)
-            {
-                found = (strcmp(entry->entity_specs.gcc_attributes[j].attribute_name,
-                            gather_info->gcc_attributes[i].attribute_name) == 0);
-            }
+            found = (strcmp(entry->entity_specs.gcc_attributes[j].attribute_name,
+                        gather_info->gcc_attributes[i].attribute_name) == 0);
+        }
 
-            if (found)
-            {
-                // Update with the freshest value 
-                entry->entity_specs.gcc_attributes[j-1].expression_list = gather_info->gcc_attributes[i].expression_list;
-            }
-            else
-            {
-                entry->entity_specs.num_gcc_attributes++;
-
-                entry->entity_specs.gcc_attributes = xrealloc(entry->entity_specs.gcc_attributes,
-                        sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
-                entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
-            }
+        if (found)
+        {
+            // Update with the freshest value 
+            entry->entity_specs.gcc_attributes[j-1].expression_list = gather_info->gcc_attributes[i].expression_list;
+        }
+        else
+        {
+            entry->entity_specs.num_gcc_attributes++;
+            entry->entity_specs.gcc_attributes = xrealloc(entry->entity_specs.gcc_attributes,
+                    sizeof(*entry->entity_specs.gcc_attributes) * entry->entity_specs.num_gcc_attributes);
+            entry->entity_specs.gcc_attributes[entry->entity_specs.num_gcc_attributes - 1] = gather_info->gcc_attributes[i];
         }
     }
 }
