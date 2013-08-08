@@ -28,6 +28,7 @@
 #include "tl-vectorizer-visitor-expression.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-utils.hpp"
 
 namespace TL 
 {
@@ -345,7 +346,7 @@ namespace TL
 
                 Nodecl::ExpressionStatement new_exp_stmt =
                     Nodecl::ExpressionStatement::make(
-                            Nodecl::MaskedVectorAssignment::make(
+                            Nodecl::VectorAssignment::make(
                                 _environment._function_return.make_nodecl(true, n.get_locus()),
                                 return_value.shallow_copy(),
                                 mask.shallow_copy(),

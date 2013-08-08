@@ -30,7 +30,6 @@
 #include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
-#include "tl-vectorizer-utils.hpp"
 #include <string>
 #include <list>
 
@@ -96,12 +95,8 @@ namespace TL
                 bool _svml_knc_enabled;
                 bool _fast_math_enabled;
 
-                unsigned int _var_counter;
-
                 Vectorizer();
 
-                std::string get_var_counter();
- 
             public:
                 static Vectorizer& get_vectorizer();
                 static void initialize_analysis(const Nodecl::FunctionCode& enclosing_function);
@@ -153,8 +148,6 @@ namespace TL
                 friend class VectorizerVisitorFunction;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
-                friend Nodecl::NodeclBase Utils::get_new_mask_symbol(TL::Scope scope,
-                        const int mask_size);
         };
    }
 }

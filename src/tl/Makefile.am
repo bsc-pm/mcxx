@@ -26,9 +26,10 @@
 
 END=
 
-SUBDIRS = . vectorizer vector-lowering omp codegen analysis hlt @TL_EXTRAS@
+SUBDIRS = . analysis vectorizer vector-lowering omp codegen hlt @TL_EXTRAS@
 
-DIST_SUBDIRS= vectorizer \
+DIST_SUBDIRS= analysis \
+              vectorizer \
               vector-lowering \
               omp \
               analysis \

@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-vector-reduction.hpp"
+#include "tl-vectorizer-utils.hpp"
 
 namespace TL 
 { 
@@ -86,6 +87,7 @@ namespace TL
             // Step1: ADD REDUCTION SYMBOLS
             vector_symbol.set_value(Nodecl::VectorPromotion::make(
                         reduction_initializer.shallow_copy(),
+                        Utils::get_null_mask(),
                         vector_symbol.get_type()));
 
             // Add new ObjectInit with the initialization
@@ -103,6 +105,7 @@ namespace TL
                             Nodecl::VectorReductionAdd::make(
                                 scalar_symbol.make_nodecl(true),
                                 vector_symbol.make_nodecl(true),
+                                Utils::get_null_mask(),
                                 scalar_symbol.get_type()));
 
                 post_nodecls.append(post_reduction_stmt);
@@ -114,6 +117,7 @@ namespace TL
                             Nodecl::VectorReductionMinus::make(
                                 scalar_symbol.make_nodecl(true),
                                 vector_symbol.make_nodecl(true),
+                                Utils::get_null_mask(),
                                 scalar_symbol.get_type()));
 
                 post_nodecls.append(post_reduction_stmt);

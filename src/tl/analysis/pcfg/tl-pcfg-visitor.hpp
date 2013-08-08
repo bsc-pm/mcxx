@@ -155,7 +155,7 @@ namespace Analysis {
          */
         Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
         
-        //! This method implements the visitor for VectorFunctionCall and MaskedVectorFunctionCall
+        //! This method implements the visitor for VectorFunctionCall 
         template <typename T>
         ObjectList<Node*> visit_vector_function_call( const T& n );
         
@@ -165,7 +165,7 @@ namespace Analysis {
         
         //! This method implements the visitor for vector memory accesses 
         /*!
-         * The nodes wrapped in this visitor method are: VectorGather and MaskedVectorGather
+         * The nodes wrapped in this visitor method are: VectorGather
          * \param n nodecl
          * \param mem_access_type Char indicating the type of access: 
          *                        '1' => load, '2' => gather, 
@@ -293,26 +293,6 @@ namespace Analysis {
         Ret visit( const Nodecl::LoopControl& n );
         Ret visit( const Nodecl::LowerOrEqualThan& n );
         Ret visit( const Nodecl::LowerThan& n );
-        Ret visit( const Nodecl::MaskedVectorAdd& n );
-        Ret visit( const Nodecl::MaskedVectorAssignment& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseAnd& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseNot& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseOr& n );
-        Ret visit( const Nodecl::MaskedVectorBitwiseXor& n );
-        Ret visit( const Nodecl::MaskedVectorConversion& n );
-        Ret visit( const Nodecl::MaskedVectorDiv& n );
-        Ret visit( const Nodecl::MaskedVectorFabs& n );
-        Ret visit( const Nodecl::MaskedVectorFunctionCall& n );
-        Ret visit( const Nodecl::MaskedVectorGather& n );
-        Ret visit( const Nodecl::MaskedVectorLoad& n );
-        Ret visit( const Nodecl::MaskedVectorMinus& n );
-        Ret visit( const Nodecl::MaskedVectorMul& n );
-        Ret visit( const Nodecl::MaskedVectorNeg& n );
-        Ret visit( const Nodecl::MaskedVectorReductionAdd& n );
-        Ret visit( const Nodecl::MaskedVectorReductionMinus& n );
-        Ret visit( const Nodecl::MaskedVectorReductionMul& n );
-        Ret visit( const Nodecl::MaskedVectorScatter& n );
-        Ret visit( const Nodecl::MaskedVectorStore& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::Mod& n );
@@ -396,8 +376,6 @@ namespace Analysis {
         Ret visit( const Nodecl::TryBlock& n );
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );
-        Ret visit( const Nodecl::UnalignedMaskedVectorLoad& n );
-        Ret visit( const Nodecl::UnalignedMaskedVectorStore& n );
         Ret visit( const Nodecl::UnalignedVectorLoad& n );
         Ret visit( const Nodecl::UnalignedVectorStore& n );
         Ret visit( const Nodecl::UnknownPragma& n );

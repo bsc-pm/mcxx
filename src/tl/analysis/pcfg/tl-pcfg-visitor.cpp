@@ -1352,7 +1352,7 @@ namespace Analysis {
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+#if 0    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorAdd& n )
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
@@ -1420,7 +1420,7 @@ namespace Analysis {
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskedVectorMul& n )
     {
         return visit_vector_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
@@ -1458,7 +1458,7 @@ namespace Analysis {
     {
         return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
     }
-    
+#endif    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Minus& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
@@ -2449,6 +2449,7 @@ namespace Analysis {
         return visit_unary_node( n, n.get_arg( ) );
     }
 
+#if 0
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedMaskedVectorLoad& n )
     {
         return visit_vector_memory_func( n, /*mem_access_type = load*/ '1' );
@@ -2458,7 +2459,7 @@ namespace Analysis {
     {
         return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
     }
-    
+#endif    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorLoad& n )
     {
         return visit_vector_memory_func( n, /*mem_access_type = load*/ '1' );

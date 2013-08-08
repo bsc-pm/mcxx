@@ -986,7 +986,7 @@ namespace Analysis {
     {
         function_visit( n.get_called( ), n.get_arguments( ) );
     }
-
+/*
     void UsageVisitor::visit( const Nodecl::MaskedVectorAssignment& n )
     {
         visit_assignment( n );
@@ -1004,7 +1004,7 @@ namespace Analysis {
     {
         visit_assignment( n );
     }
-    
+*/    
     void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         visit_binary_assignment( n );
@@ -1091,12 +1091,12 @@ namespace Analysis {
             }
         }
     }
-    
+/*    
     void UsageVisitor::visit( const Nodecl::UnalignedMaskedVectorStore& n )
     {
         visit_assignment( n );
     }
-    
+*/    
     void UsageVisitor::visit( const Nodecl::UnalignedVectorStore& n )
     {
         visit_assignment( n );
@@ -1106,12 +1106,12 @@ namespace Analysis {
     {
         visit_assignment( n );
     }
-    
+/*    
     void UsageVisitor::visit( const Nodecl::VectorMaskAssignment& n )
     {
         visit_assignment( n );
     }
-    
+*/    
     void UsageVisitor::visit( const Nodecl::VectorScatter& n )
     {
         WARNING_MESSAGE( "VectorScatter not yet implemented during UseDef analysis. Ignoring node", 0 );

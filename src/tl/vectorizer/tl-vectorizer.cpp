@@ -132,21 +132,10 @@ namespace TL
 
         Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _fast_math_enabled(false)
         {
-            _var_counter = 0;
         }
 
         Vectorizer::~Vectorizer()
         {
-        }
-
-        std::string Vectorizer::get_var_counter()
-        {
-            std::stringstream result;
-
-            result << _var_counter;
-            _var_counter++;
-
-            return result.str();
         }
 
         bool Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,

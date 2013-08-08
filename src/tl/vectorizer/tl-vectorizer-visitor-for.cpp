@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-utils.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"

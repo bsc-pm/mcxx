@@ -49,19 +49,14 @@ namespace TL
                 KNCVectorLegalization();
 
                 virtual void visit(const Nodecl::ObjectInit& node);
-
+                virtual void visit(const Nodecl::VectorAdd& node);
+                virtual void visit(const Nodecl::VectorMinus& node);
+                virtual void visit(const Nodecl::VectorMul& node);
+                virtual void visit(const Nodecl::VectorDiv& node);
+ 
                 virtual void visit(const Nodecl::VectorConversion& node);
-                virtual void visit(const Nodecl::MaskedVectorConversion& node);
 
 /*
-                virtual void visit(const Nodecl::VectorAdd& node);
-                virtual void visit(const Nodecl::MaskedVectorAdd& node);
-                virtual void visit(const Nodecl::VectorMinus& node);
-                virtual void visit(const Nodecl::MaskedVectorMinus& node);
-                virtual void visit(const Nodecl::VectorMul& node);
-                virtual void visit(const Nodecl::MaskedVectorMul& node);
-                virtual void visit(const Nodecl::VectorDiv& node);
-                virtual void visit(const Nodecl::MaskedVectorDiv& node);
                 virtual void visit(const Nodecl::VectorNeg& node);
                 virtual void visit(const Nodecl::MaskedVectorNeg& node);
 

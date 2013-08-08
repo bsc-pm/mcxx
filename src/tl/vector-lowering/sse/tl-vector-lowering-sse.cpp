@@ -108,12 +108,6 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void SSEVectorLowering::visit(const Nodecl::MaskedVectorAdd& node) 
-        {
-            visit(node.as<Nodecl::VectorAdd>()); 
-        }                                                 
-
-
         void SSEVectorLowering::visit(const Nodecl::VectorMinus& node) 
         { 
             TL::Type type = node.get_type().basic_type();
@@ -167,11 +161,6 @@ namespace TL
                     intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
-        }                                                 
-
-        void SSEVectorLowering::visit(const Nodecl::MaskedVectorMinus& node) 
-        {
-            visit(node.as<Nodecl::VectorMinus>()); 
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorMul& node) 
@@ -238,11 +227,6 @@ namespace TL
             node.replace(function_call);
         }    
 
-        void SSEVectorLowering::visit(const Nodecl::MaskedVectorMul& node) 
-        {
-            visit(node.as<Nodecl::VectorMul>()); 
-        }                                                 
-
         void SSEVectorLowering::visit(const Nodecl::VectorDiv& node) 
         { 
             TL::Type type = node.get_type().basic_type();
@@ -291,11 +275,6 @@ namespace TL
                     intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
-        }                                                 
-
-        void SSEVectorLowering::visit(const Nodecl::MaskedVectorDiv& node) 
-        {
-            visit(node.as<Nodecl::VectorDiv>()); 
         }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
@@ -1507,11 +1486,6 @@ namespace TL
             walk(function_call.get_arguments());
 
             node.replace(function_call);
-        }
-
-        void SSEVectorLowering::visit(const Nodecl::MaskedVectorFunctionCall& node) 
-        {
-            running_error("SSE Lowering: VectorFuctionCallMask is not supported in SSE.");
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorFabs& node) 

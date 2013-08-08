@@ -33,6 +33,8 @@ namespace TL
     {
         namespace Utils
         {
+            static unsigned int _var_counter = 0;
+
             LookForReturnVisitor::LookForReturnVisitor()
             {
             }
@@ -161,7 +163,7 @@ namespace TL
                     const int mask_size)
             {
                 TL::Symbol new_mask_sym = scope.new_symbol("__mask_" + 
-                        Vectorizer::_vectorizer->get_var_counter());
+                        Utils::get_var_counter());
                 new_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 new_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 new_mask_sym.set_type(TL::Type::get_mask_type(mask_size));
@@ -237,6 +239,24 @@ namespace TL
                 return false;
             }
 
+            Nodecl::NodeclBase get_proper_mask(const VectorizerEnvironment& environment,
+                    const Nodecl::NodeclBase& mask)
+            {
+                if(Utils::is_all_one_mask(mask))
+                {
+                    return Nodecl::NodeclBase::null();
+                }
+                else
+                {
+                    return mask.shallow_copy();
+                }
+            }
+
+            Nodecl::NodeclBase get_null_mask()
+            {
+                return Nodecl::NodeclBase::null();
+            }
+
             TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int num_elements) 
             {
                 cv_qualifier_t cv_qualif = get_cv_qualifier(no_ref(src_type.get_internal_type()));
@@ -250,6 +270,16 @@ namespace TL
                 }
 
                 return result_type;
+            }
+
+            std::string get_var_counter()
+            {
+                std::stringstream result;
+
+                result << Utils::_var_counter;
+                Utils::_var_counter++;
+
+                return result.str();
             }
         }
     }

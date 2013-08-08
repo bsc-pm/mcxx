@@ -28,6 +28,7 @@
 #define TL_VECTORIZER_UTILS_VERSIONING_HPP
 
 #include "tl-nodecl-visitor.hpp"
+#include "tl-vectorizer.hpp"
 #include <map>
 
 
@@ -100,9 +101,13 @@ namespace TL
                     const scope_t *const symbol_scope);
 
             bool is_all_one_mask(const Nodecl::NodeclBase& n);
+
+            Nodecl::NodeclBase get_proper_mask(const VectorizerEnvironment& environment,
+                    const Nodecl::NodeclBase& mask);
+             Nodecl::NodeclBase get_null_mask();
  
             TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
- 
+            std::string get_var_counter();
         }
     }
 }
