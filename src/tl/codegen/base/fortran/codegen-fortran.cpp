@@ -3451,11 +3451,11 @@ OPERATOR_TABLE
                     internal_error("Error: non-character arrays cannot be passed by value in Fortran\n",
                             entry.get_name().c_str());
                 }
-                else if (entry.get_type().is_class())
-                {
-                    internal_error("Error: struct/class types cannot be passed by value in Fortran\n",
-                            entry.get_name().c_str());
-                }
+                // else if (entry.get_type().is_class())
+                // {
+                //     internal_error("Error: struct/class types cannot be passed by value in Fortran\n",
+                //             entry.get_name().c_str());
+                // }
                 else
                 {
                     attribute_list += ", VALUE";
