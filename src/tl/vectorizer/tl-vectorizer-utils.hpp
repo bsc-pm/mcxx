@@ -86,11 +86,11 @@ namespace TL
                     virtual void visit(const Nodecl::Mul& n);
                     virtual void visit(const Nodecl::Div& n);
                     virtual void visit(const Nodecl::ReturnStatement& n);
-
             };
 
             Nodecl::NodeclBase get_new_mask_symbol(TL::Scope scope,
-                    const int masks_size);
+                    const int masks_size,
+                    const bool ref_type);
             Nodecl::NodeclBase emit_disjunction_mask(
                     const ObjectList<Nodecl::NodeclBase>& bb_exit_mask_list,
                     Nodecl::List& output_stmt_list,

@@ -118,6 +118,27 @@ namespace TL
             n.replace(vector_div);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::Mod& n)
+        {
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+                    _environment._mask_list.back());
+
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+
+            const Nodecl::VectorMod vector_mod =
+                Nodecl::VectorMod::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        mask,
+                        Utils::get_qualified_vector_to(n.get_type(), 
+                            _environment._unroll_factor),
+                        n.get_locus());
+
+            n.replace(vector_mod);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::Neg& n)
         {
             Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
@@ -167,8 +188,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
+                        TL::Type::get_mask_type(_environment._unroll_factor), 
                         n.get_locus());
 
             n.replace(vector_lt);
@@ -187,8 +207,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
+                        TL::Type::get_mask_type(_environment._unroll_factor), 
                         n.get_locus());
 
             n.replace(vector_lt);
@@ -207,8 +226,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
+                        TL::Type::get_mask_type(_environment._unroll_factor), 
                         n.get_locus());
 
             n.replace(vector_gt);
@@ -227,8 +245,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
+                        TL::Type::get_mask_type(_environment._unroll_factor), 
                         n.get_locus());
 
             n.replace(vector_gt);
@@ -247,8 +264,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
+                        TL::Type::get_mask_type(_environment._unroll_factor), 
                         n.get_locus());
 
             n.replace(vector_eq);
@@ -267,8 +283,7 @@ namespace TL
                         n.get_lhs().shallow_copy(),
                         n.get_rhs().shallow_copy(),
                         mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
+                        TL::Type::get_mask_type(_environment._unroll_factor), 
                         n.get_locus());
 
             n.replace(vector_dif);
@@ -658,6 +673,25 @@ namespace TL
             walk(n);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::ModAssignment& n)
+        {
+            const Nodecl::Assignment assignment =
+                Nodecl::Assignment::make(
+                        n.get_lhs().shallow_copy(),
+                        Nodecl::Mod::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            n.get_type(),
+                            n.get_locus()),
+                        n.get_type(),
+                        n.get_locus());
+
+            n.replace(assignment);
+
+            // Visit standard assignment
+            walk(n);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
         {
             Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
@@ -842,7 +876,7 @@ namespace TL
                             _environment._device, 
                             _environment._unroll_factor * call_type.get_size(), 
                             function_target_type,
-                            true);
+                            !mask.is_null());
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best vector function for '%s' is null",
                         called_sym.get_symbol().get_name().c_str());

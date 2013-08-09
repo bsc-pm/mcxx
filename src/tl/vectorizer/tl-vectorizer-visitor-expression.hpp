@@ -47,6 +47,7 @@ namespace TL
                 virtual void visit(const Nodecl::Minus& n);
                 virtual void visit(const Nodecl::Mul& n);
                 virtual void visit(const Nodecl::Div& n);
+                virtual void visit(const Nodecl::Mod& n);
                 virtual void visit(const Nodecl::Neg& n);
 
                 virtual void visit(const Nodecl::LowerThan& n);
@@ -66,6 +67,7 @@ namespace TL
                 virtual void visit(const Nodecl::MinusAssignment& n);
                 virtual void visit(const Nodecl::MulAssignment& n);
                 virtual void visit(const Nodecl::DivAssignment& n);
+                virtual void visit(const Nodecl::ModAssignment& n);
 
                 virtual void visit(const Nodecl::Conversion& n);
                 virtual void visit(const Nodecl::Cast& n);

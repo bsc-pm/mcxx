@@ -84,7 +84,7 @@ namespace TL
                 // *******
                 // New symbol mask
                 Nodecl::NodeclBase if_mask_nodecl = Utils::get_new_mask_symbol(
-                        scope, _environment._unroll_factor); 
+                        scope, _environment._unroll_factor, true); 
 
                 // Mask value
                 Nodecl::NodeclBase if_mask_value;
@@ -103,9 +103,9 @@ namespace TL
 
                 // Expression that sets the mask
                 Nodecl::ExpressionStatement if_mask_exp;
-#warning
+
                 // Mask types have the same type
-                if(if_mask_nodecl.get_type() == if_mask_value.get_type())
+                if(if_mask_nodecl.get_type().no_ref().is_same_type(if_mask_value.get_type().no_ref()))
                 {
                     if_mask_exp =
                         Nodecl::ExpressionStatement::make(
@@ -116,6 +116,7 @@ namespace TL
                 }
                 else
                 {
+                    std::cerr << "warning: Masks have different type. This is not implemented yet." << std::endl;
                 }
 
                 // Add masks to the source code
@@ -126,7 +127,7 @@ namespace TL
                 // ***********
                 // New symbol mask
                 Nodecl::NodeclBase else_mask_nodecl = Utils::get_new_mask_symbol(
-                        scope, _environment._unroll_factor);
+                        scope, _environment._unroll_factor, true);
 
                 // Mask value
                 Nodecl::NodeclBase else_mask_value;
@@ -360,7 +361,7 @@ namespace TL
                 if (_environment._inside_inner_masked_bb.back())
                 {
                     // Global mask check
-                    Nodecl::NodeclBase global_mask = *(_environment._mask_list.begin());
+/*                    Nodecl::NodeclBase global_mask = *(_environment._mask_list.begin());
 
                     Nodecl::NodeclBase updated_global_mask;
                     if (Utils::is_all_one_mask(global_mask))
@@ -381,7 +382,6 @@ namespace TL
                                     n.get_locus());
                     }
 
-                    /*
                     Nodecl::IfElseStatement if_global_mask_is_zero =
                         Nodecl::IfElseStatement::make(
                                 Nodecl::Equal::make(

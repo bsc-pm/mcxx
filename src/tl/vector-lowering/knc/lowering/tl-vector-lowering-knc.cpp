@@ -94,17 +94,26 @@ namespace TL
                 if((conf & ConfigMaskProcessing::ONLY_MASK) ==
                        ConfigMaskProcessing::ONLY_MASK)
                 {
-                    mask_args << as_expression(mask)
-                        << ", "
-                        ;
+                    mask_args << as_expression(mask);
+
+                    if((conf & ConfigMaskProcessing::NO_FINAL_COMMA) !=
+                        ConfigMaskProcessing::NO_FINAL_COMMA)
+                    {
+                        mask_args << ", ";
+                    }
                 }
                 else // DEFAULT
                 {
                     mask_args << old.get_source()
                         << ", "
                         << as_expression(mask)
-                        << ", "
                         ;
+
+                    if((conf & ConfigMaskProcessing::NO_FINAL_COMMA) !=
+                        ConfigMaskProcessing::NO_FINAL_COMMA)
+                    {
+                        mask_args << ", ";
+                    }
                 }
             }
             else if((conf & ConfigMaskProcessing::ALWAYS_OLD) ==
@@ -279,12 +288,22 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorMul& node) 
         {
-            common_binary_op_lowering(node, "mul");
+            TL::Type type = node.get_type().basic_type();
+            
+            if (type.is_integral_type())
+                common_binary_op_lowering(node, "mullo");
+            else
+                common_binary_op_lowering(node, "mul");
         }    
 
         void KNCVectorLowering::visit(const Nodecl::VectorDiv& node) 
         { 
             common_binary_op_lowering(node, "div");
+        }                                                 
+
+        void KNCVectorLowering::visit(const Nodecl::VectorMod& node) 
+        { 
+            common_binary_op_lowering(node, "rem");
         }                                                 
 
         void KNCVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
@@ -821,7 +840,7 @@ namespace TL
             { 
                 cast_type << "(__m512)";
             } 
-            else if (dst_type.is_integral_type()) 
+            else if (dst_type.is_double()) 
             {
                 cast_type << "(__m512d)";
             }
@@ -1008,8 +1027,8 @@ namespace TL
 
         void KNCVectorLowering::visit(const Nodecl::VectorAssignment& node) 
         {
+            Nodecl::NodeclBase lhs = node.get_lhs();
             Nodecl::NodeclBase rhs = node.get_rhs();
-            Nodecl::NodeclBase lhs = node.get_rhs();
             Nodecl::NodeclBase mask = node.get_mask();
 
             TL::Type type = node.get_type().basic_type();
@@ -1556,14 +1575,14 @@ namespace TL
             Nodecl::FunctionCall function_call =
                 node.get_function_call().as<Nodecl::FunctionCall>();
 
-            const TL::Type scalar_type = node.get_type().basic_type();
             const Nodecl::NodeclBase mask = node.get_mask();
+            TL::Type vector_type = node.get_type();
+            TL::Type scalar_type = vector_type.basic_type();
             Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
             if (mask.is_null()) // UNMASKED FUNCTION CALLS
             {
                 walk(arguments);
-
                 node.replace(function_call);
             }
             else // MASKED FUNCTION CALLS
@@ -1577,18 +1596,22 @@ namespace TL
                     << ")"
                     ;
 
+                // Vector function name
+                intrin_name << function_call.get_called().
+                    as<Nodecl::Symbol>().get_symbol().get_name();
+
                 TL::Symbol scalar_sym =
                     node.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
 
-                intrin_name << scalar_sym.get_name();
-
-                if(_vectorizer.is_svml_function(intrin_name.get_source(),
+                // Use scalar symbol to look up
+                if(_vectorizer.is_svml_function(scalar_sym.get_name(),
                             "knc",
-                            64,
+                            _vector_length,
                             scalar_type,
-                            true))
+                            /*masked*/ !mask.is_null()))
                 {
-                    process_mask_component(mask, mask_prefix, mask_args, scalar_type);
+                    process_mask_component(mask, mask_prefix, mask_args, scalar_type,
+                            ConfigMaskProcessing::NO_FINAL_COMMA);
 
                     walk(arguments);
 
@@ -1607,33 +1630,11 @@ namespace TL
                 }
                 else // Compound Expression to avoid infinite recursion
                 {
-                    TL::Source compound_exp, init_value;
+                    TL::Source conditional_exp, mask_casting;
 
                     process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                            ConfigMaskProcessing::KEEP_OLD | ConfigMaskProcessing::ONLY_MASK);
-
-                    if (scalar_type.is_float()) 
-                    { 
-                        init_value << "float __r = 0.0f";
-                    } 
-                    else if (scalar_type.is_double()) 
-                    {
-                        init_value << "double __r = 0.0";
-                    } 
-                    else if (scalar_type.is_signed_int()) 
-                    {
-                        init_value << "int __r = 0";
-                    }
-                    else if (scalar_type.is_unsigned_int()) 
-                    {
-                        init_value << "unsigned int __r = 0";
-                    }
-                    else
-                    {
-                        running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
-                                ast_print_node_type(node.get_kind()),
-                                locus_to_str(node.get_locus()));
-                    }
+                            ConfigMaskProcessing::KEEP_OLD | ConfigMaskProcessing::ONLY_MASK |
+                            ConfigMaskProcessing::NO_FINAL_COMMA);
 
                     walk(arguments);
 
@@ -1646,21 +1647,26 @@ namespace TL
 
                     args.append_with_separator(mask_args, ", ");
 
+                    mask_casting << "("
+                        << mask.get_type().no_ref().get_simple_declaration(
+                                mask.retrieve_context(), "") 
+                        << ")";
 
-                    // Compound expression
-                    compound_exp << "({"
-                        << init_value << "; "
-                        << "if(" << as_expression(mask) << "!= "
-                        << "((" << mask.get_type().no_ref().get_simple_declaration(
-                                        mask.retrieve_context(), "") << ") 0))"
-                        << intrin_src << ";"
-                        << "})"
+                    // Conditional expression
+#warning This should work
+/*
+                    conditional_exp << "("
+                        << "(" << as_expression(mask) << "!= " << "(" << mask_casting << "0))"
+                        << " ? " <<  intrin_src << " : " << get_undef_intrinsic(scalar_type)
+                        << ")"
                         ;
+*/
+                    conditional_exp <<  intrin_src;
 
-                    Nodecl::NodeclBase compound_exp_node =
-                        compound_exp.parse_expression(node.retrieve_context());
+                    Nodecl::NodeclBase conditional_exp_node =
+                        conditional_exp.parse_expression(node.retrieve_context());
 
-                    node.replace(compound_exp_node);
+                    node.replace(conditional_exp_node);
                 }
             }
         }
@@ -1674,7 +1680,8 @@ namespace TL
             
             TL::Source intrin_src, mask_prefix, mask_args;
 
-            process_mask_component(mask, mask_prefix, mask_args, type);
+            process_mask_component(mask, mask_prefix, mask_args, 
+                    TL::Type::get_int_type());
 
             walk(argument);
 
@@ -1689,7 +1696,7 @@ namespace TL
             } 
             else if (type.is_double()) 
             { 
-                intrin_src << "_mm512_castsi512_pd(_mm512_" << mask_prefix << "and_epi32("
+                intrin_src << "_mm512_castsi512_pd(_mm512_" << mask_prefix << "and_epi64("
                     << mask_args
                     << "_mm512_castpd_si512("
                     << as_expression(argument)

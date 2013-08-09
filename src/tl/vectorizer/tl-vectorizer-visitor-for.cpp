@@ -518,12 +518,12 @@ namespace TL
            
             Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                     comp_statement.retrieve_context(),
-                    _environment._unroll_factor);
+                    _environment._unroll_factor, true);
 
             // Compute epilog mask expression
 
             Nodecl::ExpressionStatement mask_exp;
-            if (mask_nodecl_sym.get_type() == mask_value.get_type())
+            if (mask_nodecl_sym.get_type().no_ref().is_same_type(mask_value.get_type().no_ref()))
             {
                 std::cerr << "Masks have the same type" << std::endl;
 

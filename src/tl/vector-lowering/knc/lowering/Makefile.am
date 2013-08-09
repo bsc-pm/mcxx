@@ -30,14 +30,14 @@ phases_LTLIBRARIES = libtlvector-lowering-knc.la
 
 END=
 
-libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags) \
+libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags) -Wall \
     -I $(top_srcdir)/src/tl/analysis/singleton/ \
     -I $(top_srcdir)/src/tl/analysis/common/ \
     -I $(top_srcdir)/src/tl/analysis/pcfg/ \
     -I $(top_srcdir)/src/tl/vectorizer/ \
     $(END)
 
-libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
+libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) -Wall \
     -I $(top_srcdir)/src/tl/analysis/singleton/ \
     -I $(top_srcdir)/src/tl/analysis/common/ \
     -I $(top_srcdir)/src/tl/analysis/pcfg/ \

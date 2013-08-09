@@ -157,10 +157,9 @@ namespace TL
                 _cost += _function_call_cost;
             }
 
-
-
             Nodecl::NodeclBase get_new_mask_symbol(TL::Scope scope,
-                    const int mask_size)
+                    const int mask_size,
+                    const bool ref_type)
             {
                 TL::Symbol new_mask_sym = scope.new_symbol("__mask_" + 
                         Utils::get_var_counter());
@@ -168,7 +167,7 @@ namespace TL
                 new_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 new_mask_sym.set_type(TL::Type::get_mask_type(mask_size));
 
-                return new_mask_sym.make_nodecl(true, make_locus("", 0, 0));
+                return new_mask_sym.make_nodecl(ref_type, make_locus("", 0, 0));
             }
 
             Nodecl::NodeclBase emit_disjunction_mask(
@@ -185,7 +184,7 @@ namespace TL
                 while(it != bb_exit_mask_list.end())
                 {
                     Nodecl::NodeclBase new_mask_sym_nodecl = get_new_mask_symbol(
-                            scope, mask_size);
+                            scope, mask_size, /* ref_type */ true);
 
                     Nodecl::ExpressionStatement new_mask_exp =
                         Nodecl::ExpressionStatement::make(

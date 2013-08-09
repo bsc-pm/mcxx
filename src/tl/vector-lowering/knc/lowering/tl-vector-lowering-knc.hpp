@@ -46,7 +46,8 @@ namespace TL
                     MASK_DEFAULT = 0x0,
                     ONLY_MASK = 0x1,
                     KEEP_OLD = 0x2,
-                    ALWAYS_OLD = 0x4
+                    ALWAYS_OLD = 0x4,
+                    NO_FINAL_COMMA = 0x8,
                 } config_mask_processing;
 
                 ConfigMaskProcessing(int a)
@@ -93,6 +94,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMinus& node);
                 virtual void visit(const Nodecl::VectorMul& node);
                 virtual void visit(const Nodecl::VectorDiv& node);
+                virtual void visit(const Nodecl::VectorMod& node);
                 virtual void visit(const Nodecl::VectorNeg& node);
 
                 virtual void visit(const Nodecl::VectorLowerThan& node);

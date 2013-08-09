@@ -26,8 +26,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-serial-simd-mic
-test_exec_fail=yes
+test_generator="config/mercurium-serial-simd-mic run"
 </testinfo>
 */
 
@@ -35,33 +34,34 @@ test_exec_fail=yes
 #pragma omp simd 
 int foo(int n)
 {
-    if (n > 2)
+    if ((n%2) == 0)
     {
-        if (n < 100)
-        {
-            if (n > 50)
-                return 1;
-            return 2;
-        }
-        else
-        {
-            n = n / 0;
-        }
-
-        n = n / 0;
+        return 35;
     }
 
-    return n;
+    return 75;
 }
 
 int main()
 {
     int i;
 
+    int __attribute__((__aligned__(64))) a[100];
+
 #pragma omp simd
-    for (i=0; i<101; i++)
+    for (i=0; i<100; i++)
     {
-        foo(i);
+        a[i] = foo(i);
     }
+
+    for (i=0; i<100; i++)
+    {
+        if (a[i] != foo(i))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
