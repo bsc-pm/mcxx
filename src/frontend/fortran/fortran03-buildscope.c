@@ -1370,7 +1370,7 @@ static nodecl_t check_bind_c(AST bind_c_spec,
 
     AST bind_name_expr = ASTSon0(bind_c_spec);
     if (bind_name_expr == NULL)
-        return nodecl_null();
+        return nodecl_make_fortran_bind_c(nodecl_null(), ast_get_locus(bind_c_spec));
 
     nodecl_t nodecl_bind_name = nodecl_null();
     if (bind_name_expr != NULL)
