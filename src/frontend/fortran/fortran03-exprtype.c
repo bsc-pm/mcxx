@@ -396,6 +396,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                             ast_location(ac_do_variable), ASTText(ac_do_variable));
                 }
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(ac_do_variable));
+                *current_type = get_error_type();
                 return;
             }
 
@@ -412,6 +413,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                             ast_location(ac_do_variable), ASTText(ac_do_variable));
                 }
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(ac_do_variable));
+                *current_type = get_error_type();
                 return;
             }
 
@@ -443,7 +445,20 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
 
                 int i;
                 int trip_count = 0;
-                if (val_stride > 0)
+                if (val_stride == 0)
+                {
+                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
+                }
+                else if ((val_stride * val_lower) > (val_stride * val_upper))
+                {
+                    // Empty range
+                    do_variable->value = const_value_to_nodecl(const_value_get_signed_int(val_lower));
+                    nodecl_set_locus_as(do_variable->value, nodecl_lower);
+
+                    nodecl_t nodecl_value = nodecl_null();
+                    check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_value, current_type, num_items);
+                }
+                else if (val_stride > 0)
                 {
                     for (i = val_lower;
                             i <= val_upper;
@@ -479,30 +494,10 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                         trip_count++;
                     }
                 }
-                else
-                {
-                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
-                }
 
                 // Restore the variable used for the expansion
                 do_variable->type_information = original_type;
                 do_variable->value = original_value;
-
-                // The loop was empty!
-                // Nevertheless we have to check the expression
-                if (trip_count == 0)
-                {
-                    int current_num_items = 0;
-                    nodecl_t nodecl_ac_value = nodecl_null();
-                    check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
-                    // We ignore anything from that expression, though
-
-                    if (nodecl_is_err_expr(nodecl_ac_value))
-                    {
-                        *nodecl_output = nodecl_ac_value;
-                        return;
-                    }
-                }
             }
             else
             {
@@ -558,6 +553,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                                 fortran_print_type_str(*current_type));
                     }
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                    *current_type = get_error_type();
                     return;
                 }
             }
@@ -616,8 +612,12 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     if (ac_value_list != NULL)
     {
         check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &num_items);
-        if (nodecl_is_err_expr(nodecl_ac_value))
+        if (is_error_type(ac_value_type))
         {
+            // Empty ranges may return null trees
+            if (nodecl_is_null(nodecl_ac_value))
+                nodecl_ac_value = nodecl_make_err_expr(ast_get_locus(expr));
+
             *nodecl_output = nodecl_ac_value;
             return;
         }
@@ -628,7 +628,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: invalid empty array-constructor without type-specifier\n", 
+                error_printf("%s: invalid empty array-constructor without type-specifier\n",
                         ast_location(expr));
             }
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
