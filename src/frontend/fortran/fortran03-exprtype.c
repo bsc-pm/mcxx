@@ -1342,16 +1342,6 @@ static void check_array_ref_(
                 nodecl_indexes,
                 num_subscripts);
 
-        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(subconstant);
-        if (!nodecl_is_null(nodecl_const_val))
-        {
-            nodecl_t nodecl_old = *nodecl_output;
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, synthesized_type);
-
-            nodecl_set_locus_as(*nodecl_output, nodecl_old);
-        }
-
         nodecl_set_constant(*nodecl_output, subconstant);
     }
 }
@@ -1982,19 +1972,6 @@ static void check_component_ref_(AST expr,
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
-        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
-        if (!nodecl_is_null(nodecl_const_val)
-                // Avoid NULL() be converted to 0
-                && !is_pointer_type(component_symbol->type_information))
-        {
-            nodecl_t nodecl_old = *nodecl_output;
-            type_t* orig_type = nodecl_get_type(*nodecl_output);
-
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, orig_type);
-
-            nodecl_set_locus_as(*nodecl_output, nodecl_old);
-        }
 
         nodecl_set_constant(*nodecl_output, const_value_member);
     }
@@ -2790,7 +2767,9 @@ static void check_called_symbol_list(
         nodecl_t* nodecl_simplify)
 {
     scope_entry_t* symbol = NULL;
-    char intrinsic_named_like_generic_spec = 0;
+    char intrinsic_name_can_be_called = 0;
+    // char generic_name_can_be_called = 0;
+    char hide_intrinsics = 0;
 
     int explicit_num_actual_arguments = *num_actual_arguments;
 
@@ -2809,7 +2788,6 @@ static void check_called_symbol_list(
             if (current_generic_spec->entity_specs.is_builtin
                     && is_computed_function_type(current_generic_spec->type_information))
             {
-                intrinsic_named_like_generic_spec = 1;
                 scope_entry_t* specific_intrinsic = fortran_solve_generic_intrinsic_call(current_generic_spec,
                         nodecl_actual_arguments,
                         explicit_num_actual_arguments,
@@ -2817,10 +2795,9 @@ static void check_called_symbol_list(
 
                 if (specific_intrinsic != NULL)
                 {
-                    // If an intrinsic matches, we do not have to try anymore
+                    intrinsic_name_can_be_called = 1;
                     specific_symbol_set = entry_list_merge(entry_list_new(specific_intrinsic),
                             specific_symbol_set);
-                    break;
                 }
             }
             else if (current_generic_spec->entity_specs.is_generic_spec)
@@ -2831,9 +2808,17 @@ static void check_called_symbol_list(
 
                 if (current_specific_symbol_set != NULL)
                 {
+                    // generic_name_can_be_called = 1;
                     // This may be overwritten when more than one generic specifier
                     // can match, which is wrong
                     *generic_specifier_symbol = current_generic_spec;
+
+                    // If we find a USE consistent call to a associated name
+                    // then INTRINSICS must be ignored to prioritize USEs
+                    if (current_generic_spec->entity_specs.from_module != NULL)
+                    {
+                        hide_intrinsics = 1;
+                    }
                 }
 
                 specific_symbol_set = entry_list_merge(current_specific_symbol_set,
@@ -2849,13 +2834,33 @@ static void check_called_symbol_list(
 
         entry_list_iterator_free(it);
 
+        if (entry_list_size(specific_symbol_set) > 1)
+        {
+            scope_entry_list_t* filtered_specific_symbol_set = NULL;
+
+            for (it = entry_list_iterator_begin(specific_symbol_set);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* entry = entry_list_iterator_current(it);
+                if (hide_intrinsics && entry->entity_specs.is_builtin)
+                    continue;
+
+                filtered_specific_symbol_set = entry_list_add_once(filtered_specific_symbol_set, entry);
+            }
+            entry_list_iterator_free(it);
+
+            entry_list_free(specific_symbol_set);
+            specific_symbol_set = filtered_specific_symbol_set;
+        }
+
         if (specific_symbol_set == NULL)
         {
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: no specific interfaces%s match the generic interface '%s' in function reference\n",
                         ast_location(location),
-                        intrinsic_named_like_generic_spec ? " or intrinsic procedures" : "",
+                        intrinsic_name_can_be_called ? " or intrinsic procedures" : "",
                         fortran_prettyprint_in_buffer(procedure_designator));
             }
             *result_type = get_error_type();
@@ -2867,7 +2872,7 @@ static void check_called_symbol_list(
             {
                 error_printf("%s: error: several specific interfaces%s match generic interface '%s' in function reference\n",
                         ast_location(location),
-                        intrinsic_named_like_generic_spec ? " or intrinsic procedures" : "",
+                        intrinsic_name_can_be_called ? " or intrinsic procedures" : "",
                         fortran_prettyprint_in_buffer(procedure_designator));
                 for (it = entry_list_iterator_begin(specific_symbol_set);
                         !entry_list_iterator_end(it);
@@ -2876,9 +2881,9 @@ static void check_called_symbol_list(
                     scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
                     if (current_generic_spec->entity_specs.is_generic_spec)
                     {
-                    info_printf("%s: info: specific interface '%s' matches\n",
-                            locus_to_str(current_generic_spec->locus),
-                            current_generic_spec->symbol_name);
+                        info_printf("%s: info: specific interface '%s' matches\n",
+                                locus_to_str(current_generic_spec->locus),
+                                current_generic_spec->symbol_name);
                     }
                     else if (current_generic_spec->entity_specs.is_builtin)
                     {
@@ -5038,32 +5043,42 @@ static void cast_initialization(
     else if (fortran_is_array_type(initialized_type)
             && !const_value_is_array(val))
     {
+        type_t* rank0_type = fortran_get_rank0_type(initialized_type);
+
+        // Avoid transforming initializers of empty arrays
+        if (fortran_array_has_zero_size(initialized_type))
+        {
+            *casted_const = val;
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
+            }
+
+            return;
+        }
+
         nodecl_t nodecl_size = array_type_get_array_size_expr(initialized_type);
         if (nodecl_is_constant(nodecl_size))
         {
             int i;
             int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
             type_t* element_type = array_type_get_element_type(initialized_type);
-            type_t* rank0_type = fortran_get_rank0_type(initialized_type);
 
-            if (size > 0)
+            const_value_t* const_values[size + 1];
+            for (i = 0 ; i < size; i++)
             {
-                const_value_t* const_values[size];
-                for (i = 0 ; i < size; i++)
-                {
-                    cast_initialization(element_type,
-                            val,
-                            &(const_values[i]),
-                            /* nodecl_output */ NULL);
+                cast_initialization(element_type,
+                        val,
+                        &(const_values[i]),
+                        /* nodecl_output */ NULL);
 
-                }
+            }
 
-                *casted_const = const_value_make_array(size, const_values);
+            *casted_const = const_value_make_array(size, const_values);
 
-                if (nodecl_output != NULL)
-                {
-                    *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
-                }
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
             }
         }
     }

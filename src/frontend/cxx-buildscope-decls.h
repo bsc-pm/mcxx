@@ -30,6 +30,8 @@
 #ifndef CXX_BUILDSCOPE_DECLS_H
 #define CXX_BUILDSCOPE_DECLS_H
 
+#include <stdbool.h>
+
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
 #include "cxx-gccsupport-decls.h"
@@ -42,53 +44,65 @@ MCXX_BEGIN_DECLS
 // others belong to the symbol but they do not appear syntactically in the same
 // place
 
+typedef
+struct arguments_info_tag
+{
+    scope_entry_t* entry;
+    nodecl_t argument;
+    decl_context_t context;
+} arguments_info_t;
+
 typedef 
 struct gather_decl_spec_tag {
     // context of the declaration
-    char no_declarators;
-    char parameter_declaration;
-    char is_template;
-    char is_explicit_specialization; // template<> void A<int>::f();
-    char is_explicit_instantiation;  // template   void A<int>::f();
+    bool no_declarators:1;
+    bool parameter_declaration:1;
+    bool is_template:1;
+    bool is_explicit_specialization:1; // template<> void A<int>::f();
+    bool is_explicit_instantiation:1;  // template   void A<int>::f();
 
-    char inside_class_specifier;
+    bool inside_class_specifier:1;
 
     // type-specifiers and decl-specifiers
-    char is_auto;
-    char is_register;
-    char is_static;
-    char is_extern;
-    char is_mutable;
-    char is_thread;
-    char is_friend;
-    char is_typedef;
-    char is_signed;
-    char is_unsigned;
-    char is_short;
-    char is_long;
-    char is_const;
-    char is_volatile;
-    char is_restrict;
-    char is_inline;
-    char is_virtual;
-    char is_explicit;
-    char is_complex;
-    char is_overriden_type;
-    char emit_always;
+    bool is_auto:1;
+    bool is_register:1;
+    bool is_static:1;
+    bool is_extern:1;
+    bool is_mutable:1;
+    bool is_thread:1;
+    bool is_friend:1;
+    bool is_typedef:1;
+    bool is_signed:1;
+    bool is_unsigned:1;
+    bool is_short:1;
+    bool is_const:1;
+    bool is_volatile:1;
+    bool is_restrict:1;
+    bool is_inline:1;
+    bool is_virtual:1;
+    bool is_explicit:1;
+    bool is_complex:1;
+    bool is_overriden_type:1;
+    bool emit_always:1;
+    bool any_exception:1; // Set to 1 if no exception specifier was seen
+    bool is_vector:1;
 
     // GCC extension
-    char is_transparent_union;
+    bool is_transparent_union:1;
 
     // Mercurium extensions
-    char is_boolean_integer;
-    char is_mask_integer;
+    bool is_boolean_integer;
+    bool is_mask_integer;
 
     // We are in the declarator of "new T[e]" 
     // 'e' may be non-constant, do not create a VLA entity for it
-    char is_cxx_new_declarator;
+    bool is_cxx_new_declarator;
 
     // In some cases we allow gather_type_spec_from_simple_type_specifier to allow templates
-    char allow_class_template_names;
+    bool allow_class_template_names;
+
+    // It may be 0, 1 (long), 2 (long long) o 3 (__int128)
+    unsigned int is_long:2;
 
     // This type-spec defines (not just declares!) a new type which is
     // accessible through this symbol
@@ -98,20 +112,15 @@ struct gather_decl_spec_tag {
     struct type_tag* mode_type;
 
     // exception-specifiers
-    char any_exception; // Set to 1 if no exception specifier was seen
     int num_exceptions;
     struct type_tag** exceptions;
 
     // Vector info
     unsigned int vector_size;
-    char is_vector;
-    int num_parameters;
-    struct 
-    {
-        scope_entry_t* entry;
-        nodecl_t argument;
-        decl_context_t context;
-    } arguments_info[MCXX_MAX_FUNCTION_PARAMETERS];
+
+    // Argument info
+    int num_arguments_info;
+    arguments_info_t* arguments_info;
     
     // VLA info
     int num_vla_dimension_symbols;
@@ -119,38 +128,38 @@ struct gather_decl_spec_tag {
 
     // Attribute info
     int num_gcc_attributes;
-    gather_gcc_attribute_t gcc_attributes[MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+    gather_gcc_attribute_t* gcc_attributes;
 
     // __declspec info
     int num_ms_attributes;
-    gather_gcc_attribute_t ms_attributes[MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+    gather_gcc_attribute_t* ms_attributes;
 
     // UPC info
     struct
     {
-        char is_shared;
+        bool is_shared:1;
+        bool is_relaxed:1;
+        bool is_strict:1;
         AST shared_layout;
-        char is_relaxed;
-        char is_strict;
     } upc;
 
     // CUDA info
     struct
     {
-        char is_global;
-        char is_device;
-        char is_host;
-        char is_shared;
-        char is_constant;
+        bool is_global:1;
+        bool is_device:1;
+        bool is_host:1;
+        bool is_shared:1;
+        bool is_constant:1;
     } cuda;
     
     // OpenCL info
     struct
     {
-        char is_kernel;
-        char is_constant;
-        char is_global;
-        char is_local;
+        bool is_kernel:1;
+        bool is_constant:1;
+        bool is_global:1;
+        bool is_local:1;
     } opencl;
 
     access_specifier_t current_access;

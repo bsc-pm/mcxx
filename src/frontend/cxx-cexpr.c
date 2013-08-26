@@ -1001,19 +1001,18 @@ type_t* const_value_get_minimal_integer_for_value_at_least_signed_int(const_valu
     return get_minimal_integer_for_value_at_least_signed_int(val->sign, val->value.i);
 }
 
-nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v, 
-        type_t* integer_type,
-        type_t* floating_type)
+nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, 
+        type_t* basic_type)
 {
     switch (v->kind)
     {
         case CVK_INTEGER:
             {
                 // Zero is special
-                if (integer_type == NULL && v->value.i == 0)
+                if (basic_type == NULL && v->value.i == 0)
                     return nodecl_make_integer_literal(get_zero_type(get_signed_int_type()), v, make_locus("", 0, 0));
 
-                type_t* t = integer_type;
+                type_t* t = basic_type;
                 if (t == NULL)
                     t = get_minimal_integer_for_value_at_least_signed_int(v->sign, v->value.i);
 
@@ -1033,7 +1032,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
         case CVK_DOUBLE:
         case CVK_LONG_DOUBLE:
             {
-                type_t* t = floating_type;
+                type_t* t = basic_type;
                 if (t == NULL)
                     t = get_suitable_floating_type(v);
                 return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
@@ -1056,11 +1055,11 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 int i;
                 for (i = 0; i < v->value.m->num_elements; i++)
                 {
-                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_types(v->value.m->elements[i], integer_type, floating_type));
+                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_type(v->value.m->elements[i], basic_type));
                 }
 
                 // Get the type from the first element
-                type_t* t = get_void_type();
+                type_t* t = basic_type;
                 if (v->value.m->num_elements > 0)
                 {
                     t = nodecl_get_type(nodecl_list_head(list));
@@ -1087,7 +1086,9 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 int i;
                 for (i = 0; i < v->value.m->num_elements; i++)
                 {
-                    list = nodecl_append_to_list(list, const_value_to_nodecl_with_basic_types(v->value.m->elements[i], integer_type, floating_type));
+                    list = nodecl_append_to_list(list, 
+                            const_value_to_nodecl_with_basic_type(v->value.m->elements[i],
+                                basic_type));
                 }
 
                 type_t* t = v->value.m->struct_type;
@@ -1107,14 +1108,14 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
                 type_t* t = NULL;
                 if (const_value_is_floating(real))
                 {
-                    t = floating_type;
+                    t = basic_type;
                     if (t == NULL)
                         t = get_suitable_floating_type(const_value_complex_get_real_part(v));
                 }
                 else if (const_value_is_integer(real))
                 {
                     // This is a GCC extension
-                    t = integer_type;
+                    t = basic_type;
                     if (t == NULL)
                         t = get_minimal_integer_for_value_at_least_signed_int(real->sign, real->value.i);
                 }
@@ -1136,12 +1137,7 @@ nodecl_t const_value_to_nodecl_with_basic_types(const_value_t* v,
 
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
-    return const_value_to_nodecl_with_basic_types(v, /* integer_type */ NULL, /* floating_type */ NULL);
-}
-
-nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v, type_t* basic_type)
-{
-    return const_value_to_nodecl_with_basic_types(v, basic_type, basic_type);
+    return const_value_to_nodecl_with_basic_type(v, /* basic_type */ NULL);
 }
 
 char const_value_is_integer(const_value_t* v)

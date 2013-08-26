@@ -771,13 +771,57 @@ static void build_scope_program_unit_internal(AST program_unit,
     }
 }
 
+// We use this for the following case
+//
+// TYPE(X) FUNCTION FOO()
+//    USE P
+// END FUNCTION FOO
+//
+// We have to wait until all the USE-statements have been processed
+// to fully parse delayed_function_type_spec
+static AST delayed_function_type_spec = NULL;
+//
+
+static void solve_delayed_function_type_spec(decl_context_t decl_context)
+{
+    type_t* function_type_spec = fortran_gather_type_from_declaration_type_spec(delayed_function_type_spec, decl_context);
+    delayed_function_type_spec = NULL;
+
+    if (is_error_type(function_type_spec))
+        return;
+
+    scope_entry_t* current_function = decl_context.current_scope->related_entry;
+
+    // Update the type of the function name
+    current_function->type_information = fortran_update_basic_type_with_type(current_function->type_information,
+            function_type_spec);
+    current_function->entity_specs.is_implicit_basic_type = 0;
+    remove_untyped_symbol(decl_context, current_function);
+
+    // Update the result name as well
+    int i;
+    for (i = 0; i < current_function->entity_specs.num_related_symbols; i++)
+    {
+        if (current_function->entity_specs.related_symbols[i]->entity_specs.is_result)
+        {
+            scope_entry_t* result_name = current_function->entity_specs.related_symbols[i];
+
+            result_name->type_information = fortran_update_basic_type_with_type(result_name->type_information,
+                    function_type_spec);
+            result_name->entity_specs.is_implicit_basic_type = 0;
+            remove_untyped_symbol(decl_context, result_name);
+            break;
+        }
+    }
+}
+
 static scope_entry_t* new_procedure_symbol(
-        decl_context_t decl_context, 
+        decl_context_t decl_context,
         decl_context_t program_unit_context,
         AST name, AST prefix, AST suffix, AST dummy_arg_name_list,
         char is_function);
 
-static char allow_all_statements(AST a UNUSED_PARAMETER, 
+static char allow_all_statements(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     return 1;
@@ -1326,7 +1370,7 @@ static nodecl_t check_bind_c(AST bind_c_spec,
 
     AST bind_name_expr = ASTSon0(bind_c_spec);
     if (bind_name_expr == NULL)
-        return nodecl_null();
+        return nodecl_make_fortran_bind_c(nodecl_null(), ast_get_locus(bind_c_spec));
 
     nodecl_t nodecl_bind_name = nodecl_null();
     if (bind_name_expr != NULL)
@@ -1485,7 +1529,7 @@ static scope_entry_t* new_procedure_symbol(
 
     if (entry->decl_context.current_scope == decl_context.global_scope)
         entry->entity_specs.is_global_hidden = 1;
-    
+
     remove_unknown_kind_symbol(decl_context, entry);
 
     type_t* return_type = get_void_type();
@@ -1499,7 +1543,6 @@ static scope_entry_t* new_procedure_symbol(
         entry->entity_specs.is_implicit_basic_type = 0;
     }
 
-    char function_has_type_spec = 0;
     if (prefix != NULL)
     {
         AST it;
@@ -1520,15 +1563,7 @@ static scope_entry_t* new_procedure_symbol(
                 else
                 {
                     AST declaration_type_spec = ASTSon0(prefix_spec);
-                    return_type = fortran_gather_type_from_declaration_type_spec(declaration_type_spec, program_unit_context);
-
-                    if (return_type != NULL)
-                    {
-                        entry->entity_specs.is_implicit_basic_type = 0;
-                        entry->type_information = return_type;
-                    }
-
-                    function_has_type_spec = 1;
+                    delayed_function_type_spec = declaration_type_spec;
                 }
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
@@ -1597,7 +1632,7 @@ static scope_entry_t* new_procedure_symbol(
                 dummy_arg->kind = SK_LABEL;
                 dummy_arg->type_information = get_void_type();
                 dummy_arg->decl_context = program_unit_context;
-                
+
                 num_alternate_returns++;
             }
             else
@@ -1649,13 +1684,8 @@ static scope_entry_t* new_procedure_symbol(
             result_sym->locus = ast_get_locus(result);
             result_sym->entity_specs.is_result = 1;
 
-            result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
-            if (function_has_type_spec)
-            {
-                // This is not untyped since a type appeared in the prefix
-                remove_untyped_symbol(program_unit_context, result_sym);
-            }
-            
+            result_sym->entity_specs.is_implicit_basic_type = 1;
+
             remove_unknown_kind_symbol(program_unit_context, result_sym);
 
             result_sym->type_information = return_type;
@@ -1689,18 +1719,9 @@ static scope_entry_t* new_procedure_symbol(
         result_sym->entity_specs.is_result = 1;
 
         result_sym->type_information = return_type;
-        result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
+        result_sym->entity_specs.is_implicit_basic_type = 1;
 
-        if (!function_has_type_spec)
-        {
-            // Add it as an explicit unknown symbol because we want it to be
-            // updated with a later IMPLICIT
-            add_untyped_symbol(program_unit_context, result_sym);
-        }
-        else
-        {
-            remove_untyped_symbol(program_unit_context, result_sym);
-        }
+        add_untyped_symbol(program_unit_context, result_sym);
 
         return_type = get_indirect_type(result_sym);
 
@@ -2055,13 +2076,22 @@ static void build_scope_program_unit_body_declarations(
                 build_scope_ambiguity_statement(stmt, decl_context, /* is_declaration */ 1);
             }
 
+            // If the current statement is not a USE we have to solve
+            if (delayed_function_type_spec != NULL
+                    && ASTType(stmt) != AST_USE_STATEMENT
+                    && ASTType(stmt) != AST_USE_ONLY_STATEMENT
+                    && ASTType(stmt) != AST_IMPORT_STATEMENT)
+            {
+                solve_delayed_function_type_spec(decl_context);
+            }
+
             if (!allowed_statement(stmt, decl_context))
             {
                 error_printf("%s: warning: this statement cannot be used in this context\n",
                         ast_location(stmt));
                 continue;
             }
-            
+
             // We only handle nonexecutable statements here 
             if (statement_is_nonexecutable(stmt))
             {
@@ -2073,6 +2103,12 @@ static void build_scope_program_unit_body_declarations(
                 *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_statement);
             }
         }
+    }
+
+    // If we reach the end and the type is not yet defined, solve it now
+    if (delayed_function_type_spec != NULL)
+    {
+        solve_delayed_function_type_spec(decl_context);
     }
 }
 
@@ -4027,8 +4063,15 @@ scope_entry_t* query_common_name(decl_context_t decl_context,
         const char* common_name,
         const locus_t* locus)
 {
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
     scope_entry_t* result = fortran_query_name_str(decl_context, 
             get_common_name_str(common_name), locus);
+
+    // Filter COMMON names from enclosing scopes
+    if (result != NULL
+            && result->decl_context.current_scope != program_unit_context.current_scope)
+        result = NULL;
 
     return result;
 }
@@ -4232,9 +4275,11 @@ static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER,
 
 static scope_entry_t* new_common(decl_context_t decl_context, const char* common_name)
 {
-    scope_entry_t* common_sym = new_fortran_symbol(decl_context, get_common_name_str(common_name));
+    decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+
+    scope_entry_t* common_sym = new_fortran_symbol(program_unit_context, get_common_name_str(common_name));
     common_sym->kind = SK_COMMON;
-    remove_unknown_kind_symbol(decl_context, common_sym);
+    remove_unknown_kind_symbol(program_unit_context, common_sym);
     return common_sym;
 }
 
@@ -4253,16 +4298,15 @@ static void build_scope_common_stmt(AST a,
 
         const char* common_name_str = NULL;
         AST common_name = ASTSon0(common_block_item);
-        if(common_name != NULL)
+        if (common_name != NULL)
         {
-            //It is a named common statement
             common_name_str = ASTText(common_name);
         }
-       
-        // Looking the symbol in all scopes except program unit global scope 
-        scope_entry_t* common_sym = fortran_query_name_str(decl_context, 
-                get_common_name_str(common_name_str),
+
+        scope_entry_t* common_sym = query_common_name(decl_context, 
+                common_name_str,
                 ast_get_locus(common_block_item));
+
         if (common_sym == NULL)
         {
             // If the symbol is not found, we should create a new one
@@ -6527,24 +6571,43 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
 
         AST name = ASTSon0(common_name);
 
-        scope_entry_t* new_namelist 
-            = new_fortran_symbol(decl_context, ASTText(name));
+        scope_entry_t* new_namelist
+            = fortran_query_name_str(decl_context, ASTText(name), ast_get_locus(name));
+
+        if (new_namelist != NULL
+                && new_namelist->kind != SK_UNDEFINED
+                && new_namelist->kind != SK_NAMELIST)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
+                        ast_location(name),
+                        ASTText(name));
+            }
+            // This will cause an ambiguity later
+            new_namelist = NULL;
+        }
+
+        if (new_namelist == NULL)
+        {
+            new_namelist = new_fortran_symbol(decl_context, ASTText(name));
+
+            if (decl_context.current_scope->related_entry != NULL
+                    && decl_context.current_scope->related_entry->kind == SK_MODULE)
+            {
+                // Make the new namelist a member of this module
+                scope_entry_t* module = decl_context.current_scope->related_entry;
+
+                P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                        module->entity_specs.num_related_symbols,
+                        new_namelist);
+
+                new_namelist->entity_specs.in_module = module;
+            }
+        }
 
         new_namelist->kind = SK_NAMELIST;
         new_namelist->locus = ast_get_locus(a);
-
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
-        {
-            // Make the new namelist a member of this module
-            scope_entry_t* module = decl_context.current_scope->related_entry;
-
-            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
-                    module->entity_specs.num_related_symbols,
-                    new_namelist);
-
-            new_namelist->entity_specs.in_module = module;
-        }
 
         remove_unknown_kind_symbol(decl_context, new_namelist);
 

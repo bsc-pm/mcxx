@@ -27,7 +27,6 @@
 #include "tl-devices.hpp"
 #include "nanox-smp.hpp"
 
-#include "tl-lowering-visitor.hpp"
 #include "tl-source.hpp"
 #include "tl-counters.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -430,7 +429,7 @@ namespace TL { namespace Nanox {
             }
 
             // Generate ancillary code in C
-            add_forward_code_to_extra_c_code(outline_name, data_items, outline_placeholder);
+            add_forward_function_code_to_extra_c_code(outline_name, data_items, outline_placeholder);
         }
         else
         {
@@ -451,105 +450,6 @@ namespace TL { namespace Nanox {
 
         Nodecl::NodeclBase new_outline_body = outline_src.parse_statement(outline_function_body);
         outline_function_body.replace(new_outline_body);
-    }
-
-    void DeviceSMP::add_forward_code_to_extra_c_code(
-            const std::string& outline_name,
-            TL::ObjectList<OutlineDataItem*> data_items,
-            Nodecl::NodeclBase parse_context)
-    {
-        Source ancillary_source, parameters;
-
-        ancillary_source
-            << "extern void " << outline_name << "_forward_" << "(";
-        int num_data_items = data_items.size();
-        if (num_data_items == 0)
-        {
-            ancillary_source << "void (*outline_fun)(void)";
-        }
-        else
-        {
-            ancillary_source << "void (*outline_fun)(";
-            if (num_data_items == 0)
-            {
-                ancillary_source << "void";
-            }
-            else
-            {
-                for (int i = 0; i < num_data_items; i++)
-                {
-                    if (i > 0)
-                    {
-                        ancillary_source << ", ";
-                    }
-                    ancillary_source << "void *p" << i;
-                }
-            }
-            ancillary_source << ")";
-
-            for (int i = 0; i < num_data_items; i++)
-            {
-                ancillary_source << ", void *p" << i;
-            }
-        }
-        ancillary_source << ")\n{\n"
-            // << "    extern int nanos_free(void*);\n"
-            << "    extern int nanos_handle_error(int);\n\n"
-            << "    outline_fun(";
-        for (int i = 0; i < num_data_items; i++)
-        {
-            if (i > 0)
-            {
-                ancillary_source << ", ";
-            }
-            ancillary_source << "p" << i;
-        }
-        ancillary_source << ");\n";
-
-        // Free all the allocated descriptors
-        // bool first = true;
-        // int i = 0;
-        // for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-        //         it != data_items.end();
-        //         it++, i++)
-        // {
-        //     OutlineDataItem &item (*(*it));
-
-        //     if (item.get_symbol().is_valid()
-        //             && item.get_sharing() == OutlineDataItem::SHARING_SHARED)
-        //     {
-        //         TL::Type t = item.get_symbol().get_type();
-
-        //         if (!item.get_symbol().is_allocatable()
-        //                 && t.is_lvalue_reference()
-        //                 && t.references_to().is_array()
-        //                 && t.references_to().array_requires_descriptor())
-        //         {
-        //             if (first)
-        //             {
-        //                 ancillary_source << "   nanos_err_t err;\n";
-        //                 first = false;
-        //             }
-
-        //             ancillary_source
-        //                 << "    err = nanos_free(p" << i << ");\n"
-        //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
-        //                 ;
-        //         }
-        //     }
-        // }
-
-        ancillary_source << "}\n\n";
-
-        // Parse in C
-        Source::source_language = SourceLanguage::C;
-
-        Nodecl::List n = ancillary_source.parse_global(parse_context).as<Nodecl::List>();
-
-        // Restore original source language (Fortran)
-        Source::source_language = SourceLanguage::Current;
-
-        _extra_c_code.append(n);
     }
 
     DeviceSMP::DeviceSMP()
