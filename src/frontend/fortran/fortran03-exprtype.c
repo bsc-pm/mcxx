@@ -4163,7 +4163,10 @@ static void check_symbol_of_called_name(AST sym,
                     //
                     // We do not insert intrinsics from initializations just in case
                     // an INTRINSIC or EXTERNAL statement appears later
-                    insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                    if (!checking_ambiguity())
+                    {
+                        insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                    }
                 }
                 else
                 {
