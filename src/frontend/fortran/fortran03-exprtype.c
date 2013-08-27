@@ -451,12 +451,39 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 }
                 else if ((val_stride * val_lower) > (val_stride * val_upper))
                 {
-                    // Empty range
-                    do_variable->value = const_value_to_nodecl(const_value_get_signed_int(val_lower));
-                    nodecl_set_locus_as(do_variable->value, nodecl_lower);
+                    // Empty range.
+                    //
+                    // Due to problems with existing compilers (see ticket #1637)
+                    // we need to preserve the implied_do node (even if we know
+                    // it is a constant empty array...)
+                    int current_num_items = 0;
+                    nodecl_t nodecl_ac_value = nodecl_null();
+                    check_ac_value_list(implied_do_ac_value, decl_context,
+                            &nodecl_ac_value, current_type, &current_num_items);
 
-                    nodecl_t nodecl_value = nodecl_null();
-                    check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_value, current_type, num_items);
+                    if (nodecl_is_err_expr(nodecl_ac_value))
+                    {
+                        *nodecl_output = nodecl_ac_value;
+                        return;
+                    }
+
+                    nodecl_t nodecl_implied_do =
+                        nodecl_make_fortran_implied_do(
+                                nodecl_make_symbol(do_variable, ast_get_locus(ac_do_variable)),
+                                nodecl_make_range(nodecl_lower,
+                                    nodecl_upper,
+                                    nodecl_stride,
+                                    fortran_get_default_integer_type(),
+                                    ast_get_locus(implied_do_control)),
+                                nodecl_ac_value,
+                                ast_get_locus(implied_do_control));
+
+                    nodecl_set_constant(
+                            nodecl_implied_do,
+                            // Degenerated case
+                            const_value_make_array(0, NULL));
+
+                    *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
                 }
                 else if (val_stride > 0)
                 {
@@ -667,7 +694,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     }
     xfree(list);
 
-    if (num_items > 0)
+    if (num_items >= 0)
     {
         ac_value_type = get_array_type_bounds(ac_value_type,
                 const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
