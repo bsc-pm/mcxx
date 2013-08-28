@@ -2489,6 +2489,40 @@ static nodecl_t simplify_tanh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             );
 }
 
+static nodecl_t simplify_trim(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t string = arguments[0];
+
+    if (!nodecl_is_constant(string))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(string);
+
+    // Should not happen
+    if (!const_value_is_string(cval))
+        return nodecl_null();
+
+    const char* str = const_value_string_unpack_to_string(cval);
+
+    // Should not happen
+    if (str == NULL)
+        return nodecl_null();
+
+    char* new_str = xstrdup(str);
+    char* right = &(new_str[strlen(new_str) - 1]);
+
+    while (*right == ' ')
+        right--;
+
+    right++; *right = '\0';
+
+    const_value_t* trimmed_string = const_value_make_string(new_str, strlen(new_str));
+
+    xfree(new_str);
+
+    return const_value_to_nodecl(trimmed_string);
+}
+
 static char value_is_positive(const_value_t* cval)
 {
     if (const_value_is_complex(cval))
