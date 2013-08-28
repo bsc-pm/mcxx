@@ -8438,7 +8438,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                 nodecl_make_symbol(module_symbol, ast_get_locus(a)),
                 nodecl_used_symbols, ast_get_locus(a));
     }
-    else // is_only
+    else /* is_only */ if (only_list != NULL) 
     {
         AST it;
         for_each_element(only_list, it)
@@ -8531,6 +8531,11 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
         nodecl_fortran_use = nodecl_make_fortran_use_only(
                 nodecl_make_symbol(module_symbol, ast_get_locus(a)),
                 nodecl_used_symbols, ast_get_locus(a));
+    }
+    else /* is_only && only_list == NULL */
+    {
+        /* Ignore these cases */
+        return;
     }
 
     used_modules->value = nodecl_append_to_list(used_modules->value, nodecl_fortran_use);
