@@ -1096,9 +1096,9 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << as_expression(node.get_lhs());
-            intrin_src << " = ";
-            intrin_src << as_expression(node.get_rhs());
+            intrin_src << as_expression(node.get_lhs())
+               << " = "
+               << as_expression(node.get_rhs());
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());

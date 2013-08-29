@@ -1038,9 +1038,10 @@ namespace TL
                 << ")"
                 ;
 
-            process_mask_component(mask, mask_prefix, mask_args, type);
-
             walk(lhs);
+
+            // lhs has old_value of rhs
+            _old_m512.push_back(lhs.shallow_copy());
             walk(rhs);
 
             if (mask.is_null())
@@ -1049,6 +1050,8 @@ namespace TL
             }
             else
             {
+                process_mask_component(mask, mask_prefix, mask_args, type);
+
                 intrin_name << KNC_INTRIN_PREFIX
                     << mask_prefix
                     << intrin_op_name
@@ -1619,8 +1622,6 @@ namespace TL
 
                     Nodecl::NodeclBase intrin_function_call =
                         intrin_src.parse_expression(node.retrieve_context());
-
-                    std::cout << "-->" <<  intrin_src.get_source() << "\n";
 
                     node.replace(intrin_function_call);
                 }

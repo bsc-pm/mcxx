@@ -287,10 +287,6 @@ namespace TL {
             Nodecl::List omp_simd_for_environment = simd_node.get_environment().as<Nodecl::List>();
             Nodecl::List omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
 
-            std::cerr << omp_for_environment.prettyprint() << std::endl;
-            std::cerr << "------------------------" << std::endl;
-            std::cerr << "------------------------" << std::endl;
-            std::cerr << "------------------------" << std::endl;
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase loop = omp_for.get_loop();
             ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), 

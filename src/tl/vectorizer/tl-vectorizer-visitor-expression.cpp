@@ -614,6 +614,9 @@ namespace TL
 
             // Visit standard assignment
             walk(n);
+
+            std::cerr << n.prettyprint() << std::endl;
+
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::MinusAssignment& n)
