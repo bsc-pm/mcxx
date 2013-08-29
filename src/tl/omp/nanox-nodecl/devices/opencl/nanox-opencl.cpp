@@ -27,6 +27,8 @@
 
 #include "nanox-opencl.hpp"
 
+#include "filename.h"
+
 #include "cxx-profile.h"
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
@@ -555,7 +557,8 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
             if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
-                found = (file == std::string(current_translation_unit->input_filename));
+                const char* basename = give_basename(current_translation_unit->input_filename);
+                found = (file == std::string(basename));
             }
         }
 
