@@ -76,8 +76,10 @@ namespace TL
                         Nodecl::List& suitable_expressions);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment, 
                         TL::Type& vectorlengthfor_type);
-                void process_reduction_clause(const Nodecl::List& environment,
-                        TL::ObjectList<TL::Symbol>& reductions);
+                Nodecl::List process_reduction_clause(const Nodecl::List& environment,
+                        TL::ObjectList<TL::Symbol>& reductions,
+                        std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
+                        const Nodecl::ForStatement& for_statement);
 
             public:
                 SimdVisitor(bool fast_math_enabled, bool svml_enabled, bool mic_enabled);

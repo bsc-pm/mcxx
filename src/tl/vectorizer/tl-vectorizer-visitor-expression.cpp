@@ -933,7 +933,9 @@ namespace TL
                // Vectorize BASIC induction variable
                 if (Vectorizer::_analysis_info->is_basic_induction_variable(
                             _environment._analysis_scopes.back(),
-                            n))
+                            n)
+                        && (_environment._reduction_list != NULL && 
+                            (!_environment._reduction_list->contains(tl_sym)))) //FIXME: Ticket 1643
                 {
                     vectorize_basic_induction_variable(n);
                 }
