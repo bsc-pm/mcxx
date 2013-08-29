@@ -3486,6 +3486,15 @@ OPERATOR_TABLE
                         attribute_list += ", PUBLIC";
                     }
                 }
+                TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    attribute_list += ", PRIVATE";
+                }
             }
             if (entry.get_type().is_volatile()
                     && !entry.is_member())
@@ -3988,6 +3997,17 @@ OPERATOR_TABLE
                     {
                         *(file) << ", PUBLIC";
                     }
+                }
+
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    // Global types should be made private to avoid undesired exports
+                    // of names
+                    (*file) << ", PRIVATE";
                 }
             }
 
