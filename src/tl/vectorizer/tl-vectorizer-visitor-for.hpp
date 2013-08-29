@@ -120,6 +120,9 @@ namespace TL
             private:
                 VectorizerEnvironment& _environment;
 
+                Nodecl::Assignment get_parallel_iv_init(const Nodecl::ForStatement& for_statement);
+
+
             public:
                 VectorizerVisitorForEpilog(VectorizerEnvironment& environment);
 

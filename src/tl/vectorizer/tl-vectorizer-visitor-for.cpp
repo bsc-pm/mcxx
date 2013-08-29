@@ -91,8 +91,7 @@ namespace TL
             Nodecl::MaskLiteral all_one_mask =
                 Nodecl::MaskLiteral::make(
                         TL::Type::get_mask_type(_environment._unroll_factor),
-                        const_value_get_minus_one(_environment._unroll_factor, 1),
-                        make_locus("", 0, 0));
+                        const_value_get_minus_one(_environment._unroll_factor, 1));
             _environment._mask_list.push_back(all_one_mask);
 
             VectorizerVisitorStatement visitor_stmt(_environment);
@@ -501,14 +500,13 @@ namespace TL
 
             // Get mask for epilog instructions
             Nodecl::NodeclBase mask_value = for_statement.get_loop_header().
-                as<Nodecl::LoopControl>().get_cond();
+                as<Nodecl::LoopControl>().get_cond().shallow_copy();
           
             // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
             Nodecl::MaskLiteral all_one_mask =
                 Nodecl::MaskLiteral::make(
                         TL::Type::get_mask_type(_environment._unroll_factor),
-                        const_value_get_minus_one(_environment._unroll_factor, 1),
-                        make_locus("", 0, 0));
+                        const_value_get_minus_one(_environment._unroll_factor, 1));
             _environment._mask_list.push_back(all_one_mask);
 
             VectorizerVisitorExpression visitor_mask(_environment);
@@ -558,9 +556,21 @@ namespace TL
 
             _environment._mask_list.pop_back();
 
+
+            Nodecl::List stmts_list = comp_statement.as<Nodecl::CompoundStatement>().
+                get_statements().as<Nodecl::List>();
+
             // Add mask expression after vectorization
-            comp_statement.as<Nodecl::CompoundStatement>().
-                get_statements().as<Nodecl::List>().prepend(mask_exp); 
+            stmts_list.prepend(mask_exp); 
+
+            if (_environment._is_parallel_loop)
+            {
+                Nodecl::ExpressionStatement iv_stmt =
+                    Nodecl::ExpressionStatement::make(
+                            get_parallel_iv_init(for_statement));
+
+                stmts_list.prepend(iv_stmt);
+            }
 
             // Remove loop header
             for_statement.replace(for_statement.get_statement());
@@ -577,13 +587,75 @@ namespace TL
             _environment._local_scope_list.push_back(
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
 
+            // Set new IV init
+            Nodecl::NodeclBase new_iv_init;
+            if (_environment._is_parallel_loop)
+            {
+                new_iv_init = get_parallel_iv_init(for_statement);
+            }
+            else
+            {
+                new_iv_init = Nodecl::NodeclBase::null();
+            }
+
             Nodecl::LoopControl loop_control =
                 for_statement.get_loop_header().as<Nodecl::LoopControl>();
 
-            loop_control.set_init(Nodecl::NodeclBase::null());
+            loop_control.set_init(new_iv_init);
 
             _environment._local_scope_list.pop_back();
         }
+
+
+        Nodecl::Assignment VectorizerVisitorForEpilog::get_parallel_iv_init(
+                const Nodecl::ForStatement& for_statement)
+        {
+            // Add IV initialization after vectorization
+            TL::ForStatement tl_for_statement(for_statement);
+
+            if(!tl_for_statement.is_omp_valid_loop())
+            {
+                running_error("Epilog loop is not an OpenMP valid loop");
+            }
+
+            // i = (upper_bound) - ((upper_bound) % UnrollFactor) + (lower_bound)
+            Nodecl::NodeclBase upper_bound = tl_for_statement.get_upper_bound();
+            Nodecl::NodeclBase lower_bound = tl_for_statement.get_lower_bound();
+
+            Nodecl::ParenthesizedExpression par_upper_bound =
+                Nodecl::ParenthesizedExpression::make(upper_bound.shallow_copy(),
+                        upper_bound.get_type());
+            Nodecl::ParenthesizedExpression par_lower_bound =
+                Nodecl::ParenthesizedExpression::make(lower_bound.shallow_copy(),
+                        lower_bound.get_type());
+
+            TL::Symbol iv = tl_for_statement.get_induction_variable();
+            TL::Type iv_type = iv.get_type();
+
+            Nodecl::Assignment iv_new_init =
+                Nodecl::Assignment::make(
+                        iv.make_nodecl(true),
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Minus::make(
+                                par_upper_bound.shallow_copy(),
+                                Nodecl::Add::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        Nodecl::Mod::make(
+                                            par_upper_bound.shallow_copy(),
+                                            Nodecl::IntegerLiteral::make(
+                                                TL::Type::get_int_type(),
+                                                const_value_get_signed_int(_environment._unroll_factor)),
+                                            iv_type),
+                                        iv_type),
+                                    lower_bound.shallow_copy(),
+                                    iv_type),
+                                iv_type),
+                            iv_type),
+                        iv_type);
+            
+            return iv_new_init;
+        }
+
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorForEpilog::unhandled_node(const Nodecl::NodeclBase& n)
         {

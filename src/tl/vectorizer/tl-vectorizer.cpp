@@ -37,14 +37,15 @@ namespace TL
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
                 const bool support_masking,
+                const bool is_parallel_loop,
                 const unsigned int mask_size,
                 const TL::Type& target_type,
                 const Nodecl::List * suitable_expr_list,
                 const TL::ObjectList<TL::Symbol> * reduction_list,
                 std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
-           _mask_size(mask_size), _support_masking(support_masking), _target_type(target_type), 
-           _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
+           _mask_size(mask_size), _support_masking(support_masking), _is_parallel_loop(is_parallel_loop), 
+           _target_type(target_type), _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
            _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
             std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()

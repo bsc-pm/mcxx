@@ -377,7 +377,10 @@ namespace Analysis {
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
-        for( ; itp != parameters.end( ); ++itp, ++ita )
+#warning
+        //TODO: parameters.size() must be == to arguments.size()
+
+        for( ; ita != arguments.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
             if( ( param_type.is_any_reference( ) || param_type.is_pointer( ) ) )
@@ -396,7 +399,9 @@ namespace Analysis {
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
-        for( ; itp != parameters.end( ); ++itp, ++ita )
+#warning
+        //TODO: parameters.size() must be == to arguments.size()
+        for( ; ita != arguments.end( ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
             if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) )

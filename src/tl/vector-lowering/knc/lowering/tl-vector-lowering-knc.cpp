@@ -82,8 +82,8 @@ namespace TL
                         << ")"
                         << as_expression(_old_m512.back());
 
-                    if ((conf & ConfigMaskProcessing::KEEP_OLD) 
-                            != ConfigMaskProcessing::KEEP_OLD)
+                    if ((conf & ConfigMaskProcessing::KEEP_OLD) !=
+                            ConfigMaskProcessing::KEEP_OLD)
                     {
                         _old_m512.pop_back();
                     }
@@ -95,12 +95,6 @@ namespace TL
                        ConfigMaskProcessing::ONLY_MASK)
                 {
                     mask_args << as_expression(mask);
-
-                    if((conf & ConfigMaskProcessing::NO_FINAL_COMMA) !=
-                        ConfigMaskProcessing::NO_FINAL_COMMA)
-                    {
-                        mask_args << ", ";
-                    }
                 }
                 else // DEFAULT
                 {
@@ -108,12 +102,12 @@ namespace TL
                         << ", "
                         << as_expression(mask)
                         ;
-
-                    if((conf & ConfigMaskProcessing::NO_FINAL_COMMA) !=
+                }
+                
+                if((conf & ConfigMaskProcessing::NO_FINAL_COMMA) !=
                         ConfigMaskProcessing::NO_FINAL_COMMA)
-                    {
-                        mask_args << ", ";
-                    }
+                {
+                    mask_args << ", ";
                 }
             }
             else if((conf & ConfigMaskProcessing::ALWAYS_OLD) ==
@@ -1625,6 +1619,8 @@ namespace TL
 
                     Nodecl::NodeclBase intrin_function_call =
                         intrin_src.parse_expression(node.retrieve_context());
+
+                    std::cout << "-->" <<  intrin_src.get_source() << "\n";
 
                     node.replace(intrin_function_call);
                 }

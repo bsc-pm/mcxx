@@ -45,6 +45,7 @@ namespace TL
                 const unsigned int _unroll_factor;
                 const unsigned int _mask_size;
                 const bool _support_masking;
+                const bool _is_parallel_loop;
                 const TL::Type& _target_type;
                 const Nodecl::List* _suitable_expr_list;
 
@@ -64,6 +65,7 @@ namespace TL
                 VectorizerEnvironment(const std::string& device,
                         const unsigned int vector_length,
                         const bool support_masking,
+                        const bool is_parallel_loop,
                         const unsigned int mask_size,
                         const TL::Type& target_type,
                         const Nodecl::List* suitable_expr_list,

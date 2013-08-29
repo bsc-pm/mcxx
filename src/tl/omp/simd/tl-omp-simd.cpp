@@ -199,6 +199,7 @@ namespace TL {
                     _device_name,
                     _vector_length, 
                     _support_masking,
+                    false, // Parallel Loop
                     _mask_size,
                     vectorlengthfor_type,
                     &suitable_expressions,
@@ -286,6 +287,10 @@ namespace TL {
             Nodecl::List omp_simd_for_environment = simd_node.get_environment().as<Nodecl::List>();
             Nodecl::List omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
 
+            std::cerr << omp_for_environment.prettyprint() << std::endl;
+            std::cerr << "------------------------" << std::endl;
+            std::cerr << "------------------------" << std::endl;
+            std::cerr << "------------------------" << std::endl;
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase loop = omp_for.get_loop();
             ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), 
@@ -320,27 +325,71 @@ namespace TL {
                 // Move barrier from omp for to single
                 single_environment.append(barrier.shallow_copy());
                 Nodecl::Utils::remove_from_enclosing_list(barrier);
+                omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
             }
             if (!flush.is_null())
             {
                 // Move flush from omp for to single
                 single_environment.append(flush.shallow_copy());
                 Nodecl::Utils::remove_from_enclosing_list(flush);
+                omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
             }
 
-            // Mark the induction variable as lastprivate entity in the For 
-            // and firstprivate in the Single construct
+            TL::Symbol iv = 
+                TL::ForStatement(for_statement).get_induction_variable();
+            /*
+            // Remove IV as private
+            for(Nodecl::List::iterator it = omp_for_environment.begin();
+                    it != omp_for_environment.end();
+                    it++)
+            {
+                if (it->is<Nodecl::OpenMP::Private>())
+                {
+                    Nodecl::List priv_sym_list = 
+                        it->as<Nodecl::OpenMP::Private>().get_private_symbols().as<Nodecl::List>();
+
+                    Nodecl::List::iterator sym_it = priv_sym_list.begin();
+                    while(sym_it != priv_sym_list.end())
+                    {
+                        if(sym_it->get_symbol() == iv)
+                        {
+                            sym_it = priv_sym_list.erase(sym_it);
+                        }
+                        else
+                        {
+                            sym_it++;
+                        }
+                    }
+                    
+                    // Empty returns false even when the list is empty.
+                    // A new copy is necessary. Ask Roger
+                    priv_sym_list = 
+                        it->as<Nodecl::OpenMP::Private>().get_private_symbols().as<Nodecl::List>();
+                    
+                    if (priv_sym_list.empty())
+                    {
+                        it = omp_for_environment.erase(it);
+                        it--;
+                    }
+                }
+            }
+
+            // Mark the induction variable as lastprivate 
+            // entity in the For and firstprivate in the Single construct
             Nodecl::OpenMP::Lastprivate ind_var_lastpriv = 
                 Nodecl::OpenMP::Lastprivate::make(Nodecl::List::make(
-                            TL::ForStatement(for_statement).get_induction_variable().make_nodecl()));
+                            iv.make_nodecl()));
             omp_for_environment.append(ind_var_lastpriv);
+            */
 
-            Nodecl::OpenMP::Firstprivate ind_var_firstpriv = 
-                Nodecl::OpenMP::Firstprivate::make(Nodecl::List::make(
-                            TL::ForStatement(for_statement).get_induction_variable().make_nodecl()));
-            single_environment.append(ind_var_firstpriv);
+            // Mark the induction variable as private 
+            // entity in Single construct
+            Nodecl::OpenMP::Private ind_var_priv = 
+                Nodecl::OpenMP::Private::make(Nodecl::List::make(
+                            iv.make_nodecl()));
+            single_environment.append(ind_var_priv);
 
-
+            // SINGLE
             Nodecl::OpenMP::Single single_epilog =
                 Nodecl::OpenMP::Single::make(single_environment,
                         Nodecl::List::make(epilog), epilog.get_locus());
@@ -354,6 +403,7 @@ namespace TL {
                     _device_name,
                     _vector_length,
                     _support_masking, 
+                    true, // Parallel Loop
                     _mask_size,
                     vectorlengthfor_type,
                     &suitable_expressions,
@@ -476,6 +526,7 @@ namespace TL {
                     _device_name,
                     _vector_length, 
                     _support_masking,
+                    false, // Parallel loop (Not applicable)
                     _mask_size,
                     vectorlengthfor_type,
                     &suitable_expressions,

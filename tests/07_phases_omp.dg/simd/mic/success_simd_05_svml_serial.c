@@ -133,15 +133,16 @@ int main (int argc, char* argv[])
     test_vec(input, output);
     test_sc(input_sc, output_sc);
 
+#define ERROR 0.01
 
     for (i=0; i<N; i++)
     {
-        if(input_sc[i] != input[i])
+        if(fabsf(input_sc[i] - input[i]) > ERROR)
         {
             printf("ERROR: %f != %f\n", input_sc[i], input[i]);
             exit(1);
         }
-        if(output_sc[i] != output[i])
+        if(fabsf(output_sc[i] - output[i]) > ERROR)
         {
             printf("ERROR: %f != %f\n", output_sc[i], output[i]);
             exit(1);

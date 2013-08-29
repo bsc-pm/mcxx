@@ -32,7 +32,7 @@ EOF
 
 fi
 
-if [ "@MIC_COMPILATION@" = "no" ];
+if [ "@MIC_TESTING@" != "no" ];
 then
 
 cat <<EOF
@@ -43,8 +43,8 @@ ssh_remote_commands="source \$HOME/.profile"
 exec_versions="1thread 122thread 244thread"
 
 test_ENV_1thread="OMP_NUM_THREADS='1'"
-test_ENV_2thread="OMP_NUM_THREADS='122'"
-test_ENV_4thread="OMP_NUM_THREADS='244'"
+test_ENV_122thread="OMP_NUM_THREADS='122'"
+test_ENV_244thread="OMP_NUM_THREADS='244'"
 EOF
 
 fi
