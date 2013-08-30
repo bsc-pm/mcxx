@@ -2791,14 +2791,16 @@ OPERATOR_TABLE
         {
             if (it == rename_map.end())
             {
-                if (!name_has_already_been_used(sym))
-                {
-                    result = sym.get_name();
-                }
-                else
+                if (is_protected_name(sym)
+                        || name_has_already_been_used(sym))
                 {
                     result = compute_new_rename(sym);
                 }
+                else
+                {
+                    result = sym.get_name();
+                }
+
                 name_set.insert(sym.get_name());
                 rename_map[sym] = result;
             }
@@ -5602,7 +5604,14 @@ OPERATOR_TABLE
             }
             else
             {
-                *(file) << sym.get_name();
+                if (is_protected_name(sym))
+                {
+                    *(file) << rename(sym);
+                }
+                else
+                {
+                    *(file) << sym.get_name();
+                }
             }
         }
         *(file) << ")";
@@ -5628,7 +5637,14 @@ OPERATOR_TABLE
             {
                 if (result_var.get_name() != entry.get_name())
                 {
-                    *(file) << " RESULT(" << result_var.get_name() << ")";
+                    if (is_protected_name(result_var))
+                    {
+                        *(file) << " RESULT(" << rename(result_var) << ")";
+                    }
+                    else
+                    {
+                        *(file) << " RESULT(" << result_var.get_name() << ")";
+                    }
                 }
             }
             else
@@ -5704,6 +5720,14 @@ OPERATOR_TABLE
     {
         if (!_name_set_stack.empty()) _name_set_stack.back().clear();
         if (!_rename_map_stack.empty()) _rename_map_stack.back().clear();
+    }
+
+    bool FortranBase::is_protected_name(TL::Symbol sym)
+    {
+        std::string str = strtolower(sym.get_name().c_str());
+
+        // Maybe others will have to be added in a future
+        return (str == "loc");
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)
