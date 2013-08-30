@@ -2756,11 +2756,15 @@ scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_array_type(t0)
             && is_integer_type(fortran_get_rank0_type(t1))
-            && (fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1)
+            // t1 must have rank(t0)-1 or rank 0
+            && (((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1))
+                || (fortran_get_rank_of_type(t1) == 0))
             && (t2 == NULL
                 || (equivalent_types(get_unqualified_type(fortran_get_rank0_type(t0)), 
                         get_unqualified_type(fortran_get_rank0_type(t2)))
-                    && ((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t2))))
+                    // t2 must have rank(t0)-1 or rank 0
+                    && (((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t2))
+                        || (fortran_get_rank_of_type(t2) == 0))))
             && (t3 == NULL
                 || (is_integer_type(t3))))
     {
