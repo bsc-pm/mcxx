@@ -1313,7 +1313,17 @@ namespace TL { namespace Nanox {
         {
             TL::Symbol enclosing_function_symbol = function_symbol.get_scope().get_related_symbol();
             ss << enclosing_function_symbol.get_name() << "_";
+
+            if (enclosing_function_symbol.is_in_module())
+            {
+                ss << enclosing_function_symbol.in_module().get_name() << "_";
+            }
         }
+        else if (IS_FORTRAN_LANGUAGE && function_symbol.is_in_module())
+        {
+            ss << function_symbol.in_module().get_name() << "_";
+        }
+
         ss << function_symbol.get_name() << "_" << (int)task_counter;
         outline_name = ss.str();
 
