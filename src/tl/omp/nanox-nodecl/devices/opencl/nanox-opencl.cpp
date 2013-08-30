@@ -543,12 +543,13 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
-    //Get file clause, if not present, use the files passed in the command line (if any)
-    std::string file = info._target_info.get_file();
-    if (!file.empty())
+    //Get the argument of the 'file' clause, if not present, use the files passed in the command line (if any)
+    std::string file_clause_arg = info._target_info.get_file();
+    std::string kernel_files = file_clause_arg;
+    if (!file_clause_arg.empty())
     {
         bool found = false;
-        for (int i = 0; i < ::compilation_process.num_translation_units && !found; ++i)
+        for (int i = 0; i < ::compilation_process.num_translation_units; ++i)
         {
             compilation_file_process_t* file_process = ::compilation_process.translation_units[i];
             translation_unit_t* current_translation_unit = file_process->translation_unit;
@@ -558,15 +559,20 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 const char* basename = give_basename(current_translation_unit->input_filename);
-                found = (file == std::string(basename));
+                if (file_clause_arg == std::string(basename))
+                {
+                    ERROR_CONDITION(found, "%s: error: more than one OpenCL file in the command line matches clause file(%s)\n",
+                            original_statements.get_locus_str().c_str(), basename);
+
+                    found = true;
+                    kernel_files = std::string(current_translation_unit->input_filename);
+                }
             }
         }
 
-        if (!found && !_disable_opencl_file_check)
-        {
-            running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
-                    original_statements.get_locus_str().c_str());
-        }
+        ERROR_CONDITION(!found && !_disable_opencl_file_check,
+                "%s: error: no OpenCL file in the command line matches clause file(%s)\n",
+                original_statements.get_locus_str().c_str(), file_clause_arg.c_str());
     }
     else
     {
@@ -581,16 +587,16 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 if (ocl_files > 0)
-                    file += ",";
+                    kernel_files += ",";
 
-                file += std::string(current_translation_unit->input_filename);
+                kernel_files += std::string(current_translation_unit->input_filename);
                 ocl_files++;
             }
         }
 
         if (ocl_files == 0)
         {
-            running_error("%s: error: No file specified for kernel '%s'\n",
+            running_error("%s: error: no OpenCL file specified for kernel '%s'\n",
                     original_statements.get_locus_str().c_str(),
                     called_task.get_name().c_str());
         }
@@ -614,7 +620,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         generate_ndrange_code(called_task,
                 unpacked_function,
                 info._target_info,
-                file,
+                kernel_files,
                 kernel_name,
                 info._data_items,
                 &param_to_args_map,
