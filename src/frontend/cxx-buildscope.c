@@ -1853,13 +1853,20 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
             }
 
+
             // For typedefs we will emit a nodecl_cxx_decl if they involve
-            // variably modified types
+            // variably modified types.
+            //
+            // External global variables are also represented with nodecl_cxx_decl
             //
             // (We could use an object init but we reserve those for real data
             // entities)
-            if (entry->kind == SK_TYPEDEF
+            if ((entry->kind == SK_TYPEDEF
                     && is_variably_modified_type(entry->type_information))
+                    || (IS_C_LANGUAGE
+                        && entry->kind == SK_VARIABLE
+                        && entry->entity_specs.is_extern
+                        && entry->decl_context.current_scope == entry->decl_context.global_scope))
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
@@ -1871,7 +1878,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 entry,
                                 ast_get_locus(init_declarator))));
             }
-
 
             // GCC weird stuff
             if (asm_specification != NULL)
@@ -1888,11 +1894,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, current_gather_info);
             }
 
-            nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
-                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
-
             CXX_LANGUAGE()
             {
+                nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
+                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
                 nodecl_t nodecl_context =
                     nodecl_make_context(/* optional statement sequence */ nodecl_null(),
                             decl_context, ast_get_locus(init_declarator));
