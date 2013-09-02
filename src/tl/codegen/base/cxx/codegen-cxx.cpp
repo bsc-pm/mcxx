@@ -3375,6 +3375,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
 
+    C_LANGUAGE()
+    {
+        walk_type_for_symbols(sym.get_type(),
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always,
+                &CxxBase::define_all_entities_in_trees);
+    }
+
     TL::Scope* context_of_declaration = NULL;
     TL::Scope context;
 
