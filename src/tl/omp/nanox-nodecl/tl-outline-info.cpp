@@ -1304,28 +1304,66 @@ namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
     {
-        std::string outline_name;
+        std::string orig_function_name = function_symbol.get_name();
+
+        std::string prefix = "", suffix = "";
 
         Counter& task_counter = CounterManager::get_counter("nanos++-outline");
-        std::stringstream ss;
-        ss << "ol_";
-        if (IS_FORTRAN_LANGUAGE && function_symbol.is_nested_function())
+        if (IS_FORTRAN_LANGUAGE)
         {
-            TL::Symbol enclosing_function_symbol = function_symbol.get_scope().get_related_symbol();
-            ss << enclosing_function_symbol.get_name() << "_";
+            std::stringstream ss;
+            ss << "ol_";
 
-            if (enclosing_function_symbol.is_in_module())
+            if (function_symbol.is_nested_function())
             {
-                ss << enclosing_function_symbol.in_module().get_name() << "_";
+                TL::Symbol enclosing_function_symbol = function_symbol.get_scope().get_related_symbol();
+                ss << enclosing_function_symbol.get_name() << "_";
+
+                if (enclosing_function_symbol.is_in_module())
+                {
+                    ss << enclosing_function_symbol.in_module().get_name() << "_";
+                }
             }
+            else if (function_symbol.is_in_module())
+            {
+                ss << function_symbol.in_module().get_name() << "_";
+            }
+
+            ss << (int)task_counter;
+
+            unsigned int hash_int = simple_hash_str(ss.str().c_str());
+
+            // Use this base to maximally compact the hash
+            static char base_syms[] = "0123456789abcdefghijklmnopqrstuvwxyz_";
+            const unsigned int nbase =
+                sizeof(base_syms) / sizeof(base_syms[0]) - 1; // Do not count \0
+
+            if (hash_int == 0)
+            {
+                prefix = "0";
+            }
+            else
+            {
+                while (hash_int > 0)
+                {
+                    prefix += base_syms[(hash_int % nbase)];
+                    hash_int /= nbase;
+                }
+            }
+
+            // suffix is left empty here as we included the task_counter in our hash
         }
-        else if (IS_FORTRAN_LANGUAGE && function_symbol.is_in_module())
+        else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            ss << function_symbol.in_module().get_name() << "_";
+            // C and C++ do not define limits on the identifiers
+            prefix = "ol_";
+
+            std::stringstream ss;
+            ss << "_" << (int)task_counter;
+            suffix = ss.str();
         }
 
-        ss << function_symbol.get_name() << "_" << (int)task_counter;
-        outline_name = ss.str();
+        std::string outline_name = prefix + function_symbol.get_name() + suffix;
 
         task_counter++;
 
