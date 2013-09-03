@@ -399,13 +399,19 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::create_reduction_function(OpenMP::Reduction* red,
             Nodecl::NodeclBase construct,
+            TL::Type reduction_type,
             TL::Symbol& basic_reduction_function,
             TL::Symbol& vector_reduction_function)
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             basic_reduction_function = create_basic_reduction_function_c(red, construct);
-            vector_reduction_function = create_vector_reduction_function_c(red, construct);
+
+            // This is not yet well supported in Nanos++
+            if (!reduction_type.is_array())
+            {
+                vector_reduction_function = create_vector_reduction_function_c(red, construct);
+            }
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
@@ -567,7 +573,7 @@ namespace TL { namespace Nanox {
             Source num_scalars;
 
             TL::Symbol basic_reduction_function, vector_reduction_function;
-            create_reduction_function(reduction, construct, basic_reduction_function, vector_reduction_function);
+            create_reduction_function(reduction, construct, reduction_type, basic_reduction_function, vector_reduction_function);
             (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
@@ -578,8 +584,8 @@ namespace TL { namespace Nanox {
                 << nanos_red_name << "->original = (void*)" 
                 <<            (reduction_type.is_array() ? "" : "&") << (*it)->get_symbol().get_name() << ";"
                 << allocate_private_buffer
-                << nanos_red_name << "->vop = 0;"
-                // <<      (vector_reduction_function.is_valid() ? as_symbol(vector_reduction_function) : "0") << ";"
+                << nanos_red_name << "->vop = "
+                <<      (vector_reduction_function.is_valid() ? as_symbol(vector_reduction_function) : "0") << ";"
                 << nanos_red_name << "->bop = (void(*)(void*,void*,int))" << as_symbol(basic_reduction_function) << ";"
                 << nanos_red_name << "->element_size = " << element_size << ";"
                 << nanos_red_name << "->num_scalars = " << num_scalars << ";"
