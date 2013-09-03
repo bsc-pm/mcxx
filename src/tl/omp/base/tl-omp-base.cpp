@@ -1465,6 +1465,11 @@ namespace TL { namespace OpenMP {
                 _allow_shared_without_copies_str,
                 "0").connect(functor(&Base::set_allow_shared_without_copies, *this));
 
+        register_parameter("allow_array_reductions",
+                "If set to '1' enables extended support for array reductions in C/C++",
+                _allow_array_reductions_str,
+                "0").connect(functor(&Base::set_allow_array_reductions, *this));
+
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
@@ -1610,6 +1615,14 @@ namespace TL { namespace OpenMP {
         parse_boolean_option("allow_shared_without_copies",
                 allow_shared_without_copies_str, b, "Assuming false");
         _core.set_allow_shared_without_copies(b);
+    }
+
+    void Base::set_allow_array_reductions(const std::string &allow_array_reductions)
+    {
+        bool b = true;
+        parse_boolean_option("allow_array_reductions",
+                allow_array_reductions, b, "Assuming true");
+        _core.set_allow_array_reductions(b);
     }
 
     void Base::set_discard_unused_data_sharings(const std::string& str)

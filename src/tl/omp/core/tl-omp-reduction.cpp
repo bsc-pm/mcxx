@@ -137,7 +137,28 @@ namespace TL { namespace OpenMP {
                 Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
                 Symbol var_sym = var_tree.get_symbol();
 
-                if (!var_sym.is_valid())
+                if ((IS_C_LANGUAGE
+                        || IS_CXX_LANGUAGE)
+                        && _allow_array_reductions)
+                {
+                    if (var_sym.is_valid())
+                    {
+                        // OK: reduction(+:x)
+                    }
+                    else if (var_tree.is<Nodecl::Shaping>()
+                            && var_tree.as<Nodecl::Shaping>().get_postfix().is<Nodecl::Symbol>())
+                    {
+                        // OK: reduction(+:[10]x)
+                    }
+                    else
+                    {
+                        error_printf("%s: error: variable '%s' in reduction clause is not valid. Skipping\n",
+                                construct.get_locus_str().c_str(),
+                                var_tree.prettyprint().c_str());
+                        continue;
+                    }
+                }
+                else if (!var_sym.is_valid())
                 {
                     error_printf("%s: error: variable '%s' in reduction clause is not valid. Skipping\n",
                             construct.get_locus_str().c_str(),
