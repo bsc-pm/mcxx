@@ -62,6 +62,7 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
             const ObjectList<Symbol>& symbols_in_construct,
+            DataSharingEnvironment& data_sharing,
             ObjectList<ReductionSymbol>& sym_list)
     {
         if (!clause.is_defined())
@@ -269,6 +270,12 @@ namespace TL { namespace OpenMP {
                             reductor_name.c_str(),
                             var_sym.get_qualified_name().c_str(),
                             var_type.get_declaration(var_sym.get_scope(), "").c_str());
+                }
+
+                if (_allow_array_reductions
+                        && var_tree.is<Nodecl::Shaping>())
+                {
+                    add_extra_data_sharings(var_tree, data_sharing);
                 }
             }
         }

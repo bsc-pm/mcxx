@@ -615,6 +615,8 @@ namespace TL
                 virtual ~OpenMPPhase() { }
         };
         
+        // Implemented in tl-omp-deps.cpp
+        void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds);
 
     // @}
     }

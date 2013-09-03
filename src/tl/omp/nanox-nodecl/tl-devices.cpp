@@ -474,8 +474,10 @@ namespace TL { namespace Nanox {
         }
 
         // Create all the symbols and an appropiate mapping
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
-        TL::ObjectList<TL::Type> update_vla_types;
+        TL::ObjectList<TL::Symbol> parameter_symbols,
+            private_symbols,
+            reduction_private_symbols,
+            reduction_vector_symbols;
 
         int lower_bound_index = 1;
         int upper_bound_index = 1;
@@ -629,7 +631,10 @@ namespace TL { namespace Nanox {
                                 ("rdv_" + name).c_str());
                         private_reduction_vector_sym->kind = SK_VARIABLE;
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
-                        private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+                        private_reduction_vector_sym->defined
+                            = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+
+                        reduction_vector_symbols.append(private_reduction_vector_sym);
 
                         if (IS_CXX_LANGUAGE)
                         {
@@ -746,38 +751,39 @@ namespace TL { namespace Nanox {
             }
         }
 
-        // Update types of parameters (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
-                it2 != parameter_symbols.end();
-                it2++)
+        struct UpdateTypesVLA
         {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                        function_context,
-                        symbol_map->get_symbol_map());
-        }
+            decl_context_t &function_context;
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map;
+
+            UpdateTypesVLA(decl_context_t &fc,
+                    Nodecl::Utils::SimpleSymbolMap*& sm)
+                : function_context(fc), symbol_map(sm) { }
+
+            void update(TL::ObjectList<TL::Symbol>& symbols)
+            {
+                for (TL::ObjectList<TL::Symbol>::iterator it2 = symbols.begin();
+                        it2 != symbols.end();
+                        it2++)
+                {
+                    it2->get_internal_symbol()->type_information =
+                        type_deep_copy(it2->get_internal_symbol()->type_information,
+                                function_context,
+                                symbol_map->get_symbol_map());
+                }
+            }
+        };
+
+        // Update types of parameters (this is needed by VLAs)
+        UpdateTypesVLA update_vla(function_context, symbol_map);
+        update_vla.update(parameter_symbols);
 
         // Update types of privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = private_symbols.begin();
-                it2 != private_symbols.end();
-                it2++)
-        {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                        function_context,
-                        symbol_map->get_symbol_map());
-        }
+        update_vla.update(private_symbols);
 
-        // Update types of reduction privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = reduction_private_symbols.begin();
-                it2 != reduction_private_symbols.end();
-                it2++)
-        {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                        function_context,
-                        symbol_map->get_symbol_map());
-        }
+        // Update types of reduction symbols (this is needed by VLAs)
+        update_vla.update(reduction_private_symbols);
+        update_vla.update(reduction_vector_symbols);
 
         // Build the function type
         parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];

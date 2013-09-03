@@ -104,6 +104,7 @@ namespace TL
                 void get_reduction_symbols(TL::PragmaCustomLine construct, 
                         PragmaCustomClause clause, 
                         const TL::ObjectList<TL::Symbol> &symbols_in_construct,
+                        DataSharingEnvironment& data_sharing,
                         ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(TL::PragmaCustomLine construct,
                         Nodecl::NodeclBase statements,
