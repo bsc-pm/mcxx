@@ -666,7 +666,7 @@ namespace TL { namespace Nanox {
                         }
 
                         // This variable must be initialized properly
-                        OpenMP::Reduction* red = (*it)->get_reduction_info();
+                        OpenMP::Reduction* red = (*it)->get_reduction_info().first;
                         if (!red->get_initializer().is_null())
                         {
                             Nodecl::Utils::SimpleSymbolMap reduction_init_map;
@@ -674,9 +674,31 @@ namespace TL { namespace Nanox {
                             reduction_init_map.add_map(red->get_omp_orig(), shared_reduction_sym);
                             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                             {
-                                private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
-                                        Scope(function_context),
-                                        reduction_init_map).get_internal_nodecl();
+                                if (!is_array_type(private_sym->type_information))
+                                {
+                                    private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
+                                            Scope(function_context),
+                                            reduction_init_map).get_internal_nodecl();
+                                }
+                                else
+                                {
+                                    Source type_name;
+                                    type_name << as_type(red->get_type());
+                                    initial_statements
+                                        << "{ "
+                                        <<     type_name << "* rdp_init_end = (" << type_name << "*)((&" << as_symbol(private_sym) << ")+1);"
+                                        <<     type_name << "* rdp_init_it = (" << type_name << "*)" << as_symbol(private_sym) << ";"
+                                        <<     "while (rdp_init_it < rdp_init_end)"
+                                        <<     "{"
+                                        <<        "*rdp_init_it = "
+                                        <<           as_expression(Nodecl::Utils::deep_copy(red->get_initializer(),
+                                                        Scope(function_context),
+                                                        reduction_init_map).get_internal_nodecl()) << ";"
+                                        <<       "rdp_init_it++;"
+                                        <<     "}"
+                                        << "}"
+                                        ;
+                                }
                             }
                             else if (IS_FORTRAN_LANGUAGE)
                             {

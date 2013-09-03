@@ -134,16 +134,20 @@ namespace TL
         {
             private:
                 Symbol _symbol;
+                TL::Type _reduction_type;
                 Reduction *_reduction;
 
             public:
-                ReductionSymbol(Symbol s, Reduction *reduction)
-                    : _symbol(s), _reduction(reduction)
+                ReductionSymbol(Symbol s, TL::Type t, Reduction *reduction)
+                    : _symbol(s),
+                    _reduction_type(t),
+                    _reduction(reduction)
                 {
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
                     : _symbol(red_sym._symbol),
+                    _reduction_type(red_sym._reduction_type),
                     _reduction(red_sym._reduction)
                 {
                 }
@@ -156,6 +160,11 @@ namespace TL
                 Reduction* get_reduction() const
                 {
                     return _reduction;
+                }
+
+                Type get_reduction_type() const
+                {
+                    return _reduction_type;
                 }
         };
 

@@ -36,7 +36,7 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_reduction_function_fortran_slicer(OutlineDataItem* ol, Nodecl::NodeclBase construct)
     {
-        OpenMP::Reduction *red = ol->get_reduction_info();
+        OpenMP::Reduction *red = ol->get_reduction_info().first;
 
         reduction_map_t::iterator it = _reduction_map_ompss.find(red);
         if (it != _reduction_map_ompss.end())
@@ -96,7 +96,7 @@ namespace TL { namespace Nanox {
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            return create_basic_reduction_function_c(red->get_reduction_info(), construct);
+            return create_basic_reduction_function_c(red->get_reduction_info().first, construct);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {

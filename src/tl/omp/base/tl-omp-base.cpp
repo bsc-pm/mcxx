@@ -1468,7 +1468,7 @@ namespace TL { namespace OpenMP {
         register_parameter("allow_array_reductions",
                 "If set to '1' enables extended support for array reductions in C/C++",
                 _allow_array_reductions_str,
-                "0").connect(functor(&Base::set_allow_array_reductions, *this));
+                "1").connect(functor(&Base::set_allow_array_reductions, *this));
 
         register_parameter("ompss_mode",
                 "Enables OmpSs semantics instead of OpenMP semantics",
@@ -2827,6 +2827,7 @@ namespace TL { namespace OpenMP {
                 return Nodecl::OpenMP::ReductionItem::make(
                         /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _locus),
                         /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _locus),
+                        /* reduction type */ Nodecl::Type::make(arg.get_reduction_type(), _locus),
                         _locus);
             }
     };

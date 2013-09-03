@@ -135,30 +135,25 @@ namespace TL { namespace OpenMP {
                     ;
 
                 Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
-                Symbol var_sym = var_tree.get_symbol();
 
-                if ((IS_C_LANGUAGE
-                        || IS_CXX_LANGUAGE)
-                        && _allow_array_reductions)
+                TL::Symbol var_sym;
+                TL::Type var_type;
+
+                if (var_tree.get_symbol().is_valid())
                 {
-                    if (var_sym.is_valid())
-                    {
-                        // OK: reduction(+:x)
-                    }
-                    else if (var_tree.is<Nodecl::Shaping>()
-                            && var_tree.as<Nodecl::Shaping>().get_postfix().is<Nodecl::Symbol>())
-                    {
-                        // OK: reduction(+:[10]x)
-                    }
-                    else
-                    {
-                        error_printf("%s: error: variable '%s' in reduction clause is not valid. Skipping\n",
-                                construct.get_locus_str().c_str(),
-                                var_tree.prettyprint().c_str());
-                        continue;
-                    }
+                    // reduction(+ : x)
+                    var_sym = var_tree.get_symbol();
+                    var_type = var_sym.get_type();
                 }
-                else if (!var_sym.is_valid())
+                else if (_allow_array_reductions
+                        && (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        && var_tree.is<Nodecl::Shaping>()
+                        && var_tree.as<Nodecl::Shaping>().get_postfix().get_symbol().is_valid())
+                {
+                    var_sym = var_tree.as<Nodecl::Shaping>().get_postfix().get_symbol();
+                    var_type = var_tree.get_type();
+                }
+                else
                 {
                     error_printf("%s: error: variable '%s' in reduction clause is not valid. Skipping\n",
                             construct.get_locus_str().c_str(),
@@ -176,12 +171,12 @@ namespace TL { namespace OpenMP {
                     continue;
                 }
 
-                Type var_type = var_sym.get_type();
                 if (var_type.is_any_reference())
                     var_type = var_type.references_to();
                 var_type = var_type.get_unqualified_type();
 
-                if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                        && !_allow_array_reductions)
                 {
                     if (var_type.is_array())
                     {
@@ -219,7 +214,8 @@ namespace TL { namespace OpenMP {
 
                     ObjectList<Reduction*> red_set = Reduction::lookup(construct.retrieve_context(),
                             id_expression,
-                            var_type);
+                            var_type,
+                            _allow_array_reductions);
 
                     if (red_set.empty())
                     {
@@ -248,14 +244,15 @@ namespace TL { namespace OpenMP {
                 else
                 {
                     // Fortran and C can use this simpler lookup
-                    reduction = Reduction::lookup(construct.retrieve_context(),
+                    reduction = Reduction::simple_lookup(construct.retrieve_context(),
                             reductor_name,
-                            var_type);
+                            var_type,
+                            _allow_array_reductions);
                 }
 
                 if (reduction != NULL)
                 {
-                    ReductionSymbol red_sym(var_sym, reduction);
+                    ReductionSymbol red_sym(var_sym, var_type, reduction);
                     sym_list.append(red_sym);
                     if (!Reduction::is_builtin(reduction->get_name()))
                     {
@@ -767,8 +764,18 @@ namespace TL { namespace OpenMP {
     ObjectList<Reduction*> Reduction::lookup(TL::Scope sc,
             Nodecl::NodeclBase id_expression_orig,
             TL::Type t,
-            bool disable_koenig)
+            bool disable_koenig,
+            bool allow_array_types)
     {
+        ERROR_CONDITION(!IS_CXX_LANGUAGE, "This function is only for C++", 0);
+
+        if (allow_array_types
+                && t.is_array())
+        {
+            while (t.is_array())
+                t = t.array_element();
+        }
+
         t = get_canonical_type_for_reduction(t);
         Nodecl::NodeclBase id_expression = id_expression_orig.shallow_copy();
 
@@ -858,7 +865,8 @@ namespace TL { namespace OpenMP {
                 TL::ObjectList<Reduction*> base_results = Reduction::lookup(sc,
                         id_expression_orig,
                         it->get_user_defined_type(),
-                        /* disable koenig = */ true);
+                        /* disable koenig = */ true,
+                        allow_array_types);
                 result.insert(base_results);
             }
         }
@@ -868,23 +876,40 @@ namespace TL { namespace OpenMP {
 
     ObjectList<Reduction*> Reduction::lookup(TL::Scope sc,
             Nodecl::NodeclBase id_expression_orig,
-            TL::Type t)
+            TL::Type t,
+            bool allow_array_types)
     {
         if (IS_FORTRAN_LANGUAGE
                 && fortran_is_array_type(t.get_internal_type()))
         {
             t = fortran_get_rank0_type(t.get_internal_type());
         }
-        return lookup(sc, id_expression_orig, t, /* disable_koenig */ false);
+        return lookup(sc, id_expression_orig, t, /* disable_koenig */ false, allow_array_types);
     }
 
 
-    Reduction* Reduction::lookup(TL::Scope sc, const std::string& name, TL::Type t)
+    Reduction* Reduction::simple_lookup(TL::Scope sc,
+            const std::string& name,
+            TL::Type t,
+            bool allow_array_types)
     {
-        if (IS_FORTRAN_LANGUAGE
-                && fortran_is_array_type(t.get_internal_type()))
+        if (IS_FORTRAN_LANGUAGE)
         {
-            t = fortran_get_rank0_type(t.get_internal_type());
+            if ( fortran_is_array_type(t.get_internal_type()))
+                t = fortran_get_rank0_type(t.get_internal_type());
+        }
+        else if (IS_C_LANGUAGE)
+        {
+            if (allow_array_types
+                    && t.is_array())
+            {
+                while (t.is_array())
+                    t = t.array_element();
+            }
+        }
+        else
+        {
+            running_error("Code unreachable");
         }
 
         t = get_canonical_type_for_reduction(t);

@@ -825,12 +825,14 @@ namespace TL { namespace Nanox {
         outline_info.set_conditional_capture_value(condition);
     }
 
-    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction)
+    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol,
+            TL::Type reduction_type,
+            OpenMP::Reduction* reduction)
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
         outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
-        outline_info.set_reduction_info(reduction);
+        outline_info.set_reduction_info(reduction, reduction_type);
 
         TL::Type t = symbol.get_type();
         if (t.is_any_reference())
@@ -857,7 +859,7 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
         }
 
-        outline_info.set_private_type(t);
+        outline_info.set_private_type(reduction_type);
     }
 
     void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
@@ -1078,10 +1080,11 @@ namespace TL { namespace Nanox {
             {
                 TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
                 TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
+                TL::Type reduction_type = reduction.get_reduction_type().get_type();
 
                 OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
                 ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
-                add_reduction(symbol, red);
+                add_reduction(symbol, reduction_type, red);
             }
 
             void visit(const Nodecl::OpenMP::Target& target)
