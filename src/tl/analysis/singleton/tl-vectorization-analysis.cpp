@@ -93,7 +93,7 @@ namespace Analysis {
                 v.walk( s );
                 
                 AdjacentAccessVisitor iv_v( _induction_variables, _killed );
-                bool constant = iv_v.walk( s );
+                /* bool constant = */ iv_v.walk( s );
                 
                 Utils::InductionVariableData* iv = iv_v.get_induction_variable( );
                 if( iv != NULL )
