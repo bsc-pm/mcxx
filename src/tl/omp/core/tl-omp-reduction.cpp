@@ -432,6 +432,10 @@ namespace TL { namespace OpenMP {
             {
                 reduction_name = "operator " + reduction_name;
             }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                reduction_name = strtolower(reduction_name.c_str());
+            }
 
             Reduction* new_red = NULL;
             if (!is_error_type(reduction_type))
@@ -460,6 +464,11 @@ namespace TL { namespace OpenMP {
                 {
                     internal_error("Code unreachable", 0);
                 }
+
+                error_printf("%s: error: reduction '%s' cannot be declared for type '%s' in the current scope\n",
+                        ast_location(tree),
+                        reduction_name.c_str(),
+                        type_name);
                 continue;
             }
 
@@ -755,6 +764,11 @@ namespace TL { namespace OpenMP {
         else
         {
             entry_list_free(entry_list);
+        }
+
+        DEBUG_CODE()
+        {
+            std::cerr << "OMP-REDUCTION: New registered UDR '" << internal_name << "'" << std::endl;
         }
 
         return new_red;
