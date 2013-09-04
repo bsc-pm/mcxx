@@ -445,20 +445,15 @@ namespace TL { namespace OpenMP {
 
             if (new_red == NULL)
             {
+                const char* type_name = NULL;
                 if (IS_C_LANGUAGE
                         || IS_CXX_LANGUAGE)
                 {
-                    error_printf("%s: error: reduction '%s' cannot be declared for type '%s' in the current scope\n",
-                            ast_location(tree),
-                            reduction_name.c_str(),
-                            print_type_str(reduction_type, decl_context));
+                    type_name = print_type_str(reduction_type, decl_context);
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
-                    error_printf("%s: error: reduction '%s' cannot be declared for type '%s' in the current scope\n",
-                            ast_location(tree),
-                            reduction_name.c_str(),
-                            fortran_print_type_str(reduction_type));
+                    type_name = fortran_print_type_str(reduction_type);
                 }
                 else
                 {
