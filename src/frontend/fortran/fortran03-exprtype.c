@@ -317,7 +317,8 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
         }
         else
         {
-            nodecl_t konst = const_value_to_nodecl(nodecl_get_constant(*nodecl_output));
+            nodecl_t konst = const_value_to_nodecl_with_basic_type(nodecl_get_constant(*nodecl_output),
+                    fortran_get_rank0_type(nodecl_get_type(*nodecl_output)));
             fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s' with a constant value of '%s'\n",
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
