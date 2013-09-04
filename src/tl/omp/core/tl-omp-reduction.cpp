@@ -265,11 +265,20 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
+                    const char* type_name = NULL;
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        type_name = fortran_print_type_str(var_sym.get_type().no_ref().get_internal_type());
+                    }
+                    else
+                    {
+                        type_name = var_type.get_declaration(var_sym.get_scope(), "").c_str();
+                    }
                     error_printf("%s: error: no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
                             construct.get_locus_str().c_str(),
                             reductor_name.c_str(),
                             var_sym.get_qualified_name().c_str(),
-                            var_type.get_declaration(var_sym.get_scope(), "").c_str());
+                            type_name);
                 }
 
                 if (_allow_array_reductions
@@ -902,7 +911,7 @@ namespace TL { namespace OpenMP {
     {
         if (IS_FORTRAN_LANGUAGE)
         {
-            if ( fortran_is_array_type(t.get_internal_type()))
+            if (fortran_is_array_type(t.get_internal_type()))
                 t = fortran_get_rank0_type(t.get_internal_type());
         }
         else if (IS_C_LANGUAGE)
