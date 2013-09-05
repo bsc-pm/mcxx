@@ -33,6 +33,7 @@
 #include "fortran03-typeutils.h"
 #include "fortran03-intrinsics.h"
 #include "fortran03-codegen.h"
+#include "fortran03-cexpr.h"
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
 #include "cxx-ast.h"
@@ -353,11 +354,22 @@ static void check_add_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 
 static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type);
 
-static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
-        nodecl_t* nodecl_output, 
-        type_t** current_type, int *num_items)
+static void check_ac_value_list(
+        AST ac_value_list,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        type_t** current_type,
+        const_value_t** ac_value_const)
 {
+    int ac_value_length = 0;
     AST it;
+    for_each_element(ac_value_list, it)
+    {
+        ac_value_length++;
+    }
+
+    const_value_t** ac_constant_values = xcalloc(ac_value_length, sizeof(*ac_constant_values));
+    int item_position = 0;
     for_each_element(ac_value_list, it)
     {
         AST ac_value = ASTSon1(it);
@@ -380,10 +392,16 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             if (stride != NULL)
             {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+                if (nodecl_is_err_expr(nodecl_stride))
+                {
+                    *nodecl_output = nodecl_stride;
+                    return;
+                }
             }
             else
             {
-                nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+                nodecl_stride = const_value_to_nodecl(
+                        const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
                 nodecl_set_locus_as(nodecl_stride, nodecl_upper);
             }
 
@@ -418,6 +436,19 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 return;
             }
 
+            nodecl_t nodecl_ac_value = nodecl_null();
+            const_value_t* whole_range_constant = NULL;
+            check_ac_value_list(implied_do_ac_value, decl_context,
+                    &nodecl_ac_value, current_type, &whole_range_constant);
+
+            if (nodecl_is_err_expr(nodecl_ac_value))
+            {
+                *nodecl_output = nodecl_ac_value;
+                return;
+            }
+
+            const_value_t* implied_do_cval = NULL;
+            // Compute the constant if possible
             if (nodecl_is_constant(nodecl_lower)
                     && nodecl_is_constant(nodecl_upper)
                     && nodecl_is_constant(nodecl_stride))
@@ -425,6 +456,13 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 int val_lower = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_lower));
                 int val_upper = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_upper));
                 int val_stride = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_stride));
+
+                if (val_stride == 0)
+                {
+                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(stride));
+                    return;
+                }
 
                 int trip = (val_upper
                         - val_lower
@@ -435,7 +473,6 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 {
                     trip = 0;
                 }
-                (*num_items) += trip;
 
                 // Save information of the symbol
                 type_t* original_type = do_variable->type_information;
@@ -444,115 +481,89 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 // Set it as a PARAMETER of kind INTEGER (so we will effectively use its value)
                 do_variable->type_information = get_const_qualified_type(original_type);
 
-                int i;
-                int trip_count = 0;
-                if (val_stride == 0)
+                if (trip == 0)
                 {
-                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
+                    // empty range
+                    implied_do_cval = const_value_make_array(0, NULL);
                 }
-                else if ((val_stride * val_lower) > (val_stride * val_upper))
+                else
                 {
-                    // Empty range.
-                    //
-                    // Due to problems with existing compilers (see ticket #1637)
-                    // we need to preserve the implied_do node (even if we know
-                    // it is a constant empty array...)
-                    int current_num_items = 0;
-                    nodecl_t nodecl_ac_value = nodecl_null();
-                    check_ac_value_list(implied_do_ac_value, decl_context,
-                            &nodecl_ac_value, current_type, &current_num_items);
+                    int stride_sign = 1;
+                    if (val_stride < 0)
+                        stride_sign = -1;
 
-                    if (nodecl_is_err_expr(nodecl_ac_value))
-                    {
-                        *nodecl_output = nodecl_ac_value;
-                        return;
-                    }
+                    const_value_t** const_value_list = xcalloc(trip, sizeof(*const_value_list));
+                    const_value_t** const_value_list_it = const_value_list;
 
-                    nodecl_t nodecl_implied_do =
-                        nodecl_make_fortran_implied_do(
-                                nodecl_make_symbol(do_variable, ast_get_locus(ac_do_variable)),
-                                nodecl_make_range(nodecl_lower,
-                                    nodecl_upper,
-                                    nodecl_stride,
-                                    fortran_get_default_integer_type(),
-                                    ast_get_locus(implied_do_control)),
-                                nodecl_ac_value,
-                                ast_get_locus(implied_do_control));
-
-                    nodecl_set_constant(
-                            nodecl_implied_do,
-                            // Degenerated case
-                            const_value_make_array(0, NULL));
-
-                    *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
-                }
-                else if (val_stride > 0)
-                {
+                    char all_constant = 1;
+                    int i;
                     for (i = val_lower;
-                            i <= val_upper;
+                            ((stride_sign * i) <= (stride_sign * val_upper)) && all_constant;
                             i+= val_stride)
                     {
                         // Set the value of the variable
                         do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
                         nodecl_set_locus_as(do_variable->value, nodecl_lower);
 
-                        check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+                        nodecl_t nodecl_current_item = nodecl_null();
 
-                        if (nodecl_is_err_expr(*nodecl_output))
+                        const_value_t* current_constant = NULL;
+                        check_ac_value_list(implied_do_ac_value, decl_context,
+                                &nodecl_current_item,
+                                current_type,
+                                &current_constant);
+
+                        if (nodecl_is_err_expr(nodecl_current_item))
+                        {
+                            *nodecl_output = nodecl_current_item;
                             return;
+                        }
 
-                        trip_count++;
+                        if (current_constant == NULL)
+                        {
+                            all_constant = 0;
+                        }
+                        else
+                        {
+                            *const_value_list_it = current_constant;
+                            const_value_list_it++;
+                        }
+
+                        // This node is useless now
+                        nodecl_free(nodecl_current_item);
                     }
-                }
-                else if (val_stride < 0)
-                {
-                    for (i = val_lower;
-                            i >= val_upper;
-                            i += val_stride)
+
+                    if (all_constant)
                     {
-                        // Set the value of the variable
-                        do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
-                        nodecl_set_locus_as(do_variable->value, nodecl_lower);
-
-                        check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
-
-                        if (nodecl_is_err_expr(*nodecl_output))
-                            return;
-
-                        trip_count++;
+                        implied_do_cval = const_value_make_array(trip, const_value_list);
+                        // this constant must always be rank-1
+                        implied_do_cval = fortran_flatten_array(implied_do_cval);
                     }
+
+                    xfree(const_value_list);
                 }
 
                 // Restore the variable used for the expansion
                 do_variable->type_information = original_type;
                 do_variable->value = original_value;
             }
-            else
-            {
-                int current_num_items = 0;
-                nodecl_t nodecl_ac_value = nodecl_null();
-                check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
 
-                if (nodecl_is_err_expr(nodecl_ac_value))
-                {
-                    *nodecl_output = nodecl_ac_value;
-                    return;
-                }
+            nodecl_t nodecl_implied_do =
+                nodecl_make_fortran_implied_do(
+                        nodecl_make_symbol(do_variable, ast_get_locus(ac_do_variable)),
+                        nodecl_make_range(
+                            nodecl_lower,
+                            nodecl_upper,
+                            nodecl_stride,
+                            fortran_get_default_integer_type(),
+                            ast_get_locus(implied_do_control)),
+                        nodecl_ac_value,
+                        ast_get_locus(implied_do_control));
 
-                nodecl_t nodecl_implied_do = 
-                    nodecl_make_fortran_implied_do(
-                            nodecl_make_symbol(do_variable, ast_get_locus(ac_do_variable)),
-                            nodecl_make_range(nodecl_lower, 
-                                nodecl_upper, 
-                                nodecl_stride, 
-                                fortran_get_default_integer_type(),
-                                ast_get_locus(implied_do_control)),
-                            nodecl_ac_value,
-                            ast_get_locus(implied_do_control));
-                (*num_items) = -1;
-                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
-            }
+            nodecl_set_constant(nodecl_implied_do, implied_do_cval);
+            ac_constant_values[item_position] = implied_do_cval;
 
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
         }
         else
         {
@@ -590,31 +601,40 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 internal_error("Code unreachable", 0);
             }
 
-            if ((*num_items) >= 0)
-            {
-                type_t* expr_type = nodecl_get_type(nodecl_expr);
-
-                if (!is_array_type(expr_type))
-                {
-                    (*num_items)++;
-                }
-                else
-                {
-                    int num_elements = array_type_get_total_number_of_elements(expr_type);
-                    if (num_elements >= 0)
-                    {
-                        *num_items += num_elements;
-                    }
-                    else
-                    {
-                        *num_items = -1;
-                    }
-                }
-            }
-
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
+            if (nodecl_is_constant(nodecl_expr))
+            {
+                const_value_t* value = nodecl_get_constant(nodecl_expr);
+                if (!const_value_is_array(value))
+                {
+                    value = const_value_make_array(1, &value);
+                }
+
+                ac_constant_values[item_position] = value;
+            }
         }
+
+        item_position++;
     }
+
+    char all_constant = 1;
+    for (item_position = 0; (item_position < ac_value_length) && all_constant; item_position++)
+    {
+        if (ac_constant_values[item_position] == NULL)
+            all_constant = 0;
+    }
+
+    if (all_constant)
+    {
+        *ac_value_const = const_value_make_array(ac_value_length, ac_constant_values);
+        *ac_value_const = fortran_flatten_array(*ac_value_const);
+    }
+    else
+    {
+        *ac_value_const = NULL;
+    }
+
+    xfree(ac_constant_values);
 }
 
 static void check_array_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -636,10 +656,10 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
 
     AST ac_value_list = ASTSon1(ac_spec);
     nodecl_t nodecl_ac_value = nodecl_null();
-    int num_items = 0;
+    const_value_t* ac_value_const = NULL;
     if (ac_value_list != NULL)
     {
-        check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &num_items);
+        check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &ac_value_const);
         if (is_error_type(ac_value_type))
         {
             // Empty ranges may return null trees
@@ -664,85 +684,60 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
         }
     }
 
-
-    // Check for const-ness
-    int i, n, num_elements_flattened = 0;
-    char all_constants = 1;
-    char all_exprs_const_type = 1;
-    nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
-
-    const_value_t* constants[n + 1];
-    memset(constants, 0, sizeof(constants));
-
-    for (i = 0; i < n && all_constants; i++)
+    if (ac_value_const != NULL)
     {
-        constants[i] = nodecl_get_constant(list[i]);
-        all_constants = all_constants && (constants[i] != NULL);
-        all_exprs_const_type = all_exprs_const_type
-            && (is_const_qualified_type(no_ref(nodecl_get_type(list[i]))));
-
-        if (constants[i] != NULL)
-        {
-            if (const_value_is_array(constants[i]))
-            {
-                num_elements_flattened += const_value_get_num_elements(constants[i]);
-            }
-            else
-            {
-                num_elements_flattened += 1;
-            }
-        }
-    }
-    xfree(list);
-
-    if (num_items >= 0)
-    {
+        int num_items = const_value_get_num_elements(ac_value_const);
         ac_value_type = get_array_type_bounds(ac_value_type,
                 const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
                 const_value_to_nodecl(const_value_get_signed_int(num_items)),
                 decl_context);
-
-        if (all_constants || all_exprs_const_type)
-        {
-            ac_value_type = get_const_qualified_type(ac_value_type);
-        }
+        ac_value_type = get_const_qualified_type(ac_value_type);
     }
     else
     {
-        ac_value_type = get_array_type_bounds(ac_value_type, nodecl_null(), nodecl_null(), decl_context);
+        // Maybe the values of the array are not constant but the size is
+        int n;
+        nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
+
+        int num_items = 0;
+
+        int i;
+        for (i = 0; (i < n) && (num_items >= 0); i++)
+        {
+            if (nodecl_get_kind(list[i]) != NODECL_FORTRAN_IMPLIED_DO)
+            {
+                // A single element
+                num_items++;
+            }
+            else if (nodecl_is_constant(list[i])) // nodecl_get_kind(list[i]) == NODECL_FORTRAN_IMPLIED_DO
+            {
+                // Well, this is an ac-implied-do but we know how many elements it has
+                num_items += const_value_get_num_elements(nodecl_get_constant(list[i]));
+            }
+            else // nodecl_get_kind(list[i]) == NODECL_FORTRAN_IMPLIED_DO && !nodecl_is_constant(list[i])
+            {
+                num_items = -1;
+            }
+        }
+
+        if (num_items < 0)
+        {
+            ac_value_type = get_array_type_bounds(ac_value_type, nodecl_null(), nodecl_null(), decl_context);
+        }
+        else
+        {
+            ac_value_type = get_array_type_bounds(ac_value_type,
+                    const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
+                    const_value_to_nodecl(const_value_get_signed_int(num_items)),
+                    decl_context);
+        }
     }
 
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
             ac_value_type,
             ast_get_locus(expr));
 
-    if (all_constants)
-    {
-        const_value_t* value_flattened[num_elements_flattened+1];
-        memset(value_flattened, 0, sizeof(value_flattened));
-
-        int j = 0;
-        for (i = 0; i < n; i++)
-        {
-            if (const_value_is_array(constants[i]))
-            {
-                int k, N = const_value_get_num_elements(constants[i]);
-                for (k = 0; k < N; k++)
-                {
-                    value_flattened[j] = const_value_get_element_num(constants[i], k);
-                    j++;
-                }
-            }
-            else
-            {
-                value_flattened[j] = constants[i];
-                j++;
-            }
-        }
-
-        const_value_t* array_val = const_value_make_array(num_elements_flattened, value_flattened);
-        nodecl_set_constant(*nodecl_output, array_val);
-    }
+    nodecl_set_constant(*nodecl_output, ac_value_const);
 }
 
 static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
@@ -5109,7 +5104,10 @@ static void cast_initialization(
 
             if (nodecl_output != NULL)
             {
-                *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
+                // We do not expand the full array to a tree, just we keep the original simple tree
+                // and modify the const value of the scalar
+                *nodecl_output = const_value_to_nodecl_with_basic_type(val, rank0_type);
+                nodecl_set_constant(*nodecl_output, *casted_const);
             }
         }
     }
