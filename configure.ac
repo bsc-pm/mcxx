@@ -410,6 +410,80 @@ AC_SUBST([SVML_ENABLED])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
+dnl --------------------- Support for Intel OpenMP RTL ---------------------------------
+is_enabled_tl_omp_intel="no"
+
+AC_MSG_CHECKING([if enabled OpenMP TL support for Intel OpenMP RTL])
+AC_ARG_ENABLE([tl-openmp-intel],
+  AS_HELP_STRING([--enable-tl-openmp-intel], [Enables support of OpenMP TL for Intel OpenMP RTL]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_omp_intel="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_omp_intel="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_omp_intel="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+INTEL_OMP_INCLUDE=""
+INTEL_OMP_LIB=""
+
+if test x$is_enabled_tl_omp_intel = xyes;
+then
+
+    intel_omp_include=""
+    intel_omp_lib=""
+
+    AC_ARG_WITH([intel-omp],
+            AS_HELP_STRING([--with-intel-omp=dir], [Directory of Intel OpenMP RTL]),
+            [
+             intel_omp_include="${withval}/exports/common/include"
+
+             case "$target" in
+                i?86-*-linux*)
+                    intel_omp_lib="${withval}/exports/lin_32/lib"
+                    ;;
+                x86_64-*-linux*)
+                    intel_omp_lib="${withval}/exports/lin_32e/lib"
+                    ;;
+                *)
+                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
+                    ;;
+             esac
+            ]
+    )
+
+    AC_ARG_WITH([intel-omp-lib],
+            AS_HELP_STRING([--with-intel-omp-lib=dir], [Directory of Intel OpenMP RTL library]),
+            [
+             intel_omp_lib="${withval}"
+            ]
+        )
+
+   INTEL_OMP_INCLUDE=${intel_omp_include}
+   INTEL_OMP_LIB=${intel_omp_lib}
+
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} intel"
+   COMPILER_NAMES="${COMPILER_NAMES} intel-mcc intel-mcxx intel-mfc intel-mf95"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.intel-omp-base 50.config.omp.intel-rtl"
+fi
+
+AC_SUBST([INTEL_OMP_INCLUDE])
+AC_SUBST([INTEL_OMP_LIB])
+
+dnl --------------------- End of Support for Intel OpenMP RTL ---------------------------
+
 dnl --------------------- Support for GPU tests in Nanox --------------------------------
 # Check if it has nVidia GPUs / CUDA is installed
 gpu_valid=no
@@ -1476,6 +1550,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox-nodecl/devices/cuda/Makefile
            src/tl/omp/nanox-nodecl/devices/opencl/Makefile
            src/tl/omp/nanox-nodecl/devices/mpi/Makefile
+           src/tl/omp/intel/Makefile
            src/tl/instr/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -1496,6 +1571,7 @@ AC_CONFIG_FILES([Makefile
            support/mpi/Makefile
            support/mpi/openmpi/Makefile
            support/mpi/mpich/Makefile
+           support/intel_omp/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile
@@ -1582,6 +1658,15 @@ then
   fi
 
 	echo "   Nanos++ tests regions support:" $nanox_regions
+fi
+
+echo ""
+echo " * Intel OpenMP RTL :" $is_enabled_tl_omp_intel
+echo ""
+
+if test x$is_enabled_tl_omp_intel = xyes;
+then
+  echo "   Intel OpenMP RTL library:" $intel_omp_lib
 fi
 
 echo "   MPI testing enabled:" $mpi_valid

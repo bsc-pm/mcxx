@@ -24,62 +24,31 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-TPP=$(top_builddir)/lib/tpp$(EXEEXT)
-CLEANFILES=
+SUBDIRS=.
+
+include $(top_srcdir)/src/tl/Makefile.phases
+
+phases_LTLIBRARIES = libtlintel-omp-lowering.la
+
+libtlintel_omp_lowering_la_CFLAGS= $(phases_cflags) -I$(srcdir)/../core
+libtlintel_omp_lowering_la_CXXFLAGS= $(phases_cxxflags) -I$(srcdir)/../core
+
+libtlintel_omp_lowering_la_LIBADD= $(phases_libadd) \
+								../core/libtlomp-core.la
+
+libtlintel_omp_lowering_la_LDFLAGS= $(phases_ldflags)
+
 END=
 
-CONFIG_MCXX=\
-            config.mcxx \
-            $(END)
-
-# We need a dist hook to keep these files in sync with their template.*
-# see below
-CONFIG_FILES =  \
-       00.config.plain \
-       10.config.analysis-base \
-       10.config.omp-base \
-       10.config.intel-omp-base \
-       50.config.cuda \
-       50.config.gpu \
-       50.config.omp.fortran \
-       50.config.omp.fpga \
-       50.config.omp.mercurium \
-       50.config.omp.ocl \
-       50.config.omp.profiling \
-	   50.config.omp.intel-rtl \
-       55.config.omp.ibm \
-       55.config.omp.ibm.fortran \
-       55.config.omp.intel \
-       55.config.omp.intel.fortran \
-       55.config.omp.nvidia \
-       56.config.omp.mpi \
-       57.config.omp.all \
-	   $(END)
-
-INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
-
-dist-hook:
-	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
-    do \
-       cp -v "$(srcdir)/template.$${i}" "$(distdir)" || exit $?; \
-    done
-
-CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
-
-# Replacements are defined in this file
-include ./Makefile.replace
-
-BUILT_SOURCES=$(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
-
-# This is valid in parallel make since we are generating one goal file at a time
-$(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : template.% Makefile
-	$(AM_V_GEN)( $(config_edit) "$(srcdir)/template.$@" > "$@.tmp"; mv -f "$@.tmp" "$@" )
-
-# Where and what to install
-pkgdata_DATA = \
-		config.mcxx \
-		$(END)
-
-configdir = $(pkgdatadir)/config.d
-config_DATA = \
-        $(INSTALL_CONFIG_FILES)
+libtlintel_omp_lowering_la_SOURCES=\
+								   tl-omp-intel.cpp \
+								   tl-omp-intel.hpp \
+								   tl-lowering-visitor.hpp \
+								   tl-lowering-visitor.cpp \
+								   tl-lowering-utils.hpp \
+								   tl-lowering-utils.cpp \
+								   tl-lower-parallel.cpp \
+								   tl-lower-single.cpp \
+								   tl-lower-barrier.cpp \
+								   tl-lower-for.cpp \
+								   $(END)
