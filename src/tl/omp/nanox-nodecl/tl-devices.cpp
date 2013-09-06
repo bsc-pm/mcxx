@@ -998,7 +998,7 @@ namespace TL { namespace Nanox {
 
 
     // Rewrite inline
-    struct RewriteExprOfVla : public Nodecl::ExhaustiveVisitor<void>
+    struct RewriteExprOfVlaInOutline : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
             const TL::ObjectList<OutlineDataItem*> &_data_items;
@@ -1006,7 +1006,7 @@ namespace TL { namespace Nanox {
 
         public:
 
-        RewriteExprOfVla(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
+        RewriteExprOfVlaInOutline(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
             : _data_items(data_items),
             _args_symbol(args_symbol)
         { }
@@ -1026,15 +1026,23 @@ namespace TL { namespace Nanox {
                     // Should be a reference already
                     new_args_ref.set_type(_args_symbol.get_type());
 
-                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make((*it)->get_field_symbol());
-                    field_ref.set_type(field_ref.get_symbol().get_type());
+                    TL::Symbol field_symbol = (*it)->get_field_symbol();
+                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make(field_symbol);
+                    field_ref.set_type(field_symbol.get_type());
 
                     new_class_member_access = Nodecl::ClassMemberAccess::make(
                             new_args_ref,
                             field_ref,
                             /* member-form */ Nodecl::NodeclBase::null(),
-                            // The type of this node should be the same
-                            node.get_type());
+                            field_symbol.get_type().no_ref().get_lvalue_reference_to());
+
+                    if (field_symbol.get_type().is_pointer())
+                    {
+                        // a.mcc_vla must be converted to a *(a.mcc_vla)
+                        new_class_member_access = Nodecl::Dereference::make(
+                                new_class_member_access,
+                                field_symbol.get_type().no_ref().points_to().get_lvalue_reference_to());
+                    }
 
                     node.replace(new_class_member_access);
                     break;
@@ -1074,7 +1082,7 @@ namespace TL { namespace Nanox {
                     arguments_symbol);
 
             Nodecl::NodeclBase new_size = t.array_get_size().shallow_copy();
-            RewriteExprOfVla rewrite_expr_of_vla(data_items, arguments_symbol);
+            RewriteExprOfVlaInOutline rewrite_expr_of_vla(data_items, arguments_symbol);
             rewrite_expr_of_vla.walk(new_size);
 
             return elem.get_array_to(new_size, new_size.retrieve_context());
