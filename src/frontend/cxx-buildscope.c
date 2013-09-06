@@ -2700,6 +2700,16 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 #endif
                 break;
             }
+        case AST_GCC_FLOAT128:
+            {
+#ifdef HAVE_QUADMATH_H
+                *simple_type_info = get_float128_type();
+#else
+                error_printf("%s: error: __float128 support not available\n", ast_location(a));
+                *simple_type_info = get_error_type();
+#endif
+                break;
+            }
             // Mercurium extension @byte@
         case AST_MCC_BYTE:
             {
