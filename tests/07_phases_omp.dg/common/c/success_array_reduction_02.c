@@ -35,6 +35,9 @@ test_generator=config/mercurium-omp
 #include <stdio.h>
 #include <stdlib.h>
 
+// Intel compiler has lots of problems with VLAs
+// let's skip this test
+#ifndef __ICC
 
 enum { NUM_ITEMS = 100, ARRAY_SIZE = 10 };
 
@@ -89,3 +92,12 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+#else
+
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+
+#endif
