@@ -3183,6 +3183,9 @@ outer_shared_do_construct : label_do_stmt block shared_term_do_construct
     $$ = $1;
 }
 ;
+shared_term_do_construct : outer_shared_do_construct_2
+| inner_shared_do_construct
+;
 outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construct
 {
     AST do_statement = $1;
@@ -3196,9 +3199,6 @@ outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construc
 
     $$ = $1;
 }
-;
-shared_term_do_construct : outer_shared_do_construct_2
-| inner_shared_do_construct
 ;
 inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 {
