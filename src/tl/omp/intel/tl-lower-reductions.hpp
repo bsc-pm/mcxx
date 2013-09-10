@@ -25,21 +25,18 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_LOWERING_UTILS_HPP
-#define TL_LOWERING_UTILS_HPP
+#ifndef TL_LOWER_REDUCTIONS_HPP
+#define TL_LOWER_REDUCTIONS_HPP
 
-#include "tl-symbol.hpp"
+#include "tl-omp.hpp"
 
 namespace TL { namespace Intel {
 
-    TL::Symbol new_global_ident_symbol(Nodecl::NodeclBase location);
-    TL::Symbol new_private_symbol(TL::Symbol original_symbol, TL::Scope private_scope);
-
-    TL::Symbol get_global_lock_symbol(Nodecl::NodeclBase location, const std::string& name);
-    TL::Symbol get_global_lock_symbol(Nodecl::NodeclBase location);
-
-    void cleanup_lock_map();
+    TL::Symbol emit_callback_for_reduction(
+            OpenMP::Reduction* reduction,
+            Nodecl::NodeclBase location,
+            TL::Symbol current_function);
 
 } }
 
-#endif // TL_LOWERING_UTILS_HPP
+#endif // TL_LOWER_REDUCTIONS_HPP

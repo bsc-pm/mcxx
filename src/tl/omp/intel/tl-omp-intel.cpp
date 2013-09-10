@@ -26,6 +26,7 @@
 
 #include "tl-omp-intel.hpp"
 #include "tl-lowering-visitor.hpp"
+#include "tl-lowering-utils.hpp"
 
 namespace TL { namespace Intel {
 
@@ -72,6 +73,7 @@ namespace TL { namespace Intel {
 
     void Lowering::phase_cleanup(DTO& data_flow)
     {
+        Intel::cleanup_lock_map();
     }
 } }
 

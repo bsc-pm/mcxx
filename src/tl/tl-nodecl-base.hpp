@@ -787,6 +787,18 @@ namespace Nodecl {
             }
 
             TL::ObjectList<NodeclBase> to_object_list();
+
+            template <typename T>
+            TL::ObjectList<T> to_object_list_as()
+            {
+                TL::ObjectList<T> result;
+                for (List::iterator it = this->begin(); it != this->end(); ++it)
+                {
+                    result.append(it->as<T>());
+                }
+                return result;
+            }
+
             static List make(const TL::ObjectList<NodeclBase>& list);
 
 

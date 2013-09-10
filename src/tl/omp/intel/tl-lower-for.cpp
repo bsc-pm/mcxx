@@ -27,6 +27,9 @@
 
 #include "tl-lowering-visitor.hpp"
 #include "tl-lowering-utils.hpp"
+
+#include "tl-lower-reductions.hpp"
+
 #include "tl-counters.hpp"
 
 namespace TL { namespace Intel {
@@ -52,16 +55,14 @@ namespace TL { namespace Intel {
             Nodecl::OpenMP::FirstLastprivate firstlastprivate = environment.find_first<Nodecl::OpenMP::FirstLastprivate>();
             Nodecl::OpenMP::Reduction reduction = environment.find_first<Nodecl::OpenMP::Reduction>();
 
-            ERROR_CONDITION(!reduction.is_null(), "Reductions not yet implemented", 0);
-
             Nodecl::OpenMP::BarrierAtEnd barrier_at_end = environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
 
             bool is_static_schedule = (schedule.get_text() == "static");
 
-
             TL::ObjectList<TL::Symbol> private_symbols;
             TL::ObjectList<TL::Symbol> firstprivate_symbols;
             TL::ObjectList<TL::Symbol> lastprivate_symbols;
+            TL::ObjectList<TL::Symbol> reduction_symbols;
             if (!private_.is_null())
                 private_symbols.insert(private_
                         .get_private_symbols()
@@ -110,6 +111,21 @@ namespace TL { namespace Intel {
                         .get_firstlastprivate_symbols()
                         .as<Nodecl::List>()
                         .to_object_list()
+                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
+            }
+            if (!reduction.is_null())
+            {
+                private_symbols.insert(reduction
+                        .get_reductions()
+                        .as<Nodecl::List>()
+                        .to_object_list_as<Nodecl::OpenMP::ReductionItem>()
+                        .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol))
+                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
+                reduction_symbols.insert(reduction
+                        .get_reductions()
+                        .as<Nodecl::List>()
+                        .to_object_list_as<Nodecl::OpenMP::ReductionItem>()
+                        .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol))
                         .map(functor(&Nodecl::NodeclBase::get_symbol)));
             }
 
@@ -200,7 +216,8 @@ namespace TL { namespace Intel {
 
             TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-            Nodecl::NodeclBase loop_body;
+            Nodecl::NodeclBase loop_body, reduction_code;
+
             if (is_static_schedule)
             {
                 Source static_loop;
@@ -223,6 +240,7 @@ namespace TL { namespace Intel {
                     << "}"
                     << "__kmpc_for_static_fini(&" << as_symbol(ident_symbol) << ", __kmpc_global_thread_num("
                     <<                  "&" << as_symbol(ident_symbol) << "));"
+                    << statement_placeholder(reduction_code)
                     ;
 
                 Nodecl::NodeclBase static_loop_tree = static_loop.parse_statement(stmt_placeholder);
@@ -230,7 +248,71 @@ namespace TL { namespace Intel {
             }
             else
             {
-                internal_error("Not yet implemented", 0);
+                internal_error("Nonstatic schedules not yet implemented", 0);
+            }
+
+            TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+            if (!reduction.is_null())
+            {
+                Nodecl::List reduction_items = reduction.get_reductions().as<Nodecl::List>();
+
+                Source nowait;
+
+                Source reduction_src;
+                for (Nodecl::List::iterator it = reduction_items.begin();
+                        it != reduction_items.end();
+                        it++)
+                {
+                    Nodecl::OpenMP::ReductionItem current (it->as<Nodecl::OpenMP::ReductionItem>());
+                    TL::Symbol reductor = current.get_reductor().get_symbol();
+                    OpenMP::Reduction* omp_reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
+
+                    TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
+
+                    TL::Symbol private_symbol = symbol_map.map(reduced_symbol);
+                    // FIXME - We should actually update the initializer for omp_orig and omp_priv
+                    private_symbol.set_value(omp_reduction->get_initializer().shallow_copy());
+                    stmt_placeholder.prepend_sibling(
+                            Nodecl::ObjectInit::make(private_symbol)
+                            );
+
+                    TL::Symbol callback = emit_callback_for_reduction(omp_reduction, construct, enclosing_function);
+
+                    Nodecl::Utils::SimpleSymbolMap combiner_map;
+                    combiner_map.add_map(omp_reduction->get_omp_out(), reduced_symbol);
+                    combiner_map.add_map(omp_reduction->get_omp_in(), private_symbol);
+
+                    Source master_combiner;
+                    master_combiner
+                        << as_expression(
+                                Nodecl::Utils::deep_copy(omp_reduction->get_combiner(), construct, combiner_map)
+                                ) << ";";
+
+                    reduction_src
+                        << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
+                        <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                        <<               ", 1"
+                        <<               ", sizeof(" << as_type(omp_reduction->get_type()) << ")"
+                        <<               ", &" << as_symbol(private_symbol)
+                        <<               ", (void(*)(void*,void*))" << as_symbol(callback)
+                        <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << "))"
+                        << "{"
+                        <<    "case 1:"
+                        <<    "{"
+                        <<       master_combiner
+                        <<       "__kmpc_end_reduce" << nowait << "(&" << as_symbol(ident_symbol)
+                        <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                        <<               ", &" << as_symbol(Intel::get_global_lock_symbol(construct)) << ");"
+                        <<       "break;"
+                        <<    "}"
+                        <<    "case 0: break;"
+                        <<    "default: __builtin_abort();"
+                        << "}"
+                        ;
+
+                    Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
+                    reduction_code.prepend_sibling(reduction_tree);
+                }
             }
 
             Nodecl::NodeclBase new_statements = Nodecl::Utils::deep_copy(statements,

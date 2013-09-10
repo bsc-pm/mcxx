@@ -51,4 +51,6 @@ libtlintel_omp_lowering_la_SOURCES=\
 								   tl-lower-single.cpp \
 								   tl-lower-barrier.cpp \
 								   tl-lower-for.cpp \
+								   tl-lower-reductions.hpp \
+								   tl-lower-reductions.cpp \
 								   $(END)
