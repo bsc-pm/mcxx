@@ -32,6 +32,8 @@ test_generator=config/mercurium-omp
 </testinfo>
 */
 
+#ifndef __ICC
+
 #include <stdlib.h>
 
 void f(int N1, int N2, int a[N1][N2])
@@ -69,3 +71,12 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+#else
+
+int main(int argc, char* argv[])
+{
+    return 0;
+}
+
+#endif
