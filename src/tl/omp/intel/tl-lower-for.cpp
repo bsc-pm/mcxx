@@ -230,24 +230,34 @@ namespace TL { namespace Intel {
 
             TL::Source lastprivate_code;
 
-            // for (TL::ObjectList<TL::Symbol>::iterator it = lastprivate_symbols.begin();
-            //         it != lastprivate_symbols.end();
-            //         it++)
-            // {
-            //     if (!it->get_type().is_array())
-            //     {
-            //         lastprivate_code << as_symbol(*it) << "=" << as_symbol(symbol_map.map(*it)) << ";"
-            //             ;
-            //     }
-            //     else
-            //     {
-            //         lastprivate_code
-            //             << "__builtin_memcpy(" << as_symbol(*it) << "," << as_symbol(symbol_map.map(*it))
-            //             << "                 , sizeof(" << as_type(it->get_type().no_ref()) << "));"
-            //             ;
+            if (!lastprivate_symbols.empty())
+            {
+                lastprivate_code << "if (" << lastiter << ") {";
+            }
 
-            //     }
-            // }
+            for (TL::ObjectList<TL::Symbol>::iterator it = lastprivate_symbols.begin();
+                    it != lastprivate_symbols.end();
+                    it++)
+            {
+                if (!it->get_type().is_array())
+                {
+                    lastprivate_code << as_symbol(*it) << "=" << as_symbol(symbol_map.map(*it)) << ";"
+                        ;
+                }
+                else
+                {
+                    lastprivate_code
+                        << "__builtin_memcpy(" << as_symbol(*it) << "," << as_symbol(symbol_map.map(*it))
+                        << "                 , sizeof(" << as_type(it->get_type().no_ref()) << "));"
+                        ;
+
+                }
+            }
+
+            if (!lastprivate_symbols.empty())
+            {
+                lastprivate_code << "}";
+            }
 
             if (is_static_schedule)
             {
