@@ -786,13 +786,28 @@ namespace Nodecl {
                 return T(nodecl_null());
             }
 
-            TL::ObjectList<NodeclBase> to_object_list();
-
             template <typename T>
-            TL::ObjectList<T> to_object_list_as()
+            TL::ObjectList<T> find_all() const
             {
                 TL::ObjectList<T> result;
-                for (List::iterator it = this->begin(); it != this->end(); ++it)
+
+                const_iterator it = this->begin();
+                while (it != this->end())
+                {
+                    if (it->is<T>())
+                        result.append(it->as<T>());
+                    it++;
+                }
+                return result;
+            }
+
+            TL::ObjectList<NodeclBase> to_object_list() const;
+
+            template <typename T>
+            TL::ObjectList<T> to_object_list_as() const
+            {
+                TL::ObjectList<T> result;
+                for (List::const_iterator it = this->begin(); it != this->end(); ++it)
                 {
                     result.append(it->as<T>());
                 }
