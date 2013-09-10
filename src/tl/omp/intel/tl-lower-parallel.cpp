@@ -43,57 +43,60 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 
     Nodecl::NodeclBase num_threads = construct.get_num_replicas();
 
-    Nodecl::OpenMP::Shared shared = environment.find_first<Nodecl::OpenMP::Shared>();
-    Nodecl::OpenMP::Private private_ = environment.find_first<Nodecl::OpenMP::Private>();
-    Nodecl::OpenMP::Firstprivate firstprivate = environment.find_first<Nodecl::OpenMP::Firstprivate>();
-    Nodecl::OpenMP::Reduction reduction = environment.find_first<Nodecl::OpenMP::Reduction>();
+    TL::ObjectList<Nodecl::OpenMP::Shared> shared_list = environment.find_all<Nodecl::OpenMP::Shared>();
+    TL::ObjectList<Nodecl::OpenMP::Private> private_list = environment.find_all<Nodecl::OpenMP::Private>();
+    TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list = environment.find_all<Nodecl::OpenMP::Firstprivate>();
+    TL::ObjectList<Nodecl::OpenMP::Reduction> reduction_list = environment.find_all<Nodecl::OpenMP::Reduction>();
 
-    ERROR_CONDITION(!reduction.is_null(), "Reductions not yet implemented", 0);
+    ERROR_CONDITION(!reduction_list.empty(), "Reductions in '#pragma omp parallel' not yet implemented", 0);
 
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_symbols;
-    if (!private_.is_null())
-        private_symbols.insert(private_
-                .get_private_symbols()
-                .as<Nodecl::List>()
-                .to_object_list()
-                .map(functor(&Nodecl::NodeclBase::get_symbol)));
-    if (!firstprivate.is_null())
-    {
-        private_symbols.insert(firstprivate
-                .get_firstprivate_symbols()
-                .as<Nodecl::List>()
-                .to_object_list()
-                .map(functor(&Nodecl::NodeclBase::get_symbol)));
-        firstprivate_symbols.insert(firstprivate
-                .get_firstprivate_symbols()
-                .as<Nodecl::List>()
-                .to_object_list()
-                .map(functor(&Nodecl::NodeclBase::get_symbol)));
-    }
-
     TL::ObjectList<TL::Symbol> all_shared_symbols; // Set of all references needed in the outline
     TL::ObjectList<TL::Symbol> shared_symbols;
 
-    if (!shared.is_null())
+    if (!shared_list.empty())
     {
-        shared_symbols.insert(shared
-                .get_shared_symbols()
-                .as<Nodecl::List>()
-                .to_object_list()
-                .map(functor(&Nodecl::NodeclBase::get_symbol)));
-        all_shared_symbols.insert(shared
-                .get_shared_symbols()
-                .as<Nodecl::List>()
-                .to_object_list()
-                .map(functor(&Nodecl::NodeclBase::get_symbol)));
+        TL::ObjectList<Symbol> tmp =
+            shared_list  // TL::ObjectList<OpenMP::Shared>
+            .map(functor(&Nodecl::OpenMP::Shared::get_shared_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+            .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+            ;
+
+        shared_symbols.insert(tmp);
+        all_shared_symbols.insert(tmp);
     }
-    if (!firstprivate.is_null())
-        all_shared_symbols.insert(firstprivate
-                .get_firstprivate_symbols()
-                .as<Nodecl::List>()
-                .to_object_list()
-                .map(functor(&Nodecl::NodeclBase::get_symbol)));
+    if (!private_list.empty())
+    {
+        TL::ObjectList<Symbol> tmp =
+            private_list  // TL::ObjectList<OpenMP::Private>
+            .map(functor(&Nodecl::OpenMP::Private::get_private_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+            .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+            ;
+
+        private_symbols.insert(tmp);
+    }
+    if (!firstprivate_list.empty())
+    {
+        TL::ObjectList<Symbol> tmp =
+            firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
+            .map(functor(&Nodecl::OpenMP::Firstprivate::get_firstprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+            .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+            .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+            ;
+
+        private_symbols.insert(tmp);
+        firstprivate_symbols.insert(tmp);
+        all_shared_symbols.insert(tmp);
+    }
 
     TL::Type kmp_int32_type = Source("kmp_int32").parse_c_type_id(construct);
     ERROR_CONDITION(!kmp_int32_type.is_valid(), "Type kmp_int32 not in scope", 0);

@@ -48,12 +48,17 @@ namespace TL { namespace Intel {
             walk(statements);
             statements = for_statement.get_statement(); // Should not be necessary
 
-            Nodecl::OpenMP::Shared shared = environment.find_first<Nodecl::OpenMP::Shared>();
-            Nodecl::OpenMP::Private private_ = environment.find_first<Nodecl::OpenMP::Private>();
-            Nodecl::OpenMP::Firstprivate firstprivate = environment.find_first<Nodecl::OpenMP::Firstprivate>();
-            Nodecl::OpenMP::Lastprivate lastprivate = environment.find_first<Nodecl::OpenMP::Lastprivate>();
-            Nodecl::OpenMP::FirstLastprivate firstlastprivate = environment.find_first<Nodecl::OpenMP::FirstLastprivate>();
-            Nodecl::OpenMP::Reduction reduction = environment.find_first<Nodecl::OpenMP::Reduction>();
+            TL::ObjectList<Nodecl::OpenMP::Shared> shared_list =
+                environment.find_all<Nodecl::OpenMP::Shared>();
+            TL::ObjectList<Nodecl::OpenMP::Private> private_list =
+                environment.find_all<Nodecl::OpenMP::Private>();
+            TL::ObjectList<Nodecl::OpenMP::Firstprivate> firstprivate_list =
+                environment.find_all<Nodecl::OpenMP::Firstprivate>();
+            TL::ObjectList<Nodecl::OpenMP::Lastprivate> lastprivate_list =
+                environment.find_all<Nodecl::OpenMP::Lastprivate>();
+            TL::ObjectList<Nodecl::OpenMP::FirstLastprivate> firstlastprivate_list =
+                environment.find_all<Nodecl::OpenMP::FirstLastprivate>();
+            TL::ObjectList<Nodecl::OpenMP::Reduction> reduction_list = environment.find_all<Nodecl::OpenMP::Reduction>();
 
             Nodecl::OpenMP::BarrierAtEnd barrier_at_end = environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
 
@@ -63,70 +68,75 @@ namespace TL { namespace Intel {
             TL::ObjectList<TL::Symbol> firstprivate_symbols;
             TL::ObjectList<TL::Symbol> lastprivate_symbols;
             TL::ObjectList<TL::Symbol> reduction_symbols;
-            if (!private_.is_null())
-                private_symbols.insert(private_
-                        .get_private_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
-            if (!firstprivate.is_null())
+            if (!private_list.empty())
             {
-                private_symbols.insert(firstprivate
-                        .get_firstprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
-                firstprivate_symbols.insert(firstprivate
-                        .get_firstprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
+                TL::ObjectList<Symbol> tmp =
+                    private_list  // TL::ObjectList<OpenMP::Private>
+                    .map(functor(&Nodecl::OpenMP::Private::get_private_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    ;
+
+                private_symbols.insert(tmp);
             }
-            if (!lastprivate.is_null())
+            if (!firstprivate_list.empty())
             {
-                private_symbols.insert(lastprivate
-                        .get_lastprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
-                lastprivate_symbols.insert(lastprivate
-                        .get_lastprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
+                TL::ObjectList<Symbol> tmp =
+                    firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
+                    .map(functor(&Nodecl::OpenMP::Firstprivate::get_firstprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    ;
+
+                private_symbols.insert(tmp);
+                firstprivate_symbols.insert(tmp);
             }
-            if (!firstlastprivate.is_null())
+            if (!lastprivate_list.empty())
             {
-                private_symbols.insert(firstlastprivate
-                        .get_firstlastprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
-                firstprivate_symbols.insert(firstlastprivate
-                        .get_firstlastprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
-                lastprivate_symbols.insert(firstlastprivate
-                        .get_firstlastprivate_symbols()
-                        .as<Nodecl::List>()
-                        .to_object_list()
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
+                TL::ObjectList<Symbol> tmp =
+                    lastprivate_list  // TL::ObjectList<OpenMP::Lastprivate>
+                    .map(functor(&Nodecl::OpenMP::Lastprivate::get_lastprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    ;
+
+                private_symbols.insert(tmp);
+                lastprivate_symbols.insert(tmp);
             }
-            if (!reduction.is_null())
+            if (!firstlastprivate_list.empty())
             {
-                private_symbols.insert(reduction
-                        .get_reductions()
-                        .as<Nodecl::List>()
-                        .to_object_list_as<Nodecl::OpenMP::ReductionItem>()
-                        .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol))
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
-                reduction_symbols.insert(reduction
-                        .get_reductions()
-                        .as<Nodecl::List>()
-                        .to_object_list_as<Nodecl::OpenMP::ReductionItem>()
-                        .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol))
-                        .map(functor(&Nodecl::NodeclBase::get_symbol)));
+                TL::ObjectList<Symbol> tmp =
+                    firstlastprivate_list  // TL::ObjectList<OpenMP::FirstLastprivate>
+                    .map(functor(&Nodecl::OpenMP::FirstLastprivate::get_firstlastprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+                    .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
+                    .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::get_symbol)) // TL::ObjectList<TL::Symbol>
+                    ;
+
+                private_symbols.insert(tmp);
+                firstprivate_symbols.insert(tmp);
+                lastprivate_symbols.insert(tmp);
+            }
+            if (!reduction_list.empty())
+            {
+                TL::ObjectList<Symbol> tmp =
+                    reduction_list // TL::ObjectList<OpenMP::Reduction>
+                    .map(functor(&Nodecl::OpenMP::Reduction::get_reductions)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
+                    .map(functor(&Nodecl::List::to_object_list_as<Nodecl::OpenMP::ReductionItem>)) // TL::ObjectList<TL::ObjectList<Nodecl::OpenMP::ReductionItem> >
+                    .reduction(functor(TL::append_two_lists<Nodecl::OpenMP::ReductionItem>)) // TL::ObjectList<OpenMP::ReductionItem>
+                    .map(functor(&Nodecl::OpenMP::ReductionItem::get_reduced_symbol)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::NodeclBase::get_symbol)); // TL::ObjectList<TL::Symbol>
+
+                private_symbols.insert(tmp);
+                reduction_symbols.insert(tmp);
             }
 
             Source loop_construct;
@@ -218,6 +228,27 @@ namespace TL { namespace Intel {
 
             Nodecl::NodeclBase loop_body, reduction_code;
 
+            TL::Source lastprivate_code;
+
+            // for (TL::ObjectList<TL::Symbol>::iterator it = lastprivate_symbols.begin();
+            //         it != lastprivate_symbols.end();
+            //         it++)
+            // {
+            //     if (!it->get_type().is_array())
+            //     {
+            //         lastprivate_code << as_symbol(*it) << "=" << as_symbol(symbol_map.map(*it)) << ";"
+            //             ;
+            //     }
+            //     else
+            //     {
+            //         lastprivate_code
+            //             << "__builtin_memcpy(" << as_symbol(*it) << "," << as_symbol(symbol_map.map(*it))
+            //             << "                 , sizeof(" << as_type(it->get_type().no_ref()) << "));"
+            //             ;
+
+            //     }
+            // }
+
             if (is_static_schedule)
             {
                 Source static_loop;
@@ -238,6 +269,7 @@ namespace TL { namespace Intel {
                     << "{"
                     <<     statement_placeholder(loop_body)
                     << "}"
+                    << lastprivate_code
                     << "__kmpc_for_static_fini(&" << as_symbol(ident_symbol) << ", __kmpc_global_thread_num("
                     <<                  "&" << as_symbol(ident_symbol) << "));"
                     << statement_placeholder(reduction_code)
@@ -252,18 +284,24 @@ namespace TL { namespace Intel {
             }
 
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
-            if (!reduction.is_null())
+            if (!reduction_list.empty())
             {
-                Nodecl::List reduction_items = reduction.get_reductions().as<Nodecl::List>();
+                TL::ObjectList<Nodecl::OpenMP::ReductionItem> reduction_items = reduction_list
+                    .map(functor(&Nodecl::OpenMP::Reduction::get_reductions))
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>))
+                    .map(functor(&Nodecl::List::to_object_list))
+                    .reduction(functor(&TL::append_two_lists<Nodecl::NodeclBase>))
+                    .map(functor(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>));
 
                 Source nowait;
 
                 Source reduction_src;
-                for (Nodecl::List::iterator it = reduction_items.begin();
+                for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
                         it != reduction_items.end();
                         it++)
                 {
-                    Nodecl::OpenMP::ReductionItem current (it->as<Nodecl::OpenMP::ReductionItem>());
+                    Nodecl::OpenMP::ReductionItem &current(*it);
+
                     TL::Symbol reductor = current.get_reductor().get_symbol();
                     OpenMP::Reduction* omp_reduction = OpenMP::Reduction::get_reduction_info_from_symbol(reductor);
 
