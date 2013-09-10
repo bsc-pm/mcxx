@@ -33,7 +33,7 @@ test_generator=config/mercurium
 
 void f()
 {
-#if defined(__GNUC__) && __GNUC__ == 4 && __GNUC_MINOR__ >= 6
+#if defined(__SIZEOF_INT128__)
     __int128 a;
     a = (char)3;
     a = (short)3;
