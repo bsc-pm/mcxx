@@ -10198,6 +10198,14 @@ static void check_nodecl_member_access(
 
         if (operator_arrow_list == NULL)
         {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
+                        nodecl_locus_to_str(nodecl_accessed),
+                        codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                        codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                        print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
+            }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
