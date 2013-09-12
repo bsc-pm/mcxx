@@ -1,3 +1,6 @@
+! <testinfo>
+! test_generator=config/mercurium-omp
+! </testinfo>
 MODULE M
    TYPE T
     INTEGER :: X
