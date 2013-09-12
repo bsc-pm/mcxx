@@ -1945,6 +1945,17 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         rhs_type = enum_type_get_underlying_type(rhs_type);
     }
 
+    char is_mask = is_mask_type(lhs_type)
+        || is_mask_type(rhs_type);
+    if (is_mask_type(lhs_type))
+    {
+        lhs_type = mask_type_get_underlying_type(lhs_type);
+    }
+    if (is_mask_type(rhs_type))
+    {
+        rhs_type = mask_type_get_underlying_type(rhs_type);
+    }
+
     char is_complex = is_complex_type(lhs_type)
         || is_complex_type(rhs_type); 
 
@@ -2098,6 +2109,11 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         result = get_complex_type(result);
     }
 
+    if (is_mask)
+    {
+        result = get_mask_type(type_get_size(result) * 8);
+    }
+
     return result;
 }
 
@@ -2245,7 +2261,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2263,6 +2279,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        candidate_set_free(&candidate_set);
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
             return get_error_type();
@@ -2407,6 +2424,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     /* implicit_argument */ NULL,
                     locus);
         }
+        candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
     return overloaded_type;
@@ -2444,7 +2462,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             // operator has zero parameters, so discard templates at this point
             if (entry->kind != SK_TEMPLATE)
             {
-                candidate_set = add_to_candidate_set(candidate_set,
+                candidate_set = candidate_set_add(candidate_set,
                         orig_entry,
                         num_arguments,
                         argument_types);
@@ -2479,7 +2497,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -2497,6 +2515,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        candidate_set_free(&candidate_set);
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
             return get_error_type();
@@ -2577,6 +2596,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                     /* implicit_argument */ NULL,
                     locus);
         }
+        candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
     return overloaded_type;
@@ -3151,30 +3171,32 @@ void compute_bin_operator_mod_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
 {
     // <arithmetic> - <arithmetic>
-    return ((is_arithmetic_type(lhs)
-                && is_arithmetic_type(rhs))
+    return ((is_arithmetic_type(no_ref(lhs))
+                && is_arithmetic_type(no_ref(rhs)))
             // T* - <arithmetic>
-            || ((is_pointer_type(lhs) || is_array_type(lhs))
-                && is_arithmetic_type(rhs)));
+            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(lhs)))
+                && is_arithmetic_type(no_ref(rhs))));
 }
 
 static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
 {
-    if (is_arithmetic_type(*lhs)
-        && is_arithmetic_type(*rhs))
+    if (is_arithmetic_type(no_ref(*lhs))
+        && is_arithmetic_type(no_ref(*rhs)))
     {
-        if (is_promoteable_integral_type(*lhs))
-            *lhs = promote_integral_type(*lhs);
+        if (is_promoteable_integral_type(no_ref(*lhs)))
+            *lhs = promote_integral_type(no_ref(*lhs));
 
-        if (is_promoteable_integral_type(*rhs))
-            *rhs = promote_integral_type(*rhs);
+        if (is_promoteable_integral_type(no_ref(*rhs)))
+            *rhs = promote_integral_type(no_ref(*rhs));
 
-        return usual_arithmetic_conversions(*lhs, *rhs);
+        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
     }
-    else if(((is_pointer_type(*lhs) || is_array_type(*rhs))
-                && is_arithmetic_type(*rhs)))
+    else if (((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*rhs)))
+                && is_arithmetic_type(no_ref(*rhs))))
     {
         type_t** pointer_type = lhs;
+
+        *pointer_type = no_ref(*pointer_type);
 
         if (is_array_type(*pointer_type))
         {
@@ -6163,25 +6185,6 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     }
 }
 
-
-static char check_builtin_subscript_type(nodecl_t subscript,
-        type_t* subscript_type,
-        decl_context_t decl_context)
-{
-    if (!is_integral_type(no_ref(subscript_type)) &&
-            !is_enum_type(no_ref(subscript_type)))
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid type '%s' for subscript\n",
-                    locus_to_str(nodecl_get_locus(subscript)),
-                    print_type_str(no_ref(subscript_type), decl_context));
-        }
-        return false;
-    }
-    return true;
-}
-
 static void check_nodecl_array_subscript_expression(
         nodecl_t nodecl_subscripted, 
         nodecl_t nodecl_subscript, 
@@ -6230,17 +6233,85 @@ static void check_nodecl_array_subscript_expression(
     if (is_array_type(no_ref(subscripted_type))
             || is_pointer_type(no_ref(subscripted_type)))
     {
-        if (!check_builtin_subscript_type(nodecl_subscript, subscript_type, decl_context))
+        if (IS_C_LANGUAGE)
         {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
+            if (!is_integral_type(no_ref(subscript_type)) &&
+                    !is_enum_type(no_ref(subscript_type)))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                            locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                            codegen_to_str(nodecl_subscript, decl_context),
+                            print_type_str(no_ref(subscript_type), decl_context),
+                            print_type_str(get_ptrdiff_t_type(), decl_context));
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+            else
+            {
+                // convert int -> ptrdiff_t
+                unary_record_conversion_to_result(
+                        get_ptrdiff_t_type(),
+                        &nodecl_subscript);
+            }
         }
+        else if (IS_CXX_LANGUAGE)
+        {
+            // Try to see if there is an ICS for this type -> ptrdiff_t
+            scope_entry_t* conversor = NULL;
+            char ambiguous_conversion = 0;
+            if (type_can_be_implicitly_converted_to(subscript_type, get_ptrdiff_t_type(), decl_context,
+                    &ambiguous_conversion, &conversor, locus)
+                    && !ambiguous_conversion)
+            {
+                if (conversor == NULL)
+                {
+                    unary_record_conversion_to_result(
+                            no_ref(nodecl_get_type(nodecl_subscript)),
+                            &nodecl_subscript);
+                }
+                else
+                {
+                    if (function_has_been_deleted(decl_context, conversor, locus))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(locus);
+                        return;
+                    }
 
-        // lvalue-to-rvalue of the subscript
-        unary_record_conversion_to_result(
-                no_ref(nodecl_get_type(nodecl_subscript)),
-                &nodecl_subscript);
+                    nodecl_subscript = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversor, locus),
+                            /* called_name */ nodecl_null(),
+                            nodecl_make_list_1(nodecl_subscript),
+                            nodecl_make_cxx_function_form_implicit(
+                                locus),
+                            actual_type_of_conversor(conversor),
+                            locus);
 
+                    unary_record_conversion_to_result(
+                            get_ptrdiff_t_type(),
+                            &nodecl_subscript);
+                }
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                                locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                                codegen_to_str(nodecl_subscript, decl_context),
+                                print_type_str(no_ref(subscript_type), decl_context),
+                                print_type_str(get_ptrdiff_t_type(), decl_context)
+                                );
+                    }
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+        }
     }
 
     if (is_array_type(no_ref(subscripted_type)))
@@ -6339,7 +6410,7 @@ static void check_nodecl_array_subscript_expression(
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry_list_iterator_current(it),
                     num_arguments,
                     argument_types);
@@ -6363,9 +6434,11 @@ static void check_nodecl_array_subscript_expression(
                         /* implicit_argument_type */ subscripted_type,
                         locus);
             }
+            candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+        candidate_set_free(&candidate_set);
 
         if (function_has_been_deleted(decl_context, overloaded_call, locus))
         {
@@ -6492,6 +6565,8 @@ static void check_conversion_function_id_expression(AST expression, decl_context
     // Keep the conversion type
     nodecl_set_child(*nodecl_output, 1,
             nodecl_make_type(conversion_type, ast_get_locus(expression)));
+    // Nullify this tree
+    nodecl_set_child(*nodecl_output, 2, nodecl_null());
 
     if (is_dependent_type(conversion_type))
     {
@@ -6555,8 +6630,8 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         else if (is_class_type(no_ref(from_t1))
                 || is_class_type(no_ref(to_t2)))
         {
-            return type_can_be_implicitly_converted_to(from_t1, 
-                    to_t2, 
+            return type_can_be_implicitly_converted_to(from_t1,
+                    to_t2,
                     decl_context,
                     is_ambiguous_conversion, /* conversor */ NULL,
                     locus);
@@ -6949,7 +7024,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                     !entry_list_iterator_end(it);
                     entry_list_iterator_next(it))
             {
-                candidate_set = add_to_candidate_set(candidate_set,
+                candidate_set = candidate_set_add(candidate_set,
                         entry_list_iterator_current(it),
                         num_arguments,
                         argument_types);
@@ -6973,9 +7048,11 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                             /* implicit argument */ NULL,
                             locus);
                 }
+                candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
+            candidate_set_free(&candidate_set);
 
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
@@ -7403,14 +7480,14 @@ static void check_new_expression_impl(
         scope_entry_t* entry = entry_advance_aliases(orig_entry);
         if (entry->entity_specs.is_member)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments,
                     arguments);
         }
         else
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments - 1,
                     arguments + 1);
@@ -7421,6 +7498,7 @@ static void check_new_expression_impl(
     scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
             decl_context, locus,
             conversors);
+    candidate_set_free(&candidate_set);
 
     if (chosen_operator_new == NULL)
     {
@@ -7826,6 +7904,10 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             }
             else
             {
+                // Take care of propagating value dependency
+                nodecl_expr_set_is_value_dependent(nodecl_cast_output,
+                        nodecl_expr_is_value_dependent(nodecl_casted_expr));
+
                 nodecl_casted_expr = nodecl_cast_output;
             }
         }
@@ -8373,6 +8455,101 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
     return 1;
 }
 
+static type_t* compute_default_argument_conversion(type_t* arg_type,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        char emit_diagnostic)
+{
+    ERROR_CONDITION(arg_type == NULL, "Invalid type", 0);
+    if (is_error_type(arg_type))
+        return arg_type;
+
+    type_t* result_type = arg_type;
+
+    // Special case for enums. Demote them to their underlying type
+    if (is_any_reference_type(result_type))
+    {
+        // T& -> T
+        result_type = no_ref(result_type);
+    }
+
+    if (is_array_type(result_type))
+    {
+        // T[] -> T*
+        result_type = get_pointer_type(array_type_get_element_type(result_type));
+    }
+
+    if (is_function_type(result_type))
+    {
+        // T(...) -> T(*)(...)
+        result_type = get_pointer_type(result_type);
+    }
+
+    if (is_float_type(result_type))
+    {
+        // float -> double
+        result_type = get_double_type();
+    }
+    else if (is_pointer_type(result_type))
+    {
+        // T* -> intptr_t (we use size_t)
+        result_type = (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
+    }
+    else if (is_pointer_to_member_type(result_type))
+    {
+        // T C::* -> intptr_t (we use size_t)
+        result_type = (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
+    }
+    else if (is_enum_type(result_type))
+    {
+        result_type = enum_type_get_underlying_type(result_type);
+    }
+    else if (is_char_type(result_type)
+            || is_signed_char_type(result_type)
+            || is_unsigned_char_type(result_type)
+            || is_signed_short_int_type(result_type)
+            || is_unsigned_short_int_type(result_type))
+    {
+        // SUBINT -> int
+        result_type = get_signed_int_type();
+    }
+    else if (is_integral_type(result_type))
+    {
+        // Do nothing for other integer types: int, long, ...
+    }
+    else if (is_floating_type(result_type))
+    {
+        // Do nothing for other floating types: double, long double, ...
+    }
+    else if (is_class_type(result_type))
+    {
+        if (IS_CXX_LANGUAGE && !is_pod_type(result_type))
+        {
+            if (emit_diagnostic)
+            {
+                warn_printf("%s: warning: passing of non-POD class '%s' to an ellipsis parameter\n",
+                        locus_to_str(locus),
+                        print_type_str(no_ref(result_type), decl_context));
+            }
+        }
+    }
+    else
+    {
+        if (!checking_ambiguity())
+        {
+            if (emit_diagnostic)
+            {
+                error_printf("%s: warning: no suitable default argument promotion exists when passing argument of type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(no_ref(result_type), decl_context));
+            }
+        }
+        result_type = get_error_type();
+    }
+
+    return result_type;
+}
+
 static char check_argument_types_of_call(
         nodecl_t nodecl_called,
         nodecl_t nodecl_argument_list,
@@ -8455,6 +8632,34 @@ static char check_argument_types_of_call(
                         no_arg_is_faulty = 0;
                     }
                 }
+                else
+                {
+                    type_t* arg_type = nodecl_get_type(arg);
+
+                    type_t* default_conversion = compute_default_argument_conversion(
+                            arg_type,
+                            data->decl_context,
+                            nodecl_get_locus(arg),
+                            /* emit_diagnostic */ 1);
+                    if (is_error_type(default_conversion))
+                    {
+                        no_arg_is_faulty = 0;
+                    }
+                }
+            }
+            else
+            {
+                type_t* arg_type = nodecl_get_type(arg);
+
+                type_t* default_conversion = compute_default_argument_conversion(
+                        arg_type,
+                        data->decl_context,
+                        nodecl_get_locus(arg),
+                        /* emit_diagnostic */ 1);
+                if (is_error_type(default_conversion))
+                {
+                    no_arg_is_faulty = 0;
+                }
             }
             *nodecl_output_argument_list = nodecl_append_to_list(*nodecl_output_argument_list,
                     arg);
@@ -8466,7 +8671,7 @@ static char check_argument_types_of_call(
     return no_arg_is_faulty;
 }
 
-UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidates)
+static char any_is_member_function(scope_entry_list_t* candidates)
 {
     char is_member = 0;
 
@@ -8482,6 +8687,7 @@ UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidat
     return is_member;
 }
 
+UNUSED_PARAMETER
 static char any_is_member_function_of_class_or_derived(scope_entry_list_t* candidates, scope_entry_t* this_symbol)
 {
     char result = 0;
@@ -8706,19 +8912,12 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
             locus);
 }
 
-
-void check_nodecl_function_call(
-        nodecl_t nodecl_called, 
-        nodecl_t nodecl_argument_list, 
-        decl_context_t decl_context, 
+static void check_nodecl_function_call_cxx(
+        nodecl_t nodecl_called,
+        nodecl_t nodecl_argument_list,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    C_LANGUAGE()
-    {
-        check_nodecl_function_call_c(nodecl_called, nodecl_argument_list, decl_context, nodecl_output);
-        return;
-    }
-
     const locus_t* locus = nodecl_get_locus(nodecl_called);
 
     // Let's build the function form
@@ -8815,12 +9014,12 @@ void check_nodecl_function_call(
 
     if (this_symbol != NULL
             && is_dependent_type(this_symbol->type_information)
-            && any_is_member_function_of_class_or_derived(candidates, this_symbol))
+            && any_is_member_function(candidates))
     {
         // If we are doing a call F(X) or A::F(X), F (or A::F) is a member
-        // function of a class and this is that same class or a derived one,
-        // then we have to act as if (*this).F(X) (or  (*this).A::F(X)). This
-        // implies that if 'this' is dependent the whole call is dependent
+        // function then we have to act as if (*this).F(X) (or
+        // (*this).A::F(X)). This implies that if 'this' is dependent the whole
+        // call is dependent
         any_arg_is_dependent = 1;
     }
 
@@ -9108,14 +9307,14 @@ void check_nodecl_function_call(
         if (entry->entity_specs.is_member 
                 || entry->entity_specs.is_surrogate_function)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments,
                     argument_types);
         }
         else
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     orig_entry,
                     num_arguments - 1,
                     argument_types + 1);
@@ -9142,9 +9341,11 @@ void check_nodecl_function_call(
                     /* implicit_argument */ argument_types[0],
                     locus);
         }
+        candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
+    candidate_set_free(&candidate_set);
 
     type_t* function_type_of_called = NULL;
 
@@ -9244,16 +9445,16 @@ void check_nodecl_function_call(
         {
             nodecl_t nodecl_arg = list[i];
 
-            if(i < num_parameters)
+            type_t* arg_type = nodecl_get_type(nodecl_arg);
+            if (i < num_parameters)
             {
-                type_t* arg_type = nodecl_get_type(nodecl_arg);
                 type_t* param_type = function_type_get_parameter_type_num(function_type_of_called, i);
 
                 if (is_class_type(param_type))
                 {
                     check_nodecl_expr_initializer(nodecl_arg, decl_context, param_type, &nodecl_arg);
                 }
-                else 
+                else
                 {
                     if (is_unresolved_overloaded_type(arg_type))
                     {
@@ -9305,6 +9506,20 @@ void check_nodecl_function_call(
                     }
                 }
             }
+            else
+            {
+                // Ellipsis
+                type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
+                        decl_context,
+                        nodecl_get_locus(nodecl_arg),
+                        /* emit_diagnostic */ 1);
+
+                if (is_error_type(default_argument_promoted_type))
+                {
+                    *nodecl_output = nodecl_make_err_expr(locus);
+                    return;
+                }
+            }
 
             nodecl_argument_list_output = nodecl_append_to_list(nodecl_argument_list_output, nodecl_arg);
         }
@@ -9322,6 +9537,27 @@ void check_nodecl_function_call(
             return_type,
             locus);
 }
+
+void check_nodecl_function_call(
+        nodecl_t nodecl_called, 
+        nodecl_t nodecl_argument_list, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
+{
+    if (IS_C_LANGUAGE)
+    {
+        check_nodecl_function_call_c(nodecl_called, nodecl_argument_list, decl_context, nodecl_output);
+    }
+    else if (IS_CXX_LANGUAGE)
+    {
+        check_nodecl_function_call_cxx(nodecl_called, nodecl_argument_list, decl_context, nodecl_output);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
 
 // A function call is of the form
 //   e1 ( e2 )
@@ -9821,6 +10057,71 @@ static void check_nodecl_member_access(
                     template_tag,
                     locus);
         }
+
+        nodecl_t nodecl_last_part =  nodecl_name_get_last_part(nodecl_member);
+        if (nodecl_get_kind(nodecl_last_part) == NODECL_CXX_DEP_NAME_CONVERSION)
+        {
+            // This is weird, the left hand side of this class-member access is
+            // dependent, so technically we cannot check anything in its scope
+            // (maybe it is a class), so we will go with the current one
+            //
+            // template <typename T>
+            // void f()
+            // {
+            //   T t;
+            //   t.operator C<T*>(); // C<T> or T::C<T*> ??? We will try the first one
+            //   // Note that if the former is desired we can always write 'typename T::C<T*>'
+            //   // so this problem can always be worked around
+            // }
+            AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_last_part, 2));
+            ERROR_CONDITION(type_id == NULL, "Invalid node created by compute_nodecl_name_from_unqualified_id\n", 0);
+
+            // Nullify tree so it won't bee freed afterwards if we discard this tree
+            nodecl_set_child(nodecl_last_part, 2, nodecl_null());
+
+            AST type_specifier_seq = ASTSon0(type_id);
+            AST type_spec = ASTSon1(type_specifier_seq);
+
+            // Build the type tree
+            if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+            {
+                AST id_expression = ASTSon0(type_spec);
+
+                decl_context_t expression_context =
+                    nodecl_get_decl_context(nodecl_get_child(nodecl_last_part, 0));
+
+                nodecl_t nodecl_id_expression = nodecl_null();
+                compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+
+                ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
+            }
+
+            type_t* t = get_error_type();
+
+            enter_test_expression();
+            t = compute_type_for_type_id_tree(type_id, decl_context);
+            leave_test_expression();
+
+            // If not found, error
+            if (is_error_type(t))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: type-id %s of conversion-id not found\n",
+                            nodecl_locus_to_str(nodecl_member),
+                            prettyprint_in_buffer(type_id));
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+
+
+            // Keep the type
+            nodecl_set_child(
+                    nodecl_last_part, 1,
+                    nodecl_make_type(t, nodecl_get_locus(nodecl_last_part)));
+        }
+
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
@@ -9897,6 +10198,14 @@ static void check_nodecl_member_access(
 
         if (operator_arrow_list == NULL)
         {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
+                        nodecl_locus_to_str(nodecl_accessed),
+                        codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                        codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                        print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
+            }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
@@ -9913,7 +10222,7 @@ static void check_nodecl_member_access(
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry,
                     /* num_arguments */ 1,
                     argument_types);
@@ -9939,9 +10248,11 @@ static void check_nodecl_member_access(
                         /* implicit_argument */ argument_types[0],
                         nodecl_get_locus(nodecl_accessed));
             }
+            candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+        candidate_set_free(&candidate_set);
 
         if (function_has_been_deleted(decl_context, selected_operator_arrow, 
                     nodecl_get_locus(nodecl_accessed)))
@@ -10081,6 +10392,29 @@ static void check_nodecl_member_access(
                     lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                     nodecl_get_locus(nodecl_accessed));
         }
+        else if (entry->kind == SK_ENUMERATOR)
+        {
+            ok = 1;
+
+            *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed));
+            nodecl_set_type(*nodecl_output, entry->type_information);
+
+            if (nodecl_expr_is_value_dependent(entry->value))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
+                            nodecl_locus_to_str(nodecl_accessed), codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)));
+                }
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
+            else
+            {
+                ERROR_CONDITION(!nodecl_is_constant(entry->value), "This should be constant", 0);
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+            }
+
+        }
         // In C++ if we have overload remember it
         else if (entry->kind == SK_FUNCTION
                 || entry->kind == SK_TEMPLATE)
@@ -10133,68 +10467,6 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
         return;
-    }
-
-    if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
-    {
-        // Special treatment required for conversion function ids
-        type_t* conversion_type_at_scope = get_error_type();
-        enter_test_expression();
-        get_conversion_function_name(decl_context, id_expression, &conversion_type_at_scope);
-        leave_test_expression();
-
-        type_t* conversion_type_in_class = get_error_type();
-        if (is_class_type(no_ref(nodecl_get_type(nodecl_accessed))))
-        {
-            enter_test_expression();
-            decl_context_t class_context = class_type_get_inner_context(no_ref(nodecl_get_type(nodecl_accessed)));
-            get_conversion_function_name(class_context, id_expression, &conversion_type_in_class);
-            leave_test_expression();
-        }
-
-        type_t* conversion_type = conversion_type_in_class;
-        if (is_error_type(conversion_type_in_class))
-        {
-            conversion_type = conversion_type_at_scope;
-        }
-        else
-        {
-            if (!is_error_type(conversion_type_at_scope))
-            {
-                if (!equivalent_types(conversion_type, conversion_type_at_scope))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        decl_context_t class_context = class_type_get_inner_context(no_ref(nodecl_get_type(nodecl_accessed)));
-                        error_printf("%s: error: type of conversion found in class scope (%s) and the type found in the scope "
-                                "of the class-member access (%s) should match\n",
-                                nodecl_locus_to_str(nodecl_name),
-                                print_type_str(conversion_type_in_class, class_context),
-                                print_type_str(conversion_type_at_scope, decl_context));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
-                    return;
-                }
-            }
-        }
-
-        if (is_error_type(conversion_type))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: type of conversion not found\n", nodecl_locus_to_str(nodecl_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
-            return;
-        }
-
-        ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_CONVERSION, "Invalid node", 0);
-        nodecl_set_child(nodecl_name, 1, nodecl_make_type(conversion_type, nodecl_get_locus(nodecl_name)));
-
-        if (is_dependent_type(conversion_type))
-        {
-            nodecl_expr_set_is_type_dependent(nodecl_name, 1);
-        }
     }
 
     check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,
@@ -10274,7 +10546,7 @@ static void check_postoperator_user_defined(
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -10299,8 +10571,10 @@ static void check_postoperator_user_defined(
         }
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
+        candidate_set_free(&candidate_set);
         return;
     }
+    candidate_set_free(&candidate_set);
 
     if (function_has_been_deleted(decl_context, overloaded_call, 
                 nodecl_get_locus(postoperated_expr)))
@@ -10421,7 +10695,7 @@ static void check_preoperator_user_defined(AST operator,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        candidate_set = add_to_candidate_set(candidate_set,
+        candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
@@ -10443,9 +10717,11 @@ static void check_preoperator_user_defined(AST operator,
                     /* implicit_argument */ NULL,
                     nodecl_get_locus(preoperated_expr));
         }
+        candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
         return;
     }
+    candidate_set_free(&candidate_set);
 
     if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_locus(preoperated_expr)))
     {
@@ -12104,18 +12380,41 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
             nodecl_t argument_list = nodecl_null();
 
+            int num_parameters = function_type_get_num_parameters(chosen_constructor->type_information);
+            if (function_type_get_has_ellipsis(chosen_constructor->type_information))
+            {
+                num_parameters--;
+            }
+
             for (i = 0; i < num_arguments; i++)
             {
                 nodecl_t nodecl_arg = list[i];
 
-                if (conversors[i] != NULL)
+                if (i < num_parameters)
                 {
-                    nodecl_arg = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[i], nodecl_get_locus(nodecl_arg)),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(nodecl_arg),
-                            nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_arg)),
-                            actual_type_of_conversor(conversors[i]), nodecl_get_locus(nodecl_arg));
+                    if (conversors[i] != NULL)
+                    {
+                        nodecl_arg = cxx_nodecl_make_function_call(
+                                nodecl_make_symbol(conversors[i], nodecl_get_locus(nodecl_arg)),
+                                /* called name */ nodecl_null(),
+                                nodecl_make_list_1(nodecl_arg),
+                                nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_arg)),
+                                actual_type_of_conversor(conversors[i]), nodecl_get_locus(nodecl_arg));
+                    }
+                }
+                else
+                {
+                    type_t* default_argument_promoted_type = compute_default_argument_conversion(
+                            nodecl_get_type(nodecl_arg),
+                            decl_context,
+                            nodecl_get_locus(nodecl_arg),
+                            /* emit_diagnostic */ 1);
+
+                    if (is_error_type(default_argument_promoted_type))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
+                        return;
+                    }
                 }
 
                 argument_list = nodecl_append_to_list(argument_list, nodecl_arg);
@@ -12771,6 +13070,18 @@ static void compute_nodecl_initialization(AST initializer, decl_context_t decl_c
     }
 }
 
+static void unary_record_conversion_to_result_for_initializer(type_t* result, nodecl_t* op)
+{
+    type_t* op_type = nodecl_get_type(*op);
+
+    // Do not record array conversions here
+    if (!is_array_type(result)
+            && !equivalent_types(result, op_type))
+    {
+        *op = cxx_nodecl_make_conversion(*op, result,
+                nodecl_get_locus(*op));
+    }
+}
 
 void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         decl_context_t decl_context, 
@@ -12836,8 +13147,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             return;
         }
 
-
         *nodecl_output = nodecl_expr;
+        unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         return;
     }
 
@@ -12854,11 +13165,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
     if (!is_class_type(declared_type_no_cv))
     {
-        if (!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, 
-                    decl_context,
-                    &ambiguous_conversion, &conversor, 
-                    nodecl_get_locus(nodecl_expr))
-                && !(is_array_type(declared_type_no_cv)
+        if ((!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv,
+                        decl_context,
+                        &ambiguous_conversion, &conversor,
+                        nodecl_get_locus(nodecl_expr))
+                    || ambiguous_conversion)
+                & !(is_array_type(declared_type_no_cv)
                     && is_character_type(array_type_get_element_type(declared_type_no_cv))
                     && is_array_type(no_ref(initializer_expr_type))
                     && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
@@ -12932,6 +13244,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             }
 
             *nodecl_output = nodecl_expr;
+            unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         }
     }
     else
@@ -14843,7 +15156,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            candidate_set = add_to_candidate_set(candidate_set,
+            candidate_set = candidate_set_add(candidate_set,
                     entry_list_iterator_current(it),
                     num_arguments,
                     arguments);
@@ -14870,10 +15183,12 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                         locus);
                 entry_list_free(operator_overload_set);
             }
+            candidate_set_free(&candidate_set);
             return 0;
         }
         else
         {
+            candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
             if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
             {
@@ -15097,10 +15412,9 @@ nodecl_t cxx_nodecl_make_function_call(
     if (called_symbol != NULL
             && called_symbol->entity_specs.is_member
             && !called_symbol->entity_specs.is_static
-            // Constructors and destructors are nonstatic but do not have
+            // Constructors are nonstatic but do not have
             // implicit argument
-            && !called_symbol->entity_specs.is_constructor
-            && !called_symbol->entity_specs.is_destructor)
+            && !called_symbol->entity_specs.is_constructor)
     {
         // Ignore the first argument as we know it is 'this'
         i = 1;
@@ -15110,10 +15424,10 @@ nodecl_t cxx_nodecl_make_function_call(
 
     for (; i < num_items; i++, j++)
     {
+        type_t* arg_type = nodecl_get_type(list[i]);
         if (j < num_parameters)
         {
             type_t* param_type = function_type_get_parameter_type_num(function_type, j);
-            type_t* arg_type = nodecl_get_type(list[i]);
 
             if (!equivalent_types(
                         get_unqualified_type(no_ref(param_type)),
@@ -15123,6 +15437,24 @@ nodecl_t cxx_nodecl_make_function_call(
                         param_type, 
                         nodecl_get_locus(list[i]));
             }
+        }
+        else
+        {
+            // We do not emit diagnostic here because it is too late to take any
+            // corrective measure, the caller code should have checked it earlier
+            type_t* default_conversion = compute_default_argument_conversion(
+                    arg_type,
+                    /* decl_context is not used since we do not request diagnostics*/
+                    CURRENT_COMPILED_FILE->global_decl_context,
+                    nodecl_get_locus(list[i]),
+                    /* emit diagnostic */ 0);
+            ERROR_CONDITION(is_error_type(default_conversion),
+                    "This default argument conversion is wrong, should have been checked earlier\n",
+                    0);
+
+            list[i] = cxx_nodecl_make_conversion(list[i],
+                    default_conversion,
+                    nodecl_get_locus(list[i]));
         }
 
         converted_arg_list = nodecl_append_to_list(converted_arg_list, list[i]);
@@ -15561,7 +15893,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         result = nodecl_make_symbol(nodecl_get_symbol(node), nodecl_get_locus(node));
         nodecl_set_type(result, nodecl_get_type(node));
-        nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+        if (nodecl_expr_is_value_dependent(node))
+            nodecl_expr_set_is_value_dependent(result, 1);
+        else
+            nodecl_set_constant(result, nodecl_get_constant(node));
     }
 
     v->nodecl_result = result;

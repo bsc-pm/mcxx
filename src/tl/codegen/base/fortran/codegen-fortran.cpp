@@ -29,6 +29,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-cexpr.h"
 #include "tl-compilerpipeline.hpp"
 #include "tl-source.hpp"
 #include "cxx-cexpr.h"
@@ -44,11 +45,8 @@ namespace Codegen
     const std::string ptr_loc_base_name = "MFC_PTR_LOC_";
     const std::string fun_loc_base_name = "MFC_FUN_LOC_";
 
-    std::string FortranBase::codegen(const Nodecl::NodeclBase &n) 
+    void FortranBase::codegen(const Nodecl::NodeclBase &n, std::ostream* out)
     {
-        if (n.is_null())
-            return "";
-
         // Keep the state and reset it
         State old_state = state;
         state = State();
@@ -60,19 +58,10 @@ namespace Codegen
         _ptr_loc_map.clear();
         _fun_loc_map.clear();
 
-        std::string old_file = file.str();
-
-        file.clear();
-        file.str("");
+        std::ostream* old_out = file;
+        file = out;
 
         walk(n);
-
-        std::string result = file.str();
-
-        // Restore previous state
-        state = old_state;
-        file.str(old_file);
-        file.seekp(0, std::ios_base::end);
 
         // Extra stuff
         if (is_file_output())
@@ -80,11 +69,13 @@ namespace Codegen
             this->emit_ptr_loc_C();
         }
 
+        // Restore previous state
+        state = old_state;
+        file = old_out;
+
         // Restore previous maps
         _ptr_loc_map = old_ptr_loc_map;
         _fun_loc_map = old_fun_loc_map;
-
-        return result;
     }
 
     void FortranBase::codegen_cleanup()
@@ -320,7 +311,7 @@ namespace Codegen
         declare_use_statements_of_procedure(entry, statement_seq, internal_subprograms);
 
         indent();
-        file << "IMPLICIT NONE\n";
+        *(file) << "IMPLICIT NONE\n";
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
 
@@ -339,7 +330,7 @@ namespace Codegen
                 state.emit_interoperable_types = keep_emit_interop;
 
                 indent();
-                file << type_specifier << " :: " << entry.get_name() << "\n";
+                *(file) << type_specifier << " :: " << entry.get_name() << "\n";
             }
 
             bool keep_emit_interop = state.emit_interoperable_types;
@@ -409,13 +400,13 @@ namespace Codegen
         if (entry.is_saved_program_unit())
         {
             indent();
-            file << "SAVE\n";
+            *(file) << "SAVE\n";
         }
 
         // Separate executable statements
         if (!statement_seq.is_null())
         {
-            file << "\n";
+            *(file) << "\n";
         }
 
         for (Nodecl::List::iterator it = statement_seq.begin();
@@ -432,7 +423,7 @@ namespace Codegen
         if (!internal_subprograms.empty())
         {
             indent();
-            file << "CONTAINS\n";
+            *(file) << "CONTAINS\n";
 
             inc_indent();
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = internal_subprograms.begin();
@@ -523,13 +514,13 @@ namespace Codegen
             if (program_name[0] == '_')
                 program_name = "MAIN__";
 
-            file << "PROGRAM " << program_name << "\n";
+            *(file) << "PROGRAM " << program_name << "\n";
             inc_indent();
 
             codegen_procedure(entry, statement_seq, internal_subprograms, /* lacks_result */ false);
 
             dec_indent();
-            file << "END PROGRAM " << program_name << "\n\n";
+            *(file) << "END PROGRAM " << program_name << "\n\n";
         }
         else if (entry.is_function())
         {
@@ -540,7 +531,7 @@ namespace Codegen
             // Add a separating new line between program units
             // We do not do this in codegen_procedure_declaration_footer because we do not want
             // that extra new line in INTERFACEs
-            file << "\n";
+            *(file) << "\n";
         }
         else
         {
@@ -566,7 +557,7 @@ namespace Codegen
     {
         indent();
         walk(node.get_nest());
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::ObjectInit& node)
@@ -645,19 +636,19 @@ namespace Codegen
                             node.get_locus());
 
                     walk(assig);
-                    file << "\n";
+                    *(file) << "\n";
                 }
                 else if (entry.get_type().is_array())
                 {
                     // Deallocate if needed
                     indent();
-                    file << "IF (ALLOCATED(" << rename(entry) << ")) DEALLOCATE(" << rename(entry) << ")\n";
+                    *(file) << "IF (ALLOCATED(" << rename(entry) << ")) DEALLOCATE(" << rename(entry) << ")\n";
 
                     // ALLOCATE this non-dummy VLA
                     std::string type_spec, array_spec;
                     codegen_type(entry.get_type(), type_spec, array_spec);
                     indent();
-                    file << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
+                    *(file) << "ALLOCATE(" << rename(entry) << array_spec << ")\n";
                 }
                 // else
                 // {
@@ -696,7 +687,7 @@ namespace Codegen
     void FortranBase::visit(const Nodecl::_name &node) \
     { \
         Nodecl::NodeclBase rhs = node.get_rhs(); \
-        file << _operand; \
+        *(file) << _operand; \
         walk(rhs); \
     }
 #define BINARY_EXPRESSION(_name, _operand) \
@@ -705,7 +696,7 @@ namespace Codegen
         Nodecl::NodeclBase lhs = node.get_lhs(); \
         Nodecl::NodeclBase rhs = node.get_rhs(); \
         walk(lhs); \
-        file << _operand; \
+        *(file) << _operand; \
         walk(rhs); \
     }
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
@@ -714,12 +705,12 @@ namespace Codegen
         Nodecl::NodeclBase lhs = node.get_lhs(); \
         Nodecl::NodeclBase rhs = node.get_rhs(); \
         walk(lhs); \
-        file << " = "; \
+        *(file) << " = "; \
         walk(lhs); \
-        file <<  _operand; \
-        file << "("; \
+        *(file) <<  _operand; \
+        *(file) << "("; \
         walk(rhs); \
-        file << ")"; \
+        *(file) << ")"; \
     }
 OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
@@ -730,11 +721,11 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::Mod &node)
     {
         // In Fortran, the binary operation Mod is done using the intrinsic function "MOD"
-        file << "MOD(";
+        *(file) << "MOD(";
         walk(node.get_lhs());
-        file << ", ";
+        *(file) << ", ";
         walk(node.get_rhs());
-        file << ")";
+        *(file) << ")";
     }
 
     void FortranBase::visit(const Nodecl::ClassMemberAccess &node) 
@@ -748,7 +739,7 @@ OPERATOR_TABLE
             Nodecl::NodeclBase lhs = node.get_lhs(); 
             Nodecl::NodeclBase member = node.get_member(); 
             walk(lhs); 
-            file << " % "; 
+            *(file) << " % "; 
             walk(member);
         }
     }
@@ -762,7 +753,7 @@ OPERATOR_TABLE
         if (!lower.is_null())
             walk(lower);
 
-        file << ":";
+        *(file) << ":";
 
         if (!upper.is_null())
             walk(upper);
@@ -774,7 +765,7 @@ OPERATOR_TABLE
                         const_value_eq(nodecl_get_constant(stride.get_internal_nodecl()),
                             const_value_get_one(/* num_bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1)))))
         {
-            file << ":";
+            *(file) << ":";
             walk(stride);
         }
     }
@@ -784,7 +775,7 @@ OPERATOR_TABLE
         // If there is a string for that, just use it
         if (nodecl_get_text(node.get_internal_nodecl()) != NULL)
         {
-            file << node.get_text();
+            *(file) << node.get_text();
         }
         // Otherwise use the constant kept in the node
         else
@@ -798,7 +789,7 @@ OPERATOR_TABLE
             if (length == 0
                     || (::isprint(bytes[0])))
             {
-                file << "\"";
+                *(file) << "\"";
             }
 
             int i;
@@ -810,11 +801,11 @@ OPERATOR_TABLE
                 {
                     if (current == '\"')
                     {
-                        file << "\"\"";
+                        *(file) << "\"\"";
                     }
                     else
                     {
-                        file << (char)current;
+                        *(file) << (char)current;
                     }
                 }
                 else
@@ -822,17 +813,17 @@ OPERATOR_TABLE
 
                     if (i > 0 && ::isprint(bytes[i-1]))
                     {
-                        file << "\" // ";
+                        *(file) << "\" // ";
                     }
                     unsigned char current_char = current;
 
-                    file << "char(" << (unsigned int) current_char << ")";
+                    *(file) << "char(" << (unsigned int) current_char << ")";
                     if ((i+1) < length)
                     {
-                        file << " // ";
+                        *(file) << " // ";
                         if (::isprint(bytes[i+1]))
                         {
-                            file << "\"";
+                            *(file) << "\"";
                         }
                     }
                 }
@@ -841,7 +832,7 @@ OPERATOR_TABLE
             if (length == 0
                     || (::isprint(bytes[length - 1])))
             {
-                file << "\"";
+                *(file) << "\"";
             }
 
             xfree(bytes);
@@ -871,7 +862,7 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Text& node)
     {
-        file << node.get_text();
+        *(file) << node.get_text();
     }
 
     void FortranBase::visit(const Nodecl::StructuredValue& node)
@@ -884,9 +875,24 @@ OPERATOR_TABLE
             if (n == 1
                     || state.flatten_array_construct)
             {
-                file << "(/ ";
-                codegen_comma_separated_list(node.get_items());
-                file << " /)";
+                *(file) << "(/ ";
+                if (node.get_items().is_null())
+                {
+                    std::string type_specifier, array_specifier;
+                    codegen_type_extended(
+                            fortran_get_rank0_type(type.get_internal_type()),
+                            type_specifier,
+                            array_specifier, 
+                            /* force_deferred_shape */ false,
+                            /* without_type_qualifier */ true);
+                    // Only in this case we emit the type-specifier
+                    *(file) << type_specifier << ":: ";
+                }
+                else
+                {
+                    codegen_comma_separated_list(node.get_items());
+                }
+                *(file) << " /)";
             }
             else
             {
@@ -912,16 +918,16 @@ OPERATOR_TABLE
                     m++;
                 }
                
-                file << "RESHAPE( SOURCE=";
-                file << "(/ ";
+                *(file) << "RESHAPE( SOURCE=";
+                *(file) << "(/ ";
 
                 bool old_array_constructor = state.flatten_array_construct;
                 state.flatten_array_construct = true;
                 codegen_comma_separated_list(node.get_items());
                 state.flatten_array_construct = old_array_constructor;
 
-                file << " /), ";
-                file << "SHAPE = (/ " << shape << " /) )";
+                *(file) << " /), ";
+                *(file) << "SHAPE = (/ " << shape << " /) )";
             }
         }
         else if (type.is_named_class())
@@ -934,7 +940,7 @@ OPERATOR_TABLE
             std::string real_name = rename(type.get_symbol());
             real_name = fix_class_name(real_name);
 
-            file << real_name << "(";
+            *(file) << real_name << "(";
             Nodecl::List items = node.get_items().as<Nodecl::List>();
             Nodecl::List::iterator init_expr_it = items.begin();
 
@@ -979,10 +985,10 @@ OPERATOR_TABLE
                     if (previous_was_bitfield)
                     {
                         if (num_items > 0)
-                            file << ", ";
+                            *(file) << ", ";
 
-                        // file << "B'" << to_binary(bitfield_pack) << "'";
-                        file << (int)(signed char)(bitfield_pack);
+                        // *(file) << "B'" << to_binary(bitfield_pack) << "'";
+                        *(file) << (int)(signed char)(bitfield_pack);
                         num_items++;
 
                         // Get current offset and compute the number of bytes
@@ -995,7 +1001,7 @@ OPERATOR_TABLE
                         int i, current_byte = first_bitfield_offset;
                         for (i = 0; i < num_bytes; i++, current_byte++)
                         {
-                            file << ", 0";
+                            *(file) << ", 0";
                             num_items++;
                         }
 
@@ -1003,7 +1009,7 @@ OPERATOR_TABLE
                     }
 
                     if (num_items > 0)
-                        file << ", ";
+                        *(file) << ", ";
 
                     walk(*init_expr_it);
 
@@ -1020,10 +1026,10 @@ OPERATOR_TABLE
                     && member_it == members.end())
             {
                 if (num_items > 0)
-                    file << ", ";
+                    *(file) << ", ";
 
-                // file << "B'" << to_binary(bitfield_pack) << "'";
-                file << (int)(signed char)(bitfield_pack);
+                // *(file) << "B'" << to_binary(bitfield_pack) << "'";
+                *(file) << (int)(signed char)(bitfield_pack);
 
                 TL::Symbol last = members.back();
                 // Only up to the size of the bitfield now
@@ -1037,12 +1043,12 @@ OPERATOR_TABLE
                 int i, current_byte = first_bitfield_offset;
                 for (i = 0; i < num_bytes; i++, current_byte++)
                 {
-                    file << ", 0";
+                    *(file) << ", 0";
                 }
             }
 
             // codegen_comma_separated_list(node.get_items());
-            file << ")";
+            *(file) << ")";
         }
         else
         {
@@ -1054,47 +1060,64 @@ OPERATOR_TABLE
     {
         const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
+        if (const_value_is_array(val))
+        {
+            // LOGICAL :: A(10) = .TRUE.
+            //
+            // .TRUE. will be a BooleanLiteral but its constant value will be array, simplify to rank 1
+            val = fortran_const_value_rank_zero(val);
+        }
+
         int kind = node.get_type().get_size();
 
         if (const_value_is_zero(val))
         {
-            file << ".FALSE.";
+            *(file) << ".FALSE.";
         }
         else
         {
-            file << ".TRUE.";
+            *(file) << ".TRUE.";
         }
 
         if (kind != fortran_get_default_logical_type_kind())
         {
-            file << "_" << kind;
+            *(file) << "_" << kind;
         }
     }
 
     void FortranBase::visit(const Nodecl::FortranHollerith& node)
     {
-        file << node.get_text().size() << "H" << node.get_text();
+        *(file) << node.get_text().size() << "H" << node.get_text();
     }
 
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
     {
         const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
+
+        if (const_value_is_array(value))
+        {
+            // INTEGER :: A(10) = 1
+            //
+            // 1 will be an IntegerLiteral but its constant value will be array, simplify to rank 1
+            value = fortran_const_value_rank_zero(value);
+        }
+
         int num_bytes = const_value_get_bytes(value);
 
         if (node.get_type().is_bool())
         {
             if((long long int)const_value_cast_to_8(value) == 0ll)
             {
-                file << ".FALSE.";
+                *(file) << ".FALSE.";
             }
             else
             {
-                file << ".TRUE.";
+                *(file) << ".TRUE.";
             }
 
             if (num_bytes != fortran_get_default_logical_type_kind())
             {
-                file << "_" << num_bytes;
+                *(file) << "_" << num_bytes;
             }
         }
         else
@@ -1103,7 +1126,7 @@ OPERATOR_TABLE
 
             if (!state.in_data_value
                     && v < 0)
-                file << "(";
+                *(file) << "(";
 
             long long tiniest_of_its_type = (~0LL);
             tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
@@ -1119,16 +1142,16 @@ OPERATOR_TABLE
             // The tiniest integer cannot be printed as a constant
             if (v == tiniest_of_its_type)
             {
-                file << (v  + 1) << suffix <<  "-1" << suffix;
+                *(file) << (v  + 1) << suffix <<  "-1" << suffix;
             }
             else
             {
-                file << v << suffix;
+                *(file) << v << suffix;
             }
 
             if (!state.in_data_value
                     && v < 0)
-                file << ")";
+                *(file) << ")";
         }
     }
 
@@ -1142,14 +1165,22 @@ OPERATOR_TABLE
         TL::Type t = node.get_type().complex_get_base_type();
 
         const_value_t* complex_cval = node.get_constant();
+
+        if (const_value_is_array(complex_cval))
+        {
+            // COMPLEX :: C(10) = (1,2)
+            // (1,2) will be a ComplexLiteral but its constant value will be array, simplify to rank 1
+            complex_cval = fortran_const_value_rank_zero(complex_cval);
+        }
+
         const_value_t* cval_real = const_value_complex_get_real_part(complex_cval);
         const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
 
-        file << "(";
+        *(file) << "(";
         emit_floating_constant(cval_real, t);
-        file << ", ";
+        *(file) << ", ";
         emit_floating_constant(cval_imag, t);
-        file << ")";
+        *(file) << ")";
 
         state.in_data_value = in_data;
     }
@@ -1169,11 +1200,11 @@ OPERATOR_TABLE
 
             if (!state.in_data_value
                     && f < 0)
-                file << "(";
-            file << result;
+                *(file) << "(";
+            *(file) << result;
             if (!state.in_data_value
                     && f < 0)
-                file << ")";
+                *(file) << ")";
         }
         else if (const_value_is_double(value))
         {
@@ -1183,11 +1214,11 @@ OPERATOR_TABLE
 
             if (!state.in_data_value
                     && d < 0)
-                file << "(";
-            file << result;
+                *(file) << "(";
+            *(file) << result;
             if (!state.in_data_value
                     && d < 0)
-                file << ")";
+                *(file) << ")";
         }
         else if (const_value_is_long_double(value))
         {
@@ -1197,11 +1228,11 @@ OPERATOR_TABLE
 
             if (!state.in_data_value
                     && ld < 0)
-                file << "(";
-            file << result;
+                *(file) << "(";
+            *(file) << result;
             if (!state.in_data_value
                     && ld < 0)
-                file << ")";
+                *(file) << ")";
         }
 #ifdef HAVE_QUADMATH_H
         else if (const_value_is_float128(value))
@@ -1214,11 +1245,11 @@ OPERATOR_TABLE
 
             if (!state.in_data_value
                     && f128 < 0)
-                file << "(";
-            file << c << "_" << kind;
+                *(file) << "(";
+            *(file) << c << "_" << kind;
             if (!state.in_data_value
                     && f128 < 0)
-                file << ")";
+                *(file) << ")";
         }
 #endif
         else
@@ -1229,13 +1260,22 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FloatingLiteral& node)
     {
-        emit_floating_constant(node.get_constant(), node.get_type());
+        const_value_t* value = node.get_constant();
+        if (const_value_is_array(value))
+        {
+            // REAL :: A(10) = 1.2
+            //
+            // 1.2 will be an FloatingLiteral but its constant value will be array, simplify to rank 1
+            value = fortran_const_value_rank_zero(value);
+        }
+
+        emit_floating_constant(value, node.get_type());
     }
 
     void FortranBase::visit(const Nodecl::Symbol& node)
     {
         TL::Symbol symbol = node.get_symbol();
-        file << rename(symbol);
+        *(file) << rename(symbol);
     }
 
     void FortranBase::visit(const Nodecl::Assignment& node)
@@ -1272,14 +1312,14 @@ OPERATOR_TABLE
             operator_ = " => ";
         }
 
-        file << operator_;
+        *(file) << operator_;
 
         if (is_ptr_assignment)
         {
             if (rhs.is_constant()
                     && const_value_is_zero(nodecl_get_constant(rhs.get_internal_nodecl())))
             {
-                file << "NULL()";
+                *(file) << "NULL()";
             }
             else
             {
@@ -1310,11 +1350,11 @@ OPERATOR_TABLE
         if (lhs_type.is_bool() 
                 && rhs_type.is_bool())
         {
-            file << operator_bool;
+            *(file) << operator_bool;
         }
         else
         {
-            file << operator_arith;
+            *(file) << operator_arith;
         }
 
         walk(rhs);
@@ -1360,9 +1400,9 @@ OPERATOR_TABLE
                     print_declarator(t.get_internal_type()));
 
             std::string &str = it->second;
-            file << str << "(";
+            *(file) << str << "(";
             walk(node.get_rhs());
-            file << ")";
+            *(file) << ")";
         }
         else if (_emit_fun_loc
                 && (t.is_function()
@@ -1374,27 +1414,27 @@ OPERATOR_TABLE
                     print_declarator(t.get_internal_type()));
 
             std::string &str = it->second;
-            file << str << "(";
+            *(file) << str << "(";
             walk(node.get_rhs());
-            file << ")";
+            *(file) << ")";
         }
         else
         {
-            file << "LOC(";
+            *(file) << "LOC(";
             Nodecl::NodeclBase n = node.get_rhs();
 
             n = advance_parenthesized_expression(n);
 
             walk(n);
-            file << ")";
+            *(file) << ")";
         }
     }
 
     void FortranBase::visit(const Nodecl::ParenthesizedExpression& node)
     {
-        file << "(";
+        *(file) << "(";
         walk(node.get_nest());
-        file << ")";
+        *(file) << ")";
     }
 
     void FortranBase::visit(const Nodecl::ArraySubscript& node)
@@ -1414,9 +1454,9 @@ OPERATOR_TABLE
         }
 
         walk(subscripted);
-        file << "(";
+        *(file) << "(";
         codegen_reverse_comma_separated_list(subscripts);
-        file << ")";
+        *(file) << ")";
     }
 
     void FortranBase::codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
@@ -1443,7 +1483,7 @@ OPERATOR_TABLE
             }
 
             if (explicit_pos > 0)
-                file << ", ";
+                *(file) << ", ";
             explicit_pos++;
 
             Nodecl::NodeclBase arg = *it;
@@ -1467,7 +1507,7 @@ OPERATOR_TABLE
 
                     ERROR_CONDITION(keyword_name == "", "Invalid name for parameter\n", 0);
 
-                    file << keyword_name << " = ";
+                    *(file) << keyword_name << " = ";
                 }
             }
 
@@ -1499,9 +1539,9 @@ OPERATOR_TABLE
                     {
                         if (parameter_type.points_to().get_unqualified_type().is_char())
                         {
-                            file << "(";
+                            *(file) << "(";
                             walk(arg);
-                            file << ") // ACHAR(0)";
+                            *(file) << ") // ACHAR(0)";
                         }
                         else
                         {
@@ -1510,10 +1550,10 @@ OPERATOR_TABLE
                     }
                     else
                     {
-                        file << "LOC(";
+                        *(file) << "LOC(";
                         arg = advance_parenthesized_expression(arg);
                         walk(arg);
-                        file << ")";
+                        *(file) << ")";
                     }
                 }
                 else
@@ -1570,13 +1610,13 @@ OPERATOR_TABLE
         {
             if (is_call)
             {
-                file << "CALL ";
+                *(file) << "CALL ";
             }
 
 
-            file << entry.get_name() << "(";
+            *(file) << entry.get_name() << "(";
             codegen_function_call_arguments(arguments, called.get_symbol(), function_type);
-            file << ")";
+            *(file) << ")";
         }
         else
         {
@@ -1587,7 +1627,7 @@ OPERATOR_TABLE
                 ERROR_CONDITION(arg_list.size() != 2, "Invalid user defined assignment", 0);
 
                 walk(arg_list[0]);
-                file << " = ";
+                *(file) << " = ";
                 walk(arg_list[1]);
             }
             else
@@ -1595,13 +1635,13 @@ OPERATOR_TABLE
                 std::string op_name = entry.get_name().substr(strlen(".operator."), std::string::npos);
                 if (arg_list.size() == 1)
                 {
-                    file << op_name << " ";
+                    *(file) << op_name << " ";
                     walk(arg_list[0]);
                 }
                 else if (arg_list.size() == 2)
                 {
                     walk(arg_list[0]);
-                    file << " " << op_name << " ";
+                    *(file) << " " << op_name << " ";
                     walk(arg_list[1]);
                 }
                 else
@@ -1619,7 +1659,7 @@ OPERATOR_TABLE
 
         if (name.is_valid())
         {
-            file << name.get_name() << " = ";
+            *(file) << name.get_name() << " = ";
         }
 
         walk(argument);
@@ -1628,7 +1668,7 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::EmptyStatement& node)
     {
         indent();
-        file << "CONTINUE\n";
+        *(file) << "CONTINUE\n";
     }
 
     void FortranBase::if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_)
@@ -1652,9 +1692,9 @@ OPERATOR_TABLE
 
                 Nodecl::NodeclBase condition = nested_if.get_condition();
 
-                file << "ELSE IF (";
+                *(file) << "ELSE IF (";
                 walk(condition);
-                file << ") THEN\n";
+                *(file) << ") THEN\n";
 
                 if_else_body(nested_if.get_then(), nested_if.get_else());
 
@@ -1662,7 +1702,7 @@ OPERATOR_TABLE
             }
             else
             {
-                file << "ELSE\n";
+                *(file) << "ELSE\n";
 
                 inc_indent();
                 walk(else_);
@@ -1673,7 +1713,7 @@ OPERATOR_TABLE
         if (!skip_end_if)
         {
             indent();
-            file << "END IF\n";
+            *(file) << "END IF\n";
         }
     }
 
@@ -1684,9 +1724,9 @@ OPERATOR_TABLE
         Nodecl::NodeclBase else_ = node.get_else();
 
         indent();
-        file << "IF (";
+        *(file) << "IF (";
         walk(condition);
-        file << ") THEN\n";
+        *(file) << ") THEN\n";
 
         if_else_body(then, else_);
     }
@@ -1696,7 +1736,7 @@ OPERATOR_TABLE
         // Note that for functions (not subroutines) we actually 'return F'
         // however what it must be printed is just 'RETURN'
         indent();
-        file << "RETURN\n";
+        *(file) << "RETURN\n";
     }
 
     void FortranBase::visit(const Nodecl::LabeledStatement& node)
@@ -1704,7 +1744,7 @@ OPERATOR_TABLE
         TL::Symbol label_sym = node.get_symbol();
 
         indent();
-        file << label_sym.get_name() << " ";
+        *(file) << label_sym.get_name() << " ";
 
         int old_indent_level = get_indent_level();
         set_indent_level(0);
@@ -1719,35 +1759,36 @@ OPERATOR_TABLE
     {
         TL::Symbol label = node.get_symbol();
         indent();
-        file << "GOTO " << label.get_name() << "\n";
+        *(file) << "GOTO " << label.get_name() << "\n";
     }
 
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
         Nodecl::NodeclBase header = node.get_loop_header();
+        Nodecl::NodeclBase old_loop_next_iter = state.loop_next_iter;
 
         if (header.is<Nodecl::LoopControl>())
         {
             // Not a ranged loop. This is a DO WHILE
-            if (!node.get_loop_name().is_null())
-            {
-                walk(node.get_loop_name());
-                file << " : ";
-            }
-
             Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
+            state.loop_next_iter = lc.get_next();
 
             // Init
             indent();
             walk(lc.get_init());
-            file << "\n";
+            *(file) << "\n";
 
             // Loop
             indent();
-            file << "DO WHILE(";
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                *(file) << " : ";
+            }
+            *(file) << "DO WHILE(";
             walk(lc.get_cond());
-            file << ")";
-            file << "\n";
+            *(file) << ")";
+            *(file) << "\n";
 
             // Loop body
             inc_indent();
@@ -1755,75 +1796,85 @@ OPERATOR_TABLE
 
             // Advance loop
             indent();
-            walk(lc.get_next());
-            file << "\n";
+            walk(state.loop_next_iter);
+            *(file) << "\n";
             dec_indent();
 
             indent();
-            file << "END DO";
+            *(file) << "END DO";
 
             if (!node.get_loop_name().is_null())
             {
-                file << " ";
+                *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
-            file << "\n";
+            *(file) << "\n";
         }
         else if (header.is<Nodecl::RangeLoopControl>())
         {
+            state.loop_next_iter = Nodecl::NodeclBase::null();
+
             indent();
 
             if (!node.get_loop_name().is_null())
             {
                 walk(node.get_loop_name());
-                file << " : ";
+                *(file) << " : ";
             }
-            file << "DO";
+            *(file) << "DO";
 
             walk(node.get_loop_header());
-            file << "\n";
+            *(file) << "\n";
             inc_indent();
             walk(node.get_statement());
             dec_indent();
             indent();
 
-            file << "END DO";
+            *(file) << "END DO";
             if (!node.get_loop_name().is_null())
             {
-                file << " ";
+                *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
-            file << "\n";
+            *(file) << "\n";
         }
         else if (header.is<Nodecl::UnboundedLoopControl>())
         {
+            state.loop_next_iter = Nodecl::NodeclBase::null();
+
             indent();
 
             if (!node.get_loop_name().is_null())
             {
                 walk(node.get_loop_name());
-                file << " : ";
+                *(file) << " : ";
             }
 
-            file << "DO\n";
+            *(file) << "DO\n";
 
             inc_indent();
             walk(node.get_statement());
             dec_indent();
             indent();
 
-            file << "END DO";
+            *(file) << "END DO";
             if (!node.get_loop_name().is_null())
             {
-                file << " ";
+                *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
-            file << "\n";
+            *(file) << "\n";
         }
         else
         {
             internal_error("Code unreachable", 0);
         }
+
+
+        state.loop_next_iter = old_loop_next_iter;
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
@@ -1833,24 +1884,25 @@ OPERATOR_TABLE
         if (!node.get_loop_name().is_null())
         {
             walk(node.get_loop_name());
-            file << " : ";
+            *(file) << " : ";
         }
 
-        file << "DO WHILE(";
+        *(file) << "DO WHILE(";
         walk(node.get_condition());
-        file << ")\n";
+        *(file) << ")\n";
         inc_indent();
         walk(node.get_statement());
         dec_indent();
         indent();
 
-        file << "END DO";
+        *(file) << "END DO";
         if (!node.get_loop_name().is_null())
         {
-            file << " ";
+            *(file) << " ";
             walk(node.get_loop_name());
+            set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::RangeLoopControl& node)
@@ -1873,29 +1925,29 @@ OPERATOR_TABLE
             // Needed for DO but not for FORALL which uses a (
             if (!state.in_forall)
             {
-                file << " ";
+                *(file) << " ";
             }
 
             bool old_in_forall = state.in_forall;
             state.in_forall = false;
 
-            file << rename(ind_var.get_symbol()) << " = ";
+            *(file) << rename(ind_var.get_symbol()) << " = ";
 
             walk(lower);
 
             if (!upper.is_null())
             {
-                file << separator;
+                *(file) << separator;
                 walk(upper);
             }
             if (!stride.is_null())
             {
-                file << separator;
+                *(file) << separator;
                 walk(stride);
             }
             else
             {
-                file << separator << "1";
+                *(file) << separator << "1";
             }
 
             state.in_forall = old_in_forall;
@@ -1905,23 +1957,23 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::SwitchStatement& node)
     {
         indent();
-        file << "SELECT CASE (";
+        *(file) << "SELECT CASE (";
         walk(node.get_switch());
-        file << ")\n";
+        *(file) << ")\n";
         inc_indent(2);
         walk(node.get_statement());
         dec_indent(2);
         indent();
-        file << "END SELECT\n";
+        *(file) << "END SELECT\n";
     }
 
     void FortranBase::visit(const Nodecl::CaseStatement& node)
     {
         dec_indent(1);
         indent();
-        file << "CASE (";
+        *(file) << "CASE (";
         codegen_comma_separated_list(node.get_case());
-        file << ")\n";
+        *(file) << ")\n";
         inc_indent(1);
         walk(node.get_statement());
     }
@@ -1930,7 +1982,7 @@ OPERATOR_TABLE
     {
         dec_indent();
         indent();
-        file << "CASE DEFAULT\n";
+        *(file) << "CASE DEFAULT\n";
         inc_indent();
         walk(node.get_statement());
     }
@@ -1938,30 +1990,37 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::BreakStatement& node)
     {
         indent();
-        file << "EXIT";
+        *(file) << "EXIT";
         if (!node.get_construct_name().is_null())
         {
-            file << " ";
+            *(file) << " ";
             walk(node.get_construct_name());
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::ContinueStatement& node)
     {
+        if (!state.loop_next_iter.is_null())
+        {
+            indent();
+            walk(state.loop_next_iter);
+            (*file) << "\n";
+        }
+
         indent();
-        file << "CYCLE";
+        *(file) << "CYCLE";
         if (!node.get_construct_name().is_null())
         {
-            file << " ";
+            *(file) << " ";
             walk(node.get_construct_name());
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranIoSpec& node)
     {
-        file << node.get_text() << " = ";
+        *(file) << node.get_text() << " = ";
 
         walk(node.get_value());
     }
@@ -1969,7 +2028,7 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranPrintStatement& node)
     {
         indent();
-        file << "PRINT ";
+        *(file) << "PRINT ";
 
         Nodecl::NodeclBase format = node.get_format();
         Nodecl::NodeclBase io_items = node.get_io_items();
@@ -1978,11 +2037,11 @@ OPERATOR_TABLE
 
         if (!io_items.is_null())
         {
-            file << ", ";
+            *(file) << ", ";
             codegen_comma_separated_list(io_items);
         }
 
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::codegen_write_or_read_statement(
@@ -1992,13 +2051,13 @@ OPERATOR_TABLE
     {
         indent();
 
-        file << keyword << " (";
+        *(file) << keyword << " (";
         codegen_comma_separated_list(io_spec_list);
-        file << ") ";
+        *(file) << ") ";
 
         codegen_comma_separated_list(io_item_list);
 
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranWriteStatement& node)
@@ -2014,54 +2073,54 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranStopStatement& node)
     {
         indent();
-        file << "STOP";
+        *(file) << "STOP";
 
         Nodecl::NodeclBase stop_code = node.get_stop_code();
 
         if (!stop_code.is_null())
         {
-            file << " ";
+            *(file) << " ";
             walk(stop_code);
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranPauseStatement& node)
     {
         indent();
-        file << "PAUSE";
+        *(file) << "PAUSE";
 
         Nodecl::NodeclBase pause_code = node.get_pause_code();
 
         if (!pause_code.is_null())
         {
-            file << " ";
+            *(file) << " ";
             walk(pause_code);
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranComputedGotoStatement& node)
     {
         indent();
-        file << "GOTO (";
+        *(file) << "GOTO (";
         codegen_comma_separated_list(node.get_label_seq());
-        file << ") ";
+        *(file) << ") ";
         walk(node.get_index());
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranIoStatement& node)
     {
         indent();
-        file << node.get_text() << " ";
+        *(file) << node.get_text() << " ";
 
         Nodecl::NodeclBase io_spec_list = node.get_io_spec_list();
         if (!io_spec_list.is_null())
         {
-            file << "(";
+            *(file) << "(";
             codegen_comma_separated_list(io_spec_list);
-            file<< ")";
+            *(file)<< ")";
         }
 
         Nodecl::NodeclBase io_items = node.get_io_items();
@@ -2069,22 +2128,22 @@ OPERATOR_TABLE
         {
             if (!io_spec_list.is_null())
             {
-                file << " ";
+                *(file) << " ";
             }
             codegen_comma_separated_list(io_items);
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::codegen_open_close_statement(const std::string& keyword, Nodecl::NodeclBase io_spec)
     {
         indent();
-        file << keyword << " (";
+        *(file) << keyword << " (";
         if (!io_spec.is_null())
         {
             codegen_comma_separated_list(io_spec);
         }
-        file << ")\n";
+        *(file) << ")\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranOpenStatement& node)
@@ -2102,17 +2161,17 @@ OPERATOR_TABLE
             Nodecl::NodeclBase io_spec)
     {
         indent();
-        file << keyword << " (";
+        *(file) << keyword << " (";
 
         codegen_comma_separated_list(allocation_items);
 
         if (!io_spec.is_null())
         {
-            file << ", ";
+            *(file) << ", ";
             codegen_comma_separated_list(io_spec);
         }
 
-        file << ")\n";
+        *(file) << ")\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranAllocateStatement& node)
@@ -2128,49 +2187,49 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranNullifyStatement& node)
     {
         indent();
-        file << "NULLIFY (";
+        *(file) << "NULLIFY (";
         codegen_comma_separated_list(node.get_items());
-        file << ")\n";
+        *(file) << ")\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranArithmeticIfStatement& node)
     {
         indent();
-        file << "IF (";
+        *(file) << "IF (";
         walk(node.get_expr());
-        file << ") ";
+        *(file) << ") ";
         walk(node.get_lower());
-        file << ", ";
+        *(file) << ", ";
         walk(node.get_equal());
-        file << ", ";
+        *(file) << ", ";
         walk(node.get_upper());
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranLabelAssignStatement& node)
     {
         indent();
-        file << "ASSIGN ";
+        *(file) << "ASSIGN ";
         walk(node.get_value());
-        file << " TO ";
+        *(file) << " TO ";
         walk(node.get_label_var());
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranAssignedGotoStatement& node)
     {
         indent();
-        file << "GOTO ";
+        *(file) << "GOTO ";
         walk(node.get_index());
 
         Nodecl::NodeclBase label_seq = node.get_label_seq();
         if (!label_seq.is_null())
         {
-            file << " (";
+            *(file) << " (";
             codegen_comma_separated_list(label_seq);
-            file << ")";
+            *(file) << ")";
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranEntryStatement& node)
@@ -2178,7 +2237,7 @@ OPERATOR_TABLE
         indent();
         TL::Symbol entry = node.get_symbol();
 
-        file << "ENTRY " 
+        *(file) << "ENTRY " 
              << entry.get_name() 
              << "(";
         
@@ -2196,25 +2255,25 @@ OPERATOR_TABLE
             }
 
             if (it != related_symbols.begin())
-                file << ", ";
+                *(file) << ", ";
 
             // Alternate return
             if (dummy.is_label())
             {
-                file << "*";
+                *(file) << "*";
             }
             else
             {
-                file << dummy.get_name();
+                *(file) << dummy.get_name();
             }
         }
-        file << ")";
+        *(file) << ")";
         if (result_var.is_valid()
                 && result_var.get_name() != entry.get_name())
         {
-            file << " RESULT(" << result_var.get_name() << ")";
+            *(file) << " RESULT(" << result_var.get_name() << ")";
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
 
@@ -2224,29 +2283,29 @@ OPERATOR_TABLE
         Nodecl::Range range = node.get_range().as<Nodecl::Range>();
         Nodecl::NodeclBase expressions = node.get_items();
 
-        file << "(";
+        *(file) << "(";
         codegen_comma_separated_list(expressions);
 
-        file << ", ";
+        *(file) << ", ";
         walk(symbol);
 
-        file << " = ";
+        *(file) << " = ";
 
         Nodecl::NodeclBase lower = range.get_lower();
         Nodecl::NodeclBase upper = range.get_upper();
         Nodecl::NodeclBase stride = range.get_stride();
 
         walk(lower);
-        file << ", ";
+        *(file) << ", ";
         walk(upper);
 
         if (!stride.is_null())
         {
-            file << ", ";
+            *(file) << ", ";
             walk(stride);
         }
 
-        file << ")";
+        *(file) << ")";
     }
 
     void FortranBase::visit(const Nodecl::FortranData& node)
@@ -2255,13 +2314,13 @@ OPERATOR_TABLE
         declare_everything_needed(node.get_values(), node.retrieve_context());
 
         indent();
-        file << "DATA ";
+        *(file) << "DATA ";
         codegen_comma_separated_list(node.get_objects());
-        file << " / ";
+        *(file) << " / ";
         state.in_data_value = true;
         codegen_comma_separated_list(node.get_values());
         state.in_data_value = false;
-        file << " /\n";
+        *(file) << " /\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranEquivalence& node)
@@ -2270,25 +2329,25 @@ OPERATOR_TABLE
         declare_everything_needed(node.get_second(), node.retrieve_context());
 
         indent();
-        file << "EQUIVALENCE (";
+        *(file) << "EQUIVALENCE (";
         walk(node.get_first());
-        file << ", ";
+        *(file) << ", ";
         codegen_comma_separated_list(node.get_second());
-        file << ")\n";
+        *(file) << ")\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranAlternateReturnArgument& node)
     {
         TL::Symbol entry = node.get_symbol();
-        file << "*" << entry.get_name();
+        *(file) << "*" << entry.get_name();
     }
 
     void FortranBase::visit(const Nodecl::FortranAlternateReturnStatement& node)
     {
         indent();
-        file << "RETURN ";
+        *(file) << "RETURN ";
         walk(node.get_index());
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranForall& node)
@@ -2298,7 +2357,7 @@ OPERATOR_TABLE
         Nodecl::NodeclBase statement_seq = node.get_statement();
 
         indent();
-        file << "FORALL (";
+        *(file) << "FORALL (";
 
         bool old_value = state.in_forall;
         state.in_forall = 1;
@@ -2307,18 +2366,18 @@ OPERATOR_TABLE
 
         if (!mask.is_null())
         {
-            file << ", ";
+            *(file) << ", ";
             walk(mask);
         }
 
-        file << ")\n";
+        *(file) << ")\n";
 
         inc_indent();
         walk(statement_seq);
         dec_indent();
 
         indent();
-        file << "END FORALL\n";
+        *(file) << "END FORALL\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranWhere& node)
@@ -2334,7 +2393,7 @@ OPERATOR_TABLE
                 keyword = "WHERE";
 
             indent();
-            file << keyword;
+            *(file) << keyword;
 
             Nodecl::FortranWherePair where_pair = it->as<Nodecl::FortranWherePair>();
 
@@ -2343,11 +2402,11 @@ OPERATOR_TABLE
 
             if (!mask.is_null())
             {
-                file << " (";
+                *(file) << " (";
                 walk(mask);
-                file << ")";
+                *(file) << ")";
             }
-            file << "\n";
+            *(file) << "\n";
 
             inc_indent();
             walk(statement);
@@ -2355,12 +2414,12 @@ OPERATOR_TABLE
         }
 
         indent();
-        file << "END WHERE\n";
+        *(file) << "END WHERE\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranBozLiteral& node)
     {
-        file << node.get_text();
+        *(file) << node.get_text();
     }
 
     void FortranBase::emit_only_list(Nodecl::List only_items)
@@ -2373,11 +2432,11 @@ OPERATOR_TABLE
 
             if (!sym.get_internal_symbol()->entity_specs.is_renamed)
             {
-                file << get_generic_specifier_str(sym.get_name());
+                *(file) << get_generic_specifier_str(sym.get_name());
             }
             else
             {
-                file << sym.get_name()
+                *(file) << sym.get_name()
                     << " => "
                     << get_generic_specifier_str(sym.get_from_module_name());
                 ;
@@ -2385,7 +2444,7 @@ OPERATOR_TABLE
 
             if ((it + 1) != only_items.end())
             {
-                file << ", ";
+                *(file) << ", ";
             }
         }
     }
@@ -2393,35 +2452,35 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::FortranUse& node)
     {
         indent();
-        file << "USE";
+        *(file) << "USE";
         if (node.get_module().get_symbol().is_builtin())
         {
-            file << ", INTRINSIC ::";
+            *(file) << ", INTRINSIC ::";
         }
-        file << " " << node.get_module().get_symbol().get_name();
+        *(file) << " " << node.get_module().get_symbol().get_name();
 
         if (!node.get_renamed_items().is_null())
         {
-            file << ", ";
+            *(file) << ", ";
             Nodecl::List only_items = node.get_renamed_items().as<Nodecl::List>();
             // We can use the same code since all will be renamed
             emit_only_list(only_items);
         }
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranUseOnly& node)
     {
         indent();
-        file << "USE";
+        *(file) << "USE";
         if (node.get_module().get_symbol().is_builtin())
         {
-            file << ", INTRINSIC ::";
+            *(file) << ", INTRINSIC ::";
         }
-        file << " " << node.get_module().get_symbol().get_name() << ", ONLY: ";
+        *(file) << " " << node.get_module().get_symbol().get_name() << ", ONLY: ";
         Nodecl::List only_items = node.get_only_items().as<Nodecl::List>();
         emit_only_list(only_items);
-        file << "\n";
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FieldDesignator& node)
@@ -2443,45 +2502,45 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::UnknownPragma& node)
     {
-        file << node.get_text() << "\n";
+        *(file) << node.get_text() << "\n";
     }
 
     void FortranBase::visit(const Nodecl::PragmaCustomClause& node)
     {
-        file << strtoupper(node.get_text().c_str());
+        *(file) << strtoupper(node.get_text().c_str());
 
         Nodecl::NodeclBase arguments = node.get_arguments();
         if (!arguments.is_null())
         {
-            file << "(";
+            *(file) << "(";
             codegen_comma_separated_list(arguments);
-            file << ")";
+            *(file) << ")";
         }
-        file << " ";
+        *(file) << " ";
     }
 
     void FortranBase::visit(const Nodecl::PragmaCustomLine& node)
     {
-        file << strtoupper(node.get_text().c_str());
+        *(file) << strtoupper(node.get_text().c_str());
 
         Nodecl::NodeclBase parameters = node.get_parameters();
         if (!parameters.is_null())
         {
-            file << "(";
+            *(file) << "(";
             walk(parameters);
-            file << ")";
+            *(file) << ")";
         }
-        file << " ";
+        *(file) << " ";
         walk(node.get_clauses());
     }
 
     void FortranBase::visit(const Nodecl::PragmaCustomStatement& node)
     {
         // Code generation of the pragma
-        file << "!$" << strtoupper(node.get_text().c_str()) << " ";
+        *(file) << "!$" << strtoupper(node.get_text().c_str()) << " ";
         Nodecl::PragmaCustomLine pragma_custom_line = node.get_pragma_line().as<Nodecl::PragmaCustomLine>();
         walk(pragma_custom_line);
-        file << "\n";
+        *(file) << "\n";
 
         // Code generation of the statement
         walk(node.get_statements());
@@ -2490,7 +2549,7 @@ OPERATOR_TABLE
         // This happens i.e. for !$OMP SECTION because of its special syntax
         if (lookup_pragma_directive(node.get_text().c_str(), pragma_custom_line.get_text().c_str()) != PDK_DIRECTIVE)
         {
-            file << "!$" 
+            *(file) << "!$" 
                 << strtoupper(node.get_text().c_str())
                 << " END "
                 << strtoupper(pragma_custom_line.get_text().c_str());
@@ -2499,10 +2558,10 @@ OPERATOR_TABLE
             Nodecl::NodeclBase end_clauses = pragma_custom_line.get_end_clauses();
             if (!end_clauses.is_null())
             {
-                file << " ";
+                *(file) << " ";
                 walk(end_clauses);
             }
-            file << "\n";
+            *(file) << "\n";
         }
     }
 
@@ -2530,29 +2589,29 @@ OPERATOR_TABLE
 
         if (print)
         {
-            file << "!$" << strtoupper(node.get_text().c_str()) << " ";
+            *(file) << "!$" << strtoupper(node.get_text().c_str()) << " ";
             walk(node.get_pragma_line());
-            file << "\n";
+            *(file) << "\n";
         }
     }
 
     void FortranBase::visit(const Nodecl::PragmaCustomDeclaration& node)
     {
-        file << "!! decl: ";
+        *(file) << "!! decl: ";
         walk(node.get_pragma_line());
-        file << "\n";
+        *(file) << "\n";
         walk(node.get_nested_pragma());
     }
 
     void FortranBase::visit(const Nodecl::PragmaClauseArg& node)
     {
-        file << node.get_text();
+        *(file) << node.get_text();
     }
 
     void FortranBase::visit(const Nodecl::SourceComment& node)
     {
         indent();
-        file << "! " << node.get_text() << "\n";
+        *(file) << "! " << node.get_text() << "\n";
     }
 
     void FortranBase::codegen_casting(
@@ -2589,46 +2648,46 @@ OPERATOR_TABLE
                     && source_type.is_integral_type()
                     && !source_type.is_bool()))
         {
-            file << "INT(";
+            *(file) << "INT(";
             walk(nest);
-            file << ", KIND=" << dest_type.get_size() << ")";
+            *(file) << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_floating_type())
         {
-            file << "REAL(";
+            *(file) << "REAL(";
             walk(nest);
-            file << ", KIND=" << dest_type.get_size() << ")";
+            *(file) << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_bool())
         {
-            file << "LOGICAL(";
+            *(file) << "LOGICAL(";
             if (nest.is_constant())
             {
                 // Merrily assuming C semantics
                 if (const_value_is_zero(nodecl_get_constant(nest.get_internal_nodecl())))
                 {
-                    file << ".FALSE.";
+                    *(file) << ".FALSE.";
                 }
                 else
                 {
-                    file << ".TRUE.";
+                    *(file) << ".TRUE.";
                 }
             }
             else
             {
                 walk(nest);
             }
-            file << ", KIND=" << dest_type.get_size() << ")";
+            *(file) << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
                 && nest.get_type().is_any_reference()
                 && !nest.get_type().references_to().is_pointer())
         {
             // We need a LOC here
-            file << "LOC(";
+            *(file) << "LOC(";
             nest = advance_parenthesized_expression(nest);
             walk(nest);
-            file << ")";
+            *(file) << ")";
         }
         else if (
                 //  T() -> T (*)() (function to pointer)
@@ -2639,10 +2698,10 @@ OPERATOR_TABLE
                     && dest_type.is_integral_type()))
         {
             // We need a LOC here
-            file << "LOC(";
+            *(file) << "LOC(";
             nest = advance_parenthesized_expression(nest);
             walk(nest);
-            file << ")";
+            *(file) << ")";
         }
         else
         {
@@ -2663,20 +2722,20 @@ OPERATOR_TABLE
     {
         if (node.get_expr().is_null())
         {
-            file << node.get_size_type().get_type().get_size() << "_" << node.get_type().get_size();
+            *(file) << node.get_size_type().get_type().get_size() << "_" << node.get_type().get_size();
         }
         else
         {
             // Let's assume the compiler has a SIZEOF
-            file << "SIZEOF(";
+            *(file) << "SIZEOF(";
             walk(node.get_expr());
-            file << ")";
+            *(file) << ")";
         }
     }
 
     void FortranBase::visit(const Nodecl::Alignof& node)
     {
-        file << node.get_type().get_alignment_of();
+        *(file) << node.get_type().get_alignment_of();
     }
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
@@ -2699,7 +2758,7 @@ OPERATOR_TABLE
         }
     }
 
-    bool FortranBase::name_has_already_been_used(std::string str)
+    bool FortranBase::name_has_already_been_used(const std::string &str)
     {
         if (_name_set_stack.empty())
             return false;
@@ -2714,6 +2773,33 @@ OPERATOR_TABLE
         return name_has_already_been_used(sym.get_name());
     }
 
+    void FortranBase::set_symbol_name_as_already_used(TL::Symbol sym)
+    {
+        if (_name_set_stack.empty())
+            return;
+
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+                "Mismatch between rename map stack and name set stack", 0);
+
+        name_set_t &last = _name_set_stack.back();
+        last.insert(sym.get_name());
+
+        rename_map_t& rename_map = _rename_map_stack.back();
+
+        // Computes a new rename
+        rename_map[sym] = compute_new_rename(sym);
+    }
+
+    std::string FortranBase::compute_new_rename(TL::Symbol sym)
+    {
+        static int suffix = 0;
+        std::stringstream ss;
+        ss << sym.get_name() << "_" << suffix;
+        suffix++;
+
+        return ss.str();
+    }
+
     std::string FortranBase::rename(TL::Symbol sym)
     {
         if (_name_set_stack.empty())
@@ -2724,8 +2810,6 @@ OPERATOR_TABLE
 
         name_set_t& name_set = _name_set_stack.back();
         rename_map_t& rename_map = _rename_map_stack.back();
-
-        static int prefix = 0;
 
         rename_map_t::iterator it = rename_map.find(sym);
 
@@ -2742,21 +2826,18 @@ OPERATOR_TABLE
         {
             if (it == rename_map.end())
             {
-                std::stringstream ss;
-
-                if (!name_has_already_been_used(sym))
+                if (is_protected_name(sym)
+                        || name_has_already_been_used(sym))
                 {
-                    ss << sym.get_name();
+                    result = compute_new_rename(sym);
                 }
                 else
                 {
-                    ss << sym.get_name() << "_" << prefix;
-                    prefix++;
+                    result = sym.get_name();
                 }
-                name_set.insert(ss.str());
-                rename_map[sym] = ss.str();
 
-                result = ss.str();
+                name_set.insert(sym.get_name());
+                rename_map[sym] = result;
             }
             else
             {
@@ -2771,7 +2852,7 @@ OPERATOR_TABLE
     {
         for (int i = 0; i < state._indent_level; i++)
         {
-            file << "  ";
+            *(file) << "  ";
         }
     }
 
@@ -2907,7 +2988,7 @@ OPERATOR_TABLE
         static int num = 0;
 
         indent();
-        file << "INTERFACE\n";
+        *(file) << "INTERFACE\n";
         inc_indent();
 
         push_declaration_status();
@@ -2916,7 +2997,7 @@ OPERATOR_TABLE
         if (function_name == "")
         {
             fun_name << ptr_loc_base_name << num << "_" 
-                // Hash the name of the file to avoid conflicts
+                // Hash the name of the *(file) to avoid conflicts
                 << std::hex
                 << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
                 << std::dec;
@@ -2928,31 +3009,31 @@ OPERATOR_TABLE
         }
 
         indent();
-        file << "FUNCTION " << fun_name.str() << "(X) result (P)\n";
+        *(file) << "FUNCTION " << fun_name.str() << "(X) result (P)\n";
         inc_indent();
 
         indent();
-        file << "IMPORT\n";
+        *(file) << "IMPORT\n";
 
         indent();
-        file << "IMPLICIT NONE\n";
+        *(file) << "IMPLICIT NONE\n";
 
         indent();
-        file << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ") :: P\n";
+        *(file) << "INTEGER(" << CURRENT_CONFIGURATION->type_environment->sizeof_pointer << ") :: P\n";
 
         std::string type_spec, array_spec;
         codegen_type(t, type_spec, array_spec);
 
         indent();
-        file << type_spec << " :: X" << array_spec << "\n";
+        *(file) << type_spec << " :: X" << array_spec << "\n";
 
         dec_indent();
         indent();
-        file << "END FUNCTION " << fun_name.str() << "\n";
+        *(file) << "END FUNCTION " << fun_name.str() << "\n";
 
         dec_indent();
         indent();
-        file << "END INTERFACE\n";
+        *(file) << "END INTERFACE\n";
 
         // And restore the state after the interface has been emitted
         pop_declaration_status();
@@ -2969,7 +3050,7 @@ OPERATOR_TABLE
         if (function_name == "")
         {
             fun_name << fun_loc_base_name << num << "_" 
-                // Hash the name of the file to avoid conflicts
+                // Hash the name of the *(file) to avoid conflicts
                 << std::hex
                 << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
                 << std::dec;
@@ -2981,7 +3062,7 @@ OPERATOR_TABLE
         }
 
         indent();
-        file << "INTEGER(" << t.get_pointer_to().get_size() << "), EXTERNAL :: " << fun_name.str() << "\n";
+        *(file) << "INTEGER(" << t.get_pointer_to().get_size() << "), EXTERNAL :: " << fun_name.str() << "\n";
 
         return fun_name.str();
     }
@@ -3006,7 +3087,7 @@ OPERATOR_TABLE
         if (!state.in_interface)
         {
             indent();
-            file << "INTERFACE\n";
+            *(file) << "INTERFACE\n";
             inc_indent();
         }
         bool lacks_result = false;
@@ -3046,7 +3127,7 @@ OPERATOR_TABLE
                 if (use_stmt_info.emit_iso_c_binding)
                 {
                     indent();
-                    file << "USE, INTRINSIC :: iso_c_binding\n";
+                    *(file) << "USE, INTRINSIC :: iso_c_binding\n";
                 }
                 walk(used_modules.get_value());
             }
@@ -3095,7 +3176,7 @@ OPERATOR_TABLE
                     {
                         // We will need an IMPORT as this type comes from an enclosing scope
                         indent();
-                        file << "IMPORT :: " << fix_class_name(class_type.get_name()) << "\n";
+                        *(file) << "IMPORT :: " << fix_class_name(class_type.get_name()) << "\n";
                         already_imported.insert(class_type);
                         set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
                     }
@@ -3104,7 +3185,7 @@ OPERATOR_TABLE
         }
 
         indent();
-        file << "IMPLICIT NONE\n";
+        *(file) << "IMPLICIT NONE\n";
 
         if (lacks_result)
         {
@@ -3119,7 +3200,7 @@ OPERATOR_TABLE
             codegen_type(function_type.returns(), type_specifier, array_specifier);
 
             indent();
-            file << type_specifier << " :: " << entry.get_name() << "\n";
+            *(file) << type_specifier << " :: " << entry.get_name() << "\n";
         }
 
         bool keep_emit_interop = state.emit_interoperable_types;
@@ -3147,7 +3228,7 @@ OPERATOR_TABLE
         {
             dec_indent();
             indent();
-            file << "END INTERFACE\n";
+            *(file) << "END INTERFACE\n";
         }
     }
 
@@ -3404,14 +3485,14 @@ OPERATOR_TABLE
                 }
                 else if (entry.get_type().is_array())
                 {
-                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n", 
+                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n",
                             entry.get_name().c_str());
                 }
-                else if (entry.get_type().is_class())
-                {
-                    internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
-                            entry.get_name().c_str());
-                }
+                // else if (entry.get_type().is_class())
+                // {
+                //     internal_error("Error: struct/class types cannot be passed by value in Fortran\n",
+                //             entry.get_name().c_str());
+                // }
                 else
                 {
                     attribute_list += ", VALUE";
@@ -3441,6 +3522,15 @@ OPERATOR_TABLE
                     {
                         attribute_list += ", PUBLIC";
                     }
+                }
+                TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    attribute_list += ", PRIVATE";
                 }
             }
             if (entry.get_type().is_volatile()
@@ -3522,7 +3612,8 @@ OPERATOR_TABLE
                 state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
                 codegen_type_extended(declared_type, type_spec, array_specifier,
-                        /* force_deferred_shape */ entry.is_allocatable());
+                        /* force_deferred_shape */ entry.is_allocatable(),
+                        /* without_type_qualifier */ false);
 
                 state.emit_interoperable_types = keep_emit_interop;
             }
@@ -3559,15 +3650,15 @@ OPERATOR_TABLE
 
             indent();
 
-            file << type_spec << attribute_list << " :: " << rename(entry) << array_specifier << initializer << "\n";
+            *(file) << type_spec << attribute_list << " :: " << rename(entry) << array_specifier << initializer << "\n";
 
             if (is_global_variable)
             {
                 std::string common_name = rename(entry) + "_c";
                 indent();
-                file << "COMMON /" << common_name << "/ " << rename(entry) << "\n";
+                *(file) << "COMMON /" << common_name << "/ " << rename(entry) << "\n";
                 indent();
-                file << "BIND(C, NAME=\"" << entry.get_name() << "\") :: /" << common_name << "/ \n";
+                *(file) << "BIND(C, NAME=\"" << entry.get_name() << "\") :: /" << common_name << "/ \n";
             }
 
             if (entry.is_in_common())
@@ -3579,7 +3670,7 @@ OPERATOR_TABLE
             {
                 declare_symbol(entry.get_cray_pointer(), entry.get_cray_pointer().get_scope());
                 indent();
-                file << "POINTER (" 
+                *(file) << "POINTER (" 
                     << rename(entry.get_cray_pointer()) << ", "
                     << rename(entry) << ")\n"
                     ;
@@ -3616,24 +3707,24 @@ OPERATOR_TABLE
             }
 
             indent();
-            file << keyword << " / " << symbol_name << " / ";
+            *(file) << keyword << " / " << symbol_name << " / ";
             for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                     it != related_symbols.end();
                     it++)
             {
                 if (it != related_symbols.begin())
-                    file << ", ";
+                    *(file) << ", ";
 
-                file << it->get_name();
+                *(file) << it->get_name();
             }
-            file << "\n";
+            *(file) << "\n";
 
             if (entry.is_fortran_common()
                     && entry.is_static())
             {
                 indent();
                 symbol_name = entry.get_name().substr(strlen(".common."));
-                file << "SAVE / " << symbol_name << " /\n";
+                *(file) << "SAVE / " << symbol_name << " /\n";
             }
 
             if (!_deduce_use_statements)
@@ -3641,12 +3732,12 @@ OPERATOR_TABLE
                 if (entry.get_access_specifier() == AS_PRIVATE)
                 {
                     indent();
-                    file << "PRIVATE :: " << symbol_name << std::endl;
+                    *(file) << "PRIVATE :: " << symbol_name << std::endl;
                 }
                 else if (entry.get_access_specifier() == AS_PUBLIC)
                 {
                     indent();
-                    file << "PUBLIC :: " << symbol_name << std::endl;
+                    *(file) << "PUBLIC :: " << symbol_name << std::endl;
                 }
             }
         }
@@ -3711,7 +3802,7 @@ OPERATOR_TABLE
                     if (TL::Symbol(generic_entry) == entry)
                     {
                         indent();
-                        file << "INTRINSIC :: " << entry.get_name() << "\n";
+                        *(file) << "INTRINSIC :: " << entry.get_name() << "\n";
                     }
                     else if (generic_entry.is_valid())
                     {
@@ -3726,7 +3817,7 @@ OPERATOR_TABLE
             else if (entry.is_generic_specifier())
             {
                 indent();
-                file << "INTERFACE "
+                *(file) << "INTERFACE "
                     << get_generic_specifier_str(entry.get_name())
                     << "\n";
                 inc_indent();
@@ -3741,7 +3832,7 @@ OPERATOR_TABLE
                     if (iface.is_module_procedure())
                     {
                         indent();
-                        file << "MODULE PROCEDURE " << iface.get_name() << "\n";
+                        *(file) << "MODULE PROCEDURE " << iface.get_name() << "\n";
                     }
                     else if (!iface.is_module_procedure())
                     {
@@ -3763,7 +3854,7 @@ OPERATOR_TABLE
                 dec_indent();
 
                 indent();
-                file << "END INTERFACE " << get_generic_specifier_str(entry.get_name()) << "\n";
+                *(file) << "END INTERFACE " << get_generic_specifier_str(entry.get_name()) << "\n";
             }
             else if (function_type.lacks_prototype())
             {
@@ -3785,17 +3876,17 @@ OPERATOR_TABLE
 
                     state.emit_interoperable_types = keep_emit_interop;
 
-                    file << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
+                    *(file) << type_spec << ", EXTERNAL :: " << entry.get_name() << "\n";
                 }
                 else
                 {
-                    file << "EXTERNAL :: " << entry.get_name() << "\n";
+                    *(file) << "EXTERNAL :: " << entry.get_name() << "\n";
                 }
 
                 if (entry.is_optional())
                 {
                     indent();
-                    file << "OPTIONAL :: " << entry.get_name() << "\n";
+                    *(file) << "OPTIONAL :: " << entry.get_name() << "\n";
                 }
             }
             // Statement functions
@@ -3823,13 +3914,13 @@ OPERATOR_TABLE
 
                 // Declare the scalar representing this statement function statement
                 indent();
-                file << type_spec << " :: " << entry.get_name() << std::endl;
+                *(file) << type_spec << " :: " << entry.get_name() << std::endl;
 
 
                 declare_everything_needed(entry.get_value(), entry.get_scope());
 
                 indent();
-                file << entry.get_name() << "(";
+                *(file) << entry.get_name() << "(";
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
@@ -3839,13 +3930,13 @@ OPERATOR_TABLE
                         continue;
 
                     if (it != related_symbols.begin())
-                        file << ", ";
-                    file << dummy.get_name();
+                        *(file) << ", ";
+                    *(file) << dummy.get_name();
                 }
 
-                file << ") = ";
+                *(file) << ") = ";
                 walk(entry.get_value());
-                file << "\n";
+                *(file) << "\n";
             }
             else
             {
@@ -3856,7 +3947,7 @@ OPERATOR_TABLE
                     if (entry.is_optional())
                     {
                         indent();
-                        file << "OPTIONAL :: " << entry.get_name() << "\n";
+                        *(file) << "OPTIONAL :: " << entry.get_name() << "\n";
                     }
                 }
             }
@@ -3867,12 +3958,12 @@ OPERATOR_TABLE
                 if (entry.get_access_specifier() == AS_PRIVATE)
                 {
                     indent();
-                    file << "PRIVATE :: " << entry.get_name() << std::endl;
+                    *(file) << "PRIVATE :: " << entry.get_name() << std::endl;
                 }
                 else if (entry.get_access_specifier() == AS_PUBLIC)
                 {
                     indent();
-                    file << "PUBLIC :: " << entry.get_name() << std::endl;
+                    *(file) << "PUBLIC :: " << entry.get_name() << std::endl;
                 }
             }
         }
@@ -3928,7 +4019,7 @@ OPERATOR_TABLE
             clear_renames();
 
             indent();
-            file << "TYPE";
+            *(file) << "TYPE";
 
             if (!_deduce_use_statements)
             {
@@ -3937,12 +4028,23 @@ OPERATOR_TABLE
                 {
                     if (entry.get_access_specifier() == AS_PRIVATE)
                     {
-                        file << ", PRIVATE";
+                        *(file) << ", PRIVATE";
                     }
                     else if (entry.get_access_specifier() == AS_PUBLIC)
                     {
-                        file << ", PUBLIC";
+                        *(file) << ", PUBLIC";
                     }
+                }
+
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    // Global types should be made private to avoid undesired exports
+                    // of names
+                    (*file) << ", PRIVATE";
                 }
             }
 
@@ -3951,17 +4053,17 @@ OPERATOR_TABLE
                 Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
                 if (bind_name.is_null())
                 {
-                    file << ", BIND(C)";
+                    *(file) << ", BIND(C)";
                 }
                 else
                 {
-                    file << ", BIND(C, NAME=";
+                    *(file) << ", BIND(C, NAME=";
                     walk(bind_name);
-                    file << ")";
+                    *(file) << ")";
                 }
             }
 
-            file << " :: " << real_name << "\n";
+            *(file) << " :: " << real_name << "\n";
 
             bool previous_was_bitfield = false;
             int first_bitfield_offset = 0;
@@ -3971,7 +4073,7 @@ OPERATOR_TABLE
             if (entry.get_type().class_type_is_packed())
             {
                 indent();
-                file << "SEQUENCE\n";
+                *(file) << "SEQUENCE\n";
             }
 
             // Second pass to declare components
@@ -4006,7 +4108,7 @@ OPERATOR_TABLE
                             ss << "INTEGER(KIND=1) :: bitfield_pad_" << current_byte << "\n";
 
                             indent();
-                            file << ss.str();
+                            *(file) << ss.str();
                         }
                     }
 
@@ -4036,7 +4138,7 @@ OPERATOR_TABLE
                     ss << "INTEGER(KIND=1) :: bitfield_pad_" << current_byte << "\n";
 
                     indent();
-                    file << ss.str();
+                    *(file) << ss.str();
                 }
             }
 
@@ -4044,14 +4146,14 @@ OPERATOR_TABLE
             if (members.empty())
             {
                 indent();
-                file << "! DERIVED TYPE WITHOUT MEMBERS\n";
+                *(file) << "! DERIVED TYPE WITHOUT MEMBERS\n";
             }
 
             dec_indent();
             pop_declaring_entity();
 
             indent();
-            file << "END TYPE " << real_name << "\n";
+            *(file) << "END TYPE " << real_name << "\n";
             
             // And restore it after the internal function has been emitted
             if (!_name_set_stack.empty()) _name_set_stack.back() = old_name_set;
@@ -4063,14 +4165,14 @@ OPERATOR_TABLE
             if (!entry.get_value().is_null())
             {
                 indent();
-                file << entry.get_name() << " FORMAT";
+                *(file) << entry.get_name() << " FORMAT";
 
                 int old_indent_level = get_indent_level();
                 set_indent_level(0);
                 walk(entry.get_value());
                 set_indent_level(old_indent_level);
 
-                file << "\n";
+                *(file) << "\n";
             }
         }
         else if (entry.is_typedef())
@@ -4095,7 +4197,7 @@ OPERATOR_TABLE
 
             // Emit it as a parameter
             indent();
-            file << type_spec << ", PARAMETER :: " << rename(entry) << initializer << "\n";
+            *(file) << type_spec << ", PARAMETER :: " << rename(entry) << initializer << "\n";
         }
         else
         {
@@ -4107,7 +4209,7 @@ OPERATOR_TABLE
             TL::ObjectList<Nodecl::NodeclBase> &nodes_before_contains,
             TL::ObjectList<Nodecl::NodeclBase> &nodes_after_contains)
     {
-        file << "MODULE " << entry.get_name() << "\n";
+        *(file) << "MODULE " << entry.get_name() << "\n";
 
         inc_indent(2);
 
@@ -4160,19 +4262,19 @@ OPERATOR_TABLE
         }
 
         indent();
-        file << "IMPLICIT NONE\n";
+        *(file) << "IMPLICIT NONE\n";
 
         if (!_deduce_use_statements
                 && entry.get_access_specifier() == AS_PRIVATE)
         {
             indent();
-            file << "PRIVATE\n";
+            *(file) << "PRIVATE\n";
         }
 
         if (entry.is_saved_program_unit())
         {
             indent();
-            file << "SAVE\n";
+            *(file) << "SAVE\n";
         }
 
         push_declaring_entity(entry);
@@ -4282,17 +4384,17 @@ OPERATOR_TABLE
             if (!private_names.empty())
             {
                 indent();
-                file << "PRIVATE :: ";
+                *(file) << "PRIVATE :: ";
                 for (std::set<std::string>::iterator it = private_names.begin();
                         it != private_names.end();
                         it++)
                 {
                     if (it != private_names.begin())
-                        file << ", ";
+                        *(file) << ", ";
 
-                    file << get_generic_specifier_str(*it);
+                    *(file) << get_generic_specifier_str(*it);
                 }
-                file << std::endl;
+                *(file) << std::endl;
             }
         }
         else
@@ -4320,17 +4422,17 @@ OPERATOR_TABLE
             if (!access_set->empty())
             {
                 indent();
-                file << access_spec << " :: ";
+                *(file) << access_spec << " :: ";
                 for (std::set<std::string>::iterator it = access_set->begin();
                         it != access_set->end();
                         it++)
                 {
                     if (it != access_set->begin())
-                        file << ", ";
+                        *(file) << ", ";
 
-                    file << get_generic_specifier_str(*it);
+                    *(file) << get_generic_specifier_str(*it);
                 }
-                file << std::endl;
+                *(file) << std::endl;
             }
         }
 
@@ -4380,7 +4482,7 @@ OPERATOR_TABLE
         if (nodes_after_contains.size() > 0)
         {
             indent();
-            file << "CONTAINS\n";
+            *(file) << "CONTAINS\n";
         }
 
         inc_indent();
@@ -4389,7 +4491,7 @@ OPERATOR_TABLE
     void FortranBase::codegen_module_footer(TL::Symbol entry)
     {
         dec_indent(2);
-        file << "END MODULE " << entry.get_name() << "\n\n";
+        *(file) << "END MODULE " << entry.get_name() << "\n\n";
     }
 
     void FortranBase::do_declare_symbol_from_module(TL::Symbol entry, Nodecl::NodeclBase, void *data)
@@ -4456,7 +4558,7 @@ OPERATOR_TABLE
                 if (use_stmt_info.emit_iso_c_binding)
                 {
                     indent();
-                    file << "USE, INTRINSIC :: iso_c_binding\n";
+                    *(file) << "USE, INTRINSIC :: iso_c_binding\n";
                 }
                 walk(used_modules.get_value());
             }
@@ -4604,17 +4706,17 @@ OPERATOR_TABLE
         if (real_name[0] == '_')
             real_name = "";
 
-        file << "BLOCK DATA " << real_name << "\n";
+        *(file) << "BLOCK DATA " << real_name << "\n";
 
         inc_indent();
 
         indent();
-        file << "IMPLICIT NONE\n";
+        *(file) << "IMPLICIT NONE\n";
 
         if (entry.is_saved_program_unit())
         {
             indent();
-            file << "SAVE\n";
+            *(file) << "SAVE\n";
         }
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
@@ -4652,7 +4754,7 @@ OPERATOR_TABLE
             real_name = "";
 
         indent();
-        file << "END BLOCK DATA " << real_name << "\n\n";
+        *(file) << "END BLOCK DATA " << real_name << "\n\n";
     }
 
     void FortranBase::declare_everything_needed_by_the_type(TL::Type t, TL::Scope sc)
@@ -4719,7 +4821,7 @@ OPERATOR_TABLE
             // If we are not the first
             if (it != list.begin())
             {
-                file << ", ";
+                *(file) << ", ";
             }
 
             walk(*it);
@@ -4728,7 +4830,7 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::CxxDepNameSimple& node)
     {
-        file << node.get_text();
+        *(file) << node.get_text();
     }
 
     void FortranBase::codegen_reverse_comma_separated_list(Nodecl::NodeclBase node)
@@ -4749,14 +4851,14 @@ OPERATOR_TABLE
                 it--)
         {
             if (it != list.last())
-                file << ", ";
+                *(file) << ", ";
 
             walk(*it);
         }
         
         // Do not forget the first one
         if (list.begin() != list.last())
-            file << ", ";
+            *(file) << ", ";
         walk(*(list.begin()));
     }
 
@@ -4933,7 +5035,7 @@ OPERATOR_TABLE
         if (use_stmt_info.emit_iso_c_binding)
         {
             indent();
-            file << "USE, INTRINSIC :: iso_c_binding\n";
+            *(file) << "USE, INTRINSIC :: iso_c_binding\n";
         }
 
         for (UseStmtInfo::iterator it = use_stmt_info.begin();
@@ -4956,7 +5058,7 @@ OPERATOR_TABLE
 
             indent();
 
-            file << "USE"
+            *(file) << "USE"
                 << module_nature
                 << module.get_name()
                 << ", ONLY: "
@@ -4988,18 +5090,18 @@ OPERATOR_TABLE
                     continue;
 
                 if (it2 != item_list.begin())
-                    file << ", ";
+                    *(file) << ", ";
 
                 if (!entry.get_internal_symbol()->entity_specs.is_renamed)
                 {
-                    file << get_generic_specifier_str(entry.get_name())
+                    *(file) << get_generic_specifier_str(entry.get_name())
                         ;
-                    // file << " {{" << entry.get_internal_symbol() << "}} " 
+                    // *(file) << " {{" << entry.get_internal_symbol() << "}} " 
                     //     ;
                 }
                 else
                 {
-                    file
+                    *(file)
                         << entry.get_name() 
                         << " => "
                         << get_generic_specifier_str(entry.get_from_module_name())
@@ -5008,7 +5110,7 @@ OPERATOR_TABLE
                 }
             }
 
-            file << "\n";
+            *(file) << "\n";
         }
     }
 
@@ -5100,11 +5202,14 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier)
     {
-        codegen_type_extended(t, type_specifier, array_specifier, /* force_deferred_shape */ false);
+        codegen_type_extended(t, type_specifier, array_specifier,
+                /* force_deferred_shape */ false,
+                /* without_type_qualifier */ false);
     }
 
     void FortranBase::codegen_type_extended(TL::Type t, std::string& type_specifier, std::string& array_specifier,
-            bool force_deferred_shape)
+            bool force_deferred_shape,
+            bool without_type_qualifier)
     {
         // We were requested to emit types as literals
         if (state.emit_types_as_literals)
@@ -5336,7 +5441,14 @@ OPERATOR_TABLE
             // ss << " {{" << entry.get_internal_symbol() << "}} ";
             // real_name += ss.str();
 
-            type_specifier = "TYPE(" + real_name + ")";
+            if (without_type_qualifier)
+            {
+                type_specifier = real_name;
+            }
+            else
+            {
+                type_specifier = "TYPE(" + real_name + ")";
+            }
         }
         else if (fortran_is_character_type(t.get_internal_type()))
         {
@@ -5486,18 +5598,18 @@ OPERATOR_TABLE
 
         if (entry.is_recursive())
         {
-            file << "RECURSIVE ";
+            *(file) << "RECURSIVE ";
         }
         if (entry.is_pure())
         {
-            file << "PURE ";
+            *(file) << "PURE ";
         }
         if (entry.is_elemental())
         {
-            file << "ELEMENTAL ";
+            *(file) << "ELEMENTAL ";
         }
 
-        file << (is_function ? "FUNCTION" : "SUBROUTINE")
+        *(file) << (is_function ? "FUNCTION" : "SUBROUTINE")
             << " "
             << entry.get_name()
             << "(";
@@ -5515,7 +5627,7 @@ OPERATOR_TABLE
                 continue;
             }
             if (it != related_symbols.begin())
-                file << ", ";
+                *(file) << ", ";
 
             TL::Symbol &sym(*it);
 
@@ -5523,27 +5635,34 @@ OPERATOR_TABLE
             {
                 // This is an alternate return
                 ERROR_CONDITION(is_function, "Alternate return in a FUNCTION", 0);
-                file << "*";
+                *(file) << "*";
             }
             else
             {
-                file << sym.get_name();
+                if (is_protected_name(sym))
+                {
+                    *(file) << rename(sym);
+                }
+                else
+                {
+                    *(file) << sym.get_name();
+                }
             }
         }
-        file << ")";
+        *(file) << ")";
 
         if (entry.is_bind_c())
         {
             Nodecl::NodeclBase bind_name = entry.get_bind_c_name();
             if (bind_name.is_null())
             {
-                file << " BIND(C)";
+                *(file) << " BIND(C)";
             }
             else
             {
-                file << " BIND(C, NAME=";
+                *(file) << " BIND(C, NAME=";
                 walk(bind_name);
-                file << ")";
+                *(file) << ")";
             }
         }
 
@@ -5553,7 +5672,14 @@ OPERATOR_TABLE
             {
                 if (result_var.get_name() != entry.get_name())
                 {
-                    file << " RESULT(" << result_var.get_name() << ")";
+                    if (is_protected_name(result_var))
+                    {
+                        *(file) << " RESULT(" << rename(result_var) << ")";
+                    }
+                    else
+                    {
+                        *(file) << " RESULT(" << result_var.get_name() << ")";
+                    }
                 }
             }
             else
@@ -5562,7 +5688,7 @@ OPERATOR_TABLE
             }
         }
 
-        file << "\n";
+        *(file) << "\n";
 
         inc_indent();
     }
@@ -5580,7 +5706,7 @@ OPERATOR_TABLE
         bool is_function = !function_type.returns().is_void();
 
         indent();
-        file << "END "
+        *(file) << "END "
             << (is_function ? "FUNCTION" : "SUBROUTINE")
             << " "
             << entry.get_name()
@@ -5590,7 +5716,7 @@ OPERATOR_TABLE
     void FortranBase::unhandled_node(const Nodecl::NodeclBase& n)
     {
         indent();
-        file << "! >>> " << ast_print_node_type(n.get_kind()) << " >>>\n";
+        *(file) << "! >>> " << ast_print_node_type(n.get_kind()) << " >>>\n";
 
         inc_indent();
 
@@ -5601,7 +5727,7 @@ OPERATOR_TABLE
                 it++, i++)
         {
             indent();
-            file << "! Children " << i << "\n";
+            *(file) << "! Children " << i << "\n";
 
             walk(*it);
         }
@@ -5609,7 +5735,7 @@ OPERATOR_TABLE
         dec_indent();
 
         indent();
-        file << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
+        *(file) << "! <<< " << ast_print_node_type(n.get_kind()) << " <<<\n";
     }
 
     void FortranBase::clear_codegen_status()
@@ -5629,6 +5755,14 @@ OPERATOR_TABLE
     {
         if (!_name_set_stack.empty()) _name_set_stack.back().clear();
         if (!_rename_map_stack.empty()) _rename_map_stack.back().clear();
+    }
+
+    bool FortranBase::is_protected_name(TL::Symbol sym)
+    {
+        std::string str = strtolower(sym.get_name().c_str());
+
+        // Maybe others will have to be added in a future
+        return (str == "loc");
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)
@@ -5668,16 +5802,16 @@ OPERATOR_TABLE
                     node.get_locus_str().c_str());
         }
 
-        file << "IBITS(";
+        *(file) << "IBITS(";
         walk(lhs);
-        file << " % bitfield_pad_" << symbol.get_offset() << ", " << symbol.get_bitfield_first() << ", 1)";
+        *(file) << " % bitfield_pad_" << symbol.get_offset() << ", " << symbol.get_bitfield_first() << ", 1)";
 
         TL::Type t = node.get_type();
         if (t.is_any_reference())
             t = t.references_to();
 
         if (t.is_bool())
-            file << " /= 0";
+            *(file) << " /= 0";
     }
 
     void FortranBase::emit_bitfield_store(const Nodecl::Assignment &node)
@@ -5700,7 +5834,7 @@ OPERATOR_TABLE
         std::stringstream bitfield_accessor;
         bitfield_accessor << codegen_to_str(lhs, lhs.retrieve_context()) << " % bitfield_pad_" << symbol.get_offset();
 
-        file << bitfield_accessor.str() << " = ";
+        *(file) << bitfield_accessor.str() << " = ";
 
         int bitfield_size = 
             const_value_cast_to_4(
@@ -5718,14 +5852,14 @@ OPERATOR_TABLE
             const_value_t* const_val = nodecl_get_constant(rhs.get_internal_nodecl());
             if (const_value_is_nonzero(const_val))
             {
-                file << "IBSET";
+                *(file) << "IBSET";
             }
             else
             {
-                file << "IBCLR";
+                *(file) << "IBCLR";
             }
 
-            file << "(" << bitfield_accessor.str() << ", " << symbol.get_bitfield_first() << ")";
+            *(file) << "(" << bitfield_accessor.str() << ", " << symbol.get_bitfield_first() << ")";
         }
         else
         {
@@ -5793,8 +5927,9 @@ OPERATOR_TABLE
         state = State();
         push_declaring_entity(sc.get_decl_context().current_scope->related_entry);
 
-        file.clear();
-        file.str("");
+        std::stringstream ss_out;
+        std::ostream* tmp_out = &ss_out;
+        std::swap(file, tmp_out);
 
         if (symbol.is_from_module())
         {
@@ -5807,15 +5942,13 @@ OPERATOR_TABLE
         {
             declare_symbol(symbol, symbol.get_scope());
         }
-
-        std::string result = file.str();
-
-        file.clear();
-        file.str("");
+        std::swap(file, tmp_out);
 
         pop_declaration_status();
         pop_declaring_entity();
 
+
+        std::string result = ss_out.str();
         return result;
     }
 

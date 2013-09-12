@@ -62,9 +62,32 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.is_instantiable = 0;
     new_member->entity_specs.is_user_declared = 0;
+    new_member->entity_specs.is_defined_inside_class_specifier = 0;
     new_member->entity_specs.is_member_of_anonymous = 0;
     new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
+
+#define COPY_ARRAY(arr, num) \
+    if (new_member->entity_specs.arr != NULL) \
+    { \
+        new_member->entity_specs.arr = \
+            (__typeof__(new_member->entity_specs.arr)) \
+            xcalloc(sizeof(*new_member->entity_specs.arr), \
+                    new_member->entity_specs.num); \
+        memcpy(new_member->entity_specs.arr, \
+                member_of_template->entity_specs.arr, \
+                sizeof(*new_member->entity_specs.arr) \
+                * new_member->entity_specs.num); \
+    }
+
+    // Decouple the arrays, lest we have to modify them
+    COPY_ARRAY(related_symbols, num_related_symbols);
+    COPY_ARRAY(function_parameter_info, num_function_parameter_info);
+    COPY_ARRAY(default_argument_info, num_parameters);
+    COPY_ARRAY(gcc_attributes, num_gcc_attributes);
+    COPY_ARRAY(ms_attributes, num_ms_attributes);
+
+#undef COPY_ARRAY
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
 
@@ -304,8 +327,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size)));
                         }
 
-                        new_member->entity_specs.bitfield_size_context =
-                            context_of_being_instantiated;
+                        new_member->related_decl_context = context_of_being_instantiated;
                     }
                     else
                     {
@@ -680,52 +702,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 break;
             }
-            // This is only possible because of using declarations / or qualified members
-            // which refer to dependent entities
-            // case SK_DEPENDENT_ENTITY:
-            //     {
-            //         ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
-            //                 "Invalid expression for dependent entity", 0);
-
-            //         scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->language_dependent_value);
-            //         
-            //         if (entry_list == NULL
-            //                 || !entry_list_head(entry_list)->entity_specs.is_member)
-            //         {
-            //             running_error("%s: invalid using declaration '%s' while instantiating\n", 
-            //                     ast_location(member_of_template->language_dependent_value),
-            //                     prettyprint_in_buffer(member_of_template->language_dependent_value));
-            //         }
-
-            //         scope_entry_t* entry = entry_list_head(entry_list);
-            //         if (!class_type_is_base(entry->entity_specs.class_type, 
-            //                     get_actual_class_type(being_instantiated)))
-            //         {
-            //             running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
-            //                     ast_location(member_of_template->language_dependent_value),
-            //                         get_qualified_symbol_name(entry,
-            //                             context_of_being_instantiated),
-            //                         get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
-            //                             context_of_being_instantiated)
-            //                     );
-            //         }
-
-            //         scope_entry_list_iterator_t* it = NULL;
-            //         for (it = entry_list_iterator_begin(entry_list);
-            //                 !entry_list_iterator_end(it);
-            //                 entry_list_iterator_next(it))
-            //         {
-            //             entry = entry_list_iterator_current(it);
-            //             class_type_add_member(get_actual_class_type(being_instantiated), entry);
-
-            //             // Insert the symbol in the context
-            //             insert_entry(context_of_being_instantiated.current_scope, entry);
-            //         }
-            //         entry_list_iterator_free(it);
-            //         entry_list_free(entry_list);
-
-            //         break;
-            //     }
         case SK_USING:
         case SK_USING_TYPENAME:
             {
@@ -897,12 +873,40 @@ static void instantiate_dependent_friend_function(
                         context_of_being_instantiated, explicit_temp_params, locus);
             }
 
-            new_friend = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
+            scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
+
+            if (new_friend_list != NULL)
+            {
+                if (entry_list_size(new_friend_list) == 1)
+                {
+                    new_friend = entry_list_head(new_friend_list);
+                }
+                else
+                {
+                    error_printf("%s: error: friend function declaration is ambiguous '%s'\n",
+                            locus_to_str(locus), friend->symbol_name);
+
+                    scope_entry_list_iterator_t* it = NULL;
+                    for (it = entry_list_iterator_begin(new_friend_list);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
+                    {
+                        scope_entry_t* current_entry = entry_list_iterator_current(it);
+
+                        info_printf("%s: info:   %s\n",
+                                locus_to_str(current_entry->locus),
+                                print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
+                                    get_qualified_symbol_name(current_entry, current_entry->decl_context)));
+                    }
+                    entry_list_iterator_free(it);
+                }
+                entry_list_free(new_friend_list);
+            }
         }
 
         if (new_friend == NULL)
         {
-            error_printf("%s: function '%s' shall refer a specialization of a function template\n",
+            error_printf("%s: error: function '%s' shall refer a specialization of a function template\n",
                     locus_to_str(locus), friend->symbol_name);
             return;
         }
@@ -981,7 +985,35 @@ static void instantiate_dependent_friend_function(
                             context_of_being_instantiated, nodecl_templ_param, locus);
                 }
 
-                new_friend = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
+                scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
+
+                if (new_friend_list != NULL)
+                {
+                    if (entry_list_size(new_friend_list) == 1)
+                    {
+                        new_friend = entry_list_head(new_friend_list);
+                    }
+                    else
+                    {
+                        error_printf("%s: error: friend function declaration is ambiguous '%s'\n",
+                                locus_to_str(locus), friend->symbol_name);
+
+                        for (it = entry_list_iterator_begin(new_friend_list);
+                                !entry_list_iterator_end(it);
+                                entry_list_iterator_next(it))
+                        {
+                            scope_entry_t* current_entry = entry_list_iterator_current(it);
+
+                            info_printf("%s: info:   %s\n",
+                                    locus_to_str(current_entry->locus),
+                                    print_decl_type_str(current_entry->type_information, current_entry->decl_context, 
+                                        get_qualified_symbol_name(current_entry, current_entry->decl_context)));
+                        }
+                        entry_list_iterator_free(it);
+                    }
+                    entry_list_free(new_friend_list);
+                }
+
                 if (new_friend == NULL)
                 {
                     error_printf("%s: function '%s' shall refer a nontemplate function or a specialization of a function template\n",
@@ -1691,7 +1723,7 @@ static void instantiate_template_function(scope_entry_t* entry, const locus_t* l
     //         instantiation_context, 
     //         // This is not entirely true
     //         /* is_template */ 1,
-    //         /* is_explicit_instantiation */ 1,
+    //         /* is_explicit_specialization */ 1,
     //         &nodecl_function_code);
 
     // entry->entity_specs.definition_tree = dupl_function_definition;
@@ -1892,7 +1924,7 @@ static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMET
             entry->decl_context, 
             // FIXME - This is not entirely true
             /* is_template */ 1,
-            /* is_explicit_instantiation */ 1,
+            /* is_explicit_specialization */ 1,
             &nodecl_function_code);
 
     entry->entity_specs.definition_tree = dupl_function_definition;

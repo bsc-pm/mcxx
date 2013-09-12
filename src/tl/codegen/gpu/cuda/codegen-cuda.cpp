@@ -66,16 +66,16 @@ namespace Codegen
 
         walk(called_expr);
 
-        file << "<<<";
+        *file << "<<<";
         walk_list(kernel_config.as<Nodecl::List>(),", ");
-        file << ">>>";
+        *file << ">>>";
 
-        file << "(";
+        *file << "(";
         if (!function_args.is_null())
         {
             walk_list(function_args.as<Nodecl::List>(), ", ");
         }
-        file << ")";
+        *file << ")";
     }
 
 

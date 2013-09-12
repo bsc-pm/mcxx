@@ -64,13 +64,7 @@ namespace TL
 
 //                  void add_included_cuda_files(FILE* file);                  
                   std::string get_ompss_mpi_type(Type type);
-                  Nodecl::List _extra_c_code;
 
-                  void add_forward_code_to_extra_c_code(
-                    const std::string& outline_name,
-                    TL::ObjectList<OutlineDataItem*> data_items,
-                    Nodecl::NodeclBase parse_context);
-                  
             public:
 
                   // This phase does nothing

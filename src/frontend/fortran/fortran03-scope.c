@@ -553,6 +553,9 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
 
     char keep_trying = 1;
 
+    computed_function_type_t* intrinsics_seen = NULL;
+    int num_intrinsics_seen = 0;
+
     while (keep_trying
             && current_scope != NULL)
     {
@@ -586,6 +589,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                     // Use the first entry found
                     result_list = entry_list_new(entry_list_head(entry_list));
                     entry_list_free(entry_list);
+                    xfree(intrinsics_seen);
                     return result_list;
                 }
             }
@@ -621,7 +625,21 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                             && current->entity_specs.is_global_hidden)
                         && symbol_is_generic_intrinsic_function(current, NULL))
                 {
-                    result_list = entry_list_add_once(result_list, current);
+                    computed_function_type_t fun
+                        = computed_function_type_get_computing_function(current->type_information);
+
+                    int i; char found = 0;
+                    for (i = 0; i < num_intrinsics_seen && !found; i++)
+                    {
+                        found = (intrinsics_seen[i] == fun);
+                    }
+
+                    // Do not add repeated intrinsics
+                    if (!found)
+                    {
+                        P_LIST_ADD(intrinsics_seen, num_intrinsics_seen, fun);
+                        result_list = entry_list_add_once(result_list, current);
+                    }
                 }
             }
             entry_list_iterator_free(it);
@@ -633,7 +651,9 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
             {
                 scope_entry_t* current = entry_list_iterator_current(it);
                 if (!(decl_context.global_scope == current_scope
-                            && current->entity_specs.is_global_hidden))
+                            && current->entity_specs.is_global_hidden)
+                        && !symbol_is_generic_specifier(current, NULL)
+                        && !symbol_is_generic_intrinsic_function(current, NULL))
                 {
                     result_list = entry_list_add_once(result_list, current);
                 }
@@ -652,10 +672,25 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
         if (intrinsic != NULL
                 && symbol_is_generic_intrinsic_function_not_from_module(intrinsic, NULL))
         {
-            result_list = entry_list_add_once(result_list, intrinsic);
+            computed_function_type_t fun
+                = computed_function_type_get_computing_function(intrinsic->type_information);
+
+            int i; char found = 0;
+            for (i = 0 ; i < num_intrinsics_seen && !found; i++)
+            {
+                found = (intrinsics_seen[i] == fun);
+            }
+
+            // Do not add repeated intrinsics
+            if (!found)
+            {
+                result_list = entry_list_add_once(result_list, intrinsic);
+                P_LIST_ADD(intrinsics_seen, num_intrinsics_seen, fun);
+            }
         }
     }
 
+    xfree(intrinsics_seen);
     return result_list;
 }
 

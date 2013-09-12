@@ -56,11 +56,20 @@ namespace TL
                 bool _simd_enabled;
                 void set_simd(const std::string &simd_enabled_str);
 
+                std::string _ompss_mode_str;
+                bool _ompss_mode;
+                void set_ompss_mode(const std::string &str);
+
+                bool in_ompss_mode() const;
+
                 std::string _allow_shared_without_copies_str;
                 void set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str);
 
                 std::string _discard_unused_data_sharings_str;
                 void set_discard_unused_data_sharings(const std::string &discard_unused_data_sharings);
+
+                std::string _allow_array_reductions_str;
+                void set_allow_array_reductions(const std::string& allow_array_reductions);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

@@ -684,8 +684,8 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
     struct ReplaceParamsByArgs : public Nodecl::ExhaustiveVisitor<void>
     {
         const sym_to_argument_expr_t& _param_to_arg_expr;
-        ReplaceParamsByArgs(const sym_to_argument_expr_t &param_to_arg_expr) :
-            _param_to_arg_expr(param_to_arg_expr)
+        ReplaceParamsByArgs(const sym_to_argument_expr_t &param_to_arg_expr_aux) :
+            _param_to_arg_expr(param_to_arg_expr_aux)
         {
         }
 
@@ -806,7 +806,10 @@ static void copy_target_info_from_params_to_args(
     }
 }
 
-void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression)
+void LoweringVisitor::visit_task_call_c(
+        const Nodecl::OpenMP::TaskCall& construct,
+        bool inside_task_expression,
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
     ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
@@ -1234,6 +1237,7 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
             <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
             <<          as_statement(expr_direct_call_to_function)
@@ -1299,7 +1303,8 @@ void LoweringVisitor::visit_task_call_c(const Nodecl::OpenMP::TaskCall& construc
             task_environment.task_label,
             task_environment.is_untied,
             arguments_outline_info,
-            &parameters_outline_info);
+            &parameters_outline_info,
+            placeholder_task_expr_transformation);
 }
 
 
@@ -1599,6 +1604,7 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
             <<      "nanos_err_t mcc_err_in_final = nanos_in_final(&mcc_is_in_final);"
+            <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
             <<          as_statement(call_to_original.shallow_copy())
@@ -1686,7 +1692,10 @@ struct FreeVariablesVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
-void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression)
+void LoweringVisitor::visit_task_call_fortran(
+        const Nodecl::OpenMP::TaskCall& construct,
+        bool inside_task_expression,
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
     Nodecl::FunctionCall function_call = construct.get_call().as<Nodecl::FunctionCall>();
     ERROR_CONDITION(!function_call.get_called().is<Nodecl::Symbol>(), "Invalid ASYNC CALL!", 0);
@@ -1833,7 +1842,8 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
             task_environment.task_label,
             task_environment.is_untied,
             new_outline_info,
-            /* parameter outline info */ NULL);
+            /* parameter outline info */ NULL,
+            placeholder_task_expr_transformation);
 
     // Add a map from the original called task to the adapter function
      symbol_map->add_map(called_task_function, adapter_function);
@@ -1869,22 +1879,31 @@ void LoweringVisitor::visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& co
 }
 
 
-void LoweringVisitor::visit_task_call(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression)
+void LoweringVisitor::visit_task_call(
+        const Nodecl::OpenMP::TaskCall& construct,
+        bool inside_task_expression,
+        Nodecl::NodeclBase* placeholder_task_expr_transformation)
 {
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        visit_task_call_c(construct, inside_task_expression);
+        visit_task_call_c(construct,
+                inside_task_expression,
+                placeholder_task_expr_transformation);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-        visit_task_call_fortran(construct, inside_task_expression);
+        visit_task_call_fortran(construct,
+                inside_task_expression,
+                placeholder_task_expr_transformation);
     }
 }
 
 void LoweringVisitor::visit(const Nodecl::OpenMP::TaskCall& construct)
 {
-    visit_task_call(construct, /* inside_task_expression */  false);
+    visit_task_call(construct,
+            /* inside_task_expression */  false,
+            /* placeholder_task_expr_transformation */ NULL);
 }
 
 } }

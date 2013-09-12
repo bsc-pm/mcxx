@@ -468,10 +468,16 @@ char* source_language_names[] =
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
     [SOURCE_LANGUAGE_CXX] = "C++",
-    [SOURCE_LANGUAGE_CUDA] = "CUDA C/C++",
-    [SOURCE_LANGUAGE_OPENCL] = "OpenCL C/C++",
     [SOURCE_LANGUAGE_FORTRAN] = "Fortran",
     [SOURCE_LANGUAGE_ASSEMBLER] = "assembler",
+    [SOURCE_SUBLANGUAGE_CUDA] = "CUDA C/C++",
+    [SOURCE_SUBLANGUAGE_OPENCL] = "OpenCL C/C++",
+};
+
+sublanguage_profile_t sublanguage_profile_map[] =
+{
+    { SOURCE_SUBLANGUAGE_CUDA,   "cuda" },
+    { SOURCE_LANGUAGE_UNKNOWN, NULL   }
 };
 
 static void print_version(void);
@@ -529,6 +535,10 @@ static void list_vector_flavors(void);
 static char do_not_unload_phases = 0;
 static char do_not_warn_bad_config_filenames = 0;
 static char show_help_message = 0;
+
+static compilation_configuration_t* get_sublanguage_configuration(
+        source_language_t source_language,
+        compilation_configuration_t* fallback_config);
 
 void add_to_linker_command(const char *str, translation_unit_t* tr_unit);
 
@@ -863,17 +873,30 @@ int parse_arguments(int argc, const char* argv[],
                     //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, 
                        // parameter_info.argument);
                     linker_files_seen = 1;
-                    
+
                     add_to_linker_command(uniquestr(parameter_info.argument), NULL);
                 }
                 else
                 {
                     P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
-                    
-                    // create a new translation unit 
+
+                    struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+                    compilation_configuration_t* current_configuration = CURRENT_CONFIGURATION;
+
+                    if ((current_extension->source_language & SOURCE_IS_SUBLANGUAGE)
+                            == SOURCE_IS_SUBLANGUAGE)
+                    {
+                        // Use the sublanguage configuration, if any
+                        current_configuration = get_sublanguage_configuration(
+                                current_extension->source_language,
+                                CURRENT_CONFIGURATION);
+                    }
+
+                    // create a new translation unit
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
-                        output_file, CURRENT_CONFIGURATION);
+                        output_file, current_configuration);
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
 
                     add_to_linker_command(uniquestr(parameter_info.argument), ptr_tr);
@@ -1044,7 +1067,7 @@ int parse_arguments(int argc, const char* argv[],
                             if ((num_input_files > 1) 
                                     && c_specified)
                             {
-                                fprintf(stderr, "%s: cannot specify -o when -c once given more than one file",
+                                fprintf(stderr, "%s: cannot specify -o when -c once given more than one file\n",
                                         compilation_process.exec_basename);
                                 return 1;
                             }
@@ -1550,7 +1573,7 @@ int parse_arguments(int argc, const char* argv[],
             && c_specified
             && (num_input_files > 1))
     {
-        fprintf(stderr, "%s: cannot specify -o and -c with multiple files (second file '%s')", 
+        fprintf(stderr, "%s: cannot specify -o and -c with multiple files (second file '%s')\n",
                 compilation_process.exec_basename,
                 argv[(parameter_index - 1)]);
         return 1;
@@ -2721,7 +2744,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         char old_cuda_flag = CURRENT_CONFIGURATION->enable_cuda;
         // For cuda enable CUDA
-        if (current_extension->source_language == SOURCE_LANGUAGE_CUDA)
+        if (current_extension->source_language == SOURCE_SUBLANGUAGE_CUDA)
         {
             if (!old_cuda_flag)
             {
@@ -2913,7 +2936,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             // * Codegen
             const char* prettyprinted_filename = NULL;
-            if (!file_not_processed)
+            if (!file_not_processed
+                    && !CURRENT_CONFIGURATION->debug_options.do_not_codegen)
             {
                 prettyprinted_filename
                     = codegen_translation_unit(translation_unit, parsed_filename);
@@ -3284,15 +3308,19 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         if (CURRENT_CONFIGURATION->column_width != 0)
         {
             temporal_file_t raw_prettyprint = new_temporal_file();
-            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
             if (raw_prettyprint_file == NULL)
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
             run_codegen_phase(raw_prettyprint_file, translation_unit);
+            fclose(raw_prettyprint_file);
 
-            rewind(raw_prettyprint_file);
-
+            raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
             fclose(raw_prettyprint_file);
         }
@@ -3721,7 +3749,8 @@ static void native_compilation(translation_unit_t* translation_unit,
         const char* prettyprinted_filename, 
         char remove_input)
 {
-    if (CURRENT_CONFIGURATION->do_not_compile)
+    if (CURRENT_CONFIGURATION->do_not_compile
+            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
     if (remove_input)
@@ -3935,7 +3964,8 @@ static void embed_files(void)
 
         // We do not have to embed linker data
         if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
-                || current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+                // Or languages that we know that cannot be embedded
+                || ((current_extension->source_kind & SOURCE_KIND_DO_NOT_EMBED) == SOURCE_KIND_DO_NOT_EMBED))
         {
             continue;
         }
@@ -3971,7 +4001,7 @@ static void embed_files(void)
                 // Do nothing if we are told not to embed
                 continue;
             }
-            
+
             // Remember the embed mode to run the collective embed procedure later
             ERROR_CONDITION(num_embed_modes_seen == MAX_EMBED_MODES, "Too many embed modes. Max is %d", MAX_EMBED_MODES);
             int k; 
@@ -4336,7 +4366,8 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
 
 static void link_objects(void)
 {
-    if (CURRENT_CONFIGURATION->do_not_link)
+    if (CURRENT_CONFIGURATION->do_not_link
+            || CURRENT_CONFIGURATION->debug_options.do_not_codegen)
         return;
 
     int j;
@@ -4518,6 +4549,26 @@ void load_compiler_phases(compilation_configuration_t* config)
 
 }
 
+static compilation_configuration_t* get_sublanguage_configuration(
+        source_language_t source_language,
+        compilation_configuration_t* fallback_config)
+{
+    int i;
+    for (i = 0; sublanguage_profile_map[i].sublanguage != SOURCE_LANGUAGE_UNKNOWN; i++)
+    {
+        if (sublanguage_profile_map[i].sublanguage == source_language)
+        {
+            compilation_configuration_t* profile =
+                get_compilation_configuration(sublanguage_profile_map[i].profile);
+
+            if (profile != NULL)
+                return profile;
+        }
+    }
+
+    return fallback_config;
+}
+
 
 // Useful for debugging sessions
 void _enable_debug(void)
@@ -4598,16 +4649,15 @@ static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 
 
 static void print_memory_report(void)
 {
-#ifdef HAVE_MALLINFO
     char c[256];
-
-    struct mallinfo mallinfo_report = mallinfo();
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Memory report\n");
     fprintf(stderr, "-------------\n");
     fprintf(stderr, "\n");
 
+#ifdef HAVE_MALLINFO
+    struct mallinfo mallinfo_report = mallinfo();
     print_human(c, mallinfo_report.arena);
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
             c);
@@ -4634,6 +4684,7 @@ static void print_memory_report(void)
             c);
 
     fprintf(stderr, "\n");
+#endif
 
     unsigned long long accounted_memory = 0;
     //
@@ -4668,7 +4719,7 @@ static void print_memory_report(void)
         fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
         fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
     }
-    
+
     accounted_memory += char_trie_used_memory();
     print_human(c, char_trie_used_memory());
     fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
@@ -4680,10 +4731,15 @@ static void print_memory_report(void)
     accounted_memory += symbols_used_memory();
     print_human(c, symbols_used_memory());
     fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
+    fprintf(stderr, "    - Size of each symbol (bytes): %zu\n", sizeof(scope_entry_t));
+    fprintf(stderr, "    - Size of entity specifiers (bytes): %zu\n", sizeof(entity_specifiers_t));
 
     accounted_memory += scope_used_memory();
     print_human(c, scope_used_memory());
     fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
+    fprintf(stderr, "    - Size of a scope (bytes): %zu\n", sizeof(scope_t));
+    fprintf(stderr, "    - Size of a declaration context (bytes): %zu\n", sizeof(decl_context_t));
+    fprintf(stderr, "    - Size of a temporary gathering context structure (bytes): %zu\n", sizeof(gather_decl_spec_t));
 
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
@@ -4745,9 +4801,6 @@ static void print_memory_report(void)
     }
 
     fprintf(stderr, "\n");
-#else
-    fprintf(stderr, "Memory statistics are not available in this environment\n");
-#endif
 }
 
 type_environment_t* get_environment(const char* env_id)

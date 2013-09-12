@@ -29,6 +29,7 @@
 #include "tl-outline-info.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-nanos.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 #include "cxx-diagnostic.h"
 #include "fortran03-typeutils.h"
 
@@ -392,6 +393,12 @@ namespace TL { namespace Nanox {
 
         _basic_reduction_map_openmp[red] = function_sym;
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::Utils::Fortran::append_used_modules(construct.retrieve_context(),
+                    function_sym.get_related_scope());
+        }
+
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
         return function_sym;
@@ -399,13 +406,19 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::create_reduction_function(OpenMP::Reduction* red,
             Nodecl::NodeclBase construct,
+            TL::Type reduction_type,
             TL::Symbol& basic_reduction_function,
             TL::Symbol& vector_reduction_function)
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             basic_reduction_function = create_basic_reduction_function_c(red, construct);
-            vector_reduction_function = create_vector_reduction_function_c(red, construct);
+
+            // This is not yet well supported in Nanos++
+            if (!reduction_type.is_array())
+            {
+                vector_reduction_function = create_vector_reduction_function_c(red, construct);
+            }
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
@@ -452,6 +465,8 @@ namespace TL { namespace Nanox {
         _reduction_cleanup_map[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
+
+        Nodecl::Utils::Fortran::append_used_modules(construct.retrieve_context(), function_sym.get_related_scope());
 
         return function_sym;
     }
@@ -518,24 +533,40 @@ namespace TL { namespace Nanox {
         {
             std::string nanos_red_name = "nanos_red_" + (*it)->get_symbol().get_name();
 
-            OpenMP::Reduction *reduction = (*it)->get_reduction_info();
-            ERROR_CONDITION(reduction == NULL, "Invalid reduction info", 0);
+            std::pair<OpenMP::Reduction*, TL::Type> reduction_info = (*it)->get_reduction_info();
+            OpenMP::Reduction* reduction = reduction_info.first;
+            TL::Type reduction_type = reduction_info.second;
 
-            TL::Type reduction_type = (*it)->get_symbol().get_type();
             if (reduction_type.is_any_reference())
                 reduction_type = reduction_type.references_to();
-            Source element_size;
-            if (IS_FORTRAN_LANGUAGE
-                    && reduction_type.is_fortran_array())
+
+            TL::Type reduction_element_type = reduction_type;
+            if (IS_FORTRAN_LANGUAGE)
             {
-                while (reduction_type.is_fortran_array())
-                    reduction_type = reduction_type.array_element();
+                while (reduction_element_type.is_fortran_array())
+                    reduction_element_type = reduction_element_type.array_element();
+            }
+            else
+            {
+                while (reduction_element_type.is_array())
+                    reduction_element_type = reduction_element_type.array_element();
+            }
 
-                // We need to parse this bit in Fortran
-                Source number_of_bytes;
-                number_of_bytes << "SIZE(" << (*it)->get_symbol().get_name() << ") * " << reduction_type.get_size();
+            Source element_size;
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                if (reduction_type.is_fortran_array())
+                {
+                    // We need to parse this bit in Fortran
+                    Source number_of_bytes;
+                    number_of_bytes << "SIZE(" << (*it)->get_symbol().get_name() << ") * " << reduction_element_type.get_size();
 
-                element_size << as_expression(number_of_bytes.parse_expression(construct));
+                    element_size << as_expression(number_of_bytes.parse_expression(construct));
+                }
+                else
+                {
+                    element_size << "sizeof(" << as_type(reduction_type) << ")";
+                }
             }
             else
             {
@@ -551,7 +582,7 @@ namespace TL { namespace Nanox {
             Source num_scalars;
 
             TL::Symbol basic_reduction_function, vector_reduction_function;
-            create_reduction_function(reduction, construct, basic_reduction_function, vector_reduction_function);
+            create_reduction_function(reduction, construct, reduction_type, basic_reduction_function, vector_reduction_function);
             (*it)->reduction_set_basic_function(basic_reduction_function);
 
             thread_initializing_reduction_info
@@ -559,7 +590,8 @@ namespace TL { namespace Nanox {
                 << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                 << "if (err != NANOS_OK)"
                 <<     "nanos_handle_error(err);"
-                << nanos_red_name << "->original = (void*)&" << (*it)->get_symbol().get_name() << ";"
+                << nanos_red_name << "->original = (void*)" 
+                <<            (reduction_type.is_array() ? "" : "&") << (*it)->get_symbol().get_name() << ";"
                 << allocate_private_buffer
                 << nanos_red_name << "->vop = "
                 <<      (vector_reduction_function.is_valid() ? as_symbol(vector_reduction_function) : "0") << ";"
@@ -575,23 +607,32 @@ namespace TL { namespace Nanox {
             if (IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
             {
-                // No array reductions are possible in C/C++
-                num_scalars << "1";
+                if (reduction_type.is_array())
+                {
+                    num_scalars << "sizeof(" << as_type(reduction_type) << ") / sizeof(" << as_type(reduction_element_type) <<")";
+                }
+                else
+                {
+                    num_scalars << "1";
+                }
+
                 allocate_private_buffer
                     << "err = nanos_malloc(&" << nanos_red_name << "->privates, sizeof(" << as_type(reduction_type) << ") * nanos_num_threads, "
                     << "\"" << construct.get_filename() << "\", " << construct.get_line() << ");"
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
                     << nanos_red_name << "->descriptor = " << nanos_red_name << "->privates;"
-                    << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                    << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_private_type().get_pointer_to() ) << ")" << nanos_red_name << "->privates;"
                     ;
 
 
                 thread_fetching_reduction_info
-                    << "err = nanos_reduction_get(&" << nanos_red_name << ", &" << (*it)->get_symbol().get_name() << ");"
+                    << "err = nanos_reduction_get(&" << nanos_red_name << ", " 
+                    << (reduction_type.is_array() ? "" : "&") << (*it)->get_symbol().get_name() << ");"
+
                     << "if (err != NANOS_OK)"
                     <<     "nanos_handle_error(err);"
-                    << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_field_type() ) << ")" << nanos_red_name << "->privates;"
+                    << "rdv_" << (*it)->get_field_name() << " = (" <<  as_type( (*it)->get_private_type().get_pointer_to() ) << ")" << nanos_red_name << "->privates;"
                     ;
                 cleanup_code
                     << nanos_red_name << "->cleanup = nanos_free0;"
@@ -708,9 +749,21 @@ namespace TL { namespace Nanox {
             {
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
-                    reduction_code
-                        << "rdv_" << (*it)->get_field_name() << "[nanos_omp_get_thread_num()] = rdp_" << (*it)->get_symbol().get_name() << ";"
-                        ;
+                    if ((*it)->get_private_type().is_array())
+                    {
+                        reduction_code
+                            << "__builtin_memcpy(rdv_" << (*it)->get_field_name() << "[nanos_omp_get_thread_num()],"
+                            << "rdp_" << (*it)->get_symbol().get_name() << ","
+                            << " sizeof(" << as_type((*it)->get_private_type()) << "));"
+                            ;
+                    }
+                    else
+                    {
+                        reduction_code
+                            << "rdv_" << (*it)->get_field_name() << "[nanos_omp_get_thread_num()] "
+                            << "= rdp_" << (*it)->get_symbol().get_name() << ";"
+                            ;
+                    }
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {

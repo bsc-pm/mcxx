@@ -50,9 +50,14 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase upper = range.get_upper();
         Nodecl::NodeclBase step = range.get_step();
 
-        Source struct_size;
-        Source dynamic_size;
-        Source struct_arg_type_name = structure_symbol.get_name();
+        Source struct_size, dynamic_size, struct_arg_type_name;
+
+        struct_arg_type_name
+            << ((structure_symbol.get_type().is_template_specialized_type()
+                        &&  structure_symbol.get_type().is_dependent()) ? "typename " : "")
+            << structure_symbol.get_qualified_name(enclosing_function.get_scope())
+            ;
+
         struct_size << "sizeof( " << struct_arg_type_name << " )" << dynamic_size;
 
         Source immediate_decl;
@@ -88,8 +93,20 @@ namespace TL { namespace Nanox {
         }
         else
         {
+            Source schedule_name;
+
+            if (Nanos::Version::interface_is_at_least("openmp", 8))
+            {
+                schedule_name << "nanos_omp_sched_" << schedule.get_text();
+            }
+            else
+            {
+                // We used nanos_omp_sched in versions prior to 8
+                schedule_name << "omp_sched_" << schedule.get_text();
+            }
+
             schedule_setup
-                <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
+                <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(" << schedule_name << ");"
                 <<     "if (current_ws_policy == 0)"
                 <<         "nanos_handle_error(NANOS_UNIMPLEMENTED);"
                 <<     "nanos_chunk = " << as_expression(schedule.get_chunk()) << ";"

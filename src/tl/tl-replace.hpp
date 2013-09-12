@@ -52,7 +52,7 @@ namespace TL
             {
                 if (_replace.find(sym.get_symbol()) != _replace.end())
                 {
-                    file << _replace[sym.get_symbol()];
+                    *file << _replace[sym.get_symbol()];
                 }
                 else
                 {
@@ -68,7 +68,7 @@ namespace TL
             {
                 if (_replace.find(sym.get_symbol()) != _replace.end())
                 {
-                    file << _replace[sym.get_symbol()];
+                    *file << _replace[sym.get_symbol()];
                 }
                 else
                 {

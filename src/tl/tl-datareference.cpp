@@ -375,10 +375,16 @@ namespace TL
                 }
                 else
                 {
+                    // a.x
+                    // If the base address of the 'a' expression contains a Nodecl::Reference, remove it
+                    Nodecl::NodeclBase base_address = _data_ref._base_address;
+                    if (base_address.is<Nodecl::Reference>())
+                        base_address = base_address.as<Nodecl::Reference>().get_rhs();
+
                     _data_ref._base_address =
                         Nodecl::Reference::make(
                                 Nodecl::ClassMemberAccess::make(
-                                    _data_ref._base_address,
+                                    base_address,
                                     member.get_member().shallow_copy(),
                                     member.get_member_form().shallow_copy(),
                                     t,

@@ -55,6 +55,12 @@ namespace TL { namespace Nanox {
         OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
         outline_info_register.add_private(ind_var);
 
+        Source loop_name;
+        if (!construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().is_null())
+        {
+            loop_name << " [ " << as_symbol(construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+        }
+
         if (range.get_step().is_constant())
         {
             const_value_t* cval = range.get_step().get_constant();
@@ -71,7 +77,7 @@ namespace TL { namespace Nanox {
             {
 
                 for_code
-                    << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    << "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                     << ind_var.get_name() << " <= nanos_item_loop.upper;"
                     << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                     << "{"
@@ -80,7 +86,7 @@ namespace TL { namespace Nanox {
             else
             {
                 for_code
-                    << "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                    << "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                     << ind_var.get_name() << " >= nanos_item_loop.upper;"
                     << ind_var.get_name() << " += " << cval_nodecl.prettyprint() << ")"
                     << "{"
@@ -107,7 +113,7 @@ namespace TL { namespace Nanox {
                 <<   "while (nanos_item_loop.execute)"
                 <<   "{"
                 <<       instrument_loop_opt
-                <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                <<       "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                 <<         ind_var.get_name() << " <= nanos_item_loop.upper;"
                 <<         ind_var.get_name() << " += nanos_step)"
                 <<       "{"
@@ -122,7 +128,7 @@ namespace TL { namespace Nanox {
                 <<   "while (nanos_item_loop.execute)"
                 <<   "{"
                 <<       instrument_loop_opt
-                <<       "for (" << ind_var.get_name() << " = nanos_item_loop.lower;"
+                <<       "for " << loop_name << " (" << ind_var.get_name() << " = nanos_item_loop.lower;"
                 <<         ind_var.get_name() << " >= nanos_item_loop.upper;"
                 <<         ind_var.get_name() << " += nanos_step)"
                 <<       "{"
@@ -224,7 +230,7 @@ namespace TL { namespace Nanox {
             reduction_code_src << statement_placeholder(reduction_code);
         }
 
-        lastprivate_code << update_lastprivates(outline_info);
+        lastprivate_code << update_lastprivates(outline_info, "nanos_item_loop");
 
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
@@ -297,10 +303,14 @@ namespace TL { namespace Nanox {
             Nodecl::Utils::SimpleSymbolMap *symbol_map = NULL;
             device->create_outline(info, outline_placeholder, output_statements, symbol_map);
 
+
             Source extended_outline_distribute_loop_source;
             extended_outline_distribute_loop_source
-                << "nanos_err_t err = nanos_omp_set_implicit(nanos_current_wd());"
+                << "{"
+                << "nanos_err_t err;"
+                << "err = nanos_omp_set_implicit(nanos_current_wd());"
                 << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
                 << outline_distribute_loop_source
                 ;
 
@@ -315,14 +325,32 @@ namespace TL { namespace Nanox {
                 Source::source_language = SourceLanguage::Current;
             }
 
+            ERROR_CONDITION(!output_statements.is<Nodecl::List>(), "Unreachable code", 0);
+
             // Duplicate labels
             Nodecl::Utils::LabelSymbolMap label_symbol_map1(symbol_map, output_statements, outline_placeholder);
-            outline_placeholder1.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder1, label_symbol_map1));
+            Nodecl::List updated_output_statements =
+                Nodecl::Utils::deep_copy(output_statements, outline_placeholder1, label_symbol_map1).as<Nodecl::List>();
+
+            // Split the output statements in two new lists: one for the nested
+            // function definitions and other for the rest of nodes
+            Nodecl::List output_statements_filtered, nested_function_definitions;
+            for (Nodecl::List::iterator it2 = updated_output_statements.begin();
+                    it2 != updated_output_statements.end();
+                    ++it2)
+            {
+                if (it2->is<Nodecl::FunctionCode>())
+                    nested_function_definitions.append(*it2);
+                else
+                    output_statements_filtered.append(*it2);
+            }
+
+            outline_placeholder1.replace(output_statements_filtered);
 
             if (!outline_placeholder2.is_null())
             {
-                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, output_statements, outline_placeholder);
-                outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements, outline_placeholder2, label_symbol_map2));
+                Nodecl::Utils::LabelSymbolMap label_symbol_map2(symbol_map, output_statements_filtered, outline_placeholder);
+                outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements_filtered, outline_placeholder2, label_symbol_map2));
             }
 
             if (there_are_reductions(outline_info))
@@ -331,8 +359,10 @@ namespace TL { namespace Nanox {
                 perform_partial_reduction(outline_info, reduction_code);
             }
 
-            outline_placeholder.replace(Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map));
+            Nodecl::NodeclBase updated_outline_code = Nodecl::Utils::deep_copy(outline_code, outline_placeholder, *symbol_map);
+            outline_placeholder.replace(updated_outline_code);
 
+            Nodecl::Utils::append_items_after(outline_placeholder, nested_function_definitions);
             delete symbol_map;
         }
 

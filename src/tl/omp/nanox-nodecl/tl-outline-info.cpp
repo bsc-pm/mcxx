@@ -202,6 +202,39 @@ namespace TL { namespace Nanox {
     }
 
 
+    void OutlineInfoRegisterEntities::add_shared_alloca(Symbol sym)
+    {
+        ERROR_CONDITION(!IS_C_LANGUAGE && !IS_CXX_LANGUAGE, "This function is only for C/C++", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED_ALLOCA);
+
+        if (is_new)
+        {
+            Type t = sym.get_type();
+            if (t.is_any_reference())
+            {
+                t = t.references_to();
+            }
+
+            if (t.is_array())
+            {
+                t = t.array_element().get_pointer_to();
+            }
+
+            outline_info.set_field_type(t.get_unqualified_type());
+
+            TL::Type in_outline_type = t.get_unqualified_type();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+        }
+    }
+
     // Only used in task expressions to store the return results
     void OutlineInfoRegisterEntities::add_alloca(Symbol sym, TL::DataReference& data_ref)
     {
@@ -214,7 +247,7 @@ namespace TL { namespace Nanox {
 
         if (is_new)
         {
-            Type t = sym.get_type();
+            Type t = data_ref.get_type();
             if (t.is_any_reference())
             {
                 t = t.references_to();
@@ -646,7 +679,7 @@ namespace TL { namespace Nanox {
 
             if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
             {
-                add_alloca(sym, data_ref);
+                add_shared_alloca(sym);
             }
             else
             {
@@ -792,12 +825,14 @@ namespace TL { namespace Nanox {
         outline_info.set_conditional_capture_value(condition);
     }
 
-    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction)
+    void OutlineInfoRegisterEntities::add_reduction(TL::Symbol symbol,
+            TL::Type reduction_type,
+            OpenMP::Reduction* reduction)
     {
         bool is_new = false;
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol, is_new);
         outline_info.set_sharing(OutlineDataItem::SHARING_REDUCTION);
-        outline_info.set_reduction_info(reduction);
+        outline_info.set_reduction_info(reduction, reduction_type);
 
         TL::Type t = symbol.get_type();
         if (t.is_any_reference())
@@ -824,7 +859,7 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
         }
 
-        outline_info.set_private_type(t);
+        outline_info.set_private_type(reduction_type);
     }
 
     void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
@@ -1045,10 +1080,11 @@ namespace TL { namespace Nanox {
             {
                 TL::Symbol reduction_sym = reduction.get_reductor().get_symbol();
                 TL::Symbol symbol = reduction.get_reduced_symbol().get_symbol();
+                TL::Type reduction_type = reduction.get_reduction_type().get_type();
 
                 OpenMP::Reduction* red = OpenMP::Reduction::get_reduction_info_from_symbol(reduction_sym);
                 ERROR_CONDITION(red == NULL, "Invalid value for reduction", 0);
-                add_reduction(symbol, red);
+                add_reduction(symbol, reduction_type, red);
             }
 
             void visit(const Nodecl::OpenMP::Target& target)
@@ -1271,18 +1307,66 @@ namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
     {
-        std::string outline_name;
+        std::string orig_function_name = function_symbol.get_name();
+
+        std::string prefix = "", suffix = "";
 
         Counter& task_counter = CounterManager::get_counter("nanos++-outline");
-        std::stringstream ss;
-        ss << "ol_";
-        if (IS_FORTRAN_LANGUAGE && function_symbol.is_nested_function())
+        if (IS_FORTRAN_LANGUAGE)
         {
-            TL::Symbol enclosing_function_symbol = function_symbol.get_scope().get_related_symbol();
-            ss << enclosing_function_symbol.get_name() << "_";
+            std::stringstream ss;
+            ss << "ol_";
+
+            if (function_symbol.is_nested_function())
+            {
+                TL::Symbol enclosing_function_symbol = function_symbol.get_scope().get_related_symbol();
+                ss << enclosing_function_symbol.get_name() << "_";
+
+                if (enclosing_function_symbol.is_in_module())
+                {
+                    ss << enclosing_function_symbol.in_module().get_name() << "_";
+                }
+            }
+            else if (function_symbol.is_in_module())
+            {
+                ss << function_symbol.in_module().get_name() << "_";
+            }
+
+            ss << (int)task_counter;
+
+            unsigned int hash_int = simple_hash_str(ss.str().c_str());
+
+            // Use this base to maximally compact the hash
+            static char base_syms[] = "0123456789abcdefghijklmnopqrstuvwxyz_";
+            const unsigned int nbase =
+                sizeof(base_syms) / sizeof(base_syms[0]) - 1; // Do not count \0
+
+            if (hash_int == 0)
+            {
+                prefix = "0";
+            }
+            else
+            {
+                while (hash_int > 0)
+                {
+                    prefix += base_syms[(hash_int % nbase)];
+                    hash_int /= nbase;
+                }
+            }
+
+            // suffix is left empty here as we included the task_counter in our hash
         }
-        ss << function_symbol.get_name() << "_" << (int)task_counter;
-        outline_name = ss.str();
+        else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            // C and C++ do not define limits on the identifiers
+            prefix = "ol_";
+
+            std::stringstream ss;
+            ss << "_" << (int)task_counter;
+            suffix = ss.str();
+        }
+
+        std::string outline_name = prefix + function_symbol.get_name() + suffix;
 
         task_counter++;
 

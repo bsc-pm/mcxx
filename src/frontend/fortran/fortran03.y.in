@@ -175,6 +175,8 @@ static const char* safe_asttext(AST a)
 
 %}
 
+%token END 0 "end of input"
+
 // Rules
 %type<ast> data_stmt_set
 %type<ast> common_stmt
@@ -1050,8 +1052,12 @@ type_param_value : int_expr
     $$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
-type_spec : intrinsic_type_spec
-| derived_type_spec
+/* Prioritize intrinsic types */
+type_spec : intrinsic_type_spec %dprec 2
+| derived_type_spec %dprec 1
+{
+    $$ = ASTMake1(AST_TYPE_NAME, $1, ast_get_locus($1), NULL);
+}
 ;
 declaration_type_spec : intrinsic_type_spec
 | TOK_TYPE '(' derived_type_spec ')'
@@ -3179,6 +3185,9 @@ outer_shared_do_construct : label_do_stmt block shared_term_do_construct
     $$ = $1;
 }
 ;
+shared_term_do_construct : outer_shared_do_construct_2
+| inner_shared_do_construct
+;
 outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construct
 {
     AST do_statement = $1;
@@ -3192,9 +3201,6 @@ outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construc
 
     $$ = $1;
 }
-;
-shared_term_do_construct : outer_shared_do_construct_2
-| inner_shared_do_construct
 ;
 inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 {

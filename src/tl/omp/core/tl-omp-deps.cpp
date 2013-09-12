@@ -93,6 +93,12 @@ namespace TL { namespace OpenMP {
         }
     };
 
+    void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds)
+    {
+        DataRefVisitorDep data_ref_visitor_dep(ds);
+        data_ref_visitor_dep.walk(data_ref);
+    }
+
     static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
             DataSharingEnvironment& data_sharing, 
             DependencyDirection dep_attr)

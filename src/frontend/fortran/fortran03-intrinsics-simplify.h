@@ -32,6 +32,7 @@
 #include <float.h>
 #include <complex.h>
 
+#include "fortran03-cexpr.h"
 #include "cxx-typeutils.h"
 
 static nodecl_t nodecl_make_int_literal(int n)
@@ -1005,123 +1006,6 @@ static nodecl_t simplify_achar(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
 }
 
 
-static int flatten_array_count_elements(const_value_t* v)
-{
-    if (const_value_is_array(v))
-    {
-        int r = 0;
-        int i, N = const_value_get_num_elements(v);
-        for (i = 0; i < N; i++)
-        {
-            r += flatten_array_count_elements(const_value_get_element_num(v, i));
-        }
-
-        return r;
-    }
-    else
-    {
-        return 1;
-    }
-}
-
-void flatten_array_rec(const_value_t* v, const_value_t*** scalar_item)
-{
-    if (const_value_is_array(v))
-    {
-        int i, N = const_value_get_num_elements(v);
-        for (i = 0; i < N; i++)
-        {
-            flatten_array_rec(const_value_get_element_num(v, i), scalar_item);
-        }
-    }
-    else
-    {
-        (**scalar_item) = v;
-        (*scalar_item)++;
-    }
-}
-
-static const_value_t* flatten_array(const_value_t* v)
-{
-    int N = flatten_array_count_elements(v);
-    const_value_t* flattened_items[N];
-
-    const_value_t** pos = flattened_items;
-    flatten_array_rec(v, &pos);
-
-    const_value_t* result = const_value_make_array(N, flattened_items);
-
-    return result;
-}
-
-static int flatten_array_count_elements_with_mask(const_value_t* v, const_value_t* mask)
-{
-    if (const_value_is_array(v) != const_value_is_array(mask))
-            return -1;
-
-    if (const_value_is_array(v))
-    {
-        int r = 0;
-        int i, N = const_value_get_num_elements(v);
-        for (i = 0; i < N; i++)
-        {
-            r += flatten_array_count_elements_with_mask(
-                    const_value_get_element_num(v, i),
-                    const_value_get_element_num(mask, i));
-        }
-
-        return r;
-    }
-    else 
-    {
-        if (const_value_is_nonzero(mask))
-            return 1;
-        else
-            return 0;
-    }
-}
-
-void flatten_array_mask_rec(const_value_t* v, const_value_t* mask, const_value_t*** scalar_item)
-{
-    if (const_value_is_array(v))
-    {
-        int i, N = const_value_get_num_elements(v);
-        for (i = 0; i < N; i++)
-        {
-            flatten_array_mask_rec(
-                    const_value_get_element_num(v, i), 
-                    const_value_get_element_num(mask, i), 
-                    scalar_item);
-        }
-    }
-    else
-    {
-        if (const_value_is_nonzero(mask))
-        {
-            (**scalar_item) = v;
-            (*scalar_item)++;
-        }
-    }
-}
-
-static const_value_t* flatten_array_with_mask(const_value_t* v, const_value_t* mask)
-{
-    if (mask == NULL)
-        return flatten_array(v);
-
-    int N = flatten_array_count_elements_with_mask(v, mask);
-    if (N < 0)
-        return NULL;
-
-    const_value_t* flattened_items[N];
-
-    const_value_t** pos = flattened_items;
-    flatten_array_mask_rec(v, mask, &pos);
-
-    const_value_t* result = const_value_make_array(N, flattened_items);
-
-    return result;
-}
 
 static void compute_factors_of_array_indexing(
         int N,
@@ -1360,11 +1244,11 @@ static nodecl_t simplify_reshape(scope_entry_t* entry UNUSED_PARAMETER, int num_
 
         type_t *base_type = fortran_get_rank0_type(nodecl_get_type(arguments[0]));
 
-        const_value_t* flattened_source = flatten_array(nodecl_get_constant(arguments[0]));
+        const_value_t* flattened_source = fortran_flatten_array(nodecl_get_constant(arguments[0]));
         const_value_t* flattened_pad = NULL;
         if (pad != NULL)
         {
-            flattened_pad = flatten_array(pad);
+            flattened_pad = fortran_flatten_array(pad);
         }
 
         const_value_t* val = reshape_array_from_flattened(
@@ -1564,7 +1448,7 @@ static const_value_t* simplify_maxminval_aux(scope_entry_t* entry UNUSED_PARAMET
             || (num_dimensions == 1))
     {
         // Case 1) Reduce all values into a scalar
-        const_value_t* values = flatten_array_with_mask(array_constant, mask_constant);
+        const_value_t* values = fortran_flatten_array_with_mask(array_constant, mask_constant);
         int num_values = const_value_get_num_elements(values);
         if (num_values > 0)
         {
@@ -2487,6 +2371,40 @@ static nodecl_t simplify_tanh(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             NULL
 #endif
             );
+}
+
+static nodecl_t simplify_trim(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t string = arguments[0];
+
+    if (!nodecl_is_constant(string))
+        return nodecl_null();
+
+    const_value_t* cval = nodecl_get_constant(string);
+
+    // Should not happen
+    if (!const_value_is_string(cval))
+        return nodecl_null();
+
+    const char* str = const_value_string_unpack_to_string(cval);
+
+    // Should not happen
+    if (str == NULL)
+        return nodecl_null();
+
+    char* new_str = xstrdup(str);
+    char* right = &(new_str[strlen(new_str) - 1]);
+
+    while (*right == ' ')
+        right--;
+
+    right++; *right = '\0';
+
+    const_value_t* trimmed_string = const_value_make_string(new_str, strlen(new_str));
+
+    xfree(new_str);
+
+    return const_value_to_nodecl(trimmed_string);
 }
 
 static char value_is_positive(const_value_t* cval)

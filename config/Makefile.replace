@@ -44,6 +44,10 @@ config_edit = \
      -e 's|@SIMD_INCLUDES[@]|$(SIMD_INCLUDES)|g' \
      -e 's|@MPICC[@]|$(MPICC)|g' \
      -e 's|@MPICXX[@]|$(MPICXX)|g' \
+     -e 's|@DISABLEMPI_ICC[@]|$(DISABLEMPI_ICC)|g' \
+     -e 's|@DISABLEMPI_GCC[@]|$(DISABLEMPI_GCC)|g' \
+     -e 's|@INTEL_OMP_LIB[@]|$(INTEL_OMP_LIB)|g' \
+     -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
     $(END)
 
 # Cross compiler profile names

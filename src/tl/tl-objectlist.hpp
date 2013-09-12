@@ -168,7 +168,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return An element of type Q with all the reduced values of the list
          */
         template <class Q>
-        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter) const
+        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter = Q()) const
         {
             Q result;
             reduction_helper(result, this->begin(), red_func, neuter);
@@ -534,6 +534,18 @@ std::string concat_strings(const ObjectList<_T>& string_list, const std::string&
         ss << *it;
         result += ss.str();
     }
+
+    return result;
+}
+
+
+// Used for reductions that flatten lists of lists
+template <typename T>
+ObjectList<T> append_two_lists(const std::pair<ObjectList<T>, ObjectList<T> >& p)
+{
+    ObjectList<T> result;
+    result.append(p.first);
+    result.append(p.second);
 
     return result;
 }

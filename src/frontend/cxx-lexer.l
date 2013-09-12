@@ -1194,7 +1194,21 @@ type {
 }
 
 "__int128" {
-    parse_token_text(); return TOKEN_INT128;
+    parse_token_text();
+#if HAVE_INT128
+    return TOKEN_INT128;
+#else
+    return IDENTIFIER;
+#endif
+}
+
+"__float128" {
+    parse_token_text();
+#ifdef HAVE_QUADMATH_H
+    return TOKEN_FLOAT128;
+#else
+    return IDENTIFIER;
+#endif
 }
 
  /* Special tokens for subparsing */
@@ -1257,8 +1271,11 @@ type {
 @ref@ { parse_token_text(); return '&'; }
  /*!endif*/
 
-@byte@ { parse_token_text(); return MCC_BYTE; }
+@mcc_byte@ { parse_token_text(); return MCC_BYTE; }
+@byte@     { /* Deprecated */
+             parse_token_text(); return MCC_BYTE; }
 @mcc_bool@ { parse_token_text(); return MCC_BOOL; }
+@mcc_mask@ { parse_token_text(); return MCC_MASK; }
 
 @reb-ref@ { parse_token_text(); return MCC_REBINDABLE_REFERENCE; }
 

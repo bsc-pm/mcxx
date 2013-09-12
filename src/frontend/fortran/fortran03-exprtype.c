@@ -33,6 +33,7 @@
 #include "fortran03-typeutils.h"
 #include "fortran03-intrinsics.h"
 #include "fortran03-codegen.h"
+#include "fortran03-cexpr.h"
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
 #include "cxx-ast.h"
@@ -317,7 +318,8 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
         }
         else
         {
-            nodecl_t konst = const_value_to_nodecl(nodecl_get_constant(*nodecl_output));
+            nodecl_t konst = const_value_to_nodecl_with_basic_type(nodecl_get_constant(*nodecl_output),
+                    fortran_get_rank0_type(nodecl_get_type(*nodecl_output)));
             fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s' with a constant value of '%s'\n",
                     ast_location(expression),
                     fortran_prettyprint_in_buffer(expression),
@@ -350,11 +352,24 @@ static void check_add_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
-        nodecl_t* nodecl_output, 
-        type_t** current_type, int *num_items)
+static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type);
+
+static void check_ac_value_list(
+        AST ac_value_list,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        type_t** current_type,
+        const_value_t** ac_value_const)
 {
+    int ac_value_length = 0;
     AST it;
+    for_each_element(ac_value_list, it)
+    {
+        ac_value_length++;
+    }
+
+    const_value_t** ac_constant_values = xcalloc(ac_value_length, sizeof(*ac_constant_values));
+    int item_position = 0;
     for_each_element(ac_value_list, it)
     {
         AST ac_value = ASTSon1(it);
@@ -377,10 +392,16 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             if (stride != NULL)
             {
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
+                if (nodecl_is_err_expr(nodecl_stride))
+                {
+                    *nodecl_output = nodecl_stride;
+                    return;
+                }
             }
             else
             {
-                nodecl_stride = const_value_to_nodecl(const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
+                nodecl_stride = const_value_to_nodecl(
+                        const_value_get_one(/* bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1));
                 nodecl_set_locus_as(nodecl_stride, nodecl_upper);
             }
 
@@ -388,7 +409,14 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
 
             if (do_variable == NULL)
             {
-                running_error("%s: error: unknown symbol '%s' in ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: unknown symbol '%s' in ac-implied-do\n",
+                            ast_location(ac_do_variable), ASTText(ac_do_variable));
+                }
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(ac_do_variable));
+                *current_type = get_error_type();
+                return;
             }
 
             if (do_variable->kind == SK_UNDEFINED)
@@ -398,9 +426,29 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             }
             else if (do_variable->kind != SK_VARIABLE)
             {
-                running_error("%s: error: invalid name '%s' for ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid name '%s' for ac-implied-do\n",
+                            ast_location(ac_do_variable), ASTText(ac_do_variable));
+                }
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(ac_do_variable));
+                *current_type = get_error_type();
+                return;
             }
 
+            nodecl_t nodecl_ac_value = nodecl_null();
+            const_value_t* whole_range_constant = NULL;
+            check_ac_value_list(implied_do_ac_value, decl_context,
+                    &nodecl_ac_value, current_type, &whole_range_constant);
+
+            if (nodecl_is_err_expr(nodecl_ac_value))
+            {
+                *nodecl_output = nodecl_ac_value;
+                return;
+            }
+
+            const_value_t* implied_do_cval = NULL;
+            // Compute the constant if possible
             if (nodecl_is_constant(nodecl_lower)
                     && nodecl_is_constant(nodecl_upper)
                     && nodecl_is_constant(nodecl_stride))
@@ -408,6 +456,13 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 int val_lower = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_lower));
                 int val_upper = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_upper));
                 int val_stride = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_stride));
+
+                if (val_stride == 0)
+                {
+                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(stride));
+                    return;
+                }
 
                 int trip = (val_upper
                         - val_lower
@@ -418,7 +473,6 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 {
                     trip = 0;
                 }
-                (*num_items) += trip;
 
                 // Save information of the symbol
                 type_t* original_type = do_variable->type_information;
@@ -427,77 +481,89 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
                 // Set it as a PARAMETER of kind INTEGER (so we will effectively use its value)
                 do_variable->type_information = get_const_qualified_type(original_type);
 
-                int i;
-                int trip_count = 0;
-                if (val_stride > 0)
+                if (trip == 0)
                 {
+                    // empty range
+                    implied_do_cval = const_value_make_array(0, NULL);
+                }
+                else
+                {
+                    int stride_sign = 1;
+                    if (val_stride < 0)
+                        stride_sign = -1;
+
+                    const_value_t** const_value_list = xcalloc(trip, sizeof(*const_value_list));
+                    const_value_t** const_value_list_it = const_value_list;
+
+                    char all_constant = 1;
+                    int i;
                     for (i = val_lower;
-                            i <= val_upper;
+                            ((stride_sign * i) <= (stride_sign * val_upper)) && all_constant;
                             i+= val_stride)
                     {
                         // Set the value of the variable
                         do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
                         nodecl_set_locus_as(do_variable->value, nodecl_lower);
 
-                        check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
+                        nodecl_t nodecl_current_item = nodecl_null();
 
-                        trip_count++;
+                        const_value_t* current_constant = NULL;
+                        check_ac_value_list(implied_do_ac_value, decl_context,
+                                &nodecl_current_item,
+                                current_type,
+                                &current_constant);
+
+                        if (nodecl_is_err_expr(nodecl_current_item))
+                        {
+                            *nodecl_output = nodecl_current_item;
+                            return;
+                        }
+
+                        if (current_constant == NULL)
+                        {
+                            all_constant = 0;
+                        }
+                        else
+                        {
+                            *const_value_list_it = current_constant;
+                            const_value_list_it++;
+                        }
+
+                        // This node is useless now
+                        nodecl_free(nodecl_current_item);
                     }
-                }
-                else if (val_stride < 0)
-                {
-                    for (i = val_lower;
-                            i >= val_upper;
-                            i += val_stride)
+
+                    if (all_constant)
                     {
-                        // Set the value of the variable
-                        do_variable->value = const_value_to_nodecl(const_value_get_signed_int(i));
-                        nodecl_set_locus_as(do_variable->value, nodecl_lower);
-
-                        check_ac_value_list(implied_do_ac_value, decl_context, nodecl_output, current_type, num_items);
-
-                        trip_count++;
+                        implied_do_cval = const_value_make_array(trip, const_value_list);
+                        // this constant must always be rank-1
+                        implied_do_cval = fortran_flatten_array(implied_do_cval);
                     }
-                }
-                else
-                {
-                    error_printf("%s: error: step of implied-do is zero\n", ast_location(stride));
+
+                    xfree(const_value_list);
                 }
 
                 // Restore the variable used for the expansion
                 do_variable->type_information = original_type;
                 do_variable->value = original_value;
-
-                // The loop was empty!
-                // Nevertheless we have to check the expression
-                if (trip_count == 0)
-                {
-                    int current_num_items = 0;
-                    nodecl_t nodecl_ac_value = nodecl_null();
-                    check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
-                    // We ignore anything from that expression, though
-                }
-            }
-            else
-            {
-                int current_num_items = 0;
-                nodecl_t nodecl_ac_value = nodecl_null();
-                check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value, current_type, &current_num_items);
-
-                nodecl_t nodecl_implied_do = 
-                    nodecl_make_fortran_implied_do(
-                            nodecl_make_symbol(do_variable, ast_get_locus(ac_do_variable)),
-                            nodecl_make_range(nodecl_lower, 
-                                nodecl_upper, 
-                                nodecl_stride, 
-                                fortran_get_default_integer_type(),
-                                ast_get_locus(implied_do_control)),
-                            nodecl_ac_value,
-                            ast_get_locus(implied_do_control));
-                (*num_items) = -1;
-                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
             }
 
+            nodecl_t nodecl_implied_do =
+                nodecl_make_fortran_implied_do(
+                        nodecl_make_symbol(do_variable, ast_get_locus(ac_do_variable)),
+                        nodecl_make_range(
+                            nodecl_lower,
+                            nodecl_upper,
+                            nodecl_stride,
+                            fortran_get_default_integer_type(),
+                            ast_get_locus(implied_do_control)),
+                        nodecl_ac_value,
+                        ast_get_locus(implied_do_control));
+
+            nodecl_set_constant(nodecl_implied_do, implied_do_cval);
+            ac_constant_values[item_position] = implied_do_cval;
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
         }
         else
         {
@@ -513,32 +579,62 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context,
             {
                 *current_type = fortran_get_rank0_type(nodecl_get_type(nodecl_expr));
             }
-
-            if ((*num_items) >= 0)
+            else if (*current_type != NULL)
             {
-                type_t* expr_type = nodecl_get_type(nodecl_expr);
-
-                if (!is_array_type(expr_type))
+                if (!is_intrinsic_assignment(*current_type,
+                            fortran_get_rank0_type(nodecl_get_type(nodecl_expr))))
                 {
-                    (*num_items)++;
-                }
-                else
-                {
-                    int num_elements = array_type_get_total_number_of_elements(expr_type);
-                    if (num_elements >= 0)
+                    if (!checking_ambiguity())
                     {
-                        *num_items += num_elements;
+                        error_printf("%s: error: expression of type '%s' is not conformable in an array constructor of type '%s'\n", 
+                                nodecl_locus_to_str(nodecl_expr),
+                                fortran_print_type_str(fortran_get_rank0_type(nodecl_get_type(nodecl_expr))),
+                                fortran_print_type_str(*current_type));
                     }
-                    else
-                    {
-                        *num_items = -1;
-                    }
+                    *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                    *current_type = get_error_type();
+                    return;
                 }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
             }
 
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
+            if (nodecl_is_constant(nodecl_expr))
+            {
+                const_value_t* value = nodecl_get_constant(nodecl_expr);
+                if (!const_value_is_array(value))
+                {
+                    value = const_value_make_array(1, &value);
+                }
+
+                ac_constant_values[item_position] = value;
+            }
         }
+
+        item_position++;
     }
+
+    char all_constant = 1;
+    for (item_position = 0; (item_position < ac_value_length) && all_constant; item_position++)
+    {
+        if (ac_constant_values[item_position] == NULL)
+            all_constant = 0;
+    }
+
+    if (all_constant)
+    {
+        *ac_value_const = const_value_make_array(ac_value_length, ac_constant_values);
+        *ac_value_const = fortran_flatten_array(*ac_value_const);
+    }
+    else
+    {
+        *ac_value_const = NULL;
+    }
+
+    xfree(ac_constant_values);
 }
 
 static void check_array_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -546,104 +642,102 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     AST ac_spec = ASTSon0(expr);
     AST type_spec = ASTSon0(ac_spec);
 
+    type_t* ac_value_type = NULL;
     if (type_spec != NULL)
     {
-        error_printf("%s: error: type specifier in array constructors not supported\n",
-                ast_location(type_spec));
-        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
-        return;
+        ac_value_type = fortran_gather_type_from_declaration_type_spec(type_spec, decl_context);
+
+        if (is_error_type(ac_value_type))
+        {
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
     }
 
     AST ac_value_list = ASTSon1(ac_spec);
     nodecl_t nodecl_ac_value = nodecl_null();
-    type_t* ac_value_type = NULL;
-    int num_items = 0;
-    check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &num_items);
-
-    if (nodecl_is_err_expr(nodecl_ac_value))
+    const_value_t* ac_value_const = NULL;
+    if (ac_value_list != NULL)
     {
-        *nodecl_output = nodecl_ac_value;
-        return;
-    }
-
-    // Check for const-ness
-    int i, n, num_elements_flattened = 0;
-    char all_constants = 1;
-    char all_exprs_const_type = 1;
-    nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
-
-    const_value_t* constants[n + 1];
-    memset(constants, 0, sizeof(constants));
-
-    for (i = 0; i < n && all_constants; i++)
-    {
-        constants[i] = nodecl_get_constant(list[i]);
-        all_constants = all_constants && (constants[i] != NULL);
-        all_exprs_const_type = all_exprs_const_type
-            && (is_const_qualified_type(no_ref(nodecl_get_type(list[i]))));
-
-        if (constants[i] != NULL)
+        check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value, &ac_value_type, &ac_value_const);
+        if (is_error_type(ac_value_type))
         {
-            if (const_value_is_array(constants[i]))
-            {
-                num_elements_flattened += const_value_get_num_elements(constants[i]);
-            }
-            else
-            {
-                num_elements_flattened += 1;
-            }
-        }
-    }
-    xfree(list);
+            // Empty ranges may return null trees
+            if (nodecl_is_null(nodecl_ac_value))
+                nodecl_ac_value = nodecl_make_err_expr(ast_get_locus(expr));
 
-    if (num_items > 0)
-    {
-        ac_value_type = get_array_type_bounds(ac_value_type,
-                const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
-                const_value_to_nodecl(const_value_get_signed_int(num_items)),
-                decl_context);
-
-        if (all_constants || all_exprs_const_type)
-        {
-            ac_value_type = get_const_qualified_type(ac_value_type);
+            *nodecl_output = nodecl_ac_value;
+            return;
         }
     }
     else
     {
-        ac_value_type = get_array_type_bounds(ac_value_type, nodecl_null(), nodecl_null(), decl_context);
+        if (ac_value_type == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: invalid empty array-constructor without type-specifier\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+    }
+
+    if (ac_value_const != NULL)
+    {
+        int num_items = const_value_get_num_elements(ac_value_const);
+        ac_value_type = get_array_type_bounds(ac_value_type,
+                const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
+                const_value_to_nodecl(const_value_get_signed_int(num_items)),
+                decl_context);
+        ac_value_type = get_const_qualified_type(ac_value_type);
+    }
+    else
+    {
+        // Maybe the values of the array are not constant but the size is
+        int n;
+        nodecl_t* list = nodecl_unpack_list(nodecl_ac_value, &n);
+
+        int num_items = 0;
+
+        int i;
+        for (i = 0; (i < n) && (num_items >= 0); i++)
+        {
+            if (nodecl_get_kind(list[i]) != NODECL_FORTRAN_IMPLIED_DO)
+            {
+                // A single element
+                num_items++;
+            }
+            else if (nodecl_is_constant(list[i])) // nodecl_get_kind(list[i]) == NODECL_FORTRAN_IMPLIED_DO
+            {
+                // Well, this is an ac-implied-do but we know how many elements it has
+                num_items += const_value_get_num_elements(nodecl_get_constant(list[i]));
+            }
+            else // nodecl_get_kind(list[i]) == NODECL_FORTRAN_IMPLIED_DO && !nodecl_is_constant(list[i])
+            {
+                num_items = -1;
+            }
+        }
+
+        if (num_items < 0)
+        {
+            ac_value_type = get_array_type_bounds(ac_value_type, nodecl_null(), nodecl_null(), decl_context);
+        }
+        else
+        {
+            ac_value_type = get_array_type_bounds(ac_value_type,
+                    const_value_to_nodecl(const_value_get_one(fortran_get_default_integer_type_kind(), /* signed */ 1)),
+                    const_value_to_nodecl(const_value_get_signed_int(num_items)),
+                    decl_context);
+        }
     }
 
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
             ac_value_type,
             ast_get_locus(expr));
 
-    if (all_constants)
-    {
-        const_value_t* value_flattened[num_elements_flattened+1];
-        memset(value_flattened, 0, sizeof(value_flattened));
-
-        int j = 0;
-        for (i = 0; i < n; i++)
-        {
-            if (const_value_is_array(constants[i]))
-            {
-                int k, N = const_value_get_num_elements(constants[i]);
-                for (k = 0; k < N; k++)
-                {
-                    value_flattened[j] = const_value_get_element_num(constants[i], k);
-                    j++;
-                }
-            }
-            else
-            {
-                value_flattened[j] = constants[i];
-                j++;
-            }
-        }
-
-        const_value_t* array_val = const_value_make_array(num_elements_flattened, value_flattened);
-        nodecl_set_constant(*nodecl_output, array_val);
-    }
+    nodecl_set_constant(*nodecl_output, ac_value_const);
 }
 
 static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
@@ -876,7 +970,14 @@ static const_value_t* compute_subconstant_of_array(
             0, total_subscripts);
 }
 
-static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
+static void check_array_ref_(
+        AST expr,
+        decl_context_t decl_context,
+        nodecl_t nodecl_subscripted,
+        nodecl_t whole_expression,
+        nodecl_t* nodecl_output,
+        char do_complete_array_ranks,
+        char require_lower_bound)
 {
     char symbol_is_invalid = 0;
 
@@ -953,6 +1054,16 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             }
             else
             {
+                if (require_lower_bound)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: lower bound is mandatory\n", ast_location(subscript));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                    return;
+                }
+
                 nodecl_lower = nodecl_shallow_copy(nodecl_lower_dim[num_subscripts]);
             }
 
@@ -972,7 +1083,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: array-section of assumed-size array '%s' lacks the upper index\n",
+                        error_printf("%s: error: array-section of assumed-size array '%s' lacks the upper bound\n",
                                 ast_location(subscript),
                                 symbol->symbol_name);
                     }
@@ -1014,12 +1125,13 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             if (!symbol_is_invalid)
             {
                 // Make ranges explicit through the usage of LBOUND and UBOUND
-                if (nodecl_is_null(nodecl_lower))
+                if (do_complete_array_ranks
+                        && nodecl_is_null(nodecl_lower))
                 {
                     nodecl_t nodecl_actual_arguments[2] =
                     {
                         nodecl_make_fortran_actual_argument(
-                                nodecl_shallow_copy(nodecl_subscripted),
+                                nodecl_shallow_copy(whole_expression),
                                 ast_get_locus(subscript)),
                         nodecl_make_fortran_actual_argument(
                                 const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
@@ -1060,12 +1172,13 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                     }
                 }
 
-                if (nodecl_is_null(nodecl_upper))
+                if (do_complete_array_ranks
+                        && nodecl_is_null(nodecl_upper))
                 {
                     nodecl_t nodecl_actual_arguments[2] =
                     {
                         nodecl_make_fortran_actual_argument(
-                                nodecl_shallow_copy(nodecl_subscripted),
+                                nodecl_shallow_copy(whole_expression),
                                 ast_get_locus(subscript)),
                         nodecl_make_fortran_actual_argument(
                                 const_value_to_nodecl(const_value_get_signed_int(num_subscripts + 1)),
@@ -1136,6 +1249,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                                 nodecl_get_constant(nodecl_stride)));
                 }
             }
+
         }
         else
         {
@@ -1251,16 +1365,6 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
                 nodecl_indexes,
                 num_subscripts);
 
-        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(subconstant);
-        if (!nodecl_is_null(nodecl_const_val))
-        {
-            nodecl_t nodecl_old = *nodecl_output;
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, synthesized_type);
-
-            nodecl_set_locus_as(*nodecl_output, nodecl_old);
-        }
-
         nodecl_set_constant(*nodecl_output, subconstant);
     }
 }
@@ -1284,7 +1388,8 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
             && (fortran_is_array_type(no_ref(subscripted_type))
                 || fortran_is_pointer_to_array_type(no_ref(subscripted_type))))
     {
-        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
+        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_subscripted, nodecl_output,
+                /* do_complete_array_ranks */ 1, /* require_lower_bound */ 0);
         return;
     }
     // C(1:2) where 'C' is a scalar CHARACTER
@@ -1652,7 +1757,12 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
             ast_get_locus(expr));
 }
 
-static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_component_ref_(AST expr,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        char do_complete_array_ranks,
+        char require_lower_bound,
+        char subscript_must_be_pointer_array)
 {
     // Left hand side first
 
@@ -1752,15 +1862,39 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (ASTType(rhs) == AST_ARRAY_SUBSCRIPT)
     {
-        if (fortran_is_array_type(component_type)
-                || fortran_is_pointer_to_array_type(component_type))
+        if ((subscript_must_be_pointer_array &&
+                    fortran_is_pointer_to_array_type(component_type))
+                || (!subscript_must_be_pointer_array
+                    && (fortran_is_array_type(component_type)
+                        || fortran_is_pointer_to_array_type(component_type))))
         {
-            check_array_ref_(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+
+            nodecl_t whole_expr =
+                nodecl_make_class_member_access(
+                        nodecl_lhs,
+                        nodecl_rhs,
+                        /* member form */ nodecl_null(),
+                        nodecl_get_type(nodecl_rhs),
+                        ast_get_locus(expr));
+
+            check_array_ref_(rhs, decl_context, nodecl_rhs, whole_expr, &nodecl_rhs,
+                    do_complete_array_ranks, require_lower_bound);
         }
-        else if (fortran_is_character_type(component_type)
-                || fortran_is_pointer_to_character_type(component_type))
+        else if (!subscript_must_be_pointer_array
+                && (fortran_is_character_type(component_type)
+                    || fortran_is_pointer_to_character_type(component_type)))
         {
             check_substring(rhs, decl_context, nodecl_rhs, &nodecl_rhs);
+        }
+        else if (subscript_must_be_pointer_array)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: derived component reference must be a pointer to array\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
         }
     }
 
@@ -1861,22 +1995,16 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         ERROR_CONDITION((i == entry_list_size(components)), "This should not happen", 0);
 
         const_value_t* const_value_member = const_value_get_element_num(const_value, i);
-        nodecl_t nodecl_const_val = fortran_const_value_to_nodecl(const_value_member);
-        if (!nodecl_is_null(nodecl_const_val) 
-                // Avoid NULL() be converted to 0
-                && !is_pointer_type(component_symbol->type_information))
-        {
-            nodecl_t nodecl_old = *nodecl_output;
-            type_t* orig_type = nodecl_get_type(*nodecl_output);
-
-            *nodecl_output = nodecl_const_val;
-            nodecl_set_type(*nodecl_output, orig_type);
-
-            nodecl_set_locus_as(*nodecl_output, nodecl_old);
-        }
 
         nodecl_set_constant(*nodecl_output, const_value_member);
     }
+}
+
+static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    check_component_ref_(expr, decl_context, nodecl_output,
+            /* do_complete_array_ranks */ 1, /* require_lower_bound */ 0,
+            /* subscript_must_be_pointer_array */ 0);
 }
 
 static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2338,11 +2466,20 @@ static char check_argument_association(
         {
             char ok = 0;
             // ... unless the actual argument is an element of an array ...
-            if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT)
+            if (nodecl_get_kind(real_argument) == NODECL_ARRAY_SUBSCRIPT
+                    || (nodecl_get_kind(real_argument) == NODECL_CLASS_MEMBER_ACCESS
+                        && nodecl_get_kind(nodecl_get_child(real_argument, 1)) == NODECL_ARRAY_SUBSCRIPT))
             {
                 ok = 1;
                 // ... that is _not_ an assumed shape or pointer array ...
-                scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(real_argument, 0));
+
+                nodecl_t array_subscript = real_argument;
+                if (nodecl_get_kind(real_argument) == NODECL_CLASS_MEMBER_ACCESS)
+                {
+                    array_subscript = nodecl_get_child(real_argument, 1);
+                }
+
+                scope_entry_t* array = nodecl_get_symbol(nodecl_get_child(array_subscript, 0));
 
                 if (array != NULL)
                 {
@@ -2350,11 +2487,11 @@ static char check_argument_association(
                     if (fortran_is_character_type(no_ref(array->type_information)))
                     {
                         // The argument was X(1)(1:2), we are now in X(1)  get 'X'
-                        if (nodecl_get_kind(nodecl_get_child(real_argument, 0)) == NODECL_ARRAY_SUBSCRIPT)
+                        if (nodecl_get_kind(nodecl_get_child(array_subscript, 0)) == NODECL_ARRAY_SUBSCRIPT)
                         {
                             array = nodecl_get_symbol(
                                     nodecl_get_child(
-                                        nodecl_get_child(real_argument, 0),
+                                        nodecl_get_child(array_subscript, 0),
                                         0));
                         }
                         else
@@ -2653,7 +2790,9 @@ static void check_called_symbol_list(
         nodecl_t* nodecl_simplify)
 {
     scope_entry_t* symbol = NULL;
-    char intrinsic_named_like_generic_spec = 0;
+    char intrinsic_name_can_be_called = 0;
+    // char generic_name_can_be_called = 0;
+    char hide_intrinsics = 0;
 
     int explicit_num_actual_arguments = *num_actual_arguments;
 
@@ -2672,7 +2811,6 @@ static void check_called_symbol_list(
             if (current_generic_spec->entity_specs.is_builtin
                     && is_computed_function_type(current_generic_spec->type_information))
             {
-                intrinsic_named_like_generic_spec = 1;
                 scope_entry_t* specific_intrinsic = fortran_solve_generic_intrinsic_call(current_generic_spec,
                         nodecl_actual_arguments,
                         explicit_num_actual_arguments,
@@ -2680,10 +2818,9 @@ static void check_called_symbol_list(
 
                 if (specific_intrinsic != NULL)
                 {
-                    // If an intrinsic matches, we do not have to try anymore
+                    intrinsic_name_can_be_called = 1;
                     specific_symbol_set = entry_list_merge(entry_list_new(specific_intrinsic),
                             specific_symbol_set);
-                    break;
                 }
             }
             else if (current_generic_spec->entity_specs.is_generic_spec)
@@ -2694,9 +2831,17 @@ static void check_called_symbol_list(
 
                 if (current_specific_symbol_set != NULL)
                 {
+                    // generic_name_can_be_called = 1;
                     // This may be overwritten when more than one generic specifier
                     // can match, which is wrong
                     *generic_specifier_symbol = current_generic_spec;
+
+                    // If we find a USE consistent call to a associated name
+                    // then INTRINSICS must be ignored to prioritize USEs
+                    if (current_generic_spec->entity_specs.from_module != NULL)
+                    {
+                        hide_intrinsics = 1;
+                    }
                 }
 
                 specific_symbol_set = entry_list_merge(current_specific_symbol_set,
@@ -2712,13 +2857,33 @@ static void check_called_symbol_list(
 
         entry_list_iterator_free(it);
 
+        if (entry_list_size(specific_symbol_set) > 1)
+        {
+            scope_entry_list_t* filtered_specific_symbol_set = NULL;
+
+            for (it = entry_list_iterator_begin(specific_symbol_set);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* entry = entry_list_iterator_current(it);
+                if (hide_intrinsics && entry->entity_specs.is_builtin)
+                    continue;
+
+                filtered_specific_symbol_set = entry_list_add_once(filtered_specific_symbol_set, entry);
+            }
+            entry_list_iterator_free(it);
+
+            entry_list_free(specific_symbol_set);
+            specific_symbol_set = filtered_specific_symbol_set;
+        }
+
         if (specific_symbol_set == NULL)
         {
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: no specific interfaces%s match the generic interface '%s' in function reference\n",
                         ast_location(location),
-                        intrinsic_named_like_generic_spec ? " or intrinsic procedures" : "",
+                        intrinsic_name_can_be_called ? " or intrinsic procedures" : "",
                         fortran_prettyprint_in_buffer(procedure_designator));
             }
             *result_type = get_error_type();
@@ -2730,7 +2895,7 @@ static void check_called_symbol_list(
             {
                 error_printf("%s: error: several specific interfaces%s match generic interface '%s' in function reference\n",
                         ast_location(location),
-                        intrinsic_named_like_generic_spec ? " or intrinsic procedures" : "",
+                        intrinsic_name_can_be_called ? " or intrinsic procedures" : "",
                         fortran_prettyprint_in_buffer(procedure_designator));
                 for (it = entry_list_iterator_begin(specific_symbol_set);
                         !entry_list_iterator_end(it);
@@ -2739,9 +2904,9 @@ static void check_called_symbol_list(
                     scope_entry_t* current_generic_spec = entry_list_iterator_current(it);
                     if (current_generic_spec->entity_specs.is_generic_spec)
                     {
-                    info_printf("%s: info: specific interface '%s' matches\n",
-                            locus_to_str(current_generic_spec->locus),
-                            current_generic_spec->symbol_name);
+                        info_printf("%s: info: specific interface '%s' matches\n",
+                                locus_to_str(current_generic_spec->locus),
+                                current_generic_spec->symbol_name);
                     }
                     else if (current_generic_spec->entity_specs.is_builtin)
                     {
@@ -4021,7 +4186,10 @@ static void check_symbol_of_called_name(AST sym,
                     //
                     // We do not insert intrinsics from initializations just in case
                     // an INTRINSIC or EXTERNAL statement appears later
-                    insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                    if (!checking_ambiguity())
+                    {
+                        insert_alias(decl_context.current_scope, entry, strtolower(ASTText(sym)));
+                    }
                 }
                 else
                 {
@@ -4901,32 +5069,45 @@ static void cast_initialization(
     else if (fortran_is_array_type(initialized_type)
             && !const_value_is_array(val))
     {
+        type_t* rank0_type = fortran_get_rank0_type(initialized_type);
+
+        // Avoid transforming initializers of empty arrays
+        if (fortran_array_has_zero_size(initialized_type))
+        {
+            *casted_const = val;
+            if (nodecl_output != NULL)
+            {
+                *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
+            }
+
+            return;
+        }
+
         nodecl_t nodecl_size = array_type_get_array_size_expr(initialized_type);
         if (nodecl_is_constant(nodecl_size))
         {
             int i;
             int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
             type_t* element_type = array_type_get_element_type(initialized_type);
-            type_t* rank0_type = fortran_get_rank0_type(initialized_type);
 
-            if (size > 0)
+            const_value_t* const_values[size + 1];
+            for (i = 0 ; i < size; i++)
             {
-                const_value_t* const_values[size];
-                for (i = 0 ; i < size; i++)
-                {
-                    cast_initialization(element_type,
-                            val,
-                            &(const_values[i]),
-                            /* nodecl_output */ NULL);
+                cast_initialization(element_type,
+                        val,
+                        &(const_values[i]),
+                        /* nodecl_output */ NULL);
 
-                }
+            }
 
-                *casted_const = const_value_make_array(size, const_values);
+            *casted_const = const_value_make_array(size, const_values);
 
-                if (nodecl_output != NULL)
-                {
-                    *nodecl_output = const_value_to_nodecl_with_basic_type(*casted_const, rank0_type);
-                }
+            if (nodecl_output != NULL)
+            {
+                // We do not expand the full array to a tree, just we keep the original simple tree
+                // and modify the const value of the scalar
+                *nodecl_output = const_value_to_nodecl_with_basic_type(val, rank0_type);
+                nodecl_set_constant(*nodecl_output, *casted_const);
             }
         }
     }
@@ -5056,7 +5237,44 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     AST rvalue = ASTSon1(expr);
 
     nodecl_t nodecl_lvalue = nodecl_null();
-    fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
+    // Special handling for array subscripts
+    if (ASTType(lvalue) == AST_ARRAY_SUBSCRIPT)
+    {
+        // A(1:, 2:) => ...
+        nodecl_t nodecl_subscripted = nodecl_null();
+        fortran_check_expression_impl_(ASTSon0(lvalue), decl_context, &nodecl_subscripted);
+        type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
+
+        if (fortran_is_array_type(no_ref(subscripted_type))
+                || fortran_is_pointer_to_array_type(no_ref(subscripted_type)))
+        {
+            check_array_ref_(lvalue, decl_context, nodecl_subscripted, nodecl_subscripted, &nodecl_lvalue,
+                    /* do_complete_array_ranks */ 0, /* require_lower_bound */ 1);
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: subscripted left hand side of pointer assignment is not a pointer to array\n",
+                        ast_location(expr));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
+        }
+    }
+    else if (ASTType(lvalue) == AST_CLASS_MEMBER_ACCESS)
+    {
+        // X % A(1:, 2:) => ...
+        check_component_ref_(lvalue, decl_context, &nodecl_lvalue,
+                /* do_complete_array_ranks */ 0,
+                /* require_lower_bound */ 1,
+                /* subscript_must_be_pointer_array */ 1);
+    }
+    else
+    {
+        // X => ...
+        fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
+    }
 
     if (nodecl_is_err_expr(nodecl_lvalue))
     {

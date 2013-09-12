@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     b[4] = 4;
     b[5] = 5;
 
-#pragma omp for firstprivate(a, b) lastprivate(a, b)
+#pragma omp parallel for firstprivate(a, b) lastprivate(a, b)
     for (i = 0; i < 10; i++)
     {
         a[1] = a[2];

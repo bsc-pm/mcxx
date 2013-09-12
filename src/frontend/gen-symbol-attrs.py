@@ -50,31 +50,47 @@ def get_up_to_matching_paren(s):
     raise Exception, "No matching left parent"
 
 
+class TypeKind:
+    BIT = 1
+    INTEGER = 2
+    POINTER = 3
+    OTHER = 5
+
 def print_type_and_name(_type, name):
     _type = _type.strip(" \n")
-    if (_type == "bool"):  
-        return [("bool", name, ":1")]
+    if (_type == "bool"):
+        return [("bool", name, ":1", TypeKind.BIT)]
     elif (_type == "integer"):
-        return [("int", name, "")]
+        return [("int", name, "", TypeKind.INTEGER)]
     elif (_type == "AST"):
-        return [("AST", name, "")]
+        return [("AST", name, "", TypeKind.POINTER)]
     elif (_type == "nodecl"):
-        return [("nodecl_t", name, "")]
+        return [("nodecl_t", name, "", TypeKind.POINTER)]
     elif (_type == "type"):
-        return [("type_t*", name, "")]
+        return [("type_t*", name, "", TypeKind.POINTER)]
     elif (_type == "string"):
-        return [("const char*", name, "")]
+        return [("const char*", name, "", TypeKind.POINTER)]
     elif (_type == "symbol"):
-        return [("scope_entry_t*", name, "")]
+        return [("scope_entry_t*", name, "", TypeKind.POINTER)]
     elif (_type == "scope"):
-        return [("decl_context_t", name, "")]
+        return [("decl_context_t", name, "", TypeKind.OTHER)]
     elif (_type.startswith("typeof")):
-        type_name = get_up_to_matching_paren(_type[len("typeof"):])
-        return [(type_name, name, "")]
+        parts_of_type_name = get_up_to_matching_paren(_type[len("typeof"):])
+        parts_of_type = parts_of_type_name.split(",");
+        type_name = parts_of_type[0].strip()
+        if (len(parts_of_type) == 1):
+            kind = TypeKind.OTHER
+        elif (len(parts_of_type) == 2):
+            map_kinds = { "pointer" : TypeKind.POINTER,
+                          "intptr" : TypeKind.POINTER,
+                          "integer" : TypeKind.INTEGER,
+                          "enum" : TypeKind.INTEGER }
+            kind = map_kinds.get(parts_of_type[1].strip(), TypeKind.OTHER)
+        return [(type_name, name, "", kind)]
     elif (_type.startswith("pointer")):
         type_name = get_up_to_matching_paren(_type[len("pointer"):])
-        (t, n, s) = print_type_and_name(type_name, name)[0]
-        return [(t + "*", n, s)]
+        (t, n, s, k) = print_type_and_name(type_name, name)[0]
+        return [(t + "*", n, s, TypeKind.POINTER)]
     elif (_type.startswith("array")):
         type_name = get_up_to_matching_paren(_type[len("array"):])
         field_names = name.split(",")
@@ -99,24 +115,16 @@ def print_type_and_name(_type, name):
         else:
             raise Exception("Invalid number of fields in static_array name. Only 1 or 2 comma-separated are allowed")
         type_name = type_name.strip(" \n")
-        size = size.strip(" \n")                                                                          
-        (t, n, s) = print_type_and_name(type_name, list_name)[0]
-        return print_type_and_name("integer", num_name) + [(t, n, s + "[" + size + "]")] 
+        size = size.strip(" \n")
+        (t, n, s, k) = print_type_and_name(type_name, list_name)[0]
+        return print_type_and_name("integer", num_name) + [(t, n, s + "[" + size + "]", k)] 
     else:
         raise Exception("Invalid type %s" % (_type))
 
 def print_entity_specifiers(lines):
-    print """
-#ifndef CXX_ENTITY_SPECIFIERS_H
-#define CXX_ENTITY_SPECIFIERS_H
-
-#include <stdbool.h>
-
-// Include this file only from cxx-scope-decls.h and not from anywhere else
-
-typedef struct entity_specifiers_tag\n{"""
     indent = " " * 4
     current_language = "all"
+    decls = []
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
@@ -127,12 +135,24 @@ typedef struct entity_specifiers_tag\n{"""
       if (language != current_language) :
           current_language = language
       descr = description.strip(" \n")
-      if (descr):
-         print indent + "// " + description.rstrip(" \n")
-      decls = print_type_and_name(_type, name)
-      for d in decls:
-        (typename, name, suffix) = d
-        print indent + typename + " " + name + suffix + ";"
+      decls += print_type_and_name(_type, name)
+
+    print """
+#ifndef CXX_ENTITY_SPECIFIERS_H
+#define CXX_ENTITY_SPECIFIERS_H
+
+#include <stdbool.h>
+
+// Include this file only from cxx-scope-decls.h and not from anywhere else
+
+typedef struct entity_specifiers_tag\n{"""
+
+    for tk in [TypeKind.OTHER, TypeKind.POINTER, TypeKind.INTEGER, TypeKind.BIT]:
+       for d in decls:
+         (typename, name, suffix, k) = d
+         if k == tk:
+             print indent + typename + " " + name + suffix + ";"
+
     print "} entity_specifiers_t;"
     print ""
     print "#endif"
@@ -313,7 +333,7 @@ def get_load_code(_type, name):
 
         result.append(get_extra_load_code(type_name, num_name, list_name))
     elif (_type.startswith("typeof")):
-        type_name = get_up_to_matching_paren(_type[len("typeof"):])
+        type_name = get_up_to_matching_paren(_type[len("typeof"):]).split(",")[0].strip()
         if type_name in ["intent_kind_t", "access_specifier_t", "_size_t"]:
             result.append("int i;");
             result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
@@ -388,7 +408,7 @@ def print_fortran_modules_functions(lines):
           _format.append("%Q")
           sprintf_arguments.append("sym->entity_specs.%s" % (name))
       elif (_type.startswith("typeof")):
-            type_name = get_up_to_matching_paren(_type[len("typeof"):])
+            type_name = get_up_to_matching_paren(_type[len("typeof"):]).split(",")[0].strip()
             if type_name == "intent_kind_t" or type_name == "access_specifier_t":
                 attr_names.append(name)
                 _format.append("%d")
@@ -516,7 +536,7 @@ def print_deep_copy_entity_specs(lines):
       elif (_type == "string"):
           print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
       elif (_type.startswith("typeof")):
-            type_name = get_up_to_matching_paren(_type[len("typeof"):])
+            type_name = get_up_to_matching_paren(_type[len("typeof"):]).split(",")[0].strip()
             if type_name in ["intent_kind_t", "access_specifier_t", "_size_t", "simplify_function_t"]:
                 print "dest->entity_specs.%s = source->entity_specs.%s;" % (name, name)
             else:
@@ -533,7 +553,7 @@ def print_deep_copy_entity_specs(lines):
           else:
               raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
           if type_name.startswith("typeof"):
-              type_name = get_up_to_matching_paren(type_name[len("typeof"):])
+              type_name = get_up_to_matching_paren(type_name[len("typeof"):]).split(",")[0].strip()
           print "{"
           print "int i, N = source->entity_specs.%s;" % (num_name)
           print "dest->entity_specs.%s = NULL;" % (list_name)

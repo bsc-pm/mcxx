@@ -44,7 +44,12 @@ namespace Nodecl
             {
                 get_all_symbols_rec(n.get_symbol().get_value(), result);
             }
-            result.insert(n.get_symbol());
+
+            // Ignore the internal symbol which represents the C++ NULL constant
+            if (n.get_symbol().get_name() != "__null")
+            {
+                result.insert(n.get_symbol());
+            }
         }
 
         TL::ObjectList<Nodecl::NodeclBase> children = n.children();
@@ -140,7 +145,9 @@ namespace Nodecl
         if (n.is_null())
             return;
 
-        if (n.is<Nodecl::Symbol>())
+        if (n.is<Nodecl::Symbol>()
+                // Ignore the internal symbol which represents the C++ NULL constant
+                && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
             result.append(n.as<Nodecl::Symbol>());
         }
@@ -217,7 +224,9 @@ namespace Nodecl
         if (n.is_null())
             return;
 
-        if (n.is<Nodecl::Symbol>())
+        if (n.is<Nodecl::Symbol>()
+                // Ignore the internal symbol which represents the C++ NULL constant
+                && n.as<Nodecl::Symbol>().get_symbol().get_name() != "__null")
         {
             result.insert(n.as<Nodecl::Symbol>(),
                     TL::ThisMemberFunctionConstAdapter<TL::Symbol, Nodecl::Symbol>(&Nodecl::Symbol::get_symbol));
@@ -1172,24 +1181,23 @@ namespace Nodecl
         LabelVisitor(Utils::SimpleSymbolMap& symbol_map, TL::ReferenceScope ref_scope)
             : _symbol_map(symbol_map), _sc(ref_scope.get_scope()) { }
 
-        void insert_new_label_symbol(TL::Symbol sym)
+        void insert_new_label_symbol(TL::Symbol sym, bool is_numeric_label)
         {
             TL::Counter &counter = TL::CounterManager::get_counter("label_visitor");
 
             std::string register_name, symbol_name;
-            if (IS_FORTRAN_LANGUAGE)
+            if (IS_FORTRAN_LANGUAGE
+                    && is_numeric_label)
             {
                 std::string label_name = sym.get_name();
 
                 for (std::string::iterator it = label_name.begin(); it != label_name.end(); it++)
                 {
                     // If this is not a numeric label give up
-                    if (!(('0' <= (*it)) &&
-                                ((*it) <= '9')))
-                    {
-                        std::cerr << "NOT A NUMERIC LABEL! |" << label_name << "|" << std::endl;
-                        return;
-                    }
+                    ERROR_CONDITION(
+                            (!(('0' <= (*it)) &&
+                               ((*it) <= '9'))),
+                            "'%s' is not a numeric label!\n", label_name.c_str());
                 }
 
                 int x;
@@ -1213,7 +1221,7 @@ namespace Nodecl
             else
             {
                 std::stringstream ss;
-                ss << symbol_name << "_" << (int)counter;
+                ss << sym.get_name() << "_" << (int)counter;
 
                 symbol_name = ss.str();
                 register_name = symbol_name;
@@ -1221,7 +1229,18 @@ namespace Nodecl
             counter++;
 
             decl_context_t decl_context = _sc.get_decl_context();
-            scope_entry_t * new_label = ::new_symbol(decl_context, decl_context.function_scope, uniquestr(register_name.c_str()));
+            scope_entry_t* new_label = NULL;
+            if (IS_FORTRAN_LANGUAGE && !is_numeric_label)
+            {
+                // Nonnumeric labels in Fortran live in the program unit context
+                decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
+                new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope, 
+                        uniquestr(register_name.c_str()));
+            }
+            else
+            {
+                new_label = ::new_symbol(decl_context, decl_context.function_scope, uniquestr(register_name.c_str()));
+            }
             new_label->symbol_name = uniquestr(symbol_name.c_str());
             new_label->kind = SK_LABEL;
             new_label->value = nodecl_shallow_copy(sym.get_value().get_internal_nodecl());
@@ -1237,7 +1256,7 @@ namespace Nodecl
                     && sym.is_label()
                     && !sym.get_value().is_null())
             {
-                insert_new_label_symbol(sym);
+                insert_new_label_symbol(sym, /* is_numeric_label */ true);
             }
         }
 
@@ -1248,7 +1267,23 @@ namespace Nodecl
             TL::Symbol sym = stmt.get_symbol();
             if (sym.is_label())
             {
-                insert_new_label_symbol(sym);
+                insert_new_label_symbol(sym, /* is_numeric_label*/ true);
+            }
+        }
+
+        void visit(const Nodecl::ForStatement& stmt)
+        {
+            if (!stmt.get_loop_name().is_null())
+            {
+                insert_new_label_symbol(stmt.get_loop_name().get_symbol(), /* is_numeric_label*/ false);
+            }
+        }
+
+        void visit(const Nodecl::WhileStatement& stmt)
+        {
+            if (!stmt.get_loop_name().is_null())
+            {
+                insert_new_label_symbol(stmt.get_loop_name().get_symbol(), /* is_numeric_label*/ false);
             }
         }
     };

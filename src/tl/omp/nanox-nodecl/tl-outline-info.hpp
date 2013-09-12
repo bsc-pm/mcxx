@@ -59,6 +59,8 @@ namespace TL
                     SHARING_SHARED_WITH_CAPTURE,
                     // Only used in task expressions to store the return results
                     SHARING_ALLOCA,
+                    SHARING_SHARED_ALLOCA,
+
                     SHARING_CAPTURE,
                     SHARING_PRIVATE,
 
@@ -160,6 +162,7 @@ namespace TL
 
                 // Reductions
                 OpenMP::Reduction *_reduction;
+                TL::Type _reduction_type;
                 TL::Symbol _basic_reduction_function;
                 TL::Symbol _shared_symbol_in_outline;
 
@@ -195,6 +198,7 @@ namespace TL
                     _sharing(),
                     _base_address_expression(),
                     _reduction(NULL),
+                    _reduction_type(),
                     _basic_reduction_function(),
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
@@ -330,9 +334,10 @@ namespace TL
                     return _base_address_expression;
                 }
 
-                void set_reduction_info(OpenMP::Reduction* reduction)
+                void set_reduction_info(OpenMP::Reduction* reduction, TL::Type reduction_type)
                 {
                     _reduction = reduction;
+                    _reduction_type = reduction_type;
                 }
 
                 bool is_reduction() const
@@ -340,9 +345,9 @@ namespace TL
                     return _sharing == SHARING_REDUCTION;
                 }
 
-                OpenMP::Reduction* get_reduction_info() const
+                std::pair<OpenMP::Reduction*, TL::Type> get_reduction_info() const
                 {
-                    return _reduction;
+                    return std::make_pair(_reduction, _reduction_type);
                 }
 
                 TL::Symbol reduction_get_basic_function() const
@@ -539,6 +544,7 @@ namespace TL
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
                 void add_shared_with_capture(Symbol sym);
+                void add_shared_alloca(Symbol sym);
                 void add_alloca(Symbol sym, TL::DataReference& data_ref);
                 void add_capture_address(Symbol sym, TL::DataReference& data_ref);
                 void add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality);
@@ -547,7 +553,7 @@ namespace TL
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr, Nodecl::NodeclBase condition);
-                void add_reduction(TL::Symbol symbol, OpenMP::Reduction* reduction);
+                void add_reduction(TL::Symbol symbol, TL::Type reduction_type, OpenMP::Reduction* reduction);
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);

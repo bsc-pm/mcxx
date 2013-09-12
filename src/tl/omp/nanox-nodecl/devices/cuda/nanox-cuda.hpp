@@ -52,6 +52,8 @@ namespace TL
                         const TL::Symbol& called_task,
                         const TL::Symbol& unpacked_function,
                         const TargetInformation& target_info,
+                        Nodecl::Utils::SimpleSymbolMap* called_fun_to_outline_data_map,
+                        Nodecl::Utils::SimpleSymbolMap* outline_data_to_unpacked_fun_map,
                         // out
                         TL::ObjectList<Nodecl::NodeclBase>& new_ndrange_args,
                         TL::ObjectList<Nodecl::NodeclBase>& new_shmem_args);
@@ -67,6 +69,7 @@ namespace TL
                         Nodecl::NodeclBase& output_statements);
 
                 void add_included_cuda_files(FILE* file);
+
             public:
 
                 // This phase does nothing

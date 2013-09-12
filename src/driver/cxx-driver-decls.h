@@ -57,20 +57,33 @@ typedef enum source_kind_tag
     SOURCE_KIND_DO_NOT_PROCESS = BITMAP(4),
     SOURCE_KIND_DO_NOT_COMPILE = BITMAP(5),
     SOURCE_KIND_DO_NOT_LINK = BITMAP(6),
+    SOURCE_KIND_DO_NOT_EMBED = BITMAP(7),
 } source_kind_t;
 #undef BITMAP
 
 typedef enum source_language_tag
 {
-    SOURCE_LANGUAGE_UNKNOWN = 0,
-    SOURCE_LANGUAGE_C,
-    SOURCE_LANGUAGE_CXX,
-    SOURCE_LANGUAGE_FORTRAN,
-    SOURCE_LANGUAGE_CUDA,
-    SOURCE_LANGUAGE_OPENCL,
-    SOURCE_LANGUAGE_ASSEMBLER,
-    SOURCE_LANGUAGE_LINKER_DATA,
+    SOURCE_LANGUAGE_UNKNOWN     = 0,
+    SOURCE_LANGUAGE_C           = 1,
+    SOURCE_LANGUAGE_CXX         = 2,
+    SOURCE_LANGUAGE_FORTRAN     = 3,
+    SOURCE_LANGUAGE_ASSEMBLER   = 4,
+    SOURCE_LANGUAGE_LINKER_DATA = 5,
+
+    /* Bit tag for sublanguages */
+    SOURCE_IS_SUBLANGUAGE       = 16,
+
+    SOURCE_SUBLANGUAGE_CUDA     = (SOURCE_IS_SUBLANGUAGE | 1),
+    SOURCE_SUBLANGUAGE_OPENCL   = (SOURCE_IS_SUBLANGUAGE | 2),
 } source_language_t;
+
+typedef struct sublanguage_profile_tag
+{
+    source_language_t sublanguage;
+    const char* profile;
+} sublanguage_profile_t;
+
+extern sublanguage_profile_t sublanguage_profiles[];
 
 extern char* source_language_names[];
 
@@ -154,6 +167,7 @@ typedef struct debug_options_tag
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;
+    char do_not_codegen;
 } debug_options_t;
 
 typedef struct external_var_tag {

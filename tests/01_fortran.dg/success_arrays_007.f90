@@ -1,9 +1,26 @@
 ! <testinfo>
 ! test_generator=config/mercurium-fortran
 ! </testinfo>
-PROGRAM P
-    REAL :: ARR(20, 40)
-    INTEGER :: iarr(100)
+MODULE A
+   IMPLICIT NONE
 
-    PRINT *, arr(1:10, iarr(5:12))
-END 
+   TYPE T
+      INTEGER, ALLOCATABLE :: v(:)
+   END TYPE T
+
+   INTEGER :: n
+
+CONTAINS
+
+   SUBROUTINE FOO
+
+      IMPLICIT NONE
+      TYPE(T) :: var
+      INTEGER :: suma
+
+      ALLOCATE(var%v(n))
+      suma = sum(var%v(:))
+
+   END SUBROUTINE FOO
+
+END MODULE A
