@@ -29,6 +29,7 @@
 #include "tl-outline-info.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-nanos.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 #include "cxx-diagnostic.h"
 #include "fortran03-typeutils.h"
 
@@ -392,6 +393,12 @@ namespace TL { namespace Nanox {
 
         _basic_reduction_map_openmp[red] = function_sym;
 
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::Utils::Fortran::append_used_modules(construct.retrieve_context(),
+                    function_sym.get_related_scope());
+        }
+
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
 
         return function_sym;
@@ -458,6 +465,8 @@ namespace TL { namespace Nanox {
         _reduction_cleanup_map[red] = function_sym;
 
         Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
+
+        Nodecl::Utils::Fortran::append_used_modules(construct.retrieve_context(), function_sym.get_related_scope());
 
         return function_sym;
     }
