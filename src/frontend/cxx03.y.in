@@ -76,6 +76,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %}
 
+%token END 0 "end of input"
+
 // C++ tokens
 %token<token_atrib> ADD_ASSIGN "+="
 %token<token_atrib> ANDAND "&&"
@@ -84,7 +86,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> AUTO "auto"
 %token<token_atrib> TOKEN_BOOL "bool"
 %token<token_atrib> BOOLEAN_LITERAL "boolean-literal"
-%token<token_atrib> BREAK "break" 
+%token<token_atrib> BREAK "break"
 %token<token_atrib> CASE "case"
 %token<token_atrib> CATCH "catch"
 %token<token_atrib> TOKEN_CHAR "char"
