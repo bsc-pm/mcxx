@@ -503,9 +503,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     else
     {
         std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
-        if (decl[0] == ':')
+        if (!decl.empty())
         {
-            decl = " " + decl;
+            if (decl[0] == ':')
+            {
+                decl = " " + decl;
+            }
+            if (decl[decl.length() - 1] == '>')
+            {
+                decl += " ";
+            }
         }
 
         *(file) << cast_kind << "<" << decl << ">(";
