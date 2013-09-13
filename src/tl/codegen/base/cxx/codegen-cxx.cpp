@@ -3523,6 +3523,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context);
 }
 
@@ -3532,6 +3535,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context, /* is_extern */ true);
 }
 
