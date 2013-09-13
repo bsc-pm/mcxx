@@ -5881,12 +5881,29 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
 
+    // Check again if this is an alias to a dependent entity
+    if (entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
+        entry->value = nodecl_name;
+        nodecl_set_type(*nodecl_output, entry->type_information);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
     if (entry->kind != SK_VARIABLE
             && entry->kind != SK_ENUMERATOR
             && entry->kind != SK_FUNCTION
             && entry->kind != SK_TEMPLATE
             && entry->kind != SK_TEMPLATE_PARAMETER)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: name '%s' is not valid in this context\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
+        }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
