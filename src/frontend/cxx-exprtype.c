@@ -16052,7 +16052,13 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
     int i;
     for (i = 0; i < num_items; i++)
     {
-        nodecl_t current_arg = instantiate_expr_walk(v, list[i]);
+        nodecl_t arg = list[i];
+
+        // Advance default arguments
+        if (nodecl_get_kind(arg) == NODECL_DEFAULT_ARGUMENT)
+            arg = nodecl_get_child(arg, 0);
+
+        nodecl_t current_arg = instantiate_expr_walk(v, arg);
 
         if (nodecl_is_err_expr(current_arg))
         {
