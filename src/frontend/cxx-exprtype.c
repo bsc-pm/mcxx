@@ -9406,7 +9406,7 @@ static void check_nodecl_function_call_cxx(
     }
     else
     {
-        nodecl_called = nodecl_make_symbol(overloaded_call, locus);
+        nodecl_called = nodecl_make_symbol(orig_overloaded_call, locus);
         nodecl_set_type(nodecl_called, overloaded_call->type_information);
 
         function_type_of_called = overloaded_call->type_information;
@@ -15392,7 +15392,7 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 }
 
 nodecl_t cxx_nodecl_make_function_call(
-        nodecl_t called,
+        nodecl_t orig_called,
         nodecl_t called_name,
         nodecl_t arg_list,
         nodecl_t function_form,
@@ -15402,7 +15402,18 @@ nodecl_t cxx_nodecl_make_function_call(
     ERROR_CONDITION(!nodecl_is_null(arg_list)
             && !nodecl_is_list(arg_list), "Argument nodecl is not a list", 0);
 
-    scope_entry_t* called_symbol = nodecl_get_symbol(called);
+    bool preserve_orig_name = false;
+
+    scope_entry_t* orig_called_symbol = nodecl_get_symbol(orig_called);
+
+    scope_entry_t* called_symbol = entry_advance_aliases(orig_called_symbol);
+    nodecl_t called = orig_called;
+
+    if (called_symbol != orig_called_symbol)
+    {
+        called = nodecl_make_symbol(called_symbol, locus);
+        preserve_orig_name = true;
+    }
 
     // This list will be the same as arg_list but with explicit conversions stored
     nodecl_t converted_arg_list = nodecl_null();
@@ -15543,9 +15554,15 @@ nodecl_t cxx_nodecl_make_function_call(
             }
             else
             {
+                nodecl_t alternate_name = nodecl_null();
+                if (preserve_orig_name)
+                {
+                    alternate_name = orig_called;
+                }
+
                 return nodecl_make_function_call(called,
                         converted_arg_list,
-                        /* alternate_name */ nodecl_null(),
+                        alternate_name,
                         function_form, t,
                         locus);
             }
