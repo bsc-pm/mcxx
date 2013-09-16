@@ -1033,7 +1033,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
     indent();
+
+    bool need_extra_parentheses = false;
+
+    // Parentheses may be needed to avoid these expressions become declarations
+    need_extra_parentheses = expression.is<Nodecl::CxxExplicitTypeCast>()
+            || (expression.is<Nodecl::FunctionCall>()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_valid()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_constructor()
+                && expression.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().size() == 1);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << "( ";
+    }
+
     walk(expression);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << " )";
+    }
+
     *(file) << ";\n";
 }
 
