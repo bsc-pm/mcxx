@@ -1567,6 +1567,16 @@ bool CxxBase::is_operator_function_call(const Node& node)
             || is_binary_infix_operator_function_call(node));
 }
 
+/* Adapters used in visit_function_call */
+template <typename Node> Nodecl::NodeclBase get_alternate_name(const Node&)
+{
+    return Nodecl::NodeclBase::null();
+}
+template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
+{
+    return n.get_alternate_name();
+}
+
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
@@ -1662,6 +1672,20 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             else
             {
                 kind = STATIC_MEMBER_CALL;
+            }
+        }
+
+        if (!is_virtual_call
+                && (kind == ORDINARY_CALL
+                    || kind == STATIC_MEMBER_CALL
+                    || kind == NONSTATIC_MEMBER_CALL))
+        {
+            // Use the alternate name
+            Nodecl::NodeclBase alternate_name = get_alternate_name(node);
+            if (!alternate_name.is_null())
+            {
+                called_entity = alternate_name;
+                called_symbol = alternate_name.get_symbol();
             }
         }
     }
