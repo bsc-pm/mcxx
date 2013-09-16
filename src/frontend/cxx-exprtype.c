@@ -10365,7 +10365,8 @@ static void check_nodecl_member_access(
     }
 
     char ok = 0;
-    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
+    scope_entry_t* orig_entry = entry_list_head(entry_list);
+    scope_entry_t* entry = entry_advance_aliases(orig_entry);
     C_LANGUAGE()
     {
         nodecl_t nodecl_field = nodecl_accessed_out;
@@ -10413,7 +10414,7 @@ static void check_nodecl_member_access(
 
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_field,
-                    nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
                     nodecl_member_form,
                     lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                     nodecl_get_locus(nodecl_accessed));
@@ -10422,7 +10423,7 @@ static void check_nodecl_member_access(
         {
             ok = 1;
 
-            *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed));
+            *nodecl_output = nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed));
             nodecl_set_type(*nodecl_output, entry->type_information);
 
             if (nodecl_expr_is_value_dependent(entry->value))
@@ -10457,7 +10458,8 @@ static void check_nodecl_member_access(
 
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_accessed_out,
-                    nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                    /* This symbol goes unused when we see that its type is already an overload */
+                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
                     nodecl_member_form,
                     t,
                     nodecl_get_locus(nodecl_accessed));
