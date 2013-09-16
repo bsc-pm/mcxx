@@ -123,6 +123,8 @@ scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_s
 
 type_t* actual_type_of_conversor(scope_entry_t* conv)
 {
+    conv = entry_advance_aliases(conv);
+
     if (conv->entity_specs.is_constructor)
     {
         return conv->entity_specs.class_type;
@@ -2271,10 +2273,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
     scope_entry_t* conversors[2] = { NULL, NULL };
 
-    scope_entry_t *overloaded_call = solve_overload(candidate_set,
+    scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
             decl_context,
             locus,
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
@@ -2507,10 +2510,11 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
     scope_entry_t* conversors[1] = { NULL };
     
-    scope_entry_t *overloaded_call = solve_overload(candidate_set,
+    scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
             locus,
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
@@ -6435,10 +6439,11 @@ static void check_nodecl_array_subscript_expression(
         entry_list_iterator_free(it);
         entry_list_free(overload_set);
 
-        scope_entry_t *overloaded_call = solve_overload(candidate_set,
+        scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
                 decl_context, 
                 locus,
                 conversors);
+        scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
         if (overloaded_call == NULL)
         {
@@ -7050,8 +7055,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             entry_list_free(builtins);
 
             scope_entry_t* conversors[3] = { NULL, NULL, NULL };
-            scope_entry_t *overloaded_call = solve_overload(candidate_set,
+            scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
                     decl_context, locus, conversors);
+            scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
             if (overloaded_call == NULL)
             {
@@ -7512,9 +7518,10 @@ static void check_new_expression_impl(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
+    scope_entry_t* orig_chosen_operator_new = solve_overload(candidate_set, 
             decl_context, locus,
             conversors);
+    scope_entry_t* chosen_operator_new = entry_advance_aliases(orig_chosen_operator_new);
     candidate_set_free(&candidate_set);
 
     if (chosen_operator_new == NULL)
@@ -9340,10 +9347,11 @@ static void check_nodecl_function_call_cxx(
     entry_list_iterator_free(it);
     entry_list_free(candidates);
 
-    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context,
             locus,
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
     {
@@ -10249,9 +10257,10 @@ static void check_nodecl_member_access(
 
         scope_entry_t* conversors[1] = { NULL };
 
-        scope_entry_t* selected_operator_arrow = solve_overload(candidate_set,
+        scope_entry_t* orig_selected_operator_arrow = solve_overload(candidate_set,
                 decl_context, nodecl_get_locus(nodecl_accessed),
                 conversors);
+        scope_entry_t* selected_operator_arrow = entry_advance_aliases(orig_selected_operator_arrow);
 
         if (selected_operator_arrow == NULL)
         {
@@ -10570,10 +10579,11 @@ static void check_postoperator_user_defined(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
             nodecl_get_locus(postoperated_expr), 
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
     {
@@ -10720,8 +10730,9 @@ static void check_preoperator_user_defined(AST operator,
     entry_list_iterator_free(it);
     entry_list_free(overload_set);
 
-    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, nodecl_get_locus(preoperated_expr), conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
     {
