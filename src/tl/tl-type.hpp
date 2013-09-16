@@ -200,6 +200,8 @@ namespace TL
             {
             }
 
+            Type fix_references();
+
             //! Returns a string with a C/C++ declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;

@@ -126,18 +126,8 @@ namespace TL { namespace Nanox {
                 {
                     // It's an inline task
                     function_name =
-                        outline_function.get_type().get_declaration(
+                        outline_function.get_type().fix_references().get_declaration(
                                 outline_function.get_scope(), outline_function.get_qualified_name());
-                }
-
-                // The character '@' will be used as a separator of the
-                // description. Since the function name may contain one or
-                // more '@' characters, we should replace them by an other
-                // special char
-                for (unsigned int i = 0; i < function_name.length(); i++)
-                {
-                    if (function_name[i] == '@')
-                        function_name[i] = '#';
                 }
 
                 extended_descr << function_name;
