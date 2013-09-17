@@ -8504,7 +8504,6 @@ static type_t* compute_default_argument_conversion(type_t* arg_type,
 
     type_t* result_type = arg_type;
 
-    // Special case for enums. Demote them to their underlying type
     if (is_any_reference_type(result_type))
     {
         // T& -> T
@@ -8571,13 +8570,18 @@ static type_t* compute_default_argument_conversion(type_t* arg_type,
             }
         }
     }
+    else if (is_gcc_builtin_va_list(result_type))
+    {
+        // We will assume it is magically compatible everywhere (sometimes it
+        // is a POD-struct, sometimes it is just void*, ...)
+    }
     else
     {
         if (!checking_ambiguity())
         {
             if (emit_diagnostic)
             {
-                error_printf("%s: warning: no suitable default argument promotion exists when passing argument of type '%s'\n",
+                error_printf("%s: error: no suitable default argument promotion exists when passing argument of type '%s'\n",
                         locus_to_str(locus),
                         print_type_str(no_ref(result_type), decl_context));
             }

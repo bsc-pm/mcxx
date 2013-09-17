@@ -1153,6 +1153,7 @@ type_t* get_gcc_builtin_va_list_type(void)
 
 char is_gcc_builtin_va_list(type_t *t)
 {
+    t = advance_over_typedefs(t);
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_VA_LIST);
