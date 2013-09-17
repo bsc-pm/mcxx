@@ -11768,9 +11768,29 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     {
                         fprintf(stderr, "EXPRTYPE: Unbraced initialization of aggregated type %s\n", print_declarator(type_to_be_initialized));
                     }
+
+                    // Make a first attempt for structure types
+                    if (is_class_type(type_to_be_initialized)
+                            || is_vector_type(type_to_be_initialized))
+                    {
+                        nodecl_t nodecl_init_output = nodecl_null();
+                        enter_test_expression();
+                        check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context,
+                                type_to_be_initialized, &nodecl_init_output);
+                        leave_test_expression();
+                        if (!nodecl_is_err_expr(nodecl_init_output))
+                        {
+                            // It seems fine
+                            init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
+                            // This item has been consumed
+                            i++;
+                            type_stack[type_stack_idx].item++;
+                            continue;
+                        }
+                    }
+
                     // Now we have to initialize an aggregate but the syntax lacks braces, so we have to push this item
                     // to the type stack and continue from here
-
                     type_stack_idx++;
                     ERROR_CONDITION(type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
 
@@ -11809,7 +11829,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         entry_list_to_symbol_array(fields, &type_stack[type_stack_idx].fields, &type_stack[type_stack_idx].num_items);
 
                         if (is_union_type(type_to_be_initialized))
-                                type_stack[type_stack_idx].num_items = 1;
+                            type_stack[type_stack_idx].num_items = 1;
 
                         entry_list_free(fields);
                     }
