@@ -1884,17 +1884,15 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
-        WARNING_MESSAGE( "Reduction not yet implemented. Ignoring nodecl", 0 );
-//         walk( n.get_reductions( ) );
+        walk( n.get_reductions( ) );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
-        WARNING_MESSAGE( "ReductionItem not yet implemented. Ignoring nodecl", 0 );
-//          walk( n.get_reductor( ) );
-//          walk( n.get_reduced_symbol( ) );
-         return ObjectList<Node*>( );
+        PCFGClause current_clause( REDUCTION, n );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
