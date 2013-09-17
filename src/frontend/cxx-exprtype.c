@@ -3309,6 +3309,9 @@ static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs)
         *rhs = promote_integral_type(no_ref(*rhs));
     }
 
+    *lhs = get_unqualified_type(no_ref(*lhs));
+    *rhs = get_unqualified_type(no_ref(*rhs));
+
     return (*lhs);
 }
 
@@ -3320,7 +3323,7 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
     if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
     {
         // Always the left one in this case
-        type_t* result = no_ref(lhs_type);
+        type_t* result = get_unqualified_type(no_ref(lhs_type));
         if (is_enum_type(result))
         {
             result = enum_type_get_underlying_type(result);
