@@ -861,7 +861,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    //  This visistor creates, for every nonvoid function task called in the
+    //  This visitor creates, for every nonvoid function task called in the
     //  source, a new void task which acts like a wrapper. At the end of the
     //  execution of this visitor, the nonvoid function task will be removed
     //  from the function task set.
@@ -907,7 +907,7 @@ namespace TL { namespace OpenMP {
     //          {
     //              int x, *mcc_ret1;
     //              fact__(10, mcc_ret1);
-    //              x = *mcc_ret1;i
+    //              x = *mcc_ret1;
     //              #pragma omp taskwait
     //          }
     //
