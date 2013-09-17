@@ -3046,7 +3046,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
 {
     Nodecl::List items = node.get_items().as<Nodecl::List>();
-    TL::Type type = node.get_type();
+    TL::Type type = node.get_type().no_ref();
 
     enum structured_value_kind
     {
@@ -3068,7 +3068,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         if ((items.empty()
                     || ((items.size() == 1)
                 && (type.is_named()
-                    || type.no_ref().is_builtin())))
+                    || type.is_builtin())))
                 && !(type.is_class()
                     && type.is_aggregate()))
         {
@@ -3081,7 +3081,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     }
     else if (IS_CXX1X_LANGUAGE)
     {
-        if (type.no_ref().is_vector())
+        if (type.is_vector())
         {
             // This is nonstandard, lets fallback to gcc
             kind = GCC_POSTFIX;

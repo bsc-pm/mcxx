@@ -14461,6 +14461,12 @@ static void check_gcc_postfix_expression(AST expression,
     }
 
     check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t, nodecl_output);
+
+    // This is an lvalue
+    if (!nodecl_is_err_expr(*nodecl_output))
+    {
+        nodecl_set_type(*nodecl_output, get_lvalue_reference_type(no_ref(nodecl_get_type(*nodecl_output))));
+    }
 }
 
 static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
