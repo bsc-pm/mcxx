@@ -83,7 +83,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool is_untied,
                 OutlineInfo& outline_info,
                 OutlineInfo* parameter_outline_info,
-                Nodecl::NodeclBase* placeholder_task_expr_transformation = NULL);
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void handle_vla_entity(OutlineDataItem& data_item, OutlineInfo& outline_info);
         void handle_vla_type_rec(TL::Type t, OutlineInfo& outline_info,
@@ -336,7 +336,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Source emit_allocate_statement(TL::Symbol sym, 
                 int &lower_bound_index, int &upper_bound_index);
 
-        Source update_lastprivates(OutlineInfo& outline_info);
+        Source update_lastprivates(OutlineInfo& outline_info, const std::string& loop_descriptor_name);
 
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
@@ -361,9 +361,20 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 bool inside_task_expression,
                 Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
-        void visit_task_call(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
-        void visit_task_call_c(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
-        void visit_task_call_fortran(const Nodecl::OpenMP::TaskCall& construct, bool inside_task_expression);
+        void visit_task_call(
+                const Nodecl::OpenMP::TaskCall& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
+
+        void visit_task_call_c(
+                const Nodecl::OpenMP::TaskCall& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
+
+        void visit_task_call_fortran(
+                const Nodecl::OpenMP::TaskCall& construct,
+                bool inside_task_expression,
+                Nodecl::NodeclBase* placeholder_task_expr_transformation);
 
         void remove_fun_tasks_from_source_as_possible(const OutlineInfo::implementation_table_t& implementation_table);
 
@@ -374,6 +385,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         reduction_map_t _reduction_map_ompss;
         void create_reduction_function(OpenMP::Reduction* red,
                 Nodecl::NodeclBase construct,
+                TL::Type reduction_type,
                 TL::Symbol& basic_reduction_function,
                 TL::Symbol& vector_reduction_function);
         TL::Symbol create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);

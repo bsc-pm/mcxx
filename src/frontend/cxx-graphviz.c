@@ -196,9 +196,9 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
         fprintf(f, "<%s> %s", #name, #name); \
         num++; \
     }
-    fprintf(f, "decl_context_%d[shape=record, fontcolor=\"/dark28/1\", color=\"/dark28/1\", layer=\"scopes\", label=\"<context> Context|", i);
+    fprintf(f, "decl_context_%d[shape=record, fontcolor=\"/dark28/1\", color=\"/dark28/1\", layer=\"scopes\", label=\"{<context> Context|{", i);
     DUMP_ALL
-    fprintf(f, "\"]\n");
+    fprintf(f, "}}\"]\n");
 #undef DUMP_SCOPE
 
 #define DUMP_SCOPE(name) \
@@ -210,6 +210,29 @@ static int decl_context_t_dump_graphviz(FILE* f, decl_context_t decl_context)
 #undef DUMP_SCOPE
 
     return i++;
+}
+
+static char list_tree_is_ok(AST a)
+{
+    if (a == NULL)
+        return 0;
+
+    if (ASTType(a) != AST_NODE_LIST)
+        return 0;
+
+    if (ASTSon1(a) == NULL)
+        return 0;
+
+    if (ASTType(ASTSon1(a)) == AST_NODE_LIST)
+        return 0;
+
+    if (ASTSon0(a) == NULL)
+        return 1;
+
+    if (ASTType(ASTSon0(a)) != AST_NODE_LIST)
+        return 0;
+
+    return list_tree_is_ok(ASTSon0(a));
 }
 
 static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position)
@@ -227,29 +250,17 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
 
     if (a != NULL)
     {
-        if (ASTType(a) == AST_AMBIGUITY) 
+        char list_is_ok = 0;
+        if (ASTType(a) == AST_AMBIGUITY)
         {
             shape = "ellipse";
             color = "color=\"/dark28/4\",fontcolor=\"/dark28/4\"";
         }
-        else if (ASTType(a) == AST_NODE_LIST) 
+        else if (ASTType(a) == AST_NODE_LIST)
         {
-            shape = "Mdiamond";
-        }
-
-        if (ASTText(a))
-        {
-            char *quoted = quote_protect(ASTText(a));
-
-            fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
-                    current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
-
-            xfree(quoted);
-        }
-        else
-        {
-            fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
-                    current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
+            list_is_ok = list_tree_is_ok(a);
+            if (!list_is_ok)
+                shape = "Mdiamond";
         }
 
         // Print this only for non extended referenced nodes
@@ -258,8 +269,53 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", parent_node, current_node, position);
         }
 
-        if (ASTType(a) != AST_AMBIGUITY)
+        if (ASTType(a) == AST_NODE_LIST
+                && list_is_ok)
         {
+            shape="record";
+            fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"{AST_NODE_LIST\\nNode=%p\\nParent=%p\\n%s|{",
+                    current_node, color, shape, a, ASTParent(a), ast_location(a));
+
+            AST it = NULL;
+            int i = 0;
+            for_each_element(a, it)
+            {
+                if (i > 0)
+                    fprintf(f, "|");
+                fprintf(f, "<i%d> %d", i, i);
+                i++;
+            }
+
+            fprintf(f, "}}\"]\n");
+
+            i = 0;
+            for_each_element(a, it)
+            {
+                AST item = ASTSon1(it);
+
+                ast_dump_graphviz_rec(item, f, /* current_node */ 0, /* position */ 0);
+
+                fprintf(f, "n%zd:i%d -> n%zd[layer=\"trees\"]\n", current_node, i, (size_t)item);
+                i++;
+            }
+        }
+        else if (ASTType(a) != AST_AMBIGUITY)
+        {
+            if (ASTText(a) != NULL)
+            {
+                char *quoted = quote_protect(ASTText(a));
+
+                fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
+                        current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
+
+                xfree(quoted);
+            }
+            else
+            {
+                fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
+                        current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
+            }
+
             int i;
             for(i = 0; i < ASTNumChildren(a); i++)
             {
@@ -306,6 +362,9 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         }
         else if (ASTType(a) == AST_AMBIGUITY)
         {
+            fprintf(f, "n%zd[layer=\"trees\",%s,shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
+                    current_node, color, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
+
             int i;
             for(i = 0; i < ast_get_num_ambiguities(a); i++)
             {

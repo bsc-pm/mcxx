@@ -1457,6 +1457,21 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     // should be signed in as if they were members
 }
 
+static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
+{
+    *dest = *src;
+
+#define COPY_ARRAY(dest, orig, num_items) \
+    (dest) = xcalloc((num_items), sizeof(*(dest))); \
+    memcpy((dest), (orig), sizeof(*(dest))*(num_items));
+
+    COPY_ARRAY(dest->arguments_info, src->arguments_info, dest->num_arguments_info);
+    COPY_ARRAY(dest->gcc_attributes, src->gcc_attributes, dest->num_gcc_attributes);
+    COPY_ARRAY(dest->ms_attributes, src->ms_attributes, dest->num_ms_attributes);
+
+#undef COPY_ARRAY
+}
+
 // Builds scope for a simple declaration
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         char is_template, char is_explicit_specialization,
@@ -1570,7 +1585,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         for_each_element(declarator_list, iter)
         {
             // Copy because of attributes that might modify this info
-            gather_decl_spec_t current_gather_info = gather_info;
+            gather_decl_spec_t current_gather_info;
+            copy_gather_info(&current_gather_info, &gather_info);
+
             AST init_declarator = ASTSon1(iter);
 
             if (ASTType(init_declarator) == AST_AMBIGUITY)
@@ -1760,11 +1777,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         type_t* initializer_type = nodecl_get_type(nodecl_initializer);
 
                         if (is_array_type(declarator_type)
-                                && nodecl_get_ast(array_type_get_array_size_expr(declarator_type)) == NULL
+                                && nodecl_is_null(array_type_get_array_size_expr(declarator_type))
                                 && is_array_type(initializer_type)
-                                && nodecl_get_ast(array_type_get_array_size_expr(initializer_type)) != NULL)
+                                && !nodecl_is_null(array_type_get_array_size_expr(initializer_type)))
                         {
-                            entry->type_information = initializer_type;
+                            cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
+                            entry->type_information = get_cv_qualified_type(initializer_type, cv_qualif);
                         }
                     }
 
@@ -1836,13 +1854,20 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
             }
 
+
             // For typedefs we will emit a nodecl_cxx_decl if they involve
-            // variably modified types
+            // variably modified types.
+            //
+            // External global variables are also represented with nodecl_cxx_decl
             //
             // (We could use an object init but we reserve those for real data
             // entities)
-            if (entry->kind == SK_TYPEDEF
+            if ((entry->kind == SK_TYPEDEF
                     && is_variably_modified_type(entry->type_information))
+                    || (IS_C_LANGUAGE
+                        && entry->kind == SK_VARIABLE
+                        && entry->entity_specs.is_extern
+                        && entry->decl_context.current_scope == entry->decl_context.global_scope))
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
@@ -1854,7 +1879,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 entry,
                                 ast_get_locus(init_declarator))));
             }
-
 
             // GCC weird stuff
             if (asm_specification != NULL)
@@ -1871,11 +1895,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, current_gather_info);
             }
 
-            nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
-                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
-
             CXX_LANGUAGE()
             {
+                nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
+                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
                 nodecl_t nodecl_context =
                     nodecl_make_context(/* optional statement sequence */ nodecl_null(),
                             decl_context, ast_get_locus(init_declarator));
@@ -1974,7 +1998,9 @@ void build_scope_decl_specifier_seq(AST a,
             || gather_info->is_short
             || gather_info->is_long
             || gather_info->is_complex
-            || gather_info->is_boolean_integer)
+            // Mercurium extension
+            || gather_info->is_boolean_integer
+            || gather_info->is_mask_integer)
     {
 
         if (type_spec == NULL)
@@ -1984,7 +2010,8 @@ void build_scope_decl_specifier_seq(AST a,
                     || gather_info->is_short
                     || gather_info->is_long
                     // Mercurium extension
-                    || gather_info->is_boolean_integer)
+                    || gather_info->is_boolean_integer
+                    || gather_info->is_mask_integer)
             {
                 // Manually add the int tree to make things easier
                 ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
@@ -2003,7 +2030,8 @@ void build_scope_decl_specifier_seq(AST a,
         }
         // We need a local copy of the gather info because some information are
         // not shared between the type and the declarators
-        gather_decl_spec_t local_gather_info = *gather_info;
+        gather_decl_spec_t local_gather_info;
+        copy_gather_info(&local_gather_info, gather_info);
 
         // The management of gcc attributes is a bit fuzzy at this point!
         //
@@ -2157,7 +2185,30 @@ void build_scope_decl_specifier_seq(AST a,
         // Mercurium extension
         if (gather_info->is_boolean_integer)
         {
+            if (!is_integer_type(*type_info))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: a boolean type requires an integer type\n", ast_location(a));
+                }
+                *type_info = get_error_type();
+                return;
+            }
             *type_info = get_bool_of_integer_type(*type_info);
+        }
+
+        if (gather_info->is_mask_integer)
+        {
+            if (!is_integer_type(*type_info))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: a mask type requires an integer type\n", ast_location(a));
+                }
+                *type_info = get_error_type();
+                return;
+            }
+            *type_info = get_mask_type(/* mask_size_bits */ 8 * type_get_size(*type_info));
         }
 
         // cv-qualification
@@ -2276,6 +2327,11 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // Mercurium extensions
         case AST_MCC_BOOL:
             gather_info->is_boolean_integer = 1;
+            break;
+        case AST_MCC_MASK:
+            gather_info->is_mask_integer = 1;
+            // Currently masks are always unsigned types
+            gather_info->is_unsigned = 1;
             break;
             // UPC extensions
         case AST_UPC_SHARED :
@@ -2641,6 +2697,16 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 *simple_type_info = get_signed_int128_type();
 #else
                 error_printf("%s: error: __int128 support not available\n", ast_location(a));
+                *simple_type_info = get_error_type();
+#endif
+                break;
+            }
+        case AST_GCC_FLOAT128:
+            {
+#ifdef HAVE_QUADMATH_H
+                *simple_type_info = get_float128_type();
+#else
+                error_printf("%s: error: __float128 support not available\n", ast_location(a));
                 *simple_type_info = get_error_type();
 #endif
                 break;
@@ -3104,7 +3170,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
      *
      * *type_info = get_user_defined_type(class_entry);
      */
-    gather_decl_spec_t class_gather_info = *gather_info;
+    gather_decl_spec_t class_gather_info;
+    copy_gather_info(&class_gather_info, gather_info);
 
     scope_entry_t* class_entry = NULL;
     type_t* class_type = NULL;
@@ -5992,8 +6059,74 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     }
 }
 
+// Delayed member function declarations (due to default arguments)
 
-struct delayed_function_tag
+struct delayed_function_decl_tag
+{
+    scope_entry_t* entry;
+    decl_context_t decl_context;
+};
+
+static int _next_delayed_function_decl = 0;
+static struct delayed_function_decl_tag _delayed_functions_decl_list[MCXX_MAX_FUNCTIONS_PER_CLASS];
+
+static void build_scope_delayed_add_function_declaration(scope_entry_t* entry, decl_context_t decl_context)
+{
+    ERROR_CONDITION(_next_delayed_function_decl == MCXX_MAX_FUNCTIONS_PER_CLASS, "Too many function declarations delayed\n", 0);
+
+    _delayed_functions_decl_list[_next_delayed_function_decl].entry = entry;
+    _delayed_functions_decl_list[_next_delayed_function_decl].decl_context = decl_context;
+    _next_delayed_function_decl++;
+}
+
+
+static void build_scope_delayed_function_decl_clear_pending(void)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Clearing pending function declarations\n");
+    }
+    _next_delayed_function_decl = 0;
+}
+
+static void build_scope_delayed_function_decl(void)
+{
+    int i;
+    for (i = 0; i < _next_delayed_function_decl; i++)
+    {
+        scope_entry_t* entry = _delayed_functions_decl_list[i].entry;
+        decl_context_t decl_context = _delayed_functions_decl_list[i].decl_context;
+
+        int num_parameters = function_type_get_num_parameters(entry->type_information);
+        if (function_type_get_has_ellipsis(entry->type_information)) 
+            num_parameters--;
+        int j;
+        for (j = 0; j < num_parameters; j++)
+        {
+            if (entry->entity_specs.default_argument_info[j] != NULL
+                    && nodecl_get_kind(entry->entity_specs.default_argument_info[j]->argument) == NODECL_CXX_PARSE_LATER)
+            {
+                // Let's parse it now
+                AST tree = nodecl_get_ast(nodecl_get_child(entry->entity_specs.default_argument_info[j]->argument, 0));
+                ERROR_CONDITION(tree == NULL, "Invalid tree", 0);
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "=== Delayed default argument parsing at '%s' ===\n",
+                            ast_location(tree));
+                }
+
+                check_expression(tree, decl_context,
+                        &(entry->entity_specs.default_argument_info[j]->argument));
+            }
+        }
+    }
+    build_scope_delayed_function_decl_clear_pending();
+}
+
+// Delayed member function definitions
+
+struct delayed_function_def_tag
 {
     AST function_def_tree;
     scope_entry_t* entry;
@@ -6002,16 +6135,16 @@ struct delayed_function_tag
     char is_explicit_specialization;
 };
 
-static int _next_delayed_function = 0;
-static struct delayed_function_tag _max_delayed_functions[MCXX_MAX_FUNCTIONS_PER_CLASS];
+static int _next_delayed_function_def = 0;
+static struct delayed_function_def_tag _delayed_functions_def_list[MCXX_MAX_FUNCTIONS_PER_CLASS];
 
-static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, 
+static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
         scope_entry_t* entry,
         decl_context_t decl_context,
         char is_template,
         char is_explicit_specialization)
 {
-    ERROR_CONDITION(_next_delayed_function == MCXX_MAX_FUNCTIONS_PER_CLASS,
+    ERROR_CONDITION(_next_delayed_function_def == MCXX_MAX_FUNCTIONS_PER_CLASS,
             "Too many delayed member functions!\n", 0);
 
     DEBUG_CODE()
@@ -6020,29 +6153,29 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
                 ast_location(function_def_tree));
     }
 
-    _max_delayed_functions[_next_delayed_function].function_def_tree = function_def_tree;
-    _max_delayed_functions[_next_delayed_function].entry = entry;
-    _max_delayed_functions[_next_delayed_function].decl_context = decl_context;
-    _max_delayed_functions[_next_delayed_function].is_template = is_template;
-    _max_delayed_functions[_next_delayed_function].is_explicit_specialization = is_explicit_specialization;
-    _next_delayed_function++;
+    _delayed_functions_def_list[_next_delayed_function_def].function_def_tree = function_def_tree;
+    _delayed_functions_def_list[_next_delayed_function_def].entry = entry;
+    _delayed_functions_def_list[_next_delayed_function_def].decl_context = decl_context;
+    _delayed_functions_def_list[_next_delayed_function_def].is_template = is_template;
+    _delayed_functions_def_list[_next_delayed_function_def].is_explicit_specialization = is_explicit_specialization;
+    _next_delayed_function_def++;
 }
 
-static void build_scope_delayed_clear_pending(void)
+static void build_scope_delayed_function_def_clear_pending(void)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "BUILDSCOPE: Clearing pending functions\n");
+        fprintf(stderr, "BUILDSCOPE: Clearing pending function definition\n");
     }
-    _next_delayed_function = 0;
+    _next_delayed_function_def = 0;
 }
 
-static void build_scope_delayed_functions(nodecl_t* nodecl_output)
+static void build_scope_delayed_function_def(nodecl_t* nodecl_output)
 {
     int i;
-    for (i = 0;  i < _next_delayed_function; i++)
+    for (i = 0;  i < _next_delayed_function_def; i++)
     {
-        struct delayed_function_tag current = _max_delayed_functions[i];
+        struct delayed_function_def_tag current = _delayed_functions_def_list[i];
 
         AST function_def = current.function_def_tree;
         decl_context_t decl_context = current.decl_context;
@@ -6066,7 +6199,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
 
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
     }
-    build_scope_delayed_clear_pending();
+    build_scope_delayed_function_def_clear_pending();
 }
 
 static int _class_specifier_nesting = 0;
@@ -6088,9 +6221,14 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Building scope of delayed functions\n");
+            fprintf(stderr, "BUILDSCOPE: Building scope of delayed function declarations\n");
         }
-        build_scope_delayed_functions(nodecl_output);
+        build_scope_delayed_function_decl();
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Building scope of delayed function definitions\n");
+        }
+        build_scope_delayed_function_def(nodecl_output);
     }
     _class_specifier_nesting--;
     ERROR_CONDITION(_class_specifier_nesting < 0,
@@ -7461,21 +7599,17 @@ static void set_function_parameter_clause(type_t** function_type,
                 parameter_info[num_parameters].type_info = get_signed_int_type();
                 parameter_info[num_parameters].nonadjusted_type_info = get_signed_int_type();
 
-                gather_info->arguments_info[num_parameters].entry = new_parameter;
-                gather_info->arguments_info[num_parameters].argument = nodecl_null();
-                gather_info->arguments_info[num_parameters].context = decl_context;
+                arguments_info_t new_argument_info;
+                new_argument_info.entry = new_parameter;
+                new_argument_info.argument = nodecl_null();
+                new_argument_info.context = decl_context;
+
+                P_LIST_ADD(gather_info->arguments_info,
+                        gather_info->num_arguments_info,
+                        new_argument_info);
 
                 num_parameters++;
             }
-        }
-
-        if (parameter_info[num_parameters-1].is_ellipsis)
-        {
-            gather_info->num_parameters = num_parameters - 1;
-        }
-        else
-        {
-            gather_info->num_parameters = num_parameters;
         }
 
         *function_type = get_nonproto_function_type(*function_type, num_parameters);
@@ -7532,17 +7666,40 @@ static void set_function_parameter_clause(type_t** function_type,
             // Check the default argument
             if (default_argument != NULL)
             {
-                if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
+                if (gather_info->inside_class_specifier)
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: could not check default argument expression '%s'\n",
-                                ast_location(default_argument),
-                                prettyprint_in_buffer(default_argument));
-                    }
+                    // We have to allow this case (somebody decided that this made sense)
+                    //
+                    // struct A
+                    // {
+                    //   void f(int i = E);
+                    //   enum { E = 3 };
+                    // };
+                    //
+                    AST parent = ast_get_parent(default_argument);
 
-                    *function_type = get_error_type();
-                    return;
+                    nodecl_default_argument = nodecl_make_cxx_parse_later(ast_get_locus(default_argument));
+                    // Keep the current tree
+                    nodecl_set_child(nodecl_default_argument, 0, _nodecl_wrap(default_argument));
+                    // the parent was changed by nodecl_set_child, so fix it (otherwise the tree becomes inconsistent)
+                    ast_set_parent(default_argument, parent);
+
+                    // We will delay these function declarations in register_function
+                }
+                else
+                {
+                    if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: could not check default argument expression '%s'\n",
+                                    ast_location(default_argument),
+                                    prettyprint_in_buffer(default_argument));
+                        }
+
+                        *function_type = get_error_type();
+                        return;
+                    }
                 }
             }
 
@@ -7621,6 +7778,37 @@ static void set_function_parameter_clause(type_t** function_type,
                 entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context);
             }
 
+            if (is_void_type(type_info))
+            {
+                if (entry != NULL)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: parameter '%s' declared as void\n", 
+                                ast_location(parameter_decl_spec_seq),
+                                entry->symbol_name);
+                    }
+                    *function_type = get_error_type();
+                    return;
+                }
+                else if (ASTSon0(iter) != NULL
+                        || (num_parameters != 0))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: parameter declared as void\n", 
+                                ast_location(parameter_decl_spec_seq));
+                    }
+                    *function_type = get_error_type();
+                    return;
+                }
+                else // entry == NULL && ASTSon(iter) == NULL && num_parameters == 0
+                {
+                    // We are done: this is of the form f(void)
+                    break;
+                }
+            }
+
             if (entry == NULL)
             {
                 // The declarator was abstract, craft a name
@@ -7679,9 +7867,14 @@ static void set_function_parameter_clause(type_t** function_type,
             ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, 
                     "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
 
-            gather_info->arguments_info[num_parameters].entry = entry;
-            gather_info->arguments_info[num_parameters].argument = nodecl_default_argument;
-            gather_info->arguments_info[num_parameters].context = decl_context;
+            arguments_info_t new_argument_info;
+            new_argument_info.entry = entry;
+            new_argument_info.argument = nodecl_default_argument;
+            new_argument_info.context = decl_context;
+
+            P_LIST_ADD(gather_info->arguments_info,
+                    gather_info->num_arguments_info,
+                    new_argument_info);
 
             // Pass the VLA symbols of this parameter
             int i;
@@ -7698,15 +7891,6 @@ static void set_function_parameter_clause(type_t** function_type,
         }
     }
 
-    if (parameter_info[num_parameters-1].is_ellipsis)
-    {
-        gather_info->num_parameters = num_parameters - 1;
-    }
-    else
-    {
-        gather_info->num_parameters = num_parameters;
-    }
-
     if ((num_parameters == 1)
             && !parameter_info[0].is_ellipsis)
     {
@@ -7716,7 +7900,6 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             // This list was really empty
             num_parameters = 0;
-            gather_info->num_parameters = 0;
         }
     }
 
@@ -8078,13 +8261,13 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
     if (!is_named_type(declarator_type))
     {
         // We should mix here default argument info because the declarator has function-type form
-        ERROR_CONDITION(gather_info->num_parameters != function_symbol->entity_specs.num_parameters,
+        ERROR_CONDITION(gather_info->num_arguments_info != function_symbol->entity_specs.num_parameters,
                 "These two should be the same and they are %d != %d", 
-                gather_info->num_parameters, 
+                gather_info->num_arguments_info, 
                 function_symbol->entity_specs.num_parameters);
 
         int i;
-        for (i = 0; i < gather_info->num_parameters; i++)
+        for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (function_symbol->entity_specs.default_argument_info[i] == NULL
                     && !nodecl_is_null(gather_info->arguments_info[i].argument))
@@ -8461,7 +8644,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             {
                 // If the declarator is a functional one, we have to mix the arguments here
                 int i;
-                for (i = 0; i < gather_info->num_parameters; i++)
+                for (i = 0; i < gather_info->num_arguments_info; i++)
                 {
                     if (entry->entity_specs.default_argument_info[i] == NULL
                             && !nodecl_is_null(gather_info->arguments_info[i].argument))
@@ -8536,15 +8719,15 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: This is a typedef to function type, saving gathered information\n");
-            fprintf(stderr, "BUILDSCOPE: Number of parameters %d\n", gather_info->num_parameters);
+            fprintf(stderr, "BUILDSCOPE: Number of parameters %d\n", gather_info->num_arguments_info);
         }
 
-        entry->entity_specs.num_parameters = gather_info->num_parameters;
+        entry->entity_specs.num_parameters = gather_info->num_arguments_info;
         entry->entity_specs.default_argument_info = counted_xcalloc(entry->entity_specs.num_parameters,
                 sizeof(*(entry->entity_specs.default_argument_info)), 
                 &_bytes_used_buildscope);
         int i;
-        for (i = 0; i < gather_info->num_parameters; i++)
+        for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
@@ -8936,10 +9119,10 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         new_entry->entity_specs.exceptions = gather_info->exceptions;
 
-        new_entry->entity_specs.num_parameters = gather_info->num_parameters;
+        new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
         new_entry->entity_specs.default_argument_info =
-            counted_xcalloc(gather_info->num_parameters,
+            counted_xcalloc(gather_info->num_arguments_info,
                     sizeof(*new_entry->entity_specs.default_argument_info),
                     &_bytes_used_buildscope);
 
@@ -8956,7 +9139,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
 
         int i;
-        for (i = 0; i < gather_info->num_parameters; i++)
+        char already_delayed = 0;
+        for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
@@ -8967,6 +9151,15 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     gather_info->arguments_info[i].argument;
                 new_entry->entity_specs.default_argument_info[i]->context = 
                     gather_info->arguments_info[i].context;
+
+                if (nodecl_get_kind(new_entry->entity_specs.default_argument_info[i]->argument) == NODECL_CXX_PARSE_LATER
+                        && !already_delayed)
+                {
+                    ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE,
+                            "Invalid parse later default argument", 0);
+                    build_scope_delayed_add_function_declaration(new_entry, decl_context);
+                    already_delayed = 1;
+                }
             }
         }
 
@@ -9249,12 +9442,12 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     new_entry->entity_specs.is_friend_declared = 1;
     new_entry->entity_specs.any_exception = gather_info->any_exception;
-    new_entry->entity_specs.num_parameters = gather_info->num_parameters;
+    new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
     new_entry->entity_specs.default_argument_info =
         counted_xcalloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
     int i;
-    for (i = 0; i < gather_info->num_parameters; i++)
+    for (i = 0; i < gather_info->num_arguments_info; i++)
     {
         if (!nodecl_is_null(gather_info->arguments_info[i].argument))
         {
@@ -10319,7 +10512,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         }
 
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
-            (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+            // Only variables are actually defined, everything else is a declaration
+            (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
@@ -10987,7 +11181,8 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
             i = 0;
             for_each_element (init_declarator_list, init_declarator_it)
             {
-                gather_decl_spec_t current_gather_info = gather_info;
+                gather_decl_spec_t current_gather_info;
+                copy_gather_info(&current_gather_info, &gather_info);
 
                 AST init_declarator = ASTSon1(init_declarator_it);
 
@@ -11219,27 +11414,27 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     if (entry->entity_specs.related_symbols == NULL)
     {
         // Allocated for the first time
-        entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-        entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
+        entry->entity_specs.num_related_symbols = gather_info->num_arguments_info;
+        entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_arguments_info,
                 sizeof(*entry->entity_specs.related_symbols),
                 &_bytes_used_buildscope);
     }
     else
     {
-        if (entry->entity_specs.num_related_symbols != gather_info->num_parameters)
+        if (entry->entity_specs.num_related_symbols != gather_info->num_arguments_info)
         {
             // A mismatching number of parameters, xrealloc
             xfree(entry->entity_specs.related_symbols);
 
-            entry->entity_specs.num_related_symbols = gather_info->num_parameters;
-            entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_parameters,
+            entry->entity_specs.num_related_symbols = gather_info->num_arguments_info;
+            entry->entity_specs.related_symbols = counted_xcalloc(gather_info->num_arguments_info,
                     sizeof(*entry->entity_specs.related_symbols),
                     &_bytes_used_buildscope);
         }
     }
 
     int i;
-    for (i = 0; i < gather_info->num_parameters; i++)
+    for (i = 0; i < gather_info->num_arguments_info; i++)
     {
         // In C they must have name in a definition
         C_LANGUAGE()
@@ -12216,6 +12411,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     gather_info.is_template = is_template;
     gather_info.is_explicit_specialization = is_explicit_specialization;
+    gather_info.inside_class_specifier = 1;
 
     type_t* type_info = NULL;
 
@@ -12355,6 +12551,8 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
         nodecl_t* nodecl_output)
 {
     gather_decl_spec_t gather_info;
+    gather_info.inside_class_specifier = 1;
+
     memset(&gather_info, 0, sizeof(gather_info));
 
     type_t* class_type = get_actual_class_type(class_info);
@@ -12505,6 +12703,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     gather_info.is_template = is_template;
     gather_info.is_explicit_specialization = is_explicit_specialization;
     gather_info.current_access = current_access;
+    gather_info.inside_class_specifier = 1;
 
     type_t* class_type = NULL;
     const char* class_name = "";
@@ -12623,7 +12822,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             AST declarator = ASTSon1(iter);
             char is_constructor = 0;
 
-            gather_decl_spec_t current_gather_info = gather_info;
+            gather_decl_spec_t current_gather_info;
+            copy_gather_info(&current_gather_info, &gather_info);
 
             switch (ASTType(declarator))
             {
@@ -13527,56 +13727,36 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
 }
 
-static nodecl_t normalize_multiple_statements(nodecl_t multiple_statements,
-        decl_context_t context_of_stmts UNUSED_PARAMETER)
+static void build_scope_normalized_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (nodecl_is_null(multiple_statements))
-        return multiple_statements;
+    if (ASTType(a) == AST_COMPOUND_STATEMENT)
+        build_scope_statement(a, decl_context, nodecl_output);
+    else
+    {
+        // Mimick the behaviour of a compound statement
+        decl_context_t block_context = new_block_context(decl_context);
 
-    if (!nodecl_is_list(multiple_statements))
-        return multiple_statements;
+        nodecl_t nodecl_output_list = nodecl_null();
 
-    nodecl_t nodecl_context, nodecl_in_context;
-    if (nodecl_list_length(multiple_statements) == 1
-            && nodecl_get_kind(nodecl_context = nodecl_list_head(multiple_statements)) == NODECL_CONTEXT
-            && !nodecl_is_null(nodecl_in_context)
-            && nodecl_is_list(nodecl_in_context = nodecl_get_child(nodecl_context, 0))
-            && nodecl_list_length(nodecl_in_context) == 1
-            && nodecl_get_kind(nodecl_list_head(nodecl_in_context)) == NODECL_COMPOUND_STATEMENT)
-        return multiple_statements;
+        nodecl_t current_nodecl_output = nodecl_null();
+        build_scope_statement(a, block_context, &current_nodecl_output);
 
-    // We simplify
-    //
-    // if (E)
-    //    S1
-    //
-    //    into
-    //
-    // if (E)
-    // {
-    //   S1
-    // }
-    nodecl_t nodecl_result =
-        nodecl_make_list_1(
-                nodecl_make_compound_statement(
-                    multiple_statements,
-                    /* finalize */ nodecl_null(),
-                    nodecl_get_locus(multiple_statements))
-                );
+        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
 
-    // Note: We are not creating a context for now, but if we have to simply
-    // enable the following code
-    decl_context_t block_context = new_block_context(context_of_stmts);
-    nodecl_result =
-        nodecl_make_list_1(
+        nodecl_t nodecl_destructors = nodecl_null();
+        CXX_LANGUAGE()
+        {
+            call_destructors_of_classes(block_context, ast_get_locus(a), &nodecl_destructors);
+        }
+
+        *nodecl_output = nodecl_make_list_1(
                 nodecl_make_context(
-                    nodecl_result,
-                    block_context,
-                    nodecl_get_locus(multiple_statements)));
-
-    return nodecl_result;
+                    nodecl_make_list_1(
+                        nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ast_get_locus(a))
+                        ),
+                    block_context, ast_get_locus(a)));
+    }
 }
-
 
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
@@ -13590,10 +13770,8 @@ static void build_scope_while_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
-        build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
+        build_scope_normalized_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13696,7 +13874,7 @@ static void build_scope_if_else_statement(AST a,
 
     AST then_branch = ASTSon1(a);
     nodecl_t nodecl_then = nodecl_null();
-    build_scope_statement(then_branch, block_context, &nodecl_then);
+    build_scope_normalized_statement(then_branch, block_context, &nodecl_then);
 
     // Normalize multiple statements
 
@@ -13704,11 +13882,8 @@ static void build_scope_if_else_statement(AST a,
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
-        build_scope_statement(else_branch, block_context, &nodecl_else);
+        build_scope_normalized_statement(else_branch, block_context, &nodecl_else);
     }
-
-    nodecl_then = normalize_multiple_statements(nodecl_then, block_context);
-    nodecl_else = normalize_multiple_statements(nodecl_else, block_context);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -13717,6 +13892,25 @@ static void build_scope_if_else_statement(AST a,
                         ast_get_locus(a))),
                 block_context,
                 ast_get_locus(a)));
+}
+
+static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(ASTType(a) != AST_SYMBOL_LITERAL_REF, "Invalid node", 0);
+
+    const char *tmp = ASTText(ASTSon0(a));
+
+    const char * prefix = NULL;
+    void *p = NULL;
+    unpack_pointer(tmp, &prefix, &p);
+
+    ERROR_CONDITION(prefix == NULL || p == NULL || strcmp(prefix, "symbol") != 0,
+            "Failure during unpack of symbol", 0);
+
+    scope_entry_t* entry = (scope_entry_t*)p;
+
+    *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(a));
 }
 
 static void build_scope_for_statement(AST a, 
@@ -13730,6 +13924,9 @@ static void build_scope_for_statement(AST a,
     AST expression = ASTSon2(loop_control);
 
     AST statement = ASTSon1(a);
+
+    // AST end_loop_statement = ASTSon2(a); // Fortran only
+    AST synthesized_loop_name = ASTSon3(a); // Mercurium internal parsing
 
     if (ASTType(for_init_statement) == AST_AMBIGUITY)
     {
@@ -13801,18 +13998,22 @@ static void build_scope_for_statement(AST a,
 
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, block_context, &nodecl_statement);
+    build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
+    nodecl_t loop_name = nodecl_null();
+    if (synthesized_loop_name != NULL)
+    {
+        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &loop_name);
+    }
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ast_get_locus(a));
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
                     nodecl_make_list_1(
                         nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            /* loop name */ nodecl_null(),
+                            loop_name,
                             ast_get_locus(a))),
                     block_context,
                     ast_get_locus(a)
@@ -13832,9 +14033,7 @@ static void build_scope_switch_statement(AST a,
     build_scope_condition(condition, block_context, &nodecl_condition);
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, block_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, block_context);
+    build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
@@ -14128,9 +14327,7 @@ static void build_scope_do_statement(AST a,
     AST expression = ASTSon1(a);
 
     nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, decl_context, &nodecl_statement);
-
-    nodecl_statement = normalize_multiple_statements(nodecl_statement, decl_context);
+    build_scope_normalized_statement(statement, decl_context, &nodecl_statement);
 
     nodecl_t nodecl_expr = nodecl_null();
     if (!check_expression(expression, decl_context, &nodecl_expr))
@@ -14291,7 +14488,7 @@ static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
     if (entry->kind == SK_FUNCTION)
     {
         int i;
-        for (i = 0; i < gather_info.num_parameters; i++)
+        for (i = 0; i < gather_info.num_arguments_info; i++)
         {
             if (gather_info.arguments_info[i].entry != NULL)
             {
@@ -14319,7 +14516,8 @@ static void finish_pragma_declaration(
             entry_list_iterator_next(it), i++)
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        gather_decl_spec_t gather_info = info->gather_decl_spec_list->items[i];
+        gather_decl_spec_t gather_info;
+        copy_gather_info(&gather_info, &(info->gather_decl_spec_list->items[i]));
 
         nodecl_t nodecl_single_pragma_declaration = nodecl_null();
         int j;

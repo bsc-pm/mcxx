@@ -37,6 +37,7 @@
 %type<ast> pragma_custom_construct_external_procedure_0
 %type<ast2> pragma_custom_construct_range
 %type<ast2> pragma_custom_noend_construct_range
+%type<ast2> pragma_custom_noend_shared_term_do_range
 %type<ast> pragma_custom_noend_line_construct
 %type<ast> pragma_custom_line_or_noend_construct
 %type<ast> pragma_custom_end_construct
@@ -45,6 +46,7 @@
 %type<ast> pragma_custom_construct_module_subprogram_unit
 %type<ast> pragma_custom_construct_interface_body
 %type<ast> explicit_external_procedure
+%type<ast> pragma_custom_shared_term_do_construct
 /*!endif*/
 %type<ast> pragma_custom_clause
 %type<ast> pragma_custom_clause_seq
@@ -215,6 +217,7 @@ pragma_custom_construct_range : block pragma_custom_end_construct
 }
 ;
 
+
 // These cases only allows a single statements but does not require an end construct to appear
 pragma_custom_noend_construct_range : non_top_level_program_unit_stmt pragma_custom_end_construct_noend
 {
@@ -222,6 +225,38 @@ pragma_custom_noend_construct_range : non_top_level_program_unit_stmt pragma_cus
     $$[1] = $2;
 }
 | non_top_level_program_unit_stmt
+{
+    $$[0] = ASTMake1(AST_COMPOUND_STATEMENT, ASTListLeaf($1), ast_get_locus($1), NULL);
+    $$[1] = NULL;
+}
+;
+
+/*
+
+  Unusual cases for shared term do construct like the following
+
+  DO 42 I = 1, 100
+  !$OMP PARALLEL DO
+  DO 42 J = 1, 100
+    .. FOO (I, J) ..
+  42 CONTINUE
+
+*/
+shared_term_do_construct : pragma_custom_shared_term_do_construct
+;
+
+pragma_custom_shared_term_do_construct : PRAGMA_CUSTOM pragma_custom_noend_line_construct pragma_custom_noend_shared_term_do_range
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3[0], $3[1], make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
+pragma_custom_noend_shared_term_do_range : shared_term_do_construct pragma_custom_end_construct_noend
+{
+    $$[0] = ASTMake1(AST_COMPOUND_STATEMENT, ASTListLeaf($1), ast_get_locus($1), NULL);
+    $$[1] = $2;
+}
+| shared_term_do_construct
 {
     $$[0] = ASTMake1(AST_COMPOUND_STATEMENT, ASTListLeaf($1), ast_get_locus($1), NULL);
     $$[1] = NULL;

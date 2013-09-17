@@ -123,6 +123,8 @@ scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_s
 
 type_t* actual_type_of_conversor(scope_entry_t* conv)
 {
+    conv = entry_advance_aliases(conv);
+
     if (conv->entity_specs.is_constructor)
     {
         return conv->entity_specs.class_type;
@@ -1945,6 +1947,17 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         rhs_type = enum_type_get_underlying_type(rhs_type);
     }
 
+    char is_mask = is_mask_type(lhs_type)
+        || is_mask_type(rhs_type);
+    if (is_mask_type(lhs_type))
+    {
+        lhs_type = mask_type_get_underlying_type(lhs_type);
+    }
+    if (is_mask_type(rhs_type))
+    {
+        rhs_type = mask_type_get_underlying_type(rhs_type);
+    }
+
     char is_complex = is_complex_type(lhs_type)
         || is_complex_type(rhs_type); 
 
@@ -2096,6 +2109,11 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     if (is_complex)
     {
         result = get_complex_type(result);
+    }
+
+    if (is_mask)
+    {
+        result = get_mask_type(type_get_size(result) * 8);
     }
 
     return result;
@@ -2255,10 +2273,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
     scope_entry_t* conversors[2] = { NULL, NULL };
 
-    scope_entry_t *overloaded_call = solve_overload(candidate_set,
+    scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
             decl_context,
             locus,
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
@@ -2491,10 +2510,11 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
     scope_entry_t* conversors[1] = { NULL };
     
-    scope_entry_t *overloaded_call = solve_overload(candidate_set,
+    scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
             locus,
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
@@ -5865,12 +5885,29 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
 
+    // Check again if this is an alias to a dependent entity
+    if (entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
+        entry->value = nodecl_name;
+        nodecl_set_type(*nodecl_output, entry->type_information);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
     if (entry->kind != SK_VARIABLE
             && entry->kind != SK_ENUMERATOR
             && entry->kind != SK_FUNCTION
             && entry->kind != SK_TEMPLATE
             && entry->kind != SK_TEMPLATE_PARAMETER)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: name '%s' is not valid in this context\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
+        }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
@@ -6402,10 +6439,11 @@ static void check_nodecl_array_subscript_expression(
         entry_list_iterator_free(it);
         entry_list_free(overload_set);
 
-        scope_entry_t *overloaded_call = solve_overload(candidate_set,
+        scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
                 decl_context, 
                 locus,
                 conversors);
+        scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
         if (overloaded_call == NULL)
         {
@@ -6549,6 +6587,8 @@ static void check_conversion_function_id_expression(AST expression, decl_context
     // Keep the conversion type
     nodecl_set_child(*nodecl_output, 1,
             nodecl_make_type(conversion_type, ast_get_locus(expression)));
+    // Nullify this tree
+    nodecl_set_child(*nodecl_output, 2, nodecl_null());
 
     if (is_dependent_type(conversion_type))
     {
@@ -7015,8 +7055,9 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             entry_list_free(builtins);
 
             scope_entry_t* conversors[3] = { NULL, NULL, NULL };
-            scope_entry_t *overloaded_call = solve_overload(candidate_set,
+            scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
                     decl_context, locus, conversors);
+            scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
             if (overloaded_call == NULL)
             {
@@ -7477,9 +7518,10 @@ static void check_new_expression_impl(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
+    scope_entry_t* orig_chosen_operator_new = solve_overload(candidate_set, 
             decl_context, locus,
             conversors);
+    scope_entry_t* chosen_operator_new = entry_advance_aliases(orig_chosen_operator_new);
     candidate_set_free(&candidate_set);
 
     if (chosen_operator_new == NULL)
@@ -7886,6 +7928,10 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             }
             else
             {
+                // Take care of propagating value dependency
+                nodecl_expr_set_is_value_dependent(nodecl_cast_output,
+                        nodecl_expr_is_value_dependent(nodecl_casted_expr));
+
                 nodecl_casted_expr = nodecl_cast_output;
             }
         }
@@ -8649,7 +8695,7 @@ static char check_argument_types_of_call(
     return no_arg_is_faulty;
 }
 
-UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidates)
+static char any_is_member_function(scope_entry_list_t* candidates)
 {
     char is_member = 0;
 
@@ -8665,6 +8711,7 @@ UNUSED_PARAMETER static char any_is_member_function(scope_entry_list_t* candidat
     return is_member;
 }
 
+UNUSED_PARAMETER
 static char any_is_member_function_of_class_or_derived(scope_entry_list_t* candidates, scope_entry_t* this_symbol)
 {
     char result = 0;
@@ -8991,12 +9038,12 @@ static void check_nodecl_function_call_cxx(
 
     if (this_symbol != NULL
             && is_dependent_type(this_symbol->type_information)
-            && any_is_member_function_of_class_or_derived(candidates, this_symbol))
+            && any_is_member_function(candidates))
     {
         // If we are doing a call F(X) or A::F(X), F (or A::F) is a member
-        // function of a class and this is that same class or a derived one,
-        // then we have to act as if (*this).F(X) (or  (*this).A::F(X)). This
-        // implies that if 'this' is dependent the whole call is dependent
+        // function then we have to act as if (*this).F(X) (or
+        // (*this).A::F(X)). This implies that if 'this' is dependent the whole
+        // call is dependent
         any_arg_is_dependent = 1;
     }
 
@@ -9300,10 +9347,11 @@ static void check_nodecl_function_call_cxx(
     entry_list_iterator_free(it);
     entry_list_free(candidates);
 
-    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context,
             locus,
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
     {
@@ -9358,7 +9406,7 @@ static void check_nodecl_function_call_cxx(
     }
     else
     {
-        nodecl_called = nodecl_make_symbol(overloaded_call, locus);
+        nodecl_called = nodecl_make_symbol(orig_overloaded_call, locus);
         nodecl_set_type(nodecl_called, overloaded_call->type_information);
 
         function_type_of_called = overloaded_call->type_information;
@@ -10034,6 +10082,71 @@ static void check_nodecl_member_access(
                     template_tag,
                     locus);
         }
+
+        nodecl_t nodecl_last_part =  nodecl_name_get_last_part(nodecl_member);
+        if (nodecl_get_kind(nodecl_last_part) == NODECL_CXX_DEP_NAME_CONVERSION)
+        {
+            // This is weird, the left hand side of this class-member access is
+            // dependent, so technically we cannot check anything in its scope
+            // (maybe it is a class), so we will go with the current one
+            //
+            // template <typename T>
+            // void f()
+            // {
+            //   T t;
+            //   t.operator C<T*>(); // C<T> or T::C<T*> ??? We will try the first one
+            //   // Note that if the former is desired we can always write 'typename T::C<T*>'
+            //   // so this problem can always be worked around
+            // }
+            AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_last_part, 2));
+            ERROR_CONDITION(type_id == NULL, "Invalid node created by compute_nodecl_name_from_unqualified_id\n", 0);
+
+            // Nullify tree so it won't bee freed afterwards if we discard this tree
+            nodecl_set_child(nodecl_last_part, 2, nodecl_null());
+
+            AST type_specifier_seq = ASTSon0(type_id);
+            AST type_spec = ASTSon1(type_specifier_seq);
+
+            // Build the type tree
+            if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+            {
+                AST id_expression = ASTSon0(type_spec);
+
+                decl_context_t expression_context =
+                    nodecl_get_decl_context(nodecl_get_child(nodecl_last_part, 0));
+
+                nodecl_t nodecl_id_expression = nodecl_null();
+                compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+
+                ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
+            }
+
+            type_t* t = get_error_type();
+
+            enter_test_expression();
+            t = compute_type_for_type_id_tree(type_id, decl_context);
+            leave_test_expression();
+
+            // If not found, error
+            if (is_error_type(t))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: type-id %s of conversion-id not found\n",
+                            nodecl_locus_to_str(nodecl_member),
+                            prettyprint_in_buffer(type_id));
+                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+
+
+            // Keep the type
+            nodecl_set_child(
+                    nodecl_last_part, 1,
+                    nodecl_make_type(t, nodecl_get_locus(nodecl_last_part)));
+        }
+
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
@@ -10110,6 +10223,14 @@ static void check_nodecl_member_access(
 
         if (operator_arrow_list == NULL)
         {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
+                        nodecl_locus_to_str(nodecl_accessed),
+                        codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                        codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                        print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
+            }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
@@ -10136,9 +10257,10 @@ static void check_nodecl_member_access(
 
         scope_entry_t* conversors[1] = { NULL };
 
-        scope_entry_t* selected_operator_arrow = solve_overload(candidate_set,
+        scope_entry_t* orig_selected_operator_arrow = solve_overload(candidate_set,
                 decl_context, nodecl_get_locus(nodecl_accessed),
                 conversors);
+        scope_entry_t* selected_operator_arrow = entry_advance_aliases(orig_selected_operator_arrow);
 
         if (selected_operator_arrow == NULL)
         {
@@ -10243,7 +10365,8 @@ static void check_nodecl_member_access(
     }
 
     char ok = 0;
-    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
+    scope_entry_t* orig_entry = entry_list_head(entry_list);
+    scope_entry_t* entry = entry_advance_aliases(orig_entry);
     C_LANGUAGE()
     {
         nodecl_t nodecl_field = nodecl_accessed_out;
@@ -10291,10 +10414,33 @@ static void check_nodecl_member_access(
 
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_field,
-                    nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
                     nodecl_member_form,
                     lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
                     nodecl_get_locus(nodecl_accessed));
+        }
+        else if (entry->kind == SK_ENUMERATOR)
+        {
+            ok = 1;
+
+            *nodecl_output = nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed));
+            nodecl_set_type(*nodecl_output, entry->type_information);
+
+            if (nodecl_expr_is_value_dependent(entry->value))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
+                            nodecl_locus_to_str(nodecl_accessed), codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)));
+                }
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
+            else
+            {
+                ERROR_CONDITION(!nodecl_is_constant(entry->value), "This should be constant", 0);
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+            }
+
         }
         // In C++ if we have overload remember it
         else if (entry->kind == SK_FUNCTION
@@ -10312,7 +10458,8 @@ static void check_nodecl_member_access(
 
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_accessed_out,
-                    nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
+                    /* This symbol goes unused when we see that its type is already an overload */
+                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
                     nodecl_member_form,
                     t,
                     nodecl_get_locus(nodecl_accessed));
@@ -10348,68 +10495,6 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
         return;
-    }
-
-    if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
-    {
-        // Special treatment required for conversion function ids
-        type_t* conversion_type_at_scope = get_error_type();
-        enter_test_expression();
-        get_conversion_function_name(decl_context, id_expression, &conversion_type_at_scope);
-        leave_test_expression();
-
-        type_t* conversion_type_in_class = get_error_type();
-        if (is_class_type(no_ref(nodecl_get_type(nodecl_accessed))))
-        {
-            enter_test_expression();
-            decl_context_t class_context = class_type_get_inner_context(no_ref(nodecl_get_type(nodecl_accessed)));
-            get_conversion_function_name(class_context, id_expression, &conversion_type_in_class);
-            leave_test_expression();
-        }
-
-        type_t* conversion_type = conversion_type_in_class;
-        if (is_error_type(conversion_type_in_class))
-        {
-            conversion_type = conversion_type_at_scope;
-        }
-        else
-        {
-            if (!is_error_type(conversion_type_at_scope))
-            {
-                if (!equivalent_types(conversion_type, conversion_type_at_scope))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        decl_context_t class_context = class_type_get_inner_context(no_ref(nodecl_get_type(nodecl_accessed)));
-                        error_printf("%s: error: type of conversion found in class scope (%s) and the type found in the scope "
-                                "of the class-member access (%s) should match\n",
-                                nodecl_locus_to_str(nodecl_name),
-                                print_type_str(conversion_type_in_class, class_context),
-                                print_type_str(conversion_type_at_scope, decl_context));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
-                    return;
-                }
-            }
-        }
-
-        if (is_error_type(conversion_type))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: type of conversion not found\n", nodecl_locus_to_str(nodecl_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(member_access));
-            return;
-        }
-
-        ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_CONVERSION, "Invalid node", 0);
-        nodecl_set_child(nodecl_name, 1, nodecl_make_type(conversion_type, nodecl_get_locus(nodecl_name)));
-
-        if (is_dependent_type(conversion_type))
-        {
-            nodecl_expr_set_is_type_dependent(nodecl_name, 1);
-        }
     }
 
     check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,
@@ -10496,10 +10581,11 @@ static void check_postoperator_user_defined(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
             nodecl_get_locus(postoperated_expr), 
             conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
     {
@@ -10646,8 +10732,9 @@ static void check_preoperator_user_defined(AST operator,
     entry_list_iterator_free(it);
     entry_list_free(overload_set);
 
-    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+    scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, nodecl_get_locus(preoperated_expr), conversors);
+    scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
     {
@@ -13013,6 +13100,18 @@ static void compute_nodecl_initialization(AST initializer, decl_context_t decl_c
     }
 }
 
+static void unary_record_conversion_to_result_for_initializer(type_t* result, nodecl_t* op)
+{
+    type_t* op_type = nodecl_get_type(*op);
+
+    // Do not record array conversions here
+    if (!is_array_type(result)
+            && !equivalent_types(result, op_type))
+    {
+        *op = cxx_nodecl_make_conversion(*op, result,
+                nodecl_get_locus(*op));
+    }
+}
 
 void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         decl_context_t decl_context, 
@@ -13078,8 +13177,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             return;
         }
 
-
         *nodecl_output = nodecl_expr;
+        unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         return;
     }
 
@@ -13175,6 +13274,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             }
 
             *nodecl_output = nodecl_expr;
+            unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         }
     }
     else
@@ -15294,7 +15394,7 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 }
 
 nodecl_t cxx_nodecl_make_function_call(
-        nodecl_t called,
+        nodecl_t orig_called,
         nodecl_t called_name,
         nodecl_t arg_list,
         nodecl_t function_form,
@@ -15304,7 +15404,18 @@ nodecl_t cxx_nodecl_make_function_call(
     ERROR_CONDITION(!nodecl_is_null(arg_list)
             && !nodecl_is_list(arg_list), "Argument nodecl is not a list", 0);
 
-    scope_entry_t* called_symbol = nodecl_get_symbol(called);
+    bool preserve_orig_name = false;
+
+    scope_entry_t* orig_called_symbol = nodecl_get_symbol(orig_called);
+
+    scope_entry_t* called_symbol = entry_advance_aliases(orig_called_symbol);
+    nodecl_t called = orig_called;
+
+    if (called_symbol != orig_called_symbol)
+    {
+        called = nodecl_make_symbol(called_symbol, locus);
+        preserve_orig_name = true;
+    }
 
     // This list will be the same as arg_list but with explicit conversions stored
     nodecl_t converted_arg_list = nodecl_null();
@@ -15445,9 +15556,15 @@ nodecl_t cxx_nodecl_make_function_call(
             }
             else
             {
+                nodecl_t alternate_name = nodecl_null();
+                if (preserve_orig_name)
+                {
+                    alternate_name = orig_called;
+                }
+
                 return nodecl_make_function_call(called,
                         converted_arg_list,
-                        /* alternate_name */ nodecl_null(),
+                        alternate_name,
                         function_form, t,
                         locus);
             }
@@ -15965,7 +16082,13 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
     int i;
     for (i = 0; i < num_items; i++)
     {
-        nodecl_t current_arg = instantiate_expr_walk(v, list[i]);
+        nodecl_t arg = list[i];
+
+        // Advance default arguments
+        if (nodecl_get_kind(arg) == NODECL_DEFAULT_ARGUMENT)
+            arg = nodecl_get_child(arg, 0);
+
+        nodecl_t current_arg = instantiate_expr_walk(v, arg);
 
         if (nodecl_is_err_expr(current_arg))
         {

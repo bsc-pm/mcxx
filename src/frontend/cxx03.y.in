@@ -76,6 +76,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %}
 
+%token END 0 "end of input"
+
 // C++ tokens
 %token<token_atrib> ADD_ASSIGN "+="
 %token<token_atrib> ANDAND "&&"
@@ -84,7 +86,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> AUTO "auto"
 %token<token_atrib> TOKEN_BOOL "bool"
 %token<token_atrib> BOOLEAN_LITERAL "boolean-literal"
-%token<token_atrib> BREAK "break" 
+%token<token_atrib> BREAK "break"
 %token<token_atrib> CASE "case"
 %token<token_atrib> CATCH "catch"
 %token<token_atrib> TOKEN_CHAR "char"
@@ -120,6 +122,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> INLINE "inline"
 %token<token_atrib> TOKEN_INT "int"
 %token<token_atrib> TOKEN_INT128 "__int128"
+%token<token_atrib> TOKEN_FLOAT128 "__float128"
 %token<token_atrib> LEFT "<<"
 %token<token_atrib> LEFT_ASSIGN "<<="
 %token<token_atrib> LESS_OR_EQUAL "<="
@@ -177,8 +180,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
 %token<token_atrib> MCC_REBINDABLE_REFERENCE "<rebindable-reference-specifier>"
-%token<token_atrib> MCC_BYTE "<byte-type-spec>"
-%token<token_atrib> MCC_BOOL "<bool-type-spec>"
 
 // g++ type traits
 %token<token_atrib> GXX_HAS_NOTHROW_ASSIGN "__has_nothrow_assign"
@@ -1207,11 +1208,6 @@ type_specifier_SUSL : TOKEN_SIGNED
 {
 	$$ = ASTLeaf(AST_LONG_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-// Mercurium extension
-| MCC_BOOL
-{
-	$$ = ASTLeaf(AST_MCC_BOOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-}
 ;
 
 nontype_specifier_for_named : nontype_specifier_for_named_without_attribute
@@ -1505,9 +1501,9 @@ builtin_types : TOKEN_CHAR
 {
 	$$ = ASTLeaf(AST_GCC_INT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| MCC_BYTE
+| TOKEN_FLOAT128
 {
-	$$ = ASTLeaf(AST_MCC_BYTE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_GCC_FLOAT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 

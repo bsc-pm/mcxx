@@ -87,6 +87,8 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     COPY_ARRAY(gcc_attributes, num_gcc_attributes);
     COPY_ARRAY(ms_attributes, num_ms_attributes);
 
+#undef COPY_ARRAY
+
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
 
     return new_member;

@@ -524,12 +524,12 @@ static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t
 static int solve_ambiguous_statement_choose_interpretation(AST current_interpretation, AST previous_interpretation, 
         decl_context_t decl_context UNUSED_PARAMETER, void * p UNUSED_PARAMETER)
 {
-    // favor the AST_EXPRESSION
+    // Prioritize the AST_DECLARATION_STATEMENT
     return either_type(
-            previous_interpretation,
             current_interpretation,
-            AST_SIMPLE_DECLARATION,
-            AST_EXPRESSION);
+            previous_interpretation,
+            AST_EXPRESSION_STATEMENT,
+            AST_DECLARATION_STATEMENT);
 }
 
 static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER, void *p UNUSED_PARAMETER)

@@ -29,6 +29,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-cexpr.h"
 #include "tl-compilerpipeline.hpp"
 #include "tl-source.hpp"
 #include "cxx-cexpr.h"
@@ -875,7 +876,22 @@ OPERATOR_TABLE
                     || state.flatten_array_construct)
             {
                 *(file) << "(/ ";
-                codegen_comma_separated_list(node.get_items());
+                if (node.get_items().is_null())
+                {
+                    std::string type_specifier, array_specifier;
+                    codegen_type_extended(
+                            fortran_get_rank0_type(type.get_internal_type()),
+                            type_specifier,
+                            array_specifier, 
+                            /* force_deferred_shape */ false,
+                            /* without_type_qualifier */ true);
+                    // Only in this case we emit the type-specifier
+                    *(file) << type_specifier << ":: ";
+                }
+                else
+                {
+                    codegen_comma_separated_list(node.get_items());
+                }
                 *(file) << " /)";
             }
             else
@@ -1044,6 +1060,14 @@ OPERATOR_TABLE
     {
         const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
+        if (const_value_is_array(val))
+        {
+            // LOGICAL :: A(10) = .TRUE.
+            //
+            // .TRUE. will be a BooleanLiteral but its constant value will be array, simplify to rank 1
+            val = fortran_const_value_rank_zero(val);
+        }
+
         int kind = node.get_type().get_size();
 
         if (const_value_is_zero(val))
@@ -1069,6 +1093,15 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
     {
         const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
+
+        if (const_value_is_array(value))
+        {
+            // INTEGER :: A(10) = 1
+            //
+            // 1 will be an IntegerLiteral but its constant value will be array, simplify to rank 1
+            value = fortran_const_value_rank_zero(value);
+        }
+
         int num_bytes = const_value_get_bytes(value);
 
         if (node.get_type().is_bool())
@@ -1132,6 +1165,14 @@ OPERATOR_TABLE
         TL::Type t = node.get_type().complex_get_base_type();
 
         const_value_t* complex_cval = node.get_constant();
+
+        if (const_value_is_array(complex_cval))
+        {
+            // COMPLEX :: C(10) = (1,2)
+            // (1,2) will be a ComplexLiteral but its constant value will be array, simplify to rank 1
+            complex_cval = fortran_const_value_rank_zero(complex_cval);
+        }
+
         const_value_t* cval_real = const_value_complex_get_real_part(complex_cval);
         const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
 
@@ -1219,7 +1260,16 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FloatingLiteral& node)
     {
-        emit_floating_constant(node.get_constant(), node.get_type());
+        const_value_t* value = node.get_constant();
+        if (const_value_is_array(value))
+        {
+            // REAL :: A(10) = 1.2
+            //
+            // 1.2 will be an FloatingLiteral but its constant value will be array, simplify to rank 1
+            value = fortran_const_value_rank_zero(value);
+        }
+
+        emit_floating_constant(value, node.get_type());
     }
 
     void FortranBase::visit(const Nodecl::Symbol& node)
@@ -1715,17 +1765,13 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::ForStatement& node)
     {
         Nodecl::NodeclBase header = node.get_loop_header();
+        Nodecl::NodeclBase old_loop_next_iter = state.loop_next_iter;
 
         if (header.is<Nodecl::LoopControl>())
         {
             // Not a ranged loop. This is a DO WHILE
-            if (!node.get_loop_name().is_null())
-            {
-                walk(node.get_loop_name());
-                *(file) << " : ";
-            }
-
             Nodecl::LoopControl lc = node.get_loop_header().as<Nodecl::LoopControl>();
+            state.loop_next_iter = lc.get_next();
 
             // Init
             indent();
@@ -1734,6 +1780,11 @@ OPERATOR_TABLE
 
             // Loop
             indent();
+            if (!node.get_loop_name().is_null())
+            {
+                walk(node.get_loop_name());
+                *(file) << " : ";
+            }
             *(file) << "DO WHILE(";
             walk(lc.get_cond());
             *(file) << ")";
@@ -1745,7 +1796,7 @@ OPERATOR_TABLE
 
             // Advance loop
             indent();
-            walk(lc.get_next());
+            walk(state.loop_next_iter);
             *(file) << "\n";
             dec_indent();
 
@@ -1756,11 +1807,14 @@ OPERATOR_TABLE
             {
                 *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
             *(file) << "\n";
         }
         else if (header.is<Nodecl::RangeLoopControl>())
         {
+            state.loop_next_iter = Nodecl::NodeclBase::null();
+
             indent();
 
             if (!node.get_loop_name().is_null())
@@ -1782,11 +1836,14 @@ OPERATOR_TABLE
             {
                 *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
             *(file) << "\n";
         }
         else if (header.is<Nodecl::UnboundedLoopControl>())
         {
+            state.loop_next_iter = Nodecl::NodeclBase::null();
+
             indent();
 
             if (!node.get_loop_name().is_null())
@@ -1807,6 +1864,7 @@ OPERATOR_TABLE
             {
                 *(file) << " ";
                 walk(node.get_loop_name());
+                set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
             }
             *(file) << "\n";
         }
@@ -1814,6 +1872,9 @@ OPERATOR_TABLE
         {
             internal_error("Code unreachable", 0);
         }
+
+
+        state.loop_next_iter = old_loop_next_iter;
     }
 
     void FortranBase::visit(const Nodecl::WhileStatement& node)
@@ -1839,6 +1900,7 @@ OPERATOR_TABLE
         {
             *(file) << " ";
             walk(node.get_loop_name());
+            set_symbol_name_as_already_used(node.get_loop_name().get_symbol());
         }
         *(file) << "\n";
     }
@@ -1939,6 +2001,13 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::ContinueStatement& node)
     {
+        if (!state.loop_next_iter.is_null())
+        {
+            indent();
+            walk(state.loop_next_iter);
+            (*file) << "\n";
+        }
+
         indent();
         *(file) << "CYCLE";
         if (!node.get_construct_name().is_null())
@@ -2689,7 +2758,7 @@ OPERATOR_TABLE
         }
     }
 
-    bool FortranBase::name_has_already_been_used(std::string str)
+    bool FortranBase::name_has_already_been_used(const std::string &str)
     {
         if (_name_set_stack.empty())
             return false;
@@ -2704,6 +2773,33 @@ OPERATOR_TABLE
         return name_has_already_been_used(sym.get_name());
     }
 
+    void FortranBase::set_symbol_name_as_already_used(TL::Symbol sym)
+    {
+        if (_name_set_stack.empty())
+            return;
+
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+                "Mismatch between rename map stack and name set stack", 0);
+
+        name_set_t &last = _name_set_stack.back();
+        last.insert(sym.get_name());
+
+        rename_map_t& rename_map = _rename_map_stack.back();
+
+        // Computes a new rename
+        rename_map[sym] = compute_new_rename(sym);
+    }
+
+    std::string FortranBase::compute_new_rename(TL::Symbol sym)
+    {
+        static int suffix = 0;
+        std::stringstream ss;
+        ss << sym.get_name() << "_" << suffix;
+        suffix++;
+
+        return ss.str();
+    }
+
     std::string FortranBase::rename(TL::Symbol sym)
     {
         if (_name_set_stack.empty())
@@ -2714,8 +2810,6 @@ OPERATOR_TABLE
 
         name_set_t& name_set = _name_set_stack.back();
         rename_map_t& rename_map = _rename_map_stack.back();
-
-        static int prefix = 0;
 
         rename_map_t::iterator it = rename_map.find(sym);
 
@@ -2732,21 +2826,18 @@ OPERATOR_TABLE
         {
             if (it == rename_map.end())
             {
-                std::stringstream ss;
-
-                if (!name_has_already_been_used(sym))
+                if (is_protected_name(sym)
+                        || name_has_already_been_used(sym))
                 {
-                    ss << sym.get_name();
+                    result = compute_new_rename(sym);
                 }
                 else
                 {
-                    ss << sym.get_name() << "_" << prefix;
-                    prefix++;
+                    result = sym.get_name();
                 }
-                name_set.insert(ss.str());
-                rename_map[sym] = ss.str();
 
-                result = ss.str();
+                name_set.insert(sym.get_name());
+                rename_map[sym] = result;
             }
             else
             {
@@ -3394,14 +3485,14 @@ OPERATOR_TABLE
                 }
                 else if (entry.get_type().is_array())
                 {
-                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n", 
+                    internal_error("Error: non-character arrays cannot be passed by value in Fortran\n",
                             entry.get_name().c_str());
                 }
-                else if (entry.get_type().is_class())
-                {
-                    internal_error("Error: struct/class types cannot be passed by value in Fortran\n", 
-                            entry.get_name().c_str());
-                }
+                // else if (entry.get_type().is_class())
+                // {
+                //     internal_error("Error: struct/class types cannot be passed by value in Fortran\n",
+                //             entry.get_name().c_str());
+                // }
                 else
                 {
                     attribute_list += ", VALUE";
@@ -3431,6 +3522,15 @@ OPERATOR_TABLE
                     {
                         attribute_list += ", PUBLIC";
                     }
+                }
+                TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    attribute_list += ", PRIVATE";
                 }
             }
             if (entry.get_type().is_volatile()
@@ -3512,7 +3612,8 @@ OPERATOR_TABLE
                 state.emit_interoperable_types = state.emit_interoperable_types || entry.is_bind_c();
 
                 codegen_type_extended(declared_type, type_spec, array_specifier,
-                        /* force_deferred_shape */ entry.is_allocatable());
+                        /* force_deferred_shape */ entry.is_allocatable(),
+                        /* without_type_qualifier */ false);
 
                 state.emit_interoperable_types = keep_emit_interop;
             }
@@ -3933,6 +4034,17 @@ OPERATOR_TABLE
                     {
                         *(file) << ", PUBLIC";
                     }
+                }
+
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    // Global types should be made private to avoid undesired exports
+                    // of names
+                    (*file) << ", PRIVATE";
                 }
             }
 
@@ -5090,11 +5202,14 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_type(TL::Type t, std::string& type_specifier, std::string& array_specifier)
     {
-        codegen_type_extended(t, type_specifier, array_specifier, /* force_deferred_shape */ false);
+        codegen_type_extended(t, type_specifier, array_specifier,
+                /* force_deferred_shape */ false,
+                /* without_type_qualifier */ false);
     }
 
     void FortranBase::codegen_type_extended(TL::Type t, std::string& type_specifier, std::string& array_specifier,
-            bool force_deferred_shape)
+            bool force_deferred_shape,
+            bool without_type_qualifier)
     {
         // We were requested to emit types as literals
         if (state.emit_types_as_literals)
@@ -5326,7 +5441,14 @@ OPERATOR_TABLE
             // ss << " {{" << entry.get_internal_symbol() << "}} ";
             // real_name += ss.str();
 
-            type_specifier = "TYPE(" + real_name + ")";
+            if (without_type_qualifier)
+            {
+                type_specifier = real_name;
+            }
+            else
+            {
+                type_specifier = "TYPE(" + real_name + ")";
+            }
         }
         else if (fortran_is_character_type(t.get_internal_type()))
         {
@@ -5517,7 +5639,14 @@ OPERATOR_TABLE
             }
             else
             {
-                *(file) << sym.get_name();
+                if (is_protected_name(sym))
+                {
+                    *(file) << rename(sym);
+                }
+                else
+                {
+                    *(file) << sym.get_name();
+                }
             }
         }
         *(file) << ")";
@@ -5543,7 +5672,14 @@ OPERATOR_TABLE
             {
                 if (result_var.get_name() != entry.get_name())
                 {
-                    *(file) << " RESULT(" << result_var.get_name() << ")";
+                    if (is_protected_name(result_var))
+                    {
+                        *(file) << " RESULT(" << rename(result_var) << ")";
+                    }
+                    else
+                    {
+                        *(file) << " RESULT(" << result_var.get_name() << ")";
+                    }
                 }
             }
             else
@@ -5619,6 +5755,14 @@ OPERATOR_TABLE
     {
         if (!_name_set_stack.empty()) _name_set_stack.back().clear();
         if (!_rename_map_stack.empty()) _rename_map_stack.back().clear();
+    }
+
+    bool FortranBase::is_protected_name(TL::Symbol sym)
+    {
+        std::string str = strtolower(sym.get_name().c_str());
+
+        // Maybe others will have to be added in a future
+        return (str == "loc");
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)

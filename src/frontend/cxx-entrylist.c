@@ -435,8 +435,7 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
         const scope_entry_list_t* list2)
 {
     int size1 = (list1 != NULL ? entry_list_size(list1) : 0);
-    scope_entry_t* elems1[size1 + 1];
-    memset(elems1, 0, sizeof(elems1));
+    scope_entry_t** elems1 = xcalloc(size1 + 1, sizeof(*elems1));
     scope_entry_t** p = elems1;
 
     scope_entry_list_iterator_t* it = NULL;
@@ -451,8 +450,8 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
     entry_list_iterator_free(it);
 
     int size2 = (list2 != NULL ? entry_list_size(list2) : 0);
-    scope_entry_t* elems2[size2 + 1];
-    memset(elems2, 0, sizeof(elems2));
+    scope_entry_t** elems2 = xcalloc(size2 + 1, sizeof(*elems2));
+
     scope_entry_t** q = elems2;
 
     for (it = entry_list_iterator_begin(list2);
@@ -514,6 +513,9 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
         result = entry_list_add(result, *q);
         q++;
     }
+
+    xfree(elems2);
+    xfree(elems1);
 
     return result;
 }

@@ -316,6 +316,7 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
          | NODECL_CXX_USING_NAMESPACE([context] context) symbol
          | NODECL_CXX_USING_DECL([context] context) symbol
+         | NODECL_CXX_PARSE_LATER()
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
@@ -406,7 +407,7 @@ where-pair: NODECL_FORTRAN_WHERE_PAIR([mask] expression-opt, [statement] stateme
 fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [values]fortran-data-item-seq)
                     | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression-seq)
                     | NODECL_FORTRAN_BOZ_LITERAL() type text const-value
-                    | NODECL_FORTRAN_BIND_C([name] expression)
+                    | NODECL_FORTRAN_BIND_C([name] expression-opt)
                     | NODECL_FORTRAN_BIND_OPENCL([name] expression, [file] expression)
                     | NODECL_FORTRAN_HOLLERITH() type text const-value
                     | NODECL_FORTRAN_USE([module]name, [renamed_items]name-seq-opt)
@@ -489,7 +490,7 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
 
 # task expression
-task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] task-construct, [task_calls] statement-seq, [sequential_code] statement-seq)
+task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement-seq)
 
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
@@ -543,7 +544,7 @@ target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 
-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
+reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)
 
 # parallel
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)

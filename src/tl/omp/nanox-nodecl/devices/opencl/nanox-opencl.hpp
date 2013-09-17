@@ -40,14 +40,8 @@ namespace TL
         {
             private:
 
-                Nodecl::List _extra_c_code;
                 bool _opencl_tasks_processed;
                 Nodecl::NodeclBase _root;
-
-                void add_forward_code_to_extra_c_code(
-                        const std::string& outline_name,
-                        TL::ObjectList<OutlineDataItem*> data_items,
-                        Nodecl::NodeclBase parse_context);
 
                 void generate_ndrange_code(
                         const TL::Symbol& called_task,

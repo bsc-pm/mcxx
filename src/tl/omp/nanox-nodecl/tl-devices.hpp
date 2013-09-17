@@ -132,6 +132,9 @@ namespace TL { namespace Nanox {
              bool instrumentation_enabled();
 
              const std::string _device_name;
+
+             Nodecl::List _extra_c_code;
+
          private:
              bool _enable_instrumentation;
              std::string _enable_instrumentation_str;
@@ -220,12 +223,16 @@ namespace TL { namespace Nanox {
                      Source &initial_statements,
                      Source &final_statements);
 
+             void add_forward_function_code_to_extra_c_code(
+                     const std::string& outline_name,
+                     TL::ObjectList<OutlineDataItem*> data_items,
+                     Nodecl::NodeclBase parse_context);
 
              TL::Type rewrite_type_of_vla_in_outline(
                      TL::Type t,
                      const TL::ObjectList<OutlineDataItem*> &data_items,
                      TL::Symbol &arguments_symbol);
-             
+
              /**
               * Returns if the symbol(sym) is serializable or not
               * in case it's serializable and the device has a separate

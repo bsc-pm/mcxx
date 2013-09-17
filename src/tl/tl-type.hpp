@@ -200,6 +200,8 @@ namespace TL
             {
             }
 
+            Type fix_references();
+
             //! Returns a string with a C/C++ declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
@@ -243,6 +245,12 @@ namespace TL
              * \param vector_size The size of the vector in bytes.
              */
             Type get_vector_to(unsigned int vector_size);
+
+            //! Returns a vector to the current type
+            /*!
+             * \param num_elements The number of scalar elements of the vector
+             */
+            Type get_vector_of_elements(unsigned int num_elements);
        
             //! Returns a generic vector to the current type
             Type get_generic_vector_to();
@@ -595,6 +603,8 @@ namespace TL
             //! Returns the element type of a vector-type
             Type vector_element() const;
 
+            //! Returns the number of elements of a vector-type
+            int vector_num_elements() const;
 
             //! States whether this type represents an unresolved overload type
             /*!

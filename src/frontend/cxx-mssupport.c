@@ -79,10 +79,12 @@ static void gather_ms_declspec_item(AST a,
             ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
                     "Too many __declspecs in this symbol", 0);
 
-            gather_info->ms_attributes[gather_info->num_ms_attributes].attribute_name = declspec_name;
-            gather_info->ms_attributes[gather_info->num_ms_attributes].expression_list =
+            gather_gcc_attribute_t new_ms_attribute;
+            new_ms_attribute.attribute_name = declspec_name;
+            new_ms_attribute.expression_list =
                 nodecl_make_list_1(nodecl_align_expr);
-            gather_info->num_ms_attributes++;
+
+            P_LIST_ADD(gather_info->ms_attributes, gather_info->num_ms_attributes, new_ms_attribute);
         }
         else if (num_items == 2)
         {
@@ -90,7 +92,7 @@ static void gather_ms_declspec_item(AST a,
         }
         else
         {
-            warn_printf("%s: warnign: ignoring malformed __declspec(align) specifier\n", ast_location(a));
+            warn_printf("%s: warning: ignoring malformed __declspec(align) specifier\n", ast_location(a));
         }
     }
     else if (strcmp(declspec_name, "intrin_type") == 0)
@@ -98,9 +100,11 @@ static void gather_ms_declspec_item(AST a,
             ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
                     "Too many __declspecs in this symbol", 0);
 
-            gather_info->ms_attributes[gather_info->num_ms_attributes].attribute_name = declspec_name;
-            gather_info->ms_attributes[gather_info->num_ms_attributes].expression_list = nodecl_null();
-            gather_info->num_ms_attributes++;
+            gather_gcc_attribute_t new_ms_attribute;
+            new_ms_attribute.attribute_name = declspec_name;
+            new_ms_attribute.expression_list = nodecl_null();
+
+            P_LIST_ADD(gather_info->ms_attributes, gather_info->num_ms_attributes, new_ms_attribute);
     }
     else
     {
@@ -139,45 +143,32 @@ void keep_ms_declspecs_in_symbol(
         scope_entry_t* entry,
         gather_decl_spec_t* gather_info)
 {
-    if (entry->entity_specs.num_ms_attributes == 0)
+    // Combine them
+    int i;
+    for (i = 0; i < gather_info->num_ms_attributes; i++)
     {
-        entry->entity_specs.num_ms_attributes = gather_info->num_ms_attributes;
-        entry->entity_specs.ms_attributes = xcalloc(
-                entry->entity_specs.num_ms_attributes,
-                sizeof(*entry->entity_specs.ms_attributes));
-        memcpy(entry->entity_specs.ms_attributes,
-                gather_info->ms_attributes,
-                entry->entity_specs.num_ms_attributes * sizeof(*entry->entity_specs.ms_attributes));
-    }
-    else
-    {
-        // Combine them
-        int i;
-        for (i = 0; i < gather_info->num_ms_attributes; i++)
+        char found = 0;
+        int j;
+        for (j = 0; j < entry->entity_specs.num_ms_attributes && !found; j++)
         {
-            char found = 0;
-            int j;
-            for (j = 0; j < entry->entity_specs.num_ms_attributes && !found; j++)
-            {
-                found = (strcmp(entry->entity_specs.ms_attributes[j].attribute_name,
-                            gather_info->ms_attributes[i].attribute_name) == 0);
-            }
+            found = (strcmp(entry->entity_specs.ms_attributes[j].attribute_name,
+                        gather_info->ms_attributes[i].attribute_name) == 0);
+        }
 
-            if (found)
-            {
-                // Update with the freshest value
-                entry->entity_specs.ms_attributes[j-1].expression_list
-                    = gather_info->ms_attributes[i].expression_list;
-            }
-            else
-            {
-                entry->entity_specs.num_ms_attributes++;
+        if (found)
+        {
+            // Update with the freshest value
+            entry->entity_specs.ms_attributes[j-1].expression_list
+                = gather_info->ms_attributes[i].expression_list;
+        }
+        else
+        {
+            entry->entity_specs.num_ms_attributes++;
 
-                entry->entity_specs.ms_attributes = xrealloc(entry->entity_specs.ms_attributes,
-                        sizeof(*entry->entity_specs.ms_attributes) * entry->entity_specs.num_ms_attributes);
-                entry->entity_specs.ms_attributes[entry->entity_specs.num_ms_attributes - 1] =
-                    gather_info->ms_attributes[i];
-            }
+            entry->entity_specs.ms_attributes = xrealloc(entry->entity_specs.ms_attributes,
+                    sizeof(*entry->entity_specs.ms_attributes) * entry->entity_specs.num_ms_attributes);
+            entry->entity_specs.ms_attributes[entry->entity_specs.num_ms_attributes - 1] =
+                gather_info->ms_attributes[i];
         }
     }
 }

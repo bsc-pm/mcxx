@@ -27,6 +27,8 @@
 
 #include "nanox-opencl.hpp"
 
+#include "filename.h"
+
 #include "cxx-profile.h"
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
@@ -117,6 +119,14 @@ void DeviceOpenCL::generate_ndrange_code(
         {
             new_ndrange.append(Nodecl::Utils::deep_copy(
                         ndrange_args[i],
+                        unpacked_function.get_related_scope(),
+                        *outline_data_to_unpacked_fun_map));
+        }
+
+        for (int i = 0; i < num_args_shmem; ++i)
+        {
+            new_shmem.append(Nodecl::Utils::deep_copy(
+                        shmem_args[i],
                         unpacked_function.get_related_scope(),
                         *outline_data_to_unpacked_fun_map));
         }
@@ -533,29 +543,36 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
 
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 
-    //Get file clause, if not present, use the files passed in the command line (if any)
-    std::string file = info._target_info.get_file();
-    if (!file.empty())
+    //Get the argument of the 'file' clause, if not present, use the files passed in the command line (if any)
+    std::string file_clause_arg = info._target_info.get_file();
+    std::string kernel_files = file_clause_arg;
+    if (!file_clause_arg.empty())
     {
         bool found = false;
-        for (int i = 0; i < ::compilation_process.num_translation_units && !found; ++i)
+        for (int i = 0; i < ::compilation_process.num_translation_units; ++i)
         {
             compilation_file_process_t* file_process = ::compilation_process.translation_units[i];
             translation_unit_t* current_translation_unit = file_process->translation_unit;
             const char* extension = get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
-                found = (file == std::string(current_translation_unit->input_filename));
+                const char* basename = give_basename(current_translation_unit->input_filename);
+                if (file_clause_arg == std::string(basename))
+                {
+                    ERROR_CONDITION(found, "%s: error: more than one OpenCL file in the command line matches clause file(%s)\n",
+                            original_statements.get_locus_str().c_str(), basename);
+
+                    found = true;
+                    kernel_files = std::string(current_translation_unit->input_filename);
+                }
             }
         }
 
-        if (!found && !_disable_opencl_file_check)
-        {
-            running_error("%s: error: The OpenCL file indicated by the clause 'file' is not passed in the command line.\n",
-                    original_statements.get_locus_str().c_str());
-        }
+        ERROR_CONDITION(!found && !_disable_opencl_file_check,
+                "%s: error: no OpenCL file in the command line matches clause file(%s)\n",
+                original_statements.get_locus_str().c_str(), file_clause_arg.c_str());
     }
     else
     {
@@ -567,19 +584,19 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
             const char* extension = get_extension_filename(current_translation_unit->input_filename);
             struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-            if (current_extension->source_language == SOURCE_LANGUAGE_OPENCL)
+            if (current_extension->source_language == SOURCE_SUBLANGUAGE_OPENCL)
             {
                 if (ocl_files > 0)
-                    file += ",";
+                    kernel_files += ",";
 
-                file += std::string(current_translation_unit->input_filename);
+                kernel_files += std::string(current_translation_unit->input_filename);
                 ocl_files++;
             }
         }
 
         if (ocl_files == 0)
         {
-            running_error("%s: error: No file specified for kernel '%s'\n",
+            running_error("%s: error: no OpenCL file specified for kernel '%s'\n",
                     original_statements.get_locus_str().c_str(),
                     called_task.get_name().c_str());
         }
@@ -603,7 +620,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         generate_ndrange_code(called_task,
                 unpacked_function,
                 info._target_info,
-                file,
+                kernel_files,
                 kernel_name,
                 info._data_items,
                 &param_to_args_map,
@@ -894,7 +911,7 @@ void DeviceOpenCL::create_outline(CreateOutlineInfo &info,
         }
 
         // Generate ancillary code in C
-        add_forward_code_to_extra_c_code(outline_name, data_items, outline_function_body);
+        add_forward_function_code_to_extra_c_code(outline_name, data_items, outline_function_body);
     }
     else
     {
@@ -941,105 +958,6 @@ DeviceOpenCL::DeviceOpenCL()
 void  DeviceOpenCL::disable_opencl_file_check(const std::string &str)
 {
     parse_boolean_option("1", str, _disable_opencl_file_check, "Assuming false.");
-}
-
-void DeviceOpenCL::add_forward_code_to_extra_c_code(
-        const std::string& outline_name,
-        TL::ObjectList<OutlineDataItem*> data_items,
-        Nodecl::NodeclBase parse_context)
-{
-    Source ancillary_source, parameters;
-
-    ancillary_source
-        << "extern void " << outline_name << "_forward_" << "(";
-    int num_data_items = data_items.size();
-    if (num_data_items == 0)
-    {
-        ancillary_source << "void (*outline_fun)(void)";
-    }
-    else
-    {
-        ancillary_source << "void (*outline_fun)(";
-        if (num_data_items == 0)
-        {
-            ancillary_source << "void";
-        }
-        else
-        {
-            for (int i = 0; i < num_data_items; i++)
-            {
-                if (i > 0)
-                {
-                    ancillary_source << ", ";
-                }
-                ancillary_source << "void *p" << i;
-            }
-        }
-        ancillary_source << ")";
-
-        for (int i = 0; i < num_data_items; i++)
-        {
-            ancillary_source << ", void *p" << i;
-        }
-    }
-    ancillary_source << ")\n{\n"
-        // << "    extern int nanos_free(void*);\n"
-        << "    extern int nanos_handle_error(int);\n\n"
-        << "    outline_fun(";
-    for (int i = 0; i < num_data_items; i++)
-    {
-        if (i > 0)
-        {
-            ancillary_source << ", ";
-        }
-        ancillary_source << "p" << i;
-    }
-    ancillary_source << ");\n";
-
-    // Free all the allocated descriptors
-    // bool first = true;
-    // int i = 0;
-    // for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-    //         it != data_items.end();
-    //         it++, i++)
-    // {
-    //     OutlineDataItem &item (*(*it));
-
-    //     if (item.get_symbol().is_valid()
-    //             && item.get_sharing() == OutlineDataItem::SHARING_SHARED)
-    //     {
-    //         TL::Type t = item.get_symbol().get_type();
-
-    //         if (!item.get_symbol().is_allocatable()
-    //                 && t.is_lvalue_reference()
-    //                 && t.references_to().is_array()
-    //                 && t.references_to().array_requires_descriptor())
-    //         {
-    //             if (first)
-    //             {
-    //                 ancillary_source << "   nanos_err_t err;\n";
-    //                 first = false;
-    //             }
-
-    //             ancillary_source
-    //                 << "    err = nanos_free(p" << i << ");\n"
-    //                 << "    if (err != NANOS_OK) nanos_handle_error(err);\n"
-    //                 ;
-    //         }
-    //     }
-    // }
-
-    ancillary_source << "}\n\n";
-
-    // Parse in C
-    Source::source_language = SourceLanguage::C;
-
-    Nodecl::List n = ancillary_source.parse_global(parse_context).as<Nodecl::List>();
-
-    // Restore original source language (Fortran)
-    Source::source_language = SourceLanguage::Current;
-
-    _extra_c_code.append(n);
 }
 
 void DeviceOpenCL::get_device_descriptor(DeviceDescriptorInfo& info,

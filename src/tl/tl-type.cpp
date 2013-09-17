@@ -44,6 +44,98 @@
 
 namespace TL
 {
+    Type Type::fix_references()
+    {
+        if ((IS_C_LANGUAGE && this->is_any_reference())
+                || (IS_CXX_LANGUAGE && this->is_rebindable_reference()))
+        {
+            TL::Type ref = this->references_to();
+            if (ref.is_array())
+            {
+                // T (&a)[10] -> T * const
+                // T (&a)[10][20] -> T (* const)[20]
+                ref = ref.array_element();
+            }
+
+            // T &a -> T * const a
+            TL::Type ptr = ref.get_pointer_to();
+            if (!this->is_rebindable_reference())
+            {
+                ptr = ptr.get_const_type();
+            }
+            return ptr;
+        }
+        else if (this->is_array())
+        {
+            if (this->array_is_region())
+            {
+                Nodecl::NodeclBase lb, reg_lb, ub, reg_ub;
+                this->array_get_bounds(lb, ub);
+                this->array_get_region_bounds(reg_lb, reg_ub);
+                TL::Scope sc = array_type_get_region_size_expr_context(this->get_internal_type());
+
+                return this->array_element().fix_references().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
+            }
+            else
+            {
+                Nodecl::NodeclBase size = this->array_get_size();
+                TL::Scope sc = array_type_get_array_size_expr_context(this->get_internal_type());
+
+                return this->array_element().fix_references().get_array_to(size, sc);
+            }
+        }
+        else if (this->is_pointer())
+        {
+            TL::Type fixed = this->points_to().fix_references().get_pointer_to();
+
+            fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
+                    get_cv_qualifier(this->get_internal_type()));
+
+            return fixed;
+        }
+        else if (this->is_function())
+        {
+            // Do not fix unprototyped functions
+            if (this->lacks_prototype())
+                return (*this);
+
+            cv_qualifier_t cv_qualif = get_cv_qualifier(this->get_internal_type());
+            TL::Type fixed_result = this->returns().fix_references();
+            bool has_ellipsis = 0;
+
+            TL::ObjectList<TL::Type> fixed_parameters = this->parameters(has_ellipsis);
+            for (TL::ObjectList<TL::Type>::iterator it = fixed_parameters.begin();
+                    it != fixed_parameters.end();
+                    it++)
+            {
+                *it = it->fix_references();
+            }
+
+            TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = this->nonadjusted_parameters();
+            for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_fixed_parameters.begin();
+                    it != nonadjusted_fixed_parameters.end();
+                    it++)
+            {
+                *it = it->fix_references();
+            }
+
+            TL::Type fixed_function = fixed_result.get_function_returning(
+                    fixed_parameters,
+                    nonadjusted_fixed_parameters,
+                    has_ellipsis);
+
+            fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
+
+            return fixed_function;
+        }
+        // Note: we are not fixing classes
+        else
+        {
+            // Anything else must be left untouched
+            return (*this);
+        }
+    }
+
     std::string Type::get_declaration_with_initializer(Scope sc, const std::string& symbol_name,
             const std::string& initializer, TypeDeclFlags flags) const
     {
@@ -147,6 +239,15 @@ namespace TL
         type_t* work_type = this->_type_info;
 
         type_t* result_type = get_vector_type(work_type, vector_size);
+
+        return result_type;
+    }
+
+    Type Type::get_vector_of_elements(unsigned int num_elements)
+    {
+        type_t* work_type = this->_type_info;
+
+        type_t* result_type = get_vector_type_by_elements(work_type, num_elements);
 
         return result_type;
     }
@@ -350,6 +451,11 @@ namespace TL
     Type Type::vector_element() const
     {
         return vector_type_get_element_type(_type_info);
+    }
+
+    int Type::vector_num_elements() const
+    {
+        return vector_type_get_num_elements(_type_info);
     }
 
     bool Type::is_any_reference() const

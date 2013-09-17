@@ -2159,7 +2159,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         }
     }
 
-    scope_entry_t* best_viable_function = entry_advance_aliases(best_viable->candidate->entry);
+    // Note that this function effectively returns SK_FUNCTION or SK_USING.
+    // It is up to the caller to advance the alias and not to lose track
+    // of the SK_USING
+    scope_entry_t* best_viable_function = best_viable->candidate->entry;
 
     // Cleanup: overload_entry_list_t is an incredibly big structure
     // because of a big array of MCXX_MAX_FUNCTION_CALL_ARGUMENTS

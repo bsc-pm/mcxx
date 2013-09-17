@@ -503,9 +503,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     else
     {
         std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
-        if (decl[0] == ':')
+        if (!decl.empty())
         {
-            decl = " " + decl;
+            if (decl[0] == ':')
+            {
+                decl = " " + decl;
+            }
+            if (decl[decl.length() - 1] == '>')
+            {
+                decl += " ";
+            }
         }
 
         *(file) << cast_kind << "<" << decl << ">(";
@@ -1026,7 +1033,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
     indent();
+
+    bool need_extra_parentheses = false;
+
+    // Parentheses may be needed to avoid these expressions become declarations
+    need_extra_parentheses = expression.is<Nodecl::CxxExplicitTypeCast>()
+            || (expression.is<Nodecl::FunctionCall>()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_valid()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_constructor()
+                && expression.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().size() == 1);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << "( ";
+    }
+
     walk(expression);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << " )";
+    }
+
     *(file) << ";\n";
 }
 
@@ -1539,6 +1567,16 @@ bool CxxBase::is_operator_function_call(const Node& node)
             || is_binary_infix_operator_function_call(node));
 }
 
+/* Adapters used in visit_function_call */
+template <typename Node> Nodecl::NodeclBase get_alternate_name(const Node&)
+{
+    return Nodecl::NodeclBase::null();
+}
+template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
+{
+    return n.get_alternate_name();
+}
+
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
@@ -1634,6 +1672,20 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             else
             {
                 kind = STATIC_MEMBER_CALL;
+            }
+        }
+
+        if (!is_virtual_call
+                && (kind == ORDINARY_CALL
+                    || kind == STATIC_MEMBER_CALL
+                    || kind == NONSTATIC_MEMBER_CALL))
+        {
+            // Use the alternate name
+            Nodecl::NodeclBase alternate_name = get_alternate_name(node);
+            if (!alternate_name.is_null())
+            {
+                called_entity = alternate_name;
+                called_symbol = alternate_name.get_symbol();
             }
         }
     }
@@ -2084,6 +2136,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     bool is_template_specialized = symbol_type.is_template_specialized_type();
 
+    bool is_primary = false;
     if (!symbol.get_class_type().is_valid()
             || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
@@ -2104,6 +2157,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
                 do_declare_symbol(primary_symbol,
                         &CxxBase::declare_symbol_always,
                         &CxxBase::define_symbol_always);
+
+                is_primary = (primary_symbol == symbol);
             }
         }
     }
@@ -2154,6 +2209,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
      }
 
     if (symbol.is_static()
+            // Specializations other than the primary cannot have storage specifier
+            && !(is_template_specialized
+                && !is_primary)
             && (!symbol.is_member()
                 || (!state.classes_being_defined.empty()
                     && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())))
@@ -2161,7 +2219,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         decl_spec_seq += "static ";
     }
 
-    if (symbol.is_extern() && symbol.get_value().is_null())
+    if (symbol.is_extern()
+            && symbol.get_value().is_null()
+            // Specializations other than the primary cannot have storage specifier
+            && !(is_template_specialized
+                && !is_primary))
     {
         decl_spec_seq += "extern ";
     }
@@ -3365,6 +3427,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
 
+    C_LANGUAGE()
+    {
+        walk_type_for_symbols(sym.get_type(),
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always,
+                &CxxBase::define_all_entities_in_trees);
+    }
+
     TL::Scope* context_of_declaration = NULL;
     TL::Scope context;
 
@@ -3498,6 +3568,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context);
 }
 
@@ -3507,6 +3580,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context, /* is_extern */ true);
 }
 
@@ -3998,7 +4074,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         // the class definition) because the attribute "visibility" is a bit
         // special and needs to be placed here.
         *(file) << gcc_extension << class_key << " " << gcc_attributes << ms_attributes_to_str(symbol);
-        if (!symbol.is_anonymous_union())
+        if (!symbol.is_anonymous_union()
+                && !(symbol.is_member()
+                    && symbol.get_class_type().get_symbol().is_anonymous_union()))
         {
             *(file) << " " << qualified_name;
         }
@@ -4057,71 +4135,77 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     // 2. Now declare members:
     // 2.1 We need to forward declare all member classes (only for C++) because
     // the member list does not contain enough information to decide in what
-    // order we should generate the members
+    // order we should generate the members. We don't do this for members
+    // of anonymous unions
     TL::ObjectList<TL::Symbol> members = symbol_type.get_all_members();
     access_specifier_t current_access_spec = default_access_spec;
 
     CXX_LANGUAGE()
     {
-        state.in_forwarded_member_declaration = true;
-        for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
-                it != members.end();
-                it++)
+        if (!symbol.is_anonymous_union())
         {
-            TL::Symbol &member(*it);
-            if (!member.is_class())
-                continue;
-
-            if (!member.is_defined_inside_class())
-                continue;
-
-            CXX_LANGUAGE()
+            state.in_forwarded_member_declaration = true;
+            for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
+                    it != members.end();
+                    it++)
             {
-                access_specifier_t access_spec = member.get_access_specifier();
-                inc_indent();
-                if (current_access_spec != access_spec)
-                {
-                    current_access_spec = access_spec;
+                TL::Symbol &member(*it);
+                if (!member.is_class())
+                    continue;
 
-                    indent();
-                    if (current_access_spec == AS_PUBLIC)
+                if (!member.is_defined_inside_class())
+                    continue;
+
+                CXX_LANGUAGE()
+                {
+                    access_specifier_t access_spec = member.get_access_specifier();
+                    inc_indent();
+                    if (current_access_spec != access_spec)
                     {
-                        *(file) << "public:\n";
-                    }
-                    else if (current_access_spec == AS_PRIVATE)
-                    {
-                        *(file) << "private:\n";
-                    }
-                    else if (current_access_spec == AS_PROTECTED)
-                    {
-                        *(file) << "protected:\n";
-                    }
-                    else
-                    {
-                        internal_error("Unreachable code", 0);
+                        current_access_spec = access_spec;
+
+                        indent();
+                        if (current_access_spec == AS_PUBLIC)
+                        {
+                            *(file) << "public:\n";
+                        }
+                        else if (current_access_spec == AS_PRIVATE)
+                        {
+                            *(file) << "private:\n";
+                        }
+                        else if (current_access_spec == AS_PROTECTED)
+                        {
+                            *(file) << "protected:\n";
+                        }
+                        else
+                        {
+                            internal_error("Unreachable code", 0);
+                        }
                     }
                 }
+
+                inc_indent();
+
+                char old_in_member_declaration = state.in_member_declaration;
+                state.in_member_declaration = 1;
+
+                do_declare_symbol(member,
+                        &CxxBase::declare_symbol_always,
+                        &CxxBase::define_symbol_always);
+
+                state.in_member_declaration = old_in_member_declaration;
+
+                dec_indent();
+                dec_indent();
             }
 
-            inc_indent();
-
-            char old_in_member_declaration = state.in_member_declaration;
-            state.in_member_declaration = 1;
-
-            do_declare_symbol(member,
-                    &CxxBase::declare_symbol_always,
-                    &CxxBase::define_symbol_always);
-
-            state.in_member_declaration = old_in_member_declaration;
-
-            dec_indent();
-            dec_indent();
+            state.in_forwarded_member_declaration = false;
         }
-
-        state.in_forwarded_member_declaration = false;
     }
 
     // 2.2 Declare members as usual
+    bool previous_was_just_member_declarator_name = false;
+
     for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
             it != members.end();
             it++)
@@ -4183,6 +4267,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
         {
             if (member.is_class())
             {
+                if (previous_was_just_member_declarator_name)
+                {
+                    previous_was_just_member_declarator_name = false;
+                    (*file) << ";\n";
+                }
+
                 if (member.get_type().is_template_specialized_type())
                 {
                     // We should declare all user template specializations
@@ -4237,6 +4327,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             else if (member.is_using_symbol()
                     || member.is_using_typename_symbol())
             {
+                if (previous_was_just_member_declarator_name)
+                {
+                    previous_was_just_member_declarator_name = false;
+                    (*file) << ";\n";
+                }
+
                 indent();
                 ERROR_CONDITION(!member.get_type().is_unresolved_overload(), "Invalid SK_USING symbol\n", 0);
 
@@ -4253,6 +4349,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             else if (member.is_enum()
                     || member.is_typedef())
             {
+                if (previous_was_just_member_declarator_name)
+                {
+                    previous_was_just_member_declarator_name = false;
+                    (*file) << ";\n";
+                }
+
                 do_define_symbol(member,
                         &CxxBase::declare_symbol_always,
                         &CxxBase::define_symbol_always);
@@ -4260,6 +4362,12 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             }
             else if (member.is_function())
             {
+                if (previous_was_just_member_declarator_name)
+                {
+                    previous_was_just_member_declarator_name = false;
+                    (*file) << ";\n";
+                }
+
                 if (!member.get_function_code().is_null() &&
                         member.is_defined_inside_class())
                 {
@@ -4276,27 +4384,49 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             {
                 bool member_declaration_does_define = true;
 
-                // If we are declaring a static member it is not a definition
-                // unless it has been declared inside the class
-                if (member.is_variable()
-                        && member.is_static())
+                if (symbol.is_anonymous_union()
+                        && member.get_type().basic_type().is_named_class()
+                        && !member.get_type().basic_type().get_symbol().is_anonymous_union()
+                        && member.get_type().basic_type().get_symbol().is_member()
+                        && member.get_type().basic_type().get_symbol().get_class_type().get_symbol() == symbol)
                 {
-                    member_declaration_does_define = member.is_defined_inside_class();
-                }
-
-                if (member_declaration_does_define)
-                {
-                    do_define_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
-                    set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                    member_declaration_does_define = true;
+                    // But we only emit the name and an end for the declaration
+                    if (previous_was_just_member_declarator_name)
+                        (*file) << ", ";
+                    (*file) << get_declaration_only_declarator(member.get_type(), symbol.get_scope(), member.get_name());
+                    previous_was_just_member_declarator_name = true;
                 }
                 else
                 {
-                    do_declare_symbol(member,
-                            &CxxBase::declare_symbol_always,
-                            &CxxBase::define_symbol_always);
-                    set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                    if (previous_was_just_member_declarator_name)
+                    {
+                        previous_was_just_member_declarator_name = false;
+                        (*file) << ";\n";
+                    }
+
+                    // If we are declaring a static member it is not a definition
+                    // unless it has been declared inside the class
+                    if (member.is_variable()
+                            && member.is_static())
+                    {
+                        member_declaration_does_define = member.is_defined_inside_class();
+                    }
+
+                    if (member_declaration_does_define)
+                    {
+                        do_define_symbol(member,
+                                &CxxBase::declare_symbol_always,
+                                &CxxBase::define_symbol_always);
+                        set_codegen_status(member, CODEGEN_STATUS_DEFINED);
+                    }
+                    else
+                    {
+                        do_declare_symbol(member,
+                                &CxxBase::declare_symbol_always,
+                                &CxxBase::define_symbol_always);
+                        set_codegen_status(member, CODEGEN_STATUS_DECLARED);
+                    }
                 }
             }
         }
@@ -4332,7 +4462,27 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
     }
 
     indent();
-    *(file) << "};\n";
+
+    // Somehow it was left open
+    if (previous_was_just_member_declarator_name)
+    {
+        previous_was_just_member_declarator_name = false;
+        (*file) << ";\n";
+    }
+
+    if (symbol.is_member()
+            && !symbol.is_anonymous_union()
+            && symbol.get_class_type().get_symbol().is_anonymous_union())
+    {
+        // Weird case of a struct/class/union inside an anonymous union
+        // there should be a member after it.
+        *(file) << "} ";
+    }
+    else
+    {
+        // Usual case
+        *(file) << "};\n";
+    }
 }
 
 void CxxBase::define_class_symbol(TL::Symbol symbol,
@@ -5542,10 +5692,21 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
             else if (symbol.is_member())
             {
-                // It may be a non-template function inside a template class
-                codegen_template_headers_bounded(template_parameters,
-                        symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
-                        /* show_default_values */ false);
+                if (scope != NULL && scope->is_namespace_scope())
+                {
+                    // We may need zero or more empty template headers
+                    TL::TemplateParameters tpl = template_parameters;
+                    while (tpl.is_valid())
+                    {
+                        // We should ignore some 'fake' empty template headers
+                        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+                        {
+                            indent();
+                            *(file) << "template <>\n";
+                        }
+                        tpl = tpl.get_enclosing_parameters();
+                    }
+                }
             }
         }
 
@@ -7326,7 +7487,8 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
-                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), this->get_current_scope());
+                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), 
+                        current_param.get_scope());
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }
@@ -7388,93 +7550,9 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if (is_non_language_reference_type(t))
-    {
-        TL::Type ref = t.references_to();
-        if (ref.is_array())
-        {
-            // T (&a)[10] -> T * const
-            // T (&a)[10][20] -> T (* const)[20]
-            ref = ref.array_element();
-        }
-
-        // T &a -> T * const a
-        TL::Type ptr = ref.get_pointer_to();
-        if (!t.is_rebindable_reference())
-        {
-            ptr = ptr.get_const_type();
-        }
-        return ptr;
-    }
-    else if (t.is_array())
-    {
-        if (t.array_is_region())
-        {
-            Nodecl::NodeclBase lb, reg_lb, ub, reg_ub;
-            t.array_get_bounds(lb, ub);
-            t.array_get_region_bounds(reg_lb, reg_ub);
-            TL::Scope sc = array_type_get_region_size_expr_context(t.get_internal_type());
-
-            return fix_references(t.array_element()).get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
-        }
-        else
-        {
-            Nodecl::NodeclBase size = t.array_get_size();
-            TL::Scope sc = array_type_get_array_size_expr_context(t.get_internal_type());
-
-            return fix_references(t.array_element()).get_array_to(size, sc);
-        }
-    }
-    else if (t.is_pointer())
-    {
-        TL::Type fixed = fix_references(t.points_to()).get_pointer_to();
-
-        fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
-                get_cv_qualifier(t.get_internal_type()));
-
-        return fixed;
-    }
-    else if (t.is_function())
-    {
-        // Do not fix unprototyped functions
-        if (t.lacks_prototype())
-            return t;
-
-        cv_qualifier_t cv_qualif = get_cv_qualifier(t.get_internal_type());
-        TL::Type fixed_result = fix_references(t.returns());
-        bool has_ellipsis = 0;
-
-        TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
-        for (TL::ObjectList<TL::Type>::iterator it = fixed_parameters.begin();
-                it != fixed_parameters.end();
-                it++)
-        {
-            *it = fix_references(*it);
-        }
-
-        TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = t.nonadjusted_parameters();
-        for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_fixed_parameters.begin();
-                it != nonadjusted_fixed_parameters.end();
-                it++)
-        {
-            *it = fix_references(*it);
-        }
-
-        TL::Type fixed_function = fixed_result.get_function_returning(
-                fixed_parameters,
-                nonadjusted_fixed_parameters,
-                has_ellipsis);
-
-        fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
-
-        return fixed_function;
-    }
-    // Note: we are not fixing classes
-    else
-    {
-        // Anything else must be left untouched
+    if (!this->is_file_output())
         return t;
-    }
+    return t.fix_references();
 }
 
 bool CxxBase::cuda_print_special_attributes()

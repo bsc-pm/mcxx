@@ -812,5 +812,31 @@ int fortran_array_type_get_total_number_of_elements(type_t* t)
         number_of_elements *= const_value_cast_to_signed_int(size);
         t = array_type_get_element_type(t);
     }
+
+    if (number_of_elements < 0)
+        number_of_elements = 0;
+
     return number_of_elements;
+}
+
+char fortran_array_has_zero_size(type_t* array_type)
+{
+    while (fortran_is_array_type(array_type))
+    {
+        nodecl_t nodecl_size = array_type_get_array_size_expr(array_type);
+        if (nodecl_is_constant(nodecl_size))
+        {
+            int size = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_size));
+
+            if (size <= 0)
+            {
+                return 1;
+            }
+
+        }
+
+        array_type = array_type_get_element_type(array_type);
+    }
+
+    return 0;
 }

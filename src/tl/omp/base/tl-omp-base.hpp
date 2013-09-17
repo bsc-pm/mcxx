@@ -68,6 +68,9 @@ namespace TL
                 std::string _discard_unused_data_sharings_str;
                 void set_discard_unused_data_sharings(const std::string &discard_unused_data_sharings);
 
+                std::string _allow_array_reductions_str;
+                void set_allow_array_reductions(const std::string& allow_array_reductions);
+
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
