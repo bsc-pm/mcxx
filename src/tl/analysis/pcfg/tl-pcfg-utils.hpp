@@ -150,6 +150,11 @@ namespace Analysis {
         //! Copy constructor
         PCFGClause( const PCFGClause& clause );
 
+        //! Getters
+        Clause get_clause( ) const;
+        std::string get_clause_as_string( ) const;
+        ObjectList<Nodecl::NodeclBase> get_args( ) const;
+        
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
     };
@@ -173,9 +178,11 @@ namespace Analysis {
         //! Destructor
         ~PCFGPragmaInfo( );
 
-        bool has_clause( Clause clause );
+        bool has_clause( Clause clause ) const;
 
         void add_clause( PCFGClause pcfg_clause );
+        
+        ObjectList<PCFGClause> get_clauses( ) const;
 
     friend class PCFGVisitor;
     };

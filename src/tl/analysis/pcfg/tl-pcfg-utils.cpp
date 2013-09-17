@@ -128,6 +128,51 @@ namespace Analysis {
         _args = c._args;
     }
 
+    Clause PCFGClause::get_clause( ) const
+    {
+        return _clause;
+    }
+    
+    std::string PCFGClause::get_clause_as_string( ) const
+    {
+        std::string clause;
+        switch( _clause )
+        {
+            case AUTO:              clause = "auto";                break;
+            case DEP_IN:            clause = "in";                  break;
+            case DEP_OUT:           clause = "out";                 break;
+            case DEP_INOUT:         clause = "inout";               break;
+            case COPY_IN:           clause = "copy_in";             break;
+            case COPY_OUT:          clause = "copy_out";            break;
+            case COPY_INOUT:        clause = "copy_inout";          break;
+            case FIRSTPRIVATE:      clause = "firstprivate";        break;
+            case FLUSHED_VARS:      clause = "flush";               break;
+            case IF:                clause = "if";                  break;
+            case NAME:              clause = "name";                break;
+            case NOWAIT:            clause = "nowait";              break;
+            case PRIORITY:          clause = "priority";            break;
+            case PRIVATE:           clause = "private";             break;
+            case REDUCTION:         clause = "reduction";           break;
+            case SCHEDULE:          clause = "schedule";            break;
+            case SHARED:            clause = "shared";              break;
+            case TARGET:            clause = "target";              break;
+            case UNDEFINED_CLAUSE:  clause = "UNDEFINED";           break;
+            case UNTIED:            clause = "untied";              break;
+            case VECTOR_DEVICE:     clause = "vector_device";       break;
+            case VECTOR_LENGTH_FOR: clause = "vector_length_for";   break;
+            case VECTOR_MASK:       clause = "vector_mask";         break;
+            case VECTOR_NO_MASK:    clause = "vector_no_mask";      break;
+            case VECTOR_SUITABLE:   clause = "vector_suitable";     break;
+            case WAITON:            clause = "waiton";              break;
+        }
+        return clause;
+    }
+    
+    ObjectList<Nodecl::NodeclBase> PCFGClause::get_args( ) const
+    {
+        return _args;
+    }
+    
     PCFGPragmaInfo::PCFGPragmaInfo( )
         : _clauses( )
     {}
@@ -144,9 +189,9 @@ namespace Analysis {
     PCFGPragmaInfo::~PCFGPragmaInfo( )
     {}
 
-    bool PCFGPragmaInfo::has_clause( Clause clause )
+    bool PCFGPragmaInfo::has_clause( Clause clause ) const
     {
-        for (ObjectList<PCFGClause>::iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
+        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
         {
             if ( it->_clause == clause )
                 return true;
@@ -159,6 +204,11 @@ namespace Analysis {
         _clauses.append( pcfg_clause );
     }
 
+    ObjectList<PCFGClause> PCFGPragmaInfo::get_clauses( ) const
+    {
+        return _clauses;
+    }
+    
     // **************************** END PCFG OmpSs pragma classes *************************** //
     // ************************************************************************************** //
 

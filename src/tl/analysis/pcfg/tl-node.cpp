@@ -402,6 +402,14 @@ namespace Analysis {
         return ( get_type( ) == ASM_OP );
     }
 
+    bool Node::is_omp_node( )
+    {
+        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
+                 is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
+                 is_omp_sections_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || is_omp_task_node( ) ||
+                 is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+    }
+    
     bool Node::is_omp_atomic_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
@@ -804,7 +812,7 @@ namespace Analysis {
         || type == OMP_SINGLE || type == OMP_TASK );
     }
 
-    PCFGPragmaInfo Node::get_omp_node_info( )
+    PCFGPragmaInfo Node::get_pragma_node_info( )
     {
         if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
             && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
@@ -825,7 +833,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_omp_node_info( PCFGPragmaInfo pragma )
+    void Node::set_pragma_node_info( PCFGPragmaInfo pragma )
     {
         if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
             && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
