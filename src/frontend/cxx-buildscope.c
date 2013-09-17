@@ -1778,11 +1778,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
                         if (is_array_type(declarator_type)
                                 && nodecl_is_null(array_type_get_array_size_expr(declarator_type))
-                                && is_array_type(initializer_type)
-                                && !nodecl_is_null(array_type_get_array_size_expr(initializer_type)))
+                                && is_array_type(no_ref(initializer_type))
+                                && !nodecl_is_null(array_type_get_array_size_expr(no_ref(initializer_type))))
                         {
                             cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
-                            entry->type_information = get_cv_qualified_type(initializer_type, cv_qualif);
+                            entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
                         }
                     }
 

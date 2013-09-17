@@ -530,7 +530,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_STRING_LITERAL :
             {
-
                 string_literal_type(expression, nodecl_output);
                 break;
             }
@@ -13187,16 +13186,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     declared_type_no_cv)
                 && !(is_array_type(declared_type_no_cv)
                     && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_array_type(no_ref(initializer_expr_type))
-                    && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    && is_literal_string_type(initializer_expr_type)
                     )
                 // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
                 && !(is_array_type(declared_type_no_cv)
                     && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_array_type(no_ref(initializer_expr_type))
-                    && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    && is_literal_string_type(initializer_expr_type)
                     )
            )
         {
@@ -13237,16 +13232,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     || ambiguous_conversion)
                 & !(is_array_type(declared_type_no_cv)
                     && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_array_type(no_ref(initializer_expr_type))
-                    && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    && is_literal_string_type(initializer_expr_type)
                     )
                 // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
                 && !(is_array_type(declared_type_no_cv)
                     && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_array_type(no_ref(initializer_expr_type))
-                    && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    && is_literal_string_type(initializer_expr_type)
                     )
            )
         {

@@ -9047,7 +9047,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //
     // We remember whether the original was a string because we will lose this
     // information when we drop the array type
-    char is_literal_string = is_literal_string_type(no_ref(orig));
+    char is_literal_string = is_literal_string_type(orig);
     if (is_array_type(no_ref(orig)))
     {
         DEBUG_CODE()
@@ -9871,7 +9871,7 @@ type_t* get_literal_string_type(int length, char is_wchar)
         // Set that this array is actually a string literal
         array_type->array->is_literal_string = 1;
 
-        (*set)[length] = array_type;
+        (*set)[length] = get_lvalue_reference_type(array_type);
     }
 
     return (*set)[length];
@@ -9879,9 +9879,15 @@ type_t* get_literal_string_type(int length, char is_wchar)
 
 char is_literal_string_type(type_t* t)
 {
-    t = advance_over_typedefs(t);
-    return (is_array_type(t)
-            && t->array->is_literal_string);
+    if (!is_lvalue_reference_type(t)
+            || !is_array_type(no_ref(t)))
+    {
+        return 0;
+    }
+
+    t = advance_over_typedefs(no_ref(t));
+
+    return t->array->is_literal_string;
 }
 
 static type_t* _ellipsis_type = NULL;
