@@ -3505,6 +3505,9 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         if (is_promoteable_integral_type(no_ref(*rhs)))
             *rhs = promote_integral_type(no_ref(*rhs));
 
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        *rhs = get_unqualified_type(no_ref(*rhs));
+
         return get_bool_type();
     }
     // p1 == 0
@@ -3541,6 +3544,9 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
             *lhs = get_unqualified_type(no_ref(*lhs));
             *rhs = get_unqualified_type(no_ref(*lhs));
         }
+
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        *rhs = get_unqualified_type(no_ref(*rhs));
 
         return get_bool_type();
     }
@@ -3610,6 +3616,9 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
             *rhs = get_pointer_type(array_type_get_element_type(no_ref(*rhs)));
         }
 
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        *rhs = get_unqualified_type(no_ref(*rhs));
+
         return get_bool_type();
     }
     // pm1 == pm2
@@ -3620,22 +3629,22 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         if ( equivalent_types(get_unqualified_type(no_ref(*lhs)), get_unqualified_type(no_ref(*rhs))))
         {
             // Do nothing
-            *lhs = no_ref(*lhs);
-            *rhs = no_ref(*rhs);
+            *lhs = get_unqualified_type(no_ref(*lhs));
+            *rhs = get_unqualified_type(no_ref(*rhs));
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*lhs)),
                     get_unqualified_type(no_ref(*rhs))))
         {
-            *lhs = no_ref(*rhs);
-            *rhs = no_ref(*rhs);
+            *lhs = get_unqualified_type(no_ref(*rhs));
+            *rhs = get_unqualified_type(no_ref(*rhs));
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*rhs)),
                     get_unqualified_type(no_ref(*lhs))))
         {
-            *rhs = no_ref(*lhs);
-            *lhs = no_ref(*lhs);
+            *rhs = get_unqualified_type(no_ref(*lhs));
+            *lhs = get_unqualified_type(no_ref(*lhs));
         }
         else
         {
@@ -3650,6 +3659,9 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
             && is_enum_type(no_ref(no_ref(*rhs)))
             && equivalent_types(get_unqualified_type(no_ref(no_ref(*lhs))), get_unqualified_type(no_ref(no_ref(*rhs)))))
     {
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        *rhs = get_unqualified_type(no_ref(*rhs));
+
         return get_bool_type();
     }
     return get_error_type();
