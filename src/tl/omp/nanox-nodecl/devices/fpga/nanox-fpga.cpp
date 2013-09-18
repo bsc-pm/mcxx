@@ -26,6 +26,8 @@
 
 #include <errno.h>
 
+#include <fstream>
+
 #include "tl-devices.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-multifile.hpp"
@@ -444,6 +446,29 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
         std::string new_filename = "hls_" + original_filename;
 
+        std::ofstream hls_file;
+
+        hls_file.open(new_filename.c_str()); //open as output
+
+        if (! hls_file.is_open())
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+
+        ObjectList<IncludeLine> includes = CurrentFile::get_top_level_included_files();
+
+        for (ObjectList<IncludeLine>::iterator it = includes.begin(); it != includes.end(); it++)
+        {
+            hls_file << it->get_preprocessor_line() << std::endl;
+        }
+        hls_file << _fpga_file_code.prettyprint();
+        hls_file.close();
+
+#if 0
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
@@ -469,7 +494,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
 
         phase->codegen_top_level(_fpga_file_code, ancillary_file);
         fclose(ancillary_file);
-
+#endif
         // Do not forget the clear the code for next files
         _fpga_file_code.get_internal_nodecl() = nodecl_null();
     }
