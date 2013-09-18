@@ -5047,6 +5047,13 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
+    // If this symbol is a static member but its class is not being emitted,
+    // then it has actually (possibly implicitly) been declared
+    has_been_declared = has_been_declared
+        || (symbol.is_member()
+                && symbol.is_static()
+                && state.classes_being_defined.empty());
+
     std::string variable_name;
     if (!has_been_declared)
     {
@@ -5215,8 +5222,24 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                 && !symbol.is_defined_inside_class()
                 && state.classes_being_defined.empty())
         {
+            TL::Type class_type = symbol.get_class_type();
             TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            codegen_template_headers_all_levels(template_parameters, false);
+
+            if (!(class_type.class_type_is_complete_independent()
+                        || class_type.class_type_is_incomplete_independent()))
+            {
+                codegen_template_headers_all_levels(template_parameters, false);
+            }
+            else
+            {
+                while (template_parameters.is_valid())
+                {
+                    indent();
+                    *(file) << "template <>\n";
+                    template_parameters = template_parameters.get_enclosing_parameters();
+                }
+
+            }
         }
     }
 

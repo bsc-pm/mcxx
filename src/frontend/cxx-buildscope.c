@@ -10511,6 +10511,9 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             entry->defined = 1;
         }
 
+        // Mark this as user declared from now
+        entry->entity_specs.is_user_declared = 1;
+
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             // Only variables are actually defined, everything else is a declaration
             (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
