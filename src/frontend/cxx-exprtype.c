@@ -10180,17 +10180,17 @@ static void check_nodecl_member_access(
     {
         if (is_pointer_type(no_ref(accessed_type)))
         {
-            accessed_type = pointer_type_get_pointee_type(no_ref(accessed_type));
+            accessed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(accessed_type)));
 
             nodecl_accessed_out = 
                 nodecl_make_dereference(
                         nodecl_accessed,
-                        get_lvalue_reference_type(accessed_type),
+                        accessed_type,
                         nodecl_get_locus(nodecl_accessed));
         }
         else if (is_array_type(no_ref(accessed_type)))
         {
-            accessed_type = array_type_get_element_type(no_ref(accessed_type));
+            accessed_type = lvalue_ref(array_type_get_element_type(no_ref(accessed_type)));
 
             nodecl_accessed_out = 
                 nodecl_make_dereference(
@@ -10316,7 +10316,7 @@ static void check_nodecl_member_access(
         type_t* t = function_type_get_return_type(selected_operator_arrow->type_information);
 
         // The accessed type is the pointed type
-        accessed_type = pointer_type_get_pointee_type(no_ref(t));
+        accessed_type = lvalue_ref(pointer_type_get_pointee_type(no_ref(t)));
 
         // a -> b becomes (*(a.operator->())).b
         // here we are building *(a.operator->())
@@ -10357,10 +10357,10 @@ static void check_nodecl_member_access(
         return;
     }
 
-    // Advance over all typedefs keeping the underlying cv-qualification
-    cv_qualifier_t cv_qualif = CV_NONE;
-    accessed_type = advance_over_typedefs_with_cv_qualif(no_ref(accessed_type), &cv_qualif);
-    accessed_type = get_cv_qualified_type(accessed_type, cv_qualif);
+    // Preserve the accessed type for lvalueness checks later
+    type_t* orig_accessed_type = accessed_type;
+    // Advance over all typedefs the accessed type
+    accessed_type = advance_over_typedefs(no_ref(accessed_type));
 
     // This need not to be a member function but 'get_member_of_class_type' works
     // also for data members
@@ -10382,6 +10382,9 @@ static void check_nodecl_member_access(
         return;
     }
 
+    cv_qualifier_t cv_accessed = CV_NONE;
+    advance_over_typedefs_with_cv_qualif(orig_accessed_type, &cv_accessed);
+
     char ok = 0;
     scope_entry_t* orig_entry = entry_list_head(entry_list);
     scope_entry_t* entry = entry_advance_aliases(orig_entry);
@@ -10400,18 +10403,12 @@ static void check_nodecl_member_access(
                 nodecl_field,
                 nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
                 /* member form */ nodecl_null(),
-                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
+                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_accessed)),
                 nodecl_get_locus(nodecl_accessed));
     }
 
     CXX_LANGUAGE()
     {
-        if (entry->entity_specs.is_mutable)
-        {
-            // Remove const because of a mutable field
-            cv_qualif &= ~CV_CONST;
-        }
-
         nodecl_t nodecl_member_form = nodecl_null();
 
         if (member_is_qualified)
@@ -10430,11 +10427,36 @@ static void check_nodecl_member_access(
                 nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
             }
 
+            type_t* field_type = no_ref(entry->type_information);
+            if (!entry->entity_specs.is_static)
+            {
+                // Combine both qualifiers
+                cv_qualifier_t cv_field = CV_NONE;
+                advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
+                cv_field = cv_accessed | cv_field;
+
+                if (entry->entity_specs.is_mutable)
+                {
+                    cv_field &= ~CV_CONST;
+                }
+
+                field_type = get_cv_qualified_type(field_type, cv_field);
+
+                if (is_lvalue_reference_type(orig_accessed_type))
+                {
+                    field_type = get_lvalue_reference_type(field_type);
+                }
+            }
+            else
+            {
+                field_type = get_lvalue_reference_type(field_type);
+            }
+
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_field,
                     nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
                     nodecl_member_form,
-                    lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_qualif)),
+                    field_type,
                     nodecl_get_locus(nodecl_accessed));
         }
         else if (entry->kind == SK_ENUMERATOR)
