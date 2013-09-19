@@ -2165,7 +2165,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
-
     // At this point, we mark the function as defined. It must be done here to
     // avoid the useless declaration of the function being defined and other
     // related problems.
@@ -2189,10 +2188,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         define_nonlocal_nonprototype_entities_in_trees(statement);
     }
 
+    move_to_namespace_of_symbol(symbol);
+
+    // We may need zero or more empty template headers
+    bool emit_default_arguments = true;
+    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
+    while (tpl.is_valid())
+    {
+        // We should ignore some 'fake' empty template headers
+        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+        {
+             indent();
+             *(file) << "template <>\n";
+        }
+        tpl = tpl.get_enclosing_parameters();
+        emit_default_arguments = false;
+    }
+
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, emit_default_arguments);
 
     std::string decl_spec_seq;
 
@@ -2307,21 +2323,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
-
-    move_to_namespace_of_symbol(symbol);
-
-    // We may need zero or more empty template headers
-    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
-    while (tpl.is_valid())
-    {
-        // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
-        {
-             indent();
-             *(file) << "template <>\n";
-        }
-        tpl = tpl.get_enclosing_parameters();
-    }
 
     bool requires_extern_linkage = false;
     if (IS_CXX_LANGUAGE
