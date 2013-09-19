@@ -4003,7 +4003,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
     entry_list_free(query_results);
 
     // If this is a member of a dependent class or a local entity of a template
-    // function crat a dependent typename for it
+    // function craft a dependent typename for it
     if (symbol_is_member_of_dependent_class(entry)
             || symbol_is_local_of_dependent_function(entry))
     {
@@ -4494,8 +4494,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     }
 }
 
-void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t decl_context)
+static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry, decl_context_t decl_context)
 {
+    type_t* class_type = get_actual_class_type(class_entry->type_information);
+
     AST list = ASTSon0(base_clause);
     AST iter;
     for_each_element(list, iter)
@@ -4630,6 +4632,47 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
                 fprintf(stderr, "BUILDSCOPE: Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
             is_dependent = 1;
+
+            scope_entry_t* enclosing_class = NULL;
+            if (class_entry->decl_context.current_scope->kind == CLASS_SCOPE)
+            {
+                enclosing_class = class_entry->decl_context.current_scope->related_entry;
+            }
+            if (result->kind != SK_DEPENDENT_ENTITY
+                    && enclosing_class != NULL
+                    && symbol_is_member_of_dependent_class(result))
+            {
+                // Craft a nodecl name for it
+                nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
+                        result->symbol_name,
+                        ast_get_locus(class_name));
+
+                nodecl_t nodecl_name = nodecl_simple_name;
+
+                if (is_template_specialized_type(result->type_information))
+                {
+                    nodecl_name = nodecl_make_cxx_dep_template_id(
+                            nodecl_name,
+                            // If our enclosing class is dependent
+                            // this template id will require a 'template '
+                            "template ",
+                            template_specialized_type_get_template_arguments(result->type_information),
+                            ast_get_locus(class_name));
+                }
+
+                // Craft a dependent typename since we will need it later for proper updates
+                scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_buildscope);
+                new_sym->kind = SK_DEPENDENT_ENTITY;
+                new_sym->locus = nodecl_get_locus(nodecl_name);
+                new_sym->symbol_name = result->symbol_name;
+                new_sym->decl_context = decl_context;
+                new_sym->type_information = build_dependent_typename_for_entry(
+                        enclosing_class,
+                        nodecl_name,
+                        nodecl_get_locus(nodecl_name));
+
+                result = new_sym;
+            }
         }
         else
         {
@@ -6924,7 +6967,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
 
         build_scope_base_clause(base_clause, 
-                class_type, 
+                class_entry, 
                 inner_decl_context);
 
         DEBUG_CODE()
