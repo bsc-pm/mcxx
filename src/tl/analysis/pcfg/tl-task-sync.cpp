@@ -87,6 +87,7 @@ namespace TL { namespace Analysis {
 #ifdef TASK_SYNC_DEBUG
                         std::pair<AliveTaskSet::iterator, bool> res =
 #endif
+                        // TODO - We do this even if task_sync_rel returned tribool::yes. Why?
                         current->get_live_out_tasks().insert(*alive_tasks_it);
 #ifdef TASK_SYNC_DEBUG
                         if (res.second)
@@ -272,13 +273,14 @@ namespace TL { namespace Analysis {
             {
                 // If one is object and the other subobject (or both subobjects),
                 // if the base symbol is different, they they cannot be the same dependence
+                //
+                // TODO - Sometimes the two subobjects may be the same and we
+                // TODO - may want to return tribool::yes
                 if (source_sym != target_sym)
                     return tribool::no;
             }
 
-            // IMPROVEMENT: If both are subobjects we could try to deduce if really there is dependence
-
-            // In all other cases we take conservative stance
+            // In all other cases we take a conservative stance
             return tribool::unknown;
         }
 
@@ -332,6 +334,8 @@ namespace TL { namespace Analysis {
                 internal_error("Code unreachable", 0);
             }
 
+            // TODO - Concurrent and commutative are not handled yet
+            // TODO - OpenMP::Base may create more than ONE dep_xxx tree (here we would overwrite them)
             Nodecl::NodeclBase source_dep_in;
             Nodecl::NodeclBase source_dep_out;
             Nodecl::NodeclBase source_dep_inout;
@@ -391,8 +395,8 @@ namespace TL { namespace Analysis {
                             || targets[n_target].is_null())
                         continue;
 
-                    // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
-                    // same physical layout
+                    // XXX: Note that we (ab)use the fact that DepIn/DepOut/DepInOut
+                    // all have the same physical layout. Make it nicer
                     may_have_dep = may_have_dep || may_have_dependence_list(
                             sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
                             targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
@@ -540,10 +544,15 @@ namespace TL { namespace Analysis {
                 if (alive_tasks_it->domain != current_domain_id)
                     continue;
 
+                // Check if this (*alive_task_it) has already some point of synchronization
                 if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
                 {
+                    // Yes, it DOES, have some point of synchronization
+                    // Check now if (*alive_tasks_it) is NOT in the set of static synchronized tasks
                     if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
                     {
+                        // It is NOT in the set of static synchronized task so
+                        // define a strict synchronization here
                         points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
 #ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__
@@ -552,11 +561,17 @@ namespace TL { namespace Analysis {
                     }
                     else
                     {
+                        // Well, (*alive_tasks_it) IS in the set of static
+                        // synchronized tasks so it won't synchronize here
                         points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
                     }
                 }
                 else
                 {
+                    // (*alive_tasks_it) DOES NOT have any synchronization point
+                    // Check now if (*alive_tasks_it) is NOT in the set of static synchronized tasks
+                    //
+                    // FIXME - Is this check ever false?
                     if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
                     {
                         points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
@@ -764,7 +779,8 @@ namespace TL { namespace Analysis {
                 }
 #endif
 
-                // All the alive tasks at the end of the task are also alive here
+                // All the alive tasks at the end of the task are also alive
+                // after the task creation (if it is run immediately)
                 if (task->is_graph_node())
                 {
                     Node* exit_of_task = task->get_graph_exit_node();
@@ -787,6 +803,8 @@ namespace TL { namespace Analysis {
             {
                 TL:: Symbol symbol = current->get_function_node_symbol();
 
+                // TODO - We do not have enough information if we lack the function code
+                //
                 if (function_waits_tasks(symbol))
                 {
                     shallow_synchronization_point(current, current_domain_id, points_of_sync);
