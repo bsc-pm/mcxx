@@ -987,24 +987,6 @@ namespace Analysis {
         function_visit( n.get_called( ), n.get_arguments( ) );
     }
 
-    void UsageVisitor::visit( const Nodecl::MaskedVectorAssignment& n )
-    {
-        visit_assignment( n );
-    }
-    
-    void UsageVisitor::visit( const Nodecl::MaskedVectorScatter& n )
-    {
-        WARNING_MESSAGE( "MaskedVectorScatter not yet implemented during UseDef analysis. Ignoring node", 0 );
-//         walk( get_base( ) );
-//         walk( get_strides( ) );
-//         walk( get_source( ) );
-    }
-    
-    void UsageVisitor::visit( const Nodecl::MaskedVectorStore& n )
-    {
-        visit_assignment( n );
-    }
-    
     void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         visit_binary_assignment( n );
@@ -1092,11 +1074,6 @@ namespace Analysis {
         }
     }
     
-    void UsageVisitor::visit( const Nodecl::UnalignedMaskedVectorStore& n )
-    {
-        visit_assignment( n );
-    }
-    
     void UsageVisitor::visit( const Nodecl::UnalignedVectorStore& n )
     {
         visit_assignment( n );
@@ -1107,16 +1084,51 @@ namespace Analysis {
         visit_assignment( n );
     }
     
+    // It is used: the base, the strides (if variables) and the memory positions formed by base+stride_i
+    void UsageVisitor::visit( const Nodecl::VectorGather& n )
+    {
+        Nodecl::NodeclBase base = n.get_base( );
+        Nodecl::List strides = n.get_strides( ).as<Nodecl::List>( );
+        
+        // Usage of the base
+        walk( base );
+        for( Nodecl::List::iterator it = strides.begin( ); it != strides.end( ); ++it )
+        {
+            // Usage of the stride
+            if( !Nodecl::Utils::nodecl_is_literal( *it ) )
+            {
+                walk( *it );
+            }
+            // Usage of base+stride_i
+            Nodecl::Add current_access = Nodecl::Add::make( base, *it, base.get_type( ), it->get_locus( ) );
+            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
+        }
+    }
+    
     void UsageVisitor::visit( const Nodecl::VectorMaskAssignment& n )
     {
         visit_assignment( n );
     }
     
+    // It is used: the strides (if variables). It is defined the memory positions formed by base+stride_i
     void UsageVisitor::visit( const Nodecl::VectorScatter& n )
     {
-        WARNING_MESSAGE( "VectorScatter not yet implemented during UseDef analysis. Ignoring node", 0 );
-//         walk( get_base( ) );
-//         walk( get_strides( ) );
+        Nodecl::NodeclBase base = n.get_base( );
+        Nodecl::List strides = n.get_strides( ).as<Nodecl::List>( );
+        
+        for( Nodecl::List::iterator it = strides.begin( ); it != strides.end( ); ++it )
+        {
+            // Usage of the stride
+            if( !Nodecl::Utils::nodecl_is_literal( *it ) )
+            {
+                walk( *it );
+            }
+            // Usage of base+stride_i
+            Nodecl::Add current_access = Nodecl::Add::make( base, *it, base.get_type( ), it->get_locus( ) );
+            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
+        }
     }
     
     void UsageVisitor::visit( const Nodecl::VectorStore& n )
