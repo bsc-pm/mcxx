@@ -99,7 +99,7 @@ namespace Analysis {
                 Nodecl::Utils::ReduceExpressionVisitor v;
                 Nodecl::NodeclBase s = it->shallow_copy( );
                 v.walk( s );
-                
+
                 ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
                 iv_v.walk( s );
                 result = iv_v.depends_on_induction_vars( );

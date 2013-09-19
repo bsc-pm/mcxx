@@ -36,7 +36,7 @@ namespace TL { namespace Nanox {
 
     TL::Symbol LoweringVisitor::create_reduction_function_fortran_slicer(OutlineDataItem* ol, Nodecl::NodeclBase construct)
     {
-        OpenMP::Reduction *red = ol->get_reduction_info();
+        OpenMP::Reduction *red = ol->get_reduction_info().first;
 
         reduction_map_t::iterator it = _reduction_map_ompss.find(red);
         if (it != _reduction_map_ompss.end())
@@ -96,7 +96,7 @@ namespace TL { namespace Nanox {
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            return create_basic_reduction_function_c(red->get_reduction_info(), construct);
+            return create_basic_reduction_function_c(red->get_reduction_info().first, construct);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
@@ -175,7 +175,9 @@ namespace TL { namespace Nanox {
                     << "{"
                     << "nanos_lock_t* red_lock;"
                     << "nanos_err_t err;"
-                    << "err = nanos_get_lock_address(&" << as_symbol( shared_symbol_proxy ) << ", &red_lock);"
+                    << "err = nanos_get_lock_address("
+                    <<       ((*it)->get_private_type().is_array() ? "" : "&")
+                    <<             as_symbol( shared_symbol_proxy ) << ", &red_lock);"
                     << "if (err != NANOS_OK) nanos_handle_error(err);"
 
                     << "err = nanos_set_lock(red_lock);"
@@ -199,16 +201,27 @@ namespace TL { namespace Nanox {
                 ERROR_CONDITION(!statement.is<Nodecl::List>(), "Expecting a list", 0);
                 reduction_stmts.append(statement.as<Nodecl::List>()[0]);
 
+                TL::Type elemental_type = (*it)->get_private_type();
+                while (elemental_type.is_array())
+                    elemental_type = elemental_type.array_element();
+
                 Source partial_reduction_code_src;
                 if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                 {
                     partial_reduction_code_src
                         << as_symbol( (*it)->reduction_get_basic_function() ) << "("
                         // This will be the reduction shared
-                        <<    "&" << as_symbol( shared_symbol_proxy ) << ", "
+                        <<       ((*it)->get_private_type().is_array() ? "" : "&")
+                        <<       as_symbol( shared_symbol_proxy ) << ", "
                         // This will be the reduction private var
-                        <<    "&" << as_symbol( (*it)->get_symbol() ) << ", "
-                        <<    /* We do not allow arrays in C/C++ reductions */ 1
+                        <<       ((*it)->get_private_type().is_array() ? "" : "&")
+                        <<       as_symbol( (*it)->get_symbol() ) << ", "
+                        <<    ((*it)->get_private_type().is_array() ?
+                               (
+                                  "sizeof(" + as_type( (*it)->get_private_type()) + ")"
+                                   "/ sizeof(" + as_type(elemental_type) + ")"
+                                )
+                                : "1")
                         << ");"
                         ;
 

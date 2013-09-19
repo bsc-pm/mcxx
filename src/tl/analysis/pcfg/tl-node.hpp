@@ -257,6 +257,9 @@ namespace Analysis {
             //! Returns true when the node is an ASM_OP node
             bool is_asm_op_node( );
 
+            //! Returns true when the node is any kind of OpenMP node
+            bool is_omp_node( );
+            
             //! Returns true when the node is an OpenMP ATOMIC node
             bool is_omp_atomic_node( );
 
@@ -364,10 +367,10 @@ namespace Analysis {
             void set_graph_type( Graph_type graph_type );
 
             //! Returns info associated to an OmpSs node: type and associated clauses
-            PCFGPragmaInfo get_omp_node_info( );
+            PCFGPragmaInfo get_pragma_node_info( );
 
             //! Set info to an OmpSs node: pragma type and associated clauses
-            void set_omp_node_info( PCFGPragmaInfo pragma );
+            void set_pragma_node_info( PCFGPragmaInfo pragma );
 
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned

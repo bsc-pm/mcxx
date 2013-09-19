@@ -1781,7 +1781,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 && is_array_type(initializer_type)
                                 && !nodecl_is_null(array_type_get_array_size_expr(initializer_type)))
                         {
-                            entry->type_information = initializer_type;
+                            cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
+                            entry->type_information = get_cv_qualified_type(initializer_type, cv_qualif);
                         }
                     }
 
@@ -1853,13 +1854,20 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
             }
 
+
             // For typedefs we will emit a nodecl_cxx_decl if they involve
-            // variably modified types
+            // variably modified types.
+            //
+            // External global variables are also represented with nodecl_cxx_decl
             //
             // (We could use an object init but we reserve those for real data
             // entities)
-            if (entry->kind == SK_TYPEDEF
+            if ((entry->kind == SK_TYPEDEF
                     && is_variably_modified_type(entry->type_information))
+                    || (IS_C_LANGUAGE
+                        && entry->kind == SK_VARIABLE
+                        && entry->entity_specs.is_extern
+                        && entry->decl_context.current_scope == entry->decl_context.global_scope))
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
@@ -1871,7 +1879,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                                 entry,
                                 ast_get_locus(init_declarator))));
             }
-
 
             // GCC weird stuff
             if (asm_specification != NULL)
@@ -1888,11 +1895,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, current_gather_info);
             }
 
-            nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
-                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
-
             CXX_LANGUAGE()
             {
+                nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
+                    (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
                 nodecl_t nodecl_context =
                     nodecl_make_context(/* optional statement sequence */ nodecl_null(),
                             decl_context, ast_get_locus(init_declarator));
@@ -2690,6 +2697,16 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 *simple_type_info = get_signed_int128_type();
 #else
                 error_printf("%s: error: __int128 support not available\n", ast_location(a));
+                *simple_type_info = get_error_type();
+#endif
+                break;
+            }
+        case AST_GCC_FLOAT128:
+            {
+#ifdef HAVE_QUADMATH_H
+                *simple_type_info = get_float128_type();
+#else
+                error_printf("%s: error: __float128 support not available\n", ast_location(a));
                 *simple_type_info = get_error_type();
 #endif
                 break;

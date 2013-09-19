@@ -385,6 +385,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         reduction_map_t _reduction_map_ompss;
         void create_reduction_function(OpenMP::Reduction* red,
                 Nodecl::NodeclBase construct,
+                TL::Type reduction_type,
                 TL::Symbol& basic_reduction_function,
                 TL::Symbol& vector_reduction_function);
         TL::Symbol create_basic_reduction_function_c(OpenMP::Reduction* red, Nodecl::NodeclBase construct);

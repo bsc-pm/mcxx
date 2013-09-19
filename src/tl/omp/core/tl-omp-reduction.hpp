@@ -79,7 +79,7 @@ namespace TL { namespace OpenMP {
             }
 
             static ObjectList<Reduction*> lookup(TL::Scope, Nodecl::NodeclBase id_expression, TL::Type t,
-                    bool disable_koenig);
+                    bool disable_koenig, bool allow_array_types);
         public:
             //! Factory of a reduction in a given scope
             /*!
@@ -91,13 +91,15 @@ namespace TL { namespace OpenMP {
             /*!
              * Returns NULL if no reduction has been found
              */
-            static Reduction* lookup(TL::Scope, const std::string& name, TL::Type t);
+            static Reduction* simple_lookup(TL::Scope, const std::string& name,
+                    TL::Type t, bool allow_array_types);
 
             //! Lookup of a reduction using a nodecl name
             /*!
              * May return more than one matching reduction
              */
-            static ObjectList<Reduction*> lookup(TL::Scope, Nodecl::NodeclBase id_expression, TL::Type t);
+            static ObjectList<Reduction*> lookup(TL::Scope, Nodecl::NodeclBase id_expression,
+                    TL::Type t, bool allow_array_types);
 
             static Reduction* get_reduction_info_from_symbol(TL::Symbol sym);
 

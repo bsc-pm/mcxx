@@ -29,6 +29,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-scope.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-cexpr.h"
 #include "tl-compilerpipeline.hpp"
 #include "tl-source.hpp"
 #include "cxx-cexpr.h"
@@ -1059,6 +1060,14 @@ OPERATOR_TABLE
     {
         const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
+        if (const_value_is_array(val))
+        {
+            // LOGICAL :: A(10) = .TRUE.
+            //
+            // .TRUE. will be a BooleanLiteral but its constant value will be array, simplify to rank 1
+            val = fortran_const_value_rank_zero(val);
+        }
+
         int kind = node.get_type().get_size();
 
         if (const_value_is_zero(val))
@@ -1084,6 +1093,15 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::IntegerLiteral& node)
     {
         const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
+
+        if (const_value_is_array(value))
+        {
+            // INTEGER :: A(10) = 1
+            //
+            // 1 will be an IntegerLiteral but its constant value will be array, simplify to rank 1
+            value = fortran_const_value_rank_zero(value);
+        }
+
         int num_bytes = const_value_get_bytes(value);
 
         if (node.get_type().is_bool())
@@ -1147,6 +1165,14 @@ OPERATOR_TABLE
         TL::Type t = node.get_type().complex_get_base_type();
 
         const_value_t* complex_cval = node.get_constant();
+
+        if (const_value_is_array(complex_cval))
+        {
+            // COMPLEX :: C(10) = (1,2)
+            // (1,2) will be a ComplexLiteral but its constant value will be array, simplify to rank 1
+            complex_cval = fortran_const_value_rank_zero(complex_cval);
+        }
+
         const_value_t* cval_real = const_value_complex_get_real_part(complex_cval);
         const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
 
@@ -1234,7 +1260,16 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::FloatingLiteral& node)
     {
-        emit_floating_constant(node.get_constant(), node.get_type());
+        const_value_t* value = node.get_constant();
+        if (const_value_is_array(value))
+        {
+            // REAL :: A(10) = 1.2
+            //
+            // 1.2 will be an FloatingLiteral but its constant value will be array, simplify to rank 1
+            value = fortran_const_value_rank_zero(value);
+        }
+
+        emit_floating_constant(value, node.get_type());
     }
 
     void FortranBase::visit(const Nodecl::Symbol& node)
@@ -2791,14 +2826,16 @@ OPERATOR_TABLE
         {
             if (it == rename_map.end())
             {
-                if (!name_has_already_been_used(sym))
-                {
-                    result = sym.get_name();
-                }
-                else
+                if (is_protected_name(sym)
+                        || name_has_already_been_used(sym))
                 {
                     result = compute_new_rename(sym);
                 }
+                else
+                {
+                    result = sym.get_name();
+                }
+
                 name_set.insert(sym.get_name());
                 rename_map[sym] = result;
             }
@@ -3486,6 +3523,15 @@ OPERATOR_TABLE
                         attribute_list += ", PUBLIC";
                     }
                 }
+                TL::Symbol enclosing_declaring_symbol = get_current_declaring_symbol();
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    attribute_list += ", PRIVATE";
+                }
             }
             if (entry.get_type().is_volatile()
                     && !entry.is_member())
@@ -3988,6 +4034,17 @@ OPERATOR_TABLE
                     {
                         *(file) << ", PUBLIC";
                     }
+                }
+
+                if (enclosing_declaring_symbol.is_valid()
+                        && enclosing_declaring_symbol.is_fortran_module()
+                        && !entry.in_module().is_valid()
+                        && (entry.get_scope().get_decl_context().current_scope ==
+                            entry.get_scope().get_decl_context().global_scope))
+                {
+                    // Global types should be made private to avoid undesired exports
+                    // of names
+                    (*file) << ", PRIVATE";
                 }
             }
 
@@ -5582,7 +5639,14 @@ OPERATOR_TABLE
             }
             else
             {
-                *(file) << sym.get_name();
+                if (is_protected_name(sym))
+                {
+                    *(file) << rename(sym);
+                }
+                else
+                {
+                    *(file) << sym.get_name();
+                }
             }
         }
         *(file) << ")";
@@ -5608,7 +5672,14 @@ OPERATOR_TABLE
             {
                 if (result_var.get_name() != entry.get_name())
                 {
-                    *(file) << " RESULT(" << result_var.get_name() << ")";
+                    if (is_protected_name(result_var))
+                    {
+                        *(file) << " RESULT(" << rename(result_var) << ")";
+                    }
+                    else
+                    {
+                        *(file) << " RESULT(" << result_var.get_name() << ")";
+                    }
                 }
             }
             else
@@ -5684,6 +5755,14 @@ OPERATOR_TABLE
     {
         if (!_name_set_stack.empty()) _name_set_stack.back().clear();
         if (!_rename_map_stack.empty()) _rename_map_stack.back().clear();
+    }
+
+    bool FortranBase::is_protected_name(TL::Symbol sym)
+    {
+        std::string str = strtolower(sym.get_name().c_str());
+
+        // Maybe others will have to be added in a future
+        return (str == "loc");
     }
 
     bool FortranBase::is_bitfield_access(const Nodecl::NodeclBase& lhs)

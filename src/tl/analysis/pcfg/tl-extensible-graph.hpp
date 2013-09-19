@@ -108,46 +108,7 @@ namespace Analysis {
         //! This method concatenates all those nodes that form a Basic Block in one only node.
         //! It creates a new node containing all the statements and deleted the previous nodes.
         void concat_sequential_nodes( );
-
-
         void concat_sequential_nodes_recursive( Node* actual_node, ObjectList<Node*>& last_seq_nodes );
-
-        //! Prints nodes and relations between them in a string in a recursive way.
-        /*!
-        \param actual_node Source node from which the printing is started.
-        \param dot_graph Inout parameter where the DOT is printed.
-        \param outer_edges Set of edges that must be printed in an outer DOT cluster.
-        \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
-        \param indent Indentation for the actual node when it is printed.
-        \param subgraph_id Identifier for the actual cluster.
-        */
-        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
-                                 std::vector<std::string>& outer_edges,
-                                 std::vector<Node*>& outer_nodes,
-                                 std::string indent, int& subgraph_id,
-                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                 bool auto_scoping, bool auto_deps );
-
-        //! Prints both nodes and edges within a pcfg subgraph
-                    //! Prints nodes and relations between them in a string in a recursive way.
-        /*!
-        \param actual_node Source node from which the printing is started.
-        \param graph_data Inout parameter where the DOT is printed.
-        \param outer_edges Set of edges that must be printed in an outer DOT cluster.
-        \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
-        \param indent Indentation for the actual node when it is printed.
-        \param subgraph_id Identifier for the actual cluster.
-        */
-        void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
-                               std::vector<std::string>& outer_edges,
-                               std::vector<Node*>& outer_nodes,
-                               std::string indent, int& subgraph_id,
-                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                               bool auto_scoping, bool auto_deps );
-
-        //! Prints the data of an only node.
-        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
-                                bool usage, bool liveness, bool reaching_defs );
 
         /*!Returns whether the source and the target of an edge belongs to the same outer node.
          * If both the source and the target do not have an outer node, then true is returned.
@@ -174,11 +135,58 @@ namespace Analysis {
         //! Looks for nodecl 'n' in 'current' and its successors
         Node* find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
         
+        // *************************************************************************************** //
+        // ********************************* DOT printing methods ******************************** //
+        
+        //! Prints nodes and relations between them in a string in a recursive way.
+        /*!
+         * \param actual_node Source node from which the printing is started.
+         * \param dot_graph Inout parameter where the DOT is printed.
+         * \param outer_edges Set of edges that must be printed in an outer DOT cluster.
+         * \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
+         * \param indent Indentation for the actual node when it is printed.
+         * \param subgraph_id Identifier for the actual cluster.
+         */
+        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
+                                 std::vector<std::string>& outer_edges,
+                                 std::vector<Node*>& outer_nodes,
+                                 std::string indent, int& subgraph_id,
+                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                 bool auto_scoping, bool auto_deps );
+        
+        //! Prints both nodes and edges within a pcfg subgraph
+        //! Prints nodes and relations between them in a string in a recursive way.
+        /*!
+         * \param actual_node Source node from which the printing is started.
+         * \param graph_data Inout parameter where the DOT is printed.
+         * \param outer_edges Set of edges that must be printed in an outer DOT cluster.
+         * \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
+         * \param indent Indentation for the actual node when it is printed.
+         * \param subgraph_id Identifier for the actual cluster.
+         */
+        void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
+                               std::vector<std::string>& outer_edges,
+                               std::vector<Node*>& outer_nodes,
+                               std::string indent, int& subgraph_id,
+                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                               bool auto_scoping, bool auto_deps );
+        
+        //! Prints the data of an only node.
+        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
+                                bool usage, bool liveness, bool reaching_defs );
+        
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                        std::string cluster_name,
                                        bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                        bool auto_scoping, bool auto_deps );
+        
+        //! Prints OpenMP clauses information only for OpenMP nodes
+        std::string print_pragma_node_clauses( Node* current, std::string indent, std::string cluster_name );
+        
+        // ******************************* END DOT printing methods ****************************** //
+        // *************************************************************************************** //
+        
 
     public:
         // *** Constructors *** //

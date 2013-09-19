@@ -134,265 +134,274 @@ namespace OpenMP
     {
         private:
             Symbol _symbol;
+            TL::Type _reduction_type;
             Reduction *_reduction;
 
-            public:
-                ReductionSymbol(Symbol s, Reduction *reduction)
-                    : _symbol(s), _reduction(reduction)
-                {
-                }
+        public:
+            ReductionSymbol(Symbol s, TL::Type t, Reduction *reduction)
+                : _symbol(s),
+                _reduction_type(t),
+                _reduction(reduction)
+            {
+            }
 
-                ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol),
-                    _reduction(red_sym._reduction)
-                {
-                }
+            ReductionSymbol(const ReductionSymbol& red_sym)
+                : _symbol(red_sym._symbol),
+                _reduction_type(red_sym._reduction_type),
+                _reduction(red_sym._reduction)
+            {
+            }
 
-                Symbol get_symbol() const 
-                {
-                    return _symbol;
-                }
+            Symbol get_symbol() const 
+            {
+                return _symbol;
+            }
 
-                Reduction* get_reduction() const
-                {
-                    return _reduction;
-                }
-        };
+            Reduction* get_reduction() const
+            {
+                return _reduction;
+            }
 
-        class LIBTL_CLASS RealTimeInfo
-        {
-            public:
+            Type get_reduction_type() const
+            {
+                return _reduction_type;
+            }
+    };
 
-                #define ENUM_OMP_ERROR_EVENT_LIST \
-                    ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
-                    ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
+    class LIBTL_CLASS RealTimeInfo
+    {
+        public:
 
-                enum omp_error_event_t
-                {
-                   #define ENUM_OMP_ERROR_EVENT(x) x,
-                        ENUM_OMP_ERROR_EVENT_LIST
-                   #undef ENUM_OMP_ERROR_EVENT
-                };
+            #define ENUM_OMP_ERROR_EVENT_LIST \
+                ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
+                ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
 
-                #define ENUM_OMP_ERROR_ACTION_LIST \
-                    ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION,OMP_NO_ACTION)  \
-                    ENUM_OMP_ERROR_ACTION(OMP_IGNORE,OMP_ACTION_IGNORE) \
-                    ENUM_OMP_ERROR_ACTION(OMP_SKIP,OMP_ACTION_SKIP)
+            enum omp_error_event_t
+            {
+                #define ENUM_OMP_ERROR_EVENT(x) x,
+                    ENUM_OMP_ERROR_EVENT_LIST
+                #undef ENUM_OMP_ERROR_EVENT
+            };
 
+            #define ENUM_OMP_ERROR_ACTION_LIST \
+                ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION,OMP_NO_ACTION)  \
+                ENUM_OMP_ERROR_ACTION(OMP_IGNORE,OMP_ACTION_IGNORE) \
+                ENUM_OMP_ERROR_ACTION(OMP_SKIP,OMP_ACTION_SKIP)
 
-                enum omp_error_action_t
-                {
-                    #define ENUM_OMP_ERROR_ACTION(x,y) y,
-                        ENUM_OMP_ERROR_ACTION_LIST
-                    #undef ENUM_OMP_ERROR_ACTION
-                };
 
-                typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
+            enum omp_error_action_t
+            {
+                #define ENUM_OMP_ERROR_ACTION(x,y) y,
+                    ENUM_OMP_ERROR_ACTION_LIST
+                #undef ENUM_OMP_ERROR_ACTION
+            };
 
-            private:
+            typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
 
-                Nodecl::NodeclBase *_time_deadline;
+        private:
 
-                Nodecl::NodeclBase *_time_release;
+            Nodecl::NodeclBase *_time_deadline;
 
-                map_error_behavior_t _map_error_behavior;
+            Nodecl::NodeclBase *_time_release;
 
-                map_error_behavior_t get_map_error_behavior() const;
+            map_error_behavior_t _map_error_behavior;
 
-            public:
-                RealTimeInfo();
+            map_error_behavior_t get_map_error_behavior() const;
 
-                ~RealTimeInfo();
+        public:
+            RealTimeInfo();
 
-                RealTimeInfo(const RealTimeInfo& rt_copy);
+            ~RealTimeInfo();
 
-                RealTimeInfo(const RealTimeInfo& rt_copy,
-                        Nodecl::Utils::SimpleSymbolMap& translation_map);
+            RealTimeInfo(const RealTimeInfo& rt_copy);
 
-                RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
+            RealTimeInfo(const RealTimeInfo& rt_copy,
+                    Nodecl::Utils::SimpleSymbolMap& translation_map);
 
-                Nodecl::NodeclBase get_time_deadline() const;
+            RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
-                Nodecl::NodeclBase get_time_release() const;
+            Nodecl::NodeclBase get_time_deadline() const;
 
-                bool has_deadline_time() const;
+            Nodecl::NodeclBase get_time_release() const;
 
-                bool has_release_time() const;
+            bool has_deadline_time() const;
 
-                void set_time_deadline(Nodecl::NodeclBase exp);
+            bool has_release_time() const;
 
-                void set_time_release(Nodecl::NodeclBase exp);
+            void set_time_deadline(Nodecl::NodeclBase exp);
 
-                std::string get_action_error(omp_error_event_t event);
+            void set_time_release(Nodecl::NodeclBase exp);
 
-                void add_error_behavior(std::string event, std::string action);
+            std::string get_action_error(omp_error_event_t event);
 
-                void add_error_behavior(std::string action);
+            void add_error_behavior(std::string event, std::string action);
 
-                void module_write(ModuleWriter& mw);
-                void module_read(ModuleReader& mw);
-        };
+            void add_error_behavior(std::string action);
 
-        class LIBTL_CLASS DependencyItem : public TL::Object
-        {
-            private:
-                DataReference _dep_expr;
-                DependencyDirection _kind;
-            public:
-                DependencyItem() { }
-                DependencyItem(DataReference dep_expr, DependencyDirection kind);
-
-                DependencyDirection get_kind() const;
-                DataReference get_dependency_expression() const;
-
-                void module_write(ModuleWriter& mw);
-                void module_read(ModuleReader& mw);
-        };
-
-        class LIBTL_CLASS TargetInfo
-        {
-            private:
-                Symbol _target_symbol;
-                ObjectList<CopyItem> _copy_in;
-                ObjectList<CopyItem> _copy_out;
-                ObjectList<CopyItem> _copy_inout;
-
-                ObjectList<Nodecl::NodeclBase> _ndrange;
-                ObjectList<Nodecl::NodeclBase> _shmem;
-                ObjectList<Nodecl::NodeclBase> _onto;
-
-                ObjectList<std::string> _device_list;
-                std::string _file;
-                std::string _name;
-
-                bool _copy_deps;
-            public:
-                TargetInfo();
-
-                TargetInfo(const TargetInfo& target_info,
-                        Nodecl::Utils::SimpleSymbolMap translation_map,
-                        TL::Symbol target_symbol);
-
-                bool can_be_ommitted();
-
-                void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
-                void append_to_copy_out(const ObjectList<CopyItem>& copy_items);
-                void append_to_copy_inout(const ObjectList<CopyItem>& copy_items);
-
-                ObjectList<CopyItem> get_copy_in() const;
-                ObjectList<CopyItem> get_copy_out() const;
-                ObjectList<CopyItem> get_copy_inout() const;
-
-                void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
-                ObjectList<Nodecl::NodeclBase> get_ndrange() const;
-                ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_ndrange() const;
-
-                void append_to_shmem(const ObjectList<Nodecl::NodeclBase>& expressions);
-                ObjectList<Nodecl::NodeclBase> get_shmem() const;
-                ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_shmem() const;
-
-                void append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions);
-                ObjectList<Nodecl::NodeclBase> get_onto() const;
-                ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_onto() const;
-
-                void set_copy_deps(bool b);
-                bool has_copy_deps() const;
-
-                void set_target_symbol(Symbol funct_symbol);
-                Symbol get_target_symbol() const;
-
-                void append_to_device_list(const ObjectList<std::string>& device_list);
-                ObjectList<std::string> get_device_list();
-
-                void set_file(std::string filename);
-                std::string get_file() const;
-
-                void set_name(std::string name);
-                std::string get_name() const;
-                void module_write(ModuleWriter& mw);
-                void module_read(ModuleReader& mr);
-        };
-
-        //! This class represents data sharing environment in a OpenMP construct
-        class LIBTL_CLASS DataSharingEnvironment
-        {
-            private:
-                int *_num_refs;
-                typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
-                map_symbol_data_t  *_map;
-                DataSharingEnvironment *_enclosing;
-
-                ObjectList<ReductionSymbol> _reduction_symbols;
-                ObjectList<DependencyItem> _dependency_items;
-
-                TargetInfo _target_info;
-
-                bool _is_parallel;
-
-                DataSharingAttribute get_internal(Symbol sym);
-
-                RealTimeInfo _real_time_info;
-            public:
-                //! Constructor
-                /*!
-                 * \param enclosing Enclosing data sharing used when looking up
-                 * the data sharing of a given symbol
-                 */
-                DataSharingEnvironment(DataSharingEnvironment *enclosing);
-                ~DataSharingEnvironment();
-
-                //! Copy constructor
-                DataSharingEnvironment(const DataSharingEnvironment& ds);
-
-                //! Sets a data sharing attribute of a symbol
-                /*!
-                 * \param sym The symbol to be set the data sharing attribute
-                 * \param data_attr The symbol to which the data sharing will be set
-                 */
-                void set_data_sharing(Symbol sym, DataSharingAttribute data_attr);
-
-                //! Sets a data sharing attribute of a symbol
-                /*!
-                 * \param sym The symbol to be set the data sharing attribute
-                 * \param data_attr The symbol to which the data sharing will be set
-                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
-                 */
-                void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
-
-                //! Adds a reduction symbol
-                /*!
-                 * Reduction symbols are special, adding them sets their attribute
-                 * also their attribute and keeps the extra information stored in the ReductionSymbol
-                 */
-                void set_reduction(const ReductionSymbol& reduction_symbol);
-
-                //! Gets the data sharing attribute of a symbol
-                /*!
-                 * \param sym The symbol requested its data sharing attribute
-                 * \param check_enclosing Checks enclosing data sharings
-                 * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
-                 */
-                DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
-
-                //! Returns the enclosing data sharing
-                DataSharingEnvironment* get_enclosing();
-
-                //! Returns all symbols that match the given data attribute
-                void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
-
-                void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
-
-                TargetInfo& get_target_info();
-                void set_target_info(const TargetInfo & target_info);
-
-                void set_real_time_info(const RealTimeInfo & rt_info);
-                RealTimeInfo get_real_time_info();
-
-                DataSharingEnvironment& set_is_parallel(bool b);
-                bool get_is_parallel();
-
-                void add_dependence(const DependencyItem &dependency_item);
-                void get_all_dependences(ObjectList<DependencyItem>& dependency_items);
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mw);
+    };
+
+    class LIBTL_CLASS DependencyItem : public TL::Object
+    {
+        private:
+            DataReference _dep_expr;
+            DependencyDirection _kind;
+        public:
+            DependencyItem() { }
+            DependencyItem(DataReference dep_expr, DependencyDirection kind);
+
+            DependencyDirection get_kind() const;
+            DataReference get_dependency_expression() const;
+
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mw);
+    };
+
+    class LIBTL_CLASS TargetInfo
+    {
+        private:
+            Symbol _target_symbol;
+            ObjectList<CopyItem> _copy_in;
+            ObjectList<CopyItem> _copy_out;
+            ObjectList<CopyItem> _copy_inout;
+
+            ObjectList<Nodecl::NodeclBase> _ndrange;
+            ObjectList<Nodecl::NodeclBase> _shmem;
+            ObjectList<Nodecl::NodeclBase> _onto;
+
+            ObjectList<std::string> _device_list;
+            std::string _file;
+            std::string _name;
+
+            bool _copy_deps;
+        public:
+            TargetInfo();
+
+            TargetInfo(const TargetInfo& target_info,
+                    Nodecl::Utils::SimpleSymbolMap translation_map,
+                    TL::Symbol target_symbol);
+
+            bool can_be_ommitted();
+
+            void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
+            void append_to_copy_out(const ObjectList<CopyItem>& copy_items);
+            void append_to_copy_inout(const ObjectList<CopyItem>& copy_items);
+
+            ObjectList<CopyItem> get_copy_in() const;
+            ObjectList<CopyItem> get_copy_out() const;
+            ObjectList<CopyItem> get_copy_inout() const;
+
+            void append_to_ndrange(const ObjectList<Nodecl::NodeclBase>& expressions);
+            ObjectList<Nodecl::NodeclBase> get_ndrange() const;
+            ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_ndrange() const;
+
+            void append_to_shmem(const ObjectList<Nodecl::NodeclBase>& expressions);
+            ObjectList<Nodecl::NodeclBase> get_shmem() const;
+            ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_shmem() const;
+
+            void append_to_onto(const ObjectList<Nodecl::NodeclBase>& expressions);
+            ObjectList<Nodecl::NodeclBase> get_onto() const;
+            ObjectList<Nodecl::NodeclBase> get_shallow_copy_of_onto() const;
+
+            void set_copy_deps(bool b);
+            bool has_copy_deps() const;
+
+            void set_target_symbol(Symbol funct_symbol);
+            Symbol get_target_symbol() const;
+
+            void append_to_device_list(const ObjectList<std::string>& device_list);
+            ObjectList<std::string> get_device_list();
+
+            void set_file(std::string filename);
+            std::string get_file() const;
+
+            void set_name(std::string name);
+            std::string get_name() const;
+            void module_write(ModuleWriter& mw);
+            void module_read(ModuleReader& mr);
+    };
+
+    //! This class represents data sharing environment in a OpenMP construct
+    class LIBTL_CLASS DataSharingEnvironment
+    {
+        private:
+            int *_num_refs;
+            typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
+            map_symbol_data_t  *_map;
+            DataSharingEnvironment *_enclosing;
+
+            ObjectList<ReductionSymbol> _reduction_symbols;
+            ObjectList<DependencyItem> _dependency_items;
+
+            TargetInfo _target_info;
+
+            bool _is_parallel;
+
+            DataSharingAttribute get_internal(Symbol sym);
+
+            RealTimeInfo _real_time_info;
+        public:
+            //! Constructor
+            /*!
+                * \param enclosing Enclosing data sharing used when looking up
+                * the data sharing of a given symbol
+                */
+            DataSharingEnvironment(DataSharingEnvironment *enclosing);
+            ~DataSharingEnvironment();
+
+            //! Copy constructor
+            DataSharingEnvironment(const DataSharingEnvironment& ds);
+
+            //! Sets a data sharing attribute of a symbol
+            /*!
+                * \param sym The symbol to be set the data sharing attribute
+                * \param data_attr The symbol to which the data sharing will be set
+                */
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr);
+
+            //! Sets a data sharing attribute of a symbol
+            /*!
+                * \param sym The symbol to be set the data sharing attribute
+                * \param data_attr The symbol to which the data sharing will be set
+                * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
+                */
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
+
+            //! Adds a reduction symbol
+            /*!
+                * Reduction symbols are special, adding them sets their attribute
+                * also their attribute and keeps the extra information stored in the ReductionSymbol
+                */
+            void set_reduction(const ReductionSymbol& reduction_symbol);
+
+            //! Gets the data sharing attribute of a symbol
+            /*!
+                * \param sym The symbol requested its data sharing attribute
+                * \param check_enclosing Checks enclosing data sharings
+                * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
+                */
+            DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
+
+            //! Returns the enclosing data sharing
+            DataSharingEnvironment* get_enclosing();
+
+            //! Returns all symbols that match the given data attribute
+            void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
+
+            void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+
+            TargetInfo& get_target_info();
+            void set_target_info(const TargetInfo & target_info);
+
+            void set_real_time_info(const RealTimeInfo & rt_info);
+            RealTimeInfo get_real_time_info();
+
+            DataSharingEnvironment& set_is_parallel(bool b);
+            bool get_is_parallel();
+
+            void add_dependence(const DependencyItem &dependency_item);
+            void get_all_dependences(ObjectList<DependencyItem>& dependency_items);
         };
 
         class LIBTL_CLASS Info : public Object
@@ -606,6 +615,8 @@ namespace OpenMP
                 virtual ~OpenMPPhase() { }
         };
         
+        // Implemented in tl-omp-deps.cpp
+        void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds);
 
     // @}
     }

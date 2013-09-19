@@ -1067,7 +1067,7 @@ int parse_arguments(int argc, const char* argv[],
                             if ((num_input_files > 1) 
                                     && c_specified)
                             {
-                                fprintf(stderr, "%s: cannot specify -o when -c once given more than one file",
+                                fprintf(stderr, "%s: cannot specify -o when -c once given more than one file\n",
                                         compilation_process.exec_basename);
                                 return 1;
                             }
@@ -1573,7 +1573,7 @@ int parse_arguments(int argc, const char* argv[],
             && c_specified
             && (num_input_files > 1))
     {
-        fprintf(stderr, "%s: cannot specify -o and -c with multiple files (second file '%s')", 
+        fprintf(stderr, "%s: cannot specify -o and -c with multiple files (second file '%s')\n",
                 compilation_process.exec_basename,
                 argv[(parameter_index - 1)]);
         return 1;

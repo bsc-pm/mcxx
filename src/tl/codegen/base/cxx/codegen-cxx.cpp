@@ -503,9 +503,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     else
     {
         std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
-        if (decl[0] == ':')
+        if (!decl.empty())
         {
-            decl = " " + decl;
+            if (decl[0] == ':')
+            {
+                decl = " " + decl;
+            }
+            if (decl[decl.length() - 1] == '>')
+            {
+                decl += " ";
+            }
         }
 
         *(file) << cast_kind << "<" << decl << ">(";
@@ -1026,7 +1033,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
     indent();
+
+    bool need_extra_parentheses = false;
+
+    // Parentheses may be needed to avoid these expressions become declarations
+    need_extra_parentheses = expression.is<Nodecl::CxxExplicitTypeCast>()
+            || (expression.is<Nodecl::FunctionCall>()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_valid()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_constructor()
+                && expression.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().size() == 1);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << "( ";
+    }
+
     walk(expression);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << " )";
+    }
+
     *(file) << ";\n";
 }
 
@@ -1539,6 +1567,16 @@ bool CxxBase::is_operator_function_call(const Node& node)
             || is_binary_infix_operator_function_call(node));
 }
 
+/* Adapters used in visit_function_call */
+template <typename Node> Nodecl::NodeclBase get_alternate_name(const Node&)
+{
+    return Nodecl::NodeclBase::null();
+}
+template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
+{
+    return n.get_alternate_name();
+}
+
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
@@ -1634,6 +1672,20 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             else
             {
                 kind = STATIC_MEMBER_CALL;
+            }
+        }
+
+        if (!is_virtual_call
+                && (kind == ORDINARY_CALL
+                    || kind == STATIC_MEMBER_CALL
+                    || kind == NONSTATIC_MEMBER_CALL))
+        {
+            // Use the alternate name
+            Nodecl::NodeclBase alternate_name = get_alternate_name(node);
+            if (!alternate_name.is_null())
+            {
+                called_entity = alternate_name;
+                called_symbol = alternate_name.get_symbol();
             }
         }
     }
@@ -3375,6 +3427,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDecl& node)
 {
     TL::Symbol sym = node.get_symbol();
 
+    C_LANGUAGE()
+    {
+        walk_type_for_symbols(sym.get_type(),
+                &CxxBase::declare_symbol_always,
+                &CxxBase::define_symbol_always,
+                &CxxBase::define_all_entities_in_trees);
+    }
+
     TL::Scope* context_of_declaration = NULL;
     TL::Scope context;
 
@@ -3508,6 +3568,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context);
 }
 
@@ -3517,6 +3580,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context, /* is_extern */ true);
 }
 
@@ -7484,93 +7550,9 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if (is_non_language_reference_type(t))
-    {
-        TL::Type ref = t.references_to();
-        if (ref.is_array())
-        {
-            // T (&a)[10] -> T * const
-            // T (&a)[10][20] -> T (* const)[20]
-            ref = ref.array_element();
-        }
-
-        // T &a -> T * const a
-        TL::Type ptr = ref.get_pointer_to();
-        if (!t.is_rebindable_reference())
-        {
-            ptr = ptr.get_const_type();
-        }
-        return ptr;
-    }
-    else if (t.is_array())
-    {
-        if (t.array_is_region())
-        {
-            Nodecl::NodeclBase lb, reg_lb, ub, reg_ub;
-            t.array_get_bounds(lb, ub);
-            t.array_get_region_bounds(reg_lb, reg_ub);
-            TL::Scope sc = array_type_get_region_size_expr_context(t.get_internal_type());
-
-            return fix_references(t.array_element()).get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
-        }
-        else
-        {
-            Nodecl::NodeclBase size = t.array_get_size();
-            TL::Scope sc = array_type_get_array_size_expr_context(t.get_internal_type());
-
-            return fix_references(t.array_element()).get_array_to(size, sc);
-        }
-    }
-    else if (t.is_pointer())
-    {
-        TL::Type fixed = fix_references(t.points_to()).get_pointer_to();
-
-        fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
-                get_cv_qualifier(t.get_internal_type()));
-
-        return fixed;
-    }
-    else if (t.is_function())
-    {
-        // Do not fix unprototyped functions
-        if (t.lacks_prototype())
-            return t;
-
-        cv_qualifier_t cv_qualif = get_cv_qualifier(t.get_internal_type());
-        TL::Type fixed_result = fix_references(t.returns());
-        bool has_ellipsis = 0;
-
-        TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
-        for (TL::ObjectList<TL::Type>::iterator it = fixed_parameters.begin();
-                it != fixed_parameters.end();
-                it++)
-        {
-            *it = fix_references(*it);
-        }
-
-        TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = t.nonadjusted_parameters();
-        for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_fixed_parameters.begin();
-                it != nonadjusted_fixed_parameters.end();
-                it++)
-        {
-            *it = fix_references(*it);
-        }
-
-        TL::Type fixed_function = fixed_result.get_function_returning(
-                fixed_parameters,
-                nonadjusted_fixed_parameters,
-                has_ellipsis);
-
-        fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
-
-        return fixed_function;
-    }
-    // Note: we are not fixing classes
-    else
-    {
-        // Anything else must be left untouched
+    if (!this->is_file_output())
         return t;
-    }
+    return t.fix_references();
 }
 
 bool CxxBase::cuda_print_special_attributes()

@@ -46,7 +46,8 @@ namespace TL
         Core::Core()
             : PragmaCustomCompilerPhase("omp"),
             _discard_unused_data_sharings(false),
-            _allow_shared_without_copies(false)
+            _allow_shared_without_copies(false),
+            _allow_array_reductions(true)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -383,7 +384,8 @@ namespace TL
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTLASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
-            get_reduction_symbols(construct, construct.get_clause("reduction"), nonlocal_symbols, reduction_references);
+            get_reduction_symbols(construct, construct.get_clause("reduction"),
+                    nonlocal_symbols, data_sharing, reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
 

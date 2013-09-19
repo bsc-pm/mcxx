@@ -93,8 +93,20 @@ namespace TL { namespace Nanox {
         }
         else
         {
+            Source schedule_name;
+
+            if (Nanos::Version::interface_is_at_least("openmp", 8))
+            {
+                schedule_name << "nanos_omp_sched_" << schedule.get_text();
+            }
+            else
+            {
+                // We used nanos_omp_sched in versions prior to 8
+                schedule_name << "omp_sched_" << schedule.get_text();
+            }
+
             schedule_setup
-                <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(omp_sched_" << schedule.get_text() << ");"
+                <<     "nanos_ws_t current_ws_policy = nanos_omp_find_worksharing(" << schedule_name << ");"
                 <<     "if (current_ws_policy == 0)"
                 <<         "nanos_handle_error(NANOS_UNIMPLEMENTED);"
                 <<     "nanos_chunk = " << as_expression(schedule.get_chunk()) << ";"

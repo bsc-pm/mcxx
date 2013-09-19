@@ -126,18 +126,8 @@ namespace TL { namespace Nanox {
                 {
                     // It's an inline task
                     function_name =
-                        outline_function.get_type().get_declaration(
+                        outline_function.get_type().fix_references().get_declaration(
                                 outline_function.get_scope(), outline_function.get_qualified_name());
-                }
-
-                // The character '@' will be used as a separator of the
-                // description. Since the function name may contain one or
-                // more '@' characters, we should replace them by an other
-                // special char
-                for (unsigned int i = 0; i < function_name.length(); i++)
-                {
-                    if (function_name[i] == '@')
-                        function_name[i] = '#';
                 }
 
                 extended_descr << function_name;
@@ -474,8 +464,10 @@ namespace TL { namespace Nanox {
         }
 
         // Create all the symbols and an appropiate mapping
-        TL::ObjectList<TL::Symbol> parameter_symbols, private_symbols, reduction_private_symbols;
-        TL::ObjectList<TL::Type> update_vla_types;
+        TL::ObjectList<TL::Symbol> parameter_symbols,
+            private_symbols,
+            reduction_private_symbols,
+            reduction_vector_symbols;
 
         int lower_bound_index = 1;
         int upper_bound_index = 1;
@@ -629,7 +621,10 @@ namespace TL { namespace Nanox {
                                 ("rdv_" + name).c_str());
                         private_reduction_vector_sym->kind = SK_VARIABLE;
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
-                        private_reduction_vector_sym->defined = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+                        private_reduction_vector_sym->defined
+                            = private_reduction_vector_sym->entity_specs.is_user_declared = 1;
+
+                        reduction_vector_symbols.append(private_reduction_vector_sym);
 
                         if (IS_CXX_LANGUAGE)
                         {
@@ -666,7 +661,7 @@ namespace TL { namespace Nanox {
                         }
 
                         // This variable must be initialized properly
-                        OpenMP::Reduction* red = (*it)->get_reduction_info();
+                        OpenMP::Reduction* red = (*it)->get_reduction_info().first;
                         if (!red->get_initializer().is_null())
                         {
                             Nodecl::Utils::SimpleSymbolMap reduction_init_map;
@@ -674,9 +669,31 @@ namespace TL { namespace Nanox {
                             reduction_init_map.add_map(red->get_omp_orig(), shared_reduction_sym);
                             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                             {
-                                private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
-                                        Scope(function_context),
-                                        reduction_init_map).get_internal_nodecl();
+                                if (!is_array_type(private_sym->type_information))
+                                {
+                                    private_sym->value = Nodecl::Utils::deep_copy(red->get_initializer(),
+                                            Scope(function_context),
+                                            reduction_init_map).get_internal_nodecl();
+                                }
+                                else
+                                {
+                                    Source type_name;
+                                    type_name << as_type(red->get_type());
+                                    initial_statements
+                                        << "{ "
+                                        <<     type_name << "* rdp_init_end = (" << type_name << "*)((&" << as_symbol(private_sym) << ")+1);"
+                                        <<     type_name << "* rdp_init_it = (" << type_name << "*)" << as_symbol(private_sym) << ";"
+                                        <<     "while (rdp_init_it < rdp_init_end)"
+                                        <<     "{"
+                                        <<        "*rdp_init_it = "
+                                        <<           as_expression(Nodecl::Utils::deep_copy(red->get_initializer(),
+                                                        Scope(function_context),
+                                                        reduction_init_map).get_internal_nodecl()) << ";"
+                                        <<       "rdp_init_it++;"
+                                        <<     "}"
+                                        << "}"
+                                        ;
+                                }
                             }
                             else if (IS_FORTRAN_LANGUAGE)
                             {
@@ -724,38 +741,39 @@ namespace TL { namespace Nanox {
             }
         }
 
-        // Update types of parameters (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = parameter_symbols.begin();
-                it2 != parameter_symbols.end();
-                it2++)
+        struct UpdateTypesVLA
         {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                        function_context,
-                        symbol_map->get_symbol_map());
-        }
+            decl_context_t &function_context;
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map;
+
+            UpdateTypesVLA(decl_context_t &fc,
+                    Nodecl::Utils::SimpleSymbolMap*& sm)
+                : function_context(fc), symbol_map(sm) { }
+
+            void update(TL::ObjectList<TL::Symbol>& symbols)
+            {
+                for (TL::ObjectList<TL::Symbol>::iterator it2 = symbols.begin();
+                        it2 != symbols.end();
+                        it2++)
+                {
+                    it2->get_internal_symbol()->type_information =
+                        type_deep_copy(it2->get_internal_symbol()->type_information,
+                                function_context,
+                                symbol_map->get_symbol_map());
+                }
+            }
+        };
+
+        // Update types of parameters (this is needed by VLAs)
+        UpdateTypesVLA update_vla(function_context, symbol_map);
+        update_vla.update(parameter_symbols);
 
         // Update types of privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = private_symbols.begin();
-                it2 != private_symbols.end();
-                it2++)
-        {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                        function_context,
-                        symbol_map->get_symbol_map());
-        }
+        update_vla.update(private_symbols);
 
-        // Update types of reduction privates (this is needed by VLAs)
-        for (TL::ObjectList<TL::Symbol>::iterator it2 = reduction_private_symbols.begin();
-                it2 != reduction_private_symbols.end();
-                it2++)
-        {
-            it2->get_internal_symbol()->type_information =
-                type_deep_copy(it2->get_internal_symbol()->type_information,
-                        function_context,
-                        symbol_map->get_symbol_map());
-        }
+        // Update types of reduction symbols (this is needed by VLAs)
+        update_vla.update(reduction_private_symbols);
+        update_vla.update(reduction_vector_symbols);
 
         // Build the function type
         parameter_info_t* p_types = new parameter_info_t[parameter_symbols.size()];
@@ -970,7 +988,7 @@ namespace TL { namespace Nanox {
 
 
     // Rewrite inline
-    struct RewriteExprOfVla : public Nodecl::ExhaustiveVisitor<void>
+    struct RewriteExprOfVlaInOutline : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
             const TL::ObjectList<OutlineDataItem*> &_data_items;
@@ -978,7 +996,7 @@ namespace TL { namespace Nanox {
 
         public:
 
-        RewriteExprOfVla(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
+        RewriteExprOfVlaInOutline(const TL::ObjectList<OutlineDataItem*> &data_items, TL::Symbol &args_symbol)
             : _data_items(data_items),
             _args_symbol(args_symbol)
         { }
@@ -998,15 +1016,23 @@ namespace TL { namespace Nanox {
                     // Should be a reference already
                     new_args_ref.set_type(_args_symbol.get_type());
 
-                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make((*it)->get_field_symbol());
-                    field_ref.set_type(field_ref.get_symbol().get_type());
+                    TL::Symbol field_symbol = (*it)->get_field_symbol();
+                    Nodecl::NodeclBase field_ref = Nodecl::Symbol::make(field_symbol);
+                    field_ref.set_type(field_symbol.get_type());
 
                     new_class_member_access = Nodecl::ClassMemberAccess::make(
                             new_args_ref,
                             field_ref,
                             /* member-form */ Nodecl::NodeclBase::null(),
-                            // The type of this node should be the same
-                            node.get_type());
+                            field_symbol.get_type().no_ref().get_lvalue_reference_to());
+
+                    if (field_symbol.get_type().is_pointer())
+                    {
+                        // a.mcc_vla must be converted to a *(a.mcc_vla)
+                        new_class_member_access = Nodecl::Dereference::make(
+                                new_class_member_access,
+                                field_symbol.get_type().no_ref().points_to().get_lvalue_reference_to());
+                    }
 
                     node.replace(new_class_member_access);
                     break;
@@ -1046,7 +1072,7 @@ namespace TL { namespace Nanox {
                     arguments_symbol);
 
             Nodecl::NodeclBase new_size = t.array_get_size().shallow_copy();
-            RewriteExprOfVla rewrite_expr_of_vla(data_items, arguments_symbol);
+            RewriteExprOfVlaInOutline rewrite_expr_of_vla(data_items, arguments_symbol);
             rewrite_expr_of_vla.walk(new_size);
 
             return elem.get_array_to(new_size, new_size.retrieve_context());
