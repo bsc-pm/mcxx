@@ -112,7 +112,8 @@ TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx"
+# plaincxx is always installed as a binary
+COMPILER_NAMES="plaincc plainfc plainf95 analysiscc analysiscxx"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -332,8 +333,7 @@ then
    NANOX_LIBS="${nanox_lib}"
 
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common nanox-nodecl"
-# mcxx always gets installed
-   COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"

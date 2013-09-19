@@ -42,7 +42,7 @@ CLEANFILES += $(mpi_modules) mpi_base.mf03 mpi_constants.mf03 mpi_sizeofs.mf03
 
 PLAINFC_PROFILE=`echo plainfc | $(SED) '$(program_transform_name)'`
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config --do-not-wrap-modules
+PLAINFC=$(top_builddir)/src/driver/plaincxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config --do-not-wrap-modules
 
 configdir=$(pkgdatadir)/fortran/mpi/mpich
 config_DATA = \
