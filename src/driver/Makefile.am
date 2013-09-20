@@ -26,7 +26,7 @@
 
 # mcxxexec can't be changed to simply 'bin' or 'mcxx' (otherwise things won't
 # work)
-mcxxexec_PROGRAMS = mcxx mcxx-embedder
+mcxxexec_PROGRAMS = plaincxx mcxx-embedder
 
 
 DIST_SUBDIRS=fortran
@@ -52,7 +52,7 @@ END=
 # _GNU_SOURCE is needed because of strsignal
 # although it is available directly since glibc >=2.10
 
-mcxx_CFLAGS=-D_GNU_SOURCE \
+plaincxx_CFLAGS=-D_GNU_SOURCE \
 			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
@@ -65,11 +65,11 @@ mcxx_CFLAGS=-D_GNU_SOURCE \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 
-mcxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
-mcxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
-mcxx_CFLAGS += -I$(top_srcdir)/src/driver/fortran
+plaincxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
+plaincxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
+plaincxx_CFLAGS += -I$(top_srcdir)/src/driver/fortran
 
-mcxx_SOURCES = \
+plaincxx_SOURCES = \
   cxx-configfile.h \
   cxx-configfile.c \
   cxx-configoptions.c \
@@ -96,7 +96,7 @@ mcxx_SOURCES = \
   cxx-embed.h \
   $(END)
 
-mcxx_LDADD = \
+plaincxx_LDADD = \
    $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
@@ -109,16 +109,16 @@ mcxx_LDADD = \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    $(END)
 
-mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
-mcxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
-mcxx_LDADD += $(sqlite3_LIBS)
-mcxx_LDADD += $(quadmath_LIBS)
-mcxx_LDADD += -lm
+plaincxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+plaincxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
+plaincxx_LDADD += $(sqlite3_LIBS)
+plaincxx_LDADD += $(quadmath_LIBS)
+plaincxx_LDADD += -lm
 
 if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
-mcxx_LDFLAGS = \
+plaincxx_LDFLAGS = \
 	-Wl,--no-as-needed \
     -Wl,-E \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib \
@@ -228,18 +228,14 @@ cxx-target-tools.h :
 		)
 
 # Install hooks
-# installs "mcc" as a soft link of mcxx
 install-exec-hook: 
-	real_mcxx_name=`echo mcxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+	real_mcxx_name=`echo plaincxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${real_compiler_name} || $(LN_S) $${real_mcxx_name} $${real_compiler_name}) ; \
+			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name}) ; \
 		done
-	real_mcxx_embedder_name=`echo mcxx-embedder | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-	real_mcc_embedder_name=`echo mcxx-embedder | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-	(cd $(DESTDIR)/$(mcxxexecdir); test -e $${real_mcc_embedder_name} || $(LN_S) $${real_mcxx_embedder_name} $${real_mcc_embedder_name} ) 
-	
+
 uninstall-local:
 	for compiler_name in @COMPILER_NAMES@; \
 		do \

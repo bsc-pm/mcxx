@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <string.h>
