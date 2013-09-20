@@ -3287,6 +3287,7 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
 
     type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
     *result = *class_type;
+    result->unqualified_type = result;
 
     // These are the parts relevant for duplication
     result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
