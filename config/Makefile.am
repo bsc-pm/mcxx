@@ -58,6 +58,13 @@ CONFIG_FILES =  \
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
 
+# We use this to remove existing config files
+# that we know are deprecated and should not be
+# in the user installation anymore
+REMOVE_CONFIG_FILES=\
+					57.config.omp.all \
+					$(END)
+
 dist-hook:
 	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
     do \
@@ -74,6 +81,16 @@ BUILT_SOURCES=$(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 # This is valid in parallel make since we are generating one goal file at a time
 $(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : template.% Makefile
 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/template.$@" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+
+install-data-hook:
+	for oldfile in $(REMOVE_CONFIG_FILES); \
+	do \
+		if test -e $(configdir)/$${oldfile};\
+		then \
+			echo "Removing old configuration file $${oldfile}"; \
+			rm -f $(configdir)/$${oldfile}; \
+		fi \
+	done
 
 # Where and what to install
 pkgdata_DATA = \
