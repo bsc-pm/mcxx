@@ -5647,7 +5647,8 @@ OPERATOR_TABLE
             }
             else
             {
-                if (is_protected_name(sym))
+                if (is_protected_name(sym)
+                        || name_has_already_been_used(sym))
                 {
                     *(file) << rename(sym);
                 }
