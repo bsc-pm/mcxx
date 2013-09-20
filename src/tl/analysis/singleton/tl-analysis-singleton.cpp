@@ -68,6 +68,16 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
+    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs( )
+    {
+        ObjectList<ExtensibleGraph*> result;
+        for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            result.insert( it->second );
+        }
+        return result;
+    }
+    
     bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
     {
         return _constants_propagation;
@@ -157,7 +167,7 @@ namespace Analysis {
     {
         _auto_deps = true;
     }
-
+    
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
@@ -236,8 +246,9 @@ namespace Analysis {
         if( result == NULL )
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
-            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. "\
-                             "You probably misstepped during the analysis.",
+            WARNING_MESSAGE( "Nodecl '%s' do not found in current analysis state. "\
+                             "You might have modified the code you used to compute the analyses and"\
+                             "the nodecl you are asking for now did not exist before.",
                              codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
         }
 
@@ -347,10 +358,9 @@ namespace Analysis {
             // Create the PCFG only if it has not been created previously
             if( memento.get_pcfg( pcfg_name ) == NULL )
             {
+                // Create the PCFG
                 if( VERBOSE )
                     printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
-
-                // Create the PCFG
                 PCFGVisitor v( pcfg_name, *it );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
@@ -528,6 +538,20 @@ namespace Analysis {
                                   memento.is_reaching_definitions_computed( ),
                                   memento.is_induction_variables_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
+    }
+    
+    void AnalysisSingleton::print_all_pcfg( PCFGAnalysis_memento& memento )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs( );
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        {
+            if( VERBOSE )
+                printf( "Printing to DOT  PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+            ( *it )->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
+                                         memento.is_reaching_definitions_computed( ),
+                                         memento.is_induction_variables_computed( ),
+                                         memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
+        }
     }
 }
 }

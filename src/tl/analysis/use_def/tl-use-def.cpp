@@ -170,7 +170,7 @@ namespace Analysis {
                     if( Utils::ext_sym_set_contains_englobing_nodecl(itk->get_nodecl( ), aux_set) )
                     {   // Delete from 'var' the englobed part of (*itk) and put the result in 'var'
                         // TODO
-                        WARNING_MESSAGE( "Part of nodecl '%s' founded in the current var must be avoided. " \
+                        WARNING_MESSAGE( "Part of nodecl '%s' found in the current var must be avoided. " \
                                          "A subpart is killed.", itk->get_nodecl( ).prettyprint( ).c_str( ),
                                          var.prettyprint( ).c_str( ) );
                         //                             var = nodecl_subtract(var, ita->get_nodecl( ) );
@@ -193,7 +193,7 @@ namespace Analysis {
                         if( Utils::ext_sym_set_contains_englobing_nodecl( itu->get_nodecl( ), aux_set_2 ) )
                         {   // Delete from var the englobed part of (*itu) and put the result in 'var'
                             // TODO
-                            WARNING_MESSAGE( "Part of nodecl founded in the current var must be avoided. "\
+                            WARNING_MESSAGE( "Part of nodecl found in the current var must be avoided. "\
                                              "A subpart is undefined.", itu->get_nodecl( ).prettyprint( ).c_str( ),
                                              var.prettyprint( ).c_str( ) );
                             undef.erase( itu );
@@ -417,6 +417,12 @@ namespace Analysis {
         return non_ref_params_to_args;
     }
 
+    UsageVisitor::UsageVisitor( Node* fake_node )
+        : _node( fake_node ), _define( false ), _current_nodecl( Nodecl::NodeclBase::null( ) ),
+          _visited_functions( ), _visited_global_vars( ),
+          _ipa( ), _sc( ), _ipa_arguments( )
+    {}
+    
     UsageVisitor::UsageVisitor( Node* n,
                                 std::set<Symbol> visited_functions,
                                 ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
@@ -460,7 +466,7 @@ namespace Analysis {
         }
         return false;
     }
-
+    
     void UsageVisitor::compute_statement_usage( Nodecl::NodeclBase st )
     {
         walk( st );
@@ -499,15 +505,26 @@ namespace Analysis {
                          ast_print_node_type( n.get_kind( ) ) );
     }
 
-    void UsageVisitor::binary_assignment_visit( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
+    template<typename T>
+    void UsageVisitor::visit_assignment( const T& n )
+    {
+        _define = false;
+        walk( n.get_rhs( ) );
+        _define = true;
+        walk( n.get_lhs( ) );
+        _define = false;
+    }
+    
+    template<typename T>
+    void UsageVisitor::visit_binary_assignment( const T& n )
     {
         // Traverse the use of both the lhs and the rhs
-        walk( rhs );
-        walk( lhs );
+        walk( n.get_rhs( ) );
+        walk( n.get_lhs( ) );
 
         // Traverse the definition of the lhs
         _define = true;
-        walk( lhs );
+        walk( n.get_lhs( ) );
         _define = false;
     }
 
@@ -833,16 +850,17 @@ namespace Analysis {
         }
     }
 
-    void UsageVisitor::unary_in_de_crement_visit( Nodecl::NodeclBase rhs )
+    template<typename T>
+    void UsageVisitor::visit_increment( const T& n )
     {
         // Use of the rhs
-        walk( rhs );
+        walk( n.get_rhs( ) );
 
         // Definition of the rhs
         _define = true;
         Nodecl::NodeclBase current_nodecl = _current_nodecl;
         _current_nodecl = Nodecl::NodeclBase::null( );
-        walk( rhs );
+        walk( n.get_rhs( ) );
         _current_nodecl = current_nodecl;
         _define = false;
 
@@ -850,12 +868,12 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::AddAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ArraySubscript& n )
@@ -885,39 +903,35 @@ namespace Analysis {
             walk( n.get_subscripted( ) );
         }
     }
-
+    
     void UsageVisitor::visit( const Nodecl::Assignment& n )
     {
-        _define = false;
-        walk( n.get_rhs( ) );
-        _define = true;
-        walk( n.get_lhs( ) );
-        _define = false;
+        visit_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
@@ -965,7 +979,7 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::DivAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::FunctionCall& n )
@@ -975,17 +989,17 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ModAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::MulAssignment& n )
     {
-        binary_assignment_visit( n.get_lhs( ), n.get_rhs( ) );
+        visit_binary_assignment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::ObjectInit& n )
@@ -1004,22 +1018,22 @@ namespace Analysis {
 
     void UsageVisitor::visit( const Nodecl::Postdecrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Postincrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Predecrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Preincrement& n )
     {
-        unary_in_de_crement_visit( n.get_rhs( ) );
+        visit_increment( n );
     }
 
     void UsageVisitor::visit( const Nodecl::Range& n )
@@ -1059,7 +1073,69 @@ namespace Analysis {
             }
         }
     }
-
+    
+    void UsageVisitor::visit( const Nodecl::UnalignedVectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorAssignment& n )
+    {
+        visit_assignment( n );
+    }
+    
+    // It is used: the base, the strides (if variables) and the memory positions formed by base+stride_i
+    void UsageVisitor::visit( const Nodecl::VectorGather& n )
+    {
+        Nodecl::NodeclBase base = n.get_base( );
+        Nodecl::List strides = n.get_strides( ).as<Nodecl::List>( );
+        
+        // Usage of the base
+        walk( base );
+        for( Nodecl::List::iterator it = strides.begin( ); it != strides.end( ); ++it )
+        {
+            // Usage of the stride
+            if( !Nodecl::Utils::nodecl_is_literal( *it ) )
+            {
+                walk( *it );
+            }
+            // Usage of base+stride_i
+            Nodecl::Add current_access = Nodecl::Add::make( base, *it, base.get_type( ), it->get_locus( ) );
+            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
+        }
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorMaskAssignment& n )
+    {
+        visit_assignment( n );
+    }
+    
+    // It is used: the strides (if variables). It is defined the memory positions formed by base+stride_i
+    void UsageVisitor::visit( const Nodecl::VectorScatter& n )
+    {
+        Nodecl::NodeclBase base = n.get_base( );
+        Nodecl::List strides = n.get_strides( ).as<Nodecl::List>( );
+        
+        for( Nodecl::List::iterator it = strides.begin( ); it != strides.end( ); ++it )
+        {
+            // Usage of the stride
+            if( !Nodecl::Utils::nodecl_is_literal( *it ) )
+            {
+                walk( *it );
+            }
+            // Usage of base+stride_i
+            Nodecl::Add current_access = Nodecl::Add::make( base, *it, base.get_type( ), it->get_locus( ) );
+            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
+        }
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
     void UsageVisitor::visit( const Nodecl::VirtualFunctionCall& n )
     {
         function_visit( n.get_called( ), n.get_arguments( ) );

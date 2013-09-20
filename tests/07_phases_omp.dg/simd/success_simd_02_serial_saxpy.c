@@ -31,6 +31,7 @@ test_generator=config/mercurium-serial-simd
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define VECTOR_SIZE 16
 

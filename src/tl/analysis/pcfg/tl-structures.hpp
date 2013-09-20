@@ -55,6 +55,13 @@ namespace Analysis {
         OMP_TASK_CREATION,
         OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
                              //! when the function that creates the task has ended
+        VECTOR_FUNCTION_CALL,//! Node containing a vector function call
+        VECTOR_GATHER,       //! Node containing a vector gather or a masked vector gather
+        VECTOR_LOAD,         //! Node containing a vector load or a masked vector load
+        VECTOR_NORMAL,
+        VECTOR_REDUCTION,
+        VECTOR_SCATTER,      //! Node containing a vector scatter or a masked vector scatter
+        VECTOR_STORE,
         // COMPOSITE
         GRAPH                //! Composite node
     };
@@ -83,8 +90,10 @@ namespace Analysis {
         OMP_SINGLE,
         OMP_WORKSHARE,
         OMP_TASK,
-        SPLIT_STMT,          //! Expression being split because it contains a sub-expression with a separated node
-        SWITCH               //! Switch statement
+        SPLIT_STMT,           //! Expression being split because it contains a sub-expression with a separated node
+        SWITCH,               //! Switch statement
+        VECTOR_COND_EXPR,     //! Vector conditional expression
+        VECTOR_FUNC_CALL
     };
 
     //! Enumeration of the different edge types

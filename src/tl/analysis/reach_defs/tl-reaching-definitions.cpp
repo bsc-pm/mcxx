@@ -305,7 +305,19 @@ namespace Analysis {
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
-
+    
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ObjectInit& n )
+    {
+        TL::Symbol lhs_sym = n.get_symbol( );
+        Nodecl::Symbol lhs = Nodecl::Symbol::make( lhs_sym, n.get_locus( ) );
+        Nodecl::NodeclBase rhs = lhs_sym.get_value( );
+        
+        // check for nested assignments
+        walk( rhs );
+        
+        _gen.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( Utils::ExtendedSymbol( lhs ), rhs ) );
+    }
+    
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postdecrement& n )
     {
         Nodecl::IntegerLiteral one = Nodecl::IntegerLiteral::make( n.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ),

@@ -61,8 +61,6 @@ LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a, gather_decl_spec_
         nodecl_t* nodecl_output);
 
 
-LIBMCXX_EXTERN void build_scope_base_clause(struct AST_tag* base_clause, struct type_tag* class_type, decl_context_t decl_context);
-
 LIBMCXX_EXTERN struct AST_tag* get_declarator_name(struct AST_tag* a, decl_context_t decl_context);
 LIBMCXX_EXTERN struct AST_tag* get_declarator_id_expression(struct AST_tag* a, decl_context_t decl_context);
 LIBMCXX_EXTERN struct AST_tag* get_function_declarator_parameter_list(struct AST_tag* funct_declarator, decl_context_t decl_context);
@@ -101,6 +99,8 @@ LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
+
+LIBMCXX_EXTERN void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared);
 
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
         const locus_t* locus, nodecl_t* nodecl_output);

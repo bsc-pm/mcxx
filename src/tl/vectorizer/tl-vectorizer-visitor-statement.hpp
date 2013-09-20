@@ -50,6 +50,7 @@ namespace TL
                 virtual void visit(const Nodecl::ExpressionStatement& n);
                 virtual void visit(const Nodecl::ObjectInit& n);
                 virtual void visit(const Nodecl::ReturnStatement& n);
+                virtual void visit(const Nodecl::BreakStatement& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

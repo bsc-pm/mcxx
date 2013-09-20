@@ -503,9 +503,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
     else
     {
         std::string decl = this->get_declaration(t, this->get_current_scope(),  "");
-        if (decl[0] == ':')
+        if (!decl.empty())
         {
-            decl = " " + decl;
+            if (decl[0] == ':')
+            {
+                decl = " " + decl;
+            }
+            if (decl[decl.length() - 1] == '>')
+            {
+                decl += " ";
+            }
         }
 
         *(file) << cast_kind << "<" << decl << ">(";
@@ -1026,7 +1033,28 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
     indent();
+
+    bool need_extra_parentheses = false;
+
+    // Parentheses may be needed to avoid these expressions become declarations
+    need_extra_parentheses = expression.is<Nodecl::CxxExplicitTypeCast>()
+            || (expression.is<Nodecl::FunctionCall>()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_valid()
+                && expression.as<Nodecl::FunctionCall>().get_called().get_symbol().is_constructor()
+                && expression.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().size() == 1);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << "( ";
+    }
+
     walk(expression);
+
+    if (need_extra_parentheses)
+    {
+        (*file) << " )";
+    }
+
     *(file) << ";\n";
 }
 
@@ -1403,7 +1431,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                     template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
-                    called_symbol.get_scope().get_decl_context());
+                    node.retrieve_context().get_decl_context());
         }
         else
         {
@@ -1413,7 +1441,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                         template_args.get_internal_template_parameter_list(),
                         /* first_template_argument_to_be_printed */ 0,
                         /* print_first_level_bracket */ 0,
-                        called_symbol.get_scope().get_decl_context());
+                        node.retrieve_context().get_decl_context());
 
             std::string deduced_template_args_str =
                 ::template_arguments_to_str(
@@ -1458,7 +1486,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                     deduced_template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
-                    called_symbol.get_scope().get_decl_context());
+                    node.retrieve_context().get_decl_context());
             *(file) << end_inline_comment();
         }
     }
@@ -1537,6 +1565,16 @@ bool CxxBase::is_operator_function_call(const Node& node)
     return (is_unary_prefix_operator_function_call(node)
             || is_unary_postfix_operator_function_call(node)
             || is_binary_infix_operator_function_call(node));
+}
+
+/* Adapters used in visit_function_call */
+template <typename Node> Nodecl::NodeclBase get_alternate_name(const Node&)
+{
+    return Nodecl::NodeclBase::null();
+}
+template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
+{
+    return n.get_alternate_name();
 }
 
 template <typename Node>
@@ -1634,6 +1672,20 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
             else
             {
                 kind = STATIC_MEMBER_CALL;
+            }
+        }
+
+        if (!is_virtual_call
+                && (kind == ORDINARY_CALL
+                    || kind == STATIC_MEMBER_CALL
+                    || kind == NONSTATIC_MEMBER_CALL))
+        {
+            // Use the alternate name
+            Nodecl::NodeclBase alternate_name = get_alternate_name(node);
+            if (!alternate_name.is_null())
+            {
+                called_entity = alternate_name;
+                called_symbol = alternate_name.get_symbol();
             }
         }
     }
@@ -2113,7 +2165,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
-
     // At this point, we mark the function as defined. It must be done here to
     // avoid the useless declaration of the function being defined and other
     // related problems.
@@ -2137,10 +2188,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         define_nonlocal_nonprototype_entities_in_trees(statement);
     }
 
+    move_to_namespace_of_symbol(symbol);
+
+    // We may need zero or more empty template headers
+    bool emit_default_arguments = true;
+    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
+    while (tpl.is_valid())
+    {
+        // We should ignore some 'fake' empty template headers
+        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+        {
+             indent();
+             *(file) << "template <>\n";
+        }
+        tpl = tpl.get_enclosing_parameters();
+        emit_default_arguments = false;
+    }
+
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, emit_default_arguments);
 
     std::string decl_spec_seq;
 
@@ -2255,21 +2323,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
-
-    move_to_namespace_of_symbol(symbol);
-
-    // We may need zero or more empty template headers
-    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
-    while (tpl.is_valid())
-    {
-        // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
-        {
-             indent();
-             *(file) << "template <>\n";
-        }
-        tpl = tpl.get_enclosing_parameters();
-    }
 
     bool requires_extern_linkage = false;
     if (IS_CXX_LANGUAGE
@@ -2994,7 +3047,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
 {
     Nodecl::List items = node.get_items().as<Nodecl::List>();
-    TL::Type type = node.get_type();
+    TL::Type type = node.get_type().no_ref();
 
     enum structured_value_kind
     {
@@ -3016,7 +3069,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         if ((items.empty()
                     || ((items.size() == 1)
                 && (type.is_named()
-                    || type.no_ref().is_builtin())))
+                    || type.is_builtin())))
                 && !(type.is_class()
                     && type.is_aggregate()))
         {
@@ -3029,7 +3082,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     }
     else if (IS_CXX1X_LANGUAGE)
     {
-        if (type.no_ref().is_vector())
+        if (type.is_vector())
         {
             // This is nonstandard, lets fallback to gcc
             kind = GCC_POSTFIX;
@@ -3516,6 +3569,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context);
 }
 
@@ -3525,6 +3581,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExternExplicitInstantiation& node)
     Nodecl::NodeclBase declarator_name = node.get_declarator_name();
     Nodecl::NodeclBase context = node.get_context();
     state.must_be_object_init.erase(sym);
+
+    move_to_namespace_of_symbol(sym);
+
     codegen_explicit_instantiation(sym, declarator_name, context, /* is_extern */ true);
 }
 
@@ -4989,6 +5048,13 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
+    // If this symbol is a static member but its class is not being emitted,
+    // then it has actually (possibly implicitly) been declared
+    has_been_declared = has_been_declared
+        || (symbol.is_member()
+                && symbol.is_static()
+                && state.classes_being_defined.empty());
+
     std::string variable_name;
     if (!has_been_declared)
     {
@@ -5157,8 +5223,24 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                 && !symbol.is_defined_inside_class()
                 && state.classes_being_defined.empty())
         {
+            TL::Type class_type = symbol.get_class_type();
             TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            codegen_template_headers_all_levels(template_parameters, false);
+
+            if (!(class_type.class_type_is_complete_independent()
+                        || class_type.class_type_is_incomplete_independent()))
+            {
+                codegen_template_headers_all_levels(template_parameters, false);
+            }
+            else
+            {
+                while (template_parameters.is_valid())
+                {
+                    indent();
+                    *(file) << "template <>\n";
+                    template_parameters = template_parameters.get_enclosing_parameters();
+                }
+
+            }
         }
     }
 
@@ -7492,93 +7574,9 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
 
 TL::Type CxxBase::fix_references(TL::Type t)
 {
-    if (is_non_language_reference_type(t))
-    {
-        TL::Type ref = t.references_to();
-        if (ref.is_array())
-        {
-            // T (&a)[10] -> T * const
-            // T (&a)[10][20] -> T (* const)[20]
-            ref = ref.array_element();
-        }
-
-        // T &a -> T * const a
-        TL::Type ptr = ref.get_pointer_to();
-        if (!t.is_rebindable_reference())
-        {
-            ptr = ptr.get_const_type();
-        }
-        return ptr;
-    }
-    else if (t.is_array())
-    {
-        if (t.array_is_region())
-        {
-            Nodecl::NodeclBase lb, reg_lb, ub, reg_ub;
-            t.array_get_bounds(lb, ub);
-            t.array_get_region_bounds(reg_lb, reg_ub);
-            TL::Scope sc = array_type_get_region_size_expr_context(t.get_internal_type());
-
-            return fix_references(t.array_element()).get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
-        }
-        else
-        {
-            Nodecl::NodeclBase size = t.array_get_size();
-            TL::Scope sc = array_type_get_array_size_expr_context(t.get_internal_type());
-
-            return fix_references(t.array_element()).get_array_to(size, sc);
-        }
-    }
-    else if (t.is_pointer())
-    {
-        TL::Type fixed = fix_references(t.points_to()).get_pointer_to();
-
-        fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
-                get_cv_qualifier(t.get_internal_type()));
-
-        return fixed;
-    }
-    else if (t.is_function())
-    {
-        // Do not fix unprototyped functions
-        if (t.lacks_prototype())
-            return t;
-
-        cv_qualifier_t cv_qualif = get_cv_qualifier(t.get_internal_type());
-        TL::Type fixed_result = fix_references(t.returns());
-        bool has_ellipsis = 0;
-
-        TL::ObjectList<TL::Type> fixed_parameters = t.parameters(has_ellipsis);
-        for (TL::ObjectList<TL::Type>::iterator it = fixed_parameters.begin();
-                it != fixed_parameters.end();
-                it++)
-        {
-            *it = fix_references(*it);
-        }
-
-        TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = t.nonadjusted_parameters();
-        for (TL::ObjectList<TL::Type>::iterator it = nonadjusted_fixed_parameters.begin();
-                it != nonadjusted_fixed_parameters.end();
-                it++)
-        {
-            *it = fix_references(*it);
-        }
-
-        TL::Type fixed_function = fixed_result.get_function_returning(
-                fixed_parameters,
-                nonadjusted_fixed_parameters,
-                has_ellipsis);
-
-        fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
-
-        return fixed_function;
-    }
-    // Note: we are not fixing classes
-    else
-    {
-        // Anything else must be left untouched
+    if (!this->is_file_output())
         return t;
-    }
+    return t.fix_references();
 }
 
 bool CxxBase::cuda_print_special_attributes()

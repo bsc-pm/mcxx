@@ -402,6 +402,14 @@ namespace Analysis {
         return ( get_type( ) == ASM_OP );
     }
 
+    bool Node::is_omp_node( )
+    {
+        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
+                 is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
+                 is_omp_sections_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || is_omp_task_node( ) ||
+                 is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+    }
+    
     bool Node::is_omp_atomic_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
@@ -483,6 +491,30 @@ namespace Analysis {
         return ( get_type( ) == OMP_TASKYIELD );
     }
 
+    bool Node::is_vector_node( )
+    {
+        bool result = false;
+        if( is_graph_node( ) )
+        {
+            Graph_type gt = get_graph_type( );
+            if( ( gt == VECTOR_COND_EXPR ) || ( gt == VECTOR_FUNC_CALL ) )
+            {    
+                result = true;
+            }
+        }
+        else
+        {
+            Node_type nt = get_type( );
+            if( ( nt == VECTOR_FUNCTION_CALL ) || ( nt == VECTOR_GATHER ) || ( nt == VECTOR_LOAD ) || 
+                ( nt == VECTOR_NORMAL ) || ( nt == VECTOR_REDUCTION ) || ( nt == VECTOR_SCATTER ) || 
+                ( nt == VECTOR_STORE ) )
+            {
+                result = true;
+            }
+        }
+        return result;
+    }
+    
     bool Node::is_connected( )
     {
         return (!_entry_edges.empty( ) || !_exit_edges.empty( ));
@@ -592,6 +624,13 @@ namespace Analysis {
                 case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
                 case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
                 case OMP_TASK_CREATION:     type = "OMP_TASK_CREATION";     break;
+                case VECTOR_FUNCTION_CALL:  type = "VECTOR_FUNCTION_CALL";  break;
+                case VECTOR_GATHER:         type = "VECTOR_GATHER";         break;
+                case VECTOR_LOAD:           type = "VECTOR_LOAD";           break;
+                case VECTOR_NORMAL:         type = "VECTOR_NORMAL";         break;
+                case VECTOR_REDUCTION:      type = "VECTOR_REDUCTION";      break;
+                case VECTOR_SCATTER:        type = "VECTOR_SCATTER";        break;
+                case VECTOR_STORE:          type = "VECTOR_STORE";          break;
                 case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
                 case GRAPH:                 type = "GRAPH";                 break;
                 case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
@@ -638,6 +677,8 @@ namespace Analysis {
                 case OMP_TASK:              graph_type = "OMP_TASK";                break;
                 case SPLIT_STMT:            graph_type = "SPLIT_STMT";              break;
                 case SWITCH:                graph_type = "SWITCH";                  break;
+                case VECTOR_COND_EXPR:      graph_type = "VECTOR_COND_EXPR";        break;
+                case VECTOR_FUNC_CALL:      graph_type = "VECTOR_FUNC_CALL";        break;
                 default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
@@ -779,7 +820,7 @@ namespace Analysis {
         || type == OMP_SINGLE || type == OMP_TASK );
     }
 
-    PCFGPragmaInfo Node::get_omp_node_info( )
+    PCFGPragmaInfo Node::get_pragma_node_info( )
     {
         if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
             && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
@@ -800,7 +841,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_omp_node_info( PCFGPragmaInfo pragma )
+    void Node::set_pragma_node_info( PCFGPragmaInfo pragma )
     {
         if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
             && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )

@@ -132,8 +132,12 @@ namespace Analysis {
         TARGET,
         UNDEFINED_CLAUSE,
         UNTIED,
-        WAITON,
-        COMBINED_WORKSHARING,
+        VECTOR_DEVICE,
+        VECTOR_LENGTH_FOR,
+        VECTOR_MASK,
+        VECTOR_NO_MASK,
+        VECTOR_SUITABLE,
+        WAITON
     };
 
     class PCFGClause {
@@ -152,6 +156,11 @@ namespace Analysis {
         //! Copy constructor
         PCFGClause( const PCFGClause& clause );
 
+        //! Getters
+        Clause get_clause( ) const;
+        std::string get_clause_as_string( ) const;
+        ObjectList<Nodecl::NodeclBase> get_args( ) const;
+        
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
     };
@@ -175,9 +184,11 @@ namespace Analysis {
         //! Destructor
         ~PCFGPragmaInfo( );
 
-        bool has_clause( Clause clause );
+        bool has_clause( Clause clause ) const;
 
         void add_clause( PCFGClause pcfg_clause );
+        
+        ObjectList<PCFGClause> get_clauses( ) const;
 
     friend class PCFGVisitor;
     };
@@ -235,6 +246,9 @@ namespace Analysis {
         //! Container to store the ENTRY and EXIT nodes to be used when the ENVIRONMENT
         //! creates new nodes
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
+
+        //! Boolean indicating whether we are building vector nodes or not
+        bool _is_vector;
 
         //! Counter used to create a unique key for each new node
         unsigned int _nid;

@@ -257,10 +257,11 @@ namespace TL { namespace OpenMP {
                     sym_list.append(red_sym);
                     if (!Reduction::is_builtin(reduction->get_name()))
                     {
-                        info_printf("%s: note: reduction of variable '%s' solved to '%s'\n",
+                        info_printf("%s: note: reduction of variable '%s' solved to '%s' (reduction declared in '%s')\n",
                                 construct.get_locus_str().c_str(),
                                 var_sym.get_name().c_str(),
-                                reductor_name.c_str());
+                                reductor_name.c_str(),
+                                reduction->get_locus_str().c_str());
                     }
                 }
                 else

@@ -700,6 +700,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     class_type_set_destructor(get_actual_class_type(being_instantiated), new_member);
                 }
 
+                hide_using_declarations(get_actual_class_type(being_instantiated), new_member);
+
                 break;
             }
         case SK_USING:

@@ -108,7 +108,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void SSEVectorLowering::visit(const Nodecl::VectorAddMask& node) 
+        void SSEVectorLowering::visit(const Nodecl::MaskedVectorAdd& node) 
         {
             visit(node.as<Nodecl::VectorAdd>()); 
         }                                                 
@@ -169,7 +169,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void SSEVectorLowering::visit(const Nodecl::VectorMinusMask& node) 
+        void SSEVectorLowering::visit(const Nodecl::MaskedVectorMinus& node) 
         {
             visit(node.as<Nodecl::VectorMinus>()); 
         }                                                 
@@ -238,7 +238,7 @@ namespace TL
             node.replace(function_call);
         }    
 
-        void SSEVectorLowering::visit(const Nodecl::VectorMulMask& node) 
+        void SSEVectorLowering::visit(const Nodecl::MaskedVectorMul& node) 
         {
             visit(node.as<Nodecl::VectorMul>()); 
         }                                                 
@@ -293,7 +293,7 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
-        void SSEVectorLowering::visit(const Nodecl::VectorDivMask& node) 
+        void SSEVectorLowering::visit(const Nodecl::MaskedVectorDiv& node) 
         {
             visit(node.as<Nodecl::VectorDiv>()); 
         }                                                 
@@ -342,6 +342,58 @@ namespace TL
             intrin_src << as_expression(node.get_lhs());
             intrin_src << ", ";
             intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
+
+        void SSEVectorLowering::visit(const Nodecl::VectorLowerOrEqualThan& node) 
+        { 
+            TL::Type type = node.get_lhs().get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_cmpgt";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_src << "_epi32"; 
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                intrin_src << "_epi16"; 
+            } 
+            else if (type.is_char() || 
+                    type.is_signed_char() ||
+                    type.is_unsigned_char()) 
+            { 
+                intrin_src << "_epi8"; 
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_lhs());
             intrin_src << ")";
 
             Nodecl::NodeclBase function_call = 
@@ -402,6 +454,58 @@ namespace TL
             node.replace(function_call);
         }                                                 
 
+        void SSEVectorLowering::visit(const Nodecl::VectorGreaterOrEqualThan& node) 
+        { 
+            TL::Type type = node.get_lhs().get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_cmplt";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_src << "_epi32"; 
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                intrin_src << "_epi16"; 
+            } 
+            else if (type.is_char() || 
+                    type.is_signed_char() ||
+                    type.is_unsigned_char()) 
+            { 
+                intrin_src << "_epi8"; 
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void SSEVectorLowering::visit(const Nodecl::VectorEqual& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
@@ -410,6 +514,58 @@ namespace TL
 
             // Intrinsic name
             intrin_src << "_mm_cmpeq";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_src << "_ps"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_src << "_epi32"; 
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                intrin_src << "_epi16"; 
+            } 
+            else if (type.is_char() || 
+                    type.is_signed_char() ||
+                    type.is_unsigned_char()) 
+            { 
+                intrin_src << "_epi8"; 
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(node.get_lhs());
+            walk(node.get_rhs());
+
+            intrin_src << "(";
+            intrin_src << as_expression(node.get_lhs());
+            intrin_src << ", ";
+            intrin_src << as_expression(node.get_rhs());
+            intrin_src << ")";
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
+
+        void SSEVectorLowering::visit(const Nodecl::VectorDifferent& node) 
+        { 
+            TL::Type type = node.get_lhs().get_type().basic_type();
+
+            TL::Source intrin_src;
+
+            // Intrinsic name
+            intrin_src << "_mm_cmpneq";
 
             // Postfix
             if (type.is_float()) 
@@ -1353,7 +1509,7 @@ namespace TL
             node.replace(function_call);
         }
 
-        void SSEVectorLowering::visit(const Nodecl::VectorFunctionCallMask& node) 
+        void SSEVectorLowering::visit(const Nodecl::MaskedVectorFunctionCall& node) 
         {
             running_error("SSE Lowering: VectorFuctionCallMask is not supported in SSE.");
         }
@@ -1424,6 +1580,84 @@ namespace TL
         
             n.set_type(node.get_nest().get_type());
         }
+
+        void SSEVectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
+        { 
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, intrin_name, extract_src;
+
+            intrin_name << "_mm_hadd";
+
+            // Postfix
+            if (type.is_float()) 
+            { 
+                intrin_name << "_ps"; 
+                extract_src << "_mm_extract_ps";
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_name << "_pd"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_name << "_epi32"; 
+                extract_src << "_mm_extract_epi32";
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                intrin_name << "_epi16"; 
+                extract_src << "_mm_extract_epi16";
+            } 
+            else
+            {
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+            //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
+
+            Nodecl::NodeclBase vector_src =
+                node.get_vector_src();
+
+            Nodecl::NodeclBase scalar_dst =
+                node.get_scalar_dst();
+
+            walk(scalar_dst);
+            walk(vector_src);
+
+            intrin_src << as_expression(scalar_dst) 
+                << " = "
+                << "({"
+                    << as_expression(vector_src) 
+                    << " = "
+                    << intrin_name
+                    << "(" 
+                        << as_expression(vector_src)
+                        << ", "
+                        << as_expression(vector_src)
+                    << ");";
+
+            intrin_src
+                << extract_src
+                << "("
+                    << intrin_name
+                    << "(" 
+                        << as_expression(vector_src)
+                        << ", "
+                        << as_expression(vector_src)
+                    << ")"
+                    << ", 0"
+                << ");})";
+ 
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
 
         void SSEVectorLowering::visit(const Nodecl::VectorMaskAssignment& node)
         {

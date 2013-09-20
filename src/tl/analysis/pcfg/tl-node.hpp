@@ -61,41 +61,40 @@ namespace Analysis {
             bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                         // It is true when the auto-dependencies for the node has been computed
 
-
-            // *** Private constructors *** //
-
-            //! Empty Node Constructor.
-            /*! The method sets to -1 the node identifier and has empty entry and exit edges lists.
-             *  The type of Node_type is, by default, UNCLASSIFIED_NODE.
-             */
-            Node( );
-
             // *** Not allowed construction methods *** //
             Node( const Node& n );
             Node& operator=( const Node& );
 
         public:
             // *** Constructors *** //
-
+            
+            //! Empty Node Constructor.
+            /*! 
+             * The method sets to -1 the node identifier and has empty entry and exit edges lists.
+             * The type of Node_type is, by default, UNCLASSIFIED_NODE.
+             * \internal
+             */
+            Node( );
+            
             //! Node Constructor.
             /*!
-            The entry and exit edges lists are empty.
-            A node may contain other nodes, depending on its type.
-            \param id Last identifier used to built a node (the method increments it by 1).
-            \param outer_node Pointer to the wrapper node. If the node does not belong to other
-                                node, then this parameter must be NULL.
-            */
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                    node, then this parameter must be NULL.
+             */
             Node( unsigned int& id, Node_type type, Node* outer_node );
 
             //! Node Constructor for Basic Normal Nodes.
             /*!
-            * The entry and exit edges lists are empty.
-            * A node may contain other nodes, depending on its type.
-            * \param id Last identifier used to built a node (the method increments it by 1).
-            * \param outer_node Pointer to the wrapper node. If the node does not belong to other
-            *                   node, then this parameter must be NULL.
-            * \param nodecls List of Nodecl containing the Statements to be included in the new node
-            */
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                   node, then this parameter must be NULL.
+             * \param nodecls List of Nodecl containing the Statements to be included in the new node
+             */
             Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls );
 
             //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
@@ -258,6 +257,9 @@ namespace Analysis {
             //! Returns true when the node is an ASM_OP node
             bool is_asm_op_node( );
 
+            //! Returns true when the node is any kind of OpenMP node
+            bool is_omp_node( );
+            
             //! Returns true when the node is an OpenMP ATOMIC node
             bool is_omp_atomic_node( );
 
@@ -307,6 +309,9 @@ namespace Analysis {
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
 
+            //! Returns true when the node is any type of vector node
+            bool is_vector_node( );
+            
             //! Returns true when the node is connected to any parent and/or any child
             bool is_connected( );
 
@@ -366,10 +371,10 @@ namespace Analysis {
             void set_graph_type( Graph_type graph_type );
 
             //! Returns info associated to an OmpSs node: type and associated clauses
-            PCFGPragmaInfo get_omp_node_info( );
+            PCFGPragmaInfo get_pragma_node_info( );
 
             //! Set info to an OmpSs node: pragma type and associated clauses
-            void set_omp_node_info( PCFGPragmaInfo pragma );
+            void set_pragma_node_info( PCFGPragmaInfo pragma );
 
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned

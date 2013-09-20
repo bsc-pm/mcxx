@@ -332,7 +332,7 @@ namespace TL { namespace OpenMP {
                                 join_task,
                                 Nodecl::List::make(task_calls),
                                 sequential_code,
-                                make_locus("", 0, 0)));
+                                enclosing_stmt.get_locus()));
 
 
                     Nodecl::Utils::prepend_items_before(enclosing_stmt, task_expr);
@@ -774,6 +774,8 @@ namespace TL { namespace OpenMP {
             {
                 Nodecl::List exec_environment;
 
+                const locus_t* locus = enclosing_stmt.get_locus();
+
                 TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
                     in_alloca_deps, inout_deps, out_deps, assumed_firstprivates, alloca_exprs;
 
@@ -843,20 +845,20 @@ namespace TL { namespace OpenMP {
                     else
                     {
                         // The return arguments present in the enclosing statement are added as alloca input dependences
-                        Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                        Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, locus);
                         sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
                         in_alloca_deps.append(
                                 Nodecl::Dereference::make(
                                     sym_nodecl,
                                     sym.get_type().points_to().get_lvalue_reference_to(),
-                                    make_locus("", 0, 0)));
+                                    locus));
 
                         copy_in.append(
                                 Nodecl::Dereference::make(
                                     sym_nodecl.shallow_copy(),
                                     sym.get_type().points_to().get_lvalue_reference_to(),
-                                    make_locus("", 0, 0)));
+                                    locus));
 
                         // Remove this item from the return arguments set!
                         return_arguments.erase(it_sym);
@@ -871,14 +873,14 @@ namespace TL { namespace OpenMP {
                 {
                     TL::Symbol sym = *it2;
 
-                    Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+                    Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, locus);
                     sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
                     alloca_exprs.append(
                             Nodecl::Dereference::make(
                                 sym_nodecl,
                                 sym.get_type().points_to().get_lvalue_reference_to(),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!assumed_firstprivates.empty())
@@ -886,7 +888,7 @@ namespace TL { namespace OpenMP {
                     exec_environment.append(
                             Nodecl::OpenMP::Firstprivate::make(
                                 Nodecl::List::make(assumed_firstprivates),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!alloca_exprs.empty())
@@ -894,7 +896,7 @@ namespace TL { namespace OpenMP {
                     exec_environment.append(
                             Nodecl::OpenMP::Alloca::make(
                                 Nodecl::List::make(alloca_exprs),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!in_alloca_deps.empty())
@@ -902,7 +904,7 @@ namespace TL { namespace OpenMP {
                     exec_environment.append(
                             Nodecl::OpenMP::DepInAlloca::make(
                                 Nodecl::List::make(in_alloca_deps),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!inout_deps.empty())
@@ -910,7 +912,7 @@ namespace TL { namespace OpenMP {
                     exec_environment.append(
                             Nodecl::OpenMP::DepOut::make(
                                 Nodecl::List::make(inout_deps),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!out_deps.empty())
@@ -918,7 +920,7 @@ namespace TL { namespace OpenMP {
                     exec_environment.append(
                             Nodecl::OpenMP::DepOut::make(
                                 Nodecl::List::make(out_deps),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!copy_in.empty())
@@ -926,7 +928,7 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::CopyIn::make(
                                 Nodecl::List::make(copy_in),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 if (!copy_out.empty())
@@ -934,7 +936,7 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::CopyOut::make(
                                 Nodecl::List::make(copy_out),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
 
@@ -943,19 +945,19 @@ namespace TL { namespace OpenMP {
                     target_items.append(
                             Nodecl::OpenMP::CopyInout::make(
                                 Nodecl::List::make(copy_inout),
-                                make_locus("", 0, 0)));
+                                locus));
                 }
 
                 // The inline tasks are always SMP tasks
                 exec_environment.append(Nodecl::OpenMP::Target::make(
-                            Nodecl::List::make(Nodecl::Text::make("smp", make_locus("", 0, 0))),
+                            Nodecl::List::make(Nodecl::Text::make("smp", locus)),
                             Nodecl::List::make(target_items),
-                            make_locus("", 0, 0)));
+                            locus));
 
                 Nodecl::OpenMP::Task join_task = Nodecl::OpenMP::Task::make(
                         exec_environment,
                         Nodecl::List::make(enclosing_stmt.shallow_copy()),
-                        make_locus("", 0 ,0));
+                        locus);
 
                 return join_task;
             }
@@ -1052,7 +1054,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    //  This visistor creates, for every nonvoid function task called in the
+    //  This visitor creates, for every nonvoid function task called in the
     //  source, a new void task which acts like a wrapper. At the end of the
     //  execution of this visitor, the nonvoid function task will be removed
     //  from the function task set.
@@ -1098,7 +1100,7 @@ namespace TL { namespace OpenMP {
     //          {
     //              int x, *mcc_ret1;
     //              fact__(10, mcc_ret1);
-    //              x = *mcc_ret1;i
+    //              x = *mcc_ret1;
     //              #pragma omp taskwait
     //          }
     //
@@ -1433,7 +1435,8 @@ namespace TL { namespace OpenMP {
                             sym_nodecl,
                             sym.get_value(),
                             sym_nodecl.get_type(),
-                            locus));
+                            locus),
+                        locus);
 
                 // Replace the object initialization by this new assignment
                 enclosing_stmt.replace(new_expr_stmt);
@@ -1489,7 +1492,8 @@ namespace TL { namespace OpenMP {
                             sym_nodecl,
                             value,
                             sym_nodecl.get_type(),
-                            locus));
+                            locus),
+                        locus);
 
                 // Replace the return statement by this new assignment
                 enclosing_stmt.replace(new_expr_stmt);
@@ -2591,7 +2595,8 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            Nodecl::List environment;
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(stmt);
+            Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
             // Suitable
             PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
@@ -2601,6 +2606,23 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::VectorSuitable::make(
                             Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+            // VectorLengthFor
+            PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
+
+            if (vectorlengthfor_clause.is_defined())
+            {
+                TL::Source target_type_src;
+
+                target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
+
+                TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
+
+                environment.append(
+                        Nodecl::OpenMP::VectorLengthFor::make(
+                            target_type,
                             stmt.get_locus()));
             }
 
@@ -2649,7 +2671,8 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-            Nodecl::List environment;
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(decl);
+            Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
             // Suitable
             PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
@@ -2773,6 +2796,7 @@ namespace TL { namespace OpenMP {
         TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
         pragma_line.diagnostic_unused_clauses();
         // FIXME - What is supposed to happen here?
+        // It is still not supported
     }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }

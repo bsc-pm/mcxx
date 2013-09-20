@@ -39,7 +39,7 @@ CLEANFILES += $(omp_modules)
 
 PLAINFC_PROFILE=`echo plainfc | $(SED) '$(program_transform_name)'`
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config --do-not-wrap-modules
+PLAINFC=$(top_builddir)/src/driver/plaincxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config --do-not-wrap-modules
 
 configdir=$(pkgdatadir)/fortran/openmp
 config_DATA = \

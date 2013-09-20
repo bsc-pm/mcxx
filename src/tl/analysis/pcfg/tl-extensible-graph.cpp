@@ -340,14 +340,14 @@ namespace Analysis {
         {   // Flushing all memory
             PCFGClause current_clause( FLUSHED_VARS );
             PCFGPragmaInfo current_info( current_clause );
-            flush_node->set_omp_node_info( current_info );
+            flush_node->set_pragma_node_info( current_info );
         }
         else
         {   // Flushing a list of expressions
             Nodecl::List flushed_vars = n.as<Nodecl::List>( );
             PCFGClause current_clause( FLUSHED_VARS, flushed_vars );
             PCFGPragmaInfo current_info( current_clause );
-            flush_node->set_omp_node_info( current_info );
+            flush_node->set_pragma_node_info( current_info );
         }
 
         connect_nodes( _utils->_last_nodes, flush_node );
@@ -683,6 +683,52 @@ namespace Analysis {
         return result;
     }
 
+    bool ExtensibleGraph::has_been_defined( Node* current, Node* scope, const Nodecl::NodeclBase& n )
+    {
+        bool result = false;
+        
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+         
+            Utils::ext_sym_set killed = current->get_killed_vars( );
+            if( Utils::ext_sym_set_contains_nodecl( n, killed ) )
+            {
+                result = true;
+            }
+            
+            if( !result )
+            {
+                ObjectList<Node*> parents;
+                if( current->is_entry_node( ) )
+                {
+                    // Check if graph parents are still inside the scope
+                    Node* outer_node = current->get_outer_node( );
+                    if( outer_node->get_id( ) != scope->get_id( ) )
+                    {    
+                        parents = outer_node->get_parents( );
+                    }
+                }
+                else
+                {
+                    parents = current->get_parents( );
+                }
+                
+                for( ObjectList<Node*>::iterator it = parents.begin( ); 
+                     it != parents.end( ) && !result; ++it )
+                {
+                    if( !ExtensibleGraph::is_backward_parent( current, *it ) )
+                    {    
+                        result = result || has_been_defined( *it, scope, n );
+                    }
+                    ExtensibleGraph::clear_visits_aux( current );
+                }
+            }
+        }
+        
+        return result;
+    }
+    
     void ExtensibleGraph::clear_visits(Node* current)
     {
         if( current->is_visited( ) )
@@ -981,6 +1027,101 @@ namespace Analysis {
         return res;
     }
 
+    bool ExtensibleGraph::is_backward_parent( Node* current, Node* parent )
+    {
+        bool result = false;
+        if( !current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( true );
+            
+            if( current->get_id( ) == parent->get_id( ) )
+            {
+                result = true;
+            }
+            else
+            {
+                if( !current->is_exit_node( ) )
+                {
+                    if( current->is_graph_node( ) )
+                    {
+                        result = is_backward_parent( current->get_graph_entry_node( ), parent );
+                    }
+                    ObjectList<Node*> children = current->get_children( );
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+                    {
+                        result = result || is_backward_parent( *it, parent );
+                    }
+                }
+            }
+        }
+        return result;
+    }
+    
+    bool ExtensibleGraph::node_contains_node( Node* container, Node* contained )
+    {
+        bool result = false;
+        if( container->is_graph_node( ) )
+        {
+            Node* outer_node = contained->get_outer_node( );
+            while( ( outer_node != NULL ) && !result )
+            {
+                if( outer_node->get_id( ) == container->get_id( ) )
+                {
+                    result = true;
+                }
+            }
+        }
+        return result;
+    }
+    
+    Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
+    {
+        Node* result = NULL;
+        
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+            
+            if( !current->is_entry_node( ) )
+            {
+                // Look first in nested nodes, if graph, or the current node, is not graph
+                if( current->is_graph_node( ) )
+                {
+                    result = find_nodecl_rec( current->get_graph_exit_node( ), n );
+                }
+                else
+                {
+                    ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); 
+                         ( it != stmts.end( ) ) && ( result == NULL ); ++it )
+                    {
+                        if( Nodecl::Utils::equal_nodecls( *it, n ) )
+                        {
+                            result = current;
+                        }
+                    }
+                }
+                
+                // If not found, look in the parents
+                ObjectList<Node*> parents = current->get_parents( );
+                for( ObjectList<Node*>::iterator it = parents.begin( ); 
+                     it != parents.end( ) && ( result == NULL ); ++it )
+                {
+                    result = find_nodecl_rec( *it, n );
+                }
+            }
+        }
+        return result;
+    }
+    
+    Node* ExtensibleGraph::find_nodecl( const Nodecl::NodeclBase& n )
+    {
+        Node* entry = _graph->get_graph_entry_node( );
+        Node* result = find_nodecl_rec( entry, n );
+        ExtensibleGraph::clear_visits( entry );
+        return result;
+    }
+    
     void ExtensibleGraph::print_global_vars( ) const
     {
         for( ObjectList<Utils::ExtendedSymbolUsage>::const_iterator it = _global_vars.begin( ); it != _global_vars.end( ); ++it )

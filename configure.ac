@@ -112,7 +112,8 @@ TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx analysisfc"
+# plaincxx is always installed as a binary
+COMPILER_NAMES="plaincc plainfc plainf95 analysiscc analysiscxx analysisfc analysisfc"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -332,8 +333,7 @@ then
    NANOX_LIBS="${nanox_lib}"
 
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common nanox-nodecl"
-# mcxx always gets installed
-   COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
@@ -921,8 +921,53 @@ then
       if test x$ICC != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} imcc"
-      fi
 
+         dnl Intel Xeon Phi configure
+         mic_compilation="no"
+         mic_testing="no"
+         mic_testing_device="no"
+
+         old_CC="$CC"
+         CC="icc"
+         old_CFLAGS="$CFLAGS"
+         CFLAGS="-mmic -c"
+
+         AC_MSG_CHECKING([Intel Xeon Phi compilation support])
+         AC_COMPILE_IFELSE(
+                 [AC_LANG_SOURCE([[
+                 #include<immintrin.h>
+                 ]])],
+            [
+             AC_MSG_RESULT([yes])
+             mic_compilation=yes
+            ],
+            [AC_MSG_RESULT([no])])
+
+         CFLAGS="$old_CFLAGS"
+         CC="$old_CC"             
+         
+         AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
+         AC_ARG_ENABLE([mic-testing],
+                AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
+                [
+                   if test x$enableval != x;
+                   then
+                      AC_MSG_RESULT([yes])
+                      mic_testing_device="$enableval"
+                   else
+                      AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
+                   fi
+                ])
+
+         MIC_COMPILATION=$mic_compilation
+         MIC_TESTING=$mic_testing
+         MIC_TESTING_DEVICE=$mic_testing_device
+
+         AC_SUBST([MIC_COMPILATION])
+         AC_SUBST([MIC_TESTING])
+         AC_SUBST([MIC_TESTING_DEVICE])
+         dnl end
+      fi
       dnl Check Intel Compiler C++
       AC_PATH_PROG([ICPC], [icpc], [$ICPC])
       if test x$ICPC != x;
@@ -1585,8 +1630,9 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd
-           tests/config/mercurium-serial-simd-svml
            tests/config/mercurium-parallel-simd
+           tests/config/mercurium-serial-simd-mic
+           tests/config/mercurium-parallel-simd-mic
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
            tests/config/bets
@@ -1641,6 +1687,8 @@ echo ""
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
 echo "   Host supports __int128 : " $have_int128
 echo "   SIMD Support: " $simd_version $simd_math_version
+echo "   Intel Xeon Phi compilation support: " $mic_compilation
+echo "   Intel Xeon Phi remote device used for testing: " $mic_testing_device
 echo ""
 echo "   Fortran tests enabled: " $fortran_tests_enabled
 echo ""
