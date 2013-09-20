@@ -273,9 +273,10 @@
 "                           option is incompatible with parallel\n" \
 "                           compilation\n" \
 "\n" \
-"gcc compatibility flags:\n" \
+"Compatibility parameters:\n" \
 "\n" \
 "  -v\n" \
+"  -V\n" \
 "  -f<name>\n" \
 "  -m<name>\n" \
 "  -M\n" \
@@ -309,7 +310,7 @@
 "  -dx\n" \
 "  -dy\n" \
 "\n" \
-"These gcc flags are passed verbatim to preprocessor, compiler and\n" \
+"Parameters above are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
 "compatible with gcc and applications expecting gcc behaviour.\n" \
 "\n"
@@ -321,7 +322,7 @@ static char *_alternate_signal_stack;
 #endif
 
 // Options for command line arguments
-typedef enum 
+typedef enum
 {
     OPTION_UNDEFINED = 1024,
     OPTION_VERSION,
@@ -384,7 +385,7 @@ typedef enum
 
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKcho:EyI:J:L:l:gD:U:x:"
+#define SHORT_OPTIONS_STRING "vVkKcho:EyI:J:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -790,7 +791,8 @@ int parse_arguments(int argc, const char* argv[],
     static char y_specified = 0;
     static char v_specified = 0;
 
-    char native_verbose = 0;
+    char native_verbose = 0; // -v
+    char native_version = 0; // -V
 
     const char **input_files = NULL;
     int num_input_files = 0;
@@ -989,6 +991,11 @@ int parse_arguments(int argc, const char* argv[],
                 case 'v' : // Native compiler/Linker verbose
                     {
                         native_verbose = 1;
+                        break;
+                    }
+                case 'V': // Native version (not supported by gcc)
+                    {
+                        native_version = 1;
                         break;
                     }
                 case 'k' : // --keep-files || -k
@@ -1528,6 +1535,7 @@ int parse_arguments(int argc, const char* argv[],
             && !linker_files_seen
             && !v_specified
             && !native_verbose
+            && !native_version
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
         fprintf(stderr, "%s: you must specify an input file\n", compilation_process.exec_basename);
@@ -1537,6 +1545,7 @@ int parse_arguments(int argc, const char* argv[],
     if (num_input_files == 0
             && !linker_files_seen
             && !native_verbose
+            && !native_version
             && v_specified)
     {
         // --v has been given with nothing else
@@ -1618,6 +1627,19 @@ int parse_arguments(int argc, const char* argv[],
         else
         {
             add_to_linker_command(uniquestr(minus_v), NULL);
+        }
+    }
+
+    if (native_version)
+    {
+        const char* minus_V = uniquestr("-V");
+        if (CURRENT_CONFIGURATION->do_not_link)
+        {
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_V);
+        }
+        else
+        {
+            add_to_linker_command(uniquestr(minus_V), NULL);
         }
     }
 
@@ -1759,7 +1781,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
-        // IBM XL Compiler Optimization Flags
+            // IBM XL Compiler Optimization Flags
         case 'q':
             {
                 char hide_parameter = 0;
@@ -1805,15 +1827,15 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     (*should_advance)++;
                 }
                 else if (strlen(argument) == 3 // -dX
-                    && (argument[2] == 'A'
-                        || argument[2] == 'D'
-                        || argument[2] == 'H'
-                        || argument[2] == 'm'
-                        || argument[2] == 'p'
-                        || argument[2] == 'P'
-                        || argument[2] == 'v'
-                        || argument[2] == 'x'
-                        || argument[2] == 'y'))
+                        && (argument[2] == 'A'
+                            || argument[2] == 'D'
+                            || argument[2] == 'H'
+                            || argument[2] == 'm'
+                            || argument[2] == 'p'
+                            || argument[2] == 'P'
+                            || argument[2] == 'v'
+                            || argument[2] == 'x'
+                            || argument[2] == 'y'))
                 {
                     add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
@@ -2077,7 +2099,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 break;
             }
         case 'i':
-         {
+            {
                 if (strcmp(argument, "-include") == 0)
                 {
                     if(!dry_run)
@@ -2096,29 +2118,29 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 break;
             }
         case '-' :
-        {
-            if (argument[2] == 'W')
             {
-                // Check it is of the form -W*,
-                const char *p = strchr(&argument[2], ',');
-                if (p != NULL)
+                if (argument[2] == 'W')
                 {
-                    // Check there is something after the first comma ','
-                    if (*(p+1) != '\0')
+                    // Check it is of the form -W*,
+                    const char *p = strchr(&argument[2], ',');
+                    if (p != NULL)
                     {
-                        if (!dry_run)
-                            parse_subcommand_arguments(&argument[3]);
-                        (*should_advance)++;
+                        // Check there is something after the first comma ','
+                        if (*(p+1) != '\0')
+                        {
+                            if (!dry_run)
+                                parse_subcommand_arguments(&argument[3]);
+                            (*should_advance)++;
+                        }
                     }
+                    break;
+                }
+                else
+                {
+                    failure = 1;
                 }
                 break;
             }
-            else
-            {
-                failure = 1;
-            }
-            break;
-        }
         default:
             {
                 failure = 1;

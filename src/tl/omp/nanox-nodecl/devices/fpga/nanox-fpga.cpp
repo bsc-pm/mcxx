@@ -26,6 +26,8 @@
 
 #include <errno.h>
 
+#include <fstream>
+
 #include "tl-devices.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-multifile.hpp"
@@ -216,10 +218,10 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 //            add_hls_pragmas(tmp_task, outline_info);
 
 
-            Nodecl::NodeclBase wrapper = gen_hls_wrapper(new_function, info._data_items);
-
+//            Nodecl::NodeclBase wrapper = gen_hls_wrapper(new_function, info._data_items);
+//
             _fpga_file_code.append(tmp_task);
-            _fpga_file_code.append(wrapper);
+//            _fpga_file_code.append(wrapper);
             //TODO: Add inline pragma to called task #pragma HLS inline
         }
     }
@@ -250,10 +252,11 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
 
     Source fpga_params;
     //Only generate scalar parameter passing when it's necessary
-    if (task_has_scalars(data_items))
-    {
-        fpga_params = fpga_param_code(info._data_items, symbol_map, called_scope);
-    }
+    //FIXME: We are not generating any code to pass parameters right now
+//    if (task_has_scalars(data_items))
+//    {
+//        fpga_params = fpga_param_code(info._data_items, symbol_map, called_scope);
+//    }
 
     Source unpacked_source;
     unpacked_source
@@ -364,6 +367,7 @@ bool DeviceFPGA::task_has_scalars(TL::ObjectList<OutlineDataItem*> & dataitems)
          * We happily assume that everything that does not need a copy is a scalar
          * Which is true as long everything that is not a scalar is going to be copied
          * We could also use DataReference to check this
+         * FIXME structs should be treated
          */
         if((*it)->get_copies().empty())
         {
@@ -442,6 +446,29 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
         std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();
         std::string new_filename = "hls_" + original_filename;
 
+        std::ofstream hls_file;
+
+        hls_file.open(new_filename.c_str()); //open as output
+
+        if (! hls_file.is_open())
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+
+        ObjectList<IncludeLine> includes = CurrentFile::get_top_level_included_files();
+
+        for (ObjectList<IncludeLine>::iterator it = includes.begin(); it != includes.end(); it++)
+        {
+            hls_file << it->get_preprocessor_line() << std::endl;
+        }
+        hls_file << _fpga_file_code.prettyprint();
+        hls_file.close();
+
+#if 0
         FILE* ancillary_file = fopen(new_filename.c_str(), "w");
         if (ancillary_file == NULL)
         {
@@ -467,7 +494,7 @@ void DeviceFPGA::phase_cleanup(DTO& data_flow)
 
         phase->codegen_top_level(_fpga_file_code, ancillary_file);
         fclose(ancillary_file);
-
+#endif
         // Do not forget the clear the code for next files
         _fpga_file_code.get_internal_nodecl() = nodecl_null();
     }
@@ -693,22 +720,22 @@ static int get_copy_elements(Nodecl::NodeclBase expr)
     if (type.array_is_region()) //it's a region
     {
         Nodecl::NodeclBase cp_size = type.array_get_region_size();
-        if (!cp_size.is_constant())
-        {
-            internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s; %s)",
-                    datareference.get_locus_str().c_str(), cp_size.prettyprint().c_str());
-        }
+//        if (!cp_size.is_constant())
+//        {
+//            internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s; %s)",
+//                    datareference.get_locus_str().c_str(), cp_size.prettyprint().c_str());
+//        }
         elems = const_value_cast_to_4(cp_size.get_constant());
     }
     else if (type.is_array()) //it's a shape
     {
         Nodecl::NodeclBase lower, upper;
         type.array_get_bounds(lower, upper);
-        if (!lower.is_constant() || !upper.is_constant())
-        {
-            internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
-                    datareference.get_locus_str().c_str());
-        }
+//        if (!lower.is_constant() || !upper.is_constant())
+//        {
+//            internal_error("Copy expressions must be known at compile time when working in 'block mode' (%s)",
+//                    datareference.get_locus_str().c_str());
+//        }
         elems = const_value_cast_to_4(upper.get_constant()) - const_value_cast_to_4(lower.get_constant()) + 1;
     }
     else //it's a trap!
