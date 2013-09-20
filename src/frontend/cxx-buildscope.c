@@ -12386,7 +12386,7 @@ static void update_member_function_info(AST declarator_name,
     }
 }
 
-static void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared)
+void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared)
 {
     decl_context_t class_context = class_type_get_inner_context(class_info);
 
