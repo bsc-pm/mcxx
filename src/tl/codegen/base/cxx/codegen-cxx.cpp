@@ -1431,7 +1431,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                     template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
-                    called_symbol.get_scope().get_decl_context());
+                    node.retrieve_context().get_decl_context());
         }
         else
         {
@@ -1441,7 +1441,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                         template_args.get_internal_template_parameter_list(),
                         /* first_template_argument_to_be_printed */ 0,
                         /* print_first_level_bracket */ 0,
-                        called_symbol.get_scope().get_decl_context());
+                        node.retrieve_context().get_decl_context());
 
             std::string deduced_template_args_str =
                 ::template_arguments_to_str(
@@ -1486,7 +1486,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                     deduced_template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
-                    called_symbol.get_scope().get_decl_context());
+                    node.retrieve_context().get_decl_context());
             *(file) << end_inline_comment();
         }
     }
