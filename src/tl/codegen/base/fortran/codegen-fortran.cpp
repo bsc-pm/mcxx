@@ -274,7 +274,6 @@ namespace Codegen
                 Nodecl::NodeclBase& current_node(*it2);
 
                 push_declaration_status();
-                clear_renames();
 
                 walk(current_node);
                 pop_declaration_status();
@@ -3724,7 +3723,7 @@ OPERATOR_TABLE
                 if (it != related_symbols.begin())
                     *(file) << ", ";
 
-                *(file) << it->get_name();
+                *(file) << rename(*it);
             }
             *(file) << "\n";
 
