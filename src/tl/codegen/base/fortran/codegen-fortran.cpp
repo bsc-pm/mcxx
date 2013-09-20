@@ -782,6 +782,14 @@ OPERATOR_TABLE
         {
             const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());
 
+            if (const_value_is_array(v))
+            {
+                // CHARACTER(LEN=30) :: A(10) = 'a'
+                //
+                // 'a' will be an StringLiteral but its constant value will be array, simplify to rank 0
+                v = fortran_const_value_rank_zero(v);
+            }
+
             int length = 0;
             int *bytes = NULL;
             const_value_string_unpack_to_int(v, &bytes, &length);
@@ -1064,7 +1072,7 @@ OPERATOR_TABLE
         {
             // LOGICAL :: A(10) = .TRUE.
             //
-            // .TRUE. will be a BooleanLiteral but its constant value will be array, simplify to rank 1
+            // .TRUE. will be a BooleanLiteral but its constant value will be array, simplify to rank 0
             val = fortran_const_value_rank_zero(val);
         }
 
@@ -1098,7 +1106,7 @@ OPERATOR_TABLE
         {
             // INTEGER :: A(10) = 1
             //
-            // 1 will be an IntegerLiteral but its constant value will be array, simplify to rank 1
+            // 1 will be an IntegerLiteral but its constant value will be array, simplify to rank 0
             value = fortran_const_value_rank_zero(value);
         }
 
@@ -1169,7 +1177,7 @@ OPERATOR_TABLE
         if (const_value_is_array(complex_cval))
         {
             // COMPLEX :: C(10) = (1,2)
-            // (1,2) will be a ComplexLiteral but its constant value will be array, simplify to rank 1
+            // (1,2) will be a ComplexLiteral but its constant value will be array, simplify to rank 0
             complex_cval = fortran_const_value_rank_zero(complex_cval);
         }
 
@@ -1265,7 +1273,7 @@ OPERATOR_TABLE
         {
             // REAL :: A(10) = 1.2
             //
-            // 1.2 will be an FloatingLiteral but its constant value will be array, simplify to rank 1
+            // 1.2 will be an FloatingLiteral but its constant value will be array, simplify to rank 0
             value = fortran_const_value_rank_zero(value);
         }
 
