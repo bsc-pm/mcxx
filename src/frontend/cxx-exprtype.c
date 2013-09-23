@@ -1343,6 +1343,22 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
         } \
     } while (0)
 
+#define check_range_of_floating_extended(expr, text, value, typename, isinf_fun) \
+    do { \
+        if (value == 0 && errno == ERANGE) \
+        { \
+            error_printf("%s: error: value '%s' underflows %s\n", \
+                    ast_location(expr), text, typename); \
+            value = 0.0; \
+        } \
+        else if (isinf_fun(value)) \
+        { \
+            error_printf("%s: error: value '%s' overflows %s\n", \
+                    ast_location(expr), text, typename); \
+            value = 0.0; \
+        } \
+    } while (0)
+
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 {
     const_value_t* value = NULL;
@@ -1351,10 +1367,13 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
     char is_float = 0;
     char is_long_double = 0;
+    char is_float128 = 0;
     char is_complex = 0;
 
     while (toupper(*last) == 'F' 
             || toupper(*last) == 'L'
+            // This is a GNU extension for float128
+            || toupper(*last) == 'Q'
             // This is a GNU extension for complex
             || toupper(*last) == 'I'
             || toupper(*last) == 'J')
@@ -1366,6 +1385,9 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
                 break;
             case 'F' :
                 is_float = 1;
+                break;
+            case 'Q' :
+                is_float128 = 1;
                 break;
             case 'I':
             case 'J':
@@ -1379,7 +1401,29 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
     type_t* result = NULL;
     const_value_t* zero = NULL;
-    if (is_long_double)
+
+    if (is_float128)
+    {
+#ifdef HAVE_QUADMATH_H
+        {
+            result = get_float128_type();
+
+            errno = 0;
+            __float128 f128 = strtoflt128(literal, NULL);
+            check_range_of_floating_extended(expr, literal, f128, "__float128", isinfq);
+
+            value = const_value_get_float128(f128);
+
+            if (is_complex)
+                zero = const_value_get_float128(0.0);
+        }
+#else
+        {
+            running_error("%s: error: __float128 literals not supported\n", ast_location(expr), kind);
+        }
+#endif
+    }
+    else if (is_long_double)
     {
         result = get_long_double_type();
 

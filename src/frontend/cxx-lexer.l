@@ -246,8 +246,13 @@ fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
 exponent    ([eE][+-]?{digit}+)
  /* A.2.38 */
 floatingsuffix_std  [flFL]
+ /* Q is a GCC extension for float128 */
+floatingsuffix_nonstd  [qQ]
+
+floatingsuffix_all ({floatingsuffix_std}|{floatingsuffix_nonstd})
+
  /* GNU extension for complex floating suffix */
-floatingsuffix  ({floatingsuffix_std}|{floatingsuffix_std}{complexsuffix}|{complexsuffix}{floatingsuffix_std}|{complexsuffix})
+floatingsuffix  ({floatingsuffix_all}|{floatingsuffix_all}{complexsuffix}|{complexsuffix}{floatingsuffix_all}|{complexsuffix})
  /* A.2.40 */
 schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
