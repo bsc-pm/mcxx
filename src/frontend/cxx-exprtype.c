@@ -11372,6 +11372,8 @@ static char update_stack_to_designator(type_t* declared_type,
     nodecl_t* designators = nodecl_unpack_list(designator_list, &designator_list_length);
 
     type_t* next_type = declared_type;
+
+    int orig_type_stack_idx = *type_stack_idx;
     *type_stack_idx = -1;
 
     for (i = 0; i < designator_list_length; i++)
@@ -11386,7 +11388,8 @@ static char update_stack_to_designator(type_t* declared_type,
             (*type_stack_idx)++;
             ERROR_CONDITION(*type_stack_idx == MCXX_MAX_UNBRACED_AGGREGATES, "Too many unbraced aggregates", 0);
             type_stack[*type_stack_idx].item = 0;
-            type_stack[*type_stack_idx].max_item = 0;
+            if (*type_stack_idx > orig_type_stack_idx)
+                type_stack[*type_stack_idx].max_item = 0;
             type_stack[*type_stack_idx].type = next_type;
             type_stack[*type_stack_idx].fields = NULL;
 
