@@ -68,7 +68,7 @@ void* extensible_struct_get_field(extensible_struct_t* extensible_struct,
     if (extensible_struct->hash == NULL)
         return NULL;
 
-    rb_red_blk_node* n = rb_tree_query(extensible_struct->hash, uniquestr(field_name));
+    rb_red_blk_node* n = rb_tree_query(extensible_struct->hash, field_name);
     if (n != NULL)
     {
         return rb_node_get_info(n);
