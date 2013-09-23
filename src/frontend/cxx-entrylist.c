@@ -313,16 +313,26 @@ scope_entry_list_t* entry_list_add_before(scope_entry_list_t* list,
 
 scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list)
 {
-    scope_entry_list_t* result = NULL;
+    if (list == NULL)
+        return NULL;
 
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(list);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    scope_entry_list_t* result = xcalloc(1, sizeof(*result));
+
+    result->num_items_list = list->num_items_list;
+    scope_entry_list_node_t* it = list->next;
+    scope_entry_list_node_t** current = &(result->next);
+
+    while (it != NULL)
     {
-        result = entry_list_add(result, entry_list_iterator_current(it));
+        *current = xcalloc(1, sizeof(**current));
+        int i;
+        for (i = 0; i < NUM_IMMEDIATE; i++)
+        {
+            (*current)->list[i] = it->list[i];
+        }
+        current = &((*current)->next);
+        it = it->next;
     }
-    entry_list_iterator_free(it);
 
     return result;
 }
