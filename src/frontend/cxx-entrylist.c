@@ -466,8 +466,8 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
 
     //   void qsort(void *base, size_t nmemb, size_t size,
     //  int(*compar)(const void *, const void *));
-    qsort(elems1, size1, sizeof(*list1), ptr_comp);
-    qsort(elems2, size2, sizeof(*list2), ptr_comp);
+    qsort(elems1, size1, sizeof(*elems1), ptr_comp);
+    qsort(elems2, size2, sizeof(*elems2), ptr_comp);
 
     p = elems1;
     q = elems2;
