@@ -79,7 +79,8 @@ struct overload_entry_list_tag
     candidate_t* candidate;
     struct overload_entry_list_tag* next;
 
-    implicit_conversion_sequence_t ics_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    int num_ics_arguments;
+    implicit_conversion_sequence_t *ics_arguments;
 
     char requires_ambiguous_ics;
 } overload_entry_list_t;
@@ -1581,16 +1582,10 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
 
         if (can_be_called_with_number_of_arguments_ovl(candidate, num_arguments))
         {
-            implicit_conversion_sequence_t ics_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-            {
-                int j;
-                for (j = 0; j < MCXX_MAX_FUNCTION_CALL_ARGUMENTS; j++)
-                {
-                    ics_arguments[j] = invalid_ics;
-                }
-            }
+            implicit_conversion_sequence_t *ics_arguments = NULL;
+            int num_ics_arguments = 0;
 
-            int num_parameters = 
+            int num_parameters =
                 function_type_get_num_parameters(candidate->type_information);
             if (function_type_get_has_ellipsis(candidate->type_information))
                 num_parameters--;
@@ -1603,6 +1598,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
             if (candidate->entity_specs.is_member
                     && candidate->entity_specs.is_static)
             {
+                P_LIST_ADD(ics_arguments, num_ics_arguments, invalid_ics);
                 i = 1;
             }
 
@@ -1684,7 +1680,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                         requires_ambiguous_conversion |= ics_to_candidate.is_ambiguous_ics;
                     }
 
-                    ics_arguments[i] = ics_to_candidate;
+                    P_LIST_ADD(ics_arguments, num_ics_arguments, ics_to_candidate);
                 }
             }
 
@@ -1694,14 +1690,13 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                 new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
+                new_result->num_ics_arguments = num_ics_arguments;
+                new_result->ics_arguments = ics_arguments;
                 result = new_result;
-
-                int j;
-                for (j = 0; j < MCXX_MAX_FUNCTION_CALL_ARGUMENTS; j++)
-                {
-                    // Copy all ICS of this overloaded function entry
-                    result->ics_arguments[j] = ics_arguments[j];
-                }
+            }
+            else
+            {
+                xfree(ics_arguments);
             }
         }
 
@@ -2167,6 +2162,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     {
         overload_entry_list_t* next = it->next;
         _bytes_overload -= sizeof(*it);
+        xfree(it->ics_arguments);
         xfree(it);
         it = next;
     }
