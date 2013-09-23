@@ -1420,7 +1420,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
         }
 #else
         {
-            running_error("%s: error: __float128 literals not supported\n", ast_location(expr), kind);
+            running_error("%s: error: __float128 literals not supported\n", ast_location(expr));
         }
 #endif
     }
