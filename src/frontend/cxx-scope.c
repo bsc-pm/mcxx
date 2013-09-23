@@ -2473,11 +2473,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                         nodecl_locus_to_str(array_size));
             }
 
-            if (nodecl_expr_is_value_dependent(array_size))
-            {
-                internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
-                        nodecl_locus_to_str(array_size));
-            }
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
