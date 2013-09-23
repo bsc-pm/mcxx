@@ -11947,6 +11947,18 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         length, decl_context);
             }
         }
+        else
+        {
+            // GCC extension
+            // int c[] = { };
+            nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get_unsigned_int(0),
+                    locus);
+
+            initializer_type = get_array_type(
+                    array_type_get_element_type(declared_type),
+                    length, decl_context);
+        }
 
         *nodecl_output = nodecl_make_structured_value(init_list_output, initializer_type, locus);
         return;
