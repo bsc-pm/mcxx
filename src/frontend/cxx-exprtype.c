@@ -1250,6 +1250,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             case 'v' : { value = '\v'; break; }
             case '\\': { value = '\\'; break; }
             case '\"': { value = '\"'; break; }
+            case '\?': { value = '\?'; break; }
             case '0': 
             case '1': 
             case '2': 
