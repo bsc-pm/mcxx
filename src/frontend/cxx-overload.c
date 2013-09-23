@@ -1045,7 +1045,7 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
         implicit_conversion_sequence_t *result,
         const locus_t* locus)
 {
-    return compute_ics_flags(orig, dest, decl_context, result, 
+    compute_ics_flags(orig, dest, decl_context, result, 
             /* no_user_defined_conversions = */ 0,
             /* is_implicit_argument */ 0,
             locus);

@@ -4682,7 +4682,7 @@ static void compute_bin_operator_shr_assig_type(nodecl_t* lhs, nodecl_t* rhs,
                 ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    return compute_bin_operator_assig_only_integral_type(lhs, rhs, 
+    compute_bin_operator_assig_only_integral_type(lhs, rhs, 
             operation_tree, decl_context, nodecl_make_shr_assignment,
             locus, nodecl_output);
 }
