@@ -78,16 +78,19 @@ char gcc_attribute_is_type_attribute(const char* identifier)
 
 static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info, 
         char floating,
+        char is_complex,
         _size_t bytes)
 {
     type_t* signed_0_integral_types[] =
     {
-        // char is always making things hard
-        get_char_type(),
+        get_char_type(), // This is the difference with the signed table below
         get_signed_short_int_type(),
         get_signed_int_type(),
         get_signed_long_int_type(),
         get_signed_long_long_int_type(),
+#ifdef HAVE_INT128
+        get_signed_int128_type(),
+#endif
         NULL,
     };
 
@@ -98,6 +101,9 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
         get_signed_int_type(),
         get_signed_long_int_type(),
         get_signed_long_long_int_type(),
+#ifdef HAVE_INT128
+        get_signed_int128_type(),
+#endif
         NULL,
     };
 
@@ -108,6 +114,9 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
         get_unsigned_int_type(),
         get_unsigned_long_int_type(),
         get_unsigned_long_long_int_type(),
+#ifdef HAVE_INT128
+        get_unsigned_int128_type(),
+#endif
         NULL,
     };
 
@@ -116,6 +125,9 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
         get_float_type(),
         get_double_type(),
         get_long_double_type(),
+#ifdef HAVE_QUADMATH_H
+        get_float128_type(),
+#endif
         NULL,
     };
 
@@ -145,6 +157,11 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
 
     if (match_found)
     {
+        if (is_complex)
+        {
+            match_type = get_complex_type(match_type);
+        }
+
         gather_info->is_overriden_type = 1;
         gather_info->mode_type = match_type;
     }
@@ -301,23 +318,28 @@ void gather_one_gcc_attribute(const char* attribute_name,
                     {
                         const char* mode_name;
                         char floating;
+                        char is_complex;
                         _size_t bytes;
                     } mode_list[] =
                     {
                         // Integral types
-                        { "QI",     0, 1 }, 
-                        { "__QI__", 0, 1 }, 
-                        { "HI",     0, 2 },
-                        { "__HI__", 0, 2 },
-                        { "SI",     0, 4 },
-                        { "__SI__", 0, 4 },
-                        { "DI",     0, 8 },
-                        { "__DI__", 0, 8 },
+                        { "QI",     0, 0, 1 },
+                        { "__QI__", 0, 0, 1 },
+                        { "HI",     0, 0, 2 },
+                        { "__HI__", 0, 0, 2 },
+                        { "SI",     0, 0, 4 },
+                        { "__SI__", 0, 0, 4 },
+                        { "DI",     0, 0, 8 },
+                        { "__DI__", 0, 0, 8 },
                         // Floating types
-                        { "SF",     1, 4 },
-                        { "__SF__", 1, 4 },
-                        { "DF",     1, 8 },
-                        { "__DF__", 1, 8 },
+                        { "SF",     1, 0, 4 },
+                        { "__SF__", 1, 0, 4 },
+                        { "DF",     1, 0, 8 },
+                        { "__DF__", 1, 0, 8 },
+                        // Complex types (size is given for the base type of
+                        // the complex)
+                        { "TC",     1, 1, 16 },
+                        { "__TC__", 1, 1, 16 },
                     };
 
                     char found = 0;
@@ -326,7 +348,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
                         || strcmp(size_mode, "pointer") == 0)
                     {
                         fix_gather_type_to_match_mode(gather_info,
-                                /* floating */ 0, CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
+                                /* floating */ 0, /* is_complex */ 0,
+                                CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
                         found = 1;
                     }
                     else if (strcmp(size_mode, "__word__") == 0
@@ -335,14 +358,16 @@ void gather_one_gcc_attribute(const char* attribute_name,
                         // what is word mode??? At the moment use the size of a long
                         // since it matches what gcc does
                         fix_gather_type_to_match_mode(gather_info,
-                                /* floating */ 0, CURRENT_CONFIGURATION->type_environment->sizeof_signed_long);
+                                /* floating */ 0, /* is_complex */ 0,
+                                CURRENT_CONFIGURATION->type_environment->sizeof_signed_long);
                         found = 1;
                     }
                     else if (strcmp(size_mode, "__byte__") == 0
                         || strcmp(size_mode, "byte") == 0)
                     {
                         fix_gather_type_to_match_mode(gather_info,
-                                /* floating */ 0, /* 1 byte */ 1);
+                                /* floating */ 0, /* is_complex */ 0,
+                                /* 1 byte */ 1);
                         found = 1;
                     }
 
@@ -355,7 +380,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
                         {
                             found = 1;
                             fix_gather_type_to_match_mode(gather_info, 
-                                    mode_list[i].floating, mode_list[i].bytes);
+                                    mode_list[i].floating,
+                                    mode_list[i].is_complex,
+                                    mode_list[i].bytes);
                         }
                     }
 

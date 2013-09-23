@@ -7246,7 +7246,8 @@ static void build_scope_declarator_with_parameter_context(AST a,
     else if (gather_info->is_overriden_type)
     {
         if (!is_integral_type(*declarator_type)
-                && !is_floating_type(*declarator_type))
+                && !is_floating_type(*declarator_type)
+                && !is_complex_type(*declarator_type))
         {
             if (!checking_ambiguity())
             {

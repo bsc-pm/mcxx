@@ -7183,9 +7183,17 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
             }
         case STK_COMPLEX:
             {
-                result = strappend(result, "_Complex ");
-                result = strappend(result, 
-                        get_simple_type_name_string_internal(decl_context, simple_type->complex_element, print_symbol_fun, print_symbol_data));
+                if (is_float128_type(simple_type->complex_element))
+                {
+                    // _Complex __float128 is not valid
+                    result = "__attribute__((mode(TC))) _Complex float";
+                }
+                else
+                {
+                    result = strappend(result, "_Complex ");
+                    result = strappend(result,
+                            get_simple_type_name_string_internal(decl_context, simple_type->complex_element, print_symbol_fun, print_symbol_data));
+                }
                 break;
             }
         case STK_VECTOR:
