@@ -2781,7 +2781,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             {
                 // GCC typeof
                 solve_ambiguous_type_specifier(a, decl_context);
-                return gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
+                gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
+                break;
             }
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_TEMPLATE_ID:
