@@ -1011,79 +1011,125 @@ namespace Analysis {
         // Compute the information about the loop control and keep the results in the struct '_current_loop_ctrl'
         ObjectList<Node*> actual_last_nodes = _utils->_last_nodes;
         walk( n.get_loop_header( ) );
+        Node* init = _utils->_nested_loop_nodes.top( )->_init;
+        Node* cond = _utils->_nested_loop_nodes.top( )->_cond;
+        Node* next = _utils->_nested_loop_nodes.top( )->_next;
         _utils->_last_nodes = actual_last_nodes;
 
+        int n_connects = 0;
+        
         // Connect the init
-        if( _utils->_nested_loop_nodes.top( )->_init != NULL )
+        if( init != NULL )
         {
-            int n_connects = _utils->_last_nodes.size( );
-            _pcfg->connect_nodes( _utils->_last_nodes, _utils->_nested_loop_nodes.top( )->_init,
+            n_connects = _utils->_last_nodes.size( );
+            _pcfg->connect_nodes( _utils->_last_nodes, init,
                                   ObjectList<Edge_type>( n_connects, ALWAYS ),
                                   ObjectList<std::string>( n_connects, "" ) );
-            _utils->_last_nodes = ObjectList<Node*>( 1, _utils->_nested_loop_nodes.top( )->_init );
+            _utils->_last_nodes = ObjectList<Node*>( 1, init );
         }
 
         // Create the loop graph node
         Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_FOR );
-        int n_connects = _utils->_last_nodes.size( );
+        n_connects = _utils->_last_nodes.size( );
         _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
                               ObjectList<Edge_type>( n_connects, ALWAYS ),
                               ObjectList<std::string>( n_connects, "" ) );
 
         // Connect the conditional node
         Node* entry_node = for_graph_node->get_graph_entry_node( );
-        _utils->_nested_loop_nodes.top( )->_cond->set_outer_node( for_graph_node );
-        _pcfg->connect_nodes( entry_node, _utils->_nested_loop_nodes.top( )->_cond );
-        _utils->_last_nodes = ObjectList<Node*>( 1, _utils->_nested_loop_nodes.top( )->_cond );
+        if( cond != NULL )
+        {
+            cond->set_outer_node( for_graph_node );
+            _pcfg->connect_nodes( entry_node, cond );
+            _utils->_last_nodes = ObjectList<Node*>( 1, cond );
+        }
+        else
+        {
+            _utils->_last_nodes = ObjectList<Node*>( 1, entry_node );
+        }
 
         Node* exit_node = for_graph_node->get_graph_exit_node( );
 
         // Create the nodes from the list of inner statements of the loop
-        _utils->_continue_nodes.push( _utils->_nested_loop_nodes.top( )->_next );
+        if( next != NULL )
+            _utils->_continue_nodes.push( next );
+        else
+            _utils->_continue_nodes.push( exit_node );
         _utils->_break_nodes.push( exit_node );
-        walk( n.get_statement( ) );    // This list of nodes returned here will never be used
-
+        walk( n.get_statement( ) );
         _utils->_continue_nodes.pop();
         _utils->_break_nodes.pop();
 
-        // Compute the true edge from the loop condition
+        exit_node->set_id( ++( _utils->_nid ) );
+        
+        // Compute the true/false edges from the loop condition
         Edge_type aux_etype = ALWAYS;
-        ObjectList<Edge*> exit_edges = _utils->_nested_loop_nodes.top( )->_cond->get_exit_edges( );
-        if( !exit_edges.empty( ) )
+        if( cond != NULL )
         {
-            // The first edge and, and, if the first is a task, all the following edges being tasks and the first not being a task are TRUE_EDGE
-            // If all exit exit edges are tasks, then the "Next node" of the loop is linked with a true edge as well
-            bool all_tasks = true;
-            ObjectList<Edge*>::iterator it = exit_edges.begin( );
-            while( all_tasks && it != exit_edges.end( ) )
+            ObjectList<Edge*> exit_edges = cond->get_exit_edges( );
+            if( !exit_edges.empty( ) )
             {
-                if( !( *it )->is_task_edge( ) )
+                // The first edge and, and, if the first is a task, all the following edges being tasks and the first not being a task are TRUE_EDGE
+                // If all exit exit edges are tasks, then the "Next node" of the loop is linked with a true edge as well
+                bool all_tasks = true;
+                ObjectList<Edge*>::iterator it = exit_edges.begin( );
+                while( all_tasks && it != exit_edges.end( ) )
                 {
-                    all_tasks = false;
+                    if( !( *it )->is_task_edge( ) )
+                    {
+                        all_tasks = false;
+                    }
+                    ( *it )->set_true_edge( );
+                    ++it;
                 }
-                ( *it )->set_true_edge( );
-                ++it;
+                if( all_tasks )
+                    aux_etype = TRUE_EDGE;
             }
-            if( all_tasks )
+            else
+            {   // It will be empty when the loop's body is empty.
                 aux_etype = TRUE_EDGE;
+            }
+        
+            _pcfg->connect_nodes( cond, exit_node, FALSE_EDGE );
+        }
+            
+        // Fill the empty fields of the Increment node
+        if( next != NULL )
+        {
+            next->set_outer_node( for_graph_node );
+            _pcfg->connect_nodes( _utils->_last_nodes, next, aux_etype );
+            if( cond != NULL )
+            {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
+                _pcfg->connect_nodes( next, cond );
+            }
+            else
+            {   // When there is no condition, the is no iteration
+                _pcfg->connect_nodes( next, exit_node );
+            }
+            
+            for_graph_node->set_stride_node( next );
         }
         else
-        {   // It will be empty when the loop's body is empty.
-            aux_etype = TRUE_EDGE;
+        {
+            if( cond != NULL )
+            {   // This may connect the loop body last node or the condition with itself, if body is empty
+                if( ( _utils->_last_nodes.size( ) == 1 ) && ( _utils->_last_nodes[0] == cond ) )
+                {
+                    _pcfg->connect_nodes( cond, cond, TRUE_EDGE );
+                }
+                else
+                {
+                    _pcfg->connect_nodes( _utils->_last_nodes, cond );
+                }
+            }
+        }
+        
+        if( exit_node->get_parents( ).empty( ) )
+        {   // If the exit has not been connected so far, then no Condition exists in the Loop Control
+            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
         }
 
-        exit_node->set_id( ++( _utils->_nid ) );
-        _pcfg->connect_nodes( _utils->_nested_loop_nodes.top( )->_cond, exit_node, FALSE_EDGE );
-
-        // Fill the empty fields of the Increment node
-        _utils->_nested_loop_nodes.top( )->_next->set_outer_node( for_graph_node );
-        _pcfg->connect_nodes( _utils->_last_nodes, _utils->_nested_loop_nodes.top( )->_next, aux_etype );
-        _pcfg->connect_nodes( _utils->_nested_loop_nodes.top( )->_next, _utils->_nested_loop_nodes.top( )->_cond,
-                              ALWAYS, "", /* is task edge */ false );
-
-        for_graph_node->set_stride_node( _utils->_nested_loop_nodes.top( )->_next );
         _utils->_nested_loop_nodes.pop( );
-
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_graph_node );
 
@@ -1350,8 +1396,7 @@ namespace Analysis {
         if( cond_node_l.empty( ) )
         {   // The condition is an empty statement.
             // In any case, we build here a node for easiness
-            current_loop_ctrl->_cond = new Node( _utils->_nid, NORMAL,
-                                              _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ) );
+            current_loop_ctrl->_cond = NULL;
         }
         else
         {
@@ -1363,8 +1408,7 @@ namespace Analysis {
         ObjectList<Node*> next_node_l = walk( next );
         if( next_node_l.empty( ) )
         {
-            current_loop_ctrl->_next = new Node( _utils->_nid, NORMAL,
-                                              _utils->_outer_nodes.top( ), Nodecl::NodeclBase::null( ) );
+            current_loop_ctrl->_next = NULL;
         }
         else
         {
@@ -2562,8 +2606,6 @@ namespace Analysis {
 
         // Link properly the exit node
         exit_node->set_id( ++( _utils->_nid ) );
-        exit_node->set_outer_node( _utils->_outer_nodes.top( ) );
-        _utils->_outer_nodes.pop( );
 
         // Finish computation of switch exit nodes
         if( cond_node_l[0]->get_exit_edges( ).empty( ) )
@@ -2575,6 +2617,7 @@ namespace Analysis {
             _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
         }
 
+        _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, switch_node );
         return ObjectList<Node*>( 1, switch_node );
     }

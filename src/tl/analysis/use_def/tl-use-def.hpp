@@ -191,9 +191,6 @@ namespace Analysis {
         Ret visit( const Nodecl::Dereference& n );
         Ret visit( const Nodecl::DivAssignment& n );
         Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::MaskedVectorAssignment& n );
-        Ret visit( const Nodecl::MaskedVectorScatter& n );
-        Ret visit( const Nodecl::MaskedVectorStore& n );
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::ModAssignment& n );
         Ret visit( const Nodecl::MulAssignment& n );
@@ -206,7 +203,6 @@ namespace Analysis {
         Ret visit( const Nodecl::Range& n );
         Ret visit( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::UnalignedMaskedVectorStore& n );
         Ret visit( const Nodecl::UnalignedVectorStore& n );
         Ret visit( const Nodecl::VectorAssignment& n );
         Ret visit( const Nodecl::VectorGather& n );
