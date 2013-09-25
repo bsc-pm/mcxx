@@ -2264,7 +2264,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
     switch (ASTType(a))
     {
         // Storage specs
-        case AST_AUTO_SPEC :
+        case AST_AUTO_STORAGE_SPEC :
             gather_info->is_auto = 1;
             break;
         case AST_REGISTER_SPEC :

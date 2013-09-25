@@ -110,13 +110,13 @@ class_head : class_key declspec_specifier_seq
 }
 ;
 
-elaborated_type_specifier : class_key attributes IDENTIFIER
+elaborated_type_specifier : class_key declspec_specifier_seq IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
 	$$ = ASTMake3(AST_MS_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ast_get_locus($1), NULL);
 }
-| ENUM attributes IDENTIFIER
+| ENUM declspec_specifier_seq IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 

@@ -973,7 +973,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxAlignof& node)
 {
-    if (IS_CXX1X_LANGUAGE)
+    if (IS_CXX11_LANGUAGE)
     {
         *(file) << "alignof(";
     }
@@ -3091,7 +3091,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         // T(single-expression)
         CXX03_EXPLICIT,
         // T{expr-list}
-        CXX1X_EXPLICIT,
+        CXX11_EXPLICIT,
     } kind = INVALID;
 
     if (IS_C_LANGUAGE)
@@ -3114,7 +3114,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             kind = GCC_POSTFIX;
         }
     }
-    else if (IS_CXX1X_LANGUAGE)
+    else if (IS_CXX11_LANGUAGE)
     {
         if (type.is_vector())
         {
@@ -3123,7 +3123,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         }
         else if (type.is_named())
         {
-            kind = CXX1X_EXPLICIT;
+            kind = CXX11_EXPLICIT;
         }
         else
         {
@@ -3209,7 +3209,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
                 break;
             }
             // T{expr-list}
-        case CXX1X_EXPLICIT:
+        case CXX11_EXPLICIT:
             {
                 if (type.is_signed_short_int())
                 {

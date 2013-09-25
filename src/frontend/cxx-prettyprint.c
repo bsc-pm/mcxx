@@ -464,7 +464,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_FUNCTION_CALL_OPERATOR, simple_parameter_handler, "()"),
     NODE_HANDLER(AST_SUBSCRIPT_OPERATOR, simple_parameter_handler, "[]"),
     NODE_HANDLER(AST_ASM_DEFINITION, asm_definition_handler, NULL),
-    NODE_HANDLER(AST_AUTO_SPEC, simple_parameter_handler, "auto"),
+    NODE_HANDLER(AST_AUTO_STORAGE_SPEC, simple_parameter_handler, "auto"),
     NODE_HANDLER(AST_REGISTER_SPEC, simple_parameter_handler, "register"),
     NODE_HANDLER(AST_EXTERN_SPEC, simple_parameter_handler, "extern"),
     NODE_HANDLER(AST_MUTABLE_SPEC, simple_parameter_handler, "mutable"),
@@ -2036,7 +2036,7 @@ static void decltype_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSE
 {
     // If the language is c++0x It will be used '__decltype' function
     // Otherwise It will be used 'decltype' gnu function
-    if (!IS_CXX1X_LANGUAGE)
+    if (!IS_CXX11_LANGUAGE)
     {
         token_fprintf(f, a, pt_ctx, "__");
     }
