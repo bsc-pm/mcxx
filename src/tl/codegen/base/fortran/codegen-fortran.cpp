@@ -430,7 +430,6 @@ namespace Codegen
                     it++)
             {
                 push_declaration_status();
-                clear_renames();
 
                 walk(*it);
                 pop_declaration_status();
