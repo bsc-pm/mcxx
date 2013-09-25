@@ -40,13 +40,15 @@ namespace TL {
 namespace Analysis {
 
     Node::Node( )
-            : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), 
+        _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
     }
 
     Node::Node( unsigned int& id, Node_type ntype, Node* outer_node )
-            : _id( ++id ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), 
+          _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, ntype );
         set_data( _OUTER_NODE, outer_node );
@@ -60,7 +62,8 @@ namespace Analysis {
     }
 
     Node::Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls )
-            : _id( ++id ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), 
+          _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, type );
         set_data( _OUTER_NODE, outer_node );
@@ -69,7 +72,8 @@ namespace Analysis {
     }
 
     Node::Node( unsigned int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl )
-            : _id( ++id ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), 
+          _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, type );
         set_data( _OUTER_NODE, outer_node );
@@ -138,6 +142,16 @@ namespace Analysis {
         return _visited_aux;
     }
 
+    bool Node::is_visited_extgraph( ) const
+    {
+        return _visited_extgraph;
+    }
+
+    bool Node::is_visited_extgraph_aux( ) const
+    {
+        return _visited_extgraph_aux;
+    }
+    
     void Node::set_visited( bool visited )
     {
         _visited = visited;
@@ -148,6 +162,16 @@ namespace Analysis {
         _visited_aux = visited;
     }
 
+    void Node::set_visited_extgraph( bool visited )
+    {
+        _visited_extgraph = visited;
+    }
+    
+    void Node::set_visited_extgraph_aux( bool visited )
+    {
+        _visited_extgraph_aux = visited;
+    }
+    
     bool Node::is_empty_node( )
     {
         return ( _id==-1 && is_unclassified_node( ) );

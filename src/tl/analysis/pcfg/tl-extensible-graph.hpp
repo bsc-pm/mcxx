@@ -348,6 +348,8 @@ namespace Analysis {
         //! It works properly if there isn't any unreachable node in the graph bellow @actual.
         static void clear_visits( Node* node );
         static void clear_visits_aux( Node* node );
+        static void clear_visits_extgraph( Node* node );
+        static void clear_visits_extgraph_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
         static void clear_visits_aux_backwards( Node* current );

@@ -57,7 +57,10 @@ namespace Analysis {
             ObjectList<Edge*> _exit_edges;
             bool _visited;
             bool _visited_aux;
-
+            bool _visited_extgraph;     // Used in ExtensibleGraph class traversal
+                                        // to avoid interfering with other traversals
+            bool _visited_extgraph_aux;
+                                        
             bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                         // It is true when the auto-dependencies for the node has been computed
 
@@ -137,11 +140,15 @@ namespace Analysis {
             */
             bool is_visited( ) const;
             bool is_visited_aux( ) const;
-
+            bool is_visited_extgraph( ) const;
+            bool is_visited_extgraph_aux( ) const;
+            
             //! Sets the node as visited.
             void set_visited( bool visited );
             void set_visited_aux( bool visited );
-
+            void set_visited_extgraph( bool visited );
+            void set_visited_extgraph_aux( bool visited );
+            
             //! Returns a boolean indicating whether the node is empty or not
             /*!
             * A empty node is created in the cases when we need a node to be returned but
@@ -308,7 +315,7 @@ namespace Analysis {
 
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
-
+            
             //! Returns true when the node is any type of vector node
             bool is_vector_node( );
             
