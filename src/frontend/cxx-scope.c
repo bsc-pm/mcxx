@@ -4235,12 +4235,15 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         class_context.current_scope = class_context.class_scope;
 
         enter_test_expression();
-        type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context);
+        type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context,
+                /* out_simple_type */ NULL, /* out_gather_info */ NULL);
         leave_test_expression();
     }
 
     enter_test_expression();
-    type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context);
+    type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL
+            );
     leave_test_expression();
 
     type_t* t = type_looked_up_in_class;

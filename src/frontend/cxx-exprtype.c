@@ -205,8 +205,15 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     return NULL;
 }
 
-type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
+type_t* compute_type_for_type_id_tree(AST type_id,
+        decl_context_t decl_context,
+        // Out
+        type_t** out_simple_type,
+        gather_decl_spec_t *out_gather_info)
 {
+    if (out_simple_type != NULL)
+        *out_simple_type = NULL;
+
     AST type_specifier = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
     
@@ -222,6 +229,9 @@ type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
 
     if (!is_error_type(declarator_type))
     {
+        if (out_simple_type != NULL)
+            *out_simple_type = simple_type_info;
+
         compute_declarator_type(abstract_declarator,
                 &gather_info, simple_type_info,
                 &declarator_type, decl_context,
@@ -229,8 +239,12 @@ type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
                 &dummy_nodecl_output);
     }
 
+    if (out_gather_info != NULL)
+        *out_gather_info = gather_info;
+
     return declarator_type;
 }
+
 
 scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* result_from_lookup,
@@ -9805,7 +9819,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
     int i;
     for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
     {
-        push_vla_dimension_symbol(gather_info.vla_dimension_symbols[i]);
+        push_extra_declaration_symbol(gather_info.vla_dimension_symbols[i]);
     }
 
     check_nodecl_cast_expr(nodecl_casted_expr, decl_context, declarator_type, cast_kind,
@@ -10187,7 +10201,8 @@ static void check_nodecl_member_access(
             type_t* t = get_error_type();
 
             enter_test_expression();
-            t = compute_type_for_type_id_tree(type_id, decl_context);
+            t = compute_type_for_type_id_tree(type_id, decl_context,
+                    /* out_simple_type */ NULL, /* out_gather_info */ NULL);
             leave_test_expression();
 
             // If not found, error
@@ -11351,7 +11366,8 @@ static void check_nodecl_typeid_type(type_t* t,
 
 static void check_typeid_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    type_t* type = compute_type_for_type_id_tree(ASTSon0(expr), decl_context);
+    type_t* type = compute_type_for_type_id_tree(ASTSon0(expr), decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
 
     if (is_error_type(type))
     {
@@ -14121,7 +14137,8 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
     const locus_t* locus = ast_get_locus(expr);
 
     AST type_id = ASTSon0(expr);
-    type_t* declarator_type = compute_type_for_type_id_tree(type_id, decl_context);
+    type_t* declarator_type = compute_type_for_type_id_tree(type_id, decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
     if (is_error_type(declarator_type))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
@@ -14198,7 +14215,8 @@ static void check_gcc_builtin_offsetof(AST expression,
     AST type_id = ASTSon0(expression);
     AST member_designator = ASTSon1(expression);
     
-    type_t* accessed_type = compute_type_for_type_id_tree(type_id, decl_context);
+    type_t* accessed_type = compute_type_for_type_id_tree(type_id, decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
 
     if (is_error_type(accessed_type))
     {
@@ -14297,8 +14315,10 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
 
     const locus_t* locus = ast_get_locus(expression);
 
-    type_t* first_type = compute_type_for_type_id_tree(first_type_tree, decl_context);
-    type_t* second_type = compute_type_for_type_id_tree(second_type_tree, decl_context);
+    type_t* first_type = compute_type_for_type_id_tree(first_type_tree, decl_context,
+           /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+    type_t* second_type = compute_type_for_type_id_tree(second_type_tree, decl_context,
+           /* out_simple_type */ NULL, /* out_gather_info */ NULL);
 
     if (is_error_type(first_type)
             || is_error_type(second_type))
@@ -14498,7 +14518,8 @@ static void check_gcc_alignof_typeid(AST expression,
 {
     AST type_id = ASTSon0(expression);
 
-    type_t* t = compute_type_for_type_id_tree(type_id, decl_context);
+    type_t* t = compute_type_for_type_id_tree(type_id, decl_context,
+           /* out_simple_type */ NULL, /* out_gather_info */ NULL);
 
     if (is_error_type(t))
     {
@@ -14517,7 +14538,11 @@ static void check_gcc_postfix_expression(AST expression,
 
     AST type_id = ASTSon0(expression);
 
-    type_t* t = compute_type_for_type_id_tree(type_id, decl_context);
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    type_t* t = compute_type_for_type_id_tree(type_id, decl_context,
+           NULL, &gather_info);
 
     if (is_error_type(t))
     {
@@ -14534,6 +14559,14 @@ static void check_gcc_postfix_expression(AST expression,
     {
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
+    }
+
+    CXX_LANGUAGE()
+    {
+        if (gather_info.defined_type != NULL)
+        {
+            push_extra_declaration_symbol(gather_info.defined_type);
+        }
     }
 
     if (is_dependent_type(t))
@@ -14649,7 +14682,8 @@ static void check_gcc_builtin_va_arg(AST expression,
 
     AST type_id = ASTSon1(expression);
 
-    type_t* t = compute_type_for_type_id_tree(type_id, decl_context);
+    type_t* t = compute_type_for_type_id_tree(type_id, decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
 
     if (is_error_type(t))
     {

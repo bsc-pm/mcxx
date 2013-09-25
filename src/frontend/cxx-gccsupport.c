@@ -1284,7 +1284,8 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
     AST first_type_id = ASTSon0(expression);
     type_t* first_type = NULL;
 
-    first_type = compute_type_for_type_id_tree(first_type_id, decl_context);
+    first_type = compute_type_for_type_id_tree(first_type_id, decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
     if (is_error_type(first_type))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
@@ -1296,7 +1297,8 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
 
     if (second_type_id != NULL)
     {
-        second_type = compute_type_for_type_id_tree(second_type_id, decl_context);
+        second_type = compute_type_for_type_id_tree(second_type_id, decl_context,
+                /* out_simple_type */ NULL, /* out_gather_info */ NULL);
 
         if (is_error_type(second_type))
         {

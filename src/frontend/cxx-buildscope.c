@@ -312,22 +312,23 @@ typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_s
 static linkage_stack_t _linkage_stack[MCXX_MAX_LINKAGE_NESTING] = { { NULL, 1 } };
 static int _top_linkage_stack = 0;
 
-static scope_entry_t* _vla_stack[MCXX_MAX_VLA_SYMBOLS] = { };
-static int _vla_stack_idx = 0;
+static scope_entry_t* _extra_declaration[MCXX_MAX_EXTRA_DECLARATIONS] = { };
+static int _extra_declaration_idx = 0;
 
-void push_vla_dimension_symbol(scope_entry_t* entry)
+void push_extra_declaration_symbol(scope_entry_t* entry)
 {
-    ERROR_CONDITION(_vla_stack_idx == MCXX_MAX_VLA_SYMBOLS, "Too many VLA symbols per expression", 0);
-    _vla_stack[_vla_stack_idx] = entry;
-    _vla_stack_idx++;
+    ERROR_CONDITION(_extra_declaration_idx == MCXX_MAX_EXTRA_DECLARATIONS,
+            "Too many extra declarations in expression", 0);
+    _extra_declaration[_extra_declaration_idx] = entry;
+    _extra_declaration_idx++;
 }
 
-scope_entry_t* pop_vla_dimension_symbol(void)
+scope_entry_t* pop_extra_declaration_symbol(void)
 {
-    if (_vla_stack_idx > 0)
+    if (_extra_declaration_idx > 0)
     {
-        _vla_stack_idx--;
-        return _vla_stack[_vla_stack_idx];
+        _extra_declaration_idx--;
+        return _extra_declaration[_extra_declaration_idx];
     }
     return NULL;
 }
@@ -2103,6 +2104,7 @@ void build_scope_decl_specifier_seq(AST a,
         }
 
         // Copy bits of local_gather_info that are needed in gather_info
+        gather_info->defined_type = local_gather_info.defined_type;
         gather_info->is_short = local_gather_info.is_short;
         gather_info->is_long = local_gather_info.is_long;
         gather_info->is_unsigned = local_gather_info.is_unsigned;
@@ -7493,7 +7495,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 }
 
 static int vla_counter = -1;
-int get_vla_counter()
+int get_vla_counter(void)
 {
     vla_counter++;
     return vla_counter;
@@ -13703,7 +13705,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             return;
         }
         // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the initialization expression", 0);
+        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
+                "Unsupported extra declarations at the initialization expression", 0);
 
         entry->value = nodecl_expr;
 
@@ -13771,7 +13774,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         check_expression(ASTSon2(a), decl_context, nodecl_output);
 
         // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the expression", 0);
+        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
+                "Unsupported extra declarations at the initialization expression", 0);
     }
 }
 
@@ -13850,6 +13854,46 @@ static void build_scope_declaration_statement(AST a,
             /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 }
 
+static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
+{
+    nodecl_t result = nodecl_null();
+
+    scope_entry_t* extra_decl_symbol = pop_extra_declaration_symbol();
+    while (extra_decl_symbol != NULL)
+    {
+        if (extra_decl_symbol->entity_specs.is_saved_expression)
+        {
+            result = nodecl_append_to_list(
+                    result,
+                    nodecl_make_object_init(
+                        extra_decl_symbol,
+                        loc));
+        }
+        else if (IS_CXX_LANGUAGE
+                && (is_class_type(extra_decl_symbol->type_information)
+                    || is_enum_type(extra_decl_symbol->type_information)))
+        {
+            // This happens in this case (C can handle this automatically but not C++)
+            //
+            // (union { int x; int y; }){1,2}
+            //
+            result = nodecl_append_to_list(
+                    result,
+                    nodecl_make_cxx_def(
+                        /* optional scope */ nodecl_null(),
+                        extra_decl_symbol,
+                        loc));
+        }
+        else
+        {
+            internal_error("Unhandled extra declared symbol '%s'", extra_decl_symbol->symbol_name);
+        }
+
+        extra_decl_symbol = pop_extra_declaration_symbol();
+    }
+
+    return result;
+}
 
 static void build_scope_expression_statement(AST a, 
         decl_context_t decl_context, 
@@ -13890,20 +13934,7 @@ static void build_scope_expression_statement(AST a,
         }
     }
 
-    *nodecl_output = nodecl_null();
-
-    scope_entry_t* vla_dimension_symbol = pop_vla_dimension_symbol();
-    while (vla_dimension_symbol != NULL)
-    {
-        *nodecl_output = nodecl_append_to_list(
-                *nodecl_output,
-                nodecl_make_object_init(
-                    vla_dimension_symbol,
-                    ast_get_locus(expr)));
-
-        vla_dimension_symbol = pop_vla_dimension_symbol();
-    }
-
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(expr));
 
     *nodecl_output = nodecl_append_to_list(
             *nodecl_output,
@@ -14263,8 +14294,11 @@ static void build_scope_return_statement(AST a,
         }
     }
 
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     *nodecl_output = 
-        nodecl_make_list_1(
+        nodecl_append_to_list(
+                *nodecl_output,
                 nodecl_make_return_statement(nodecl_return, ast_get_locus(a)));
 }
 
