@@ -634,6 +634,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             *(file) << rhs_symbol.get_name();
         }
 
+        if (node.get_type().is_unresolved_overload())
+        {
+            TL::TemplateParameters template_arguments =
+                node.get_type().unresolved_overloaded_type_get_explicit_template_arguments();
+
+            if (template_arguments.is_valid())
+            {
+                *(file) << ::template_arguments_to_str(
+                        template_arguments.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ 0,
+                        /* print_first_level_bracket */ 1,
+                        this->get_current_scope().get_decl_context());
+            }
+        }
+
         if (needs_parentheses)
         {
             *(file) << ")";
