@@ -3118,7 +3118,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
                 }
 
                 char inside_structured_value = state.inside_structured_value;
-                state.inside_structured_value = 1;
+                state.inside_structured_value = true;
 
                 *(file) << "{ ";
                 walk_expression_list(items);
