@@ -1600,9 +1600,9 @@ elaborated_type_specifier : class_key id_type_expr
 {
 	$$ = ASTMake2(AST_ELABORATED_TYPE_CLASS_SPEC, $1, $2, ast_get_locus($1), NULL);
 }
-| ENUM id_type_expr
+| enum_key attribute_specifier_opt id_type_expr enum_base_opt
 {
-	$$ = ASTMake1(AST_ELABORATED_TYPE_ENUM_SPEC, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM_SPEC, $3, $2, $4, $1, ast_get_locus($1), NULL);
 }
 | TYPENAME qualified_id_type_expr
 {
@@ -2302,11 +2302,11 @@ enum_base_opt : /* empty */
 
 enum_base_type_specifier_seq : type_specifier_seq_0_may_end_with_attribute
 {
-    $$ = $1;
+    $$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
 }
 | type_specifier_ended_with_identifier
 {
-    $$ = $1;
+    $$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
 

@@ -124,6 +124,7 @@ struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
     scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
+    char underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
 } enum_info_t;
 
 struct simple_type_tag;
@@ -4239,6 +4240,26 @@ void enum_type_set_underlying_type(type_t* t, type_t* underlying_type)
     enum_type->enum_info->underlying_type = underlying_type;
 }
 
+char enum_type_get_underlying_type_is_fixed(type_t* t)
+{
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
+
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    return enum_type->enum_info->underlying_type_is_fixed;
+}
+
+void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fixed)
+{
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
+
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    enum_type->enum_info->underlying_type_is_fixed = is_fixed;
+}
+
 type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
 {
     if (t1 == NULL)
@@ -7046,7 +7067,7 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                     result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
                     result = strappend(result, ")");
                 }
-                else if (IS_CXX1X_LANGUAGE)
+                else if (IS_CXX11_LANGUAGE)
                 {
                     result = strappend(result, "decltype(");
                     result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
@@ -10717,7 +10738,7 @@ char is_aggregate_type(type_t* t)
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
-            CXX1X_LANGUAGE()
+            CXX11_LANGUAGE()
             {
                 // No initializer for nonstatic data member
                 if (!nodecl_is_null(entry->value))
@@ -10833,7 +10854,7 @@ char class_type_is_pod(type_t* t)
             return 0;
     }
 
-    CXX1X_LANGUAGE()
+    CXX11_LANGUAGE()
     {
         if (!class_type_is_trivial(t)
                 || !class_type_is_standard_layout(t))

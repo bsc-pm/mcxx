@@ -246,6 +246,7 @@ LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
+LIBMCXX_EXTERN void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fixed);
 
 LIBMCXX_EXTERN void set_is_incomplete_type(type_t* t, char is_incomplete);
 LIBMCXX_EXTERN void set_is_complete_type(type_t* t, char is_complete);
@@ -477,6 +478,7 @@ LIBMCXX_EXTERN nodecl_t array_type_get_region_stride(type_t* t);
 LIBMCXX_EXTERN int enum_type_get_num_enumerators(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n);
 LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
+LIBMCXX_EXTERN char enum_type_get_underlying_type_is_fixed(type_t* t);
 
 LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);

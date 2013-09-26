@@ -2432,15 +2432,19 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             gather_type_spec_from_dependent_typename(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_ENUM_SPECIFIER :
-        case AST_GCC_ENUM_SPECIFIER :
             gather_type_spec_from_enum_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
+            break;
+        case AST_GCC_ENUM_SPECIFIER :
+            internal_error("GCC enums not supported yet", 0);
             break;
         case AST_CLASS_SPECIFIER :
             gather_type_spec_from_class_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_ELABORATED_TYPE_ENUM_SPEC :
-        case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
             gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
+            break;
+        case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
+            internal_error("Elaborated GCC enums not supported yet", 0);
             break;
         case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
@@ -3638,13 +3642,23 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     }
 }
 
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
-        type_t** type_info, 
-        gather_decl_spec_t* gather_info, 
+static void gather_type_spec_from_elaborated_enum_specifier(AST a,
+        type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
+    AST enum_key = ASTSon3(a);
+    AST enum_attribute_specifier_opt = ASTSon1(a);
     AST id_expression = ASTSon0(a);
+    AST enum_base = ASTSon2(a);
+
+    if( !checking_ambiguity()
+            && IS_CXX03_LANGUAGE
+            && ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+    {
+        error_printf("%s: error: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
+    }
 
     scope_entry_list_t* result_list = NULL;
 
@@ -3709,6 +3723,29 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     }
     entry_list_iterator_free(it);
     entry_list_free(result_list);
+
+    type_t* underlying_type = NULL;
+    if (enum_base != NULL)
+    {
+        if (IS_CXX03_LANGUAGE)
+        {
+            if (!checking_ambiguity())
+                error_printf("%s: error: enum-base is only valid in C++11\n",
+                        ast_location(a));
+        }
+
+        underlying_type = compute_type_for_type_id_tree(enum_base, decl_context, NULL, NULL);
+
+        if (is_error_type(underlying_type))
+        {
+            *type_info = underlying_type;
+            return;
+        }
+    }
+    else if (ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+    {
+        underlying_type = get_signed_int_type();
+    }
 
     if (entry == NULL)
     {
@@ -3782,6 +3819,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                 set_is_dependent_type(new_enum->type_information,
                         is_dependent_type(class_type));
             }
+
+            entry = new_enum;
         }
         else
         {
@@ -3801,6 +3840,24 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         }
 
         *type_info = get_user_defined_type(entry);
+
+        if (enum_type_get_underlying_type_is_fixed(entry->type_information)
+                && underlying_type != NULL
+                && !equivalent_types(enum_type_get_underlying_type(entry->type_information),
+                    underlying_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: enumerator previously declared with different underlying-type\n",
+                        ast_location(a));
+            }
+        }
+    }
+
+    if (underlying_type != NULL)
+    {
+        enum_type_set_underlying_type(entry->type_information, underlying_type);
+        enum_type_set_underlying_type_is_fixed(entry->type_information, 1);
     }
 
     CXX_LANGUAGE()
@@ -4165,9 +4222,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    type_t* enum_type = NULL;
+    AST enum_head = ASTSon0(a);
+    AST enumeration_list = ASTSon1(a);
 
-    AST enum_name = ASTSon0(a);
+    AST enum_key = ASTSon0(enum_head);
+    AST enum_attribute_specifier = ASTSon1(enum_head);
+    AST enum_name = ASTSon2(enum_head);
+    AST enum_base = ASTSon3(enum_head);
 
     scope_entry_t* new_enum = NULL;
 
@@ -4184,7 +4245,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         scope_entry_list_t* enum_entry_list = query_in_scope_str(decl_context, enum_name_str);
 
-        if (enum_entry_list != NULL 
+        if (enum_entry_list != NULL
                 && entry_list_size(enum_entry_list) == 1
                 && entry_list_head(enum_entry_list)->kind == SK_ENUM)
         {
@@ -4257,28 +4318,71 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         }
     }
 
-    enum_type = new_enum->type_information;
+    type_t* enum_type = new_enum->type_information;
 
     char short_enums = CURRENT_CONFIGURATION->code_shape.short_enums;
     type_t* underlying_type = get_signed_int_type();
+    char underlying_type_is_fixed = 0;
+
+    if( !checking_ambiguity()
+            && IS_CXX03_LANGUAGE
+            && ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+    {
+        error_printf("%s: error: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
+    }
+
+    if (enum_base != NULL)
+    {
+        if (IS_CXX03_LANGUAGE)
+        {
+            if (!checking_ambiguity())
+                error_printf("%s: error: enum-base is only valid in C++11\n",
+                        ast_location(a));
+        }
+
+        underlying_type_is_fixed = 1;
+        underlying_type = compute_type_for_type_id_tree(enum_base, decl_context, NULL, NULL);
+
+        if (is_error_type(underlying_type))
+        {
+            *type_info = get_error_type();
+            return;
+        }
+    }
+    else if (ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+    {
+        underlying_type = get_signed_int_type();
+        underlying_type_is_fixed = 1;
+    }
+
+    if (underlying_type_is_fixed)
+    {
+        if (enum_type_get_underlying_type_is_fixed(new_enum->type_information)
+                && !equivalent_types(
+                    enum_type_get_underlying_type(new_enum->type_information),
+                    underlying_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: enumerator previously declared with different underlying type\n",
+                        ast_location(a));
+            }
+            *type_info = get_error_type();
+            return;
+        }
+    }
 
     new_enum->defined = 1;
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
     *type_info = get_user_defined_type(new_enum);
 
-
-    AST list, iter;
-    list = ASTSon1(a);
-
-    if (list != NULL)
+    if (enumeration_list != NULL)
     {
         decl_context_t enumerators_context = decl_context;
 
         C_LANGUAGE()
         {
-            // In C, enumerators are ALWAYS in global scope since CLASS_SCOPE
-            // can't be nested actually
             if (enumerators_context.current_scope->kind == CLASS_SCOPE)
             {
                 // Switch to the enclosing NAMESPACE scope
@@ -4286,41 +4390,73 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             }
         }
 
+        CXX11_LANGUAGE()
+        {
+            // In C++2011 we always create a class context
+            // We will later add the enumerator in the enclosing scope if the
+            // enumerator is unscoped
+            enumerators_context = new_class_context(decl_context, new_enum);
+        }
+
         int num_enumerator = 0;
 
-        // Delta respect the previous to latest
+        // Delta value between uninitialized enumerators
         int delta = 0;
-        // Latest known base enumerator
+        // Latest initialized enumerator
         nodecl_t base_enumerator = nodecl_null();
 
         const_value_t* min_value = NULL;
         const_value_t* max_value = NULL;
 
         // For every enumeration, sign them up in the symbol table
-        for_each_element(list, iter)
+        AST iter = NULL;
+        for_each_element(enumeration_list, iter)
         {
             AST enumeration = ASTSon1(iter);
             AST enumeration_name = ASTSon0(enumeration);
             AST enumeration_expr = ASTSon1(enumeration);
 
-            // Note that enums do not define an additional scope
-            scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
+            scope_entry_t* enumeration_item = new_symbol(enumerators_context,
+                    enumerators_context.current_scope, ASTText(enumeration_name));
             enumeration_item->locus = ast_get_locus(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
             enumeration_item->type_information = get_signed_int_type();
 
-            if (decl_context.current_scope->kind == CLASS_SCOPE)
+            CXX03_LANGUAGE()
             {
-                scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
-                type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-                class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
-
-                CXX_LANGUAGE()
+                if (decl_context.current_scope->kind == CLASS_SCOPE)
                 {
+                    scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                    type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+                    class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+
                     enumeration_item->entity_specs.is_member = 1;
                     enumeration_item->entity_specs.access = gather_info->current_access;
                     enumeration_item->entity_specs.is_defined_inside_class_specifier = 1;
                     enumeration_item->entity_specs.class_type  = get_user_defined_type(enclosing_class_symbol);
+                }
+            }
+
+            CXX11_LANGUAGE()
+            {
+                if (ASTType(enum_key) == AST_UNSCOPED_ENUM_KEY)
+                {
+                    // Insert entry in the enclosing scope
+                    // (note that in C and C++2003 we are already registering
+                    // them in the enclosing scope)
+                    insert_entry(decl_context.current_scope, enumeration_item);
+
+                    if (decl_context.current_scope->kind == CLASS_SCOPE)
+                    {
+                        scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
+                        type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+                        class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+
+                        enumeration_item->entity_specs.is_member = 1;
+                        enumeration_item->entity_specs.access = gather_info->current_access;
+                        enumeration_item->entity_specs.is_defined_inside_class_specifier = 1;
+                        enumeration_item->entity_specs.class_type  = get_user_defined_type(enclosing_class_symbol);
+                    }
                 }
             }
 
@@ -4331,14 +4467,12 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 {
                     if (!checking_ambiguity())
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: invalid enumerator initializer '%s'\n",
-                                    ast_location(enumeration_expr),
-                                    prettyprint_in_buffer(enumeration_expr));
-                        }
+                        error_printf("%s: error: invalid enumerator initializer '%s'\n",
+                                ast_location(enumeration_expr),
+                                prettyprint_in_buffer(enumeration_expr));
                     }
-                    underlying_type = get_error_type();
+                    if (!underlying_type_is_fixed)
+                        underlying_type = get_error_type();
                 }
                 else
                 {
@@ -4351,7 +4485,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         if (nodecl_expr_is_type_dependent(nodecl_expr))
                         {
-                            underlying_type = get_unknown_dependent_type();
+                            if (!underlying_type_is_fixed)
+                                underlying_type = get_unknown_dependent_type();
                         }
                         enumeration_item->type_information = nodecl_get_type(nodecl_expr);
                     }
@@ -4363,7 +4498,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                                     ast_location(enumeration_expr),
                                     prettyprint_in_buffer(enumeration_expr));
                         }
-                        underlying_type = get_error_type();
+                        if (!underlying_type_is_fixed)
+                            underlying_type = get_error_type();
                     }
                 }
 
@@ -4376,7 +4512,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (num_enumerator == 0)
                 {
-                    // FIXME - We should be using the size in bytes of signed int
                     const_value_t* zero_val = const_value_get_signed_int(0);
                     nodecl_t zero = const_value_to_nodecl(zero_val);
 
@@ -4389,7 +4524,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     if (nodecl_is_constant(base_enumerator))
                     {
                         const_value_t* base_const = 
-                                    nodecl_get_constant(base_enumerator);
+                            nodecl_get_constant(base_enumerator);
                         const_value_t* val_plus_one =
                             const_value_cast_to_bytes(
                                     const_value_add(
@@ -4446,40 +4581,36 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enum_type_add_enumerator(enum_type, enumeration_item);
             num_enumerator++;
 
-#define B_(x) const_value_is_nonzero(x)
-            if (nodecl_is_constant(enumeration_item->value)
-                    && !is_dependent_type(underlying_type))
+            if (!underlying_type_is_fixed)
             {
-                const_value_t* current_value = nodecl_get_constant(enumeration_item->value);
+#define B_(x) const_value_is_nonzero(x)
+                if (nodecl_is_constant(enumeration_item->value)
+                        && !is_dependent_type(underlying_type))
+                {
+                    const_value_t* current_value = nodecl_get_constant(enumeration_item->value);
 
-                if (min_value == NULL
-                        || B_(const_value_lt(current_value, min_value)))
-                {
-                    min_value = current_value;
+                    if (min_value == NULL
+                            || B_(const_value_lt(current_value, min_value)))
+                    {
+                        min_value = current_value;
+                    }
+                    if (max_value == NULL
+                            || B_(const_value_lt(max_value, current_value)))
+                    {
+                        max_value = current_value;
+                    }
                 }
-                if (max_value == NULL
-                        || B_(const_value_lt(max_value, current_value)))
-                {
-                    max_value = current_value;
-                }
-            }
 #undef B_
+
+                if (min_value == NULL)
+                    min_value = const_value_get_unsigned_int(0);
+                if (max_value == NULL)
+                    max_value = const_value_get_unsigned_int(0);
+
+                underlying_type = compute_underlying_type_enum(min_value, max_value, underlying_type, short_enums);
+            }
         }
 
-        if (min_value == NULL)
-            min_value = const_value_get_unsigned_int(0);
-        if (max_value == NULL)
-            max_value = const_value_get_unsigned_int(0);
-
-        underlying_type = compute_underlying_type_enum(min_value, max_value, underlying_type, short_enums);
-        enum_type_set_underlying_type(enum_type, underlying_type);
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Underlying type for '%s' computed to '%s'\n", 
-                    print_declarator(enum_type),
-                    print_declarator(underlying_type));
-        }
 
         // Now set the type of all the enumerators to be of the enumerator
         // type
@@ -4490,6 +4621,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enumerator->type_information = *type_info;
         }
     }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Underlying type for '%s' computed to '%s'\n", 
+                print_declarator(enum_type),
+                print_declarator(underlying_type));
+    }
+
+    enum_type_set_underlying_type(enum_type, underlying_type);
+    enum_type_set_underlying_type_is_fixed(new_enum->type_information, underlying_type_is_fixed);
 
     set_is_complete_type(enum_type, /* is_complete */ 1);
 
@@ -12444,7 +12585,7 @@ static void update_member_function_info(AST declarator_name,
                     entry->entity_specs.is_copy_constructor =
                         function_is_copy_constructor(entry, class_type);
 
-                    CXX1X_LANGUAGE()
+                    CXX11_LANGUAGE()
                     {
                         if (is_move_constructor(entry, class_type))
                         {
@@ -12474,7 +12615,7 @@ static void update_member_function_info(AST declarator_name,
                 entry->entity_specs.is_copy_assignment_operator =
                     function_is_copy_assignment_operator(entry, class_type);
 
-                CXX1X_LANGUAGE()
+                CXX11_LANGUAGE()
                 {
                     if (is_move_assignment_operator(entry, class_type))
                     {

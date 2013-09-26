@@ -997,11 +997,11 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake2(AST_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, ast_get_locus($1), NULL);
 }
-| ENUM IDENTIFIER
+| enum_key IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
-	$$ = ASTMake1(AST_ELABORATED_TYPE_ENUM_SPEC, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM_SPEC, identifier, NULL, NULL, $1, ast_get_locus($1), NULL);
 }
 // GNU Extensions
 | class_key gcc_attributes IDENTIFIER

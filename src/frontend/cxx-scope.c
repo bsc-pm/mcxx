@@ -310,7 +310,6 @@ decl_context_t new_block_context(decl_context_t enclosing_context)
     return result;
 }
 
-
 decl_context_t new_function_context(decl_context_t enclosing_context)
 {
     // Inherit the scope
@@ -331,7 +330,7 @@ decl_context_t new_class_context(decl_context_t enclosing_context,
             "Enclosing scope is neither namespace, class or local", 0
             );
 
-    ERROR_CONDITION(class_entry->kind != SK_CLASS, "This is not a class", 0);
+    ERROR_CONDITION(class_entry->kind != SK_CLASS && class_entry->kind != SK_ENUM, "This is not a class or enum", 0);
 
     // Inherit the scope
     decl_context_t result = enclosing_context;
