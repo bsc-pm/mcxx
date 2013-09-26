@@ -1867,6 +1867,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ false);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxValuePack& node)
+{
+    walk(node.get_pack());
+    (*file) << " ...";
+}
+
 // Bug in GCC 4.4
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::FunctionCall>(const Nodecl::FunctionCall& node, bool is_virtual_call);
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node, bool is_virtual_call);
@@ -4159,6 +4165,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 }
 
                 *(file) << this->get_qualified_name(base, symbol.get_scope());
+
+                if (it->is_expansion)
+                    (*file) << " ...";
             }
         }
 
@@ -5424,8 +5433,20 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         }
         CXX_LANGUAGE()
         {
+
             indent();
-            *(file) << "enum " << symbol.get_name() << "\n";
+            *(file) << "enum " << symbol.get_name();
+            if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
+            {
+                *(file)
+                    << " : " 
+                    << print_type_str(symbol.get_type().get_enum_underlying_type().get_internal_type(),
+                            symbol.get_scope().get_decl_context(),
+                            /* we need to store the current codegen */ (void*) this)
+                    << " "
+                    ;
+            }
+            *(file) << "\n";
             indent();
             *(file) << "{\n";
         }
@@ -7071,11 +7092,26 @@ void CxxBase::codegen_template_header(
                     *(file) << "typename " << symbol.get_name();
                     break;
                 }
+            case TPK_TYPE_PACK:
+                {
+                    *(file) << "typename ..." << symbol.get_name();
+                    break;
+                }
             case TPK_NONTYPE:
                 {
                     std::string declaration = this->get_declaration(symbol.get_type(),
                             symbol.get_scope(),
                             symbol.get_name());
+
+                    *(file) << declaration;
+                    break;
+                }
+            case TPK_NONTYPE_PACK:
+                {
+                    std::string declaration = this->get_declaration(symbol.get_type(),
+                            symbol.get_scope(),
+                            // this is a bit puny but will do
+                            "... " + symbol.get_name());
 
                     *(file) << declaration;
                     break;
@@ -7088,6 +7124,16 @@ void CxxBase::codegen_template_header(
                             show_default_values,
                             /* endline */ false);
                     *(file) << " class " << symbol.get_name();
+                    break;
+                }
+            case TPK_TEMPLATE_PACK:
+                {
+                    TL::Type template_type = symbol.get_type();
+                    codegen_template_header(
+                            symbol.get_type().template_type_get_template_parameters(),
+                            show_default_values,
+                            /* endline */ false);
+                    *(file) << " class ..." << symbol.get_name();
                     break;
                 }
             default:

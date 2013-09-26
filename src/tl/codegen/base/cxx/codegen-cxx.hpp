@@ -191,6 +191,8 @@ namespace Codegen
             Ret visit(const Nodecl::CxxUsingDecl& node);
             Ret visit(const Nodecl::CxxDepFunctionCall &);
 
+            Ret visit(const Nodecl::CxxValuePack &);
+
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 

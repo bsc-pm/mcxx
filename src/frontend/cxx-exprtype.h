@@ -117,6 +117,7 @@ LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const 
 LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
         const locus_t* locus);
 
+LIBMCXX_EXTERN char check_nontype_template_argument_type(type_t* t);
 LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context, nodecl_t*);
 LIBMCXX_EXTERN char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl, decl_context_t decl_context, nodecl_t*);
 LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr, 
@@ -145,6 +146,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context);
+nodecl_t instantiate_expression_with_pack_index(nodecl_t nodecl_expr, decl_context_t decl_context, int pack_index);
 
 
 MCXX_END_DECLS

@@ -166,6 +166,18 @@ LIBMCXX_EXTERN type_t* get_throw_expr_type(void);
 
 LIBMCXX_EXTERN type_t* get_implicit_none_type(void);
 
+// Used for parameter packs
+LIBMCXX_EXTERN type_t* get_pack_type(type_t* t);
+LIBMCXX_EXTERN char is_pack_type(type_t* t);
+LIBMCXX_EXTERN type_t* pack_type_get_packed_type(type_t* t);
+
+// Used for parameter packs when they are expanded but cannot be flattened
+LIBMCXX_EXTERN type_t* get_sequence_of_types(int num_types, type_t** types);
+LIBMCXX_EXTERN int sequence_of_types_get_num_types(type_t* seq_type);
+LIBMCXX_EXTERN type_t* sequence_of_types_get_type_num(type_t* seq_type, int num);
+LIBMCXX_EXTERN char is_sequence_of_types(type_t* seq_type);
+LIBMCXX_EXTERN type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t* type);
+
 /* Type constructors: cv-qualification */
 // The given cv_qualifier is strictly the one will have the returning type
 LIBMCXX_EXTERN type_t* get_cv_qualified_type(type_t* t, cv_qualifier_t cv_qualifier);
@@ -231,7 +243,9 @@ LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type,
         scope_entry_t* base_class, 
         char is_virtual, 
         char is_dependent,
+        char is_expansion,
         access_specifier_t access_spec);
+
 LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause);
@@ -262,9 +276,6 @@ LIBMCXX_EXTERN char is_pod_type(type_t* t);
 
 LIBMCXX_EXTERN char is_trivially_copiable_type(type_t* t);
 LIBMCXX_EXTERN char is_standard_layout_type(type_t* t);
-
-// States whether a type is faulty
-LIBMCXX_EXTERN char is_faulty_type(type_t*);
 
 // Any type of 'int' nature regardless of being signed or not 
 // (int, short, long, long long)
@@ -485,6 +496,7 @@ LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 
         char *is_dependent,
+        char *is_expansion,
         access_specifier_t *access_specifier);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
 

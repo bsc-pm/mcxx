@@ -64,7 +64,7 @@ struct gather_decl_spec_tag {
     bool inside_class_specifier:1;
 
     // type-specifiers and decl-specifiers
-    bool is_auto:1;
+    bool is_auto_storage:1;
     bool is_register:1;
     bool is_static:1;
     bool is_extern:1;
@@ -86,6 +86,7 @@ struct gather_decl_spec_tag {
     bool emit_always:1;
     bool any_exception:1; // Set to 1 if no exception specifier was seen
     bool is_vector:1;
+    bool is_template_pack:1;
 
     // GCC extension
     bool is_transparent_union:1;

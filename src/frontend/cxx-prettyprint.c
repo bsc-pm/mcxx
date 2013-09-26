@@ -249,6 +249,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_TEMPLATE_ID, template_id_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_TYPE_ARGUMENT, unary_container_handler, NULL),
+    NODE_HANDLER(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, son_handler_then_suffix_parameter, " ..."),
+    NODE_HANDLER(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, son_handler_then_suffix_parameter, " ..."),
     NODE_HANDLER(AST_TYPE_ID, type_id_handler, NULL),
     NODE_HANDLER(AST_VARIADIC_ARG, simple_parameter_handler, "..."),
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),

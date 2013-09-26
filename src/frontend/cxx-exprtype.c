@@ -384,6 +384,8 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context,
 static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 static void check_vla_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_array_section_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -814,6 +816,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_COMMA :
             {
                 check_comma_operand(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_INITIALIZER_CLAUSE_PACK_EXPANSION:
+            {
+                check_initializer_clause_pack_expansion(expression, decl_context, nodecl_output);
                 break;
             }
             // GCC Extension
@@ -6085,10 +6092,12 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     }
 
     if (entry->kind != SK_VARIABLE
+            && entry->kind != SK_VARIABLE_PACK
             && entry->kind != SK_ENUMERATOR
             && entry->kind != SK_FUNCTION
-            && entry->kind != SK_TEMPLATE
-            && entry->kind != SK_TEMPLATE_PARAMETER)
+            && entry->kind != SK_TEMPLATE // template functions
+            && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
+            && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
     {
         if (!checking_ambiguity())
         {
@@ -6319,10 +6328,10 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         }
     }
-    else if (entry->kind == SK_TEMPLATE_PARAMETER)
+    else if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+            || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
     {
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
 
         // Template parameters may have a dependent type
         if (!is_dependent_type(entry->type_information))
@@ -6331,9 +6340,22 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
         else
         {
+            nodecl_set_type(*nodecl_output, get_unknown_dependent_type());
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         }
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
+    else if (entry->kind == SK_VARIABLE_PACK)
+    {
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
+
+        ERROR_CONDITION(!is_pack_type(entry->type_information),
+                "This variable pack should have pack type", 0);
+        nodecl_set_type(*nodecl_output, pack_type_get_packed_type(entry->type_information));
+
+        // This should always be type dependent as one cannot type
+        // void f(int ... x)
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
     }
     else
     {
@@ -10123,6 +10145,66 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
             ast_get_locus(expression));
 }
 
+static char there_are_template_packs(nodecl_t n)
+{
+    if (nodecl_is_null(n))
+        return 0;
+
+    char result = 0;
+
+    if (nodecl_get_kind(n) == NODECL_SYMBOL)
+    {
+        scope_entry_t* entry = nodecl_get_symbol(n);
+        if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                || entry->kind == SK_VARIABLE_PACK)
+            return 1;
+    }
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        result = result || there_are_template_packs(nodecl_get_child(n, i));
+    }
+
+    return result;
+}
+
+static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    if (!there_are_template_packs(pack))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: pack expansion does not reference any parameter pack\n", 
+                    locus_to_str(locus));
+        }
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    // This is always type dependent
+    *nodecl_output = nodecl_make_cxx_value_pack(pack, get_pack_type(nodecl_get_type(pack)), locus);
+    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+}
+
+static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST expanded_expr = ASTSon0(expression);
+
+    nodecl_t nodecl_expander = nodecl_null();
+    check_expression_impl_(expanded_expr, decl_context, &nodecl_expander);
+
+    if (nodecl_is_err_expr(nodecl_expander))
+    {
+        *nodecl_output = nodecl_expander;
+        return;
+    }
+
+    check_nodecl_initializer_clause_expansion(nodecl_expander, decl_context, ast_get_locus(expanded_expr), nodecl_output);
+}
 
 static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
         char is_arrow, nodecl_t* nodecl_output)
@@ -15929,6 +16011,16 @@ nodecl_t cxx_nodecl_make_function_call(
     }
 }
 
+char check_nontype_template_argument_type(type_t* t)
+{
+    return is_integral_type(t)
+        || is_enum_type(t)
+        || is_lvalue_reference_type(t)
+        || is_pointer_type(t)
+        || is_pointer_to_member_type(t)
+        || is_dependent_type(t);
+}
+
 char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         decl_context_t decl_context UNUSED_PARAMETER, 
         nodecl_t* nodecl_output)
@@ -15945,7 +16037,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
 
     char valid = 0;
     if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL
-            && nodecl_get_symbol(nodecl_expr)->kind == SK_TEMPLATE_PARAMETER)
+            && nodecl_get_symbol(nodecl_expr)->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
     {
         valid = 1;
     }
@@ -16060,6 +16152,9 @@ struct nodecl_instantiate_expr_visitor_tag
 
     // Keep the resulting expression here
     nodecl_t nodecl_result;
+
+    // Index of pack expansion
+    int pack_index;
 } nodecl_instantiate_expr_visitor_t;
 
 typedef void (*nodecl_instantiate_expr_visitor_fun_t)(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node);
@@ -16097,17 +16192,23 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
 
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, decl_context_t);
 
-nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context)
+
+nodecl_t instantiate_expression_with_pack_index(nodecl_t nodecl_expr, decl_context_t decl_context, int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
-
+    v.pack_index = pack_index;
 
     instantiate_expr_init_visitor(&v, decl_context);
 
     nodecl_t n = instantiate_expr_walk(&v, nodecl_expr);
 
     return n;
+}
+
+nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context)
+{
+    return instantiate_expression_with_pack_index(nodecl_expr, decl_context, -1);
 }
 
 static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor_t* v UNUSED_PARAMETER,
@@ -16121,7 +16222,8 @@ static void instantiate_type(nodecl_instantiate_expr_visitor_t* v, nodecl_t node
     type_t* t = nodecl_get_type(node);
     t = update_type_for_instantiation(t,
             v->decl_context,
-            nodecl_get_locus(node));
+            nodecl_get_locus(node),
+            v->pack_index);
 
     v->nodecl_result = nodecl_make_type(t, nodecl_get_locus(node));
 }
@@ -16175,7 +16277,8 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
                 update_template_argument_list(
                     decl_context,
                     template_specialized_type_get_template_arguments(class_type),
-                    make_locus("", 0, 0)),
+                    make_locus("", 0, 0),
+                    /* pack_index */ -1),
                 make_locus("", 0, 0));
     }
 
@@ -16230,7 +16333,8 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
                 update_template_argument_list(
                     decl_context,
                     template_specialized_type_get_template_arguments(dependent_entry->type_information),
-                    make_locus("", 0, 0)),
+                    make_locus("", 0, 0),
+                    /* pack_index */ -1),
                 make_locus("", 0, 0));
     }
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
@@ -16250,18 +16354,60 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
 
     nodecl_t result = nodecl_null();
 
-    if (sym->kind == SK_TEMPLATE_PARAMETER)
+    if (sym->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
     {
         scope_entry_t* argument = lookup_of_template_parameter(
                 v->decl_context,
                 sym->entity_specs.template_parameter_nesting,
                 sym->entity_specs.template_parameter_position);
 
-        if (argument->kind == SK_VARIABLE)
+        if (argument == NULL)
+        {
+            result = node;
+        }
+        else if (argument->kind == SK_VARIABLE)
         {
             result = argument->value;
         }
-        else if (argument->kind == SK_TEMPLATE_PARAMETER)
+        else if (argument->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
+        {
+            result = nodecl_make_symbol(argument, nodecl_get_locus(node));
+            nodecl_set_type(result, nodecl_get_type(node));
+            nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+        }
+        else
+        {
+            result = nodecl_make_err_expr(nodecl_get_locus(node));
+        }
+    }
+    else if (sym->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+    {
+        scope_entry_t* argument = lookup_of_template_parameter(
+                v->decl_context,
+                sym->entity_specs.template_parameter_nesting,
+                sym->entity_specs.template_parameter_position);
+
+        if (argument->kind == SK_VARIABLE_PACK)
+        {
+            if (v->pack_index < 0)
+            {
+                result = argument->value;
+            }
+            else if (nodecl_is_list(argument->value)
+                    && v->pack_index < nodecl_list_length(argument->value))
+            {
+                int num_items;
+                nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
+                ERROR_CONDITION(v->pack_index >= num_items, "Mismatch between length of list and unpacked version of it", 0);
+                result = list[v->pack_index];
+                xfree(list);
+            }
+            else
+            {
+                result = nodecl_make_err_expr(nodecl_get_locus(node));
+            }
+        }
+        else if (argument->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
         {
             result = nodecl_make_symbol(argument, nodecl_get_locus(node));
             nodecl_set_type(result, nodecl_get_type(node));
@@ -16351,7 +16497,8 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
 
     t = update_type_for_instantiation(t, 
             v->decl_context,
-            nodecl_get_locus(node));
+            nodecl_get_locus(node),
+            v->pack_index);
 
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
@@ -16617,7 +16764,8 @@ static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, node
 
     t = update_type_for_instantiation(t, 
             v->decl_context,
-            nodecl_get_locus(node));
+            nodecl_get_locus(node),
+            v->pack_index);
 
     nodecl_t result = nodecl_null();
 
@@ -16638,7 +16786,8 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
 
     t = update_type_for_instantiation(t,
             v->decl_context,
-            nodecl_get_locus(node));
+            nodecl_get_locus(node),
+            v->pack_index);
 
     nodecl_t result = nodecl_null();
 
@@ -16654,8 +16803,10 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
 static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     type_t * t = nodecl_get_type(node);
-    t = update_type_for_instantiation(t, v->decl_context,
-            nodecl_get_locus(node));
+    t = update_type_for_instantiation(t,
+            v->decl_context,
+            nodecl_get_locus(node),
+            v->pack_index);
 
     nodecl_t nodecl_new_list = nodecl_null();
 
@@ -16703,7 +16854,8 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
     template_parameter_list_t* update_template_args =
         update_template_argument_list(v->decl_context,
                 template_args,
-                nodecl_get_locus(node));
+                nodecl_get_locus(node),
+                v->pack_index);
 
     nodecl_t nodecl_name = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
@@ -16847,7 +16999,8 @@ static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node
 
     type_t* declarator_type = update_type_for_instantiation(nodecl_get_type(node),
             v->decl_context,
-            nodecl_get_locus(node));
+            nodecl_get_locus(node),
+            v->pack_index);
 
     const char* cast_kind = nodecl_get_text(node);
 
@@ -16886,6 +17039,43 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
     }
 
     check_conditional_expression_impl_nodecl(nodecl_cond, nodecl_true, nodecl_false, v->decl_context, &v->nodecl_result);
+}
+
+static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t expansion = nodecl_get_child(node, 0);
+
+    int len = get_length_of_pack_expansion_from_expression(expansion, v->decl_context, nodecl_get_locus(node));
+
+    if (len < 0)
+    {
+        v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        return;
+    }
+
+    nodecl_t nodecl_result = nodecl_null();
+
+    int old_pack_index = v->pack_index;
+
+    int i;
+    for (i = 0; i < len; i++)
+    {
+        v->pack_index = i;
+        nodecl_t expr = instantiate_expr_walk(v, expansion);
+
+        if (nodecl_is_err_expr(expr))
+        {
+            v->pack_index = old_pack_index;
+            v->nodecl_result = expr;
+            return;
+        }
+
+        nodecl_result = nodecl_append_to_list(nodecl_result, expr);
+    }
+
+    v->pack_index = old_pack_index;
+
+    v->nodecl_result = nodecl_result;
 }
 
 // Initialization
@@ -16985,5 +17175,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Conditional
     NODECL_VISITOR(v)->visit_conditional_expression = instantiate_expr_visitor_fun(instantiate_conditional_expression);
+
+    // Value packs
+    NODECL_VISITOR(v)->visit_cxx_value_pack = instantiate_expr_visitor_fun(instantiate_cxx_value_pack);
 }
 

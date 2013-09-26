@@ -268,6 +268,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // Nonterminals
 %type<ast> abstract_declarator
 %type<ast> abstract_direct_declarator
+%type<ast> abstract_declarator_not_ellipsis
+%type<ast> abstract_direct_declarator_not_ellipsis
 %type<ast> access_specifier
 %type<ast> additive_expression
 %type<ast> and_expression
@@ -470,6 +472,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> translation_unit
 %type<ast> try_block
 %type<ast> type_id
+%type<ast> type_id_not_ellipsis
 %type<ast> throw_type_id_list
 %type<ast> type_parameter
 %type<ast> type_specifier_ended_with_identifier
@@ -515,6 +518,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // Nonglobal versions of some productions
 // their FIRST set should never include '::' (TWO_COLONS)
 %type<ast> nonglobal_abstract_declarator
+%type<ast> nonglobal_abstract_declarator_not_ellipsis
 %type<ast> nonglobal_conversion_declarator
 %type<ast> nonglobal_declarator
 %type<ast> nonglobal_declarator_id
@@ -2203,6 +2207,14 @@ nonglobal_declarator_id : nonglobal_id_expression
 {
 	$$ = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ast_get_locus($1), NULL);
 }
+| ELLIPSIS id_expression
+{
+	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, $2, ast_get_locus($2), NULL);
+	$$ = ASTMake1(AST_DECLARATOR_ID_PACK,
+            declarator_id_expr,
+            ast_get_locus(declarator_id_expr),
+            NULL);
+}
 ;
 
 direct_declarator : declarator_id %dprec 2
@@ -2245,7 +2257,11 @@ declarator_id : id_expression
 }
 | ELLIPSIS id_expression
 {
-	$$ = ASTMake1(AST_DECLARATOR_ID_PACK, $2, ast_get_locus($2), NULL);
+	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, $2, ast_get_locus($2), NULL);
+	$$ = ASTMake1(AST_DECLARATOR_ID_PACK,
+            declarator_id_expr,
+            ast_get_locus(declarator_id_expr),
+            NULL);
 }
 ;
 
@@ -2354,6 +2370,23 @@ enumeration_definition : IDENTIFIER
 }
 ;
 
+type_id_not_ellipsis : type_specifier_seq_0_may_end_with_attribute
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_0 abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, $2, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier nonglobal_abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, $2, ast_get_locus($1), NULL);
+}
+
 type_id : type_specifier_seq_0_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
@@ -2399,6 +2432,33 @@ nonglobal_abstract_declarator : nonglobal_ptr_operator
 }
 ;
 
+nonglobal_abstract_declarator_not_ellipsis : nonglobal_ptr_operator
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+}
+| nonglobal_ptr_operator abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+}
+// GNU extension
+| gcc_attributes ptr_operator
+{
+	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
+}
+| gcc_attributes ptr_operator abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| gcc_attributes abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
 abstract_declarator : ptr_operator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
@@ -2421,6 +2481,33 @@ abstract_declarator : ptr_operator
 	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
 | gcc_attributes abstract_direct_declarator
+{
+	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+abstract_declarator_not_ellipsis : ptr_operator
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+}
+| ptr_operator abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+}
+// GNU extension
+| gcc_attributes ptr_operator
+{
+	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
+}
+| gcc_attributes ptr_operator abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| gcc_attributes abstract_direct_declarator_not_ellipsis
 {
 	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
@@ -2478,9 +2565,67 @@ abstract_direct_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
+| ELLIPSIS
+{
+    $$ = ASTMake1(AST_DECLARATOR_ID_PACK, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
 ;
 
-parameter_declaration_clause : parameter_declaration_clause_nonempty
+abstract_direct_declarator_not_ellipsis : '(' abstract_declarator_not_ellipsis ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| '(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, $4, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| '(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, NULL, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, $4, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| abstract_direct_declarator_not_ellipsis '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis'(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis'(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis'(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
+}
+| '[' constant_expression ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| '[' ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| abstract_direct_declarator_not_ellipsis '[' constant_expression ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis '[' ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
+}
+;
+
+parameter_declaration_clause : parameter_declaration_clause_nonempty %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
@@ -2489,7 +2634,7 @@ parameter_declaration_clause : parameter_declaration_clause_nonempty
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 	$$ = ASTList($1, variadic_tree);
 } 
-| parameter_declaration_clause_nonempty ELLIPSIS
+| parameter_declaration_clause_nonempty ELLIPSIS %merge<ambiguityHandler>
 {
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 	$$ = ASTList($1, variadic_tree);
@@ -2658,6 +2803,13 @@ nonabstract_direct_declarator : IDENTIFIER
 	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
     $$ = ASTMake1(AST_DECLARATOR_ID_EXPR, symbol, ast_get_locus(symbol), NULL);
 }
+| ELLIPSIS IDENTIFIER
+{
+	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, symbol, ast_get_locus(symbol), NULL);
+
+    $$ = ASTMake1(AST_DECLARATOR_ID_PACK, declarator_id_expr, ast_get_locus(declarator_id_expr), NULL);
+}
 | nonabstract_direct_declarator '(' parameter_declaration_clause ')'
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
@@ -2769,12 +2921,12 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 // C++2011 pack expansion
 | initializer_clause ELLIPSIS
 {
-    AST pack_expansion = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(pack_expansion);
 }
 | initializer_list ',' initializer_clause ELLIPSIS
 {
-    AST pack_expansion = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTList($1, pack_expansion);
 }
 // C99 extensions
@@ -3185,12 +3337,12 @@ base_specifier_list : base_specifier
 // Pack
 | base_specifier ELLIPSIS
 {
-    AST base_pack = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST base_pack = ASTMake1(AST_BASE_SPEC_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
 	$$ = ASTListLeaf(base_pack);
 }
 | base_specifier_list ',' base_specifier ELLIPSIS
 {
-    AST base_pack = ASTMake1(AST_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+    AST base_pack = ASTMake1(AST_BASE_SPEC_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
 	$$ = ASTList($1, base_pack);
 }
 ;
@@ -3571,12 +3723,12 @@ mem_initializer_list : mem_initializer
 }
 | mem_initializer ELLIPSIS
 {
-    AST mem_initializer_pack = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST mem_initializer_pack = ASTMake1(AST_MEM_INITIALIZER_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
 	$$ = ASTListLeaf(mem_initializer_pack);
 }
 | mem_initializer_list ',' mem_initializer ELLIPSIS
 {
-    AST mem_initializer_pack = ASTMake1(AST_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+    AST mem_initializer_pack = ASTMake1(AST_MEM_INITIALIZER_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
 	$$ = ASTList($1, mem_initializer_pack);
 }
 ;
@@ -4718,12 +4870,12 @@ lambda_capture_list : lambda_capture
 }
 | lambda_capture ELLIPSIS
 {
-    AST pack_exp = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_exp = ASTMake1(AST_LAMBDA_CAPTURE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(pack_exp);
 }
 | lambda_capture_list ',' lambda_capture ELLIPSIS
 {
-    AST pack_exp = ASTMake1(AST_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+    AST pack_exp = ASTMake1(AST_LAMBDA_CAPTURE_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
     $$ = ASTList($1, pack_exp);
 }
 ;
@@ -5035,12 +5187,12 @@ template_argument_list : template_argument %merge<ambiguityHandler>
 }
 | template_argument ELLIPSIS %merge<ambiguityHandler>
 {
-    AST template_argument_pack = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST template_argument_pack = ASTMake1(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
 	$$ = ASTListLeaf(template_argument_pack);
 }
 | template_argument_list ',' template_argument ELLIPSIS %merge<ambiguityHandler>
 {
-    AST template_argument_pack = ASTMake1(AST_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+    AST template_argument_pack = ASTMake1(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
 	$$ = ASTList($1, template_argument_pack);
 }
 ;
@@ -5051,7 +5203,7 @@ template_argument : template_assignment_expression %merge<ambiguityHandler>
 			ASTMake1(AST_EXPRESSION, $1, ast_get_locus($1), NULL), 
              ast_get_locus($1), NULL);
 }
-| type_id %merge<ambiguityHandler>
+| type_id_not_ellipsis %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_TEMPLATE_TYPE_ARGUMENT, $1, ast_get_locus($1), NULL);
 }
@@ -5170,13 +5322,13 @@ type_parameter : CLASS
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS
 {
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($7.token_file, $7.token_line, 0), $7.token_text);
 
-	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -5549,14 +5701,14 @@ throw_type_id_list : type_id
 {
 	$$ = ASTList($1, $3);
 }
-| type_id ELLIPSIS
+| type_id_not_ellipsis ELLIPSIS
 {
-    AST type_id_pack = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST type_id_pack = ASTMake1(AST_TYPE_ID_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
 	$$ = ASTListLeaf(type_id_pack);
 }
-| throw_type_id_list ',' type_id ELLIPSIS
+| throw_type_id_list ',' type_id_not_ellipsis ELLIPSIS
 {
-    AST type_id_pack = ASTMake1(AST_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+    AST type_id_pack = ASTMake1(AST_TYPE_ID_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
 	$$ = ASTList($1, type_id_pack);
 }
 ;

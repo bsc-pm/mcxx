@@ -151,12 +151,14 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
 
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
-        const locus_t* locus);
+        const locus_t* locus,
+        int pack_index);
 
 LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
-        const locus_t* locus);
+        const locus_t* locus,
+        int pack_index);
 
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
@@ -175,7 +177,7 @@ LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx,
 LIBMCXX_EXTERN int get_template_nesting_of_context(decl_context_t);
 LIBMCXX_EXTERN int get_template_nesting_of_template_parameters(template_parameter_list_t*);
 
-LIBMCXX_EXTERN template_parameter_list_t* get_template_parameters_from_syntax(
+LIBMCXX_EXTERN template_parameter_list_t* get_template_arguments_from_syntax(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context);
 
@@ -192,7 +194,8 @@ LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* 
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
-        const locus_t* locus);
+        const locus_t* locus,
+        int pack_index);
 
 // Friend support
 LIBMCXX_EXTERN char is_friend_declared(scope_entry_t* entry);
@@ -266,6 +269,17 @@ LIBMCXX_EXTERN char is_dependent_function(scope_entry_t* entry);
 LIBMCXX_EXTERN void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position);
 LIBMCXX_EXTERN char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* function);
 LIBMCXX_EXTERN int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_t* function);
+
+LIBMCXX_EXTERN char template_parameter_kind_is_pack(enum template_parameter_kind k);
+LIBMCXX_EXTERN enum template_parameter_kind template_parameter_kind_get_base_kind(enum template_parameter_kind kind);
+LIBMCXX_EXTERN char template_argument_is_pack(template_parameter_value_t* value);
+
+LIBMCXX_EXTERN int get_length_of_pack_expansion_from_expression(nodecl_t expr,
+        decl_context_t decl_context,
+        const locus_t* locus);
+LIBMCXX_EXTERN int get_length_of_pack_expansion_from_type(type_t* pack_type,
+        decl_context_t decl_context,
+        const locus_t* locus);
 
 MCXX_END_DECLS
 

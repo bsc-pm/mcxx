@@ -43,7 +43,7 @@ LIBMCXX_EXTERN char deduce_template_arguments_common(
         // functions (they are not kept in each specialization)
         template_parameter_list_t* type_template_parameters,
         type_t** arguments, int num_arguments,
-        type_t** parameters,
+        type_t** parameters, int num_parameters,
         decl_context_t decl_context,
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus,

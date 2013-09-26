@@ -216,11 +216,13 @@ static void build_scope_nontype_template_parameter(AST a,
 static void build_scope_type_template_parameter(AST a,
         template_parameter_list_t* template_parameter_list,
         int nesting,
+        char is_template_pack,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 static void build_scope_template_template_parameter(AST a,
         template_parameter_list_t* template_parameter_list,
         int nesting,
+        char is_template_pack,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
@@ -2273,7 +2275,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
     {
         // Storage specs
         case AST_AUTO_STORAGE_SPEC :
-            gather_info->is_auto = 1;
+            gather_info->is_auto_storage = 1;
             break;
         case AST_REGISTER_SPEC :
             gather_info->is_register = 1;
@@ -3171,6 +3173,25 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     }
 }
 
+static char check_class_template_parameters(const locus_t* locus, template_parameter_list_t* template_parameters)
+{
+    int i;
+    for (i = 0; i < template_parameters->num_parameters; i++)
+    {
+        if (template_parameter_kind_is_pack(template_parameters->parameters[i]->kind)
+                && i != (template_parameters->num_parameters - 1))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a template-pack of a classe template must be the last template parameter\n",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+    return 1;
+}
+
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a,
         type_t** type_info,
@@ -3268,7 +3289,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
     char declare_something = !class_gather_info.no_declarators ||
         !(
-                // These examples does not declare anything:
+                // These examples do not declare anything:
                 // template < typename T1>
                 // struct B
                 // {
@@ -3438,6 +3459,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             {
                 if (ASTType(id_expression) != AST_TEMPLATE_ID)
                 {
+                    if (!check_class_template_parameters(ast_get_locus(a), decl_context.template_parameters))
+                    {
+                        *type_info = get_error_type();
+                        return;
+                    }
+
                     new_class->kind = SK_TEMPLATE;
                     new_class->type_information = get_new_template_type(decl_context.template_parameters,
                             get_new_class_type(decl_context, class_kind),
@@ -3667,7 +3694,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             && IS_CXX03_LANGUAGE
             && ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
     {
-        error_printf("%s: error: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
+        warn_printf("%s: warning: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
     }
 
     scope_entry_list_t* result_list = NULL;
@@ -3740,7 +3767,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         if (IS_CXX03_LANGUAGE)
         {
             if (!checking_ambiguity())
-                error_printf("%s: error: enum-base is only valid in C++11\n",
+                warn_printf("%s: warning: enum-base is only valid in C++11\n",
                         ast_location(a));
         }
 
@@ -4024,8 +4051,10 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 && entry->kind != SK_CLASS
                 && entry->kind != SK_TYPEDEF
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+                && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
                 && entry->kind != SK_GCC_BUILTIN_TYPE
                 && entry->kind != SK_USING_TYPENAME)
         {
@@ -4340,7 +4369,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             && IS_CXX03_LANGUAGE
             && ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
     {
-        error_printf("%s: error: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
+        warn_printf("%s: warning: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
     }
 
     if (enum_base != NULL)
@@ -4348,8 +4377,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         if (IS_CXX03_LANGUAGE)
         {
             if (!checking_ambiguity())
-                error_printf("%s: error: enum-base is only valid in C++11\n",
+            {
+                warn_printf("%s: warning: enum-base is only valid in C++11\n",
                         ast_location(a));
+            }
         }
 
         underlying_type_is_fixed = 1;
@@ -4404,7 +4435,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         CXX11_LANGUAGE()
         {
-            // In C++2011 we always create a class context
+            // In C++11 we always create a class context
             // We will later add the enumerator in the enclosing scope if the
             // enumerator is unscoped
             enumerators_context = new_class_context(decl_context, new_enum);
@@ -4670,6 +4701,13 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
     {
         AST base_specifier = ASTSon1(iter);
 
+        char is_expansion = 0;
+        if (ASTType(base_specifier) == AST_BASE_SPEC_PACK_EXPANSION)
+        {
+            is_expansion = 1;
+            base_specifier = ASTSon0(base_specifier);
+        }
+
         AST virtual_spec = ASTSon0(base_specifier);
         AST access_spec_tree = ASTSon1(base_specifier);
         AST class_name = ASTSon2(base_specifier);
@@ -4731,8 +4769,10 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         enum cxx_symbol_kind filter[] =
         {
             SK_CLASS,
-            SK_TEMPLATE_TYPE_PARAMETER, 
-            SK_TEMPLATE_TEMPLATE_PARAMETER, 
+            SK_TEMPLATE_TYPE_PARAMETER,
+            SK_TEMPLATE_TEMPLATE_PARAMETER, // ???
+            SK_TEMPLATE_TYPE_PARAMETER_PACK,
+            SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, // ???
             SK_TYPEDEF, 
             SK_DEPENDENT_ENTITY,
             SK_USING,
@@ -4765,7 +4805,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         }
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+                && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER // ???
                 && !is_dependent_type(result->type_information)
                 && (result->kind == SK_CLASS
                     || result->kind == SK_TYPEDEF))
@@ -4789,8 +4829,10 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
             result = base_class_symbol;
         }
-        else if (result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+        else if (result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER // ???
+                || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK // ???
                 || result->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || result->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
                 || is_dependent_type(result->type_information))
         {
             DEBUG_CODE()
@@ -4849,7 +4891,8 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         }
 
         // Add the base to the class type
-        class_type_add_base_class(get_actual_class_type(class_type), result, is_virtual, is_dependent, access_specifier);
+        class_type_add_base_class(get_actual_class_type(class_type),
+                result, is_virtual, is_dependent, is_expansion, access_specifier);
     }
 }
 
@@ -6960,6 +7003,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 if (ASTType(class_id_expression) != AST_TEMPLATE_ID)
                 {
+                    if (!check_class_template_parameters(ast_get_locus(a), decl_context.template_parameters))
+                    {
+                        *type_info = get_error_type();
+                        return;
+                    }
+
                     class_entry->kind = SK_TEMPLATE;
                     class_entry->type_information = get_new_template_type(decl_context.template_parameters,
                             get_new_class_type(decl_context, class_kind),
@@ -7757,6 +7806,11 @@ static void set_function_parameter_clause(type_t** function_type,
     memset(parameter_info, 0, sizeof(parameter_info));
     int num_parameters = 0;
 
+    if (ASTType(parameters) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_parameter_clause(parameters, decl_context);
+    }
+
     if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
         C_LANGUAGE()
@@ -8063,15 +8117,27 @@ static void set_function_parameter_clause(type_t** function_type,
                 type_info = get_pointer_type(type_info);
             }
 
+            if (param_decl_gather_info.is_template_pack)
+            {
+                type_info = get_pack_type(type_info);
+                original_type = get_pack_type(original_type);
+            }
+
             if (entry != NULL)
             {
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
+                // unless it was a parameter pack
+                if (param_decl_gather_info.is_template_pack)
+                {
+                    entry->kind = SK_VARIABLE_PACK;
+                }
 
                 // Update the type info but try to to preserve the original if
                 // possible
                 if (!equivalent_types(type_info, original_type))
                     entry->type_information = type_info;
+
                 entry->defined = 1;
             }
 
@@ -8187,6 +8253,7 @@ static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info,
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
+        case AST_DECLARATOR_ID_PACK :
             {
                 // Do nothing
                 break;
@@ -8317,6 +8384,24 @@ static void build_scope_declarator_rec(
         case AST_DECLARATOR_ID_EXPR :
             {
                 // Do nothing
+                break;
+            }
+        case AST_DECLARATOR_ID_PACK :
+            {
+                // Do nothing
+                if (gather_info->parameter_declaration)
+                {
+                    gather_info->is_template_pack = 1;
+                }
+                else
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid template-pack in non parameter declaration\n",
+                                ast_location(a));
+                    }
+                    *declarator_type = get_error_type();
+                }
                 break;
             }
             // GNU extensions
@@ -9255,7 +9340,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
 
         if (gather_info->is_static && gather_info->is_extern
-                && !gather_info->is_auto)
+                && !gather_info->is_auto_storage)
         {
             if (!checking_ambiguity())
             {
@@ -9282,7 +9367,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             }
         }
 
-        if (gather_info->is_auto)
+        if (gather_info->is_auto_storage)
         {
             if (!gather_info->is_static
                     && !gather_info->is_extern)
@@ -10168,7 +10253,7 @@ static char find_function_declaration(AST declarator_id,
         if (declarator_is_template_id)
         {
             explicit_template_parameters =
-                get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
+                get_template_arguments_from_syntax(ASTSon1(considered_tree), decl_context);
         }
 
         // This function ignores non-templates
@@ -10792,10 +10877,31 @@ static void build_scope_template_parameter(AST a,
             break;
         case AST_TYPE_PARAMETER_CLASS :
         case AST_TYPE_PARAMETER_TYPENAME :
-            build_scope_type_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
+            build_scope_type_template_parameter(a, template_parameter_list, nesting,
+                    /* is_template_pack */ 0, template_context, nodecl_output);
+            break;
+        case AST_TYPE_PARAMETER_TYPENAME_PACK:
+        case AST_TYPE_PARAMETER_CLASS_PACK:
+            if (!IS_CXX11_LANGUAGE && !checking_ambiguity())
+            {
+                warn_printf("%s: warning: template packs are only valid in C++11\n",
+                        ast_location(a));
+            }
+            build_scope_type_template_parameter(a, template_parameter_list, nesting,
+                    /* is_template_pack */ 1, template_context, nodecl_output);
             break;
         case AST_TYPE_PARAMETER_TEMPLATE :
-            build_scope_template_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
+            build_scope_template_template_parameter(a, template_parameter_list, nesting,
+                    /* is_template_pack */ 0, template_context, nodecl_output);
+            break;
+        case AST_TYPE_PARAMETER_TEMPLATE_PACK :
+            if (!IS_CXX11_LANGUAGE && !checking_ambiguity())
+            {
+                warn_printf("%s: warning: template packs are only valid in C++11\n",
+                        ast_location(a));
+            }
+            build_scope_template_template_parameter(a, template_parameter_list, nesting,
+                    /* is_template_pack */ 1, template_context, nodecl_output);
             break;
         case AST_AMBIGUITY :
             // The ambiguity here is parameter_class vs parameter_decl
@@ -10811,12 +10917,13 @@ static void build_scope_template_parameter(AST a,
 static void build_scope_template_template_parameter(AST a,
         template_parameter_list_t* template_parameters,
         int nesting,
+        char is_template_pack,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
     // These parameters have the form
 
-    //    TEMPLATE < template_param_list > CLASS [identifier] [= id_expr]
+    //    TEMPLATE < template_param_list > CLASS [...] [identifier] [= id_expr]
     //
     // "identifier" is then a template-name
     //
@@ -10855,7 +10962,10 @@ static void build_scope_template_template_parameter(AST a,
 
     new_entry->locus = ast_get_locus(a);
 
-    new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
+    if (!is_template_pack)
+        new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
+    else
+        new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER_PACK;
 
     new_entry->entity_specs.is_template_parameter = 1;
     new_entry->entity_specs.template_parameter_nesting = nesting;
@@ -10925,9 +11035,22 @@ static void build_scope_template_template_parameter(AST a,
         default_argument->type = get_user_defined_type(entry);
         default_argument->is_default = 1;
         default_argument->kind = TPK_TEMPLATE;
+
+        if (is_template_pack)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a template-template pack cannot have a default argument\n",
+                        ast_location(id_expr));
+            }
+            default_argument = NULL;
+        }
     }
 
-    template_parameter->kind = TPK_TEMPLATE;
+    if (!is_template_pack)
+        template_parameter->kind = TPK_TEMPLATE;
+    else
+        template_parameter->kind = TPK_TEMPLATE_PACK;
 
     // We do this because P_LIST_ADD modifies the number of parameters
     int num_parameters = template_parameters->num_parameters;
@@ -10942,6 +11065,7 @@ static void build_scope_template_template_parameter(AST a,
 static void build_scope_type_template_parameter(AST a,
         template_parameter_list_t* template_parameters,
         int nesting,
+        char is_template_pack,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
@@ -10994,7 +11118,10 @@ static void build_scope_type_template_parameter(AST a,
 
 
     new_entry->locus = make_locus(file, line, 0);
-    new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
+    if (!is_template_pack)
+        new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
+    else
+        new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER_PACK;
 
     new_entry->entity_specs.is_template_parameter = 1;
     new_entry->entity_specs.template_parameter_nesting = nesting;
@@ -11027,9 +11154,22 @@ static void build_scope_type_template_parameter(AST a,
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
         default_argument->kind = TPK_TYPE;
+
+        if (is_template_pack)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a type-template parameter pack cannot have a default argument\n",
+                        ast_location(type_id));
+            }
+            default_argument = NULL;
+        }
     }
 
-    template_parameter->kind = TPK_TYPE;
+    if (!is_template_pack)
+        template_parameter->kind = TPK_TYPE;
+    else
+        template_parameter->kind = TPK_TYPE_PACK;
 
     // We do this because P_LIST_ADD modifies the number of parameters
     int num_parameters = template_parameters->num_parameters;
@@ -11059,6 +11199,9 @@ static void build_scope_nontype_template_parameter(AST a,
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
+    // Nontype templates parameters are actually parameter declarators
+    gather_info.parameter_declaration = 1;
+
     build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &type_info,
             template_context, /* first declarator */ NULL, nodecl_output);
 
@@ -11068,7 +11211,6 @@ static void build_scope_nontype_template_parameter(AST a,
     compute_declarator_type(parameter_declarator,
             &gather_info, type_info, &declarator_type,
             template_context, parameter_declarator, nodecl_output);
-
 
     const char* template_parameter_name = NULL;
     AST declarator_name = get_declarator_name(parameter_declarator, template_context);
@@ -11093,9 +11235,21 @@ static void build_scope_nontype_template_parameter(AST a,
     entry->symbol_name = template_parameter_name;
     entry->decl_context = template_context;
 
+    if (!IS_CXX11_LANGUAGE && gather_info.is_template_pack)
+    {
+        if (!checking_ambiguity())
+        {
+            warn_printf("%s: warning: template-packs are only valid in C++11\n",
+                    ast_location(a));
+        }
+    }
 
     // This is not a variable, but a template parameter
-    entry->kind = SK_TEMPLATE_PARAMETER;
+    if (!gather_info.is_template_pack)
+        entry->kind = SK_TEMPLATE_NONTYPE_PARAMETER;
+    else
+        entry->kind = SK_TEMPLATE_NONTYPE_PARAMETER_PACK;
+
     entry->type_information = declarator_type;
     entry->entity_specs.is_template_parameter = 1;
     entry->entity_specs.template_parameter_nesting = nesting;
@@ -11123,9 +11277,21 @@ static void build_scope_nontype_template_parameter(AST a,
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
         default_argument->kind = TPK_NONTYPE;
+
+        if (gather_info.is_template_pack)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: a nontype-template pack cannot have a default argument\n",
+                        ast_location(default_expression));
+            }
+        }
     }
 
-    template_parameter->kind = TPK_NONTYPE;
+    if (!gather_info.is_template_pack)
+        template_parameter->kind = TPK_NONTYPE;
+    else
+        template_parameter->kind = TPK_NONTYPE_PACK;
 
     // We do this because P_LIST_ADD modifies the number of parameters
     int num_parameters = template_parameters->num_parameters;
@@ -12535,9 +12701,10 @@ static char is_virtual_destructor(type_t* class_type)
     {
         char is_virtual = 0;
         char is_dependent = 0;
+        char is_expansion = 0;
         access_specifier_t access_specifier = AS_UNKNOWN;
         scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                &is_virtual, &is_dependent, &access_specifier);
+                &is_virtual, &is_dependent, &is_expansion, &access_specifier);
 
         if (is_dependent)
             continue;
@@ -13939,7 +14106,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
     if (ASTType(a) == AST_AMBIGUITY)
     {
-        solve_condition_ambiguity(a, decl_context);
+        solve_ambiguous_condition(a, decl_context);
     }
 
     if (ASTSon0(a) != NULL
@@ -15406,6 +15573,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
         case AST_MEMBER_DECLARATOR :
         case AST_GCC_MEMBER_DECLARATOR :
         case AST_DECLARATOR :
+        case AST_DECLARATOR_ID_PACK:
         case AST_PARENTHESIZED_DECLARATOR :
             {
                 return get_declarator_id_expression(ASTSon0(a), decl_context); 

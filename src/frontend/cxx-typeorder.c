@@ -133,7 +133,7 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
         scope_entry_t* entry = named_type_get_symbol(t);
 
         if (entry == NULL
-                || entry->kind == SK_TEMPLATE_PARAMETER
+                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
                 || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
@@ -226,7 +226,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
-                parameters, decl_context,
+                parameters, num_parameters,
+                decl_context,
                 deduced_template_arguments, 
                 locus,
                 explicit_template_parameters,
@@ -245,8 +246,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     for (i = 0; i < num_arguments; i++)
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, i);
-        
-        type_t* updated_type = update_type(original_type, 
+
+        type_t* updated_type = update_type(original_type,
                 updated_context,
                 locus);
 
@@ -380,7 +381,8 @@ static char is_less_or_equal_specialized_template_conversion_function(
     if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
-                parameters, decl_context,
+                parameters, num_parameters,
+                decl_context,
                 deduced_template_arguments,
                 locus,
                 /* explicit_template_parameters */ NULL,

@@ -611,7 +611,9 @@ static char check_simple_type_spec(AST type_spec,
                 // We allow this because templates are like types
                 && entry->kind != SK_TEMPLATE
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
         {
             ok = 0;
         }
@@ -628,7 +630,8 @@ static char check_simple_type_spec(AST type_spec,
         if (!allow_class_templates
                 && ASTType(type_id_expr) == AST_SYMBOL
                 && (entry->kind == SK_TEMPLATE
-                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
         {
             ok = 0;
         }
@@ -1214,14 +1217,19 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
 {
     ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
 
+    // FIXME - We should be using solve_ambiguity_generic
+
     int i;
     template_parameter_list_t* result = NULL;
+    int valid = -1;
     for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
     {
         AST current_template_argument_list = ast_get_ambiguity(ambiguous_list, i);
 
+        enter_test_expression();
         template_parameter_list_t* template_parameters =
-            get_template_parameters_from_syntax(current_template_argument_list, decl_context);
+            get_template_arguments_from_syntax(current_template_argument_list, decl_context);
+        leave_test_expression();
 
         if (template_parameters != NULL)
         {
@@ -1231,8 +1239,15 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
                 return NULL;
             }
             result = template_parameters;
+            valid = i;
         }
     }
+
+    if (valid >= 0)
+    {
+        choose_option(ambiguous_list, valid);
+    }
+
     return result;
 }
 
@@ -1523,6 +1538,7 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
+        case AST_DECLARATOR_ID_PACK :
             {
                 // Is this already correct or we have to check something else ?
                 return 1;
@@ -1626,6 +1642,11 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 {
     AST list = parameter_declaration_clause;
     AST iter;
+
+    if (ASTType(parameter_declaration_clause) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_parameter_clause(parameter_declaration_clause, decl_context);
+    }
 
     if (ASTType(parameter_declaration_clause) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
@@ -2148,7 +2169,7 @@ static int solve_ambiguous_condition_choose_interpretation(AST current_condition
             decl_context, p);
 }
 
-void solve_condition_ambiguity(AST a, decl_context_t decl_context)
+void solve_ambiguous_condition(AST a, decl_context_t decl_context)
 {
     if (!try_to_solve_ambiguity_generic(a, decl_context, NULL,
                 solve_ambiguous_condition_interpretation,
@@ -2157,4 +2178,85 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
         // Best effort
         choose_option(a, 0);
     }
+}
+
+// Look for a template parameter pack
+static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
+{
+    if (a == NULL)
+        return 0;
+
+    if (ASTType(a) == AST_SYMBOL)
+    {
+        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(a));
+        if (entry_list != NULL)
+        {
+            scope_entry_t* entry = entry_list_head(entry_list);
+
+            entry_list_free(entry_list);
+
+            if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+                return 1;
+        }
+    }
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (contains_template_parameter_pack(ast_get_child(a, i), decl_context))
+            return 1;
+    }
+
+    return 0;
+}
+
+static char solve_ambiguous_parameter_clause_check_interpretation(
+        AST parameter_clause UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void *info UNUSED_PARAMETER)
+{
+    ERROR_CONDITION(ASTType(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
+
+    char result = 0;
+
+    AST last = ASTSon1(parameter_clause);
+
+    if (ASTType(last) == AST_VARIADIC_ARG)
+    {
+        // void f(T...); where T is NOT a parameter pack
+        ERROR_CONDITION(ASTSon0(parameter_clause) == NULL, "Invalid tree", 0);
+        AST before_last = ASTSon1(ASTSon0(parameter_clause));
+        ERROR_CONDITION(before_last == NULL, "Invalid tree", 0);
+        
+        result = !contains_template_parameter_pack(before_last, decl_context);
+    }
+    else if (ASTType(last) == AST_PARAMETER_DECL)
+    {
+        // void f(T...); where T is a parameter pack
+        result = contains_template_parameter_pack(last, decl_context);
+    }
+    else
+    {
+        internal_error("Invalid node %s", ast_print_node_type(ASTType(last)));
+    }
+
+    return result;
+}
+
+void solve_ambiguous_parameter_clause(AST parameter_clause, decl_context_t decl_context)
+{
+    // Ambiguity at this level arises in C++ because of this
+    //
+    // void f(int x, T...)
+    //
+    // We do not know if T... is a parameter-pack or a T abstract-declarator
+    // followed by an ellipsis (int x, T, ...)
+    solve_ambiguity_generic(
+            parameter_clause,
+            decl_context, NULL,
+            solve_ambiguous_parameter_clause_check_interpretation,
+            NULL,
+            NULL);
 }

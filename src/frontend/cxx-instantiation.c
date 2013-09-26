@@ -163,7 +163,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
             updated_template_parameters->arguments[i] = update_template_parameter_value(
                     template_parameters->arguments[i],
                     new_context_for_template_parameters, 
-                    locus);
+                    locus,
+                    /* pack_index */ -1);
 
             if (updated_template_parameters->arguments[i] == NULL)
             {
@@ -185,7 +186,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         base_type = update_type_for_instantiation(
                 member_of_template->type_information,
                 new_context_for_template_parameters,
-                locus);
+                locus,
+                /* pack_index */ -1);
     }
 
     scope_entry_t* new_member = new_symbol(new_context_for_template_parameters, 
@@ -300,7 +302,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            locus);
+                            locus,
+                            /* pack_index */ -1);
                 }
 
                 if (is_named_class_type(new_member->type_information))
@@ -377,7 +380,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
-                        locus);
+                        locus,
+                        /* pack_index */ -1);
 
                 DEBUG_CODE()
                 {
@@ -593,7 +597,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         {
                             template_args->arguments[i] = update_template_parameter_value(
                                     template_args->arguments[i],
-                                    context_of_being_instantiated, locus);
+                                    context_of_being_instantiated, locus,
+                                    /* pack_index */ -1);
                         }
 
                         // Now ask a new specialization
@@ -635,7 +640,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            locus);
+                            locus,
+                            /* pack_index */ -1);
 
                     new_member->entity_specs.is_non_emitted = 1;
                     new_member->entity_specs.emission_template = member_of_template;
@@ -820,7 +826,7 @@ static void instantiate_dependent_friend_function(
     scope_entry_t* new_friend = NULL;
 
     type_t* new_type = update_type_for_instantiation(friend->type_information,
-            context_of_being_instantiated, locus);
+            context_of_being_instantiated, locus, /* pack_index */ -1);
 
     char is_template_id = nodecl_name_ends_in_template_id(friend->value);
     char is_templ_funct_decl =(is_template_specialized_type(friend->type_information) &&
@@ -872,7 +878,8 @@ static void instantiate_dependent_friend_function(
             if (explicit_temp_params != NULL)
             {
                 updated_explicit_temp_params = update_template_argument_list(
-                        context_of_being_instantiated, explicit_temp_params, locus);
+                        context_of_being_instantiated, explicit_temp_params, locus,
+                        /* pack_index */ -1);
             }
 
             scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
@@ -984,7 +991,8 @@ static void instantiate_dependent_friend_function(
                 if (nodecl_templ_param != NULL)
                 {
                     expl_templ_param = update_template_argument_list(
-                            context_of_being_instantiated, nodecl_templ_param, locus);
+                            context_of_being_instantiated, nodecl_templ_param, locus,
+                            /* pack_index */ -1);
                 }
 
                 scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
@@ -1099,7 +1107,8 @@ static void instantiate_dependent_friend_function(
             {
                 decl_context_t new_context = context_of_being_instantiated;
                 new_context.template_parameters = alineated_temp_params;
-                type_t* alineated_type = update_type_for_instantiation(new_type, new_context, locus);
+                type_t* alineated_type = update_type_for_instantiation(new_type, new_context, locus,
+                        /* pack_index */ -1);
                 new_type = alineated_type;
             }
 
@@ -1370,7 +1379,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             {
                 type_t* new_type = update_type_for_instantiation(get_user_defined_type(friend),
                         inner_decl_context,
-                        locus);
+                        locus, /* pack_index */ -1);
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1440,9 +1449,13 @@ static void instantiate_bases(
     {
         char is_virtual = 0;
         char is_dependent_base = 0;
+        char is_expansion = 0;
         access_specifier_t access_specifier = AS_UNKNOWN;
-        scope_entry_t* base_class_sym = class_type_get_base_num(selected_class_type, i, &is_virtual, 
-                &is_dependent_base, &access_specifier);
+        scope_entry_t* base_class_sym = class_type_get_base_num(selected_class_type, i,
+                &is_virtual,
+                &is_dependent_base,
+                &is_expansion,
+                &access_specifier);
 
         type_t* base_class_named_type = NULL;
         if (base_class_sym->kind == SK_DEPENDENT_ENTITY)
@@ -1462,7 +1475,7 @@ static void instantiate_bases(
 
         type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
-                locus);
+                locus, /* pack_index */ -1);
 
         ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
                 print_type_str(upd_base_class_named_type, context_of_being_instantiated));
@@ -1472,7 +1485,11 @@ static void instantiate_bases(
         // If the entity (being an independent one) has not been completed, then instantiate it
         instantiate_template_class_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
 
-        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0, access_specifier);
+        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, 
+                is_virtual,
+                /* is_dependent */ 0,
+                /* is_expansion */ 0,
+                access_specifier);
     }
 
     DEBUG_CODE()

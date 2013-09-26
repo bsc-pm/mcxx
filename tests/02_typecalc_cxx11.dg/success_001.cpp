@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator="config/mercurium cxx11"
+test_generator="config/mercurium"
 test_CXXFLAGS="-std=c++11"
 </testinfo>
 */
