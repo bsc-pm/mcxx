@@ -409,6 +409,7 @@ namespace Codegen
             void set_symbol_name_as_already_used(TL::Symbol sym);
 
             std::string rename(TL::Symbol sym);
+            void remove_rename(TL::Symbol sym);
             void clear_renames();
 
             bool is_protected_name(TL::Symbol sym);

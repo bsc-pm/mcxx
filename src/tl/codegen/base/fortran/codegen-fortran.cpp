@@ -2855,6 +2855,17 @@ OPERATOR_TABLE
         return result;
     }
 
+    void FortranBase::remove_rename(TL::Symbol sym)
+    {
+        name_set_t& name_set = _name_set_stack.back();
+        name_set_t::iterator it = name_set.find(sym.get_name());
+
+        if (it != name_set.end())
+        {
+            name_set.erase(it);
+        }
+    }
+
     void FortranBase::indent()
     {
         for (int i = 0; i < state._indent_level; i++)
@@ -5649,12 +5660,9 @@ OPERATOR_TABLE
                 if (is_protected_name(sym)
                         || name_has_already_been_used(sym))
                 {
-                    *(file) << rename(sym);
+                    remove_rename(sym);
                 }
-                else
-                {
-                    *(file) << sym.get_name();
-                }
+                *(file) << sym.get_name();
             }
         }
         *(file) << ")";
