@@ -33,7 +33,7 @@ namespace Analysis {
         : _name( name ), _graph( NULL ), _utils( utils ),
           _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
-          _task_nodes_l( ), _func_calls( ),
+          _task_nodes_l( ), _func_calls( ), _concurrent_tasks( ),
           _cluster_to_entry_map( )
     {
 
@@ -999,6 +999,39 @@ namespace Analysis {
     ObjectList<Symbol> ExtensibleGraph::get_function_calls( ) const
     {
         return _func_calls;
+    }
+    
+    ObjectList<Node*> ExtensibleGraph::get_task_concurrent_tasks( Node* task )
+    {
+        ObjectList<Node*> result;
+        if( !task->is_omp_task_node( ) )
+        {
+            WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
+        }
+        else
+        {
+            if( _concurrent_tasks.find( task ) == _concurrent_tasks.end( ) )
+            {
+                WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
+            }
+            else
+            {
+                result = _concurrent_tasks[task];
+            }
+        }
+        return result;
+    }
+    
+    void ExtensibleGraph::add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks )
+    {
+        if( _concurrent_tasks.find( task ) != _concurrent_tasks.end( ) )
+        {
+            WARNING_MESSAGE( "You are trying to insert a task in the map of synchronous tasks of a PCFG."\
+                             "This should never happen!", 0 );
+            return;
+        }
+        
+        _concurrent_tasks[task] = concurrent_tasks;
     }
 
     //! This method returns the most outer node of a node before finding a loop node

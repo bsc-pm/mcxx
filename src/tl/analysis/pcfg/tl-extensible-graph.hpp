@@ -68,8 +68,6 @@ namespace Analysis {
          */
         ObjectList<Utils::ExtendedSymbolUsage> _global_vars;
 
-        bool _global_vars_computed;
-
         //! Symbol of the function contained in the graph.
         /*! This symbol is empty when the code contained in the graph do not correspond to a function
         */
@@ -89,7 +87,9 @@ namespace Analysis {
         //! List of functions called by the function stored in the graph
         ObjectList<Symbol> _func_calls;
 
-
+        //! Map that relates each task in the graph with the tasks that are concurrent with it
+        std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
+        
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
         std::map<int, int> _cluster_to_entry_map;
@@ -393,6 +393,9 @@ namespace Analysis {
 
         ObjectList<Symbol> get_function_calls( ) const;
 
+        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
+        
+        void add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks );
         
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
