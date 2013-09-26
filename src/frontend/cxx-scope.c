@@ -3407,6 +3407,21 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         result = strappend(class_qualification, result);
     }
+    else if (IS_CXX11_LANGUAGE && entry->kind == SK_ENUMERATOR)
+    {
+        // In C++11 we qualify enumerators that are not members
+        scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);
+        char prev_is_dependent = 0;
+        const char* enum_qualification =
+            get_fully_qualified_symbol_name_ex(enum_symbol, decl_context, &prev_is_dependent, max_qualif_level,
+                    /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
+
+        enum_qualification = strappend(enum_qualification, "::");
+
+        (*is_dependent) |= prev_is_dependent;
+
+        result = strappend(enum_qualification, result);
+    }
     else if (!entry->entity_specs.is_member
             && !only_classes)
     {
@@ -3897,6 +3912,24 @@ static scope_entry_list_t* query_nodecl_simple_name(
     return result;
 }
 
+static scope_entry_list_t* query_nodecl_simple_name_in_enum(
+        decl_context_t decl_context,
+        decl_context_t top_level_decl_context UNUSED_PARAMETER,
+        nodecl_t nodecl_name,
+        decl_flags_t decl_flags UNUSED_PARAMETER)
+{
+    if (decl_context.current_scope->kind != CLASS_SCOPE)
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    const char* name = nodecl_get_text(nodecl_name);
+
+    scope_entry_list_t* entry_list = query_name_in_scope(decl_context.class_scope, name);
+
+    return entry_list;
+}
+
 static scope_entry_list_t* query_nodecl_simple_name_in_class(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context,
@@ -4378,6 +4411,16 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         query_nodecl_simple_name_in_namespace);
             }
         }
+        else if (IS_CXX11_LANGUAGE && previous_symbol->kind == SK_ENUM)
+        {
+            // We only allow enums to be the previous symbol of the last component
+            // of the nested name specifier.
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid nested-name-specifier\n",
+                        nodecl_locus_to_str(current_name));
+            }
+        }
         else
         {
             internal_error("Invalid symbol kind '%d' of '%s'\n", 
@@ -4406,7 +4449,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             current_context = current_symbol->related_decl_context;
         }
         else if (current_symbol->kind == SK_CLASS
-                || (current_symbol->kind == SK_TYPEDEF)
+                || (IS_CXX11_LANGUAGE && current_symbol->kind == SK_ENUM)
+                || current_symbol->kind == SK_TYPEDEF
                 || current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || current_symbol->kind == SK_DEPENDENT_ENTITY)
         {
@@ -4432,9 +4476,18 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: typedef name '%s' is not a namespace or class\n", 
-                                nodecl_locus_to_str(current_name),
-                                nodecl_get_text(current_name));
+                        CXX03_LANGUAGE()
+                        {
+                            error_printf("%s: typedef name '%s' is not a namespace or class\n", 
+                                    nodecl_locus_to_str(current_name),
+                                    nodecl_get_text(current_name));
+                        }
+                        CXX11_LANGUAGE()
+                        {
+                            error_printf("%s: typedef name '%s' is not a namespace, class or enum\n", 
+                                    nodecl_locus_to_str(current_name),
+                                    nodecl_get_text(current_name));
+                        }
                     }
                     return NULL;
                 }
@@ -4442,7 +4495,11 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 current_symbol = named_type_get_symbol(t);
             }
 
-            if (current_symbol->kind == SK_CLASS)
+            if (IS_CXX11_LANGUAGE && current_symbol->kind == SK_ENUM)
+            {
+                current_context = current_symbol->related_decl_context;
+            }
+            else if (current_symbol->kind == SK_CLASS)
             {
                 type_t* class_type = current_symbol->type_information;
 
@@ -4510,9 +4567,18 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: name '%s' is not a namespace or class\n", 
-                        nodecl_locus_to_str(current_name),
-                        nodecl_get_text(current_name));
+                CXX03_LANGUAGE()
+                {
+                    error_printf("%s: error: name '%s' is not a namespace or class\n", 
+                            nodecl_locus_to_str(current_name),
+                            nodecl_get_text(current_name));
+                }
+                CXX11_LANGUAGE()
+                {
+                    error_printf("%s: error: name '%s' is not a namespace, class or enum\n", 
+                            nodecl_locus_to_str(current_name),
+                            nodecl_get_text(current_name));
+                }
             }
             return NULL;
         }
@@ -4521,9 +4587,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
 
     nodecl_t last_name = list[num_items - 1];
 
-
     scope_entry_list_t* result = NULL;
-    
+
     if (previous_symbol == NULL)
     {
         result = query_nodecl_name_flags(current_context, last_name, decl_flags);
@@ -4589,9 +4654,27 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             internal_error("Code unreachable", 0);
         }
     }
-    else
+    else if (previous_symbol->kind == SK_ENUM
+            && nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
-        internal_error("Code unreachable", 0);
+        if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_SIMPLE)
+        {
+            result = query_nodecl_simple_name_in_enum(
+                    current_context,
+                    decl_context,
+                    last_name,
+                    decl_flags);
+        }
+        else
+        {
+            // Anything else is ill-formed
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid name in nested-name specifier\n",
+                        nodecl_locus_to_str(last_name));
+            }
+            return NULL;
+        }
     }
 
     if (result != NULL

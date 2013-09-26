@@ -4408,6 +4408,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             // We will later add the enumerator in the enclosing scope if the
             // enumerator is unscoped
             enumerators_context = new_class_context(decl_context, new_enum);
+            new_enum->related_decl_context = enumerators_context;
         }
 
         int num_enumerator = 0;
