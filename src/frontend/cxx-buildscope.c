@@ -1462,6 +1462,14 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     // should be signed in as if they were members
 }
 
+static void gather_cxx_attributes(AST a, gather_decl_spec_t* gather_info UNUSED_PARAMETER)
+{
+    if (a != NULL)
+    {
+        internal_error("C++11 attributes not yet implemented\n", 0);
+    }
+}
+
 static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
 {
     *dest = *src;
@@ -3649,9 +3657,11 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         nodecl_t* nodecl_output)
 {
     AST enum_key = ASTSon3(a);
-    AST enum_attribute_specifier_opt = ASTSon1(a);
+    AST enum_attribute_specifier = ASTSon1(a);
     AST id_expression = ASTSon0(a);
     AST enum_base = ASTSon2(a);
+
+    gather_cxx_attributes(enum_attribute_specifier, gather_info);
 
     if( !checking_ambiguity()
             && IS_CXX03_LANGUAGE
@@ -4229,6 +4239,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     AST enum_attribute_specifier = ASTSon1(enum_head);
     AST enum_name = ASTSon2(enum_head);
     AST enum_base = ASTSon3(enum_head);
+
+    gather_cxx_attributes(enum_attribute_specifier, gather_info);
 
     scope_entry_t* new_enum = NULL;
 
