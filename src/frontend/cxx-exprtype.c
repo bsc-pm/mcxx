@@ -12530,9 +12530,10 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                             print_type_str(declared_type, decl_context));
                     diagnostic_candidates(candidates, locus);
                 }
-                *nodecl_output = nodecl_make_err_expr(locus);
             }
             entry_list_free(candidates);
+
+            *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
         else
