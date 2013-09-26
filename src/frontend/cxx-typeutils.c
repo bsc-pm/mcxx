@@ -9122,6 +9122,14 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 get_cv_qualifier(orig));
     }
 
+    type_t* orig_underlying_type = NULL;
+    if (is_enum_type(orig))
+    {
+        orig_underlying_type = enum_type_get_underlying_type(orig);
+        if (orig_underlying_type == NULL)
+            orig_underlying_type = get_signed_int_type();
+    }
+
     if (!equivalent_types(get_unqualified_type(dest), get_unqualified_type(orig)))
     {
         if (is_signed_int_type(dest)
@@ -9131,7 +9139,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_signed_short_int_type(orig)
                     || is_unsigned_short_int_type(orig)
                     || is_wchar_t_type(orig)
-                    || is_enum_type(orig)
                     || is_bool_type(orig)))
         {
             DEBUG_CODE()
@@ -9142,10 +9149,42 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+        else if (is_signed_int_type(dest)
+                && is_enum_type(orig)
+                && (is_char_type(orig_underlying_type)
+                    || is_signed_char_type(orig_underlying_type)
+                    || is_unsigned_char_type(orig_underlying_type)
+                    || is_signed_short_int_type(orig_underlying_type)
+                    || is_unsigned_short_int_type(orig_underlying_type)
+                    || is_signed_int_type(orig_underlying_type)
+                    || is_wchar_t_type(orig_underlying_type)
+                    || is_bool_type(orig_underlying_type)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integral promotion from enum\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_integer_type(dest)
+                && is_enum_type(orig)
+                && is_integer_type(orig_underlying_type)
+                && equivalent_types(orig_underlying_type, dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integral promotion from enum\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
         else if ((is_double_type(dest)
                     && is_float_type(orig))
                 || (is_long_double_type(dest)
-                    && (is_float_type(orig) 
+                    && (is_float_type(orig)
                         || is_double_type(orig))))
         {
             DEBUG_CODE()
@@ -9157,8 +9196,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_integer_type(dest)
-                && (is_integer_type(orig) 
-                    || is_enum_type(orig))
+                && is_integer_type(orig)
                 && !is_bool_type(dest)
                 && !is_bool_type(orig)
                 && !equivalent_types(dest, orig))
@@ -9166,6 +9204,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying integral conversion\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_integer_type(dest)
+                && is_enum_type(orig)
+                && is_integer_type(orig_underlying_type)
+                && !equivalent_types(orig_underlying_type, dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integral conversion from enum\n");
             }
             (*result).conv[1] = SCI_INTEGRAL_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
@@ -9212,6 +9263,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying floating-integral conversion from bool\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_floating_type(dest)
+                && is_enum_type(orig))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating-integral conversion from enum\n");
             }
             (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here

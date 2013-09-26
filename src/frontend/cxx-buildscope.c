@@ -4074,70 +4074,70 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
             || is_error_type(underlying_type))
         return underlying_type;
 
-    type_t* signed_types[] =
+    struct checked_types_t
     {
-        get_signed_char_type(),
-        get_signed_short_int_type(),
-        get_signed_int_type(),
-        get_signed_long_int_type(),
-        get_signed_long_long_int_type(),
-        NULL,
+        type_t *signed_type;
+        type_t *unsigned_type;
+    } 
+    checked_types[] =
+    {
+        { get_signed_char_type(),          get_unsigned_char_type() },
+        { get_signed_short_int_type(),     get_unsigned_short_int_type() },
+        { get_signed_int_type(),           get_unsigned_int_type() },
+        { get_signed_long_int_type(),      get_unsigned_long_int_type() },
+        { get_signed_long_long_int_type(), get_unsigned_long_long_int_type() },
+        { NULL, NULL }
     };
 
-    type_t* unsigned_types[] =
-    {
-        get_unsigned_char_type(),
-        get_unsigned_short_int_type(),
-        get_unsigned_int_type(),
-        get_unsigned_long_int_type(),
-        get_unsigned_long_long_int_type(),
-        NULL,
-    };
-
-    char there_are_negatives = 0;
 #define B_(x) const_value_is_nonzero(x)
-    there_are_negatives = B_(const_value_lt(min_value, const_value_get_unsigned_int(0)));
 
-    type_t** result = NULL;
+    struct checked_types_t* result = NULL;
     if (!short_enums)
     {
-        if (there_are_negatives)
-        {
-            result = &(signed_types[2]); // get_signed_int_type()
-        }
-        else
-        {
-            result = &(unsigned_types[2]); // get_unsigned_int_type()
-        }
+        result = &(checked_types[2]); // {int, unsigned int}
     }
     else
     {
-        if (there_are_negatives)
-        {
-            result = signed_types;
-        }
-        else
-        {
-            result = unsigned_types;
-        }
+        result = checked_types;
     }
 
-    while (*result != NULL)
+    while (result->signed_type != NULL)
     {
+        // Try first signed
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
                     codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
                     codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result)), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result)), CURRENT_COMPILED_FILE->global_decl_context),
-                    print_declarator(*result));
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    print_declarator(result->signed_type));
         }
 
-        if (B_(const_value_lte(integer_type_get_minimum(*result), min_value))
-                && B_(const_value_lte(max_value, integer_type_get_maximum(*result))))
+        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
         {
-            return *result;
+            return result->signed_type;
+        }
+        // Try second unsigned
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->unsigned_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->unsigned_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    print_declarator(result->unsigned_type));
+        }
+
+        if (B_(const_value_lte(integer_type_get_minimum(result->unsigned_type), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(result->unsigned_type))))
+        {
+            return result->unsigned_type;
         }
         result++;
     }
