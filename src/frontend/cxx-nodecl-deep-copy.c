@@ -130,7 +130,20 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
     }
 
     nested_symbol_map_t* nested_symbol_map = new_nested_symbol_map(enclosing_map);
-    new_decl_context = copy_block_scope(new_decl_context, orig_decl_context, nested_symbol_map);
+
+    // Is this block scope being copied? Check the map
+    scope_t* mapped_block_scope = (scope_t*)nested_symbol_map->base_.map(&nested_symbol_map->base_,
+            (scope_entry_t*)orig_decl_context.block_scope);
+
+    if (mapped_block_scope == orig_decl_context.block_scope)
+    {
+        new_decl_context = copy_block_scope(new_decl_context, orig_decl_context, nested_symbol_map);
+    }
+    else
+    {
+        new_decl_context.block_scope = mapped_block_scope;
+        new_decl_context.current_scope = mapped_block_scope;
+    }
 
     if (create_new_function_context)
     {
@@ -165,6 +178,7 @@ nodecl_t nodecl_deep_copy_context(nodecl_t n,
 typedef
 struct closure_hash_tag
 {
+    scope_t* original_scope;
     decl_context_t new_decl_context;
     nested_symbol_map_t* nested_symbol_map;
 
@@ -185,13 +199,19 @@ static void register_symbols_generic(const char* name, scope_entry_list_t* entry
         if (!filter(entry))
             continue;
 
+        char is_proper_symbol = data->original_scope == entry->decl_context.current_scope;
+
         scope_entry_t* mapped_symbol = nested_symbol_map_fun((symbol_map_t*)data->nested_symbol_map, entry);
 
-        if (mapped_symbol == entry)
+        if (mapped_symbol == entry // If the symbol is not mapped...
+                || (is_proper_symbol // or is a proper symbol that has been
+                                     // mapped but not to a symbol of the scope being created...
+                    && mapped_symbol->decl_context.current_scope != data->new_decl_context.current_scope))
         {
-            // There was no map, create it now
+            // then create a new symbol in the scope being created...
             scope_entry_t* new_entry = new_symbol(data->new_decl_context, data->new_decl_context.current_scope, name);
 
+            // and map the symbol to the mapped one
             nested_map_add(data->nested_symbol_map, entry, new_entry);
 
             mapped_symbol = new_entry;
@@ -199,6 +219,8 @@ static void register_symbols_generic(const char* name, scope_entry_list_t* entry
         else
         {
             insert_alias(data->new_decl_context.current_scope, mapped_symbol, name);
+            // We do not want these symbols be filled again
+            P_LIST_ADD(data->filled_symbols, data->num_filled, entry);
         }
     }
     entry_list_iterator_free(it);
@@ -227,6 +249,7 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     closure_hash_t closure_info;
     memset(&closure_info, 0, sizeof(closure_info));
 
+    closure_info.original_scope = original_scope;
     closure_info.new_decl_context = new_decl_context;
     closure_info.nested_symbol_map = nested_symbol_map;
 
@@ -279,6 +302,11 @@ static decl_context_t copy_block_scope(decl_context_t new_decl_context,
         nested_symbol_map_t* nested_symbol_map)
 {
     new_decl_context = new_block_context(new_decl_context);
+
+    // Keep a mapping in the symbol map
+    nested_map_add(nested_symbol_map,
+            (scope_entry_t*)orig_decl_context.block_scope,
+            (scope_entry_t*)new_decl_context.block_scope);
 
     copy_scope(new_decl_context, orig_decl_context.block_scope, nested_symbol_map);
 
