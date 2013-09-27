@@ -1,5 +1,7 @@
 ! <testinfo>
 ! test_generator=config/mercurium-omp
+! test_compile_fail=yes
+! test_compile_faulty=yes
 ! </testinfo>
 SUBROUTINE FOO
    IMPLICIT NONE
