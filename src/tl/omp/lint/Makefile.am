@@ -30,24 +30,17 @@ phases_LTLIBRARIES = libtlomp-lint.la
 
 END=
 
-libtlomp_lint_la_CFLAGS = $(phases_cflags) \
-                          -I $(srcdir)/../core \
-                          -I $(srcdir)/../../vectorizer \
-                          -I $(srcdir)/../../analysis/singleton\
-                          -I $(top_srcdir)/src/tl/analysis/common \
-                          -I $(top_srcdir)/src/tl/analysis/pcfg \
-                          $(END)
-
 libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
-                          -I $(srcdir)/../core \
-                          -I $(srcdir)/../../vectorizer \
-                          -I $(srcdir)/../../analysis/singleton\
-                          -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/singleton\
                           $(END)
 
 libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
-libtlomp_lint_la_LIBADD = $(phases_libadd)
+libtlomp_lint_la_LIBADD = $(phases_libadd) \
+			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
+			  $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
+		          $(END)
 
 
 libtlomp_lint_la_SOURCES = \
