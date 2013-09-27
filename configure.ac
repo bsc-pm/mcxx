@@ -1567,6 +1567,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
+           src/tl/analysis/checker/Makefile
            src/tl/vectorizer/Makefile
            src/tl/vector-lowering/Makefile
            src/tl/vector-lowering/sse/Makefile
