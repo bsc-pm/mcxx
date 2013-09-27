@@ -515,6 +515,11 @@ namespace Analysis {
         return ( get_type( ) == OMP_TASKYIELD );
     }
 
+    bool Node::is_omp_virtual_tasksync( )
+    {
+        return ( get_type( ) == OMP_VIRTUAL_TASKSYNC );
+    }
+    
     bool Node::is_vector_node( )
     {
         bool result = false;
