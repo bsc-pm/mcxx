@@ -30,164 +30,405 @@
 namespace TL {
 namespace Analysis {
 
+    static bool sync_in_all_branches( Node* current, Node* original );
+    static void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result );
+    static bool task_in_loop_is_synchronized_within_loop( Node* task );
+    
     AutoScoping::AutoScoping( ExtensibleGraph* pcfg )
         : _graph( pcfg ),
-          _simultaneous_tasks( ), _last_sync( NULL ), _next_sync( NULL )
+          _simultaneous_tasks( ), _last_sync( ), _next_sync( NULL ), _check_only_local( false )
     {}
-
+    
     void AutoScoping::compute_auto_scoping( )
     {
-        Node* graph = _graph->get_graph( );
-        compute_auto_scoping_rec( graph );
-        ExtensibleGraph::clear_visits( graph );
-    }
-
-    void AutoScoping::compute_auto_scoping_rec( Node* current )
-    {
-        if( !current->is_visited( ) )
+        ObjectList<Node*> tasks = _graph->get_tasks_list( );
+        for( ObjectList<Node*>::iterator it = tasks.begin( ); it != tasks.end( ); ++it )
         {
-            current->set_visited( true );
-
-            if( current->is_exit_node( ) )
-                return;
-
-            if( current->is_graph_node( ) )
-            {
-                // Compute the scope from inner tasks first
-                Node* entry_node = current->get_graph_entry_node( );
-                compute_auto_scoping_rec( entry_node );
-
-                if( current->is_omp_task_node( ) )
-                {
-                    ExtensibleGraph::clear_visits_in_level( entry_node, current );
-                    compute_task_auto_scoping( current );
-                }
-            }
-
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                compute_auto_scoping_rec( *it );
-            }
+            compute_task_auto_scoping( *it );
         }
     }
 
     void AutoScoping::compute_task_auto_scoping( Node* task )
     {
+        define_concurrent_regions_limits( task );
+        if( VERBOSE )
+        {
+            std::cerr << " Task concurrent regions limits: \n";
+            std::cerr << "    - Last sync:  ";
+            for( ObjectList<Node*>::iterator it = _last_sync.begin( ); it != _last_sync.end( ); ++it )
+                std::cerr << (*it)->get_id( ) << ", ";
+            std::cerr << std::endl;
+            std::cerr << "    - Next sync:  " << _next_sync->get_id( ) << std::endl;
+        }
+        if( _last_sync.empty( ) )
+            _check_only_local = true;
+        
+        // All variables with an undefined behavior cannot be scoped
+        Utils::ext_sym_set undef_beh = task->get_undefined_behaviour_vars( );
+        for( Utils::ext_sym_set::iterator it = undef_beh.begin( ); it != undef_beh.end( ); ++it )
+        {
+            Scope sc( task->get_graph_label( ).retrieve_context( ) );
+            if( !it->get_symbol( ).get_scope( ).scope_is_enclosed_by( sc ) )
+                task->set_sc_undef_var( *it );
+        }   
+        
+        // FIXME Check from here!!!
+        
+        // Compute the regions of code that can be simultaneous with the current tasks
+        compute_simultaneous_tasks( task );
+//         for( ObjectList<Node*>::iterator it = task_parents.begin( ); it != task_parents.end( ); ++it )
+//         {
+//             ExtensibleGraph::clear_visits_aux_backwards( *it );
+//         }
+//         
+//         // If the current task is created in a loop, then it is simultaneous with itself
+//         bool is_in_loop = ExtensibleGraph::node_is_in_loop( task );
+//         
+//         // Scope non-undefined behavior variables
+//         Utils::ext_sym_set scoped_vars;
+//         Node* task_entry = task->get_graph_entry_node( );
+//         compute_task_auto_scoping_rec( task, task_entry, is_in_loop, scoped_vars );
+    }
+
+    void AutoScoping::define_concurrent_regions_limits( Node* task )
+    {
+        // Compute _next_sync
+        // -----------------------------------
         ObjectList<Node*> end_point = task->get_children( );
-        if( ( end_point.size() > 1 ) || end_point.empty() )
+        
+        if( end_point.size( ) != 1 )
         {
             Nodecl::OpenMP::Task task_label = task->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
-            internal_error( "The end point of a task should be one unique node representing a 'taskwait', a 'barrier' or the 'exit' of a graph. "\
+            internal_error( "The end point of a task should be one unique node representing "\
+                            "a 'taskwait', a 'barrier' or a 'virtual synchronization'. "\
                             "Task (%d) '%s' has more than one exit", task_label.prettyprint( ).c_str( ) );
         }
 
-        if( end_point[0]->is_exit_node( ) )
+        if( end_point[0]->is_omp_virtual_tasksync( ) )
         {
-            // FIXME We can know things about the variables that are defined in the same function and the parameters of the function
             Nodecl::OpenMP::Task task_label = task->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
-            WARNING_MESSAGE( "Task (%d) '%s' auto-scoping cannot be computed because the synchronization point "\
-                             "is not defined in the same function as the task. This is still under development.",
+            WARNING_MESSAGE( "Task (%d) '%s' auto-scoping computation is limited to local variables because"\
+                             " the synchronization point is not defined in the same function as the task.",
                              task->get_id( ), task_label.get_environment( ).prettyprint( ).c_str( ) );
+            _check_only_local = true;
         }
         else
         {
-            // All variables with an undefined behavior cannot be scoped
-            Utils::ext_sym_set undef_beh = task->get_undefined_behaviour_vars( );
-            for( Utils::ext_sym_set::iterator it = undef_beh.begin( ); it != undef_beh.end( ); ++it )
-            {
-                Scope sc( task->get_graph_label( ).retrieve_context( ) );
-                if( !it->get_symbol( ).get_scope( ).scope_is_enclosed_by( sc ) )
-                    task->set_sc_undef_var( *it );
-            }
-
-            // Compute the regions of code that can be simultaneous with the current tasks
             _next_sync = end_point[0];
-            ObjectList<Node*> task_parents = task->get_parents( );
-            for( ObjectList<Node*>::iterator it = task_parents.begin( ); it != task_parents.end( ); ++it )
-            {
-                compute_simultaneous_tasks( *it, /* current nest */ 0 );
-            }
-            for( ObjectList<Node*>::iterator it = task_parents.begin( ); it != task_parents.end( ); ++it )
-            {
-                ExtensibleGraph::clear_visits_aux_backwards( *it );
-            }
+        }
 
-            // If the current task is created in a loop, then it is simultaneous with itself
-            bool is_in_loop = ExtensibleGraph::node_is_in_loop( task );
-
-            // Scope non-undefined behavior variables
-            Utils::ext_sym_set scoped_vars;
-            Node* task_entry = task->get_graph_entry_node( );
-            compute_task_auto_scoping_rec( task, task_entry, is_in_loop, scoped_vars );
+        // Compute _last_sync
+        // Common _last_sync will be in the task parents, but when the task is within a loop, then also
+        // the children may contain _last_sync due to the iterations
+        // The order of the search is important: we first look in the parents and then in the children
+        // That is because children may have back edges and we do not want to traverse them twice 
+        // (from the children and from the parents)
+        // -----------------------------------
+        find_last_synchronization_point_in_parents( task );
+        // FIXME I have to review this code with an example as follows
+        //     ...
+        //     #pragma omp taskwait
+        //     ...
+        //     for( i=0; i<N; i++ ) {
+        //         #pragma omp task
+        //         ...
+        //         #pragma omp taskwait
+        //     }
+//         if( ExtensibleGraph::node_is_in_loop( task ) )
+//         {
+//             Node* loop = NULL;
+//             Node* task_outer = task->get_outer_node( );
+//             while( task_outer != NULL )
+//             {
+//                 if( task_outer->is_loop_node( ) )
+//                     loop = task_outer;
+//                 task_outer = task_outer->get_outer_node( );
+//             }
+//             ERROR_CONDITION( loop == NULL, "We can't find the loop where the task '%d' is supposed to be embedded\n", task->get_id( ) );
+//             
+//             find_last_synchronization_point_in_children( task, task_outer );
+//         }
+        ExtensibleGraph::clear_visits_backwards( task );
+//         ExtensibleGraph::clear_visits_aux( task );
+    }
+    
+    static bool sync_in_all_branches( Node* current, Node* original )
+    {
+        bool res = false;
+        
+        if( !current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( true );
+            
+            if( !current->is_exit_node( ) )
+            {
+                if( current->is_graph_node( ) )
+                {
+                    if( current->is_ifelse_statement( ) || current->is_switch_statement( ) )
+                    {
+                        Node* condition = current->get_graph_entry_node( )->get_children( )[0];
+                        ObjectList<Node*> children = condition->get_children( );
+                        bool partial_res = true;
+                        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
+                        {
+                            partial_res = partial_res && sync_in_all_branches( *it, original );
+                        }
+                        res = partial_res;
+                    }
+                    else
+                    {
+                        res = sync_in_all_branches( current->get_graph_entry_node( ), original );
+                    }
+                }
+                else if( current->is_omp_taskwait_node( ) || current->is_omp_barrier_node( ) )
+                {
+                    res = true;
+                }
+                
+                // If we are navigating inside a graph node
+                if( !res && ( current != original ) )
+                {
+                    ObjectList<Node*> children = current->get_children( );
+                    ERROR_CONDITION( children.size( ) != 1, 
+                                     "PCFG non-conditional nodes other than a graph exit node, are expected to have one child.\n"\
+                                     "Node '%d' has '%d' children.\n", current->get_id( ), children.size( ) );
+                    bool partial_res = true;
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
+                    {
+                        partial_res = partial_res && sync_in_all_branches( *it, original );
+                    }
+                    res = partial_res;
+                }
+            }
+        }
+        
+        return res;
+    }
+    
+    void AutoScoping::find_last_synchronization_point_in_parents( Node* current )
+    {
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+            
+            ObjectList<Node*> parents = current->get_parents( );
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+            {
+                Node* parent = *it;
+                
+                // Check for synchronization in current parent
+                if( parent->is_omp_barrier_node( ) || parent->is_omp_taskwait_node( ) )
+                {
+                    _last_sync.insert( parent );
+                }
+                else if ( parent->is_ifelse_statement( ) || parent->is_switch_statement( ) )
+                {
+                    if( sync_in_all_branches( parent, parent ) )
+                    {
+                        _last_sync.insert( parent );
+                    }
+                    ExtensibleGraph::clear_visits_aux( parent );
+                }
+                else if( parent->is_graph_node( ) )
+                {
+                    find_last_synchronization_point_in_parents( parent->get_graph_entry_node( ) );
+                }
+                
+                // Keep iterating, if necessary
+                if( _last_sync.empty( ) )
+                {
+                    if( parent->is_entry_node( ) )
+                    {
+                        Node* parent_outer = parent->get_outer_node( );
+                        if( parent_outer != NULL )
+                        {
+                            ObjectList<Node*> outer_parents = parent_outer->get_parents( );
+                            for( ObjectList<Node*>::iterator itp = outer_parents.begin( ); 
+                                 itp != outer_parents.end( ) && _last_sync.empty( ); ++itp )
+                            {
+                                find_last_synchronization_point_in_parents( *itp );
+                            }
+                        }
+                    }
+                    else
+                    {
+                        find_last_synchronization_point_in_parents( parent );
+                    }
+                }
+            }
         }
     }
-
-    void AutoScoping::compute_simultaneous_tasks( Node* current, int current_nest, int taskwait_nest )
+    
+    // This method is only called when a task (the first recursion parameter) is inside a loop
+    // We will stop when we find:
+    //    - the loop increment, if exists
+    //    - the loop conditional (its False child is the loop node exit)
+    void AutoScoping::find_last_synchronization_point_in_children( Node* current, Node* loop )
     {
         if( !current->is_visited_aux( ) )
         {
             current->set_visited_aux( true );
-
-            if( current->is_entry_node( ) )
-            {   // Look for the Last Synchronization point in the outer node
-                Node* outer_node = current->get_outer_node( );
-                if( outer_node == NULL )
-                {    // We have parsed the whole graph
-                    return;
+            
+            ObjectList<Node*> children = current->get_children( );
+            // Since we do not traverse IfElse and Switch statements. the number of children must be <=1
+            ERROR_CONDITION( children.size( ) == 1, "Number of children must be 1", 0 );
+            
+            Node* child = children[0];
+            
+            if( !current->is_exit_node( ) )
+            {
+                // Check for synchronization in current child
+                if( child->is_omp_barrier_node( ) || child->is_omp_taskwait_node( ) )
+                {
+                    _last_sync.insert( child );
                 }
                 else
                 {
-                    if( current_nest == taskwait_nest )
-                    {   // Reset taskwait nest value because outer task will not be synchronized by this taskwait
-                        taskwait_nest = INT_MAX;
-                    }
-                    // Check for the synchronization point in the parents of the outer node
-                    ObjectList<Node*> parents = outer_node->get_parents( );
-                    for( ObjectList<Node*>::iterator it = parents.begin( );
-                         it != parents.end( ) && ( _last_sync == NULL ) ; ++it )
+                    if ( child->is_ifelse_statement( ) || child->is_switch_statement( ) )
                     {
-                        compute_simultaneous_tasks( outer_node, current_nest - 1 );
+                        // TODO Look for synchronizations in the branches
+                        WARNING_MESSAGE( "Found a conditional branch while looking for the Last Synchronization Point "\
+                        "in AutoScoping Phase. We skip any synchronization found here,"\
+                        "but that might be incorrect.\nThis part is under development.", 0 );
+                    }
+                    else if( child->is_graph_node( ) )
+                    {
+                        find_last_synchronization_point_in_children( child->get_graph_entry_node( ), loop );
                     }
                 }
             }
-            else
+            
+            // Keep iterating, if necessary
+            if( _last_sync.empty( ) )
             {
-                if( current->is_omp_barrier_node( ) && !ExtensibleGraph::node_is_in_conditional_branch( current ) )
-                {   // A barrier placed in a non-conditional place is the Last Synchronization point
-                    _last_sync = current;
-                }
-                else if( current->is_omp_taskwait_node( ) )
-                {   // A taskwait only synchronizes tasks in the scheduled by the encountering thread of the taskwait
-                    taskwait_nest = current_nest;
-                }
-                else if( current->is_graph_node( ) )
+                if( child->is_exit_node( ) )
                 {
-                    if( current->is_omp_task_node( )
-                        && ( ( current_nest > taskwait_nest ) || ( taskwait_nest == INT_MAX /* no taskwait found */ ) ) )
-                    {   // Possible inner tasks inside 'current' are added with the addition of this node
-                        // FIXME Should we add recursively all tasks inside the current task to the _simultaneous_tasks set??
-                        _simultaneous_tasks.append( current );
-                    }
-                    else
-                    {   // Analyze recursively the inner nodes of the graph
-                        compute_simultaneous_tasks( current->get_graph_exit_node( ), current_nest + 1, taskwait_nest );
-                    }
+                    // Si sortim de la serie de loops on la tasca pot estar nested, ja no hem de buscar més!!
+                    // Per això necessitem passar la tasca com a paràmetre d'aquesta funció
+                    Node* child_outer = child->get_outer_node( );
+                    if( ExtensibleGraph::node_contains_node( loop, child_outer ) )  
+                        find_last_synchronization_point_in_children( child_outer, loop );
                 }
-
-                if( _last_sync == NULL )
+                else
                 {
-                    // Look for more tasks in the parents
-                    ObjectList<Node*> parents = current->get_parents( );
-                    for( ObjectList<Node*>::iterator it = parents.begin( );
-                         it != parents.end( ) && ( _last_sync == NULL ); ++it )
+                    find_last_synchronization_point_in_children( child, loop );
+                }
+            }
+        }
+    }
+    
+    static void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result )
+    {
+        if( !current->is_visited( ) && ( current != last ) )
+        {
+            current->set_visited( true );
+            
+            if( current->is_exit_node( ) )
+                return;
+            
+            if( current->is_graph_node( ) )
+            {
+                // Add inner tasks recursively, if exist
+                collect_tasks_between_nodes( current->get_graph_entry_node( ), last, skip, result );
+                
+                // Add current node if it is a task
+                if( current->is_omp_task_node( ) && ( current != skip ) )
+                    result.insert( current );
+            }
+            
+            ObjectList<Node*> children = current->get_children( );
+            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            {
+                collect_tasks_between_nodes( *it, last, skip, result );
+            }
+        }
+    }
+    
+    static bool task_in_loop_is_synchronized_within_loop( Node* task )
+    {
+        bool res = false;
+        
+        Node* task_sync = task->get_children( )[0];
+        if( !task_sync->is_omp_virtual_tasksync( ) )
+        {
+            Node* task_outer = task->get_outer_node( );
+            
+            while( ( task_outer != NULL ) && !res )
+            {
+                // Get the next loop were the task is nested
+                while( !task_outer->is_loop_node( ) && ( task_outer != NULL ) )
+                    task_outer = task_outer->get_outer_node( );
+                
+                if( ( task_outer != NULL ) && ExtensibleGraph::node_contains_node( task_outer, task_sync ) )
+                    res = true;
+            }
+        }
+        
+        return res;
+    }
+    
+    static void collect_previous_tasks_synchronized_after_scheduling_point( Node* task, ObjectList<Node*> currents, ObjectList<Node*>& result )
+    {
+        for( ObjectList<Node*>::iterator it = currents.begin( ); it != currents.end( ); ++it )
+        {
+            if( !( *it )->is_visited_aux( ) )
+            {
+                ( *it )->set_visited_aux( true );
+                
+                if( ( *it )->is_omp_task_node( ) )
+                {
+                    Node* it_sync = ( *it )->get_children( )[0];
+                    if( ExtensibleGraph::node_is_ancestor_of_node( task, it_sync ) )
                     {
-                        // A last_sync != NULL in any of the parents means the barrier will be reach
-                        // by all threads that were running before this barrier
-                        compute_simultaneous_tasks( *it, current_nest, taskwait_nest );
+                        result.insert( *it );
                     }
                 }
             }
+        }
+    }
+    
+    void AutoScoping::compute_simultaneous_tasks( Node* task )
+    {
+        // When the task is in a loop and it is not synchronized inside the loop and
+        // it is not synchronized between iterations, it is be concurrent with itself
+        Node* skip_task = NULL;
+        if( ExtensibleGraph::node_is_in_loop( task ) &&        // Task is created within a loop
+            task_in_loop_is_synchronized_within_loop( task ) )
+            skip_task = task;
+        
+        // When _last_sync is unknown, we use the entry of the graph where the task is defined
+        ObjectList<Node*> last_sync;
+        if( !_last_sync.empty( ) )
+            last_sync = _last_sync;
+        else
+            last_sync.insert( ExtensibleGraph::get_extensible_graph_from_node( task )->get_graph_entry_node( ) );
+        
+        // When _next_sync is unknown, we use the exit of the graph where the task is defined
+        Node* next_sync;
+        if( _next_sync != NULL )
+            next_sync = _next_sync;
+        else
+            next_sync = ExtensibleGraph::get_extensible_graph_from_node( task )->get_graph_exit_node( );
+            
+
+        for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
+        {
+            collect_tasks_between_nodes( *it, next_sync, skip_task, _simultaneous_tasks );
+            if( ( *it )->is_omp_taskwait_node( ) )
+            {   // Only previous tasks in the same nesting level are synchronized.
+                // We have to add here previous nested tasks here
+                ObjectList<Node*> it_parents = ( *it )->get_parents( );
+                collect_previous_tasks_synchronized_after_scheduling_point( task, it_parents, _simultaneous_tasks );
+                // We don want to clear the visit in *it, but from its parents
+                for( ObjectList<Node*>::iterator itp = it_parents.begin( ); itp != it_parents.end( ); ++itp )
+                {
+                    ExtensibleGraph::clear_visits_backwards( *itp );
+                }
+            }
+        }
+        for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
+        {
+            ExtensibleGraph::clear_visits( *it );
         }
     }
 
