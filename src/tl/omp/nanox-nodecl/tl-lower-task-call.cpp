@@ -1530,6 +1530,29 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
 {
     Nodecl::List statements_of_function;
 
+    // Get all the needed internal functions and duplicate them in the adapter function
+    Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+    internal_functions.walk(original_function_call);
+
+    TL::ObjectList<Nodecl::NodeclBase> copied_internal_subprograms;
+    Nodecl::Utils::SimpleSymbolMap* new_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
+            it2 != internal_functions.function_codes.end();
+            it2++)
+    {
+        ERROR_CONDITION(!it2->is<Nodecl::FunctionCode>(), "Invalid node", 0);
+
+        TL::Symbol orig_sym = it2->get_symbol();
+        TL::Symbol new_sym = adapter_function.get_related_scope().new_symbol(orig_sym.get_name());
+
+        new_map->add_map(orig_sym, new_sym);
+
+        Nodecl::NodeclBase copied_node = Nodecl::Utils::deep_copy(*it2, *it2, *new_map);
+
+        copied_internal_subprograms.append(copied_node);
+    }
+    symbol_map = new_map;
+
     TL::ObjectList<Nodecl::NodeclBase> statements_of_task_list;
     // Create one object init per save expression
     for (TL::ObjectList<TL::Symbol>::iterator it = save_expressions.begin();
@@ -1580,6 +1603,14 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
     statements_of_task_list.append(call_to_original);
 
     statements_of_task_seq = Nodecl::List::make(statements_of_task_list);
+
+    if (called_function.is_nested_function())
+    {
+        // If the called function is nested, we need to update the tree because the symbol
+        // 'called_function' must be the internal subprogram unit contained in the adapter function
+        statements_of_task_seq =
+            Nodecl::Utils::deep_copy(statements_of_task_seq, statements_of_task_seq, *symbol_map);
+    }
 
     // Update the environment of pragma omp task
     new_environment = Nodecl::Utils::deep_copy(original_environment,
@@ -1633,28 +1664,13 @@ Nodecl::NodeclBase LoweringVisitor::fill_adapter_function(
 
     Nodecl::NodeclBase in_context = statements_of_function;
 
-    // Now get all the needed internal functions and duplicate them in the adapter function
-    Nodecl::Utils::Fortran::InternalFunctions internal_functions;
-    internal_functions.walk(original_function_call);
-
-    // FIXME: this code is copied from 'duplicate_internal_subprograms' function
-    Nodecl::Utils::SimpleSymbolMap* new_map = new Nodecl::Utils::SimpleSymbolMap(symbol_map);
-    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = internal_functions.function_codes.begin();
-            it2 != internal_functions.function_codes.end();
+    // Add the copied internal subprogram units
+    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = copied_internal_subprograms.begin();
+            it2 != copied_internal_subprograms.end();
             it2++)
     {
-        ERROR_CONDITION(!it2->is<Nodecl::FunctionCode>(), "Invalid node", 0);
-
-        TL::Symbol orig_sym = it2->get_symbol();
-
-        Nodecl::NodeclBase copied_node = it2->shallow_copy();
-
-        TL::Symbol new_sym = adapter_function.get_related_scope().new_symbol(orig_sym.get_name());
-        new_map->add_map(orig_sym, new_sym);
-
-        in_context.as<Nodecl::List>().append(copied_node);
+        in_context.as<Nodecl::List>().append(*it2);
     }
-    symbol_map = new_map;
 
     Nodecl::NodeclBase context = Nodecl::Context::make(in_context, adapter_function.get_related_scope());
 
@@ -1759,6 +1775,10 @@ void LoweringVisitor::visit_task_call_fortran(
             new_task_construct,
             new_statements,
             new_environment);
+
+    // We may need to update the called task function if It is a nested task
+    if (called_task_function.is_nested_function())
+        called_task_function = symbol_map->map(called_task_function);
 
     Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, adapter_function_code);
 
