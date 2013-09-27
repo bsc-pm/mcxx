@@ -315,6 +315,9 @@ namespace Analysis {
 
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
+
+            //! Returns true when the node is a OMP_VIRTUAL_TASKSYNC node
+            bool is_omp_virtual_tasksync( );
             
             //! Returns true when the node is any type of vector node
             bool is_vector_node( );

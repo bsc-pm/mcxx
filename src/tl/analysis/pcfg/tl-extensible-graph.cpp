@@ -1155,6 +1155,44 @@ namespace Analysis {
         return result;
     }
     
+    Node* ExtensibleGraph::get_extensible_graph_from_node( Node* node )
+    {
+        Node* graph = node;
+        
+        if( node != NULL )
+        {
+            while( graph->get_outer_node( ) != NULL )
+                graph = graph->get_outer_node( );
+        }
+        
+        return graph;
+    }
+    
+    bool ExtensibleGraph::node_is_ancestor_of_node( Node* ancestor, Node* descendant )
+    {
+        bool res = false;
+        
+        if( !ancestor->is_visited_extgraph( ) )
+        {
+            ancestor->set_visited_extgraph( true );
+            
+            if( ancestor == descendant )
+            {
+                res = true;
+            }
+            else
+            {
+                ObjectList<Node*> children = ancestor->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && !res ; ++it )
+                {
+                    res = node_is_ancestor_of_node( *it, descendant );
+                }
+            }
+        }
+        
+        return res;
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;

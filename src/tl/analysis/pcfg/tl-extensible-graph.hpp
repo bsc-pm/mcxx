@@ -403,6 +403,8 @@ namespace Analysis {
         static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
         static bool is_backward_parent( Node* son, Node* parent );
         static bool node_contains_node( Node* container, Node* contained );
+        static Node* get_extensible_graph_from_node( Node* node );
+        static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
