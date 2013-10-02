@@ -1459,7 +1459,7 @@ have_int128=no
 
 AC_CHECK_TYPE([__int128], [have_int128=yes])
 
-if x$disable_int128 = xyes;
+if test x$disable_int128 = xyes;
 then
     have_int128=no
 fi
@@ -1482,7 +1482,7 @@ have_float_128="no"
 quadmath_LIBS=""
 AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
 
-if x$disable_float128 = xyes;
+if test x$disable_float128 = xyes;
 then
     have_float_128=no
 fi
