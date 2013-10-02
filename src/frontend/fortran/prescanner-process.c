@@ -371,11 +371,21 @@ static void join_continuated_lines(prescanner_t* prescanner)
 		}
 		else // Not a continuating one
 		{
+			// We ignore all non continuating lines except some cases checked
+			// below
 			char ignored_line = 1;
 
-			if (iter->line[0] == '!')
+			const char* first_nonblank = iter->line;
+			while (*first_nonblank == ' ' || *first_nonblank == '\t')
+				first_nonblank++;
+
+			if (*first_nonblank == '#')
 			{
-				// We spring over this comment unless it is a coco line or an omp line
+				// If this is an information line, ignore it
+			}
+			else if (iter->line[0] == '!')
+			{
+				// We ignore this comment unless it is a coco line or an omp line
 				if ((strncmp(iter->line, "!$ ", 3) == 0)
 						|| (strncasecmp(iter->line, "!$omp", 5) == 0))
 				{
