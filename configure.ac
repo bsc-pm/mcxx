@@ -1403,15 +1403,72 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
+disable_int128=no
+disable_float128=no
+
+AC_MSG_CHECKING([if __int128 has been disabled])
+AC_ARG_ENABLE([int128],
+    AS_HELP_STRING([--disable-int128], [Disables support for __int128. It also disables INTEGER(KIND=16) in Fortran])
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         disable_int128="yes"
+         dnl no, it has NOT been disabled
+         AC_MSG_RESULT([no])
+      else if test x$enableval = xno;
+           then
+              disable_int128="no"
+              dnl yes, it DOES have been disabled
+              AC_MSG_RESULT([yes])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+AC_MSG_CHECKING([if __float128 has been disabled])
+AC_ARG_ENABLE([float128],
+    AS_HELP_STRING([--disable-float128], [Disables support for __float128. It also disables REAL(KIND=16) in Fortran])
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         disable_float128="yes"
+         dnl no, it has NOT been disabled
+         AC_MSG_RESULT([no])
+      else if test x$enableval = xno;
+           then
+               disable_float128="no"
+               dnl yes, it DOES have been disabled
+               AC_MSG_RESULT([yes])
+           else
+               AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
 dnl -- Check if our GCC supports __int128
 have_int128=no
 
 AC_CHECK_TYPE([__int128], [have_int128=yes])
 
+if x$disable_int128 = xyes;
+then
+    have_int128=no
+fi
+
 if test x$have_int128 = xyes;
 then
  AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
 fi
+
 
 dnl The idea is that we may have a software implementation of kind=16 not
 dnl relying on __int128
@@ -1424,6 +1481,11 @@ dnl -- Check if our GCC supports quadmath.h (and __float128)
 have_float_128="no"
 quadmath_LIBS=""
 AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
+
+if x$disable_float128 = xyes;
+then
+    have_float_128=no
+fi
 
 if test x$have_float_128 = xyes;
 then
