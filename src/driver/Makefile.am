@@ -150,10 +150,13 @@ EXTRA_DIST += cxx-debugflags.gperf
 EXTRA_DIST += cxx-configfile-parser.y
 EXTRA_DIST += cxx-configfile-lexer.l
 
+EXTRA_DIST += cxx-configfile-parser.c
+EXTRA_DIST += cxx-configfile-parser-internal.h
+EXTRA_DIST += cxx-configfile-lexer.c
+
 BUILT_SOURCES += cxx-configoptions.c
 BUILT_SOURCES += cxx-fileextensions.c
 BUILT_SOURCES += cxx-debugflags.c
-
 
 BUILT_SOURCES += cxx-configfile-parser.c
 BUILT_SOURCES += cxx-configfile-parser-internal.h
@@ -167,10 +170,15 @@ CLEANFILES += cxx-debugflags.c
 CLEANFILES += cxx-fileextensions.c
 endif
 
+if FLEX_BUILDING
 CLEANFILES += cxx-configfile-lexer.c
+endif
+
+if BISON_BUILDING
 CLEANFILES += cxx-configfile-parser.c
 CLEANFILES += cxx-configfile-parser-internal.h
 CLEANFILES += cxx-configfile-parser.output
+endif
 
 CLEANFILES += cxx-target-tools.h
 
@@ -206,13 +214,22 @@ else
 endif
 
 cxx-configfile-lexer.c: $(srcdir)/cxx-configfile-lexer.l
+if FLEX_BUILDING
 	$(FLEX_verbose)$(FLEX) -Pconfigfile -d -ocxx-configfile-lexer.c -8 $(srcdir)/cxx-configfile-lexer.l
+else
+	@echo "*** ERROR: file cxx-configfile-lexer.l was modified but no suitable flex was found during configure ***"
+	@exit 1
+endif
 
 cxx-configfile-parser-internal.h : cxx-configfile-parser.c
 
 cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
+if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
-
+else
+	@echo "*** ERROR: file cxx-configfile-parser.y was modified but no suitable bison was found during configure ***"
+	@exit 1
+endif
 
 cxx-target-tools.h :
 	$(AM_V_GEN)( \
