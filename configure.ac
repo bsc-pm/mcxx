@@ -1408,7 +1408,7 @@ disable_float128=no
 
 AC_MSG_CHECKING([if __int128 has been disabled])
 AC_ARG_ENABLE([int128],
-    AS_HELP_STRING([--disable-int128], [Disables support for __int128. It also disables INTEGER(KIND=16) in Fortran])
+    AS_HELP_STRING([--disable-int128], [Disables support for __int128. It also disables INTEGER(KIND=16) in Fortran]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
@@ -1432,7 +1432,7 @@ AC_ARG_ENABLE([int128],
 
 AC_MSG_CHECKING([if __float128 has been disabled])
 AC_ARG_ENABLE([float128],
-    AS_HELP_STRING([--disable-float128], [Disables support for __float128. It also disables REAL(KIND=16) in Fortran])
+    AS_HELP_STRING([--disable-float128], [Disables support for __float128. It also disables REAL(KIND=16) in Fortran]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
