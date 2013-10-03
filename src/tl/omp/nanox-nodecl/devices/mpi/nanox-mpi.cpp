@@ -659,12 +659,22 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
 
     Source host_src,
-            instrument_before,
-            instrument_after;
+           instrument_before,
+           instrument_after;
 
     
     
-    
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                info._called_task,
+                host_function,
+                host_function_body,
+                info._task_label,
+                original_statements.get_locus(),
+                instrument_before,
+                instrument_after); 
+    } 
     
     host_src
             << "{"
