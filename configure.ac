@@ -1412,12 +1412,12 @@ AC_ARG_ENABLE([int128],
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
-         disable_int128="yes"
+         disable_int128="no"
          dnl no, it has NOT been disabled
          AC_MSG_RESULT([no])
       else if test x$enableval = xno;
            then
-              disable_int128="no"
+              disable_int128="yes"
               dnl yes, it DOES have been disabled
               AC_MSG_RESULT([yes])
            else
@@ -1436,12 +1436,12 @@ AC_ARG_ENABLE([float128],
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
-         disable_float128="yes"
+         disable_float128="no"
          dnl no, it has NOT been disabled
          AC_MSG_RESULT([no])
       else if test x$enableval = xno;
            then
-               disable_float128="no"
+               disable_float128="yes"
                dnl yes, it DOES have been disabled
                AC_MSG_RESULT([yes])
            else
@@ -1480,7 +1480,7 @@ fi
 dnl -- Check if our GCC supports quadmath.h (and __float128)
 have_float_128="no"
 quadmath_LIBS=""
-AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
+AC_CHECK_HEADER([quadmath.h], [have_float_128="yes"])
 
 if test x$disable_float128 = xyes;
 then
