@@ -241,6 +241,17 @@ namespace Analysis {
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::Alignof& n );
+        Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::Dead& n );
+        Ret visit( const Nodecl::Analysis::Defined& n );
+        Ret visit( const Nodecl::Analysis::InductionVarExpr& n );
+        Ret visit( const Nodecl::Analysis::InductionVariable& n );
+        Ret visit( const Nodecl::Analysis::LiveIn& n );
+        Ret visit( const Nodecl::Analysis::LiveOut& n );
+        Ret visit( const Nodecl::Analysis::ReachDefExpr& n );
+        Ret visit( const Nodecl::Analysis::ReachingDefinitionIn& n );
+        Ret visit( const Nodecl::Analysis::ReachingDefinitionOut& n );
+        Ret visit( const Nodecl::Analysis::UpperExposed& n );
         Ret visit( const Nodecl::ArithmeticShr& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );

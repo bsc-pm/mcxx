@@ -175,6 +175,25 @@ namespace Utils {
         }
     }
 
+    std::string prettyprint_induction_vars( ObjectList<InductionVariableData*> iv_list )
+    {
+        std::string result = "";
+        int i = 0, total = iv_list.size( );
+        for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( ); 
+             it != iv_list.end( ); ++it, ++i )
+        {
+            InductionVariableData* iv = *it;
+            result += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+                    + ":" + iv->get_lb( ).prettyprint( )
+                    + ":" + iv->get_ub( ).prettyprint( )
+                    + ":" + iv->get_increment( ).prettyprint( );
+            
+            if( i < total - 1 )
+                result += " ; ";
+        }
+        return result;
+    }
+    
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var )
     {

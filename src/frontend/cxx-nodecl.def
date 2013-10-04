@@ -85,6 +85,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | parallel-statements
           | compatibility
           | NODECL_ERR_STATEMENT()
+          | assert-construct
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
 
@@ -592,3 +593,22 @@ parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] stat
 
 cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt
 
+##############################
+# ANALYSIS                   #
+##############################
+
+# Used for analysis checking
+reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
+
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression, [upper] expression, [stride] expression)
+
+analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
+                          | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)
+                          | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq)
+                          | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq)
+                          | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq)
+                          | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq)
+
+assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)

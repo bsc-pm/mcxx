@@ -1133,7 +1133,7 @@ namespace TL
                             _environment._analysis_scopes.back(),
                             n))
                 {
-                    DEBUG_CODE()
+//                     DEBUG_CODE()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", 
                                 n.prettyprint().c_str()); 

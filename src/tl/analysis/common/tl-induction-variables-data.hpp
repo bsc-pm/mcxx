@@ -107,6 +107,8 @@ namespace Utils {
     typedef std::multimap<int, InductionVariableData*> InductionVarsPerNode;
 
     void print_induction_vars( InductionVarsPerNode ivs );
+    
+    std::string prettyprint_induction_vars( ObjectList<InductionVariableData*> iv_list );
 
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var );

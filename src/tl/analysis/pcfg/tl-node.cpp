@@ -40,14 +40,14 @@ namespace TL {
 namespace Analysis {
 
     Node::Node( )
-        : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), 
+        : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
         _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
     }
 
     Node::Node( unsigned int& id, Node_type ntype, Node* outer_node )
-        : _id( ++id ), _entry_edges( ), _exit_edges( ), 
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
           _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, ntype );
@@ -62,7 +62,7 @@ namespace Analysis {
     }
 
     Node::Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls )
-        : _id( ++id ), _entry_edges( ), _exit_edges( ), 
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
           _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, type );
@@ -72,7 +72,7 @@ namespace Analysis {
     }
 
     Node::Node( unsigned int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl )
-        : _id( ++id ), _entry_edges( ), _exit_edges( ), 
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
           _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, type );
@@ -132,6 +132,16 @@ namespace Analysis {
         _id = id;
     }
 
+    bool Node::has_assertion( ) const
+    {
+        return _has_assertion;
+    }
+    
+    void Node::set_assertion( )
+    {
+        _has_assertion = true;
+    }
+    
     bool Node::is_visited( ) const
     {
         return _visited;
@@ -1976,7 +1986,271 @@ namespace Analysis {
     // ************ END getters and setters for task dependence analysis ************ //
     // ****************************************************************************** //
 
+    
+    
+    // ****************************************************************************** //
+    // ****************** Getters and setters for analysis checking ***************** //
+    
+    Utils::ext_sym_set Node::get_assert_ue_vars( )
+    {
+        Utils::ext_sym_set assert_ue_vars;
+        
+        if( has_key( _ASSERT_UPPER_EXPOSED ) )
+        {
+            assert_ue_vars = get_data<Utils::ext_sym_set>( _ASSERT_UPPER_EXPOSED );
+        }
+        
+        return assert_ue_vars;
+    }
+    
+    void Node::set_assert_ue_var( ObjectList<Nodecl::NodeclBase> new_assert_ue_vars )
+    {
+        Utils::ext_sym_set assert_ue_vars;
+        
+        if( this->has_key( _ASSERT_UPPER_EXPOSED ) )
+        {
+            assert_ue_vars = get_data<Utils::ext_sym_set>( _ASSERT_UPPER_EXPOSED );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_ue_vars.begin( ); 
+             it != new_assert_ue_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_ue_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_ue_var, assert_ue_vars ) )
+            {
+                assert_ue_vars.insert( new_assert_ue_var );
+                set_data( _ASSERT_UPPER_EXPOSED, assert_ue_vars );
+            }
+        }
+    }
 
+    Utils::ext_sym_set Node::get_assert_killed_vars( )
+    {
+        Utils::ext_sym_set assert_killed_vars;
+        
+        if( has_key( _ASSERT_KILLED ) )
+        {
+            assert_killed_vars = get_data<Utils::ext_sym_set>( _ASSERT_KILLED );
+        }
+        
+        return assert_killed_vars;
+    }
+    
+    void Node::set_assert_killed_var( ObjectList<Nodecl::NodeclBase> new_assert_killed_vars )
+    {
+        Utils::ext_sym_set assert_killed_vars;
+        
+        if( this->has_key( _ASSERT_KILLED ) )
+        {
+            assert_killed_vars = get_data<Utils::ext_sym_set>( _ASSERT_KILLED );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_killed_vars.begin( ); 
+             it != new_assert_killed_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_killed_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_killed_var, assert_killed_vars ) )
+            {
+                assert_killed_vars.insert( new_assert_killed_var );
+                set_data( _ASSERT_KILLED, assert_killed_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_live_in_vars( )
+    {
+        Utils::ext_sym_set assert_live_in_vars;
+        
+        if( has_key( _ASSERT_LIVE_IN ) )
+        {
+            assert_live_in_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_IN );
+        }
+        
+        return assert_live_in_vars;
+    }
+    
+    void Node::set_assert_live_in_var( ObjectList<Nodecl::NodeclBase> new_assert_live_in_vars )
+    {
+        Utils::ext_sym_set assert_live_in_vars;
+        
+        if( this->has_key( _ASSERT_LIVE_IN ) )
+        {
+            assert_live_in_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_IN );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_live_in_vars.begin( ); 
+             it != new_assert_live_in_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_live_in_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_live_in_var, assert_live_in_vars ) )
+            {
+                assert_live_in_vars.insert( new_assert_live_in_var );
+                set_data( _ASSERT_LIVE_IN, assert_live_in_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_live_out_vars( )
+    {
+        Utils::ext_sym_set assert_live_out_vars;
+        
+        if( has_key( _ASSERT_LIVE_OUT ) )
+        {
+            assert_live_out_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_OUT );
+        }
+        
+        return assert_live_out_vars;
+    }
+    
+    void Node::set_assert_live_out_var( ObjectList<Nodecl::NodeclBase> new_assert_live_out_vars )
+    {
+        Utils::ext_sym_set assert_live_out_vars;
+        
+        if( this->has_key( _ASSERT_LIVE_OUT ) )
+        {
+            assert_live_out_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_OUT );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_live_out_vars.begin( ); 
+             it != new_assert_live_out_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_live_out_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_live_out_var, assert_live_out_vars ) )
+            {
+                assert_live_out_vars.insert( new_assert_live_out_var );
+                set_data( _ASSERT_LIVE_OUT, assert_live_out_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_dead_vars( )
+    {
+        Utils::ext_sym_set assert_dead_vars;
+        
+        if( has_key( _ASSERT_DEAD ) )
+        {
+            assert_dead_vars = get_data<Utils::ext_sym_set>( _ASSERT_DEAD );
+        }
+        
+        return assert_dead_vars;
+    }
+    
+    void Node::set_assert_dead_var( ObjectList<Nodecl::NodeclBase> new_assert_dead_vars )
+    {
+        Utils::ext_sym_set assert_dead_vars;
+        
+        if( this->has_key( _ASSERT_DEAD ) )
+        {
+            assert_dead_vars = get_data<Utils::ext_sym_set>( _ASSERT_DEAD );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_dead_vars.begin( ); 
+             it != new_assert_dead_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_dead_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_dead_var, assert_dead_vars ) )
+            {
+                assert_dead_vars.insert( new_assert_dead_var );
+                set_data( _ASSERT_DEAD, assert_dead_vars );
+            }
+        }
+    }    
+    
+    Utils::ext_sym_map Node::get_assert_reaching_definitions_in( )
+    {
+        Utils::ext_sym_map assert_reach_defs_in;
+        
+        if( has_key( _ASSERT_REACH_DEFS_IN ) )
+        {
+            assert_reach_defs_in = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_IN );
+        }
+        
+        return assert_reach_defs_in;
+    }
+
+    void Node::set_assert_reaching_definitions_in( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_in )
+    {   
+        Utils::ext_sym_map assert_reach_defs_in;
+        
+        if( this->has_key( _ASSERT_REACH_DEFS_IN ) )
+        {
+            assert_reach_defs_in = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_IN );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_reach_defs_in.begin( ); 
+             it != new_assert_reach_defs_in.end( ); ++it )
+        {
+            Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
+            Utils::ExtendedSymbol rd_var( rd.get_expression( ) );
+            assert_reach_defs_in.insert( 
+                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( rd_var, rd.get_value( ) ) );
+        }
+        set_data( _ASSERT_REACH_DEFS_IN, assert_reach_defs_in );
+    }
+    
+    Utils::ext_sym_map Node::get_assert_reaching_definitions_out( )
+    {
+        Utils::ext_sym_map assert_reach_defs_out;
+        
+        if( has_key( _ASSERT_REACH_DEFS_OUT ) )
+        {
+            assert_reach_defs_out = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_OUT );
+        }
+        
+        return assert_reach_defs_out;
+    }
+    
+    void Node::set_assert_reaching_definitions_out( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_out )
+    {   
+        Utils::ext_sym_map assert_reach_defs_out;
+        
+        if( this->has_key( _ASSERT_REACH_DEFS_OUT ) )
+        {
+            assert_reach_defs_out = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_OUT );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_reach_defs_out.begin( ); 
+             it != new_assert_reach_defs_out.end( ); ++it )
+        {
+            Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
+            Utils::ExtendedSymbol rd_var( rd.get_expression( ) );
+            assert_reach_defs_out.insert( 
+                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( rd_var, rd.get_value( ) ) );
+        }
+        set_data( _ASSERT_REACH_DEFS_OUT, assert_reach_defs_out );
+    }
+    
+    ObjectList<Utils::InductionVariableData*> Node::get_assert_induction_vars( )
+    {
+        ObjectList<Utils::InductionVariableData*> assert_induction_vars;
+        
+        if( has_key( _ASSERT_INDUCTION_VARS ) )
+        {
+            assert_induction_vars = get_data<ObjectList<Utils::InductionVariableData*> >( _ASSERT_INDUCTION_VARS );
+        }
+        
+        return assert_induction_vars;
+    }
+    
+    void Node::set_assert_induction_variables( ObjectList<Nodecl::NodeclBase> new_assert_induction_vars )
+    {
+        ObjectList<Utils::InductionVariableData*> assert_induction_vars;
+        
+        if( this->has_key( _ASSERT_INDUCTION_VARS ) )
+        {
+            assert_induction_vars = get_data<ObjectList<Utils::InductionVariableData*> >( _ASSERT_INDUCTION_VARS );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_induction_vars.begin( ); 
+            it != new_assert_induction_vars.end( ); ++it )
+        {
+            Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>( );
+            Utils::InductionVariableData* iv_data = 
+                new Utils::InductionVariableData( Utils::ExtendedSymbol( iv.get_induction_variable( ) ) );
+            iv_data->set_lb( iv.get_lower( ) );
+            iv_data->set_ub( iv.get_upper( ) );
+            iv_data->set_increment( iv.get_stride( ) );
+            assert_induction_vars.insert( iv_data);
+        }
+        set_data( _ASSERT_INDUCTION_VARS, assert_induction_vars );
+    }
+    
+    // **************** END getters and setters for analysis checking *************** //
+    // ****************************************************************************** //
+    
+    
 
     // ****************************************************************************** //
     // *********************************** Utils ************************************ //

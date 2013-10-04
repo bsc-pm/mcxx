@@ -1636,6 +1636,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-parallel-simd-mic
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
+           tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium

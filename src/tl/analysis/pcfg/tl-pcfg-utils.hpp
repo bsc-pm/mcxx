@@ -106,6 +106,14 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     enum Clause {
+        ASSERT_DEAD,
+        ASSERT_DEFINED,
+        ASSERT_LIVE_IN,
+        ASSERT_INDUCTION_VAR,
+        ASSERT_LIVE_OUT,
+        ASSERT_REACH_IN,
+        ASSERT_REACH_OUT,
+        ASSERT_UPPER_EXPOSED,
         AUTO,
         DEP_IN,
         DEP_IN_VALUE,

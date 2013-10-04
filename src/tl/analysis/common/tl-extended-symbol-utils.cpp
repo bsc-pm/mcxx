@@ -140,7 +140,7 @@ namespace Utils {
 
         return result;
     }
-
+    
     ext_sym_set ext_sym_set_difference( ext_sym_set c1, ext_sym_set c2 )
     {
         ext_sym_set result;
