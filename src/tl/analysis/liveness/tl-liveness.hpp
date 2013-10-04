@@ -35,8 +35,18 @@ namespace Analysis {
 
     // **************************************************************************************************** //
     // ******************************* Class implementing liveness analysis ******************************* //
-
-    //! Class implementing Liveness Analysis
+    
+    /*! The equations we use for Liveness analysis are the following:
+     *  - Live In variables for node 'x':
+     *      - General case: LI(x) = UE(x) U ( LO(x) - KILL(x) )
+     *      - x is in task (or is a task) : LI(x) = UE(x) U ( LO(x) - KILL(x) - ( U KILL(y) ) ), 
+     *                                      where y = all concurrent task of x
+     *      - x is in task creation : LI(x) = UE(x) U ( LO(x) - KILL(x) - KILL(y) ), 
+     *                                      where y = task created by x
+     *  - Live Out variables for node 'x':
+     *      LO(x) = U LI(y),
+     *      where y = all successors of x
+     */
     class LIBTL_CLASS Liveness
     {
     private:

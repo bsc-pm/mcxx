@@ -74,6 +74,7 @@ namespace Analysis {
          * @return The PCFG node containing the Nodecl
          */
         Node* node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+
         Node* node_enclosing_nodecl( const Nodecl::NodeclBase& n );
 
     public:
@@ -87,7 +88,8 @@ namespace Analysis {
 
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
-
+        ObjectList<ExtensibleGraph*> get_pcfgs( );
+        
         bool is_constants_propagation_computed( ) const;
         void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
@@ -106,7 +108,7 @@ namespace Analysis {
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
-
+        
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
 
@@ -200,6 +202,8 @@ namespace Analysis {
         // ********************* Utils ******************** //
 
         void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
+        
+        void print_all_pcfg( PCFGAnalysis_memento& memento );
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //

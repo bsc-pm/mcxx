@@ -374,7 +374,7 @@ namespace Analysis {
 //         traverse_loop_cond(loop_node, loop_control.get_cond());
 //         traverse_loop_stride(loop_node, loop_control.get_next());
 //
-//         // Check whether the statements within the loop modify the induction variables founded in the loop control
+//         // Check whether the statements within the loop modify the induction variables found in the loop control
 //         Node* entry = loop_node->get_graph_entry_node();
 //         delete_false_induction_vars(entry, loop_node);
 //

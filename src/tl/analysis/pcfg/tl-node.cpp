@@ -40,13 +40,15 @@ namespace TL {
 namespace Analysis {
 
     Node::Node( )
-            : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
+        _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
     }
 
     Node::Node( unsigned int& id, Node_type ntype, Node* outer_node )
-            : _id( ++id ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
+          _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, ntype );
         set_data( _OUTER_NODE, outer_node );
@@ -60,7 +62,8 @@ namespace Analysis {
     }
 
     Node::Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls )
-            : _id( ++id ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
+          _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, type );
         set_data( _OUTER_NODE, outer_node );
@@ -69,7 +72,8 @@ namespace Analysis {
     }
 
     Node::Node( unsigned int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl )
-            : _id( ++id ), _entry_edges( ), _exit_edges( ), _visited( false ), _visited_aux( false )
+        : _id( ++id ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
+          _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
         set_data( _NODE_TYPE, type );
         set_data( _OUTER_NODE, outer_node );
@@ -128,6 +132,16 @@ namespace Analysis {
         _id = id;
     }
 
+    bool Node::has_assertion( ) const
+    {
+        return _has_assertion;
+    }
+    
+    void Node::set_assertion( )
+    {
+        _has_assertion = true;
+    }
+    
     bool Node::is_visited( ) const
     {
         return _visited;
@@ -138,6 +152,16 @@ namespace Analysis {
         return _visited_aux;
     }
 
+    bool Node::is_visited_extgraph( ) const
+    {
+        return _visited_extgraph;
+    }
+
+    bool Node::is_visited_extgraph_aux( ) const
+    {
+        return _visited_extgraph_aux;
+    }
+    
     void Node::set_visited( bool visited )
     {
         _visited = visited;
@@ -148,6 +172,16 @@ namespace Analysis {
         _visited_aux = visited;
     }
 
+    void Node::set_visited_extgraph( bool visited )
+    {
+        _visited_extgraph = visited;
+    }
+    
+    void Node::set_visited_extgraph_aux( bool visited )
+    {
+        _visited_extgraph_aux = visited;
+    }
+    
     bool Node::is_empty_node( )
     {
         return ( _id==-1 && is_unclassified_node( ) );
@@ -402,6 +436,14 @@ namespace Analysis {
         return ( get_type( ) == ASM_OP );
     }
 
+    bool Node::is_omp_node( )
+    {
+        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
+                 is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
+                 is_omp_sections_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || is_omp_task_node( ) ||
+                 is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+    }
+    
     bool Node::is_omp_atomic_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
@@ -452,9 +494,20 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
     }
 
+    // Fortran only
+    bool Node::is_omp_workshare_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_WORKSHARE ) );
+    }
+
     bool Node::is_omp_task_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
+    }
+
+    bool Node::is_omp_task_creation_node( )
+    {
+        return ( get_type ( ) == OMP_TASK_CREATION );
     }
 
     bool Node::is_omp_taskwait_node( )
@@ -462,11 +515,45 @@ namespace Analysis {
         return ( get_type( ) == OMP_TASKWAIT );
     }
 
+    bool Node::is_ompss_taskwait_on_node( )
+    {
+        return ( get_type( ) == OMP_WAITON_DEPS );
+    }
+
     bool Node::is_omp_taskyield_node( )
     {
         return ( get_type( ) == OMP_TASKYIELD );
     }
 
+    bool Node::is_omp_virtual_tasksync( )
+    {
+        return ( get_type( ) == OMP_VIRTUAL_TASKSYNC );
+    }
+    
+    bool Node::is_vector_node( )
+    {
+        bool result = false;
+        if( is_graph_node( ) )
+        {
+            Graph_type gt = get_graph_type( );
+            if( ( gt == VECTOR_COND_EXPR ) || ( gt == VECTOR_FUNC_CALL ) )
+            {    
+                result = true;
+            }
+        }
+        else
+        {
+            Node_type nt = get_type( );
+            if( ( nt == VECTOR_FUNCTION_CALL ) || ( nt == VECTOR_GATHER ) || ( nt == VECTOR_LOAD ) || 
+                ( nt == VECTOR_NORMAL ) || ( nt == VECTOR_REDUCTION ) || ( nt == VECTOR_SCATTER ) || 
+                ( nt == VECTOR_STORE ) )
+            {
+                result = true;
+            }
+        }
+        return result;
+    }
+    
     bool Node::is_connected( )
     {
         return (!_entry_edges.empty( ) || !_exit_edges.empty( ));
@@ -573,7 +660,16 @@ namespace Analysis {
                 case OMP_BARRIER:           type = "OMP_BARRIER";           break;
                 case OMP_FLUSH:             type = "OMP_FLUSH";             break;
                 case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
+                case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
                 case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
+                case OMP_TASK_CREATION:     type = "OMP_TASK_CREATION";     break;
+                case VECTOR_FUNCTION_CALL:  type = "VECTOR_FUNCTION_CALL";  break;
+                case VECTOR_GATHER:         type = "VECTOR_GATHER";         break;
+                case VECTOR_LOAD:           type = "VECTOR_LOAD";           break;
+                case VECTOR_NORMAL:         type = "VECTOR_NORMAL";         break;
+                case VECTOR_REDUCTION:      type = "VECTOR_REDUCTION";      break;
+                case VECTOR_SCATTER:        type = "VECTOR_SCATTER";        break;
+                case VECTOR_STORE:          type = "VECTOR_STORE";          break;
                 case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
                 case GRAPH:                 type = "GRAPH";                 break;
                 case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
@@ -596,26 +692,33 @@ namespace Analysis {
             Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
             switch( ntype )
             {
-                case ASM_DEF:           graph_type = "ASM_DEF";             break;
-                case COND_EXPR:         graph_type = "COND_EXPR";           break;
-                case EXTENSIBLE_GRAPH:  graph_type = "EXTENSIBLE_GRAPH";    break;
-                case FUNC_CALL:         graph_type = "FUNC_CALL";           break;
-                case IF_ELSE:           graph_type = "IF_ELSE";             break;
-                case LOOP_DOWHILE:      graph_type = "LOOP_DOWHILE";        break;
-                case LOOP_FOR:          graph_type = "LOOP_FOR";            break;
-                case LOOP_WHILE:        graph_type = "LOOP_WHILE";          break;
-                case OMP_ATOMIC:        graph_type = "OMP_ATOMIC";          break;
-                case OMP_CRITICAL:      graph_type = "OMP_CRITICAL";        break;
-                case OMP_LOOP:          graph_type = "OMP_LOOP";            break;
-                case OMP_PARALLEL:      graph_type = "OMP_PARALLEL";        break;
-                case OMP_SECTION:       graph_type = "OMP_SECTION";         break;
-                case OMP_SECTIONS:      graph_type = "OMP_SECTIONS";        break;
-                case OMP_SINGLE:        graph_type = "OMP_SINGLE";          break;
-                case OMP_TASK:          graph_type = "OMP_TASK";            break;
-                case SIMD:              graph_type = "SIMD";                break;
-                case SPLIT_STMT:        graph_type = "SPLIT_STMT";          break;
-                case SWITCH:            graph_type = "SWITCH";              break;
-                default:                WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
+                case ASM_DEF:               graph_type = "ASM_DEF";                 break;
+                case COND_EXPR:             graph_type = "COND_EXPR";               break;
+                case EXTENSIBLE_GRAPH:      graph_type = "EXTENSIBLE_GRAPH";        break;
+                case FUNC_CALL:             graph_type = "FUNC_CALL";               break;
+                case IF_ELSE:               graph_type = "IF_ELSE";                 break;
+                case LOOP_DOWHILE:          graph_type = "LOOP_DOWHILE";            break;
+                case LOOP_FOR:              graph_type = "LOOP_FOR";                break;
+                case LOOP_WHILE:            graph_type = "LOOP_WHILE";              break;
+                case OMP_ATOMIC:            graph_type = "OMP_ATOMIC";              break;
+                case OMP_CRITICAL:          graph_type = "OMP_CRITICAL";            break;
+                case OMP_LOOP:              graph_type = "OMP_LOOP";                break;
+                case OMP_PARALLEL:          graph_type = "OMP_PARALLEL";            break;
+                case OMP_MASTER:            graph_type = "OMP_MASTER";              break;
+                case OMP_SECTION:           graph_type = "OMP_SECTION";             break;
+                case OMP_SECTIONS:          graph_type = "OMP_SECTIONS";            break;
+                case OMP_SIMD:              graph_type = "OMP_SIMD";                break;
+                case OMP_SIMD_FOR:          graph_type = "OMP_SIMD_FOR";            break;
+                case OMP_SIMD_FUNCTION:     graph_type = "OMP_SIMD_FUNCTION";       break;
+                case OMP_SIMD_PARALLEL_FOR: graph_type = "OMP_SIMD_PARALLEL_FOR";   break;
+                case OMP_SINGLE:            graph_type = "OMP_SINGLE";              break;
+                case OMP_WORKSHARE:         graph_type = "OMP_WORKSHARE";           break;
+                case OMP_TASK:              graph_type = "OMP_TASK";                break;
+                case SPLIT_STMT:            graph_type = "SPLIT_STMT";              break;
+                case SWITCH:                graph_type = "SWITCH";                  break;
+                case VECTOR_COND_EXPR:      graph_type = "VECTOR_COND_EXPR";        break;
+                case VECTOR_FUNC_CALL:      graph_type = "VECTOR_FUNC_CALL";        break;
+                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
             };
         }
         else
@@ -756,7 +859,7 @@ namespace Analysis {
         || type == OMP_SINGLE || type == OMP_TASK );
     }
 
-    PCFGPragmaInfo Node::get_omp_node_info( )
+    PCFGPragmaInfo Node::get_pragma_node_info( )
     {
         if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
             && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
@@ -777,7 +880,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_omp_node_info( PCFGPragmaInfo pragma )
+    void Node::set_pragma_node_info( PCFGPragmaInfo pragma )
     {
         if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
             && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
@@ -935,7 +1038,36 @@ namespace Analysis {
     // ******** END Getters and setters for PCFG structural nodes and types ********* //
     // ****************************************************************************** //
 
+    
+    
+    // ****************************************************************************** //
+    // ****************** Getters and setters for PCFG analysis ********************* //
+    
+    AliveTaskSet& Node::get_live_in_tasks( )
+    {
+        return get_data<AliveTaskSet>( "live_tasks_in" );
+    }
+    
+    AliveTaskSet& Node::get_live_out_tasks( )
+    {
+        return get_data<AliveTaskSet>( "live_tasks_out" );
+    }
 
+    StaticSyncTaskSet& Node::get_static_sync_in_tasks()
+    {
+        return get_data<StaticSyncTaskSet>("static_sync_tasks_in");
+    }
+
+    StaticSyncTaskSet& Node::get_static_sync_out_tasks()
+    {
+        return get_data<StaticSyncTaskSet>("static_sync_tasks_out");
+    }
+    
+    // **************** END getters and setters for PCFG analysis ******************* //
+    // ****************************************************************************** //
+    
+
+    
     // ****************************************************************************** //
     // **************** Getters and setters for constants analysis ****************** //
 
@@ -1854,7 +1986,271 @@ namespace Analysis {
     // ************ END getters and setters for task dependence analysis ************ //
     // ****************************************************************************** //
 
+    
+    
+    // ****************************************************************************** //
+    // ****************** Getters and setters for analysis checking ***************** //
+    
+    Utils::ext_sym_set Node::get_assert_ue_vars( )
+    {
+        Utils::ext_sym_set assert_ue_vars;
+        
+        if( has_key( _ASSERT_UPPER_EXPOSED ) )
+        {
+            assert_ue_vars = get_data<Utils::ext_sym_set>( _ASSERT_UPPER_EXPOSED );
+        }
+        
+        return assert_ue_vars;
+    }
+    
+    void Node::set_assert_ue_var( ObjectList<Nodecl::NodeclBase> new_assert_ue_vars )
+    {
+        Utils::ext_sym_set assert_ue_vars;
+        
+        if( this->has_key( _ASSERT_UPPER_EXPOSED ) )
+        {
+            assert_ue_vars = get_data<Utils::ext_sym_set>( _ASSERT_UPPER_EXPOSED );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_ue_vars.begin( ); 
+             it != new_assert_ue_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_ue_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_ue_var, assert_ue_vars ) )
+            {
+                assert_ue_vars.insert( new_assert_ue_var );
+                set_data( _ASSERT_UPPER_EXPOSED, assert_ue_vars );
+            }
+        }
+    }
 
+    Utils::ext_sym_set Node::get_assert_killed_vars( )
+    {
+        Utils::ext_sym_set assert_killed_vars;
+        
+        if( has_key( _ASSERT_KILLED ) )
+        {
+            assert_killed_vars = get_data<Utils::ext_sym_set>( _ASSERT_KILLED );
+        }
+        
+        return assert_killed_vars;
+    }
+    
+    void Node::set_assert_killed_var( ObjectList<Nodecl::NodeclBase> new_assert_killed_vars )
+    {
+        Utils::ext_sym_set assert_killed_vars;
+        
+        if( this->has_key( _ASSERT_KILLED ) )
+        {
+            assert_killed_vars = get_data<Utils::ext_sym_set>( _ASSERT_KILLED );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_killed_vars.begin( ); 
+             it != new_assert_killed_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_killed_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_killed_var, assert_killed_vars ) )
+            {
+                assert_killed_vars.insert( new_assert_killed_var );
+                set_data( _ASSERT_KILLED, assert_killed_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_live_in_vars( )
+    {
+        Utils::ext_sym_set assert_live_in_vars;
+        
+        if( has_key( _ASSERT_LIVE_IN ) )
+        {
+            assert_live_in_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_IN );
+        }
+        
+        return assert_live_in_vars;
+    }
+    
+    void Node::set_assert_live_in_var( ObjectList<Nodecl::NodeclBase> new_assert_live_in_vars )
+    {
+        Utils::ext_sym_set assert_live_in_vars;
+        
+        if( this->has_key( _ASSERT_LIVE_IN ) )
+        {
+            assert_live_in_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_IN );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_live_in_vars.begin( ); 
+             it != new_assert_live_in_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_live_in_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_live_in_var, assert_live_in_vars ) )
+            {
+                assert_live_in_vars.insert( new_assert_live_in_var );
+                set_data( _ASSERT_LIVE_IN, assert_live_in_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_live_out_vars( )
+    {
+        Utils::ext_sym_set assert_live_out_vars;
+        
+        if( has_key( _ASSERT_LIVE_OUT ) )
+        {
+            assert_live_out_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_OUT );
+        }
+        
+        return assert_live_out_vars;
+    }
+    
+    void Node::set_assert_live_out_var( ObjectList<Nodecl::NodeclBase> new_assert_live_out_vars )
+    {
+        Utils::ext_sym_set assert_live_out_vars;
+        
+        if( this->has_key( _ASSERT_LIVE_OUT ) )
+        {
+            assert_live_out_vars = get_data<Utils::ext_sym_set>( _ASSERT_LIVE_OUT );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_live_out_vars.begin( ); 
+             it != new_assert_live_out_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_live_out_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_live_out_var, assert_live_out_vars ) )
+            {
+                assert_live_out_vars.insert( new_assert_live_out_var );
+                set_data( _ASSERT_LIVE_OUT, assert_live_out_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_dead_vars( )
+    {
+        Utils::ext_sym_set assert_dead_vars;
+        
+        if( has_key( _ASSERT_DEAD ) )
+        {
+            assert_dead_vars = get_data<Utils::ext_sym_set>( _ASSERT_DEAD );
+        }
+        
+        return assert_dead_vars;
+    }
+    
+    void Node::set_assert_dead_var( ObjectList<Nodecl::NodeclBase> new_assert_dead_vars )
+    {
+        Utils::ext_sym_set assert_dead_vars;
+        
+        if( this->has_key( _ASSERT_DEAD ) )
+        {
+            assert_dead_vars = get_data<Utils::ext_sym_set>( _ASSERT_DEAD );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_dead_vars.begin( ); 
+             it != new_assert_dead_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_dead_var( *it );
+            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_dead_var, assert_dead_vars ) )
+            {
+                assert_dead_vars.insert( new_assert_dead_var );
+                set_data( _ASSERT_DEAD, assert_dead_vars );
+            }
+        }
+    }    
+    
+    Utils::ext_sym_map Node::get_assert_reaching_definitions_in( )
+    {
+        Utils::ext_sym_map assert_reach_defs_in;
+        
+        if( has_key( _ASSERT_REACH_DEFS_IN ) )
+        {
+            assert_reach_defs_in = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_IN );
+        }
+        
+        return assert_reach_defs_in;
+    }
+
+    void Node::set_assert_reaching_definitions_in( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_in )
+    {   
+        Utils::ext_sym_map assert_reach_defs_in;
+        
+        if( this->has_key( _ASSERT_REACH_DEFS_IN ) )
+        {
+            assert_reach_defs_in = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_IN );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_reach_defs_in.begin( ); 
+             it != new_assert_reach_defs_in.end( ); ++it )
+        {
+            Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
+            Utils::ExtendedSymbol rd_var( rd.get_expression( ) );
+            assert_reach_defs_in.insert( 
+                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( rd_var, rd.get_value( ) ) );
+        }
+        set_data( _ASSERT_REACH_DEFS_IN, assert_reach_defs_in );
+    }
+    
+    Utils::ext_sym_map Node::get_assert_reaching_definitions_out( )
+    {
+        Utils::ext_sym_map assert_reach_defs_out;
+        
+        if( has_key( _ASSERT_REACH_DEFS_OUT ) )
+        {
+            assert_reach_defs_out = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_OUT );
+        }
+        
+        return assert_reach_defs_out;
+    }
+    
+    void Node::set_assert_reaching_definitions_out( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_out )
+    {   
+        Utils::ext_sym_map assert_reach_defs_out;
+        
+        if( this->has_key( _ASSERT_REACH_DEFS_OUT ) )
+        {
+            assert_reach_defs_out = get_data<Utils::ext_sym_map>( _ASSERT_REACH_DEFS_OUT );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_reach_defs_out.begin( ); 
+             it != new_assert_reach_defs_out.end( ); ++it )
+        {
+            Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
+            Utils::ExtendedSymbol rd_var( rd.get_expression( ) );
+            assert_reach_defs_out.insert( 
+                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( rd_var, rd.get_value( ) ) );
+        }
+        set_data( _ASSERT_REACH_DEFS_OUT, assert_reach_defs_out );
+    }
+    
+    ObjectList<Utils::InductionVariableData*> Node::get_assert_induction_vars( )
+    {
+        ObjectList<Utils::InductionVariableData*> assert_induction_vars;
+        
+        if( has_key( _ASSERT_INDUCTION_VARS ) )
+        {
+            assert_induction_vars = get_data<ObjectList<Utils::InductionVariableData*> >( _ASSERT_INDUCTION_VARS );
+        }
+        
+        return assert_induction_vars;
+    }
+    
+    void Node::set_assert_induction_variables( ObjectList<Nodecl::NodeclBase> new_assert_induction_vars )
+    {
+        ObjectList<Utils::InductionVariableData*> assert_induction_vars;
+        
+        if( this->has_key( _ASSERT_INDUCTION_VARS ) )
+        {
+            assert_induction_vars = get_data<ObjectList<Utils::InductionVariableData*> >( _ASSERT_INDUCTION_VARS );
+        }
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = new_assert_induction_vars.begin( ); 
+            it != new_assert_induction_vars.end( ); ++it )
+        {
+            Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>( );
+            Utils::InductionVariableData* iv_data = 
+                new Utils::InductionVariableData( Utils::ExtendedSymbol( iv.get_induction_variable( ) ) );
+            iv_data->set_lb( iv.get_lower( ) );
+            iv_data->set_ub( iv.get_upper( ) );
+            iv_data->set_increment( iv.get_stride( ) );
+            assert_induction_vars.insert( iv_data);
+        }
+        set_data( _ASSERT_INDUCTION_VARS, assert_induction_vars );
+    }
+    
+    // **************** END getters and setters for analysis checking *************** //
+    // ****************************************************************************** //
+    
+    
 
     // ****************************************************************************** //
     // *********************************** Utils ************************************ //

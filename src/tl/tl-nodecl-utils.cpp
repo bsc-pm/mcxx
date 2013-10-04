@@ -694,9 +694,8 @@ namespace Nodecl
             }
             else
             {
-                NodeclBase neg_rhs = Neg::make( rhs, rhs.get_type( ) );
-                replace( n, Add::make( neg_rhs, lhs,
-                                       lhs.get_type( ), n.get_locus( ) ) );
+                NodeclBase neg_rhs = const_value_to_nodecl( const_value_neg( rhs.get_constant( ) ) );
+                replace( n, Add::make( neg_rhs, lhs, lhs.get_type( ), n.get_locus( ) ) );
             }
         }
         else if( equal_nodecls( lhs, rhs ) )

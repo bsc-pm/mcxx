@@ -81,6 +81,8 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
                 pcfgs = analysis.parallel_control_flow_graph( memento, ast );
+                if( VERBOSE )
+                    std::cerr << "=========  Testing PCFG creation done =========" << std::endl;
             }
 
             if( _use_def_enabled )
@@ -88,6 +90,8 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
                 pcfgs = analysis.use_def( memento, ast );
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Use-Definition analysis done =========" << std::endl;
             }
 
             if( _liveness_enabled )
@@ -95,6 +99,8 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
                 pcfgs = analysis.liveness( memento, ast );
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Liveness analysis done =========" << std::endl;
             }
 
             if( _reaching_defs_enabled )
@@ -102,6 +108,8 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
                 pcfgs = analysis.reaching_definitions( memento, ast );
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Reaching Definitions analysis done =========" << std::endl;
             }
 
             if( _induction_vars_enabled )
@@ -109,8 +117,10 @@ namespace Analysis {
                 if( VERBOSE )
                     std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
                 pcfgs = analysis.induction_variables( memento, ast );
+                if( VERBOSE )
+                    std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
             }
-
+            
             if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             {
                 if( VERBOSE )
@@ -119,40 +129,42 @@ namespace Analysis {
                 {
                     analysis.print_pcfg( memento, (*it)->get_name( ) );
                 }
+                if( VERBOSE )
+                    std::cerr << "=========  Printing PCFG to dot file done =========" << std::endl;
             }
         }
 
-        void TestAnalysisPhase::set_pcfg( const std::string pcfg_enabled_str )
+        void TestAnalysisPhase::set_pcfg( const std::string& pcfg_enabled_str )
         {
             if( pcfg_enabled_str == "1" )
                 _pcfg_enabled = true;
         }
 
-        void TestAnalysisPhase::set_use_def( const std::string use_def_enabled_str )
+        void TestAnalysisPhase::set_use_def( const std::string& use_def_enabled_str )
         {
             if( use_def_enabled_str == "1" )
                 _use_def_enabled = true;
         }
 
-        void TestAnalysisPhase::set_liveness( const std::string liveness_enabled_str )
+        void TestAnalysisPhase::set_liveness( const std::string& liveness_enabled_str )
         {
             if( liveness_enabled_str == "1" )
                 _liveness_enabled = true;
         }
 
-        void TestAnalysisPhase::set_reaching_defs( const std::string reaching_defs_enabled_str )
+        void TestAnalysisPhase::set_reaching_defs( const std::string& reaching_defs_enabled_str )
         {
             if( reaching_defs_enabled_str == "1" )
                 _reaching_defs_enabled = true;
         }
 
-        void TestAnalysisPhase::set_induction_vars( const std::string induction_vars_enabled_str )
+        void TestAnalysisPhase::set_induction_vars( const std::string& induction_vars_enabled_str )
         {
             if( induction_vars_enabled_str == "1" )
                 _induction_vars_enabled = true;
         }
 
-        void TestAnalysisPhase::set_auto_scope( const std::string auto_scope_enabled_str )
+        void TestAnalysisPhase::set_auto_scope( const std::string& auto_scope_enabled_str )
         {
             if( auto_scope_enabled_str == "1" )
                 _auto_scope_enabled = true;

@@ -6990,6 +6990,11 @@ const char* print_mask_type_intel(
                 result = "__mmask16";
                 break;
             }
+        case 8:
+            {
+                result = "__mmask8";
+                break;
+            }
         default:
             {
                 uniquestr_sprintf(&result, "<<intel-vector-mask-%d>>", num_bits);

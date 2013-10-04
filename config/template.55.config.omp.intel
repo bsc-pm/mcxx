@@ -8,9 +8,6 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builti
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
-{mmic} fortran_preprocessor_options = -mmic
-{mmic} options = --variable=mic_enabled:1
-{mmic} preprocessor_options = -include immintrin.h
 
 [imcxx : omp-base]
 language = C++
@@ -22,6 +19,3 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builti
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
-{mmic} fortran_preprocessor_options = -mmic
-{mmic} options = --variable=mic_enabled:1
-{mmic} preprocessor_options = -include immintrin.h

@@ -48,17 +48,17 @@ namespace TL
             private:
                 std::string _simd_enabled_str;
                 std::string _svml_enabled_str;
-                std::string _ffast_math_enabled_str;
+                std::string _fast_math_enabled_str;
                 std::string _mic_enabled_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
-                bool _ffast_math_enabled;
+                bool _fast_math_enabled;
                 bool _mic_enabled;
 
                 void set_simd(const std::string simd_enabled_str);
                 void set_svml(const std::string svml_enabled_str);
-                void set_ffast_math(const std::string ffast_math_enabled_str);
+                void set_fast_math(const std::string fast_math_enabled_str);
                 void set_mic(const std::string set_mic_enabled_str);
         };
 
@@ -73,14 +73,28 @@ namespace TL
                 bool _support_masking;
 
             public:
-                SimdVisitor(bool ffast_math_enabled, bool svml_enabled, bool mic_enabled);
+                SimdVisitor(bool fast_math_enabled, bool svml_enabled, bool mic_enabled);
                 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-                virtual Nodecl::FunctionCode common_simd_function(const Nodecl::FunctionCode& function_code,
+                virtual Nodecl::FunctionCode common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        const Nodecl::FunctionCode& function_code,
                         const Nodecl::List& suitable_expresions,
                         const bool masked_version);
+        };
+
+        class FunctionDeepCopyFixVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                const TL::Symbol& _orig_symbol;
+                const TL::Symbol& _new_symbol;
+
+            public:
+                FunctionDeepCopyFixVisitor(const TL::Symbol& orig_symbol,
+                        const TL::Symbol& new_symbol);
+                
+                virtual void visit(const Nodecl::Symbol& n);
         };
     }
 }

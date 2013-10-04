@@ -140,7 +140,7 @@ namespace Utils {
 
         return result;
     }
-
+    
     ext_sym_set ext_sym_set_difference( ext_sym_set c1, ext_sym_set c2 )
     {
         ext_sym_set result;
@@ -426,7 +426,7 @@ namespace Utils {
             }
         }
 
-        internal_error( "No nodecl '%s' founded in usage list", n.prettyprint( ).c_str( ) );
+        internal_error( "No nodecl '%s' found in usage list", n.prettyprint( ).c_str( ) );
     }
 
     ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list )
@@ -443,7 +443,7 @@ namespace Utils {
             }
         }
 
-        internal_error( "No symbol '%s' founded in usage list", n.get_name( ).c_str( ) );
+        internal_error( "No symbol '%s' found in usage list", n.get_name( ).c_str( ) );
     }
 
     // ************* END methods for dealing with containers of Extended Symbols ************** //

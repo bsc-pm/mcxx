@@ -27,6 +27,7 @@
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-vectorizer-visitor-expression.hpp"
 #include "tl-nodecl-utils.hpp"
 
 namespace TL 
@@ -41,17 +42,14 @@ namespace TL
 
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
-            // Get analysis info
-            if ((Vectorizer::_analysis_info == 0) || 
-                    (Vectorizer::_analysis_info->get_nodecl_origin() != function_code))
-            {
-                if(Vectorizer::_analysis_info != 0)
-                    delete Vectorizer::_analysis_info;
+            // Set up enviroment
+            _environment._external_scope =
+                function_code.retrieve_context();
+            _environment._local_scope_list.push_back(
+                    function_code.get_statements().retrieve_context());
 
-                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(function_code,
-                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
-            }
+            // Get analysis info
+            Vectorizer::initialize_analysis(function_code);
 
             // Push FunctionCode as scope for analysis
             _environment._analysis_scopes.push_back(function_code);
@@ -99,25 +97,71 @@ namespace TL
                 parameters_vector_type.append(mask_sym.get_type());
                 vect_func_sym.set_related_symbols(parameters);
 
+                // Take care of default_argument_info_t*
+                //TODO: Move this into a function
+                {
+                int num_parameters =
+                    vect_func_sym.get_internal_symbol()->entity_specs.num_parameters;
+                default_argument_info_t** default_argument_info =
+                    vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
+
+                num_parameters++;
+                default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
+                        num_parameters * sizeof(*default_argument_info));
+                default_argument_info[num_parameters-1] = NULL;
+
+                vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
+                vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
+                }
+
                 Nodecl::Symbol mask_nodecl_sym = 
                     mask_sym.make_nodecl(true, function_code.get_locus());
 
                 _environment._mask_list.push_back(mask_nodecl_sym);
             }
+            else // Add MaskLiteral to mask_list
+            {
+                Nodecl::MaskLiteral all_one_mask =
+                    Nodecl::MaskLiteral::make(
+                            TL::Type::get_mask_type(_environment._mask_size),
+                            const_value_get_minus_one(_environment._mask_size, 1),
+                            make_locus("", 0, 0));
 
-            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), _environment._vector_length).
-                    get_function_returning(parameters_vector_type));
+                _environment._mask_list.push_back(all_one_mask);
+            }
+
+            vect_func_sym.set_type(get_qualified_vector_to(func_type.returns(), 
+                        _environment._vector_length).get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(function_code.get_statements());
 
-            _environment._analysis_scopes.pop_back();
-
-            if(_masked_version)
+            // Add final return if multi-return function
+            if (_environment._function_return.is_valid())
             {
-                _environment._mask_list.pop_back();
+                // Return value
+                Nodecl::Symbol return_value= _environment._function_return.make_nodecl(
+                        false, function_code.get_locus());
+
+//                VectorizerVisitorExpression visitor_sym(_environment);
+//                visitor_sym.walk(return_value);
+
+                // Return value at the end of the Compound Statement
+                Nodecl::ReturnStatement return_stmt =
+                    Nodecl::ReturnStatement::make(return_value, function_code.get_locus());
+
+                function_code.get_statements().as<Nodecl::Context>().get_in_context().as<Nodecl::List>()
+                    .front().as<Nodecl::CompoundStatement>().get_statements()
+                    .as<Nodecl::List>().append(return_stmt);
             }
+            
+
+            _environment._analysis_scopes.pop_back();
+            _environment._mask_list.pop_back();
+
+            // Analysis in functions won't be reused anywhere so it must be freed
+            Vectorizer::finalize_analysis();
         }
  
 

@@ -43,4 +43,5 @@ libanalysis_utils_la_SOURCES= tl-extended-symbol.hpp \
                               tl-analysis-utils.cpp \
                               tl-induction-variables-data.hpp \
                               tl-induction-variables-data.cpp \
+                              tl-tribol.hpp \
                               $(END)

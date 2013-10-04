@@ -918,12 +918,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     if (expression != NULL
                             && !check_expression(expression, decl_context, &nodecl_expr))
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: assembler operand '%s' could not be checked\n",
-                                    ast_location(expression),
-                                    prettyprint_in_buffer(expression));
-                        }
+                        check_expression(expression, decl_context, &nodecl_expr);
                     }
 
                     nodecl_t nodecl_identifier = nodecl_null();
@@ -13704,6 +13699,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             *nodecl_output = nodecl_expr;
             return;
         }
+
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
                 "Unsupported extra declarations at the initialization expression", 0);

@@ -45,14 +45,23 @@ namespace Analysis {
         FUNCTION_CALL,       //! Node containing a Function Call
         GOTO,                //! Node containing a GotoStatement
         LABELED,             //! Node containing an only Labeled Statement
-        NORMAL,              //! Node representing a Basic Bloc
+        NORMAL,              //! Node representing a Basic Block
         // OMP
         OMP_BARRIER,
         OMP_FLUSH,
         OMP_TASKWAIT,
+        OMP_WAITON_DEPS,
         OMP_TASKYIELD,
+        OMP_TASK_CREATION,
         OMP_VIRTUAL_TASKSYNC,//! Node representing a task synchronization that occurs
                              //! when the function that creates the task has ended
+        VECTOR_FUNCTION_CALL,//! Node containing a vector function call
+        VECTOR_GATHER,       //! Node containing a vector gather or a masked vector gather
+        VECTOR_LOAD,         //! Node containing a vector load or a masked vector load
+        VECTOR_NORMAL,
+        VECTOR_REDUCTION,
+        VECTOR_SCATTER,      //! Node containing a vector scatter or a masked vector scatter
+        VECTOR_STORE,
         // COMPOSITE
         GRAPH                //! Composite node
     };
@@ -74,12 +83,17 @@ namespace Analysis {
         OMP_PARALLEL,
         OMP_SECTION,
         OMP_SECTIONS,
+        OMP_SIMD,
+        OMP_SIMD_FOR,
+        OMP_SIMD_FUNCTION,
+        OMP_SIMD_PARALLEL_FOR,
         OMP_SINGLE,
+        OMP_WORKSHARE,
         OMP_TASK,
-        SIMD,
-        SIMD_FUNCTION,
-        SPLIT_STMT,          //! Expression being split because it contains a sub-expression with a separated node
-        SWITCH               //! Switch statement
+        SPLIT_STMT,           //! Expression being split because it contains a sub-expression with a separated node
+        SWITCH,               //! Switch statement
+        VECTOR_COND_EXPR,     //! Vector conditional expression
+        VECTOR_FUNC_CALL
     };
 
     //! Enumeration of the different edge types
@@ -201,6 +215,28 @@ namespace Analysis {
     // *********************************** End constant propagation ************************************ //
     // ************************************************************************************************* //
 
+
+    
+    // ************************************************************************************************* //
+    // ***************************************** PCFG analysis ***************************************** //
+    
+    /*! \def _LIVE_IN_TASKS
+     * Set of tasks that are alive at the Entry of a node
+     * Available in all nodes during PCFG construction
+     * FIXME Think about deleting this data after PCFG construction
+     */
+    #define _LIVE_IN_TASKS      "live_in_tasks"
+    
+    /*! \def _LIVE_OUT_TASKS
+     * Set of tasks that are alive at the Exit of a node
+     * Available in all nodes during PCFG construction
+     * FIXME Think about deleting this data after PCFG construction
+     */
+    #define _LIVE_OUT_TASKS      "live_out_tasks"
+    
+    // *************************************** End PCFG analysis *************************************** //
+    // ************************************************************************************************* //
+    
 
 
     // ************************************************************************************************* //
@@ -398,8 +434,54 @@ namespace Analysis {
 
 
 
+    // ************************************************************************************************* //
+    // *************************************** Analysis checking *************************************** //
+    
+    /*! \def _ASSERT_UPPER_EXPOSED
+     * Set of expressions marked by the user as upper exposed in a given point of the program
+     */
+    #define _ASSERT_UPPER_EXPOSED   "assert_upper_exposed"
+    
+    /*! \def _ASSERT_KILLED
+     * Set of expressions marked by the user as defined in a given point of the program
+     */
+    #define _ASSERT_KILLED          "assert_killed"
+    
+    /*! \def _ASSERT_LIVE_IN
+     * Set of expressions marked by the user as live in in a given point of the program
+     */
+    #define _ASSERT_LIVE_IN         "assert_live_in"
+    
+    /*! \def _ASSERT_LIVE_OUT
+     * Set of expressions marked by the user as live_out in a given point of the program
+     */
+    #define _ASSERT_LIVE_OUT        "assert_live_out"
 
+    /*! \def _ASSERT_DEAD
+     * Set of expressions marked by the user as dead in a given point of the program
+     */
+    #define _ASSERT_DEAD            "assert_dead"
+    
+    /*! \def _ASSERT_REACH_DEFS_IN
+     * Set of reaching definitions at the entry of a given point of the program
+     */
+    #define _ASSERT_REACH_DEFS_IN   "assert_reach_defs_in"
 
+    /*! \def _ASSERT_REACH_DEFS_OUT
+     * Set of reaching definitions at the exit of a given point of the program
+     */
+    #define _ASSERT_REACH_DEFS_OUT  "assert_reach_defs_out"
+    
+    /*! \def _ASSERT_INDUCTION_VARS
+     * Set of induction variables in a given point of the program
+     */
+    #define _ASSERT_INDUCTION_VARS  "assert_induction_vars"
+    
+    // ************************************* END analysis checking ************************************* //
+    // ************************************************************************************************* //
+
+    
+    
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma
     * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat

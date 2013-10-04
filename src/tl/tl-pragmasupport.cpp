@@ -42,6 +42,10 @@ namespace TL
         return result;
     }
 
+    ExpressionTokenizer::ExpressionTokenizer(const char separator)
+        : ClauseTokenizer( ), _separator(separator)
+    {}
+    
     ObjectList<std::string> ExpressionTokenizer::tokenize(const std::string& str) const
     {
         int bracket_nesting = 0;
@@ -54,7 +58,7 @@ namespace TL
         {
             const char & c(*it);
 
-            if (c == ',' 
+            if (c == _separator 
                     && bracket_nesting == 0
                     && temporary != "")
             {
@@ -87,6 +91,10 @@ namespace TL
         return result;
     }
 
+    ExpressionTokenizerTrim::ExpressionTokenizerTrim(const char separator)
+        : ExpressionTokenizer(separator)
+    {}
+    
     ObjectList<std::string> ExpressionTokenizerTrim::tokenize(const std::string& str) const
     {
         ObjectList<std::string> result;

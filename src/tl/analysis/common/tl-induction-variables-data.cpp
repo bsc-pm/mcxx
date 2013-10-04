@@ -39,13 +39,14 @@ namespace Utils {
 
     InductionVariableData::InductionVariableData( ExtendedSymbol var )
         : _var( var ), _lb( Nodecl::NodeclBase::null( ) ), _ub( Nodecl::NodeclBase::null( ) ),
-          _incr( Nodecl::NodeclBase::null( ) )
+          _incr( Nodecl::NodeclBase::null( ) ), _incrs( )
     {}
 
     InductionVariableData::InductionVariableData( ExtendedSymbol var,
                                                   InductionVarType type, Nodecl::NodeclBase family )
         : _var( var ), _lb( Nodecl::NodeclBase::null( ) ), _ub( Nodecl::NodeclBase::null( ) ),
-          _incr( Nodecl::NodeclBase::null( ) ), _type( type ), _family( family ), _is_linear( false )
+          _incr( Nodecl::NodeclBase::null( ) ), _incrs( ),
+          _type( type ), _family( family ), _is_linear( false )
     {}
 
     ExtendedSymbol InductionVariableData::get_variable() const
@@ -93,6 +94,16 @@ namespace Utils {
         return ( _incr.is_constant( ) && ( const_value_is_one( _incr.get_constant( ) ) ) );
     }
 
+    ObjectList<Nodecl::NodeclBase> InductionVariableData::get_increment_list( ) const
+    {
+        return _incrs;
+    }
+    
+    void InductionVariableData::set_increment_list( ObjectList<Nodecl::NodeclBase> incr_list )
+    {
+        _incrs.insert( incr_list );
+    }
+    
     bool InductionVariableData::is_basic( )
     {
         return ( _type == BASIC_IV );
@@ -164,6 +175,25 @@ namespace Utils {
         }
     }
 
+    std::string prettyprint_induction_vars( ObjectList<InductionVariableData*> iv_list )
+    {
+        std::string result = "";
+        int i = 0, total = iv_list.size( );
+        for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( ); 
+             it != iv_list.end( ); ++it, ++i )
+        {
+            InductionVariableData* iv = *it;
+            result += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+                    + ":" + iv->get_lb( ).prettyprint( )
+                    + ":" + iv->get_ub( ).prettyprint( )
+                    + ":" + iv->get_increment( ).prettyprint( );
+            
+            if( i < total - 1 )
+                result += " ; ";
+        }
+        return result;
+    }
+    
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var )
     {

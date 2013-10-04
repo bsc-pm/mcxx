@@ -31,21 +31,26 @@ phases_LTLIBRARIES = libtlomp-simd.la
 END=
 
 libtlomp_simd_la_CFLAGS = $(phases_cflags) \
-                          -I $(srcdir)/../../vectorizer \
-                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(top_srcdir)/src/tl/vectorizer \
+                          -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/omp/core \
                           $(END)
 
 libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
-                          -I $(srcdir)/../../vectorizer \
-                          -I $(srcdir)/../../analysis/singleton \
+                          -I $(top_srcdir)/src/tl/vectorizer \
+                          -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/omp/core \
                           $(END)
 
 libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
-libtlomp_simd_la_LIBADD = $(phases_libadd) ../../vectorizer/libtlvectorizer.la
+libtlomp_simd_la_LIBADD = $(phases_libadd) \
+                          $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+                          $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
+                          $(END)
 
 
 libtlomp_simd_la_SOURCES = \

@@ -570,6 +570,34 @@ char const_value_is_one(const_value_t* v)
     return 0;   
 }
 
+char const_value_is_minus_one(const_value_t* v)
+{
+    switch (v->kind)
+    {
+        case CVK_INTEGER:
+            return v->value.si == -1;
+        case CVK_FLOAT:
+            return v->value.f == -1.0f;
+        case CVK_DOUBLE:
+            return v->value.d == -1.0;
+        case CVK_LONG_DOUBLE:
+            return v->value.ld == -1.0L;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            return v->value.f128 == -1.0Q;
+#endif
+        case CVK_COMPLEX:
+            {
+                return const_value_is_minus_one(const_value_complex_get_real_part(v))
+                    && const_value_is_zero(const_value_complex_get_imag_part(v));
+
+            }
+        OTHER_KIND;
+    }
+
+    return 0;   
+}
+
 char const_value_is_positive(const_value_t* v)
 {
     

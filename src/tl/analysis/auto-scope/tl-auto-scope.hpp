@@ -44,12 +44,22 @@ namespace Analysis {
         ExtensibleGraph* _graph;
 
         ObjectList<Node*> _simultaneous_tasks;
-        Node* _last_sync;
+        
+        // There can be more that one _last_sync node when a task is inside a loop and
+        // there is taskwait / barrier after the task scheduling point inside the loop
+        // In that case, the first iteration _last_sync will be previous to the loop, 
+        // but for the next iterations, the _last_sync will be the one inside the loop
+        ObjectList<Node*> _last_sync;
+        
         Node* _next_sync;
-
+        
+        bool _check_only_local;
 
         // *********************** Private methods *********************** //
-
+        
+        void find_last_synchronization_point_in_parents( Node* current );
+        void find_last_synchronization_point_in_children( Node* current, Node* loop );
+        
         bool task_and_simultaneous_only_read( Node* task, Utils::ExtendedSymbol ei );
 
         void task_reads_and_writes_rec( Node* task, Node* current, Utils::ExtendedSymbol ei, bool& read, bool& write );
@@ -64,7 +74,6 @@ namespace Analysis {
 
         void compute_task_auto_scoping_rec( Node* task, Node* current, bool is_in_loop, Utils::ext_sym_set& scoped_vars );
         void compute_task_auto_scoping( Node* task );
-        void compute_auto_scoping_rec( Node* current );
 
     public:
 
@@ -141,10 +150,13 @@ namespace Analysis {
          */
         void compute_auto_scoping( );
 
+        //! This method calculates the next and last synchronization points of a task
+        void define_concurrent_regions_limits( Node* task );
+        
         /*!Computes the tasks that are concurrent with a given task
          * Also computes the last synchronization point in the encountering thread of the task
          */
-        void compute_simultaneous_tasks( Node* current, int current_nest, int taskwait_nest = INT_MAX );
+        void compute_simultaneous_tasks( Node* task );
     };
 
 }

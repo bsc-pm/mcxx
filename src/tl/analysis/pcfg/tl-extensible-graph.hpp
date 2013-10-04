@@ -68,8 +68,6 @@ namespace Analysis {
          */
         ObjectList<Utils::ExtendedSymbolUsage> _global_vars;
 
-        bool _global_vars_computed;
-
         //! Symbol of the function contained in the graph.
         /*! This symbol is empty when the code contained in the graph do not correspond to a function
         */
@@ -89,7 +87,9 @@ namespace Analysis {
         //! List of functions called by the function stored in the graph
         ObjectList<Symbol> _func_calls;
 
-
+        //! Map that relates each task in the graph with the tasks that are concurrent with it
+        std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
+        
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
         std::map<int, int> _cluster_to_entry_map;
@@ -108,46 +108,7 @@ namespace Analysis {
         //! This method concatenates all those nodes that form a Basic Block in one only node.
         //! It creates a new node containing all the statements and deleted the previous nodes.
         void concat_sequential_nodes( );
-
-
         void concat_sequential_nodes_recursive( Node* actual_node, ObjectList<Node*>& last_seq_nodes );
-
-        //! Prints nodes and relations between them in a string in a recursive way.
-        /*!
-        \param actual_node Source node from which the printing is started.
-        \param dot_graph Inout parameter where the DOT is printed.
-        \param outer_edges Set of edges that must be printed in an outer DOT cluster.
-        \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
-        \param indent Indentation for the actual node when it is printed.
-        \param subgraph_id Identifier for the actual cluster.
-        */
-        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
-                                 std::vector<std::string>& outer_edges,
-                                 std::vector<Node*>& outer_nodes,
-                                 std::string indent, int& subgraph_id,
-                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                 bool auto_scoping, bool auto_deps );
-
-        //! Prints both nodes and edges within a pcfg subgraph
-                    //! Prints nodes and relations between them in a string in a recursive way.
-        /*!
-        \param actual_node Source node from which the printing is started.
-        \param graph_data Inout parameter where the DOT is printed.
-        \param outer_edges Set of edges that must be printed in an outer DOT cluster.
-        \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
-        \param indent Indentation for the actual node when it is printed.
-        \param subgraph_id Identifier for the actual cluster.
-        */
-        void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
-                               std::vector<std::string>& outer_edges,
-                               std::vector<Node*>& outer_nodes,
-                               std::string indent, int& subgraph_id,
-                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                               bool auto_scoping, bool auto_deps );
-
-        //! Prints the data of an only node.
-        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
-                                bool usage, bool liveness, bool reaching_defs );
 
         /*!Returns whether the source and the target of an edge belongs to the same outer node.
          * If both the source and the target do not have an outer node, then true is returned.
@@ -171,11 +132,61 @@ namespace Analysis {
 
         void erase_jump_nodes( Node* current );
 
+        //! Looks for nodecl 'n' in 'current' and its successors
+        Node* find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+        
+        // *************************************************************************************** //
+        // ********************************* DOT printing methods ******************************** //
+        
+        //! Prints nodes and relations between them in a string in a recursive way.
+        /*!
+         * \param actual_node Source node from which the printing is started.
+         * \param dot_graph Inout parameter where the DOT is printed.
+         * \param outer_edges Set of edges that must be printed in an outer DOT cluster.
+         * \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
+         * \param indent Indentation for the actual node when it is printed.
+         * \param subgraph_id Identifier for the actual cluster.
+         */
+        void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
+                                 std::vector<std::string>& outer_edges,
+                                 std::vector<Node*>& outer_nodes,
+                                 std::string indent, int& subgraph_id,
+                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                                 bool auto_scoping, bool auto_deps );
+        
+        //! Prints both nodes and edges within a pcfg subgraph
+        //! Prints nodes and relations between them in a string in a recursive way.
+        /*!
+         * \param actual_node Source node from which the printing is started.
+         * \param graph_data Inout parameter where the DOT is printed.
+         * \param outer_edges Set of edges that must be printed in an outer DOT cluster.
+         * \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
+         * \param indent Indentation for the actual node when it is printed.
+         * \param subgraph_id Identifier for the actual cluster.
+         */
+        void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
+                               std::vector<std::string>& outer_edges,
+                               std::vector<Node*>& outer_nodes,
+                               std::string indent, int& subgraph_id,
+                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
+                               bool auto_scoping, bool auto_deps );
+        
+        //! Prints the data of an only node.
+        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
+                                bool usage, bool liveness, bool reaching_defs );
+        
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                        std::string cluster_name,
                                        bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                        bool auto_scoping, bool auto_deps );
+        
+        //! Prints OpenMP clauses information only for OpenMP nodes
+        std::string print_pragma_node_clauses( Node* current, std::string indent, std::string cluster_name );
+        
+        // ******************************* END DOT printing methods ****************************** //
+        // *************************************************************************************** //
+        
 
     public:
         // *** Constructors *** //
@@ -337,15 +348,15 @@ namespace Analysis {
         //! It works properly if there isn't any unreachable node in the graph bellow @actual.
         static void clear_visits( Node* node );
         static void clear_visits_aux( Node* node );
+        static void clear_visits_extgraph( Node* node );
+        static void clear_visits_extgraph_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
         static void clear_visits_aux_backwards( Node* current );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
-
-        //!Returns true if a given nodecl is not modified in a given context
-        static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
-
+        
+        
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
@@ -382,11 +393,28 @@ namespace Analysis {
 
         ObjectList<Symbol> get_function_calls( ) const;
 
+        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
+        
+        void add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks );
+        
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
         static bool node_is_in_loop( Node* current );
         static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
-
+        static bool is_backward_parent( Node* son, Node* parent );
+        static bool node_contains_node( Node* container, Node* contained );
+        static Node* get_extensible_graph_from_node( Node* node );
+        static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
+        
+        // *** Analysis methods *** //
+        //!Returns true if a given nodecl is not modified in a given context
+        static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
+        
+        static bool has_been_defined( Node* current, Node* scope, const Nodecl::NodeclBase& n );
+        
+        Node* find_nodecl( const Nodecl::NodeclBase& n );
+        
+        
         // *** Printing methods *** //
         void print_global_vars( ) const;
 

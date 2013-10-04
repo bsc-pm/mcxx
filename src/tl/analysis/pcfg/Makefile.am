@@ -47,6 +47,8 @@ libpcfg_la_SOURCES= tl-pcfg-utils.hpp \
                     tl-extensible-graph.cpp \
                     tl-pcfg-visitor.hpp \
                     tl-pcfg-visitor.cpp \
+                    tl-task-sync.hpp \
+                    tl-task-sync.cpp \
                     tl-dot-graph.cpp \
                     tl-structures.hpp \
                     $(END)
