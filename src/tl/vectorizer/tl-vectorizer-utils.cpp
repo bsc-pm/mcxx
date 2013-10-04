@@ -238,8 +238,7 @@ namespace TL
                 return false;
             }
 
-            Nodecl::NodeclBase get_proper_mask(const VectorizerEnvironment& environment,
-                    const Nodecl::NodeclBase& mask)
+            Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask)
             {
                 if(Utils::is_all_one_mask(mask))
                 {
@@ -279,6 +278,33 @@ namespace TL
                 Utils::_var_counter++;
 
                 return result.str();
+            }
+
+            bool is_nested_induction_variable_dependent_access(const VectorizerEnvironment& environment,
+                    const Nodecl::NodeclBase& n)
+            {
+                for(std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator> current_scope(environment._analysis_scopes.end());
+                        current_scope != std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator>(environment._analysis_scopes.begin());
+                        current_scope++)
+                {
+                    if((*current_scope) == environment._analysis_simd_scope)
+                        return false;
+
+                    if((*current_scope).is<Nodecl::ForStatement>() ||
+                            (*current_scope).is<Nodecl::IfElseStatement>() ||
+                            (*current_scope).is<Nodecl::FunctionCode>())
+                    {
+                        if(Vectorizer::_analysis_info->is_induction_variable_dependent_access(
+                                    *current_scope,
+                                    n))
+                        {
+                            return true;
+                        }
+                    }
+
+                }
+
+                return false;
             }
         }
     }

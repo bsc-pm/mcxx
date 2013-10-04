@@ -53,6 +53,7 @@ namespace TL
             Vectorizer::initialize_analysis(function_code);
 
             // Push FunctionCode as scope for analysis
+            _environment._analysis_simd_scope = function_code;
             _environment._analysis_scopes.push_back(function_code);
 
             //Vectorize function type and parameters
@@ -157,7 +158,6 @@ namespace TL
                     .as<Nodecl::List>().append(return_stmt);
             }
             
-
             _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
 

@@ -709,7 +709,7 @@ namespace TL
             const int src_type_size = src_type.get_size();
             const int dst_type_size = dst_type.get_size();
 
-            printf("Masked conversion from %s(%s) to %s(%s)\n",
+            printf("Conversion from %s(%s) to %s(%s)\n",
                     src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
@@ -743,6 +743,14 @@ namespace TL
             }
             else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
                     (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
+                    (src_type.is_signed_int() && dst_type.is_signed_long_int()) ||
+                    (src_type.is_signed_int() && dst_type.is_unsigned_long_int()) ||
+                    (src_type.is_unsigned_int() && dst_type.is_signed_long_int()) ||
+                    (src_type.is_unsigned_int() && dst_type.is_unsigned_long_int()) ||
+                    (src_type.is_signed_int() && src_type.is_signed_long_int()) ||
+                    (src_type.is_signed_int() && src_type.is_unsigned_long_int()) ||
+                    (src_type.is_unsigned_int() && src_type.is_signed_long_int()) ||
+                    (src_type.is_unsigned_int() && src_type.is_unsigned_long_int()) ||
                     (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
                     (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
             {
@@ -1453,14 +1461,14 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
 
-            if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
+            if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()))
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                running_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1478,7 +1486,7 @@ namespace TL
                 << type.get_size()
                 << ", "
                 << _MM_HINT_NONE
-                << ")";
+                ;
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1517,8 +1525,10 @@ namespace TL
 
             intrin_op_name << "i32extscatter";
 
+
             // Indexes
-            if (!index_type.is_signed_int() && !index_type.is_unsigned_int()) 
+            if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()) &&
+                  (!index_type.is_signed_long_int()) && (!index_type.is_unsigned_long_int())) 
             { 
                 running_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),

@@ -57,29 +57,106 @@ namespace TL
             }
         }
 
-        void unmasked_binary_op_legalization(const Nodecl::NodeclBase& node)
+        void KNCVectorLegalization::visit(const Nodecl::VectorConversion& node) 
         {
+            const TL::Type& src_vector_type = node.get_nest().get_type().get_unqualified_type().no_ref();
+            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
+            const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
+            const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
+//            const int src_type_size = src_type.get_size();
+//            const int dst_type_size = dst_type.get_size();
+
+            printf("Conversion from %s(%s) to %s(%s)\n",
+                    src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
+
+            const unsigned int src_num_elements = src_vector_type.vector_num_elements();
+            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
+
+            walk(node.get_nest());
+
+            if ((src_type.is_float() || 
+                        src_type.is_signed_int() ||
+                        src_type.is_unsigned_int()) 
+                    && (src_num_elements < NUM_4B_ELEMENTS))
+            {
+                if(src_num_elements == 8)
+                {
+                    node.get_nest().set_type(src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                }
+
+                if ((dst_type.is_float() || 
+                            dst_type.is_signed_int() ||
+                            dst_type.is_unsigned_int()) 
+                        && (dst_num_elements < NUM_4B_ELEMENTS))
+                {
+                    if(dst_num_elements == 8)
+                    {
+                        Nodecl::NodeclBase new_node = node.shallow_copy();
+                        new_node.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                        node.replace(new_node);
+                    }
+
+                } 
+            } 
         }
 
-        void KNCVectorLegalization::visit(const Nodecl::VectorAdd& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorGather& node) 
         {
-            unmasked_binary_op_legalization(node);
-        }                                                 
+            walk(node.get_strides());
+            walk(node.get_base());
 
-        void KNCVectorLegalization::visit(const Nodecl::VectorMinus& node) 
-        { 
-            unmasked_binary_op_legalization(node);
-        }                                                 
+            TL::Type index_vector_type = node.get_strides().get_type();
+            TL::Type index_type = index_vector_type.basic_type();
 
-        void KNCVectorLegalization::visit(const Nodecl::VectorMul& node) 
-        {
-            unmasked_binary_op_legalization(node);
+            if (index_type.is_signed_long_int() || index_type.is_unsigned_long_int()) 
+            {
+                TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
+                        node.get_strides().get_type().vector_num_elements());
+
+                printf("Gather indexes conversion from %s(%s) to %s(%s)\n",
+                    index_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    index_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.basic_type().get_simple_declaration(node.retrieve_context(), "").c_str());
+
+                Nodecl::VectorGather new_gather = node.shallow_copy().as<Nodecl::VectorGather>();
+
+                new_gather.get_strides().set_type(dst_vector_type);
+
+                node.replace(new_gather);
+            }
         }
 
-        void KNCVectorLegalization::visit(const Nodecl::VectorDiv& node) 
+        void KNCVectorLegalization::visit(const Nodecl::VectorScatter& node) 
         { 
-            unmasked_binary_op_legalization(node);
-        }                                                 
+            walk(node.get_strides());
+            walk(node.get_base());
+            walk(node.get_source());
+
+            TL::Type index_vector_type = node.get_strides().get_type();
+            TL::Type index_type = index_vector_type.basic_type();
+
+            if (index_type.is_signed_long_int() || index_type.is_unsigned_long_int()) 
+            {
+                TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
+                        node.get_strides().get_type().vector_num_elements());
+
+                printf("Scatter indexes conversion from %s(%s) to %s(%s)\n",
+                    index_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    index_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                    dst_vector_type.basic_type().get_simple_declaration(node.retrieve_context(), "").c_str());
+
+                Nodecl::VectorScatter new_scatter = node.shallow_copy().as<Nodecl::VectorScatter>();
+
+                new_scatter.get_strides().set_type(dst_vector_type);
+
+                node.replace(new_scatter);
+            }
+        }
 
 #if 0
         void KNCVectorLegalization::visit(const Nodecl::VectorLowerThan& node) 
@@ -775,56 +852,7 @@ namespace TL
 
             node.replace(function_call);
         }                                                 
-#endif
 
-
-        void KNCVectorLegalization::visit(const Nodecl::VectorConversion& node) 
-        {
-            const TL::Type& src_vector_type = node.get_nest().get_type().get_unqualified_type().no_ref();
-            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
-            const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
-            const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
-//            const int src_type_size = src_type.get_size();
-//            const int dst_type_size = dst_type.get_size();
-
-            printf("Conversion from %s(%s) to %s(%s)\n",
-                    src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
-
-            const unsigned int src_num_elements = src_vector_type.vector_num_elements();
-            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
-
-            walk(node.get_nest());
-
-            if ((src_type.is_float() || 
-                        src_type.is_signed_int() ||
-                        src_type.is_unsigned_int()) 
-                    && (src_num_elements < NUM_4B_ELEMENTS))
-            {
-                if(src_num_elements == 8)
-                {
-                    node.get_nest().set_type(src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
-                }
-
-                if ((dst_type.is_float() || 
-                            dst_type.is_signed_int() ||
-                            dst_type.is_unsigned_int()) 
-                        && (dst_num_elements < NUM_4B_ELEMENTS))
-                {
-                    if(dst_num_elements == 8)
-                    {
-                        Nodecl::NodeclBase new_node = node.shallow_copy();
-                        new_node.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
-                        node.replace(new_node);
-                    }
-
-                } 
-            } 
-        }
-
-#if 0
         void KNCVectorLegalization::visit(const Nodecl::MaskedVectorConversion& node) 
         {
             const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();

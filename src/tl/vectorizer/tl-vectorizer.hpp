@@ -27,11 +27,12 @@
 #ifndef TL_VECTORIZER_HPP
 #define TL_VECTORIZER_HPP
 
+#include <string>
+#include <list>
 #include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
-#include <string>
-#include <list>
+#include "tl-vectorizer-utils.hpp"
 
 namespace TL 
 { 
@@ -52,14 +53,16 @@ namespace TL
                 const TL::ObjectList<TL::Symbol>* _reduction_list;
                 std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
 
-                TL::Scope _external_scope;
-                std::list<TL::Scope> _local_scope_list;
-                std::list<Nodecl::NodeclBase> _mask_list;
-                std::list<Nodecl::NodeclBase> _analysis_scopes;
-                std::list<bool> _inside_inner_masked_bb;
-                std::list<unsigned int> _mask_check_bb_cost;
+                TL::Scope _external_scope;                      // Enclosing scope of the SIMD region (to add reduction symbols)
+                std::list<TL::Scope> _local_scope_list;         // TL::Scopes used to determine if a variable is locally declared
+                std::list<Nodecl::NodeclBase> _analysis_scopes; // Stack of useful scopes (If, FunctionCode and For) for the analysis
+                Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
 
-                TL::Symbol _function_return;
+                std::list<Nodecl::NodeclBase> _mask_list;       // Stack of masks
+                std::list<bool> _inside_inner_masked_bb;        // TBD :)
+                std::list<unsigned int> _mask_check_bb_cost;    // Costs of BB for early exist heuristic
+
+                TL::Symbol _function_return;                    // Return symbol when return statement are present in masked code
 
            public:
                 VectorizerEnvironment(const std::string& device,
@@ -74,15 +77,20 @@ namespace TL
 
                 ~VectorizerEnvironment();
 
-            friend class Vectorizer;
-            friend class VectorizerVisitorFor;
-            friend class VectorizerVisitorForEpilog;
-            friend class VectorizerVisitorLoopCond;
-            friend class VectorizerVisitorLoopNext;
-            friend class VectorizerVisitorFunction;
-            friend class VectorizerVisitorStatement;
-            friend class VectorizerVisitorExpression;
-            friend class VectorizerVectorReduction;
+                friend class Vectorizer;
+                friend class VectorizerVisitorFor;
+                friend class VectorizerVisitorForEpilog;
+                friend class VectorizerVisitorLoopCond;
+                friend class VectorizerVisitorLoopNext;
+                friend class VectorizerVisitorFunction;
+                friend class VectorizerVisitorStatement;
+                friend class VectorizerVisitorExpression;
+                friend class VectorizerVectorReduction;
+
+                friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
+                        const VectorizerEnvironment& environment,
+                        const Nodecl::NodeclBase& n);
+
         };
 
         class Vectorizer
@@ -150,6 +158,10 @@ namespace TL
                 friend class VectorizerVisitorFunction;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
+
+                friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
+                        const VectorizerEnvironment& environment,
+                        const Nodecl::NodeclBase& n);
         };
    }
 }

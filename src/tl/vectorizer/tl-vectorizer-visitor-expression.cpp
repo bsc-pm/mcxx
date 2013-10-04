@@ -39,7 +39,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -59,7 +59,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -79,7 +79,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -99,7 +99,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Div& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -120,7 +120,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Mod& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -141,7 +141,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Neg& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             Nodecl::NodeclBase rhs = n.get_rhs();
@@ -177,7 +177,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::LowerThan& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -196,7 +196,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::LowerOrEqualThan& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -215,7 +215,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::GreaterThan& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -234,7 +234,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::GreaterOrEqualThan& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -253,7 +253,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Equal& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -272,7 +272,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Different& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -291,7 +291,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -311,7 +311,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::BitwiseOr& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -332,7 +332,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::LogicalAnd& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -352,7 +352,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::LogicalOr& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_lhs());
@@ -483,7 +483,7 @@ namespace TL
             TL::Type assignment_type = n.get_type().no_ref();
             Nodecl::NodeclBase lhs = n.get_lhs();
             Nodecl::NodeclBase rhs = n.get_rhs();
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(rhs);
@@ -495,8 +495,25 @@ namespace TL
             if(lhs.is<Nodecl::ArraySubscript>())
             {
                 // Vector Store
-                if(Vectorizer::_analysis_info->is_adjacent_access(
-                            _environment._analysis_scopes.back(),
+                // Constant ArraySubscript, nothing to do
+                if (Vectorizer::_analysis_info->is_constant_access(
+                            _environment._analysis_simd_scope,
+                            lhs))
+                {
+                    std::cerr << "Constant store: " << lhs.prettyprint() << std::endl;
+                    running_error("Vectorizer: Extract operation is not supported yet (%s).",
+                            lhs.prettyprint().c_str());
+ 
+                }
+                // ArraySubscript indexed by nested IV, nothing to do
+                else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, lhs))
+                {
+                    std::cerr << "Nested IV dependent store: " << lhs.prettyprint() << std::endl;
+                    running_error("Vectorizer: Extract operation is not supported yet (%s).",
+                            lhs.prettyprint().c_str());
+                }
+                else if(Vectorizer::_analysis_info->is_adjacent_access(
+                            _environment._analysis_simd_scope,
                             lhs))
                 {
                     TL::Type basic_type = lhs.get_type();
@@ -507,7 +524,7 @@ namespace TL
 
                     // Aligned
                     if(Vectorizer::_analysis_info->is_simd_aligned_access(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             lhs,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
@@ -560,7 +577,7 @@ namespace TL
                     const Nodecl::NodeclBase base = lhs_array.get_subscripted();
                     const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>();
 
-                    std::cerr << "Scatter: " << lhs_array.prettyprint() << "\n";
+                    std::cerr << "Scatter: " << lhs_array.prettyprint() << std::endl;
 
                     ERROR_CONDITION(subscripts.size() > 1,
                             "Vectorizer: Scatter on multidimensional array is not supported yet!", 0);
@@ -584,12 +601,11 @@ namespace TL
             {
                 walk(lhs);
 
-                // Mask is not necessary in an register assignment
                 const Nodecl::VectorAssignment vector_assignment =
                     Nodecl::VectorAssignment::make(
                             lhs.shallow_copy(),
                             rhs.shallow_copy(),
-                            Utils::get_null_mask(), //mask,
+                            mask,
                             vector_type,
                             n.get_locus());
 
@@ -614,9 +630,6 @@ namespace TL
 
             // Visit standard assignment
             walk(n);
-
-            std::cerr << n.prettyprint() << std::endl;
-
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::MinusAssignment& n)
@@ -697,7 +710,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_nest());
@@ -714,7 +727,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             walk(n.get_rhs());
@@ -731,7 +744,7 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::ArraySubscript& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             TL::Type basic_type = n.get_type().no_ref();
@@ -740,13 +753,26 @@ namespace TL
             TL::Type vector_type = Utils::get_qualified_vector_to(basic_type, 
                     _environment._unroll_factor);
 
-            // Vector Promotion from ArraySubscript
-            if (!Vectorizer::_analysis_info->is_induction_variable_dependent_access(
-                        _environment._analysis_scopes.back(),
+            // Vector Promotion from constant ArraySubscript
+            if (Vectorizer::_analysis_info->is_constant_access(
+                        _environment._analysis_simd_scope,
                         n))
             {
+                std::cerr << "Constant load: " << n.prettyprint() << "\n";
 
-                std::cerr << "No IV dependent access: " << n.prettyprint() << "\n";
+                const Nodecl::VectorPromotion vector_prom =
+                    Nodecl::VectorPromotion::make(
+                            n.shallow_copy(),
+                            mask,
+                            vector_type,
+                            n.get_locus());
+
+                n.replace(vector_prom);
+            }
+            // Vector promotion from ArraySubscript indexed by nested IV
+            else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, n))
+            {
+                std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
 
                 const Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
@@ -759,12 +785,12 @@ namespace TL
             }
             // Vector Load
             else if (Vectorizer::_analysis_info->is_adjacent_access(
-                        _environment._analysis_scopes.back(),
+                        _environment._analysis_simd_scope,
                         n))
             {
                 // Aligned
                 if(Vectorizer::_analysis_info->is_simd_aligned_access(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             n,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
@@ -832,11 +858,106 @@ namespace TL
 
                 n.replace(vector_gather);
             }
+ 
+/*
+            // Vector Promotion from ArraySubscript
+            if (!Vectorizer::_analysis_info->is_induction_variable_dependent_access(
+                        _environment._analysis_simd_scope,
+                        n))
+            {
+
+                std::cerr << "No IV dependent access: " << n.prettyprint() << "\n";
+
+                const Nodecl::VectorPromotion vector_prom =
+                    Nodecl::VectorPromotion::make(
+                            n.shallow_copy(),
+                            mask,
+                            vector_type,
+                            n.get_locus());
+
+                n.replace(vector_prom);
+            }
+            // Vector Load
+            else if (Vectorizer::_analysis_info->is_adjacent_access(
+                        _environment._analysis_simd_scope,
+                        n))
+            {
+                // Aligned
+                if(Vectorizer::_analysis_info->is_simd_aligned_access(
+                            _environment.analysis_simd_scope,
+                            n,
+                            _environment._suitable_expr_list,
+                            _environment._unroll_factor,
+                            _environment._vector_length))
+                {
+                    printf("VECTORIZER: Load access '%s' is ALIGNED\n",
+                            n.prettyprint().c_str());
+
+                    const Nodecl::VectorLoad vector_load =
+                        Nodecl::VectorLoad::make(
+                                Nodecl::Reference::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        n.shallow_copy(),
+                                        basic_type,
+                                        n.get_locus()),
+                                    basic_type.get_pointer_to(),
+                                    n.get_locus()),
+                                mask,
+                                vector_type,
+                                n.get_locus());
+
+                    n.replace(vector_load);
+                }
+                else // Unaligned
+                {
+                    printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
+                            n.prettyprint().c_str());
+
+                    const Nodecl::UnalignedVectorLoad vector_load =
+                        Nodecl::UnalignedVectorLoad::make(
+                                Nodecl::Reference::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        n.shallow_copy(),
+                                        basic_type,
+                                        n.get_locus()),
+                                    basic_type.get_pointer_to(),
+                                    n.get_locus()),
+                                mask,
+                                vector_type,
+                                n.get_locus());
+
+                    n.replace(vector_load);
+                } 
+            }
+            else // Vector Gather
+            {
+                const Nodecl::NodeclBase base = n.get_subscripted();
+                const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
+
+                std::cerr << "Gather: " << n.prettyprint() << "\n";
+
+                ERROR_CONDITION(subscripts.size() > 1,
+                    "Vectorizer: Gather on multidimensional array is not supported yet!", 0);
+
+                Nodecl::NodeclBase strides = *subscripts.begin();
+                walk(strides);
+
+                const Nodecl::VectorGather vector_gather =
+                    Nodecl::VectorGather::make(
+                            base.shallow_copy(),
+                            strides,
+                            mask,
+                            vector_type,
+                            n.get_locus());
+
+                n.replace(vector_gather);
+            }
+            */
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
         {
-            Nodecl::NodeclBase mask = Utils::get_proper_mask(_environment,
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
             Nodecl::NodeclBase called = n.get_called();
@@ -932,7 +1053,7 @@ namespace TL
             {
                // Vectorize BASIC induction variable
                 if (Vectorizer::_analysis_info->is_basic_induction_variable(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             n)
                         && (_environment._reduction_list != NULL && 
                             (!_environment._reduction_list->contains(tl_sym)))) //FIXME: Ticket 1643
@@ -991,7 +1112,7 @@ namespace TL
                 }
                 // Vectorize constants
                 else if (Vectorizer::_analysis_info->is_constant(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             n))
                 {
                     DEBUG_CODE()
@@ -1086,7 +1207,7 @@ namespace TL
             TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
             const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
-                    _environment._analysis_scopes.back(), n);
+                    _environment._analysis_simd_scope, n);
 
             const_value_t *i = const_value_get_zero(4, 0);
             for(unsigned int j = 0;

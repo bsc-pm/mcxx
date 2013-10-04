@@ -53,7 +53,9 @@ namespace TL
         void VectorizerVisitorStatement::visit(const Nodecl::ForStatement& n)
         {
             _environment._local_scope_list.push_back(n.get_statement().as<Nodecl::List>().front().retrieve_context());
+            _environment._analysis_scopes.push_back(n);
             walk(n.get_statement());
+            _environment._analysis_scopes.pop_back();
             _environment._local_scope_list.pop_back();
         }
 

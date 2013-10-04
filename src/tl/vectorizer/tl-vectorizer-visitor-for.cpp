@@ -71,6 +71,7 @@ namespace TL
             Vectorizer::initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
 
             // Push ForStatement as scope for analysis
+            _environment._analysis_simd_scope = for_statement;
             _environment._analysis_scopes.push_back(for_statement);
 
             // TODO: ???
@@ -227,9 +228,9 @@ namespace TL
             Nodecl::NodeclBase rhs = condition.get_rhs();
 
             bool lhs_const_flag = Vectorizer::_analysis_info->is_constant(
-                    _environment._analysis_scopes.back(), lhs);
+                    _environment._analysis_simd_scope, lhs);
             bool rhs_const_flag = Vectorizer::_analysis_info->is_constant(
-                    _environment._analysis_scopes.back(), rhs);
+                    _environment._analysis_simd_scope, rhs);
 
             if (!lhs_const_flag && rhs_const_flag)
             {
@@ -241,12 +242,12 @@ namespace TL
                 Nodecl::ParenthesizedExpression new_step;
 
                 if (Vectorizer::_analysis_info->is_induction_variable(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             lhs))
                 {
                     step = const_value_to_nodecl(
                         Vectorizer::_analysis_info->get_induction_variable_increment(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             lhs));
 
                     new_step = Nodecl::ParenthesizedExpression::make(
@@ -304,12 +305,12 @@ namespace TL
                 Nodecl::ParenthesizedExpression new_step;
 
                 if (Vectorizer::_analysis_info->is_induction_variable(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             rhs))
                 {
                     step = const_value_to_nodecl(
                         Vectorizer::_analysis_info->get_induction_variable_increment(
-                            _environment._analysis_scopes.back(),
+                            _environment._analysis_simd_scope,
                             rhs));
 
                     new_step = Nodecl::ParenthesizedExpression::make(
@@ -408,7 +409,7 @@ namespace TL
         void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
         {
             if (Vectorizer::_analysis_info->is_induction_variable(
-                        _environment._analysis_scopes.back(),
+                        _environment._analysis_simd_scope,
                         lhs))
             {
                 const Nodecl::AddAssignment new_node =
@@ -417,7 +418,7 @@ namespace TL
                             const_value_to_nodecl(
                                 const_value_mul(const_value_get_signed_int(_environment._unroll_factor), 
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        _environment._analysis_scopes.back(),
+                                        _environment._analysis_simd_scope,
                                         lhs))),
                             node.get_type(),
                             node.get_locus());
@@ -435,7 +436,7 @@ namespace TL
                                 Nodecl::IntegerLiteral::make(
                                     node.get_type(),
                                     Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        _environment._analysis_scopes.back(),
+                                        _environment._analysis_simd_scope,
                                         lhs),
                                     node.get_locus()),
                                 node.get_type(),
@@ -496,6 +497,7 @@ namespace TL
                 as<Nodecl::CompoundStatement>();
 
             // Push ForStatement as scope for analysis
+            _environment._analysis_simd_scope = for_statement;
             _environment._analysis_scopes.push_back(for_statement);
 
             // Get mask for epilog instructions
