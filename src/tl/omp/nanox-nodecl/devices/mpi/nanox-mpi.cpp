@@ -659,8 +659,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
 
     Source host_src,
-           instrument_before,
-           instrument_after;
+           instrument_before_host,
+           instrument_after_host;
 
     
     
@@ -672,15 +672,15 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 host_function_body,
                 info._task_label,
                 original_statements.get_locus(),
-                instrument_before,
-                instrument_after); 
+                instrument_before_host,
+                instrument_after_host); 
     } 
     
     host_src
             << "{"
-            << instrument_before
+            << instrument_before_host
             << code_host
-            << instrument_after;    
+            << instrument_after_host;    
     
     if (!cleanup_code.empty()){
            Nodecl::NodeclBase cleanup_code_tree = cleanup_code.parse_statement(host_function_body);
@@ -761,8 +761,22 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         internal_error("Code unreachable", 0);
     }
     
-    Source device_src;
+    Source device_src, 
+            instrument_before_dev,
+            instrument_after_dev;
     
+    
+    if (instrumentation_enabled())
+    {
+        get_instrumentation_code(
+                info._called_task,
+                device_function,
+                device_function_body,
+                info._task_label,
+                original_statements.get_locus(),
+                instrument_before_dev,
+                instrument_after_dev); 
+    } 
     
     Nodecl::NodeclBase new_device_body;
     if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -771,7 +785,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 << "{"
                 << code_device_pre
                 << data_input_global
+                << instrument_before_dev
                 << unpacked_function_call
+                << instrument_after_dev
                 << data_output_global
                 << code_device_post
                 << "}"
