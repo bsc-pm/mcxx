@@ -36,5 +36,6 @@ DIST_SUBDIRS=base \
              nanox-nodecl \
              ss2omp \
              profile \
-			 intel \
+	     intel \
+	     lint \
              $(END)
