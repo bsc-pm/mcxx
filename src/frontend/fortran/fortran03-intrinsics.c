@@ -268,7 +268,7 @@ FORTRAN_GENERIC_INTRINSIC(NULL, tiny, "X", I, simplify_tiny) \
 FORTRAN_GENERIC_INTRINSIC(NULL, trailz, "I", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, transfer, "SOURCE,MOLD,?SIZE", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, transpose, "MATRIX", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(NULL, trim, "STRING", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, trim, "STRING", T, simplify_trim) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ubound, "ARRAY,?DIM,?KIND", I, simplify_ubound) \
 FORTRAN_GENERIC_INTRINSIC(NULL, ucobound, "COARRAY,?DIM,?KIND", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, unpack, "VECTOR,MASK,FIELD", T, NULL) \
@@ -1647,6 +1647,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("derf", "erf", fortran_get_doubleprecision_type());
 
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
@@ -2756,11 +2757,15 @@ scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_array_type(t0)
             && is_integer_type(fortran_get_rank0_type(t1))
-            && (fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1)
+            // t1 must have rank(t0)-1 or rank 0
+            && (((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t1))
+                || (fortran_get_rank_of_type(t1) == 0))
             && (t2 == NULL
                 || (equivalent_types(get_unqualified_type(fortran_get_rank0_type(t0)), 
                         get_unqualified_type(fortran_get_rank0_type(t2)))
-                    && ((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t2))))
+                    // t2 must have rank(t0)-1 or rank 0
+                    && (((fortran_get_rank_of_type(t0) - 1) == fortran_get_rank_of_type(t2))
+                        || (fortran_get_rank_of_type(t2) == 0))))
             && (t3 == NULL
                 || (is_integer_type(t3))))
     {

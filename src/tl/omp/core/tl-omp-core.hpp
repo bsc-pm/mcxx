@@ -104,6 +104,7 @@ namespace TL
                 void get_reduction_symbols(TL::PragmaCustomLine construct, 
                         PragmaCustomClause clause, 
                         const TL::ObjectList<TL::Symbol> &symbols_in_construct,
+                        DataSharingEnvironment& data_sharing,
                         ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(TL::PragmaCustomLine construct,
                         Nodecl::NodeclBase statements,
@@ -160,6 +161,7 @@ namespace TL
 
                 bool _discard_unused_data_sharings;
                 bool _allow_shared_without_copies;
+                bool _allow_array_reductions;
             public:
                 Core();
 
@@ -178,6 +180,8 @@ namespace TL
                 void set_discard_unused_data_sharings(bool b) { _discard_unused_data_sharings = b; }
 
                 void set_allow_shared_without_copies(bool b) { _allow_shared_without_copies = b; }
+
+                void set_allow_array_reductions(bool b) { _allow_array_reductions = b; }
         };
 
         // OpenMP core is a one shot phase, so even if it is in the compiler

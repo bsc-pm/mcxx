@@ -525,7 +525,7 @@ target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*ONTO([onto_expressions]expression-seq, [function_name]name)
                  | NODECL_OPEN_M_P*IMPLEMENTS([device]text, [function_name]name)
 
-reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name)
+reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]name, [reduction_type]type)
 
 # parallel
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)

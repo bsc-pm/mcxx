@@ -50,6 +50,7 @@
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-exprtype.h"
+#include "cxx-entrylist.h"
 #include "cxx-overload.h"
 #include "cxx-instantiation.h"
 #include "cxx-typeenviron.h"
@@ -1083,13 +1084,24 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
         case CVK_STRUCT:
             {
                 nodecl_t list = nodecl_null();
+
+                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(basic_type);
+
                 int i;
-                for (i = 0; i < v->value.m->num_elements; i++)
+                scope_entry_list_iterator_t* it_member = NULL;
+                for (i = 0, it_member = entry_list_iterator_begin(data_members);
+                        (i < v->value.m->num_elements) && !entry_list_iterator_end(it_member);
+                        i++, entry_list_iterator_next(it_member))
                 {
-                    list = nodecl_append_to_list(list, 
+                    scope_entry_t* member = entry_list_iterator_current(it_member);
+
+                    list = nodecl_append_to_list(list,
                             const_value_to_nodecl_with_basic_type(v->value.m->elements[i],
-                                basic_type));
+                                member->type_information));
                 }
+                entry_list_iterator_free(it_member);
+
+                entry_list_free(data_members);
 
                 type_t* t = v->value.m->struct_type;
 

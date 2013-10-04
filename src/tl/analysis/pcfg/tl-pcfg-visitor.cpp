@@ -1551,7 +1551,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( critical_entry, critical_exit ) );
         walk( n.get_environment( ) );
-        critical_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        critical_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -1667,7 +1667,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( for_entry, for_exit ) );
         walk( n.get_environment( ) );
-        for_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        for_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -1724,7 +1724,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( parallel_entry, parallel_exit ) );
         walk( n.get_environment( ) );
-        parallel_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        parallel_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -1753,7 +1753,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_entry, simd_exit ) );
         walk( n.get_environment( ) );
-        simd_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        simd_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
         
@@ -1778,22 +1778,20 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Reduction& n )
     {
-        WARNING_MESSAGE( "Reduction not yet implemented. Ignoring nodecl", 0 );
-//         walk( n.get_reductions( ) );
+        walk( n.get_reductions( ) );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
-        WARNING_MESSAGE( "ReductionItem not yet implemented. Ignoring nodecl", 0 );
-//          walk( n.get_reductor( ) );
-//          walk( n.get_reduced_symbol( ) );
-         return ObjectList<Node*>( );
+        PCFGClause current_clause( REDUCTION, n );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
     {
-        PCFGClause current_clause( PRIVATE, n.get_chunk( ) );
+        PCFGClause current_clause( SCHEDULE, n.get_chunk( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -1847,7 +1845,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( sections_entry, sections_exit ) );
         walk( n.get_environment( ) );
-        sections_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        sections_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -1884,7 +1882,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_entry, simd_exit ) );
         walk( n.get_environment( ) );
-        simd_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        simd_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
         
@@ -1913,7 +1911,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_entry, simd_exit ) );
         walk( n.get_environment( ) );
-        simd_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        simd_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
         
@@ -1948,7 +1946,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( single_entry, single_exit ) );
         walk( n.get_environment( ) );
-        single_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        single_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -1959,7 +1957,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
     {
-        PCFGClause current_clause( TARGET );
+        PCFGClause current_clause( TARGET, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -1992,7 +1990,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( task_entry, task_exit ) );
         walk( n.get_environment( ) );
-        task_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        task_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -2027,7 +2025,7 @@ namespace Analysis {
         _utils->_pragma_nodes.push( current_pragma );
         _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( task_entry, task_exit ) );
         walk( n.get_environment( ) );
-        task_node->set_omp_node_info( _utils->_pragma_nodes.top( ) );
+        task_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
         _utils->_pragma_nodes.pop( );
         _utils->_environ_entry_exit.pop( );
 
@@ -2503,7 +2501,6 @@ namespace Analysis {
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
-#warning Sara, please, review this node
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskConversion& n )
     {
         return walk( n.get_nest( ) );

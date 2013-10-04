@@ -3239,6 +3239,8 @@ static const char* get_fully_qualified_symbol_name_of_depedent_typename_internal
     int num_parts = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_parts);
 
+    *max_qualif_level += num_parts;
+
     int i;
     for (i = 0; i < num_parts; i++)
     {

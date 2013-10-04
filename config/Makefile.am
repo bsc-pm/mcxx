@@ -35,23 +35,25 @@ CONFIG_MCXX=\
 # We need a dist hook to keep these files in sync with their template.*
 # see below
 CONFIG_FILES =  \
+       00.config.plain \
+       10.config.analysis-base \
+       10.config.omp-base \
+       10.config.intel-omp-base \
        50.config.cuda \
        50.config.gpu \
-       10.config.omp-base \
-       10.config.analysis-base \
-       50.config.omp.ocl \
-       50.config.omp.mercurium \
-       50.config.omp.profiling \
        50.config.omp.fortran \
        50.config.omp.fpga \
-       55.config.omp.intel \
-       55.config.omp.intel.fortran \
+       50.config.omp.mercurium \
+       50.config.omp.ocl \
+       50.config.omp.profiling \
+	   50.config.omp.intel-rtl \
        55.config.omp.ibm \
        55.config.omp.ibm.fortran \
+       55.config.omp.intel \
+       55.config.omp.intel.fortran \
        55.config.omp.nvidia \
        56.config.omp.mpi \
        57.config.omp.all \
-       00.config.plain \
 	   $(END)
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@

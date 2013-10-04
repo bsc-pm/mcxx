@@ -76,7 +76,9 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %}
 
-// C++ tokens
+%token END 0 "end of input"
+
+// C tokens
 %token<token_atrib> ADD_ASSIGN "+="
 %token<token_atrib> ANDAND "&&"
 %token<token_atrib> AND_ASSIGN "&="
@@ -111,6 +113,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> INLINE "inline"
 %token<token_atrib> TOKEN_INT "int"
 %token<token_atrib> TOKEN_INT128 "__int128"
+%token<token_atrib> TOKEN_FLOAT128 "__float128"
 %token<token_atrib> LEFT "<<"
 %token<token_atrib> LEFT_ASSIGN "<<="
 %token<token_atrib> LESS_OR_EQUAL "<="
@@ -963,6 +966,10 @@ builtin_types : TOKEN_CHAR
 | TOKEN_INT128
 {
 	$$ = ASTLeaf(AST_GCC_INT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_FLOAT128
+{
+	$$ = ASTLeaf(AST_GCC_FLOAT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | MCC_BYTE
 {

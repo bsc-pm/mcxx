@@ -340,14 +340,14 @@ namespace Analysis {
         {   // Flushing all memory
             PCFGClause current_clause( FLUSHED_VARS );
             PCFGPragmaInfo current_info( current_clause );
-            flush_node->set_omp_node_info( current_info );
+            flush_node->set_pragma_node_info( current_info );
         }
         else
         {   // Flushing a list of expressions
             Nodecl::List flushed_vars = n.as<Nodecl::List>( );
             PCFGClause current_clause( FLUSHED_VARS, flushed_vars );
             PCFGPragmaInfo current_info( current_clause );
-            flush_node->set_omp_node_info( current_info );
+            flush_node->set_pragma_node_info( current_info );
         }
 
         connect_nodes( _utils->_last_nodes, flush_node );

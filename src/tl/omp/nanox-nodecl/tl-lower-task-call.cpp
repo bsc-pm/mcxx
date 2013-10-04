@@ -684,8 +684,8 @@ static TL::ObjectList<Nodecl::NodeclBase> capture_the_values_of_these_expression
     struct ReplaceParamsByArgs : public Nodecl::ExhaustiveVisitor<void>
     {
         const sym_to_argument_expr_t& _param_to_arg_expr;
-        ReplaceParamsByArgs(const sym_to_argument_expr_t &param_to_arg_expr) :
-            _param_to_arg_expr(param_to_arg_expr)
+        ReplaceParamsByArgs(const sym_to_argument_expr_t &param_to_arg_expr_aux) :
+            _param_to_arg_expr(param_to_arg_expr_aux)
         {
         }
 

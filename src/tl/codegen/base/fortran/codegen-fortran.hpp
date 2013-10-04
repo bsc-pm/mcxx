@@ -411,6 +411,8 @@ namespace Codegen
             std::string rename(TL::Symbol sym);
             void clear_renames();
 
+            bool is_protected_name(TL::Symbol sym);
+
             void emit_ptr_loc_C();
 
             void push_declaration_status();

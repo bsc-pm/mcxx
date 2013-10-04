@@ -45,6 +45,8 @@ libmf03_la_SOURCES = \
                      fortran03-lexer.h \
                      fortran03-scanner.c \
                      fortran03-parser-internal.h \
+                     fortran03-cexpr.h \
+                     fortran03-cexpr.c \
                      fortran03-utils.h \
                      fortran03-utils.c \
                      fortran03-typeutils.h \
