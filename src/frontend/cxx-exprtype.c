@@ -14145,6 +14145,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
+
     check_sizeof_type(declarator_type, /* nodecl_expr */ nodecl_null(), decl_context, locus, nodecl_output);
 }
 
@@ -14432,7 +14433,6 @@ static void check_gcc_alignof_type(type_t* t,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-
     if (is_dependent_type(t))
     {
         *nodecl_output = nodecl_make_alignof(nodecl_make_type(t, locus), get_size_t_type(), locus);
@@ -14478,7 +14478,8 @@ static void check_gcc_alignof_type(type_t* t,
     }
 }
 
-static void check_nodecl_gcc_alignof_expr(nodecl_t nodecl_expr,
+static void check_nodecl_gcc_alignof_expr(
+        nodecl_t nodecl_expr,
         decl_context_t decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
@@ -15898,7 +15899,25 @@ static inline nodecl_visitor_fun_t instantiate_expr_visitor_fun(nodecl_instantia
 static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node)
 {
     visitor->nodecl_result = nodecl_null();
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s'\n",
+                codegen_to_str(node, visitor->decl_context));
+    }
     NODECL_WALK(visitor, node);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Expression '%s' instantiated to expression '%s'\n",
+                codegen_to_str(node, visitor->decl_context),
+                codegen_to_str(visitor->nodecl_result, visitor->decl_context));
+        if (nodecl_is_constant(visitor->nodecl_result))
+        {
+            fprintf(stderr, "EXPRTYPE: Instantiated expression '%s' has constant value '%s'\n",
+                    codegen_to_str(visitor->nodecl_result, visitor->decl_context),
+                    codegen_to_str(const_value_to_nodecl(nodecl_get_constant(visitor->nodecl_result)),
+                        visitor->decl_context));
+        }
+    }
     return visitor->nodecl_result;
 }
 
@@ -15909,9 +15928,12 @@ nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_contex
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
 
+
     instantiate_expr_init_visitor(&v, decl_context);
 
-    return instantiate_expr_walk(&v, nodecl_expr);
+    nodecl_t n = instantiate_expr_walk(&v, nodecl_expr);
+
+    return n;
 }
 
 static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor_t* v UNUSED_PARAMETER,
@@ -16390,23 +16412,25 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     v->nodecl_result = result;
 }
 
-static void instantiate_alignof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+static void instantiate_dep_alignof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    nodecl_t nodecl_type = nodecl_get_child(node, 0);
+    nodecl_t dep_expr = nodecl_get_child(node, 0);
 
-    type_t* t = nodecl_get_type(nodecl_type);
-
-    t = update_type_for_instantiation(t,
-            v->decl_context,
-            nodecl_get_locus(node));
+    nodecl_t expr = instantiate_expr_walk(v, dep_expr);
 
     nodecl_t result = nodecl_null();
 
-    check_sizeof_type(t,
-            nodecl_null(),
-            v->decl_context,
-            nodecl_get_locus(node),
-            &result);
+    if (nodecl_is_err_expr(expr))
+    {
+        result = nodecl_make_err_expr(nodecl_get_locus(node));
+    }
+    else
+    {
+        check_nodecl_gcc_alignof_expr(expr,
+                v->decl_context, 
+                nodecl_get_locus(node), 
+                &result);
+    }
 
     v->nodecl_result = result;
 }
@@ -16431,6 +16455,27 @@ static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, node
 
     v->nodecl_result = result;
 }
+
+static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_type = nodecl_get_child(node, 0);
+
+    type_t* t = nodecl_get_type(nodecl_type);
+
+    t = update_type_for_instantiation(t,
+            v->decl_context,
+            nodecl_get_locus(node));
+
+    nodecl_t result = nodecl_null();
+
+    check_gcc_alignof_type(t,
+            v->decl_context,
+            nodecl_get_locus(node),
+            &result);
+
+    v->nodecl_result = result;
+}
+
 
 static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
@@ -16742,7 +16787,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_cxx_sizeof = instantiate_expr_visitor_fun(instantiate_dep_sizeof_expr);
 
     // Alignof
-    NODECL_VISITOR(v)->visit_alignof = instantiate_expr_visitor_fun(instantiate_alignof);
+    NODECL_VISITOR(v)->visit_alignof = instantiate_expr_visitor_fun(instantiate_nondep_alignof);
+    NODECL_VISITOR(v)->visit_cxx_alignof = instantiate_expr_visitor_fun(instantiate_dep_alignof_expr);
 
     // Casts
     NODECL_VISITOR(v)->visit_cast = instantiate_expr_visitor_fun(instantiate_cast);
