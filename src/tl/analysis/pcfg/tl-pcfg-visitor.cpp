@@ -3092,6 +3092,11 @@ namespace Analysis {
         return walk(n.get_argument());
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranBozLiteral& n )
+    {
+        return visit_literal_node( n );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::WhileStatement& n )
     {
         Node* while_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_WHILE );
