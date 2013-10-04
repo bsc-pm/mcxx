@@ -1567,6 +1567,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
+           src/tl/analysis/checker/Makefile
            src/tl/vectorizer/Makefile
            src/tl/vector-lowering/Makefile
            src/tl/vector-lowering/sse/Makefile
@@ -1635,6 +1636,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-parallel-simd-mic
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
+           tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium

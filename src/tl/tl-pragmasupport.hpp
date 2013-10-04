@@ -58,13 +58,17 @@ namespace TL
 
     class LIBTL_CLASS ExpressionTokenizer : public ClauseTokenizer
     {
+        private:
+            const char _separator;
         public:
+            ExpressionTokenizer( const char separator = ',' );
             virtual ObjectList<std::string> tokenize(const std::string& str) const;
     };
 
     class LIBTL_CLASS ExpressionTokenizerTrim : public ExpressionTokenizer
     {
         public:
+            ExpressionTokenizerTrim( const char separator = ',' );
 			virtual ObjectList<std::string> tokenize(const std::string& str) const;
 
         private:
@@ -401,6 +405,7 @@ namespace TL
                 if (n.get_text() == _pragma_handled)
                 {
                     std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    
                     PragmaMapDispatcher::StatementMap::iterator it = _map_dispatcher.statement.pre.find(pragma_name);
 
                     if (it != _map_dispatcher.statement.pre.end())

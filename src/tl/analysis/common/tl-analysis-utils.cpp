@@ -169,6 +169,126 @@ namespace Utils {
 
     // **************************** END visitor for Top Level nodes ****************************** //
     // ******************************************************************************************* //
+    
+    
+    
+    // ******************************************************************************************* //
+    // ************************************ Printing methods ************************************* //
+    
+    void makeup_dot_block( std::string& str )
+    {
+        int pos;
+        // Escape double quotes
+        pos = 0;
+        while( ( pos=str.find( "\"", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\\"" );
+            pos += 2;
+        }
+        // Delete implicit line feeds
+        pos = 0;
+        while( ( pos=str.find( "\n", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "" );
+        }
+        // Delete explicit line feeds
+        pos = 0;
+        while( ( pos=str.find( "\\n", pos ) ) != -1 ) {
+            str.replace ( pos, 2, "\\\\n" );
+            pos += 3;
+        }
+        // Escape the comparison symbols '<' and '>'
+        pos = 0;
+        while( ( pos=str.find( "<", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\<" );
+            pos += 2;
+        }
+        pos = 0;
+        while( ( pos=str.find( ">", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\>" );
+            pos += 2;
+        }
+        // Escape the brackets '{' '}'
+        pos = 0;
+        while( ( pos=str.find( "{", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\{" );
+                pos += 2;
+        }
+        pos = 0;
+        while( ( pos=str.find( "}", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\}" );
+            pos += 2;
+        }
+        // Escape the OR operand
+        pos = 0;
+        while( ( pos=str.find( "|", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\|" );
+            pos += 2;
+        }
+        // Escape '%' operand
+        pos = 0;
+        while( ( pos=str.find( "%", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\%" );
+            pos += 2;
+        }
+        // Escape '?' token
+        pos = 0;
+        while( ( pos=str.find( "?", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\?" );
+            pos += 2;
+        }
+    }
+    
+    std::string prettyprint_ext_sym_set( ext_sym_set s, bool print_in_dot )
+    {
+        std::string result;
+        
+        for( ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
+        {
+            result += it->get_nodecl( ).prettyprint( ) + ", ";
+        }
+        
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            if( print_in_dot )
+                makeup_dot_block( result );
+        }
+        
+        return result;
+    }
+    
+    std::string prettyprint_ext_sym_map( ext_sym_map s, bool print_in_dot )
+    {
+        std::string result;
+        
+        for( ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
+        {
+            nodecl_t first = it->first.get_nodecl( ).get_internal_nodecl( );
+            nodecl_t second = it->second.get_internal_nodecl( );
+            
+            if( it->second.is_null( ) )
+            {
+                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) )
+                        + "=UNKNOWN VALUE; ";
+            }
+            else
+            {
+                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) ) + "="
+                        + std::string( codegen_to_str( second, nodecl_retrieve_context( second ) ) ) + "; ";
+            }
+        }
+        
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            if( print_in_dot )
+                makeup_dot_block(result);
+        }
+        
+        return result;
+    }
+    
+    // ********************************** END printing methods *********************************** //
+    // ******************************************************************************************* //
 }
 }
 }

@@ -55,6 +55,8 @@ namespace Analysis {
             int _id;
             ObjectList<Edge*> _entry_edges;
             ObjectList<Edge*> _exit_edges;
+            bool _has_assertion;
+            
             bool _visited;
             bool _visited_aux;
             bool _visited_extgraph;     // Used in ExtensibleGraph class traversal
@@ -132,6 +134,12 @@ namespace Analysis {
             //! Sets the node identifier
             void set_id( unsigned int id );
 
+            //! Returns true when the node has some assert clause associated
+            bool has_assertion( ) const;
+            
+            //! Sets to true the member indicating that the node has some assert clause associated
+            void set_assertion( );
+            
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
             * This method is useful when traversals among the nodes are performed.
@@ -690,6 +698,38 @@ namespace Analysis {
             void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ****************** Getters and setters for analysis checking ***************** //
+            
+            Utils::ext_sym_set get_assert_ue_vars( );
+            void set_assert_ue_var( ObjectList<Nodecl::NodeclBase> new_assert_ue_vars );
+            
+            Utils::ext_sym_set get_assert_killed_vars( );
+            void set_assert_killed_var( ObjectList<Nodecl::NodeclBase> new_assert_killed_vars );
+            
+            Utils::ext_sym_set get_assert_live_in_vars( );
+            void set_assert_live_in_var( ObjectList<Nodecl::NodeclBase> new_assert_live_in_vars );
+            
+            Utils::ext_sym_set get_assert_live_out_vars( );
+            void set_assert_live_out_var( ObjectList<Nodecl::NodeclBase> new_assert_live_out_vars );
+            
+            Utils::ext_sym_set get_assert_dead_vars( );
+            void set_assert_dead_var( ObjectList<Nodecl::NodeclBase> new_assert_dead_vars );
+            
+            Utils::ext_sym_map get_assert_reaching_definitions_in( );
+            void set_assert_reaching_definitions_in( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_in );
+            
+            Utils::ext_sym_map get_assert_reaching_definitions_out( );
+            void set_assert_reaching_definitions_out( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_out );
+            
+            ObjectList<Utils::InductionVariableData*> get_assert_induction_vars( );
+            void set_assert_induction_variables( ObjectList<Nodecl::NodeclBase> new_assert_induction_vars );
+            
+            // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //
 
 
