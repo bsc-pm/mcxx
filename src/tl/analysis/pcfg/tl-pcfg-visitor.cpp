@@ -26,6 +26,7 @@
 
 
 #include "cxx-process.h"
+#include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 
 #include <cassert>
@@ -1880,8 +1881,11 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
     {   // No deeper Nodecls
-        WARNING_MESSAGE( "CombinedWorksharing not yet implemented. Ignoring nodecl \n%s", 
-                         n.prettyprint( ).c_str( ) );
+        if( VERBOSE )
+        {
+            WARNING_MESSAGE( "CombinedWorksharing not yet implemented. Ignoring nodecl \n%s", 
+                             n.prettyprint( ).c_str( ) );
+        }
         return ObjectList<Node*>( );
     }
 
