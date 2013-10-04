@@ -479,6 +479,7 @@ namespace Analysis {
         Ret visit( const Nodecl::WhileStatement& n );
 
         Ret visit( const Nodecl::FortranAllocateStatement& n );
+        Ret visit( const Nodecl::FortranBozLiteral& n );
         Ret visit( const Nodecl::FortranDeallocateStatement& n );
         Ret visit( const Nodecl::FortranOpenStatement& n );
         Ret visit( const Nodecl::FortranCloseStatement& n );
