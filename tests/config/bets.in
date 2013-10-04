@@ -472,6 +472,7 @@ clean_test_vars ()
    unset test_ignore
    unset test_ignore_reason
    unset test_ignore_fail
+   unset runner
 }
 
 # run functions
