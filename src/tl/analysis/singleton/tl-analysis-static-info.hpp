@@ -353,26 +353,29 @@ namespace Analysis {
         const Nodecl::List* _suitable_expressions;
         const int _unroll_factor;
         const int _type_size;
+        const int _alignment;
+        int _nesting_level;
         
-        bool is_suitable_expression(Nodecl::NodeclBase n);
+        bool is_suitable_expression( Nodecl::NodeclBase n );
+        bool is_suitable_constant( int n );
 
     public:
         // *** Constructor *** //
-        SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
-                                  ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  const Nodecl::List* suitable_expressions, int unroll_factor, int type_size);
+        SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
+                                  const Nodecl::List* suitable_expressions, 
+                                  int unroll_factor, int type_size, int alignment );
         
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
 
         Ret visit( const Nodecl::Add& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::Mul& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
 
         Ret unhandled_node(const Nodecl::NodeclBase& n);
     };

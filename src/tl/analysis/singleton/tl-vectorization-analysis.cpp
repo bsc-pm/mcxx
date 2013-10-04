@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
 #include <algorithm>
 
@@ -156,7 +157,7 @@ namespace Analysis {
 
         int type_size = subscripted.get_type().basic_type().get_size();
 
-        SuitableAlignmentVisitor sa_v( subscripted, _induction_variables, suitable_expressions, unroll_factor, type_size );
+        SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( subscript );
         
         if( (subscript_alignment % alignment) == 0 )
@@ -173,13 +174,12 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
-    SuitableAlignmentVisitor::SuitableAlignmentVisitor( Nodecl::NodeclBase subscripted,
-                                                        ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const Nodecl::List* suitable_expressions, int unroll_factor, int type_size)
-            : _subscripted( subscripted ), _induction_variables( induction_variables), _suitable_expressions( suitable_expressions ), 
-              _unroll_factor( unroll_factor ), _type_size(type_size)
-    {
-    }
+    SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
+                                                        const Nodecl::List* suitable_expressions, 
+                                                        int unroll_factor, int type_size, int alignment )
+        : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
+          _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
+    {}
     
     int SuitableAlignmentVisitor::join_list( ObjectList<int>& list ) 
     {
@@ -203,6 +203,14 @@ namespace Analysis {
         return true;
     }
     
+    bool SuitableAlignmentVisitor::is_suitable_constant( int n )
+    {
+        if ( (n % _alignment) == 0 )
+            return true;
+        else
+            return false;
+    }
+    
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
         if (is_suitable_expression(n))
@@ -217,6 +225,129 @@ namespace Analysis {
             return lhs_mod + rhs_mod;
         
         return -1;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::ArraySubscript& n ) 
+    {
+        if( _nesting_level == 0 )  // Target access
+        {
+            _nesting_level++;
+            
+            int i;
+            int alignment = 0;
+            
+            Nodecl::NodeclBase subscripted = n.get_subscripted( );
+            TL::Type element_type = subscripted.get_type( );
+            // TODO: subscript is aligned
+            
+            Nodecl::List subscripts = n.get_subscripts( ).as<Nodecl::List>( );
+            int num_subscripts = subscripts.size( );
+            
+            // Get dimension sizes
+            int *dimension_sizes = (int *)malloc( ( num_subscripts-1 ) * sizeof( int ) );
+            
+            for( i = 0; i < (num_subscripts-1); i++ ) // Skip the first one. It does not have size
+            {
+                // Iterate on array subscript type
+                if( element_type.is_array( ) )
+                {
+                    element_type = element_type.array_element( );
+                }
+                else if( element_type.is_pointer( ) )
+                {
+                    element_type = element_type.points_to( );
+                }
+                else
+                {
+                    WARNING_MESSAGE( "Array subscript does not have array type or pointer to array type", 0 );
+                    return -1;
+                }
+                
+                if( !element_type.array_has_size( ) )
+                {
+                    WARNING_MESSAGE( "Array type does not have size", 0 );
+                    return -1;
+                }
+                
+                // Compute dimension alignment 
+                Nodecl::NodeclBase dimension_size_node = element_type.array_get_size( );
+                
+                int dimension_size = -1;
+                if( dimension_size_node.is_constant( ) )
+                {
+                    dimension_size = const_value_cast_to_signed_int( dimension_size_node.get_constant( ) );
+                    
+                    if( is_suitable_constant( dimension_size * _type_size ) )
+                        dimension_size = 0;
+                }
+                // If dimension size is suitable
+                else if( is_suitable_expression( dimension_size_node ) )
+                {
+                    dimension_size = 0;
+                }
+                if( VERBOSE )
+                    printf( "Dim %d, size %d\n", i, dimension_size );
+                
+                dimension_sizes[i] = dimension_size;
+            }
+            
+            int it_alignment;
+            Nodecl::List::iterator it = subscripts.begin( );
+            // Multiply dimension sizes by indexes
+            for( i=0; it != subscripts.end( ); i++ )
+            {
+                it_alignment = walk( *it );
+                
+                it++;
+                if( it == subscripts.end( ) ) break; // Last dimmension does not have to be multiplied
+                
+                // a[i][j][k] -> i -> i*J*K
+                for( int j = i; j < (num_subscripts-1); j++ )
+                {
+                    if( ( dimension_sizes[j] == 0 ) || ( it_alignment == 0 ) )
+                    {
+                        it_alignment = 0;
+                    }
+                    else if( ( dimension_sizes[j] < 0 ) || ( it_alignment < 0 ) )
+                    {
+                        it_alignment = -1;
+                    }
+                    else
+                    {
+                        it_alignment *= dimension_sizes[j];
+                    }
+                }
+                
+                if( it_alignment < 0 )
+                {
+                    if( VERBOSE )
+                        printf ("-1\n");
+                    return -1;
+                }
+                
+                alignment += it_alignment;
+            }
+            // Add adjacent dimension
+            alignment += it_alignment;
+            
+            free(dimension_sizes);
+            
+            _nesting_level--;
+            
+            if( VERBOSE )
+                printf("alignment %d\n", alignment);
+            return alignment;
+        }
+        // Nested array subscript
+        else
+        {
+            if (is_suitable_expression(n))
+            {
+                return 0;
+            }
+            
+            return -1;
+        }
     }
     
     int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
@@ -308,18 +439,6 @@ namespace Analysis {
         
         return -1;
     }
-
-    // TODO: Not implemented!
-    int SuitableAlignmentVisitor::visit( const Nodecl::ArraySubscript& n ) 
-    {
-        if (is_suitable_expression(n))
-        {
-            return 0;
-        }
-
-        return -1;
-    }
- 
 
     int SuitableAlignmentVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
