@@ -1055,8 +1055,7 @@ namespace TL
                             sym.get_name().c_str()
                             );
                 }
-                // We set it to none, later phases must give this symbol appropiate predetermined private behaviour
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
 
                 sanity_check_for_loop(statement);
             }
