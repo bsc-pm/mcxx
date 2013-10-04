@@ -717,6 +717,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 check_sizeof_expr(expression, decl_context, nodecl_output);
                 break;
             }
+        case AST_SIZEOF_TYPEID :
+            {
+                check_sizeof_typeid(expression, decl_context, nodecl_output);
+                break;
+            }
             /* UPC has upc_{local,block,elem}sizeof that are identical to the normal one */
         case AST_UPC_BLOCKSIZEOF :
         case AST_UPC_ELEMSIZEOF :
@@ -733,11 +738,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             {
                 error_printf("%s: sorry: UPC constructs not supported yet\n",
                         ast_location(expression));
-                break;
-            }
-        case AST_SIZEOF_TYPEID :
-            {
-                check_sizeof_typeid(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_DERREFERENCE :
