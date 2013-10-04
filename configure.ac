@@ -902,6 +902,14 @@ AC_ARG_ENABLE([ifort],
 
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
+mic_compilation="no"
+mic_testing="no"
+mic_testing_device="no"
+
+MIC_COMPILATION=$mic_compilation
+MIC_TESTING=$mic_testing
+MIC_TESTING_DEVICE=$mic_testing_device
+
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
@@ -923,10 +931,6 @@ then
          COMPILER_NAMES="${COMPILER_NAMES} imcc"
 
          dnl Intel Xeon Phi configure
-         mic_compilation="no"
-         mic_testing="no"
-         mic_testing_device="no"
-
          old_CC="$CC"
          CC="icc"
          old_CFLAGS="$CFLAGS"
@@ -963,9 +967,6 @@ then
          MIC_TESTING=$mic_testing
          MIC_TESTING_DEVICE=$mic_testing_device
 
-         AC_SUBST([MIC_COMPILATION])
-         AC_SUBST([MIC_TESTING])
-         AC_SUBST([MIC_TESTING_DEVICE])
          dnl end
       fi
       dnl Check Intel Compiler C++
@@ -1035,6 +1036,10 @@ then
        XLF=
    fi
 fi
+
+AC_SUBST([MIC_COMPILATION])
+AC_SUBST([MIC_TESTING])
+AC_SUBST([MIC_TESTING_DEVICE])
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
 
