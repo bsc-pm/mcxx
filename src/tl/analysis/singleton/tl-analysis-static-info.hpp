@@ -367,13 +367,13 @@ namespace Analysis {
         Ret join_list( ObjectList<int>& list );
 
         Ret visit( const Nodecl::Add& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::Mul& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
 
         Ret unhandled_node(const Nodecl::NodeclBase& n);
     };
