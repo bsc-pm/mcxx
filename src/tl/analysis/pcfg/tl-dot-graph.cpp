@@ -646,16 +646,23 @@ namespace {
                     {
                         clauses_str += "implements(";
                     }
-                    Nodecl::List copied_values = it2->children( )[0].as<Nodecl::List>( );
-                    int n_copied_values = copied_values.size( );
-                    int k = 0;
-                    for( Nodecl::List::iterator it3 = copied_values.begin( ); it3 != copied_values.end( ); ++it3, ++k )
+                    if (it2->children( )[0].is<Nodecl::List>())
                     {
-                        clauses_str += it3->prettyprint( );
-                        if( k < n_copied_values-1 )
+                        Nodecl::List copied_values = it2->children( )[0].as<Nodecl::List>( );
+                        int n_copied_values = copied_values.size( );
+                        int k = 0;
+                        for( Nodecl::List::iterator it3 = copied_values.begin( ); it3 != copied_values.end( ); ++it3, ++k )
                         {
-                            clauses_str += ", ";
+                            clauses_str += it3->prettyprint( );
+                            if( k < n_copied_values-1 )
+                            {
+                                clauses_str += ", ";
+                            }
                         }
+                    }
+                    else
+                    {
+                        clauses_str += it2->children( )[0].prettyprint( );
                     }
                     clauses_str += ")";
                     if( j < n_copies-1 )
