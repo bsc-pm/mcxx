@@ -43,29 +43,30 @@ namespace Analysis {
 
             Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
             Nodecl::List::iterator it = subscript.begin( );
-            for( ; it != subscript.end( ) - 1; ++it )
+            for( ; it != subscript.end( ) - 1 && result; ++it )
             {   // All dimensions but the less significant must be constant
                 if( !is_constant( *it ) )
                 {
-                    return false;
+                    result = false;
                 }
             }
-            // The less significant dimension must be accessed by an (+/-)c +/- IV, where c is a constant
-            if( it == subscript.end( ) - 1 )
-            {
+            if( result )
+            {   // The less significant dimension must be accessed by an (+/-)c +/- IV, where c is a constant
                 // If the subscript is another ArraySubscript, then it is not adjacent
                 if (it->is<Nodecl::ArraySubscript>())
                 {
-                    return false;
+                    result = false;
                 }
-
-                Nodecl::Utils::ReduceExpressionVisitor v;
-                Nodecl::NodeclBase s = it->shallow_copy( );
-                v.walk( s );
-                
-                ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
-                iv_v.walk( s );
-                result = iv_v.is_adjacent_access( );
+                else
+                {
+                    Nodecl::Utils::ReduceExpressionVisitor v;
+                    Nodecl::NodeclBase s = it->shallow_copy( );
+                    v.walk( s );
+                    
+                    ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
+                    iv_v.walk( s );
+                    result = iv_v.is_adjacent_access( );
+                }
             }
         }
         
