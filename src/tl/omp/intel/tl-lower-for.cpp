@@ -72,7 +72,7 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     private_list  // TL::ObjectList<OpenMP::Private>
-                    .map(functor(&Nodecl::OpenMP::Private::get_private_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::OpenMP::Private::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
                     .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
                     .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
                     .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
@@ -85,7 +85,7 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-                    .map(functor(&Nodecl::OpenMP::Firstprivate::get_firstprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::OpenMP::Firstprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
                     .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
                     .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
                     .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
@@ -99,7 +99,7 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     lastprivate_list  // TL::ObjectList<OpenMP::Lastprivate>
-                    .map(functor(&Nodecl::OpenMP::Lastprivate::get_lastprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::OpenMP::Lastprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
                     .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
                     .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
                     .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
@@ -113,7 +113,7 @@ namespace TL { namespace Intel {
             {
                 TL::ObjectList<Symbol> tmp =
                     firstlastprivate_list  // TL::ObjectList<OpenMP::FirstLastprivate>
-                    .map(functor(&Nodecl::OpenMP::FirstLastprivate::get_firstlastprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+                    .map(functor(&Nodecl::OpenMP::FirstLastprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
                     .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
                     .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
                     .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
