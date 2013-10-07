@@ -450,17 +450,19 @@ then
             [
              intel_omp_include="${withval}/exports/common/include"
 
-             case "$target" in
-                i?86-*-linux*)
-                    intel_omp_lib="${withval}/exports/lin_32/lib"
-                    ;;
-                x86_64-*-linux*)
-                    intel_omp_lib="${withval}/exports/lin_32e/lib"
-                    ;;
-                *)
-                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
-                    ;;
-             esac
+             intel_omp_lib="${withval}/exports/lrb_32e.knc.lin.off/lib"
+
+dnl             case "$target" in
+dnl                i?86-*-linux*)
+dnl                    intel_omp_lib="${withval}/exports/lin_32/lib"
+dnl                    ;;
+dnl                x86_64-*-linux*)
+dnl                    intel_omp_lib="${withval}/exports/lin_32e/lib"
+dnl                    ;;
+dnl                *)
+dnl                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
+dnl                    ;;
+dnl             esac
             ]
     )
 
