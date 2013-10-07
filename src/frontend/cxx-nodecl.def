@@ -85,6 +85,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | parallel-statements
           | compatibility
           | NODECL_ERR_STATEMENT()
+          | assert-construct
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
 
@@ -468,7 +469,7 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 
 # function task
 # Note: do not rely on the information in site_environment
-task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression)
+task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression, [site_environment]exec-environment-seq-opt)
 
 # task expression
 task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement-seq)
@@ -482,12 +483,12 @@ top-level: target-declaration
 
 exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FINAL([condition]expression)
-                 | NODECL_OPEN_M_P*FIRSTPRIVATE([firstprivate_symbols]name-seq)
-                 | NODECL_OPEN_M_P*LASTPRIVATE([lastprivate_symbols]name-seq)
-                 | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([firstlastprivate_symbols]name-seq)
-                 | NODECL_OPEN_M_P*SHARED([shared_symbols]name-seq)
-                 | NODECL_OPEN_M_P*PRIVATE([private_symbols]name-seq)
-                 | NODECL_OPEN_M_P*AUTO([auto_symbols]name-seq)
+                 | NODECL_OPEN_M_P*FIRSTPRIVATE([symbols]name-seq)
+                 | NODECL_OPEN_M_P*LASTPRIVATE([symbols]name-seq)
+                 | NODECL_OPEN_M_P*FIRST_LASTPRIVATE([symbols]name-seq)
+                 | NODECL_OPEN_M_P*SHARED([symbols]name-seq)
+                 | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
+                 | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
                  | NODECL_OPEN_M_P*ALLOCA([alloca_expressions]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
@@ -573,3 +574,22 @@ parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] stat
 
 cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type const-value-opt
 
+##############################
+# ANALYSIS                   #
+##############################
+
+# Used for analysis checking
+reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
+
+induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variable] expression, [lower] expression, [upper] expression, [stride] expression)
+
+analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
+                          | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)
+                          | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq)
+                          | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq)
+                          | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq)
+                          | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq)
+                          | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq)
+
+assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)

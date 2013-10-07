@@ -11,7 +11,7 @@ config_DATA = \
 
 PLAINFC_PROFILE=`echo plainfc | $(SED) '$(program_transform_name)'`
 
-PLAINFC=$(top_builddir)/src/driver/mcxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config
+PLAINFC=$(top_builddir)/src/driver/plaincxx --config-dir=$(top_builddir)/config --profile=$(PLAINFC_PROFILE) --do-not-warn-config
 
 if SUPPORTED_SILENT_RULES
 PLAINFC_verbose = $(PLAINFC_verbose_$(V))

@@ -634,6 +634,21 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             *(file) << rhs_symbol.get_name();
         }
 
+        if (node.get_type().is_unresolved_overload())
+        {
+            TL::TemplateParameters template_arguments =
+                node.get_type().unresolved_overloaded_type_get_explicit_template_arguments();
+
+            if (template_arguments.is_valid())
+            {
+                *(file) << ::template_arguments_to_str(
+                        template_arguments.get_internal_template_parameter_list(),
+                        /* first_template_argument_to_be_printed */ 0,
+                        /* print_first_level_bracket */ 1,
+                        this->get_current_scope().get_decl_context());
+            }
+        }
+
         if (needs_parentheses)
         {
             *(file) << ")";
@@ -1431,7 +1446,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                     template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
-                    called_symbol.get_scope().get_decl_context());
+                    node.retrieve_context().get_decl_context());
         }
         else
         {
@@ -1441,7 +1456,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                         template_args.get_internal_template_parameter_list(),
                         /* first_template_argument_to_be_printed */ 0,
                         /* print_first_level_bracket */ 0,
-                        called_symbol.get_scope().get_decl_context());
+                        node.retrieve_context().get_decl_context());
 
             std::string deduced_template_args_str =
                 ::template_arguments_to_str(
@@ -1486,7 +1501,7 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
                     deduced_template_args.get_internal_template_parameter_list(),
                     /* first_template_argument_to_be_printed */ 0,
                     /* print_first_level_bracket */ 1,
-                    called_symbol.get_scope().get_decl_context());
+                    node.retrieve_context().get_decl_context());
             *(file) << end_inline_comment();
         }
     }
@@ -1959,6 +1974,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "inline ";
     }
 
+    if (symbol.is_virtual() && symbol.is_defined_inside_class())
+    {
+        decl_spec_seq += "virtual ";
+    }
+
     if (symbol.is_explicit_constructor()
             && symbol.is_defined_inside_class())
     {
@@ -2165,7 +2185,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     state.current_symbol = symbol;
 
-
     // At this point, we mark the function as defined. It must be done here to
     // avoid the useless declaration of the function being defined and other
     // related problems.
@@ -2189,10 +2208,27 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         define_nonlocal_nonprototype_entities_in_trees(statement);
     }
 
+    move_to_namespace_of_symbol(symbol);
+
+    // We may need zero or more empty template headers
+    bool emit_default_arguments = true;
+    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
+    while (tpl.is_valid())
+    {
+        // We should ignore some 'fake' empty template headers
+        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+        {
+             indent();
+             *(file) << "template <>\n";
+        }
+        tpl = tpl.get_enclosing_parameters();
+        emit_default_arguments = false;
+    }
+
     int num_parameters = symbol.get_related_symbols().size();
     TL::ObjectList<std::string> parameter_names(num_parameters);
     TL::ObjectList<std::string> parameter_attributes(num_parameters);
-    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, true);
+    fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes, emit_default_arguments);
 
     std::string decl_spec_seq;
 
@@ -2307,21 +2343,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);
 
     std::string exception_spec = exception_specifier_to_str(symbol);
-
-    move_to_namespace_of_symbol(symbol);
-
-    // We may need zero or more empty template headers
-    TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
-    while (tpl.is_valid())
-    {
-        // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
-        {
-             indent();
-             *(file) << "template <>\n";
-        }
-        tpl = tpl.get_enclosing_parameters();
-    }
 
     bool requires_extern_linkage = false;
     if (IS_CXX_LANGUAGE
@@ -3046,7 +3067,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
 {
     Nodecl::List items = node.get_items().as<Nodecl::List>();
-    TL::Type type = node.get_type();
+    TL::Type type = node.get_type().no_ref();
 
     enum structured_value_kind
     {
@@ -3068,7 +3089,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         if ((items.empty()
                     || ((items.size() == 1)
                 && (type.is_named()
-                    || type.no_ref().is_builtin())))
+                    || type.is_builtin())))
                 && !(type.is_class()
                     && type.is_aggregate()))
         {
@@ -3081,7 +3102,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     }
     else if (IS_CXX1X_LANGUAGE)
     {
-        if (type.no_ref().is_vector())
+        if (type.is_vector())
         {
             // This is nonstandard, lets fallback to gcc
             kind = GCC_POSTFIX;
@@ -3117,7 +3138,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
                 }
 
                 char inside_structured_value = state.inside_structured_value;
-                state.inside_structured_value = 1;
+                state.inside_structured_value = true;
 
                 *(file) << "{ ";
                 walk_expression_list(items);
@@ -3484,7 +3505,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
         // We define de namespace if it has not been defined yet.
         // C++ only allows the definition of a namespace inside an other
         // namespace or in the global scope
-        do_define_symbol(sym,
+        define_or_declare_if_complete(sym,
                 &CxxBase::declare_symbol_always,
                 &CxxBase::define_symbol_always);
 
@@ -5047,6 +5068,13 @@ std::string CxxBase::define_or_declare_variable_get_name_variable(TL::Symbol& sy
     bool has_been_declared = (get_codegen_status(symbol) == CODEGEN_STATUS_DECLARED
             || get_codegen_status(symbol) == CODEGEN_STATUS_DEFINED);
 
+    // If this symbol is a static member but its class is not being emitted,
+    // then it has actually (possibly implicitly) been declared
+    has_been_declared = has_been_declared
+        || (symbol.is_member()
+                && symbol.is_static()
+                && state.classes_being_defined.empty());
+
     std::string variable_name;
     if (!has_been_declared)
     {
@@ -5215,8 +5243,24 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
                 && !symbol.is_defined_inside_class()
                 && state.classes_being_defined.empty())
         {
+            TL::Type class_type = symbol.get_class_type();
             TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
-            codegen_template_headers_all_levels(template_parameters, false);
+
+            if (!(class_type.class_type_is_complete_independent()
+                        || class_type.class_type_is_incomplete_independent()))
+            {
+                codegen_template_headers_all_levels(template_parameters, false);
+            }
+            else
+            {
+                while (template_parameters.is_valid())
+                {
+                    indent();
+                    *(file) << "template <>\n";
+                    template_parameters = template_parameters.get_enclosing_parameters();
+                }
+
+            }
         }
     }
 

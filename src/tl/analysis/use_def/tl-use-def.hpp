@@ -64,6 +64,8 @@ namespace Analysis {
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def( Node* graph_node );
 
+        //!Propagate the Use-Def information from tasks to its task_creation nodes
+        void propagate_usage_over_task_creation( Node* task_creation );
 
     public:
         //! Constructor

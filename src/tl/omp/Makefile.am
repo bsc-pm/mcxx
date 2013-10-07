@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core base simd auto-scope @TL_OMP_EXTENSIONS@
+SUBDIRS = core base simd auto-scope lint @TL_OMP_EXTENSIONS@
 
 END=
 
@@ -36,5 +36,6 @@ DIST_SUBDIRS=base \
              nanox-nodecl \
              ss2omp \
              profile \
-			 intel \
+	     intel \
+	     lint \
              $(END)

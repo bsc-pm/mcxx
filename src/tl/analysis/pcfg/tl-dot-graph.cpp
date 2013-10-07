@@ -42,16 +42,157 @@
 namespace TL {
 namespace Analysis {
 
-    static void makeup_dot_block( std::string& str );
-    static std::string prettyprint_ext_sym_set(  Utils::ext_sym_set s );
-    static std::string prettyprint_ext_sym_map( Utils::ext_sym_map s );
-    static std::string print_node_usage( Node* current, bool analysis_is_performed );
-    static std::string print_node_liveness( Node* current, bool analysis_is_performed );
-    static std::string print_node_reaching_defs( Node* current, bool analysis_is_performed );
-    static std::string print_node_data_sharing( Node* current, bool analysis_is_performed );
-    static std::string print_node_induction_variables( Node* current, bool analysis_is_performed );
-    static std::string print_node_deps( Node* current, bool analysis_is_performed );
+namespace {
+    
+    std::string print_node_usage( Node* current, bool analysis_is_performed )
+    {
+        std::string usage = "";
+        if( analysis_is_performed )
+        {
+            std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ), /*dot*/ true );
+            std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ), /*dot*/ true );
+            std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ), /*dot*/ true );
+            std::string assert_ue = prettyprint_ext_sym_set( current->get_assert_ue_vars( ), /*dot*/ true );
+            std::string assert_killed = prettyprint_ext_sym_set( current->get_assert_killed_vars( ), /*dot*/ true );
+            
+            usage = ( killed.empty( )          ? "" : ( "KILL: "          + killed        + "\\n" ) )
+                    + ( ue.empty( )            ? "" : ( "UE: "            + ue            + "\\n" ) )
+                    + ( undef.empty( )         ? "" : ( "UNDEEF: "        + undef         + "\\n" ) )
+                    + ( assert_ue.empty( )     ? "" : ( "ASSERT_UE: "     + assert_ue     + "\\n" ) ) 
+                    + ( assert_killed.empty( ) ? "" : ( "ASSERT_KILLED: " + assert_killed ) );
+            
+            int u_size = usage.size( );
+            if( ( u_size > 3 ) && ( usage.substr( u_size - 2, u_size - 1 ) == "\\n" ) )
+                usage = usage.substr( 0, u_size - 2 );
+        }
+        return usage;
+    }
 
+    std::string print_node_liveness( Node* current, bool analysis_is_performed )
+    {
+        std::string liveness = "";
+        if( analysis_is_performed )
+        {
+            std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ), /*dot*/ true );
+            std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ), /*dot*/ true );
+            std::string assert_live_in = prettyprint_ext_sym_set( current->get_assert_live_in_vars( ), /*dot*/ true );
+            std::string assert_live_out = prettyprint_ext_sym_set( current->get_assert_live_out_vars( ), /*dot*/ true );
+            std::string assert_dead = prettyprint_ext_sym_set( current->get_assert_dead_vars( ), /*dot*/ true );
+        
+            liveness = ( live_in.empty( )         ? "" : "LI: "          + live_in         + "\\n" )
+                     + ( live_out.empty( )        ? "" : "LO: "          + live_out        + "\\n" ) 
+                     + ( assert_live_in.empty( )  ? "" : "ASSERT_LI: "   + assert_live_in  + "\\n" )
+                     + ( assert_live_out.empty( ) ? "" : "ASSERT_LO: "   + assert_live_out + "\\n")
+                     + ( assert_dead.empty( )     ? "" : "ASSERT_DEAD: " + assert_dead );
+            
+            int l_size = liveness.size( );
+            if( ( l_size > 3 ) && ( liveness.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+                liveness = liveness.substr( 0, l_size - 2 );
+        }
+        
+        return liveness;
+    }
+    
+    std::string print_node_reaching_defs( Node* current, bool analysis_is_performed )
+    {
+        std::string reaching_defs = "";
+        if( analysis_is_performed )
+        {
+            std::string gen = prettyprint_ext_sym_map( current->get_generated_stmts( ), /*dot*/ true );
+            std::string defs_in = prettyprint_ext_sym_map( current->get_reaching_definitions_in( ), /*dot*/ true );
+            std::string defs_out = prettyprint_ext_sym_map( current->get_reaching_definitions_out( ), /*dot*/ true );
+            std::string assert_defs_in = prettyprint_ext_sym_map( current->get_assert_reaching_definitions_in( ), /*dot*/ true );
+            std::string assert_defs_out = prettyprint_ext_sym_map( current->get_assert_reaching_definitions_out( ), /*dot*/ true );
+        
+            reaching_defs = ( gen.empty( )               ? "" : "GEN: "        + gen             + "\\n" )
+                            + ( defs_in.empty( )         ? "" : "RDI: "        + defs_in         + "\\n" )
+                            + ( defs_out.empty( )        ? "" : "RDO: "        + defs_out        + "\\n" )
+                            + ( assert_defs_in.empty( )  ? "" : "ASSERT_RDI: " + assert_defs_in  + "\\n" )
+                            + ( assert_defs_out.empty( ) ? "" : "ASSERT_RDO: " + assert_defs_out );
+        
+            int l_size = reaching_defs.size( );
+            if( ( l_size > 3 ) && ( reaching_defs.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+                reaching_defs = reaching_defs.substr( 0, l_size - 2 );
+        }
+        return reaching_defs;
+    }
+    
+    std::string print_node_induction_variables( Node* current, bool analysis_is_performed )
+    {
+        std::string induction_vars = "";
+        if( analysis_is_performed && ( current->is_loop_node( ) || current->is_omp_loop_node( ) ) )
+        {
+            ObjectList<Utils::InductionVariableData*> ivs = current->get_induction_variables( );
+            for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
+            {
+                Utils::InductionVariableData* iv = *it;
+                Nodecl::NodeclBase lb = iv->get_lb( );
+                Nodecl::NodeclBase ub = iv->get_ub( );
+                Nodecl::NodeclBase incr = iv->get_increment( );
+                ObjectList<Nodecl::NodeclBase> incr_list = iv->get_increment_list( );
+                std::string list_of_incrs = "";
+                for( ObjectList<Nodecl::NodeclBase>::iterator it2 = incr_list.begin( ); it2 != incr_list.end( ); ++it2 )
+                {
+                    list_of_incrs += it2->prettyprint( ) + ", ";
+                }
+                int l_incrs_size = list_of_incrs.size( );
+                if( !list_of_incrs.empty( ) )
+                    list_of_incrs = list_of_incrs.substr( 0, l_incrs_size - 2 );
+                induction_vars += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+                                  + " [ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
+                                  + ":"   + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
+                                  + ":"   + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
+                                  + ( ( incr_list.size( ) > 1 ) ? ( "( " + list_of_incrs + " )" ) : "" )
+                                  + ":"   + iv->get_type_as_string( ) + " ]\\n";
+            }
+        }
+        int l_size = induction_vars.size( );
+        if( ( l_size > 3 ) && ( induction_vars.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+            induction_vars = induction_vars.substr( 0, l_size - 2 );
+        return induction_vars;
+    }
+    
+    std::string print_node_data_sharing( Node* current, bool analysis_is_performed )
+    {
+        std::string auto_scope = "";
+        if( analysis_is_performed )
+        {
+            std::string sc_private = prettyprint_ext_sym_set( current->get_sc_private_vars( ), /*dot*/ true );
+            std::string sc_firstprivate = prettyprint_ext_sym_set( current->get_sc_firstprivate_vars( ), /*dot*/ true );
+            std::string sc_shared = prettyprint_ext_sym_set( current->get_sc_shared_vars( ), /*dot*/ true );
+            std::string sc_undefined = prettyprint_ext_sym_set( current->get_sc_undef_vars( ), /*dot*/ true );
+            auto_scope = ( sc_private.empty( )     ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
+                         + ( sc_private.empty( )   ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
+                         + ( sc_shared.empty( )    ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
+                         + ( sc_undefined.empty( ) ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
+        }
+        return auto_scope;
+    }
+
+    std::string print_node_deps( Node* current, bool analysis_is_performed )
+    {
+        std::string auto_deps = "";
+        if( analysis_is_performed )
+        {
+            std::string deps_private = prettyprint_ext_sym_set( current->get_deps_private_vars( ), /*dot*/ true );
+            std::string deps_firstprivate = prettyprint_ext_sym_set( current->get_deps_firstprivate_vars( ), /*dot*/ true );
+            std::string deps_shared = prettyprint_ext_sym_set( current->get_deps_shared_vars( ), /*dot*/ true );
+            std::string deps_in = prettyprint_ext_sym_set( current->get_deps_in_exprs( ), /*dot*/ true );
+            std::string deps_out = prettyprint_ext_sym_set( current->get_deps_out_exprs( ), /*dot*/ true );
+            std::string deps_inout = prettyprint_ext_sym_set( current->get_deps_inout_exprs( ), /*dot*/ true );
+            std::string deps_undefined = prettyprint_ext_sym_set( current->get_deps_undef_vars( ), /*dot*/ true );
+            auto_deps = ( deps_private.empty( )        ? "" : "AUTO-DEPS_PRIVATE: "      + deps_private      + "\\n" )
+                        + ( deps_firstprivate.empty( ) ? "" : "AUTO-DEPS_FIRSTPRIVATE: " + deps_firstprivate + "\\n" )
+                        + ( deps_shared.empty( )       ? "" : "AUTO-DEPS_SHARED: "       + deps_shared       + "\\n" )
+                        + ( deps_in.empty( )           ? "" : "AUTO-DEPS_IN: "           + deps_in           + "\\n" )
+                        + ( deps_out.empty( )          ? "" : "AUTO-DEPS_OUT: "          + deps_out          + "\\n" )
+                        + ( deps_inout.empty( )        ? "" : "AUTO-DEPS_INOUT: "        + deps_inout        + "\\n" )
+                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined    + "\\n" );
+        }
+        return auto_deps;
+    }
+}
+    
     void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                               bool auto_scoping, bool auto_deps )
     {
@@ -152,7 +293,7 @@ namespace Analysis {
                 std::stringstream ssgid; ssgid << subgraph_id;
                 std::string cluster_name = "cluster" + ssgid.str( );
                 dot_graph += indent + "subgraph " + cluster_name + "{\n";
-                makeup_dot_block( subgraph_label );
+                Utils::makeup_dot_block( subgraph_label );
                 indent = indent + "\t";
                 dot_graph += indent + "label=\"" + subgraph_label + "\";\n";
                 subgraph_id++;
@@ -167,7 +308,6 @@ namespace Analysis {
                 dot_graph += print_pragma_node_clauses( current, indent, cluster_name );
                 print_node_analysis_info( current, dot_analysis_info, cluster_name,
                                           usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
-                
                 std::vector<std::string> new_outer_edges_inner;
                 std::vector<Node*> new_outer_nodes_inner;
                 // This is a bit awkward
@@ -314,7 +454,9 @@ namespace Analysis {
             case OMP_SECTION:
             case OMP_SECTIONS:
             case OMP_SINGLE:
+            case OMP_WORKSHARE:
             case OMP_TASK:
+            case OMP_MASTER:
                 dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
                 break;
             case OMP_SIMD:
@@ -327,7 +469,7 @@ namespace Analysis {
             case VECTOR_FUNC_CALL:
                 dot_graph += indent + "color=limegreen;\n";
             default:
-                internal_error( "Unexpected node type while printing dot\n", 0 );
+                internal_error( "Unexpected node %d type while printing dot\n", current->get_graph_type() );
         };
         Node* entry_node = current->get_graph_entry_node( );
         _cluster_to_entry_map[current->get_id( )] = entry_node->get_id( );
@@ -420,7 +562,7 @@ namespace Analysis {
                         aux_str = it->prettyprint( );
                     }
 
-                    makeup_dot_block(aux_str);
+                    Utils::makeup_dot_block(aux_str);
                     basic_block += aux_str + "\\n";
                 }
                 basic_block = basic_block.substr( 0, basic_block.size( ) - 2 );   // Remove the last back space
@@ -504,16 +646,23 @@ namespace Analysis {
                     {
                         clauses_str += "implements(";
                     }
-                    Nodecl::List copied_values = it2->children( )[0].as<Nodecl::List>( );
-                    int n_copied_values = copied_values.size( );
-                    int k = 0;
-                    for( Nodecl::List::iterator it3 = copied_values.begin( ); it3 != copied_values.end( ); ++it3, ++k )
+                    if (it2->children( )[0].is<Nodecl::List>())
                     {
-                        clauses_str += it3->prettyprint( );
-                        if( k < n_copied_values-1 )
+                        Nodecl::List copied_values = it2->children( )[0].as<Nodecl::List>( );
+                        int n_copied_values = copied_values.size( );
+                        int k = 0;
+                        for( Nodecl::List::iterator it3 = copied_values.begin( ); it3 != copied_values.end( ); ++it3, ++k )
                         {
-                            clauses_str += ", ";
+                            clauses_str += it3->prettyprint( );
+                            if( k < n_copied_values-1 )
+                            {
+                                clauses_str += ", ";
+                            }
                         }
+                    }
+                    else
+                    {
+                        clauses_str += it2->children( )[0].prettyprint( );
                     }
                     clauses_str += ")";
                     if( j < n_copies-1 )
@@ -673,244 +822,6 @@ namespace Analysis {
                 }
             }
         }
-    }
-
-    static void makeup_dot_block( std::string& str )
-    {
-        int pos;
-        // Escape double quotes
-        pos = 0;
-        while( ( pos=str.find( "\"", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\\"" );
-            pos += 2;
-        }
-        // Delete implicit line feeds
-        pos = 0;
-        while( ( pos=str.find( "\n", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "" );
-        }
-        // Delete explicit line feeds
-        pos = 0;
-        while( ( pos=str.find( "\\n", pos ) ) != -1 ) {
-            str.replace ( pos, 2, "\\\\n" );
-            pos += 3;
-        }
-        // Escape the comparison symbols '<' and '>'
-        pos = 0;
-        while( ( pos=str.find( "<", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\<" );
-            pos += 2;
-        }
-        pos = 0;
-        while( ( pos=str.find( ">", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\>" );
-            pos += 2;
-        }
-        // Escape the brackets '{' '}'
-        pos = 0;
-        while( ( pos=str.find( "{", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\{" );
-            pos += 2;
-        }
-        pos = 0;
-        while( ( pos=str.find( "}", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\}" );
-            pos += 2;
-        }
-        // Escape the OR operand
-        pos = 0;
-        while( ( pos=str.find( "|", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\|" );
-            pos += 2;
-        }
-        // Escape '%' operand
-        pos = 0;
-        while( ( pos=str.find( "%", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\%" );
-            pos += 2;
-        }
-        // Escape '?' token
-        pos = 0;
-        while( ( pos=str.find( "?", pos ) ) != -1 ) {
-            str.replace ( pos, 1, "\\?" );
-            pos += 2;
-        }
-    }
-
-    static std::string print_node_usage( Node* current, bool analysis_is_performed )
-    {
-        std::string usage = "";
-        if( analysis_is_performed )
-        {
-            std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ) );
-            std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ) );
-            std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ) );
-
-            usage = ( killed.empty( )  ? "" : ( "KILL: "   + killed + "\\n" ) )
-                    + ( ue.empty( )    ? "" : ( "UE: "     + ue     + "\\n" ) )
-                    + ( undef.empty( ) ? "" : ( "UNDEEF: " + undef ) );
-        }
-        int u_size = usage.size( );
-        if( ( u_size > 3 ) && ( usage.substr( u_size - 2, u_size - 1 ) == "\\n" ) )
-            usage = usage.substr( 0, u_size - 2 );
-        return usage;
-    }
-
-    static std::string print_node_liveness( Node* current, bool analysis_is_performed )
-    {
-        std::string liveness = "";
-        if( analysis_is_performed )
-        {
-            std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ) );
-            std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ) );
-            liveness = ( live_in.empty( )    ? "" : "LI: " + live_in + "\\n" )
-                       + ( live_out.empty( ) ? "" : "LO: " + live_out );
-        }
-        int l_size = liveness.size( );
-        if( ( l_size > 3 ) && ( liveness.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
-            liveness = liveness.substr( 0, l_size - 2 );
-        return liveness;
-    }
-
-    static std::string print_node_reaching_defs( Node* current, bool analysis_is_performed )
-    {
-        std::string reaching_defs = "";
-        if( analysis_is_performed )
-        {
-            std::string gen = prettyprint_ext_sym_map( current->get_generated_stmts( ) );
-            std::string defs_in = prettyprint_ext_sym_map( current->get_reaching_definitions_in( ) );
-            std::string defs_out = prettyprint_ext_sym_map( current->get_reaching_definitions_out( ) );
-            reaching_defs = ( gen.empty( )        ? "" : "GEN: " + gen + "\\n" )
-                            + ( defs_in.empty( )  ? "" : "RDI: " + defs_in + "\\n" )
-                            + ( defs_out.empty( ) ? "" : "RDO: " + defs_out );
-        }
-        int l_size = reaching_defs.size( );
-        if( ( l_size > 3 ) && ( reaching_defs.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
-            reaching_defs = reaching_defs.substr( 0, l_size - 2 );
-        return reaching_defs;
-    }
-
-    static std::string print_node_induction_variables( Node* current, bool analysis_is_performed )
-    {
-        std::string induction_vars = "";
-        if( analysis_is_performed && ( current->is_loop_node( ) || current->is_omp_loop_node( ) ) )
-        {
-            ObjectList<Utils::InductionVariableData*> ivs = current->get_induction_variables( );
-            for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
-            {
-                Utils::InductionVariableData* iv = *it;
-                Nodecl::NodeclBase lb = iv->get_lb( );
-                Nodecl::NodeclBase ub = iv->get_ub( );
-                Nodecl::NodeclBase incr = iv->get_increment( );
-                ObjectList<Nodecl::NodeclBase> incr_list = iv->get_increment_list( );
-                std::string list_of_incrs = "";
-                for( ObjectList<Nodecl::NodeclBase>::iterator it2 = incr_list.begin( ); it2 != incr_list.end( ); ++it2 )
-                {
-                    list_of_incrs += it2->prettyprint( ) + ", ";
-                }
-                int l_incrs_size = list_of_incrs.size( );
-                if( !list_of_incrs.empty( ) )
-                    list_of_incrs = list_of_incrs.substr( 0, l_incrs_size - 2 );
-                induction_vars += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
-                                  + " [ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
-                                  + ":"   + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
-                                  + ":"   + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
-                                  + ( ( incr_list.size( ) > 1 ) ? ( "( " + list_of_incrs + " )" ) : "" )
-                                  + ":"   + iv->get_type_as_string( ) + " ]\\n";
-            }
-        }
-        int l_size = induction_vars.size( );
-        if( ( l_size > 3 ) && ( induction_vars.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
-            induction_vars = induction_vars.substr( 0, l_size - 2 );
-        return induction_vars;
-    }
-    
-    static std::string print_node_data_sharing( Node* current, bool analysis_is_performed )
-    {
-        std::string auto_scope = "";
-        if( analysis_is_performed )
-        {
-            std::string sc_private = prettyprint_ext_sym_set( current->get_sc_private_vars( ) );
-            std::string sc_firstprivate = prettyprint_ext_sym_set( current->get_sc_firstprivate_vars( ) );
-            std::string sc_shared = prettyprint_ext_sym_set( current->get_sc_shared_vars( ) );
-            std::string sc_undefined = prettyprint_ext_sym_set( current->get_sc_undef_vars( ) );
-            auto_scope = ( sc_private.empty( )     ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
-                         + ( sc_private.empty( )   ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
-                         + ( sc_shared.empty( )    ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
-                         + ( sc_undefined.empty( ) ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
-        }
-        return auto_scope;
-    }
-
-    static std::string print_node_deps( Node* current, bool analysis_is_performed )
-    {
-        std::string auto_deps = "";
-        if( analysis_is_performed )
-        {
-            std::string deps_private = prettyprint_ext_sym_set( current->get_deps_private_vars( ) );
-            std::string deps_firstprivate = prettyprint_ext_sym_set( current->get_deps_firstprivate_vars( ) );
-            std::string deps_shared = prettyprint_ext_sym_set( current->get_deps_shared_vars( ) );
-            std::string deps_in = prettyprint_ext_sym_set( current->get_deps_in_exprs( ) );
-            std::string deps_out = prettyprint_ext_sym_set( current->get_deps_out_exprs( ) );
-            std::string deps_inout = prettyprint_ext_sym_set( current->get_deps_inout_exprs( ) );
-            std::string deps_undefined = prettyprint_ext_sym_set( current->get_deps_undef_vars( ) );
-            auto_deps = ( deps_private.empty( )        ? "" : "AUTO-DEPS_PRIVATE: "      + deps_private      + "\\n" )
-                        + ( deps_firstprivate.empty( ) ? "" : "AUTO-DEPS_FIRSTPRIVATE: " + deps_firstprivate + "\\n" )
-                        + ( deps_shared.empty( )       ? "" : "AUTO-DEPS_SHARED: "       + deps_shared       + "\\n" )
-                        + ( deps_in.empty( )           ? "" : "AUTO-DEPS_IN: "           + deps_in           + "\\n" )
-                        + ( deps_out.empty( )          ? "" : "AUTO-DEPS_OUT: "          + deps_out          + "\\n" )
-                        + ( deps_inout.empty( )        ? "" : "AUTO-DEPS_INOUT: "        + deps_inout        + "\\n" )
-                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined    + "\\n" );
-        }
-        return auto_deps;
-    }
-
-    static std::string prettyprint_ext_sym_set( Utils::ext_sym_set s)
-    {
-        std::string result;
-
-        for( Utils::ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
-        {
-            result += it->get_nodecl( ).prettyprint( ) + ", ";
-        }
-
-        if( !result.empty( ) )
-        {
-            result = result.substr( 0, result.size( ) - 2 );
-            makeup_dot_block( result );
-        }
-
-        return result;
-    }
-
-    static std::string prettyprint_ext_sym_map( Utils::ext_sym_map s )
-    {
-        std::string result;
-
-        for( Utils::ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
-        {
-            nodecl_t first = it->first.get_nodecl( ).get_internal_nodecl( );
-            nodecl_t second = it->second.get_internal_nodecl( );
-
-            if( it->second.is_null( ) )
-            {
-                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) )
-                        + "=UNKNOWN VALUE; ";
-            }
-            else
-            {
-                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) ) + "="
-                        + std::string( codegen_to_str( second, nodecl_retrieve_context( second ) ) ) + "; ";
-            }
-        }
-
-        if( !result.empty( ) )
-        {
-            result = result.substr( 0, result.size( ) - 2 );
-            makeup_dot_block(result);
-        }
-
-        return result;
     }
 }
 }

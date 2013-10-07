@@ -140,7 +140,10 @@ namespace Analysis {
         Ret visit_literal_node( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for any kind of taskwait without dependences: TaskwaitDeep, TaskwaitShallow
-        Ret visit_taskwait( );
+        Ret visit_taskwait( const Nodecl::NodeclBase& n );
+
+        //! This method implements the visitor for taskwait on dependences
+        Ret visit_taskwait_on( const Nodecl::OpenMP::WaitOnDependences& n );
 
         //! This method implements the visitor for taskwait on dependences
         Ret visit_taskwait( const Nodecl::OpenMP::WaitOnDependences& n );
@@ -154,6 +157,11 @@ namespace Analysis {
          * \param rhs Right-hand side
          */
         Ret visit_unary_node( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
+
+        Ret visit_loop_control(
+                const Nodecl::NodeclBase& init,
+                const Nodecl::NodeclBase& cond,
+                const Nodecl::NodeclBase& next );
         
         //! This method implements the visitor for VectorFunctionCall 
         template <typename T>
@@ -233,6 +241,17 @@ namespace Analysis {
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::Alignof& n );
+        Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::Dead& n );
+        Ret visit( const Nodecl::Analysis::Defined& n );
+        Ret visit( const Nodecl::Analysis::InductionVarExpr& n );
+        Ret visit( const Nodecl::Analysis::InductionVariable& n );
+        Ret visit( const Nodecl::Analysis::LiveIn& n );
+        Ret visit( const Nodecl::Analysis::LiveOut& n );
+        Ret visit( const Nodecl::Analysis::ReachDefExpr& n );
+        Ret visit( const Nodecl::Analysis::ReachingDefinitionIn& n );
+        Ret visit( const Nodecl::Analysis::ReachingDefinitionOut& n );
+        Ret visit( const Nodecl::Analysis::UpperExposed& n );
         Ret visit( const Nodecl::ArithmeticShr& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );
@@ -264,6 +283,8 @@ namespace Analysis {
         Ret visit( const Nodecl::ContinueStatement& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::CxxDef& n );
+        Ret visit( const Nodecl::CxxDecl& n );
+        Ret visit( const Nodecl::CxxUsingNamespace& n );
         Ret visit( const Nodecl::DefaultStatement& n );
         Ret visit( const Nodecl::Delete& n );
         Ret visit( const Nodecl::DeleteArray& n );
@@ -281,6 +302,7 @@ namespace Analysis {
         Ret visit( const Nodecl::FunctionCode& n );
         Ret visit( const Nodecl::GccAsmDefinition& n );
         Ret visit( const Nodecl::GccAsmOperand& n );
+        Ret visit( const Nodecl::GccBuiltinVaArg& n );
         Ret visit( const Nodecl::GotoStatement& n );
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
@@ -291,6 +313,7 @@ namespace Analysis {
         Ret visit( const Nodecl::LogicalNot& n );
         Ret visit( const Nodecl::LogicalOr& n );
         Ret visit( const Nodecl::LoopControl& n );
+        Ret visit( const Nodecl::RangeLoopControl& n );
         Ret visit( const Nodecl::LowerOrEqualThan& n );
         Ret visit( const Nodecl::LowerThan& n );
         Ret visit( const Nodecl::Minus& n );
@@ -317,14 +340,20 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Critical& n );
         Ret visit( const Nodecl::OpenMP::CriticalName& n );
         Ret visit( const Nodecl::OpenMP::DepIn& n );
+        Ret visit( const Nodecl::OpenMP::DepInValue& n );
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
+        Ret visit( const Nodecl::OpenMP::Commutative& n );
+        Ret visit( const Nodecl::OpenMP::Concurrent& n );
         Ret visit( const Nodecl::OpenMP::Firstprivate& n );
+        Ret visit( const Nodecl::OpenMP::Lastprivate& n );
+        Ret visit( const Nodecl::OpenMP::FirstLastprivate& n );
         Ret visit( const Nodecl::OpenMP::FlushAtEntry& n );
         Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
         Ret visit( const Nodecl::OpenMP::If& n );
+        Ret visit( const Nodecl::OpenMP::Final& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
@@ -340,9 +369,11 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
+        Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
         Ret visit( const Nodecl::OpenMP::TaskCall& n );
+        Ret visit( const Nodecl::OpenMP::TaskExpression& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
@@ -358,6 +389,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
         Ret visit( const Nodecl::PragmaCustomStatement& n );
+        Ret visit( const Nodecl::PragmaCustomDirective& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );
@@ -420,7 +452,23 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorReductionMinus& n );
         Ret visit( const Nodecl::VectorReductionMul& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
+        Ret visit( const Nodecl::DefaultArgument& n );
+        Ret visit( const Nodecl::FortranActualArgument& n );
         Ret visit( const Nodecl::WhileStatement& n );
+
+        Ret visit( const Nodecl::FortranAllocateStatement& n );
+        Ret visit( const Nodecl::FortranBozLiteral& n );
+        Ret visit( const Nodecl::FortranDeallocateStatement& n );
+        Ret visit( const Nodecl::FortranOpenStatement& n );
+        Ret visit( const Nodecl::FortranCloseStatement& n );
+        Ret visit( const Nodecl::FortranPrintStatement& n );
+        Ret visit( const Nodecl::FortranStopStatement& n );
+        Ret visit( const Nodecl::FortranIoStatement& n );
+        Ret visit( const Nodecl::FortranWhere& n );
+        Ret visit( const Nodecl::FortranReadStatement& n );
+        Ret visit( const Nodecl::FortranWriteStatement& n );
+
+        Ret visit( const Nodecl::CudaKernelCall& n );
 
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //

@@ -255,6 +255,7 @@ namespace Analysis {
         return result;
     }
 
+
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
             const Nodecl::NodeclBase& n )
     {
@@ -366,7 +367,7 @@ namespace Analysis {
                 // Synchronize the tasks, if applies
                 if( VERBOSE )
                     printf( "Task sync of PCFG '%s'\n", pcfg_name.c_str( ) );
-                TaskSynchronizations task_sync_analysis( pcfg );
+                TaskAnalysis::TaskSynchronizations task_sync_analysis( pcfg );
                 task_sync_analysis.compute_task_synchronizations( );
                 
                 // Store the pcfg in the singleton
@@ -518,7 +519,6 @@ namespace Analysis {
             {
                 if( VERBOSE )
                     printf( "Auto-Scoping of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                print_pcfg( memento, ( *it )->get_name( ) );
 
                 AutoScoping as( *it );
                 as.compute_auto_scoping( );

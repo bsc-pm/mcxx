@@ -224,7 +224,6 @@ static const type_t* create_elements(type_trie_t* type_trie, const type_t** type
 type_trie_t* allocate_type_trie(void)
 {
     type_trie_t* t = xcalloc(1, sizeof(*t));
-    memset(t, 0, sizeof(t));
     return t;
 }
 

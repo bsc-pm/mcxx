@@ -78,46 +78,46 @@ namespace Analysis {
             // Test PCFG creation
             if( _pcfg_enabled )
             {
-                //if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
                 pcfgs = analysis.parallel_control_flow_graph( memento, ast );
-                //if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing PCFG creation done =========" << std::endl;
             }
 
             if( _use_def_enabled )
             {
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
                 pcfgs = analysis.use_def( memento, ast );
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Use-Definition analysis done =========" << std::endl;
             }
 
             if( _liveness_enabled )
             {
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
                 pcfgs = analysis.liveness( memento, ast );
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Liveness analysis done =========" << std::endl;
             }
 
             if( _reaching_defs_enabled )
             {
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
                 pcfgs = analysis.reaching_definitions( memento, ast );
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Reaching Definitions analysis done =========" << std::endl;
             }
 
             if( _induction_vars_enabled )
             {
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
                 pcfgs = analysis.induction_variables( memento, ast );
-                // if( VERBOSE )
+                if( VERBOSE )
                     std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
             }
             

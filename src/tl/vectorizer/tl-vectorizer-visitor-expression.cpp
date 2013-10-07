@@ -1115,7 +1115,7 @@ namespace TL
                             _environment._analysis_simd_scope,
                             n))
                 {
-                    DEBUG_CODE()
+//                     DEBUG_CODE()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", 
                                 n.prettyprint().c_str()); 
@@ -1195,8 +1195,6 @@ namespace TL
 
         void VectorizerVisitorExpression::vectorize_basic_induction_variable(const Nodecl::Symbol& n)
         {
-//            unsigned int vector_length = n.get_type().get_size() * _environment._unroll_factor;
-
             DEBUG_CODE()
             {
                 fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n",

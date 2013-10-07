@@ -32,16 +32,13 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-pcfg-utils.hpp"
 
-namespace TL { namespace Analysis {
-    
-    // Task synchronization relationship
-    enum TaskSyncRel
-    {
-        TaskSync_Unknown = 0,
-        TaskSync_Yes = 1,
-        TaskSync_No = 2
-    };
+namespace TL { 
+namespace Analysis {
+namespace TaskAnalysis {
 
+    // **************************************************************************************************** //
+    // *************************** Class implementing task PCFG synchronization *************************** //
+    
     #define SYNC_KIND_LIST \
     SYNC_KIND(unknown) \
     SYNC_KIND(strict) \
@@ -76,15 +73,60 @@ namespace TL { namespace Analysis {
 
     struct LIBTL_CLASS TaskSynchronizations
     {
-        private:
-            ExtensibleGraph* _graph;
+    private:
+        ExtensibleGraph* _graph;
 
-        public:
-            TaskSynchronizations(ExtensibleGraph* graph);
+    public:
+        TaskSynchronizations( ExtensibleGraph* graph );
 
-            void compute_task_synchronizations();
+        void compute_task_synchronizations( );
     };
 
-} }
+    // ************************* END class implementing task PCFG synchronization ************************* //
+    // **************************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************************** //
+    // *************************** Class implementing task concurrency analysis *************************** //
+    
+    class LIBTL_CLASS TaskConcurrency
+    {
+    private:
+        // *** Private members *** //
+        
+        ExtensibleGraph* _graph;
+        
+        // There can be more that one _last_sync node when a task is inside a loop and
+        // there is taskwait / barrier after the task scheduling point inside the loop
+        // In that case, the first iteration _last_sync will be previous to the loop, 
+        // but for the next iterations, the _last_sync will be the one inside the loop
+        ObjectList<Node*> _last_sync;
+        Node* _next_sync;
+        
+        
+        // *** Private methods *** /
+        
+        void find_last_synchronization_point_in_parents( Node* current );
+        
+        //! This method calculates the next and last synchronization points of a task
+        void define_concurrent_regions_limits( Node* task );
+        
+        /*!Computes the tasks that are concurrent with a given task
+         * Also computes the last synchronization point in the encountering thread of the task
+         */
+        void compute_concurrent_tasks( Node* task );
+        
+    public:
+        TaskConcurrency( ExtensibleGraph* graph );
+        
+        void compute_task_concurrency( );
+    };
+    
+    // ************************* END class implementing task concurrency analysis ************************* //
+    // **************************************************************************************************** //
+} 
+}
+}
 
 #endif

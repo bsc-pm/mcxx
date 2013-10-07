@@ -39,7 +39,7 @@ namespace Analysis {
 
     // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
-
+    
     UseDef::UseDef( ExtensibleGraph* graph )
             : _graph( graph )
     {}
@@ -54,6 +54,7 @@ namespace Analysis {
         ExtensibleGraph::clear_visits( graph );
     }
 
+    // Top bottom traversal
     void UseDef::compute_usage_rec( Node* current, std::set<TL::Symbol>& visited_functions,
                                     ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
                                     bool ipa, Utils::nodecl_set ipa_arguments )
@@ -86,6 +87,12 @@ namespace Analysis {
                 // Propagate usage info from inner to outer nodes
                 ExtensibleGraph::clear_visits( current );
                 set_graph_node_use_def( current );
+                
+                if( current->is_omp_task_node( ) )
+                {   // Propagate usage to its task creation node
+                    Node* task_creation = current->get_parents( )[0];
+                    propagate_usage_over_task_creation( task_creation );
+                }
             }
             else
             {
@@ -94,9 +101,9 @@ namespace Analysis {
                 for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
                     UsageVisitor uv( current, visited_functions, visited_global_vars,
-                                     ipa, _graph->get_scope( ), ipa_arguments );
+                                        ipa, _graph->get_scope( ), ipa_arguments );
                     uv.compute_statement_usage( *it );
-
+                    
                     std::set<TL::Symbol> visited_functions_ = uv.get_visited_functions( );
                     visited_functions.insert( visited_functions_.begin( ), visited_functions_.end( ) );
                     visited_global_vars.insert( uv.get_visited_global_variables( ) );
@@ -114,6 +121,30 @@ namespace Analysis {
         }
     }
 
+    // Bottom up traversal
+    void UseDef::propagate_usage_over_task_creation( Node* task_creation )
+    {
+        // Propagate current created task usage
+        // Task creation children may be: created task, task synchronization, another task creation
+        ObjectList<Node*> children = task_creation->get_children( );
+        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+        {
+            task_creation->set_ue_var( ( *it )->get_ue_vars( ) );
+            task_creation->set_killed_var( ( *it )->get_killed_vars( ) );
+            task_creation->set_undefined_behaviour_var( ( *it )->get_undefined_behaviour_vars( ) );
+        }
+        
+        // Keep propagating to parents if they still are task creation nodes
+        ObjectList<Node*> parents = task_creation->get_parents( );
+        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+        {
+            if( ( *it )->is_omp_task_creation_node( ) )
+            {
+                propagate_usage_over_task_creation( *it );
+            }
+        }
+    }
+    
     /*!Try to insert a new variable in a list
      * If an englobing variable of the current variable already exists, then we don't include the variable
      * If any variable englobed by the current variable exists, then we delete the variable
@@ -281,7 +312,7 @@ namespace Analysis {
                         if( it->is<Nodecl::OpenMP::Private>( ) )
                         {   // Remove any usage computed in the inner nodes,
                             // because is the usage of a copy of this variable
-                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>( ).get_private_symbols( ).as<Nodecl::List>( );
+                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>( ).get_symbols( ).as<Nodecl::List>( );
                             for( Nodecl::List::iterator it_p = private_syms.begin( ); it_p != private_syms.end( ); ++it_p )
                             {
 //                                 std::cerr << "Private symbol: " << it_p->prettyprint( ) << std::endl;
@@ -305,7 +336,7 @@ namespace Analysis {
                         }
                         if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
                         {   // This variable is Upper Exposed in the task
-                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_firstprivate_symbols( ).as<Nodecl::List>( );
+                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
                             for( Nodecl::List::iterator it_fp = firstprivate_syms.begin( ); it_fp != firstprivate_syms.end( ); ++it_fp )
                             {
                                 if( !Utils::ext_sym_set_contains_nodecl( *it_fp, ue_vars ) )
@@ -991,7 +1022,7 @@ namespace Analysis {
     {
         function_visit( n.get_called( ), n.get_arguments( ) );
     }
-    
+
     void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         visit_binary_assignment( n );

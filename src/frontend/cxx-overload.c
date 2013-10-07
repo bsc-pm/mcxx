@@ -79,7 +79,8 @@ struct overload_entry_list_tag
     candidate_t* candidate;
     struct overload_entry_list_tag* next;
 
-    implicit_conversion_sequence_t ics_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    int num_ics_arguments;
+    implicit_conversion_sequence_t *ics_arguments;
 
     char requires_ambiguous_ics;
 } overload_entry_list_t;
@@ -95,6 +96,38 @@ char is_better_function_flags(overload_entry_list_t* f,
         overload_entry_list_t* g,
         decl_context_t decl_context,
         const locus_t* locus);
+
+static type_t* start_type_before_conversion(scope_entry_t* conversor)
+{
+    type_t* result = NULL;
+
+    ERROR_CONDITION(conversor->kind != SK_FUNCTION,
+            "This must be a function", 0);
+
+    if (conversor->entity_specs.is_constructor)
+    {
+        ERROR_CONDITION(!conversor->entity_specs.is_conversor_constructor,
+                "This is not a conversor constructor", 0);
+
+        result = function_type_get_parameter_type_num(conversor->type_information, 0);
+    }
+    else if (conversor->entity_specs.is_conversion)
+    {
+        result = conversor->entity_specs.class_type;
+        if (is_const_qualified_type(conversor->type_information))
+        {
+            result = get_cv_qualified_type(result, CV_CONST);
+        }
+        result = get_lvalue_reference_type(result);
+    }
+    else
+    {
+        internal_error("Invalid conversor function %s at '%s'\n", conversor->symbol_name,
+                locus_to_str(conversor->locus));
+    }
+
+    return result;
+}
 
 static type_t* result_type_after_conversion(scope_entry_t* conversor)
 {
@@ -126,13 +159,43 @@ static type_t* result_type_after_conversion(scope_entry_t* conversor)
 static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_1,
         implicit_conversion_sequence_t ics_2,
+        type_t* orig,
         type_t* dest,
-        decl_context_t decl_context,
-        const locus_t* locus)
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus UNUSED_PARAMETER)
 {
-    // This checks all what is_better_function does but adds an additional
-    // check for the initialization issue
-    //
+    // Check the first SCS
+    {
+        // Get the converted type before the conversion
+        type_t* converted_type_1 = start_type_before_conversion(ics_1.conversor);
+        type_t* converted_type_2 = start_type_before_conversion(ics_2.conversor);
+
+        standard_conversion_t scs_1;
+        if (!standard_conversion_between_types(&scs_1, orig, converted_type_1))
+        {
+            internal_error("A SCS should exist!", 0);
+        }
+        standard_conversion_t scs_2;
+        if (!standard_conversion_between_types(&scs_2, orig, converted_type_2))
+        {
+            internal_error("A SCS should exist!", 0);
+        }
+
+        if (standard_conversion_is_better(scs_1, scs_2))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Conversion %s at %s is better than %s at %s "
+                        "because first converted type is better\n",
+                        ics_1.conversor->symbol_name,
+                        locus_to_str(ics_1.conversor->locus),
+                        ics_2.conversor->symbol_name,
+                        locus_to_str(ics_2.conversor->locus));
+            }
+            return 1;
+        }
+    }
+
     // struct A
     // {
     //    operator float();
@@ -148,67 +211,8 @@ static char is_better_initialization_ics(
     // parameter type ICS was built) respectively, so the only thing that leads
     // us to choose 'A::operator float' is the fact that the SCS between
     // 'float->float' is better than 'int->float'.
-
-    ERROR_CONDITION((ics_1.kind != ICSK_USER_DEFINED
-                || ics_2.kind != ICSK_USER_DEFINED),
-            "Both ICS must be user defined", 0);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "OVERLOAD: Checking if conversion %s at %s is better than %s at %s\n",
-                ics_1.conversor->symbol_name,
-                locus_to_str(ics_1.conversor->locus),
-                ics_2.conversor->symbol_name,
-                locus_to_str(ics_2.conversor->locus));
-    }
-
-    // Build proper arguments for is_better_function_flags
-    candidate_t candidate_1;
-    memset(&candidate_1, 0, sizeof(candidate_1));
-
-    candidate_1.entry = ics_1.conversor;
-    candidate_1.num_args = 0;
-    candidate_1.args = NULL;
-
-    overload_entry_list_t ovl_entry_1;
-    memset(&ovl_entry_1, 0, sizeof(ovl_entry_1));
-
-    ovl_entry_1.candidate = &candidate_1;
-
-    // Candidate 2
-    candidate_t candidate_2;
-    memset(&candidate_2, 0, sizeof(candidate_2));
-
-    candidate_2.entry = ics_2.conversor;
-    candidate_2.num_args = 0;
-    candidate_2.args = NULL;
-
-    overload_entry_list_t ovl_entry_2;
-    memset(&ovl_entry_2, 0, sizeof(ovl_entry_2));
-
-    ovl_entry_2.candidate = &candidate_2;
-
-    if (is_better_function_flags(&ovl_entry_1,
-                &ovl_entry_2,
-                decl_context, 
-                locus))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Conversion %s at %s is better than %s at %s because it is a better function\n",
-                    ics_1.conversor->symbol_name,
-                    locus_to_str(ics_1.conversor->locus),
-                    ics_2.conversor->symbol_name,
-                    locus_to_str(ics_2.conversor->locus));
-        }
-        return 1;
-    }
-
-    // Maybe they are equally good, so we have to check the conversion destination type
-    if (!is_better_function_flags(&ovl_entry_2,
-                &ovl_entry_1,
-                decl_context, 
-                locus))
+    //
+    // Check the second SCS
     {
         // Get the converted type after the conversion
         type_t* converted_type_1 = result_type_after_conversion(ics_1.conversor);
@@ -230,7 +234,7 @@ static char is_better_initialization_ics(
             DEBUG_CODE()
             {
                 fprintf(stderr, "OVERLOAD: Conversion %s at %s is better than %s at %s "
-                        "because converted type is better\n",
+                        "because second converted type is better\n",
                         ics_1.conversor->symbol_name,
                         locus_to_str(ics_1.conversor->locus),
                         ics_2.conversor->symbol_name,
@@ -238,15 +242,6 @@ static char is_better_initialization_ics(
             }
             return 1;
         }
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "OVERLOAD: Conversion %s at %s is NOT better than %s at %s\n",
-                ics_1.conversor->symbol_name,
-                locus_to_str(ics_1.conversor->locus),
-                ics_2.conversor->symbol_name,
-                locus_to_str(ics_2.conversor->locus));
     }
 
     return 0;
@@ -986,6 +981,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         {
             if (is_better_initialization_ics(user_defined_conversions[i],
                         user_defined_conversions[current_best],
+                        orig,
                         dest,
                         decl_context, locus))
             {
@@ -1003,6 +999,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             if (!is_better_initialization_ics(user_defined_conversions[current_best],
                         user_defined_conversions[i],
+                        orig,
                         dest,
                         decl_context, locus))
             {
@@ -1048,7 +1045,7 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
         implicit_conversion_sequence_t *result,
         const locus_t* locus)
 {
-    return compute_ics_flags(orig, dest, decl_context, result, 
+    compute_ics_flags(orig, dest, decl_context, result, 
             /* no_user_defined_conversions = */ 0,
             /* is_implicit_argument */ 0,
             locus);
@@ -1553,7 +1550,7 @@ static char better_ics(implicit_conversion_sequence_t ics1,
                 && standard_conversion_is_better(ics1.second_sc, ics2.second_sc))
             return 1;
     }
-    
+
     return 0;
 }
 
@@ -1585,16 +1582,10 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
 
         if (can_be_called_with_number_of_arguments_ovl(candidate, num_arguments))
         {
-            implicit_conversion_sequence_t ics_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-            {
-                int j;
-                for (j = 0; j < MCXX_MAX_FUNCTION_CALL_ARGUMENTS; j++)
-                {
-                    ics_arguments[j] = invalid_ics;
-                }
-            }
+            implicit_conversion_sequence_t *ics_arguments = NULL;
+            int num_ics_arguments = 0;
 
-            int num_parameters = 
+            int num_parameters =
                 function_type_get_num_parameters(candidate->type_information);
             if (function_type_get_has_ellipsis(candidate->type_information))
                 num_parameters--;
@@ -1607,6 +1598,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
             if (candidate->entity_specs.is_member
                     && candidate->entity_specs.is_static)
             {
+                P_LIST_ADD(ics_arguments, num_ics_arguments, invalid_ics);
                 i = 1;
             }
 
@@ -1688,7 +1680,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                         requires_ambiguous_conversion |= ics_to_candidate.is_ambiguous_ics;
                     }
 
-                    ics_arguments[i] = ics_to_candidate;
+                    P_LIST_ADD(ics_arguments, num_ics_arguments, ics_to_candidate);
                 }
             }
 
@@ -1698,14 +1690,13 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                 new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
+                new_result->num_ics_arguments = num_ics_arguments;
+                new_result->ics_arguments = ics_arguments;
                 result = new_result;
-
-                int j;
-                for (j = 0; j < MCXX_MAX_FUNCTION_CALL_ARGUMENTS; j++)
-                {
-                    // Copy all ICS of this overloaded function entry
-                    result->ics_arguments[j] = ics_arguments[j];
-                }
+            }
+            else
+            {
+                xfree(ics_arguments);
             }
         }
 
@@ -2171,6 +2162,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     {
         overload_entry_list_t* next = it->next;
         _bytes_overload -= sizeof(*it);
+        xfree(it->ics_arguments);
         xfree(it);
         it = next;
     }

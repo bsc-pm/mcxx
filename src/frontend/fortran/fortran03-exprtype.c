@@ -4140,19 +4140,30 @@ static void check_symbol_of_called_name(AST sym,
 
     if (entry_list != NULL)
     {
-        scope_entry_t* symbol = entry_list_head(entry_list);
-        if (symbol->decl_context.current_scope == symbol->decl_context.global_scope)
+        scope_entry_t* intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
+        if (intrinsic != NULL)
         {
-            scope_entry_t* intrinsic = fortran_query_intrinsic_name_str(decl_context, ASTText(sym));
-            if (intrinsic != NULL)
+            scope_entry_list_t* new_entry_list = NULL;
+
+            scope_entry_list_iterator_t* iter = NULL;
+            for (iter = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(iter);
+                    entry_list_iterator_next(iter))
             {
-                // This is a global name that matches the name of an intrinsic, hide the global name.
-                //
-                // Global names (but intrinsics) do not exist in Fortran, thus this symbol came elsewhere
-                // (likely from a C header)
-                entry_list_free(entry_list);
-                entry_list = NULL;
+                scope_entry_t* symbol = entry_list_iterator_current(iter);
+                if (symbol->decl_context.current_scope == symbol->decl_context.global_scope)
+                {
+                    // This is a global name that matches the name of an intrinsic, hide the global name.
+                    //
+                    // Global names (but intrinsics) do not exist in Fortran, thus this symbol came elsewhere
+                    // (likely from a C header)
+                    continue;
+                }
+                new_entry_list = entry_list_add(new_entry_list, symbol);
             }
+
+            entry_list_free(entry_list);
+            entry_list = new_entry_list;
         }
     }
 

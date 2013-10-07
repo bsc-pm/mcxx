@@ -10,8 +10,8 @@ PROGRAM A
 
     REAL, PARAMETER :: VAL3(2) = (/ 1.2, -1.2 /)
     INTEGER, PARAMETER :: RES3(2) = NINT(VAL3)
-    IF (RES1 /= -1) STOP(1)
-    IF (RES2 /= 42) STOP(1)
-    IF (RES3(1) /= 1) STOP(1)
-    IF (RES3(2) /= -1) STOP(1)
+    IF (RES1 /= -1) STOP 1
+    IF (RES2 /= 42) STOP 1
+    IF (RES3(1) /= 1) STOP 1
+    IF (RES3(2) /= -1) STOP 1
 END PROGRAM A

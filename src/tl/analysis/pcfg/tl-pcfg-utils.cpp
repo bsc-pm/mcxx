@@ -37,13 +37,6 @@ namespace Analysis {
         : _init( NULL ), _cond( NULL ), _next( NULL )
     {}
 
-//     PCFGLoopControl::PCFGLoopControl( const PCFGLoopControl& loop_ctrl )
-//     {
-//         _init = loop_ctrl._init;
-//         _cond = loop_ctrl._cond;
-//         _next = loop_ctrl._next;
-//     }
-
     PCFGLoopControl::~PCFGLoopControl( )
     {
         delete _init;
@@ -63,13 +56,6 @@ namespace Analysis {
         : _handler_parents( ), _handler_exits( ), _nhandlers( -1 )
     {}
 
-//     PCFGTryBlock::PCFGTryBlock( const PCFGTryBlock& try_block )
-//     {
-//         _handler_parents = try_block._handler_parents;
-//         _handler_exits = try_block._handler_exits;
-//         _nhandlers = try_block._nhandlers;
-//     }
-
     PCFGTryBlock::~PCFGTryBlock( )
     {}
 
@@ -80,12 +66,6 @@ namespace Analysis {
     PCFGSwitch::PCFGSwitch( Node* condition, Node* exit  )
         : _condition( condition ), _exit( exit )
     {}
-
-//     PCFGSwitch::PCFGSwitch( const PCFGSwitch& switch_block )
-//     {
-//         _condition = switch_block._condition;
-//         _exit = switch_block._exit;
-//     }
 
     PCFGSwitch::~PCFGSwitch( )
     {
@@ -138,31 +118,45 @@ namespace Analysis {
         std::string clause;
         switch( _clause )
         {
-            case AUTO:              clause = "auto";                break;
-            case DEP_IN:            clause = "in";                  break;
-            case DEP_OUT:           clause = "out";                 break;
-            case DEP_INOUT:         clause = "inout";               break;
-            case COPY_IN:           clause = "copy_in";             break;
-            case COPY_OUT:          clause = "copy_out";            break;
-            case COPY_INOUT:        clause = "copy_inout";          break;
-            case FIRSTPRIVATE:      clause = "firstprivate";        break;
-            case FLUSHED_VARS:      clause = "flush";               break;
-            case IF:                clause = "if";                  break;
-            case NAME:              clause = "name";                break;
-            case NOWAIT:            clause = "nowait";              break;
-            case PRIORITY:          clause = "priority";            break;
-            case PRIVATE:           clause = "private";             break;
-            case REDUCTION:         clause = "reduction";           break;
-            case SCHEDULE:          clause = "schedule";            break;
-            case SHARED:            clause = "shared";              break;
-            case TARGET:            clause = "target";              break;
-            case UNDEFINED_CLAUSE:  clause = "UNDEFINED";           break;
-            case UNTIED:            clause = "untied";              break;
-            case VECTOR_LENGTH_FOR: clause = "vector_length_for";   break;
-            case MASK:              clause = "mask";                break;
-            case NO_MASK:           clause = "no_mask";             break;
-            case SUITABLE:          clause = "suitable";            break;
-            case WAITON:            clause = "waiton";              break;
+            case ASSERT_DEAD:           clause = "dead";                break;
+            case ASSERT_DEFINED:        clause = "defined";             break;
+            case ASSERT_INDUCTION_VAR:  clause = "induction_var";       break;
+            case ASSERT_LIVE_IN:        clause = "live_in";             break;
+            case ASSERT_LIVE_OUT:       clause = "live_out";            break;
+            case ASSERT_REACH_IN:       clause = "reach_in";            break;
+            case ASSERT_REACH_OUT:      clause = "reach_out";           break;
+            case ASSERT_UPPER_EXPOSED:  clause = "upper_exposed";       break;
+            case AUTO:                  clause = "auto";                break;
+            case DEP_IN:                clause = "in";                  break;
+            case DEP_IN_VALUE:          clause = "in_value";            break;
+            case DEP_OUT:               clause = "out";                 break;
+            case DEP_INOUT:             clause = "inout";               break;
+            case DEP_CONCURRENT:        clause = "concurrent";          break;
+            case DEP_COMMUTATIVE:       clause = "commutative";         break;
+            case COPY_IN:               clause = "copy_in";             break;
+            case COPY_OUT:              clause = "copy_out";            break;
+            case COPY_INOUT:            clause = "copy_inout";          break;
+            case FIRSTPRIVATE:          clause = "firstprivate";        break;
+            case FIRSTLASTPRIVATE:      clause = "firstlastprivate";    break;
+            case LASTPRIVATE:           clause = "lastprivate";         break;
+            case FLUSHED_VARS:          clause = "flush";               break;
+            case IF:                    clause = "if";                  break;
+            case FINAL_TASK:            clause = "final";               break;
+            case NAME:                  clause = "name";                break;
+            case NOWAIT:                clause = "nowait";              break;
+            case PRIORITY:              clause = "priority";            break;
+            case PRIVATE:               clause = "private";             break;
+            case REDUCTION:             clause = "reduction";           break;
+            case SCHEDULE:              clause = "schedule";            break;
+            case SHARED:                clause = "shared";              break;
+            case TARGET:                clause = "target";              break;
+            case UNDEFINED_CLAUSE:      clause = "UNDEFINED";           break;
+            case UNTIED:                clause = "untied";              break;
+            case VECTOR_LENGTH_FOR:     clause = "vector_length_for";   break;
+            case MASK:                  clause = "mask";                break;
+            case NO_MASK:               clause = "no_mask";             break;
+            case SUITABLE:              clause = "suitable";            break;
+            case WAITON:                clause = "waiton";              break;
         }
         return clause;
     }

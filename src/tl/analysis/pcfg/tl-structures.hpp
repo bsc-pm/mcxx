@@ -88,6 +88,7 @@ namespace Analysis {
         OMP_SIMD_FUNCTION,
         OMP_SIMD_PARALLEL_FOR,
         OMP_SINGLE,
+        OMP_WORKSHARE,
         OMP_TASK,
         SPLIT_STMT,           //! Expression being split because it contains a sub-expression with a separated node
         SWITCH,               //! Switch statement
@@ -433,8 +434,54 @@ namespace Analysis {
 
 
 
+    // ************************************************************************************************* //
+    // *************************************** Analysis checking *************************************** //
+    
+    /*! \def _ASSERT_UPPER_EXPOSED
+     * Set of expressions marked by the user as upper exposed in a given point of the program
+     */
+    #define _ASSERT_UPPER_EXPOSED   "assert_upper_exposed"
+    
+    /*! \def _ASSERT_KILLED
+     * Set of expressions marked by the user as defined in a given point of the program
+     */
+    #define _ASSERT_KILLED          "assert_killed"
+    
+    /*! \def _ASSERT_LIVE_IN
+     * Set of expressions marked by the user as live in in a given point of the program
+     */
+    #define _ASSERT_LIVE_IN         "assert_live_in"
+    
+    /*! \def _ASSERT_LIVE_OUT
+     * Set of expressions marked by the user as live_out in a given point of the program
+     */
+    #define _ASSERT_LIVE_OUT        "assert_live_out"
 
+    /*! \def _ASSERT_DEAD
+     * Set of expressions marked by the user as dead in a given point of the program
+     */
+    #define _ASSERT_DEAD            "assert_dead"
+    
+    /*! \def _ASSERT_REACH_DEFS_IN
+     * Set of reaching definitions at the entry of a given point of the program
+     */
+    #define _ASSERT_REACH_DEFS_IN   "assert_reach_defs_in"
 
+    /*! \def _ASSERT_REACH_DEFS_OUT
+     * Set of reaching definitions at the exit of a given point of the program
+     */
+    #define _ASSERT_REACH_DEFS_OUT  "assert_reach_defs_out"
+    
+    /*! \def _ASSERT_INDUCTION_VARS
+     * Set of induction variables in a given point of the program
+     */
+    #define _ASSERT_INDUCTION_VARS  "assert_induction_vars"
+    
+    // ************************************* END analysis checking ************************************* //
+    // ************************************************************************************************* //
+
+    
+    
     /*! \def _CLAUSES
     * Set of clauses associated to a pragma
     * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat

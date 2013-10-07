@@ -15,7 +15,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 dnl Initialization of Automake
 dnl We require at least 1.9 (next will be 1.11)
-AM_INIT_AUTOMAKE([1.9 dist-bzip2 -Wno-portability])
+AM_INIT_AUTOMAKE([1.9 dist-bzip2 -Wno-portability subdir-objects])
 
 dnl Enable silent rules if available
 supported_silent_rules=1
@@ -112,7 +112,8 @@ TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
-COMPILER_NAMES="plaincxx plaincc plainfc plainf95 analysiscc analysiscxx analysisfc"
+# plaincxx is always installed as a binary
+COMPILER_NAMES="plaincc plainfc plainf95 analysiscc analysiscxx analysisfc analysisfc"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -332,8 +333,7 @@ then
    NANOX_LIBS="${nanox_lib}"
 
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common nanox-nodecl"
-# mcxx always gets installed
-   COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
@@ -656,7 +656,7 @@ AC_SUBST([DISABLE_OPENCL])
 #add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.all"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
 fi
 
@@ -902,6 +902,14 @@ AC_ARG_ENABLE([ifort],
 
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
+mic_compilation="no"
+mic_testing="no"
+mic_testing_device="no"
+
+MIC_COMPILATION=$mic_compilation
+MIC_TESTING=$mic_testing
+MIC_TESTING_DEVICE=$mic_testing_device
+
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
@@ -922,30 +930,24 @@ then
       then
          COMPILER_NAMES="${COMPILER_NAMES} imcc"
 
-         dnl Intel Xeon Phi configure
-         mic_compilation="no"
-         mic_testing="no"
-         mic_testing_device="no"
+         AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
+         AC_ARG_ENABLE([mic],
+                AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
+                [
+                    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+                    then
+                        mic_compilation="yes"
+                        AC_MSG_RESULT([yes])
+                    else if test x"$enableval" = x"no";
+                         then
+                            AC_MSG_RESULT([no])
+                            mic_compilation="no"
+                         else
+                            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                         fi
+                    fi
+                ])
 
-         old_CC="$CC"
-         CC="icc"
-         old_CFLAGS="$CFLAGS"
-         CFLAGS="-mmic -c"
-
-         AC_MSG_CHECKING([Intel Xeon Phi compilation support])
-         AC_COMPILE_IFELSE(
-                 [AC_LANG_SOURCE([[
-                 #include<immintrin.h>
-                 ]])],
-            [
-             AC_MSG_RESULT([yes])
-             mic_compilation=yes
-            ],
-            [AC_MSG_RESULT([no])])
-
-         CFLAGS="$old_CFLAGS"
-         CC="$old_CC"             
-         
          AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
          AC_ARG_ENABLE([mic-testing],
                 AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
@@ -964,9 +966,6 @@ then
          MIC_TESTING=$mic_testing
          MIC_TESTING_DEVICE=$mic_testing_device
 
-         AC_SUBST([MIC_COMPILATION])
-         AC_SUBST([MIC_TESTING])
-         AC_SUBST([MIC_TESTING_DEVICE])
          dnl end
       fi
       dnl Check Intel Compiler C++
@@ -1036,6 +1035,10 @@ then
        XLF=
    fi
 fi
+
+AC_SUBST([MIC_COMPILATION])
+AC_SUBST([MIC_TESTING])
+AC_SUBST([MIC_TESTING_DEVICE])
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
 
@@ -1449,15 +1452,72 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
+disable_int128=no
+disable_float128=no
+
+AC_MSG_CHECKING([if __int128 has been disabled])
+AC_ARG_ENABLE([int128],
+    AS_HELP_STRING([--disable-int128], [Disables support for __int128. It also disables INTEGER(KIND=16) in Fortran]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         disable_int128="no"
+         dnl no, it has NOT been disabled
+         AC_MSG_RESULT([no])
+      else if test x$enableval = xno;
+           then
+              disable_int128="yes"
+              dnl yes, it DOES have been disabled
+              AC_MSG_RESULT([yes])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+AC_MSG_CHECKING([if __float128 has been disabled])
+AC_ARG_ENABLE([float128],
+    AS_HELP_STRING([--disable-float128], [Disables support for __float128. It also disables REAL(KIND=16) in Fortran]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         disable_float128="no"
+         dnl no, it has NOT been disabled
+         AC_MSG_RESULT([no])
+      else if test x$enableval = xno;
+           then
+               disable_float128="yes"
+               dnl yes, it DOES have been disabled
+               AC_MSG_RESULT([yes])
+           else
+               AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
 dnl -- Check if our GCC supports __int128
 have_int128=no
 
 AC_CHECK_TYPE([__int128], [have_int128=yes])
 
+if test x$disable_int128 = xyes;
+then
+    have_int128=no
+fi
+
 if test x$have_int128 = xyes;
 then
  AC_DEFINE([HAVE_INT128], 1, [Define to 1 if __int128 is available])
 fi
+
 
 dnl The idea is that we may have a software implementation of kind=16 not
 dnl relying on __int128
@@ -1469,7 +1529,12 @@ fi
 dnl -- Check if our GCC supports quadmath.h (and __float128)
 have_float_128="no"
 quadmath_LIBS=""
-AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
+AC_CHECK_HEADER([quadmath.h], [have_float_128="yes"])
+
+if test x$disable_float128 = xyes;
+then
+    have_float_128=no
+fi
 
 if test x$have_float_128 = xyes;
 then
@@ -1568,6 +1633,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
+           src/tl/analysis/checker/Makefile
            src/tl/vectorizer/Makefile
            src/tl/vector-lowering/Makefile
            src/tl/vector-lowering/sse/Makefile
@@ -1589,6 +1655,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/auto-scope/Makefile
            src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
+           src/tl/omp/lint/Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
            src/tl/omp/nanox-nodecl/Makefile
@@ -1637,6 +1704,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-parallel-simd-mic
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
+           tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium

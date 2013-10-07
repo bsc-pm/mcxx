@@ -574,7 +574,7 @@ def generate_visitor_class_header(rule_map):
     print "class ExhaustiveVisitor<void> : public NodeclVisitor<void>"
     print "{"
     print "public:"
-    print "     typedef typename NodeclVisitor<void>::Ret Ret;"
+    print "     typedef NodeclVisitor<void>::Ret Ret;"
     classes_and_children = get_all_class_names_and_children_names_namespaces_and_modules(rule_map)
     for ((namespaces, class_name), children_name, tree_kind, nodecl_class, module_name) in classes_and_children:
          qualified_name = get_qualified_name(namespaces, class_name)

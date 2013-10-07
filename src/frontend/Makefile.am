@@ -252,6 +252,8 @@ EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.y.in
 EXTRA_DIST += cxx-scanner.c
 
+EXTRA_DIST += cxx-asttype.def
+
 ADDITIONAL_GRAMMARS = 
 ADDITIONAL_GRAMMARS += cxx-subparse.y
 ADDITIONAL_GRAMMARS += cxx-literal-nodes.y
@@ -275,7 +277,6 @@ EXTRA_DIST += cxx-gccspubuiltins.def
 # Built sources, they are built the first
 # otherwise parallel compilation is likely to fail
 
-BUILT_SOURCES += cxx-asttype.def
 BUILT_SOURCES += cxx-asttype.c
 BUILT_SOURCES += cxx-asttype.h
 
@@ -293,6 +294,8 @@ EXTRA_DIST += cxx-entity-specs.def
 
 EXTRA_DIST += nodecl-generator.py
 EXTRA_DIST += cxx-nodecl.def
+
+EXTRA_DIST += cxx-asttype-str.gperf
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -319,7 +322,10 @@ GPERF_verbose_ = $(GPERF_verbose_$(AM_DEFAULT_VERBOSITY))
 GPERF_verbose_0 = @echo "  GPERF " $@;
 endif
 
+if GPERF_BUILDING
 CLEANFILES += cxx-asttype.h
+endif
+
 cxx-asttype.h : cxx-asttype.def nodecl-generator.py
 	$(AM_V_GEN)( \
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h; \
@@ -339,7 +345,11 @@ cxx-asttype.h : cxx-asttype.def nodecl-generator.py
 	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h; \
     )
 
+
+if GPERF_BUILDING
 CLEANFILES += cxx-asttype.c
+endif
+
 cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 	$(AM_V_GEN)( \
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-asttype.c; \
@@ -351,6 +361,8 @@ cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 	echo "};" >> cxx-asttype.c; \
 	)
 
+if GPERF_BUILDING
+BUILT_SOURCES += cxx-asttype.def
 CLEANFILES += cxx-asttype.def
 cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYPE_FILES_GEN)
 	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) -I $(builddir) $(srcdir)/cxx-asttype-all.def
@@ -370,8 +382,13 @@ cxx-asttype-str.gperf : cxx-asttype.def
 	echo "%%" >> cxx-asttype-str.gperf; \
     )
 
+endif
+
+if GPERF_BUILDING
 BUILT_SOURCES += cxx-asttype-str-internal.h
 CLEANFILES += cxx-asttype-str-internal.h
+endif
+
 cxx-asttype-str-internal.h: cxx-asttype-str.gperf
 if GPERF_BUILDING
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=ast_node_kind_hash --struct-type \

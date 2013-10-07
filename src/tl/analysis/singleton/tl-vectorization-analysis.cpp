@@ -142,7 +142,6 @@ namespace Analysis {
             return false;
         }
         
-        
         bool result = false;
         
         Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>( ).get_subscripted( );
@@ -196,7 +195,7 @@ namespace Analysis {
         return true;
     }
 
-    bool SuitableAlignmentVisitor::is_suitable_constant(int n)
+    bool SuitableAlignmentVisitor::is_suitable_constant( int n )
     {
         if ( (n % _alignment) == 0 )
             return true;
@@ -652,24 +651,24 @@ namespace Analysis {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
-        bool lhs_is_one = false;
         bool lhs_is_zero = false;
+        bool lhs_is_one = false;
         if( lhs_is_const )
         {
-            lhs_is_one = nodecl_is_one( lhs );
             lhs_is_zero = nodecl_is_zero( lhs );
+            lhs_is_one = nodecl_is_one( lhs );
         }
         bool lhs_is_adjacent_access = _is_adjacent_access;
         
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
-        bool rhs_is_one = false;
         bool rhs_is_zero = false;
+        bool rhs_is_one = false;
         if( rhs_is_const )
         {
-            rhs_is_one = nodecl_is_one( rhs );
             rhs_is_zero = nodecl_is_zero( rhs );
+            rhs_is_one = nodecl_is_one( rhs );
         }
         bool rhs_is_adjacent_access = _is_adjacent_access;
         

@@ -106,16 +106,30 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     enum Clause {
+        ASSERT_DEAD,
+        ASSERT_DEFINED,
+        ASSERT_LIVE_IN,
+        ASSERT_INDUCTION_VAR,
+        ASSERT_LIVE_OUT,
+        ASSERT_REACH_IN,
+        ASSERT_REACH_OUT,
+        ASSERT_UPPER_EXPOSED,
         AUTO,
         DEP_IN,
+        DEP_IN_VALUE,
         DEP_OUT,
         DEP_INOUT,
+        DEP_CONCURRENT,
+        DEP_COMMUTATIVE,
         COPY_IN,
         COPY_OUT,
         COPY_INOUT,
         FIRSTPRIVATE,
+        FIRSTLASTPRIVATE,
+        LASTPRIVATE,
         FLUSHED_VARS,       // Convenient clause for FLUSH flushed vars
         IF,
+        FINAL_TASK,
         NAME,
         NOWAIT,
         PRIORITY,
@@ -242,7 +256,7 @@ namespace Analysis {
 
         //! Boolean indicating whether we are building vector nodes or not
         bool _is_vector;
-        
+
         //! Counter used to create a unique key for each new node
         unsigned int _nid;
 

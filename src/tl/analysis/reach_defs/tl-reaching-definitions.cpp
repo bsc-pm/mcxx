@@ -171,7 +171,6 @@ namespace Analysis {
         }
     }
 
-
     void ReachingDefinitions::set_graph_node_reaching_definitions( Node* current )
     {
         if( current->is_graph_node( ) )

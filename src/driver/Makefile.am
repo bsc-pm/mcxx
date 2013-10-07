@@ -26,7 +26,7 @@
 
 # mcxxexec can't be changed to simply 'bin' or 'mcxx' (otherwise things won't
 # work)
-mcxxexec_PROGRAMS = mcxx mcxx-embedder
+mcxxexec_PROGRAMS = plaincxx mcxx-embedder
 
 
 DIST_SUBDIRS=fortran
@@ -52,7 +52,7 @@ END=
 # _GNU_SOURCE is needed because of strsignal
 # although it is available directly since glibc >=2.10
 
-mcxx_CFLAGS=-D_GNU_SOURCE \
+plaincxx_CFLAGS=-D_GNU_SOURCE \
 			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
@@ -65,11 +65,11 @@ mcxx_CFLAGS=-D_GNU_SOURCE \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 
-mcxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
-mcxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
-mcxx_CFLAGS += -I$(top_srcdir)/src/driver/fortran
+plaincxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
+plaincxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
+plaincxx_CFLAGS += -I$(top_srcdir)/src/driver/fortran
 
-mcxx_SOURCES = \
+plaincxx_SOURCES = \
   cxx-configfile.h \
   cxx-configfile.c \
   cxx-configoptions.c \
@@ -96,7 +96,7 @@ mcxx_SOURCES = \
   cxx-embed.h \
   $(END)
 
-mcxx_LDADD = \
+plaincxx_LDADD = \
    $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
@@ -109,16 +109,16 @@ mcxx_LDADD = \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    $(END)
 
-mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
-mcxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
-mcxx_LDADD += $(sqlite3_LIBS)
-mcxx_LDADD += $(quadmath_LIBS)
-mcxx_LDADD += -lm
+plaincxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+plaincxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
+plaincxx_LDADD += $(sqlite3_LIBS)
+plaincxx_LDADD += $(quadmath_LIBS)
+plaincxx_LDADD += -lm
 
 if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
-mcxx_LDFLAGS = \
+plaincxx_LDFLAGS = \
 	-Wl,--no-as-needed \
     -Wl,-E \
     -Wl,@RPATH_PARAMETER@,\$$ORIGIN/../lib \
@@ -150,10 +150,13 @@ EXTRA_DIST += cxx-debugflags.gperf
 EXTRA_DIST += cxx-configfile-parser.y
 EXTRA_DIST += cxx-configfile-lexer.l
 
+EXTRA_DIST += cxx-configfile-parser.c
+EXTRA_DIST += cxx-configfile-parser-internal.h
+EXTRA_DIST += cxx-configfile-lexer.c
+
 BUILT_SOURCES += cxx-configoptions.c
 BUILT_SOURCES += cxx-fileextensions.c
 BUILT_SOURCES += cxx-debugflags.c
-
 
 BUILT_SOURCES += cxx-configfile-parser.c
 BUILT_SOURCES += cxx-configfile-parser-internal.h
@@ -167,10 +170,15 @@ CLEANFILES += cxx-debugflags.c
 CLEANFILES += cxx-fileextensions.c
 endif
 
+if FLEX_BUILDING
 CLEANFILES += cxx-configfile-lexer.c
+endif
+
+if BISON_BUILDING
 CLEANFILES += cxx-configfile-parser.c
 CLEANFILES += cxx-configfile-parser-internal.h
 CLEANFILES += cxx-configfile-parser.output
+endif
 
 CLEANFILES += cxx-target-tools.h
 
@@ -206,13 +214,22 @@ else
 endif
 
 cxx-configfile-lexer.c: $(srcdir)/cxx-configfile-lexer.l
+if FLEX_BUILDING
 	$(FLEX_verbose)$(FLEX) -Pconfigfile -d -ocxx-configfile-lexer.c -8 $(srcdir)/cxx-configfile-lexer.l
+else
+	@echo "*** ERROR: file cxx-configfile-lexer.l was modified but no suitable flex was found during configure ***"
+	@exit 1
+endif
 
 cxx-configfile-parser-internal.h : cxx-configfile-parser.c
 
 cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
+if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
-
+else
+	@echo "*** ERROR: file cxx-configfile-parser.y was modified but no suitable bison was found during configure ***"
+	@exit 1
+endif
 
 cxx-target-tools.h :
 	$(AM_V_GEN)( \
@@ -228,18 +245,14 @@ cxx-target-tools.h :
 		)
 
 # Install hooks
-# installs "mcc" as a soft link of mcxx
 install-exec-hook: 
-	real_mcxx_name=`echo mcxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+	real_mcxx_name=`echo plaincxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${real_compiler_name} || $(LN_S) $${real_mcxx_name} $${real_compiler_name}) ; \
+			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name}) ; \
 		done
-	real_mcxx_embedder_name=`echo mcxx-embedder | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-	real_mcc_embedder_name=`echo mcxx-embedder | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-	(cd $(DESTDIR)/$(mcxxexecdir); test -e $${real_mcc_embedder_name} || $(LN_S) $${real_mcxx_embedder_name} $${real_mcc_embedder_name} ) 
-	
+
 uninstall-local:
 	for compiler_name in @COMPILER_NAMES@; \
 		do \

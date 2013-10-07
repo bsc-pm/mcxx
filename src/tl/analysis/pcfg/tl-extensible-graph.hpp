@@ -68,8 +68,6 @@ namespace Analysis {
          */
         ObjectList<Utils::ExtendedSymbolUsage> _global_vars;
 
-        bool _global_vars_computed;
-
         //! Symbol of the function contained in the graph.
         /*! This symbol is empty when the code contained in the graph do not correspond to a function
         */
@@ -89,7 +87,9 @@ namespace Analysis {
         //! List of functions called by the function stored in the graph
         ObjectList<Symbol> _func_calls;
 
-
+        //! Map that relates each task in the graph with the tasks that are concurrent with it
+        std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
+        
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
         std::map<int, int> _cluster_to_entry_map;
@@ -348,6 +348,8 @@ namespace Analysis {
         //! It works properly if there isn't any unreachable node in the graph bellow @actual.
         static void clear_visits( Node* node );
         static void clear_visits_aux( Node* node );
+        static void clear_visits_extgraph( Node* node );
+        static void clear_visits_extgraph_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
         static void clear_visits_aux_backwards( Node* current );
@@ -391,6 +393,9 @@ namespace Analysis {
 
         ObjectList<Symbol> get_function_calls( ) const;
 
+        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
+        
+        void add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks );
         
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
@@ -398,6 +403,8 @@ namespace Analysis {
         static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
         static bool is_backward_parent( Node* son, Node* parent );
         static bool node_contains_node( Node* container, Node* contained );
+        static Node* get_extensible_graph_from_node( Node* node );
+        static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

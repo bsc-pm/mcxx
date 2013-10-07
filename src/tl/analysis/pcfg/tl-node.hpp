@@ -55,9 +55,14 @@ namespace Analysis {
             int _id;
             ObjectList<Edge*> _entry_edges;
             ObjectList<Edge*> _exit_edges;
+            bool _has_assertion;
+            
             bool _visited;
             bool _visited_aux;
-
+            bool _visited_extgraph;     // Used in ExtensibleGraph class traversal
+                                        // to avoid interfering with other traversals
+            bool _visited_extgraph_aux;
+                                        
             bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                         // It is true when the auto-dependencies for the node has been computed
 
@@ -129,6 +134,12 @@ namespace Analysis {
             //! Sets the node identifier
             void set_id( unsigned int id );
 
+            //! Returns true when the node has some assert clause associated
+            bool has_assertion( ) const;
+            
+            //! Sets to true the member indicating that the node has some assert clause associated
+            void set_assertion( );
+            
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
             * This method is useful when traversals among the nodes are performed.
@@ -137,11 +148,15 @@ namespace Analysis {
             */
             bool is_visited( ) const;
             bool is_visited_aux( ) const;
-
+            bool is_visited_extgraph( ) const;
+            bool is_visited_extgraph_aux( ) const;
+            
             //! Sets the node as visited.
             void set_visited( bool visited );
             void set_visited_aux( bool visited );
-
+            void set_visited_extgraph( bool visited );
+            void set_visited_extgraph_aux( bool visited );
+            
             //! Returns a boolean indicating whether the node is empty or not
             /*!
             * A empty node is created in the cases when we need a node to be returned but
@@ -290,6 +305,10 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
 
+            //! Returns true when the node is an OpenMP WORKSHARE node
+            // Fortran only
+            bool is_omp_workshare_node( );
+
             //! Returns true when the node is an OpenMP TASK node
             bool is_omp_task_node( );
 
@@ -305,6 +324,9 @@ namespace Analysis {
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
 
+            //! Returns true when the node is a OMP_VIRTUAL_TASKSYNC node
+            bool is_omp_virtual_tasksync( );
+            
             //! Returns true when the node is any type of vector node
             bool is_vector_node( );
             
@@ -676,6 +698,38 @@ namespace Analysis {
             void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ****************** Getters and setters for analysis checking ***************** //
+            
+            Utils::ext_sym_set get_assert_ue_vars( );
+            void set_assert_ue_var( ObjectList<Nodecl::NodeclBase> new_assert_ue_vars );
+            
+            Utils::ext_sym_set get_assert_killed_vars( );
+            void set_assert_killed_var( ObjectList<Nodecl::NodeclBase> new_assert_killed_vars );
+            
+            Utils::ext_sym_set get_assert_live_in_vars( );
+            void set_assert_live_in_var( ObjectList<Nodecl::NodeclBase> new_assert_live_in_vars );
+            
+            Utils::ext_sym_set get_assert_live_out_vars( );
+            void set_assert_live_out_var( ObjectList<Nodecl::NodeclBase> new_assert_live_out_vars );
+            
+            Utils::ext_sym_set get_assert_dead_vars( );
+            void set_assert_dead_var( ObjectList<Nodecl::NodeclBase> new_assert_dead_vars );
+            
+            Utils::ext_sym_map get_assert_reaching_definitions_in( );
+            void set_assert_reaching_definitions_in( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_in );
+            
+            Utils::ext_sym_map get_assert_reaching_definitions_out( );
+            void set_assert_reaching_definitions_out( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_out );
+            
+            ObjectList<Utils::InductionVariableData*> get_assert_induction_vars( );
+            void set_assert_induction_variables( ObjectList<Nodecl::NodeclBase> new_assert_induction_vars );
+            
+            // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //
 
 

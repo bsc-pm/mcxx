@@ -100,7 +100,11 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         template_parameter_list_t *explicit_template_parameters
         );
 
-LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id,
+        decl_context_t decl_context,
+        // Out
+        type_t** out_simple_type,
+        gather_decl_spec_t *out_gather_info);
 
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, 
         const locus_t* locus, 

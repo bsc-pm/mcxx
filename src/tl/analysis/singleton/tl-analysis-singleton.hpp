@@ -74,6 +74,7 @@ namespace Analysis {
          * @return The PCFG node containing the Nodecl
          */
         Node* node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+
         Node* node_enclosing_nodecl( const Nodecl::NodeclBase& n );
 
     public:

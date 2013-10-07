@@ -312,22 +312,23 @@ typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_s
 static linkage_stack_t _linkage_stack[MCXX_MAX_LINKAGE_NESTING] = { { NULL, 1 } };
 static int _top_linkage_stack = 0;
 
-static scope_entry_t* _vla_stack[MCXX_MAX_VLA_SYMBOLS] = { };
-static int _vla_stack_idx = 0;
+static scope_entry_t* _extra_declaration[MCXX_MAX_EXTRA_DECLARATIONS] = { };
+static int _extra_declaration_idx = 0;
 
-void push_vla_dimension_symbol(scope_entry_t* entry)
+void push_extra_declaration_symbol(scope_entry_t* entry)
 {
-    ERROR_CONDITION(_vla_stack_idx == MCXX_MAX_VLA_SYMBOLS, "Too many VLA symbols per expression", 0);
-    _vla_stack[_vla_stack_idx] = entry;
-    _vla_stack_idx++;
+    ERROR_CONDITION(_extra_declaration_idx == MCXX_MAX_EXTRA_DECLARATIONS,
+            "Too many extra declarations in expression", 0);
+    _extra_declaration[_extra_declaration_idx] = entry;
+    _extra_declaration_idx++;
 }
 
-scope_entry_t* pop_vla_dimension_symbol(void)
+scope_entry_t* pop_extra_declaration_symbol(void)
 {
-    if (_vla_stack_idx > 0)
+    if (_extra_declaration_idx > 0)
     {
-        _vla_stack_idx--;
-        return _vla_stack[_vla_stack_idx];
+        _extra_declaration_idx--;
+        return _extra_declaration[_extra_declaration_idx];
     }
     return NULL;
 }
@@ -917,12 +918,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     if (expression != NULL
                             && !check_expression(expression, decl_context, &nodecl_expr))
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: assembler operand '%s' could not be checked\n",
-                                    ast_location(expression),
-                                    prettyprint_in_buffer(expression));
-                        }
+                        check_expression(expression, decl_context, &nodecl_expr);
                     }
 
                     nodecl_t nodecl_identifier = nodecl_null();
@@ -1778,11 +1774,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
                         if (is_array_type(declarator_type)
                                 && nodecl_is_null(array_type_get_array_size_expr(declarator_type))
-                                && is_array_type(initializer_type)
-                                && !nodecl_is_null(array_type_get_array_size_expr(initializer_type)))
+                                && is_array_type(no_ref(initializer_type))
+                                && !nodecl_is_null(array_type_get_array_size_expr(no_ref(initializer_type))))
                         {
                             cv_qualifier_t cv_qualif = get_cv_qualifier(entry->type_information);
-                            entry->type_information = get_cv_qualified_type(initializer_type, cv_qualif);
+                            entry->type_information = get_cv_qualified_type(no_ref(initializer_type), cv_qualif);
                         }
                     }
 
@@ -2103,6 +2099,7 @@ void build_scope_decl_specifier_seq(AST a,
         }
 
         // Copy bits of local_gather_info that are needed in gather_info
+        gather_info->defined_type = local_gather_info.defined_type;
         gather_info->is_short = local_gather_info.is_short;
         gather_info->is_long = local_gather_info.is_long;
         gather_info->is_unsigned = local_gather_info.is_unsigned;
@@ -2781,7 +2778,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             {
                 // GCC typeof
                 solve_ambiguous_type_specifier(a, decl_context);
-                return gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
+                gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
+                break;
             }
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_TEMPLATE_ID:
@@ -4003,7 +4001,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
     entry_list_free(query_results);
 
     // If this is a member of a dependent class or a local entity of a template
-    // function crat a dependent typename for it
+    // function craft a dependent typename for it
     if (symbol_is_member_of_dependent_class(entry)
             || symbol_is_local_of_dependent_function(entry))
     {
@@ -4071,70 +4069,70 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
             || is_error_type(underlying_type))
         return underlying_type;
 
-    type_t* signed_types[] =
+    struct checked_types_t
     {
-        get_signed_char_type(),
-        get_signed_short_int_type(),
-        get_signed_int_type(),
-        get_signed_long_int_type(),
-        get_signed_long_long_int_type(),
-        NULL,
+        type_t *signed_type;
+        type_t *unsigned_type;
+    } 
+    checked_types[] =
+    {
+        { get_signed_char_type(),          get_unsigned_char_type() },
+        { get_signed_short_int_type(),     get_unsigned_short_int_type() },
+        { get_signed_int_type(),           get_unsigned_int_type() },
+        { get_signed_long_int_type(),      get_unsigned_long_int_type() },
+        { get_signed_long_long_int_type(), get_unsigned_long_long_int_type() },
+        { NULL, NULL }
     };
 
-    type_t* unsigned_types[] =
-    {
-        get_unsigned_char_type(),
-        get_unsigned_short_int_type(),
-        get_unsigned_int_type(),
-        get_unsigned_long_int_type(),
-        get_unsigned_long_long_int_type(),
-        NULL,
-    };
-
-    char there_are_negatives = 0;
 #define B_(x) const_value_is_nonzero(x)
-    there_are_negatives = B_(const_value_lt(min_value, const_value_get_unsigned_int(0)));
 
-    type_t** result = NULL;
+    struct checked_types_t* result = NULL;
     if (!short_enums)
     {
-        if (there_are_negatives)
-        {
-            result = &(signed_types[2]); // get_signed_int_type()
-        }
-        else
-        {
-            result = &(unsigned_types[2]); // get_unsigned_int_type()
-        }
+        result = &(checked_types[2]); // {int, unsigned int}
     }
     else
     {
-        if (there_are_negatives)
-        {
-            result = signed_types;
-        }
-        else
-        {
-            result = unsigned_types;
-        }
+        result = checked_types;
     }
 
-    while (*result != NULL)
+    while (result->signed_type != NULL)
     {
+        // Try first signed
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
                     codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
                     codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result)), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result)), CURRENT_COMPILED_FILE->global_decl_context),
-                    print_declarator(*result));
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    print_declarator(result->signed_type));
         }
 
-        if (B_(const_value_lte(integer_type_get_minimum(*result), min_value))
-                && B_(const_value_lte(max_value, integer_type_get_maximum(*result))))
+        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
         {
-            return *result;
+            return result->signed_type;
+        }
+        // Try second unsigned
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->unsigned_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->unsigned_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    print_declarator(result->unsigned_type));
+        }
+
+        if (B_(const_value_lte(integer_type_get_minimum(result->unsigned_type), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(result->unsigned_type))))
+        {
+            return result->unsigned_type;
         }
         result++;
     }
@@ -4494,8 +4492,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     }
 }
 
-void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t decl_context)
+static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry, decl_context_t decl_context)
 {
+    type_t* class_type = get_actual_class_type(class_entry->type_information);
+
     AST list = ASTSon0(base_clause);
     AST iter;
     for_each_element(list, iter)
@@ -4630,6 +4630,47 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
                 fprintf(stderr, "BUILDSCOPE: Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
             is_dependent = 1;
+
+            scope_entry_t* enclosing_class = NULL;
+            if (class_entry->decl_context.current_scope->kind == CLASS_SCOPE)
+            {
+                enclosing_class = class_entry->decl_context.current_scope->related_entry;
+            }
+            if (result->kind != SK_DEPENDENT_ENTITY
+                    && enclosing_class != NULL
+                    && symbol_is_member_of_dependent_class(result))
+            {
+                // Craft a nodecl name for it
+                nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
+                        result->symbol_name,
+                        ast_get_locus(class_name));
+
+                nodecl_t nodecl_name = nodecl_simple_name;
+
+                if (is_template_specialized_type(result->type_information))
+                {
+                    nodecl_name = nodecl_make_cxx_dep_template_id(
+                            nodecl_name,
+                            // If our enclosing class is dependent
+                            // this template id will require a 'template '
+                            "template ",
+                            template_specialized_type_get_template_arguments(result->type_information),
+                            ast_get_locus(class_name));
+                }
+
+                // Craft a dependent typename since we will need it later for proper updates
+                scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_buildscope);
+                new_sym->kind = SK_DEPENDENT_ENTITY;
+                new_sym->locus = nodecl_get_locus(nodecl_name);
+                new_sym->symbol_name = result->symbol_name;
+                new_sym->decl_context = decl_context;
+                new_sym->type_information = build_dependent_typename_for_entry(
+                        enclosing_class,
+                        nodecl_name,
+                        nodecl_get_locus(nodecl_name));
+
+                result = new_sym;
+            }
         }
         else
         {
@@ -6924,7 +6965,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
 
         build_scope_base_clause(base_clause, 
-                class_type, 
+                class_entry, 
                 inner_decl_context);
 
         DEBUG_CODE()
@@ -7202,7 +7243,8 @@ static void build_scope_declarator_with_parameter_context(AST a,
     else if (gather_info->is_overriden_type)
     {
         if (!is_integral_type(*declarator_type)
-                && !is_floating_type(*declarator_type))
+                && !is_floating_type(*declarator_type)
+                && !is_complex_type(*declarator_type))
         {
             if (!checking_ambiguity())
             {
@@ -7448,7 +7490,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 }
 
 static int vla_counter = -1;
-int get_vla_counter()
+int get_vla_counter(void)
 {
     vla_counter++;
     return vla_counter;
@@ -10511,6 +10553,9 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             entry->defined = 1;
         }
 
+        // Mark this as user declared from now
+        entry->entity_specs.is_user_declared = 1;
+
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             // Only variables are actually defined, everything else is a declaration
             (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
@@ -12340,7 +12385,7 @@ static void update_member_function_info(AST declarator_name,
     }
 }
 
-static void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared)
+void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared)
 {
     decl_context_t class_context = class_type_get_inner_context(class_info);
 
@@ -13654,8 +13699,10 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             *nodecl_output = nodecl_expr;
             return;
         }
+
         // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the initialization expression", 0);
+        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
+                "Unsupported extra declarations at the initialization expression", 0);
 
         entry->value = nodecl_expr;
 
@@ -13723,7 +13770,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         check_expression(ASTSon2(a), decl_context, nodecl_output);
 
         // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_vla_dimension_symbol() != NULL, "Unsupported VLAs at the expression", 0);
+        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
+                "Unsupported extra declarations at the initialization expression", 0);
     }
 }
 
@@ -13802,6 +13850,46 @@ static void build_scope_declaration_statement(AST a,
             /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 }
 
+static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
+{
+    nodecl_t result = nodecl_null();
+
+    scope_entry_t* extra_decl_symbol = pop_extra_declaration_symbol();
+    while (extra_decl_symbol != NULL)
+    {
+        if (extra_decl_symbol->entity_specs.is_saved_expression)
+        {
+            result = nodecl_append_to_list(
+                    result,
+                    nodecl_make_object_init(
+                        extra_decl_symbol,
+                        loc));
+        }
+        else if (IS_CXX_LANGUAGE
+                && (is_class_type(extra_decl_symbol->type_information)
+                    || is_enum_type(extra_decl_symbol->type_information)))
+        {
+            // This happens in this case (C can handle this automatically but not C++)
+            //
+            // (union { int x; int y; }){1,2}
+            //
+            result = nodecl_append_to_list(
+                    result,
+                    nodecl_make_cxx_def(
+                        /* optional scope */ nodecl_null(),
+                        extra_decl_symbol,
+                        loc));
+        }
+        else
+        {
+            internal_error("Unhandled extra declared symbol '%s'", extra_decl_symbol->symbol_name);
+        }
+
+        extra_decl_symbol = pop_extra_declaration_symbol();
+    }
+
+    return result;
+}
 
 static void build_scope_expression_statement(AST a, 
         decl_context_t decl_context, 
@@ -13842,20 +13930,7 @@ static void build_scope_expression_statement(AST a,
         }
     }
 
-    *nodecl_output = nodecl_null();
-
-    scope_entry_t* vla_dimension_symbol = pop_vla_dimension_symbol();
-    while (vla_dimension_symbol != NULL)
-    {
-        *nodecl_output = nodecl_append_to_list(
-                *nodecl_output,
-                nodecl_make_object_init(
-                    vla_dimension_symbol,
-                    ast_get_locus(expr)));
-
-        vla_dimension_symbol = pop_vla_dimension_symbol();
-    }
-
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(expr));
 
     *nodecl_output = nodecl_append_to_list(
             *nodecl_output,
@@ -14215,8 +14290,11 @@ static void build_scope_return_statement(AST a,
         }
     }
 
+    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+
     *nodecl_output = 
-        nodecl_make_list_1(
+        nodecl_append_to_list(
+                *nodecl_output,
                 nodecl_make_return_statement(nodecl_return, ast_get_locus(a)));
 }
 

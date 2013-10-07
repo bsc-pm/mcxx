@@ -84,7 +84,7 @@ namespace TL { namespace Nanox {
         {
             Nodecl::List private_items = private_syms
                 .as<Nodecl::OpenMP::Private>()
-                .get_private_symbols()
+                .get_symbols()
                 .as<Nodecl::List>();
 
             for (Nodecl::List::iterator it = private_items.begin();
@@ -114,7 +114,7 @@ namespace TL { namespace Nanox {
         {
             Nodecl::List private_items = firstprivate_syms
                 .as<Nodecl::OpenMP::Firstprivate>()
-                .get_firstprivate_symbols()
+                .get_symbols()
                 .as<Nodecl::List>();
 
             for (Nodecl::List::iterator it = private_items.begin();

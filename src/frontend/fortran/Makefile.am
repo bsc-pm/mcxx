@@ -168,6 +168,7 @@ EXTRA_DIST += fortran03.y
 EXTRA_DIST += fortran03.y.in
 
 EXTRA_DIST += prescanner.l
+EXTRA_DIST += prescanner-scanner.h
 
 fortran03.y : $(srcdir)/fortran03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
 	$(TPP_verbose)(rm -f fortran03.y && $(TPP) -I $(srcdir)/.. -o fortran03.y -D FORTRAN2003 -I$(srcdir) $(srcdir)/fortran03.y.in && chmod -w fortran03.y)
@@ -207,7 +208,9 @@ else
 	@exit 1
 endif
 
+if FLEX_BUILDING
 CLEANFILES += prescanner-scanner.h
+endif
 
 prescanner-scanner.h : $(srcdir)/prescanner-identifier.h $(srcdir)/prescanner.l
 if FLEX_BUILDING
