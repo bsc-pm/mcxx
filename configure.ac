@@ -930,26 +930,24 @@ then
       then
          COMPILER_NAMES="${COMPILER_NAMES} imcc"
 
-         dnl Intel Xeon Phi configure
-         old_CC="$CC"
-         CC="icc"
-         old_CFLAGS="$CFLAGS"
-         CFLAGS="-mmic -c"
+         AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
+         AC_ARG_ENABLE([mic],
+                AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
+                [
+                    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+                    then
+                        mic_compilation="yes"
+                        AC_MSG_RESULT([yes])
+                    else if test x"$enableval" = x"no";
+                         then
+                            AC_MSG_RESULT([no])
+                            mic_compilation="no"
+                         else
+                            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                         fi
+                    fi
+                ])
 
-         AC_MSG_CHECKING([Intel Xeon Phi compilation support])
-         AC_COMPILE_IFELSE(
-                 [AC_LANG_SOURCE([[
-                 #include<immintrin.h>
-                 ]])],
-            [
-             AC_MSG_RESULT([yes])
-             mic_compilation=yes
-            ],
-            [AC_MSG_RESULT([no])])
-
-         CFLAGS="$old_CFLAGS"
-         CC="$old_CC"             
-         
          AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
          AC_ARG_ENABLE([mic-testing],
                 AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
