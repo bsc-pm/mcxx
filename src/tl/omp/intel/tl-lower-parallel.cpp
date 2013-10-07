@@ -59,7 +59,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         TL::ObjectList<Symbol> tmp =
             shared_list  // TL::ObjectList<OpenMP::Shared>
-            .map(functor(&Nodecl::OpenMP::Shared::get_shared_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::OpenMP::Shared::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
             .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
             .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
@@ -73,7 +73,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         TL::ObjectList<Symbol> tmp =
             private_list  // TL::ObjectList<OpenMP::Private>
-            .map(functor(&Nodecl::OpenMP::Private::get_private_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::OpenMP::Private::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
             .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
             .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
@@ -86,7 +86,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     {
         TL::ObjectList<Symbol> tmp =
             firstprivate_list  // TL::ObjectList<OpenMP::Firstprivate>
-            .map(functor(&Nodecl::OpenMP::Firstprivate::get_firstprivate_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
+            .map(functor(&Nodecl::OpenMP::Firstprivate::get_symbols)) // TL::ObjectList<Nodecl::NodeclBase>
             .map(functor(&Nodecl::NodeclBase::as<Nodecl::List>)) // TL::ObjectList<Nodecl::List>
             .map(functor(&Nodecl::List::to_object_list)) // TL::ObjectList<TL::ObjectList<Nodecl::NodeclBase> >
             .reduction(functor(TL::append_two_lists<Nodecl::NodeclBase>)) // TL::ObjectList<Nodecl::NodeclBase>
