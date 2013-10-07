@@ -124,6 +124,7 @@ tests/07_phases_omp.dg/test.log.xml
 tests/config/bets
 tests/config/libraries-libtool.cache
 tests/config/mercurium
+tests/config/mercurium-analysis
 tests/config/mercurium-cuda
 tests/config/mercurium-extensions
 tests/config/mercurium-fortran
