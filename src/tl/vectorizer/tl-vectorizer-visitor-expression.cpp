@@ -1208,7 +1208,7 @@ namespace TL
 
         void VectorizerVisitorExpression::vectorize_basic_induction_variable(const Nodecl::Symbol& n)
         {
-            unsigned int vector_length = n.get_type().get_size() * _environment._unroll_factor;
+            /* unsigned int vector_length = n.get_type().get_size() * _environment._unroll_factor; */
 
             DEBUG_CODE()
             {
