@@ -44,10 +44,10 @@ namespace TL
                 enum config_mask_processing_t
                 {
                     MASK_DEFAULT = 0x0,
-                    ONLY_MASK = 0x1,
-                    KEEP_OLD = 0x2,
-                    ALWAYS_OLD = 0x4,
-                    NO_FINAL_COMMA = 0x8,
+                    ONLY_MASK = 0x1,        // Output string does not contain old_value
+                    NO_KEEP_OLD = 0x2,      // Pop the current old_value in the stack
+                    ALWAYS_OLD = 0x4,       // Return an old_value even when the mask is null
+                    NO_FINAL_COMMA = 0x8,   // Do not write a final ',' in the string 'mask_params'
                 } config_mask_processing;
 
                 ConfigMaskProcessing(int a)

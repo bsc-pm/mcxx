@@ -82,8 +82,8 @@ namespace TL
                         << ")"
                         << as_expression(_old_m512.back());
 
-                    if ((conf & ConfigMaskProcessing::KEEP_OLD) !=
-                            ConfigMaskProcessing::KEEP_OLD)
+                    if ((conf & ConfigMaskProcessing::NO_KEEP_OLD) ==
+                            ConfigMaskProcessing::NO_KEEP_OLD)
                     {
                         _old_m512.pop_back();
                     }
@@ -1268,7 +1268,7 @@ namespace TL
                 ;
 
             process_mask_component(mask, mask_prefix, mask_args, type, 
-                    ConfigMaskProcessing::KEEP_OLD | ConfigMaskProcessing::ONLY_MASK );
+                    ConfigMaskProcessing::ONLY_MASK );
 
             intrin_op_name << "store";
 
@@ -1354,7 +1354,7 @@ namespace TL
                 << tmp_var_init;
 
             process_mask_component(mask, mask_prefix, mask_args, type, 
-                    ConfigMaskProcessing::KEEP_OLD | ConfigMaskProcessing::ONLY_MASK);
+                    ConfigMaskProcessing::ONLY_MASK);
 
 
             if (type.is_float()) 
@@ -1521,7 +1521,7 @@ namespace TL
                 ;
 
             process_mask_component(mask, mask_prefix, mask_args, type,
-                    ConfigMaskProcessing::KEEP_OLD | ConfigMaskProcessing::ONLY_MASK);
+                    ConfigMaskProcessing::ONLY_MASK);
 
             intrin_op_name << "i32extscatter";
 
@@ -1640,8 +1640,7 @@ namespace TL
                     TL::Source conditional_exp, mask_casting;
 
                     process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                            ConfigMaskProcessing::KEEP_OLD | ConfigMaskProcessing::ONLY_MASK |
-                            ConfigMaskProcessing::NO_FINAL_COMMA);
+                            ConfigMaskProcessing::ONLY_MASK | ConfigMaskProcessing::NO_FINAL_COMMA);
 
                     walk(arguments);
 
