@@ -440,8 +440,8 @@ namespace Analysis {
     {
         return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
                  is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
-                 is_omp_sections_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || is_omp_task_node( ) ||
-                 is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+                 is_omp_sections_node( ) || is_omp_simd_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || 
+                 is_omp_task_node( ) || is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
     }
     
     bool Node::is_omp_atomic_node( )
@@ -489,6 +489,14 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTIONS ) );
     }
 
+    bool Node::is_omp_simd_node( )
+    {
+        Graph_type gt = get_graph_type( );
+        return ( is_graph_node( ) 
+                 && ( ( gt == OMP_SIMD ) || ( gt == OMP_SIMD_FOR ) 
+                        || ( gt == OMP_SIMD_FUNCTION ) || ( gt == OMP_SIMD_PARALLEL_FOR ) ) );
+    }
+    
     bool Node::is_omp_single_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
