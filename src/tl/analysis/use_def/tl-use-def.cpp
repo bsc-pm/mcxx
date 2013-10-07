@@ -312,7 +312,7 @@ namespace Analysis {
                         if( it->is<Nodecl::OpenMP::Private>( ) )
                         {   // Remove any usage computed in the inner nodes,
                             // because is the usage of a copy of this variable
-                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>( ).get_private_symbols( ).as<Nodecl::List>( );
+                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>( ).get_symbols( ).as<Nodecl::List>( );
                             for( Nodecl::List::iterator it_p = private_syms.begin( ); it_p != private_syms.end( ); ++it_p )
                             {
 //                                 std::cerr << "Private symbol: " << it_p->prettyprint( ) << std::endl;
@@ -336,7 +336,7 @@ namespace Analysis {
                         }
                         if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
                         {   // This variable is Upper Exposed in the task
-                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_firstprivate_symbols( ).as<Nodecl::List>( );
+                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
                             for( Nodecl::List::iterator it_fp = firstprivate_syms.begin( ); it_fp != firstprivate_syms.end( ); ++it_fp )
                             {
                                 if( !Utils::ext_sym_set_contains_nodecl( *it_fp, ue_vars ) )

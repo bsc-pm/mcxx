@@ -1833,7 +1833,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Auto& n )
     {
-        PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
+        PCFGClause current_clause( AUTO, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
 
         // Set the task related to this clause to have auto-scoping enabled
@@ -1979,21 +1979,21 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
-        PCFGClause current_clause( FIRSTPRIVATE, n.get_firstprivate_symbols( ) );
+        PCFGClause current_clause( FIRSTPRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Lastprivate& n )
     {
-        PCFGClause current_clause( LASTPRIVATE, n.get_lastprivate_symbols( ) );
+        PCFGClause current_clause( LASTPRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FirstLastprivate& n )
     {
-        PCFGClause current_clause( FIRSTLASTPRIVATE, n.get_firstlastprivate_symbols( ) );
+        PCFGClause current_clause( FIRSTLASTPRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2193,7 +2193,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
-        PCFGClause current_clause( PRIVATE, n.get_private_symbols( ) );
+        PCFGClause current_clause( PRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2278,7 +2278,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
     {
-        PCFGClause current_clause( SHARED, n.get_shared_symbols( ) );
+        PCFGClause current_clause( SHARED, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
