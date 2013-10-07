@@ -365,8 +365,9 @@ namespace {
                     {
                         if( !assert_induction_vars.empty( ) )
                         {
-                            WARNING_MESSAGE( "%s: warning: #pragma analysis_check assert induction_variables is only used "\ 
-                                             "when associated with a loop structure. Ignoring it when associated with any other statement.", 
+                            WARNING_MESSAGE( "%s: warning: #pragma analysis_check assert induction_variables is only used "
+                                             "when associated with a loop structure. Ignoring it when associated with any "
+                                             "other statement.",
                                              locus_str.c_str( ) );
                         }
                     }
