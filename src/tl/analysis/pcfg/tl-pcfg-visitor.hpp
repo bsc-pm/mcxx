@@ -490,6 +490,8 @@ namespace Analysis {
         Ret visit( const Nodecl::FortranReadStatement& n );
         Ret visit( const Nodecl::FortranWriteStatement& n );
 
+        Ret visit( const Nodecl::CudaKernelCall& n );
+
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //
     };

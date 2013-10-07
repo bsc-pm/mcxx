@@ -3180,6 +3180,11 @@ namespace Analysis {
         return visit_literal_node(n);
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CudaKernelCall& n )
+    {
+        return visit_literal_node(n);
+    }
+
     // ******************************** END visiting methods ******************************** //
     // ************************************************************************************** //
 
