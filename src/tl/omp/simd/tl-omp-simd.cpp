@@ -390,21 +390,11 @@ namespace TL {
             bool needs_epilog = 
                 _vectorizer.vectorize(for_statement, for_environment); 
 
-            // Process epilog
-            if (needs_epilog)
-            {
-                _vectorizer.process_epilog(epilog, for_environment);
-            }
-            else // Remove epilog
-            {
-                Nodecl::Utils::remove_from_enclosing_list(single_epilog);
-            }
-
             // Add new vector symbols
+            Nodecl::List pre_for_nodecls, post_for_nodecls;
+
             if (!new_external_vector_symbol_map.empty())
             {
-                Nodecl::List pre_for_nodecls, post_for_nodecls;
-
                 // REDUCTIONS
                 for(Nodecl::List::iterator it = omp_reduction_list.begin();
                         it != omp_reduction_list.end();
@@ -452,12 +442,31 @@ namespace TL {
 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
-                single_epilog.append_sibling(post_for_nodecls);
+                //single_epilog.append_sibling(post_for_nodecls);
             }
-            
+
+            Nodecl::List appendix_list;
+            // Process epilog
+            if (needs_epilog)
+            {
+                _vectorizer.process_epilog(epilog, for_environment);
+                appendix_list.append(epilog.shallow_copy());
+            }
+            else // Remove epilog
+            {
+                Nodecl::Utils::remove_from_enclosing_list(single_epilog);
+            }
+
+            appendix_list.append(post_for_nodecls);
+
+            Nodecl::OpenMP::ForAppendix for_epilog = 
+                Nodecl::OpenMP::ForAppendix::make(omp_for_environment.shallow_copy(),
+                        loop.shallow_copy(),
+                        appendix_list,
+                        omp_for.get_locus());
 
             // Remove Simd node
-            simd_node.replace(omp_for);
+            simd_node.replace(for_epilog);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)

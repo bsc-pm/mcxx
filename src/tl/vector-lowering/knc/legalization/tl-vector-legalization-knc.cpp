@@ -77,16 +77,20 @@ namespace TL
 
             walk(node.get_nest());
 
+            // 4-byte element vector type
             if ((src_type.is_float() || 
                         src_type.is_signed_int() ||
                         src_type.is_unsigned_int()) 
                     && (src_num_elements < NUM_4B_ELEMENTS))
             {
+                // If src type is float8, int8, ... then it will be converted to float16, int16
                 if(src_num_elements == 8)
                 {
-                    node.get_nest().set_type(src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                    node.get_nest().set_type(
+                            src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
                 }
 
+                // If dst type is float8, int8, ... then it will be converted to float16, int16
                 if ((dst_type.is_float() || 
                             dst_type.is_signed_int() ||
                             dst_type.is_unsigned_int()) 

@@ -780,21 +780,31 @@ namespace TL
                         dst_type.is_signed_int()) 
                 { 
                     // C/C++ requires truncated conversion
-                    intrin_name << "cvtfxpnt_round_adjustps_epi32";
+                    intrin_op_name << "cvtfxpnt_round_adjustps_epi32";
                 }
                 else if (src_type.is_float() &&
                         dst_type.is_unsigned_int()) 
                 { 
                     // C/C++ requires truncated conversion
-                    intrin_name << "cvtfxpnt_round_adjustps_epu32";
+                    intrin_op_name << "cvtfxpnt_round_adjustps_epu32";
                 }
             }
             // SIZE_DST > SIZE_SRC
             else if (src_type_size < dst_type_size)
             {
+                // From float8 to double8
                 if (src_type.is_float() && dst_type.is_double() && (dst_num_elements == 8))
                 {
-                    intrin_name << "cvtpslo_pd";
+                    intrin_op_name << "cvtpslo_pd";
+                }
+                // From int8 to double8
+                else if (src_type.is_signed_int() && dst_type.is_double() && (dst_num_elements == 8))
+                {
+                    intrin_op_name << "cvtepi32lo_pd";
+                }
+                else if (src_type.is_unsigned_int() && dst_type.is_double() && (dst_num_elements == 8))
+                {
+                    intrin_op_name << "cvtepu32lo_pd";
                 }
             }
             // SIZE_DST < SIZE_SRC
@@ -802,7 +812,7 @@ namespace TL
             {
             }
 
-            if (intrin_name.empty())
+            if (intrin_op_name.empty())
             {
                 fprintf(stderr, "KNC Lowering: Masked conversion at '%s' is not supported yet: %s\n", 
                         locus_to_str(node.get_locus()),

@@ -533,6 +533,7 @@ parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-
 
 # for
 for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
+              | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [appendix]statement-seq)
 
 # workshare (Fortran only)
 workshare-construct : NODECL_OPEN_M_P*WORKSHARE([environment]exec-environment-seq-opt, [statements]statement-seq)

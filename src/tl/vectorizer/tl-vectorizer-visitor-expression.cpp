@@ -738,6 +738,9 @@ namespace TL
                         mask,
                         Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
                         n.get_locus());
+printf("Casting %s %s\n",
+        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),
+        n.get_rhs().get_type().get_simple_declaration(n.retrieve_context(), "").c_str());
 
             n.replace(vector_conv);
         }
