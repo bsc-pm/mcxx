@@ -322,9 +322,6 @@ DeviceFPGA::DeviceFPGA()
 {
     set_phase_name("Nanox FPGA support");
     set_phase_description("This phase is used by Nanox phases to implement FPGA device support");
-    register_parameter("dump_fpga_ast",
-            "Dumps ast of functions to be implemented in the FPGA into a dot file",
-            _dump_ast, "0");
 }
 
 void DeviceFPGA::pre_run(DTO& dto)
