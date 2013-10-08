@@ -400,8 +400,6 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(single_epilog);
             }
 
-// TODO: Reductions does not work
-            
             // Add new vector symbols
             if (!new_external_vector_symbol_map.empty())
             {
@@ -454,7 +452,7 @@ namespace TL {
 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
-                epilog.append_sibling(post_for_nodecls);
+                single_epilog.append_sibling(post_for_nodecls);
             }
             
 
