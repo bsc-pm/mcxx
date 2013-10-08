@@ -82,7 +82,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     const TL::Symbol& arguments_struct = info._arguments_struct;
     const TL::Symbol& called_task = info._called_task;
 
-    symbol_map = new Nodecl::Utils::SimpleSymbolMap();
+    symbol_map = new Nodecl::Utils::SimpleSymbolMap(&_copied_fpga_functions);
 
     TL::Symbol current_function =
         original_statements.retrieve_context().get_decl_context().current_scope->related_entry;
@@ -94,6 +94,35 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                     original_statements.get_locus_str().c_str());
     }
 
+    // Add the user function to the intermediate file -> to HLS
+    if (called_task.is_valid())//is a function task
+    {
+        if ( (IS_C_LANGUAGE || IS_CXX_LANGUAGE) && !called_task.get_function_code().is_null())
+        {
+
+
+            if (_copied_fpga_functions.map(called_task) == called_task)
+            {
+                //new task-> add it to the list
+                TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_hls");
+                _copied_fpga_functions.add_map(called_task, new_function);
+                _fpga_file_code.append (Nodecl::Utils::deep_copy(
+                            called_task.get_function_code(),
+                            called_task.get_scope(),
+                            *symbol_map)
+                        );
+            }
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            running_error("There is no fortran support for FPGA devices\n");
+        }
+        else
+        {
+            running_error("Inline tasks not supported yet\n");
+        }
+
+    }
     const TL::Scope & called_scope = called_task.get_scope();
     Source unpacked_arguments, private_entities;
 
@@ -175,56 +204,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         }
     }
 
-    // Add the user function to the intermediate file -> to HLS
-    if (called_task.is_valid())
-    {
-        //find out if the function is already in the list
-        //Currently ckecking function name only
-        bool found = false;
-        const std::string &orig_name = called_task.get_name();
-        for (Nodecl::List::iterator it = _fpga_file_code.begin();
-                it != _fpga_file_code.end() && !found;
-                it++)
-        {
-            found = (it->get_symbol().get_name() == orig_name);
-        }
-
-
-        //if function is in the list, do not add it again
-        if (!found)
-        {
-            TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_hls");
-
-            Nodecl::Utils::SimpleSymbolMap map;
-            map.add_map(called_task, new_function);
-            Nodecl::NodeclBase tmp_task = Nodecl::Utils::deep_copy(
-                    called_task.get_function_code(),
-                    called_task.get_scope(),
-                    map);
-
-            if (_dump_ast != "0")
-            {
-                //write ast to a file
-                std::string filename = called_task.get_name() + "_ast.dot";
-                //include cxx-nodecl.hpp
-                FILE* out_file = fopen(filename.c_str(), "w");
-                ast_dump_graphviz(
-                        nodecl_get_ast(called_task.get_function_code().get_internal_nodecl()),
-                        out_file);
-                fclose(out_file);
-            }
-
-            //add pragmas to the output code (only when working in stream mode)
-//            add_hls_pragmas(tmp_task, outline_info);
-
-
-//            Nodecl::NodeclBase wrapper = gen_hls_wrapper(new_function, info._data_items);
-//
-            _fpga_file_code.append(tmp_task);
-//            _fpga_file_code.append(wrapper);
-            //TODO: Add inline pragma to called task #pragma HLS inline
-        }
-    }
 
 
     // Create the new unpacked function
@@ -433,7 +412,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 
 bool DeviceFPGA::remove_function_task_from_original_source() const
 {
-    return false;
+    return true;
 }
 
 //write/close intermediate files, free temporal nodes, etc.
@@ -945,9 +924,8 @@ void DeviceFPGA::copy_stuff_to_device_file(
             TL::Symbol function = it->get_symbol();
             TL::Symbol new_function = SymbolUtils::new_function_symbol(function, function.get_name() + "_hls");
 
-            Nodecl::Utils::SimpleSymbolMap symbol_map;
-            symbol_map.add_map(function, new_function);
-            _fpga_file_code.append(Nodecl::Utils::deep_copy(*it, *it, symbol_map));
+            _copied_fpga_functions.add_map(function, new_function);
+            _fpga_file_code.append(Nodecl::Utils::deep_copy(*it, *it, _copied_fpga_functions));
         }
         else
         {
