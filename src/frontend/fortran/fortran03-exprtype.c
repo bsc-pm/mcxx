@@ -4771,8 +4771,10 @@ static char is_defined_assignment(AST expr, AST lvalue,
 
     int num_actual_arguments = 2;
     nodecl_t nodecl_arguments[2] = {
-        nodecl_make_fortran_actual_argument(nodecl_lvalue, nodecl_get_locus(nodecl_lvalue)),
-        nodecl_make_fortran_actual_argument(nodecl_rvalue, nodecl_get_locus(nodecl_rvalue)) };
+        nodecl_make_fortran_actual_argument(nodecl_shallow_copy(nodecl_lvalue),
+                nodecl_get_locus(nodecl_lvalue)),
+        nodecl_make_fortran_actual_argument(nodecl_shallow_copy(nodecl_rvalue),
+                nodecl_get_locus(nodecl_rvalue)) };
 
     type_t* result_type = NULL;
 
@@ -4794,6 +4796,8 @@ static char is_defined_assignment(AST expr, AST lvalue,
             &nodecl_simplify);
     leave_test_expression();
 
+    nodecl_free(nodecl_arguments[0]);
+    nodecl_free(nodecl_arguments[1]);
     ast_free(operator_designation);
 
     return !is_error_type(result_type);
