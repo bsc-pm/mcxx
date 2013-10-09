@@ -234,7 +234,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
     //FIXME: We are not generating any code to pass parameters right now
 //    if (task_has_scalars(data_items))
 //    {
-//        fpga_params = fpga_param_code(info._data_items, symbol_map, called_scope);
+//        fpga_params = fpga_param_code(info._data_items, symbol_map, called_task.get_scope());
 //    }
 
     Source unpacked_source;

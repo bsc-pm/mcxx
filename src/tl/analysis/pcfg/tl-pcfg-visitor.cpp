@@ -26,6 +26,7 @@
 
 
 #include "cxx-process.h"
+#include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
 
 #include <cassert>
@@ -1832,7 +1833,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Auto& n )
     {
-        PCFGClause current_clause( AUTO, n.get_auto_symbols( ) );
+        PCFGClause current_clause( AUTO, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
 
         // Set the task related to this clause to have auto-scoping enabled
@@ -1880,8 +1881,11 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
     {   // No deeper Nodecls
-        WARNING_MESSAGE( "CombinedWorksharing not yet implemented. Ignoring nodecl \n%s", 
-                         n.prettyprint( ).c_str( ) );
+        if( VERBOSE )
+        {
+            WARNING_MESSAGE( "CombinedWorksharing not yet implemented. Ignoring nodecl \n%s", 
+                             n.prettyprint( ).c_str( ) );
+        }
         return ObjectList<Node*>( );
     }
 
@@ -1975,21 +1979,21 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
-        PCFGClause current_clause( FIRSTPRIVATE, n.get_firstprivate_symbols( ) );
+        PCFGClause current_clause( FIRSTPRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Lastprivate& n )
     {
-        PCFGClause current_clause( LASTPRIVATE, n.get_lastprivate_symbols( ) );
+        PCFGClause current_clause( LASTPRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FirstLastprivate& n )
     {
-        PCFGClause current_clause( FIRSTLASTPRIVATE, n.get_firstlastprivate_symbols( ) );
+        PCFGClause current_clause( FIRSTLASTPRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2189,7 +2193,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
-        PCFGClause current_clause( PRIVATE, n.get_private_symbols( ) );
+        PCFGClause current_clause( PRIVATE, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2274,7 +2278,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
     {
-        PCFGClause current_clause( SHARED, n.get_shared_symbols( ) );
+        PCFGClause current_clause( SHARED, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -3088,6 +3092,11 @@ namespace Analysis {
         return walk(n.get_argument());
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranBozLiteral& n )
+    {
+        return visit_literal_node( n );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::WhileStatement& n )
     {
         Node* while_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, LOOP_WHILE );
@@ -3167,6 +3176,11 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FortranWriteStatement& n )
+    {
+        return visit_literal_node(n);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CudaKernelCall& n )
     {
         return visit_literal_node(n);
     }

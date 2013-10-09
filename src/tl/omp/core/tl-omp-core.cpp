@@ -1626,21 +1626,39 @@ namespace TL
         void Core::section_handler_pre(TL::PragmaCustomDirective directive)
         {
             // fix_sections_layout should have removed these nodes
-            internal_error("Code unreachable", 0);
+            // but we may encounter them in invalid input
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                error_printf("%s: error: stray '#pragma omp section' not enclosed in a '#pragma omp sections' or '#pragma omp parallel sections'\n",
+                        directive.get_locus_str().c_str());
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                error_printf("%s: error: stray '!$OMP SECTION' not enclosed in a '!$OMP SECTIONS' or a '!$OMP PARALLEL SECTIONS'\n",
+                        directive.get_locus_str().c_str());
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
         void Core::section_handler_post(TL::PragmaCustomDirective directive)
         {
             // fix_sections_layout should have removed these nodes
-            internal_error("Code unreachable", 0);
+            // but we may encounter them in invalid input, here we
+            // remove it to minimize the damage
+            Nodecl::Utils::remove_from_enclosing_list(directive);
         }
 
         void Core::section_handler_pre(TL::PragmaCustomStatement)
         {
+            // Do nothing
         }
 
         void Core::section_handler_post(TL::PragmaCustomStatement)
         {
+            // Do nothing
         }
 
         struct SanityCheckForVisitor : public Nodecl::ExhaustiveVisitor<void>

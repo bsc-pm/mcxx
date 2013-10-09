@@ -803,17 +803,20 @@ namespace {
         {
             TL:: Symbol symbol = current->get_function_node_symbol();
 
-            // TODO - We do not have enough information if we lack the function code
-            //
-            if (function_waits_tasks(symbol))
+            if (symbol.is_valid())
             {
-                shallow_synchronization_point(current, current_domain_id, points_of_sync);
-            }
-            else
-            {
-                // All other nodes just propagate OUT(X) = IN(X)
-                current->get_live_out_tasks() = current->get_live_in_tasks();
-                current->get_static_sync_out_tasks() = current->get_static_sync_in_tasks();
+                // TODO - We do not have enough information if we lack the function code
+                //
+                if (function_waits_tasks(symbol))
+                {
+                    shallow_synchronization_point(current, current_domain_id, points_of_sync);
+                }
+                else
+                {
+                    // All other nodes just propagate OUT(X) = IN(X)
+                    current->get_live_out_tasks() = current->get_live_in_tasks();
+                    current->get_static_sync_out_tasks() = current->get_static_sync_in_tasks();
+                }
             }
         }
         else

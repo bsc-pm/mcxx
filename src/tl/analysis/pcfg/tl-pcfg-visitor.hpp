@@ -479,6 +479,7 @@ namespace Analysis {
         Ret visit( const Nodecl::WhileStatement& n );
 
         Ret visit( const Nodecl::FortranAllocateStatement& n );
+        Ret visit( const Nodecl::FortranBozLiteral& n );
         Ret visit( const Nodecl::FortranDeallocateStatement& n );
         Ret visit( const Nodecl::FortranOpenStatement& n );
         Ret visit( const Nodecl::FortranCloseStatement& n );
@@ -488,6 +489,8 @@ namespace Analysis {
         Ret visit( const Nodecl::FortranWhere& n );
         Ret visit( const Nodecl::FortranReadStatement& n );
         Ret visit( const Nodecl::FortranWriteStatement& n );
+
+        Ret visit( const Nodecl::CudaKernelCall& n );
 
         // ******************************** END visiting methods ******************************** //
         // ************************************************************************************** //

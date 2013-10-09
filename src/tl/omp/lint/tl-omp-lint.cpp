@@ -50,7 +50,7 @@ namespace TL { namespace OpenMP {
 
                 TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
 
-                graph->print_graph_to_dot(false, false, false, false, false, false);
+                // graph->print_graph_to_dot(false, false, false, false, false, false);
 
                 // Get all task nodes
                 TL::ObjectList<TL::Analysis::Node*> tasks = graph->get_tasks_list();
@@ -245,7 +245,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 if (!shared.is_null())
-                    result = result || any_symbol_is_local(shared.get_shared_symbols().as<Nodecl::List>());
+                    result = result || any_symbol_is_local(shared.get_symbols().as<Nodecl::List>());
                 if (!dep_in.is_null())
                     result = result || any_data_ref_is_local(dep_in.get_in_deps().as<Nodecl::List>());
                 if (!dep_out.is_null())
@@ -360,7 +360,7 @@ namespace TL { namespace OpenMP {
                 }
 
                 if (!shared.is_null())
-                    result = get_innermost_required_scope_symbols(result, shared.get_shared_symbols().as<Nodecl::List>());
+                    result = get_innermost_required_scope_symbols(result, shared.get_symbols().as<Nodecl::List>());
                 if (!dep_in.is_null())
                     result = get_innermost_required_scope_data_items(result, dep_in.get_in_deps().as<Nodecl::List>());
                 if (!dep_out.is_null())
