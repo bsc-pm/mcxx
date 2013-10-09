@@ -4950,7 +4950,7 @@ static void cast_initialization(
     }
     // The user is initializing a real using an integer
     else if (is_floating_type(initialized_type)
-            & const_value_is_integer(val))
+            && const_value_is_integer(val))
     {
         type_t* flt_type = initialized_type;
 
