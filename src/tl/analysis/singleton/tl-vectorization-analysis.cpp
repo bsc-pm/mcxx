@@ -117,7 +117,16 @@ namespace Analysis {
         
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
-            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+            Nodecl::ArraySubscript array = n.as<Nodecl::ArraySubscript>( );
+
+            //Check subscripted
+            if ( !is_constant( array.get_subscripted( ) ))
+            {
+                return false;
+            }
+
+            // Check subscrips
+            Nodecl::List subscript = array.get_subscripts( ).as<Nodecl::List>( );
             Nodecl::List::iterator it = subscript.begin( );
             for( ; it != subscript.end( ); ++it )
             {   // All dimensions must be constant

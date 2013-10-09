@@ -53,7 +53,6 @@ CONFIG_FILES =  \
        55.config.omp.intel.fortran \
        55.config.omp.nvidia \
        56.config.omp.mpi \
-       57.config.omp.smp \
 	   $(END)
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
