@@ -1627,8 +1627,20 @@ namespace TL
         {
             // fix_sections_layout should have removed these nodes
             // but we may encounter them in invalid input
-            error_printf("%s: error: stray '#pragma omp section' not enclosed in a '#pragma omp sections'\n",
-                    directive.get_locus_str().c_str());
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                error_printf("%s: error: stray '#pragma omp section' not enclosed in a '#pragma omp sections' or '#pragma omp parallel sections'\n",
+                        directive.get_locus_str().c_str());
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                error_printf("%s: error: stray '!$OMP SECTION' not enclosed in a '!$OMP SECTIONS' or a '!$OMP PARALLEL SECTIONS'\n",
+                        directive.get_locus_str().c_str());
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
         void Core::section_handler_post(TL::PragmaCustomDirective directive)
