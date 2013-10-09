@@ -1108,63 +1108,18 @@ OPERATOR_TABLE
             value = fortran_const_value_rank_zero(value);
         }
 
-        int num_bytes = const_value_get_bytes(value);
-
-        if (node.get_type().is_bool())
-        {
-            if((long long int)const_value_cast_to_8(value) == 0ll)
-            {
-                *(file) << ".FALSE.";
-            }
-            else
-            {
-                *(file) << ".TRUE.";
-            }
-
-            if (num_bytes != fortran_get_default_logical_type_kind())
-            {
-                *(file) << "_" << num_bytes;
-            }
-        }
+        if (const_value_is_float(value))
+            emit_floating_constant(value, node.get_type());
+        else if (const_value_is_integer(value))
+            emit_integer_constant(value, node.get_type());
         else
-        {
-            long long int v = (long long int)const_value_cast_to_8(value);
-
-            if (!state.in_data_value
-                    && v < 0)
-                *(file) << "(";
-
-            long long tiniest_of_its_type = (~0LL);
-            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
-
-            std::string suffix;
-            if (num_bytes != fortran_get_default_integer_type_kind())
-            {
-                std::stringstream ss;
-                ss << "_" << num_bytes;
-                suffix = ss.str();
-            }
-
-            // The tiniest integer cannot be printed as a constant
-            if (v == tiniest_of_its_type)
-            {
-                *(file) << (v  + 1) << suffix <<  "-1" << suffix;
-            }
-            else
-            {
-                *(file) << v << suffix;
-            }
-
-            if (!state.in_data_value
-                    && v < 0)
-                *(file) << ")";
-        }
+            internal_error("Code unreachable", 0);
     }
 
     void FortranBase::visit(const Nodecl::ComplexLiteral& node)
     {
         bool in_data = state.in_data_value;
-        
+
         // This ommits parentheses in negative literals
         state.in_data_value = 1;
 
@@ -1264,6 +1219,61 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::emit_integer_constant(const_value_t* value, TL::Type t)
+    {
+        int num_bytes = const_value_get_bytes(value);
+
+        if (t.is_bool())
+        {
+            if((long long int)const_value_cast_to_8(value) == 0ll)
+            {
+                *(file) << ".FALSE.";
+            }
+            else
+            {
+                *(file) << ".TRUE.";
+            }
+
+            if (num_bytes != fortran_get_default_logical_type_kind())
+            {
+                *(file) << "_" << num_bytes;
+            }
+        }
+        else
+        {
+            long long int v = (long long int)const_value_cast_to_8(value);
+
+            if (!state.in_data_value
+                    && v < 0)
+                *(file) << "(";
+
+            long long tiniest_of_its_type = (~0LL);
+            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
+
+            std::string suffix;
+            if (num_bytes != fortran_get_default_integer_type_kind())
+            {
+                std::stringstream ss;
+                ss << "_" << num_bytes;
+                suffix = ss.str();
+            }
+
+            // The tiniest integer cannot be printed as a constant
+            if (v == tiniest_of_its_type)
+            {
+                *(file) << (v  + 1) << suffix <<  "-1" << suffix;
+            }
+            else
+            {
+                *(file) << v << suffix;
+            }
+
+            if (!state.in_data_value
+                    && v < 0)
+                *(file) << ")";
+        }
+    }
+
     void FortranBase::visit(const Nodecl::FloatingLiteral& node)
     {
         const_value_t* value = node.get_constant();
@@ -1275,7 +1285,12 @@ OPERATOR_TABLE
             value = fortran_const_value_rank_zero(value);
         }
 
-        emit_floating_constant(value, node.get_type());
+        if (const_value_is_float(value))
+            emit_floating_constant(value, node.get_type());
+        else if (const_value_is_integer(value))
+            emit_integer_constant(value, node.get_type());
+        else
+            internal_error("Code unreachable", 0);
     }
 
     void FortranBase::visit(const Nodecl::Symbol& node)
