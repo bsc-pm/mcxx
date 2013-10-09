@@ -1626,21 +1626,27 @@ namespace TL
         void Core::section_handler_pre(TL::PragmaCustomDirective directive)
         {
             // fix_sections_layout should have removed these nodes
-            internal_error("Code unreachable", 0);
+            // but we may encounter them in invalid input
+            error_printf("%s: error: stray '#pragma omp section' not enclosed in a '#pragma omp sections'\n",
+                    directive.get_locus_str().c_str());
         }
 
         void Core::section_handler_post(TL::PragmaCustomDirective directive)
         {
             // fix_sections_layout should have removed these nodes
-            internal_error("Code unreachable", 0);
+            // but we may encounter them in invalid input, here we
+            // remove it to minimize the damage
+            Nodecl::Utils::remove_from_enclosing_list(directive);
         }
 
         void Core::section_handler_pre(TL::PragmaCustomStatement)
         {
+            // Do nothing
         }
 
         void Core::section_handler_post(TL::PragmaCustomStatement)
         {
+            // Do nothing
         }
 
         struct SanityCheckForVisitor : public Nodecl::ExhaustiveVisitor<void>
