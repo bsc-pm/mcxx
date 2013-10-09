@@ -5853,52 +5853,16 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         std::string declarator = "";
         std::string pure_spec = "";
-        if (!real_type.lacks_prototype())
+        declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(),
+                function_name,
+                parameter_names,
+                parameter_attributes);
+
+
+        if (symbol.is_virtual()
+                && symbol.is_pure())
         {
-            declarator = this->get_declaration_with_parameters(real_type, symbol.get_scope(),
-                    function_name,
-                    parameter_names,
-                    parameter_attributes);
-
-
-            if (symbol.is_virtual()
-                    && symbol.is_pure())
-            {
-                pure_spec += " = 0 ";
-            }
-        }
-        else
-        {
-            declarator = this->get_declaration(
-                    real_type.returns(),
-                    symbol.get_scope(),
-                    function_name);
-            declarator += "(";
-            TL::ObjectList<TL::Symbol> args = symbol.get_related_symbols();
-            for (TL::ObjectList<TL::Symbol>::iterator it = args.begin();
-                    it != args.end();
-                    it++)
-            {
-                if (it != args.begin())
-                    declarator += ", ";
-
-                declarator += it->get_name();
-            }
-
-            bool has_ellipsis = false;
-            real_type.parameters(has_ellipsis);
-
-            if (has_ellipsis)
-            {
-                if (!args.empty())
-                {
-                    declarator += ", ";
-                }
-
-                declarator += "...";
-            }
-
-            declarator += ")";
+            pure_spec += " = 0 ";
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
@@ -7559,7 +7523,7 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
     }
 
     int orig_size = parameters.size();
-    for (int i = 0; i < orig_size; i++)
+    for (int i = 0; i < orig_size && i < num_parameters; i++)
     {
         parameter_names[i] = uniquestr(parameters[i].c_str());
         param_attributes[i] = uniquestr(parameter_attributes[i].c_str());
