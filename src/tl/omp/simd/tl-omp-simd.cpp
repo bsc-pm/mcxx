@@ -294,26 +294,6 @@ namespace TL {
             Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
                     for_statement, for_statement).as<Nodecl::ForStatement>();
 
-            Nodecl::List single_environment;
-
-            Nodecl::NodeclBase barrier = omp_for_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
-            Nodecl::NodeclBase flush = omp_for_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
-
-            if (!barrier.is_null())
-            {
-                // Move barrier from omp for to single
-                single_environment.append(barrier.shallow_copy());
-                Nodecl::Utils::remove_from_enclosing_list(barrier);
-                omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
-            }
-            if (!flush.is_null())
-            {
-                // Move flush from omp for to single
-                single_environment.append(flush.shallow_copy());
-                Nodecl::Utils::remove_from_enclosing_list(flush);
-                omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
-            }
-
             TL::Symbol iv = 
                 TL::ForStatement(for_statement).get_induction_variable();
             /*
@@ -361,8 +341,10 @@ namespace TL {
             omp_for_environment.append(ind_var_lastpriv);
             */
 
-            // Mark the induction variable as private 
+            // Mark the induction variable a private 
             // entity in Single construct
+            Nodecl::List single_environment;
+
             Nodecl::OpenMP::Private ind_var_priv = 
                 Nodecl::OpenMP::Private::make(Nodecl::List::make(
                             iv.make_nodecl()));
@@ -450,7 +432,10 @@ namespace TL {
             if (needs_epilog)
             {
                 _vectorizer.process_epilog(epilog, for_environment);
-                appendix_list.append(epilog.shallow_copy());
+
+                // Move single_epilog to its final position
+                Nodecl::Utils::remove_from_enclosing_list(single_epilog);
+                appendix_list.append(single_epilog);
             }
             else // Remove epilog
             {
@@ -464,6 +449,16 @@ namespace TL {
                         loop.shallow_copy(),
                         appendix_list,
                         omp_for.get_locus());
+
+            // Remove Barrier and Flush from inner omp for
+            Nodecl::NodeclBase barrier = omp_for_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>();
+            Nodecl::NodeclBase flush = omp_for_environment.find_first<Nodecl::OpenMP::FlushAtExit>();
+
+            if (!barrier.is_null())
+                Nodecl::Utils::remove_from_enclosing_list(barrier);
+
+            if (!flush.is_null())
+                Nodecl::Utils::remove_from_enclosing_list(flush);
 
             // Remove Simd node
             simd_node.replace(for_epilog);

@@ -486,14 +486,52 @@ namespace TL
             Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
-            walk(rhs);
-
             // Computing new vector type
             TL::Type vector_type = Utils::get_qualified_vector_to(assignment_type, 
                     _environment._unroll_factor);
 
-            if(lhs.is<Nodecl::ArraySubscript>())
+            // IV vectorization: i = i + 3 --> i = i + (unroll_factor * 3)
+            if(Vectorizer::_analysis_info->is_basic_induction_variable(_environment._analysis_simd_scope,
+                        lhs))
             {
+                std::cerr << "Vectorizing IV update: " << lhs.prettyprint() << std::endl;
+
+                Nodecl::NodeclBase step = const_value_to_nodecl(Vectorizer::_analysis_info->get_induction_variable_increment(
+                        _environment._analysis_simd_scope, lhs));
+
+                    //Vectorizer::_analysis_info->get_induction_variable_increment(
+                    //    _environment._analysis_simd_scope, lhs);
+
+                ObjectList<Nodecl::NodeclBase> step_list = 
+                    Nodecl::Utils::get_all_nodecl_occurrences(step, lhs);
+
+                for(ObjectList<Nodecl::NodeclBase>::iterator it = step_list.begin();
+                        it != step_list.end();
+                        it ++)
+                {
+                    Nodecl::ParenthesizedExpression new_step =
+                        Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Mul::make(
+                                    Nodecl::ParenthesizedExpression::make(
+                                        it->shallow_copy(),
+                                        it->get_type(),
+                                        it->get_locus()),
+                                    Nodecl::IntegerLiteral::make(
+                                        TL::Type::get_int_type(),
+                                        const_value_get_signed_int(_environment._unroll_factor),
+                                        it->get_locus()),
+                                    TL::Type::get_int_type(),
+                                    it->get_locus()),
+                                it->get_type(),
+                                it->get_locus());
+
+                    it->replace(new_step);
+                }
+            }
+            else if(lhs.is<Nodecl::ArraySubscript>())
+            {
+                walk(rhs);
+
                 // Vector Store
                 // Constant ArraySubscript, nothing to do
                 if (Vectorizer::_analysis_info->is_constant_access(
@@ -572,7 +610,10 @@ namespace TL
                     } 
                 }
                 else // Vector Scatter
-                {                    const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
+                {
+                    walk(rhs);
+
+                    const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
 
                     const Nodecl::NodeclBase base = lhs_array.get_subscripted();
                     const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>();
@@ -600,6 +641,7 @@ namespace TL
             else // Register
             {
                 walk(lhs);
+                walk(rhs);
 
                 const Nodecl::VectorAssignment vector_assignment =
                     Nodecl::VectorAssignment::make(

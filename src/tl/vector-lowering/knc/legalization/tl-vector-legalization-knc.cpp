@@ -118,7 +118,7 @@ namespace TL
             if (index_type.is_signed_long_int() || index_type.is_unsigned_long_int()) 
             {
                 TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
-                        node.get_strides().get_type().vector_num_elements());
+                        index_vector_type.vector_num_elements());
 
                 printf("Gather indexes conversion from %s(%s) to %s(%s)\n",
                     index_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
