@@ -36,6 +36,22 @@ namespace TL { namespace Intel {
 
         void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
         {
+            lower_for(construct, Nodecl::NodeclBase::null());
+        }
+
+        void LoweringVisitor::visit(const Nodecl::OpenMP::ForAppendix& construct)
+        {
+            Nodecl::NodeclBase appendix = construct.get_appendix();
+            if (!appendix.is_null())
+                walk(appendix);
+
+            // We cheat a bit in the first parameter
+            lower_for(construct.as<Nodecl::OpenMP::For>(), appendix);
+        }
+
+        void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
+                const Nodecl::NodeclBase &appendix)
+        {
             TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
             ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
@@ -226,7 +242,7 @@ namespace TL { namespace Intel {
 
             TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-            Nodecl::NodeclBase loop_body, reduction_code;
+            Nodecl::NodeclBase loop_body, reduction_code, appendix_code;
 
             TL::Source lastprivate_code;
 
@@ -282,6 +298,7 @@ namespace TL { namespace Intel {
                     << lastprivate_code
                     << "__kmpc_for_static_fini(&" << as_symbol(ident_symbol) << ", __kmpc_global_thread_num("
                     <<                  "&" << as_symbol(ident_symbol) << "));"
+                    << statement_placeholder(appendix_code)
                     << statement_placeholder(reduction_code)
                     ;
 
@@ -291,6 +308,11 @@ namespace TL { namespace Intel {
             else
             {
                 internal_error("Nonstatic schedules not yet implemented", 0);
+            }
+
+            if (!appendix.is_null())
+            {
+                appendix_code.prepend_sibling(appendix);
             }
 
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);

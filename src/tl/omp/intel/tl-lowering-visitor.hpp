@@ -57,7 +57,10 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
 
+        virtual void visit(const Nodecl::OpenMP::ForAppendix& construct);
     private:
+
+        void lower_for(const Nodecl::OpenMP::For& construct, const Nodecl::NodeclBase& appendix);
 
         Lowering* _lowering;
 };
