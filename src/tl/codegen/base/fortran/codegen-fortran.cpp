@@ -1108,7 +1108,7 @@ OPERATOR_TABLE
             value = fortran_const_value_rank_zero(value);
         }
 
-        if (const_value_is_float(value))
+        if (const_value_is_floating(value))
             emit_floating_constant(value, node.get_type());
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
@@ -1285,7 +1285,7 @@ OPERATOR_TABLE
             value = fortran_const_value_rank_zero(value);
         }
 
-        if (const_value_is_float(value))
+        if (const_value_is_floating(value))
             emit_floating_constant(value, node.get_type());
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
