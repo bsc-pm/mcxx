@@ -322,7 +322,6 @@ namespace TL { namespace Intel {
                     .map(functor(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>));
 
 
-                Source reduction_src;
                 for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
                         it != reduction_items.end();
                         it++)
@@ -364,6 +363,7 @@ namespace TL { namespace Intel {
                                 Nodecl::Utils::deep_copy(omp_reduction->get_combiner(), construct, combiner_map)
                                 ) << ";";
 
+                    Source reduction_src;
                     reduction_src
                         << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
                         <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
