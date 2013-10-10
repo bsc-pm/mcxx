@@ -138,7 +138,9 @@ namespace TL
                         DataSharingAttribute fallback_data_sharing);
 
                 void common_parallel_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
-                void common_for_handler(Nodecl::NodeclBase nodecl, DataSharingEnvironment& data_sharing);
+                void common_for_handler(Nodecl::NodeclBase outer_statement,
+                        Nodecl::NodeclBase nodecl,
+                        DataSharingEnvironment& data_sharing);
                 void common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
 
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
