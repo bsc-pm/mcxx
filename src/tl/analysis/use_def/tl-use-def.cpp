@@ -1119,19 +1119,28 @@ namespace Analysis {
     void UsageVisitor::visit( const Nodecl::VectorGather& n )
     {
         Nodecl::NodeclBase base = n.get_base( );
-        Nodecl::List strides = n.get_strides( ).as<Nodecl::List>( );
+        Nodecl::NodeclBase strides = n.get_strides( );
         
         // Usage of the base
         walk( base );
-        for( Nodecl::List::iterator it = strides.begin( ); it != strides.end( ); ++it )
+
+        if( strides.is<Nodecl::VectorLiteral>( ) )
+        {
+            Nodecl::List stride_list = strides.as<Nodecl::VectorLiteral>().get_scalar_values().as<Nodecl::List>();
+            for( Nodecl::List::iterator it = stride_list.begin( ); it != stride_list.end( ); ++it )
+            {
+                // Usage of base+stride_i
+                Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), it->shallow_copy( ), base.get_type( ), it->get_locus( ) );
+                if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                    _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
+            }
+        }
+        else
         {
             // Usage of the stride
-            if( !Nodecl::Utils::nodecl_is_literal( *it ) )
-            {
-                walk( *it );
-            }
-            // Usage of base+stride_i
-            Nodecl::Add current_access = Nodecl::Add::make( base, *it, base.get_type( ), it->get_locus( ) );
+            walk( strides );
+            
+            Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), strides.shallow_copy( ), base.get_type( ), strides.get_locus( ) );
             if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
                 _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
         }
@@ -1146,20 +1155,34 @@ namespace Analysis {
     void UsageVisitor::visit( const Nodecl::VectorScatter& n )
     {
         Nodecl::NodeclBase base = n.get_base( );
-        Nodecl::List strides = n.get_strides( ).as<Nodecl::List>( );
+        Nodecl::NodeclBase strides = n.get_strides( );
+        Nodecl::NodeclBase source = n.get_source( );
         
-        for( Nodecl::List::iterator it = strides.begin( ); it != strides.end( ); ++it )
+        // Usage of source and base
+        walk( source );
+        walk( base );
+
+        if( strides.is<Nodecl::VectorLiteral>( ) )
         {
-            // Usage of the stride
-            if( !Nodecl::Utils::nodecl_is_literal( *it ) )
+            Nodecl::List stride_list = strides.as<Nodecl::VectorLiteral>().get_scalar_values().as<Nodecl::List>();
+            for( Nodecl::List::iterator it = stride_list.begin( ); it != stride_list.end( ); ++it )
             {
-                walk( *it );
+                // Usage of base+stride_i
+                Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), it->shallow_copy( ), base.get_type( ), it->get_locus( ) );
+                if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                    _node->set_killed_var( Utils::ExtendedSymbol( current_access ) );
             }
-            // Usage of base+stride_i
-            Nodecl::Add current_access = Nodecl::Add::make( base, *it, base.get_type( ), it->get_locus( ) );
-            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
-                _node->set_ue_var( Utils::ExtendedSymbol( current_access ) );
         }
+        else
+        {
+            // Usage of strides
+            walk( strides );
+            
+            Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), strides.shallow_copy( ), base.get_type( ), strides.get_locus( ) );
+            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
+                _node->set_killed_var( Utils::ExtendedSymbol( current_access ) );
+        }
+
     }
     
     void UsageVisitor::visit( const Nodecl::VectorStore& n )
