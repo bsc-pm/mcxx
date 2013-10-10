@@ -61,6 +61,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
     private:
 
         void lower_for(const Nodecl::OpenMP::For& construct, const Nodecl::NodeclBase& appendix);
+        Nodecl::NodeclBase emit_barrier(const Nodecl::NodeclBase& construct);
 
         Lowering* _lowering;
 };
