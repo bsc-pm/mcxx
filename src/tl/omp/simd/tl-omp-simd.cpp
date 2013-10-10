@@ -442,7 +442,8 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(single_epilog);
             }
 
-            appendix_list.append(post_for_nodecls);
+            if(!post_for_nodecls.empty())
+                appendix_list.append(post_for_nodecls);
 
             Nodecl::OpenMP::ForAppendix for_epilog = 
                 Nodecl::OpenMP::ForAppendix::make(omp_for_environment.shallow_copy(),
