@@ -2857,6 +2857,10 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
         {
             result = get_user_defined_type(entry);
         }
+        else if (entry->kind == SK_ENUM)
+        {
+            result = enum_type_get_underlying_type(entry->type_information);
+        }
     }
     return result;
 }
