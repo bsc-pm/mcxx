@@ -199,7 +199,7 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
                 }
             default:
                 {
-                    internal_error("Unexpected data sharing kind", 0);
+                    std::cerr << "Warning: Cannot copy function code to the device file" << std::endl;
                 }
         }
     }
