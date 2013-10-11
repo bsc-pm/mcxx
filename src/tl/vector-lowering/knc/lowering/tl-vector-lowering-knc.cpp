@@ -814,7 +814,9 @@ namespace TL
 
             if (intrin_op_name.empty())
             {
-                fprintf(stderr, "KNC Lowering: Masked conversion at '%s' is not supported yet: %s\n", 
+                fprintf(stderr, "KNC Lowering: Masked conversion from '%s' to '%s' at '%s' is not supported yet: %s\n",
+                        src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                        dst_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                         locus_to_str(node.get_locus()),
                         nest.prettyprint().c_str());
             }   

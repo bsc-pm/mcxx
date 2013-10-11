@@ -2744,6 +2744,23 @@ namespace TL { namespace OpenMP {
                             stmt.get_locus()));
             }
 
+            // VectorLengthFor
+            PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
+
+            if (vectorlengthfor_clause.is_defined())
+            {
+                TL::Source target_type_src;
+
+                target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
+
+                TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
+
+                environment.append(
+                        Nodecl::OpenMP::VectorLengthFor::make(
+                            target_type,
+                            stmt.get_locus()));
+            }
+
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase statements = stmt.get_statements();
             ERROR_CONDITION(!statements.is<Nodecl::List>(),
