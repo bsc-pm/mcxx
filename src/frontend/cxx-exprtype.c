@@ -7887,8 +7887,8 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
             {
                 error_printf("%s: error: invalid incomplete type '%s' in delete%s expression\n",
                         locus_to_str(locus),
-                        is_array_delete ? "[]" : "",
-                        print_type_str(full_type, decl_context));
+                        print_type_str(full_type, decl_context),
+                        is_array_delete ? "[]" : "");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
