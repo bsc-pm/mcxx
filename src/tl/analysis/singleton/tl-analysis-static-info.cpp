@@ -210,21 +210,21 @@ namespace Analysis {
         return result;
     }
 
-    const_value_t* NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
+    Nodecl::NodeclBase NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
     {
-        const_value_t* result = NULL;
+        Nodecl::NodeclBase result;
 
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                result = ( *it )->get_increment( ).get_constant( );
+                result = ( *it )->get_increment( );
                 break;
             }
         }
 
-        if( result == NULL )
+        if( result.is_null( ) )
         {
             WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
                              "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
@@ -233,20 +233,16 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<const_value_t*> NodeclStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const
+    ObjectList<Nodecl::NodeclBase> NodeclStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const
     {
-        ObjectList<const_value_t*> result;
+        ObjectList<Nodecl::NodeclBase> result;
         
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                ObjectList<Nodecl::NodeclBase> incr_nodecls = ( *it )->get_increment_list( );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it2 = incr_nodecls.begin( ); it2 != incr_nodecls.end( ); ++it2 )
-                {
-                    result.insert( it2->get_constant( ) );
-                }
+                result = ( *it )->get_increment_list( );
                 break;
             }
         }
@@ -462,10 +458,10 @@ namespace Analysis {
         return result;
     }
 
-    const_value_t* AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
+    Nodecl::NodeclBase AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                                          const Nodecl::NodeclBase& n ) const
     {
-        const_value_t* result = NULL;
+        Nodecl::NodeclBase result;
 
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
@@ -483,10 +479,10 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<const_value_t*> AnalysisStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
-                                                                                          const Nodecl::NodeclBase& n ) const
+    ObjectList<Nodecl::NodeclBase> AnalysisStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
+                                                                                              const Nodecl::NodeclBase& n ) const
     {
-        ObjectList<const_value_t*> result;
+        ObjectList<Nodecl::NodeclBase> result;
 
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )

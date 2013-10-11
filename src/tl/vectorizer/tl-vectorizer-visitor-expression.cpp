@@ -1219,41 +1219,46 @@ namespace TL
             // Computing IV offset {0, 1, 2, 3}
             TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
-            const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
+            Nodecl::NodeclBase ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
                     _environment._analysis_scopes.back(), n);
-
-            const_value_t *i = const_value_get_zero(4, 0);
-            for(unsigned int j = 0;
-                    j < _environment._unroll_factor;
-                    i = const_value_add(i, ind_var_increment), j++)
+            
+#warning Diego, change ind_var_increment usage from const_value_t to Nodecl::NodeclBase
+            if (ind_var_increment.is_constant())
             {
-                literal_list.prepend(const_value_to_nodecl(i));
-            }
+                const_value_t *ind_var_increment_const = ind_var_increment.get_constant();
+                const_value_t *i = const_value_get_zero(4, 0);
+                for(unsigned int j = 0;
+                        j < _environment._unroll_factor;
+                        i = const_value_add(i, ind_var_increment_const), j++)
+                {
+                    literal_list.prepend(const_value_to_nodecl(i));
+                }
 
-            Nodecl::List offset = Nodecl::List::make(literal_list);
+                Nodecl::List offset = Nodecl::List::make(literal_list);
 
-            // IV cannot be a reference
-            TL::Type ind_var_type = get_qualified_vector_to(
-                    n.get_type(), _environment._vector_length).no_ref();
+                // IV cannot be a reference
+                TL::Type ind_var_type = get_qualified_vector_to(
+                        n.get_type(), _environment._vector_length).no_ref();
 
-            TL::Type offset_type = ind_var_type;
-            Nodecl::ParenthesizedExpression vector_induction_var =
-                Nodecl::ParenthesizedExpression::make(
-                        Nodecl::VectorAdd::make(
-                            Nodecl::VectorPromotion::make(
-                                n.shallow_copy(),
-                                ind_var_type,
-                                n.get_locus()),
-                            Nodecl::VectorLiteral::make(
-                                offset,
-                                offset_type,
+                TL::Type offset_type = ind_var_type;
+                Nodecl::ParenthesizedExpression vector_induction_var =
+                    Nodecl::ParenthesizedExpression::make(
+                            Nodecl::VectorAdd::make(
+                                Nodecl::VectorPromotion::make(
+                                    n.shallow_copy(),
+                                    ind_var_type,
+                                    n.get_locus()),
+                                Nodecl::VectorLiteral::make(
+                                    offset,
+                                    offset_type,
+                                    n.get_locus()),
+                                get_qualified_vector_to(n.get_type(), _environment._vector_length),
                                 n.get_locus()),
                             get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                            n.get_locus()),
-                        get_qualified_vector_to(n.get_type(), _environment._vector_length),
-                        n.get_locus());
+                            n.get_locus());
 
-            n.replace(vector_induction_var);
+                n.replace(vector_induction_var);
+            }
         }
 
 
