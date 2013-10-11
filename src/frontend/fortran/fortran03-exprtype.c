@@ -4724,6 +4724,11 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 
     conform_types_in_assignment(lvalue_type, rvalue_type, &conf_lhs_type, &conf_rhs_type);
 
+    if (is_enum_type(conf_lhs_type))
+        conf_lhs_type = enum_type_get_underlying_type(conf_lhs_type);
+    if (is_enum_type(conf_rhs_type))
+        conf_rhs_type = enum_type_get_underlying_type(conf_rhs_type);
+
     if ((is_integer_type(conf_lhs_type)
                 || is_floating_type(conf_lhs_type)
                 || is_complex_type(conf_lhs_type))
