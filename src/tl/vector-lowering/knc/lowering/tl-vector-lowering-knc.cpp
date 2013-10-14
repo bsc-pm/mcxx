@@ -300,6 +300,76 @@ namespace TL
             common_binary_op_lowering(node, "rem");
         }                                                 
 
+        void KNCVectorLowering::visit(const Nodecl::VectorFmadd& node)
+        {
+            const Nodecl::NodeclBase first_op = node.get_first_op();
+            const Nodecl::NodeclBase second_op = node.get_second_op();
+            const Nodecl::NodeclBase third_op = node.get_third_op();
+            const Nodecl::NodeclBase mask = node.get_mask();
+
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, intrin_name, intrin_type_suffix,
+                mask_prefix, args, mask_args;
+
+            intrin_src << intrin_name
+                << "("
+                << args
+                << ")"
+                ;
+
+            intrin_name << KNC_INTRIN_PREFIX
+                << mask_prefix
+                << "fmadd_round"
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            process_mask_component(mask, mask_prefix, mask_args, type,
+                    ConfigMaskProcessing::ONLY_MASK);
+
+            if (type.is_float()) 
+            { 
+                intrin_type_suffix << "ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_type_suffix << "pd"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_type_suffix << "epi32"; 
+            } 
+            else
+            {
+                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(first_op);
+            walk(second_op);
+            walk(third_op);
+
+            args << as_expression(first_op)
+                << ", "
+                << mask_args
+                << as_expression(second_op)
+                << ", "
+                << as_expression(third_op)
+                << ", "
+                << _MM_FROUND_CUR_DIRECTION
+                ;
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
+
+
         void KNCVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();

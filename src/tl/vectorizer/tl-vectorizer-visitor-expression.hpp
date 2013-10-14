@@ -40,6 +40,8 @@ namespace TL
             private:
                 VectorizerEnvironment& _environment;
 
+                bool process_fmul_op(const Nodecl::NodeclBase&  n);
+
             public:
                 VectorizerVisitorExpression(VectorizerEnvironment& environment);
 

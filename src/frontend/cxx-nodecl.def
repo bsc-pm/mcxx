@@ -163,7 +163,9 @@ expression : literal
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
            | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_FMADD([first_op]expression, [second_op]expression, [third_op]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_FMMINUS([first_mul_op]expression, [second_mul_op]expression, [minus_op]expression-opt, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 

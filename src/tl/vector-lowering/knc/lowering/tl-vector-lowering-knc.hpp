@@ -95,6 +95,9 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMul& node);
                 virtual void visit(const Nodecl::VectorDiv& node);
                 virtual void visit(const Nodecl::VectorMod& node);
+
+                virtual void visit(const Nodecl::VectorFmadd& node);
+
                 virtual void visit(const Nodecl::VectorNeg& node);
 
                 virtual void visit(const Nodecl::VectorLowerThan& node);
@@ -181,5 +184,7 @@ namespace TL
 
 #define _MM_HINT_NONE 0x0
 #define _MM_HINT_NT   0x1 
+
+#define _MM_FROUND_CUR_DIRECTION     0x04
 
 #endif // KNC_VECTOR_LOWERING_HPP

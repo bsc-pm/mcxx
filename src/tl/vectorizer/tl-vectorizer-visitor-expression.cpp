@@ -37,24 +37,112 @@ namespace TL
         {
         }
 
-        void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
+        bool VectorizerVisitorExpression::process_fmul_op(const Nodecl::NodeclBase&  n)
         {
+            Nodecl::Add binary_op = n.as<Nodecl::Add>();
+
+            Nodecl::NodeclBase lhs = binary_op.get_lhs();
+            Nodecl::NodeclBase rhs = binary_op.get_rhs();
             Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
-            walk(n.get_lhs());
-            walk(n.get_rhs());
+            if (lhs.is<Nodecl::ParenthesizedExpression>())
+            {
+                //TODO
+            }
+            if (rhs.is<Nodecl::ParenthesizedExpression>())
+            {
+                //TODO
+            }
 
-            const Nodecl::VectorAdd vector_add =
-                Nodecl::VectorAdd::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
-                        n.get_locus());
 
-            n.replace(vector_add);
+            if (lhs.is<Nodecl::Mul>())
+            {
+                /*
+                if (n.is<Nodecl::Add>())
+                {
+                    Nodecl::Mul mul = lhs.as<Nodecl::Mul>();
+
+                    walk(rhs);
+                    walk(mul.get_lhs());
+                    walk(mul.get_rhs());
+
+                    Nodecl::VectorFmadd fmadd =
+                        Nodecl::VectorFmadd::make(mul.get_lhs().shallow_copy(),
+                                mul.get_rhs().shallow_copy(),
+                                rhs.shallow_copy(),
+                                mask,
+                                n.get_type(),
+                                n.get_locus());
+                
+                    std::cerr << "FMADD detected" << std::endl;
+
+                    n.replace(fmadd);
+
+                    return true;
+                }
+                else if (n.is<Nodecl::Minus>())
+                {
+                    // TODO
+                }
+                */
+            }
+            else if (rhs.is<Nodecl::Mul>())
+            {
+                if (n.is<Nodecl::Add>())
+                {
+                    /*
+                    Nodecl::Mul mul = rhs.as<Nodecl::Mul>();
+
+                    walk(lhs);
+                    walk(mul.get_lhs());
+                    walk(mul.get_rhs());
+
+                    Nodecl::VectorFmadd fmadd =
+                        Nodecl::VectorFmadd::make(mul.get_lhs().shallow_copy(),
+                                mul.get_rhs().shallow_copy(),
+                                lhs.shallow_copy(),
+                                mask,
+                                n.get_type(),
+                                n.get_locus());
+
+                    std::cerr << "FMADD detected" << std::endl;
+
+                    n.replace(fmadd);
+
+                    return true;
+                    */
+                }
+                else if (n.is<Nodecl::Minus>())
+                {
+                    // TODO
+                }
+            }
+
+            return false;
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
+        {
+            if(!process_fmul_op(n))
+            {
+                Nodecl::NodeclBase mask = Utils::get_proper_mask(
+                        _environment._mask_list.back());
+
+                walk(n.get_lhs());
+                walk(n.get_rhs());
+
+                const Nodecl::VectorAdd vector_add =
+                    Nodecl::VectorAdd::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            mask,
+                            Utils::get_qualified_vector_to(n.get_type(), 
+                                _environment._unroll_factor),
+                            n.get_locus());
+
+                n.replace(vector_add);
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
@@ -62,19 +150,22 @@ namespace TL
             Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
-            walk(n.get_lhs());
-            walk(n.get_rhs());
+            if(!process_fmul_op(n))
+            {
+                walk(n.get_lhs());
+                walk(n.get_rhs());
 
-            const Nodecl::VectorMinus vector_minus =
-                Nodecl::VectorMinus::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        mask,
-                        Utils::get_qualified_vector_to(n.get_type(), 
-                            _environment._unroll_factor),
-                        n.get_locus());
+                const Nodecl::VectorMinus vector_minus =
+                    Nodecl::VectorMinus::make(
+                            n.get_lhs().shallow_copy(),
+                            n.get_rhs().shallow_copy(),
+                            mask,
+                            Utils::get_qualified_vector_to(n.get_type(), 
+                                _environment._unroll_factor),
+                            n.get_locus());
 
-            n.replace(vector_minus);
+                n.replace(vector_minus);
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)

@@ -67,10 +67,11 @@ namespace TL
             private:
                 TL::Vectorization::Vectorizer& _vectorizer;
 
-                unsigned int _vector_length;
-                unsigned int _mask_size;
                 std::string _device_name;
+                unsigned int _vector_length;
                 bool _support_masking;
+                unsigned int _mask_size;
+                bool _fast_math_enabled;
 
                 void process_suitable_clause(const Nodecl::List& environment,
                         Nodecl::List& suitable_expressions);

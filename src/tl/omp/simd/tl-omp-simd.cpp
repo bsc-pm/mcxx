@@ -118,7 +118,14 @@ namespace TL {
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
             if (fast_math_enabled)
+            {
+                _fast_math_enabled = true;
                 _vectorizer.enable_fast_math();
+            }
+            else
+            {
+                _fast_math_enabled = false;
+            }
 
             if (mic_enabled)
             {
@@ -176,8 +183,9 @@ namespace TL {
                     _device_name,
                     _vector_length, 
                     _support_masking,
-                    false, // Parallel Loop
                     _mask_size,
+                    _fast_math_enabled,
+                    false, // Parallel Loop
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
@@ -362,8 +370,9 @@ namespace TL {
                     _device_name,
                     _vector_length,
                     _support_masking, 
-                    true, // Parallel Loop
                     _mask_size,
+                    _fast_math_enabled,
+                    true, // Parallel Loop
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
@@ -564,8 +573,9 @@ namespace TL {
                     _device_name,
                     _vector_length, 
                     _support_masking,
-                    false, // Parallel loop (Not applicable)
                     _mask_size,
+                    false, // Parallel loop (Not applicable)
+                    _fast_math_enabled,
                     vectorlengthfor_type,
                     &suitable_expressions,
                     NULL,
