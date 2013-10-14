@@ -1020,7 +1020,8 @@ namespace TL
                 .replace(compound_statement);
         }
 
-        void Core::common_for_handler(Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
+        void Core::common_for_handler(Nodecl::NodeclBase outer_statement,
+                Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
         {
             if (!statement.is<Nodecl::ForStatement>())
             {
@@ -1041,22 +1042,29 @@ namespace TL
             if (for_statement.is_omp_valid_loop())
             {
                 Symbol sym  = for_statement.get_induction_variable();
-
-                DataSharingAttribute sym_data_sharing = (DataSharingAttribute)(data_sharing.get_data_sharing(sym) & ~DS_IMPLICIT);
-                bool is_implicit = (data_sharing.get_data_sharing(sym) & DS_IMPLICIT);
-
-                if (!is_implicit
-                        && sym_data_sharing != DS_UNDEFINED
-                        && sym_data_sharing != DS_PRIVATE
-                        && sym_data_sharing != DS_NONE)
+                // We mark this symbol as predetermined private if and only if it is declared outside
+                // the loop (so, it is NOT like in for(int i = ...) )
+                //
+                // Note that we have to use the outer_statement context. This is the context
+                // of the pragma itself.
+                if (!sym.get_scope()
+                        .scope_is_enclosed_by(outer_statement.retrieve_context()))
                 {
-                    running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
-                            statement.get_locus_str().c_str(),
-                            sym.get_name().c_str()
-                            );
+                    DataSharingAttribute sym_data_sharing = (DataSharingAttribute)(data_sharing.get_data_sharing(sym) & ~DS_IMPLICIT);
+                    bool is_implicit = (data_sharing.get_data_sharing(sym) & DS_IMPLICIT);
+
+                    if (!is_implicit
+                            && sym_data_sharing != DS_UNDEFINED
+                            && sym_data_sharing != DS_PRIVATE
+                            && sym_data_sharing != DS_NONE)
+                    {
+                        running_error("%s: error: induction variable '%s' has predetermined private data-sharing\n",
+                                statement.get_locus_str().c_str(),
+                                sym.get_name().c_str()
+                                );
+                    }
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
                 }
-                // We set it to none, later phases must give this symbol appropiate predetermined private behaviour
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_NONE | DS_IMPLICIT));
 
                 sanity_check_for_loop(statement);
             }
@@ -1347,7 +1355,7 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(stmt, data_sharing);
+            common_for_handler(construct, stmt, data_sharing);
             common_parallel_handler(construct, data_sharing);
         }
 
@@ -1380,7 +1388,7 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(stmt, data_sharing);
+            common_for_handler(construct, stmt, data_sharing);
             common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
@@ -1405,7 +1413,7 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(stmt, data_sharing);
+            common_for_handler(construct, stmt, data_sharing);
             common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }
@@ -1430,7 +1438,7 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(stmt, data_sharing);
+            common_for_handler(construct, stmt, data_sharing);
             common_parallel_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing);
         }

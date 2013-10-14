@@ -302,6 +302,9 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP SECTIONS node
             bool is_omp_sections_node( );
 
+            //! Returns true when the node is any kind of OpenMP SIMD node
+            bool is_omp_simd_node( );
+            
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
 
