@@ -284,73 +284,73 @@ namespace TL
                 fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
             }
 
-            if (!_svml_sse_enabled && _fast_math_enabled)
+            if (!_svml_knc_enabled && _fast_math_enabled)
             {
-                _svml_sse_enabled = true;
+                _svml_knc_enabled = true;
 
-                // SVML SSE
-                TL::Source svml_sse_vector_math;
+                // SVML KNC
+                TL::Source svml_knc_vector_math;
 
                 // No mask
-                svml_sse_vector_math << "__m512 __svml_expf16(__m512);\n"
-                    << "__m512 __svml_sqrtf16(__m512);\n"
-                    << "__m512 __svml_logf16(__m512);\n"
-                    << "__m512 __svml_sinf16(__m512);\n"
-                    << "__m512 __svml_sincosf16(__m512, __m512*, __m512*);\n"
-                    << "__m512 __svml_floorf16(__m512);\n"
+                svml_knc_vector_math << "__m512 _mm512_exp_ps(__m512);\n"
+                    << "__m512 _mm512_sqrt_ps(__m512);\n"
+                    << "__m512 _mm512_log_ps(__m512);\n"
+                    << "__m512 _mm512_sin_ps(__m512);\n"
+                    << "__m512 _mm512_sincos_ps(__m512, __m512*, __m512*);\n"
+                    << "__m512 _mm512_floor_ps(__m512);\n"
                     ;
 
                 // Mask
-                svml_sse_vector_math << "__m512 __svml_expf16_mask(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_sqrtf16_mask(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_logf16_mask(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_sinf16_mask(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_sincosf16_mask(__m512, __mmask16, __m512*, __m512*);\n"
-                    << "__m512 __svml_floorf16_mask(__m512, __mmask16, __m512);\n"
+                svml_knc_vector_math << "__m512 _mm512_mask_exp_ps(__m512, __mmask16, __m512);\n"
+                    << "__m512 _mm512_mask_sqrt_ps(__m512, __mmask16, __m512);\n"
+                    << "__m512 _mm512_mask_log_ps(__m512, __mmask16, __m512);\n"
+                    << "__m512 _mm512_mask_sin_ps(__m512, __mmask16, __m512);\n"
+                    << "__m512 _mm512_mask_sincos_ps(__m512, __mmask16, __m512*, __m512*);\n"
+                    << "__m512 _mm512_mask_floor_ps(__m512, __mmask16, __m512);\n"
                     ;
 
                 // Parse SVML declarations
                 TL::Scope global_scope = TL::Scope::get_global_scope();
-                svml_sse_vector_math.parse_global(global_scope);
+                svml_knc_vector_math.parse_global(global_scope);
 
                 // Add SVML math function as vector version of the scalar one
                 add_vector_function_version("expf", 
-                            global_scope.get_symbol_from_name("__svml_expf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_exp_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
-                            global_scope.get_symbol_from_name("__svml_sqrtf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_sqrt_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
-                            global_scope.get_symbol_from_name("__svml_logf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_log_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
-                            global_scope.get_symbol_from_name("__svml_sinf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_sin_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
-                            global_scope.get_symbol_from_name("__svml_sincosf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_sincos_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
-                            global_scope.get_symbol_from_name("__svml_floorf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_floor_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 
                 // Add SVML math masked function as vector version of the scalar one
                 add_vector_function_version("expf", 
-                            global_scope.get_symbol_from_name("__svml_expf16_mask").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_mask_exp_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
-                            global_scope.get_symbol_from_name("__svml_sqrtf16_mask").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_mask_sqrt_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
-                            global_scope.get_symbol_from_name("__svml_logf16_mask").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_mask_log_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
-                            global_scope.get_symbol_from_name("__svml_sinf16_mask").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_mask_sin_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
-                            global_scope.get_symbol_from_name("__svml_sincosf16_mask").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_mask_sincos_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
-                            global_scope.get_symbol_from_name("__svml_floorf16_mask").make_nodecl(true),
+                            global_scope.get_symbol_from_name("_mm512_mask_floor_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
             }
         }
