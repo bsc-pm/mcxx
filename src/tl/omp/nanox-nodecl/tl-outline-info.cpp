@@ -51,7 +51,8 @@ namespace TL { namespace Nanox {
             // Builtin identifiers that became reserved names in later versions
             // of gcc
             if (name == "__PRETTY_FUNCTION__" // g++
-                    || name == "__FUNCTION__") // gcc
+                    || name == "__FUNCTION__" // gcc
+                    || name == "__MERCURIUM_PRETTY_FUNCTION__") // Mercurium
                 name = strtolower(name.c_str());
             else if (name == "__func__") // C99
                 name = "__function__";
