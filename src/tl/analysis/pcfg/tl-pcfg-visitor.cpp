@@ -2737,7 +2737,7 @@ namespace Analysis {
         Scope s_sc = n.get_symbol( ).get_scope( );
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
-            Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
+            Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::UseDefVariant::UNDEFINED );
             if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
                 _pcfg->_global_vars.insert( glob_var_usage );
         }
@@ -2873,7 +2873,7 @@ namespace Analysis {
         Scope s_sc = n.get_symbol( ).get_scope( );
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
         {
-            Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::undefined_usage );
+            Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::UseDefVariant::UNDEFINED );
             if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
             {
                 _pcfg->_global_vars.insert( glob_var_usage );

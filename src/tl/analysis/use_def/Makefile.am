@@ -41,9 +41,7 @@ libuse_def_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.l
 
 END=
 
-libuse_def_la_SOURCES = tl-rename-visitor.hpp \
-                        tl-rename-visitor.cpp \
-                        tl-use-def.hpp \
+libuse_def_la_SOURCES = tl-use-def.hpp \
                         tl-use-def.cpp \
                         $(END)
 

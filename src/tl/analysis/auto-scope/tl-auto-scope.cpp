@@ -30,9 +30,247 @@
 namespace TL {
 namespace Analysis {
 
-    static bool sync_in_all_branches( Node* current, Node* original );
-    static void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result );
-    static bool task_in_loop_is_synchronized_within_loop( Node* task );
+namespace {
+    
+    bool sync_in_all_branches( Node* current, Node* original )
+    {
+        bool res = false;
+        
+        if( !current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( true );
+            
+            if( !current->is_exit_node( ) )
+            {
+                if( current->is_graph_node( ) )
+                {
+                    if( current->is_ifelse_statement( ) || current->is_switch_statement( ) )
+                    {
+                        Node* condition = current->get_graph_entry_node( )->get_children( )[0];
+                        ObjectList<Node*> children = condition->get_children( );
+                        bool partial_res = true;
+                        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
+                        {
+                            partial_res = partial_res && sync_in_all_branches( *it, original );
+                        }
+                        res = partial_res;
+                    }
+                    else
+                    {
+                        res = sync_in_all_branches( current->get_graph_entry_node( ), original );
+                    }
+                }
+                else if( current->is_omp_taskwait_node( ) || current->is_omp_barrier_node( ) )
+                {
+                    res = true;
+                }
+                
+                // If we are navigating inside a graph node
+                if( !res && ( current != original ) )
+                {
+                    ObjectList<Node*> children = current->get_children( );
+                    ERROR_CONDITION( children.size( ) != 1, 
+                                     "PCFG non-conditional nodes other than a graph exit node, are expected to have one child.\n"\
+                                     "Node '%d' has '%d' children.\n", current->get_id( ), children.size( ) );
+                    bool partial_res = true;
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
+                    {
+                        partial_res = partial_res && sync_in_all_branches( *it, original );
+                    }
+                    res = partial_res;
+                }
+            }
+        }
+        
+        return res;
+    }
+    
+    void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result )
+    {
+        if( !current->is_visited( ) && ( current != last ) )
+        {
+            current->set_visited( true );
+            
+            if( current->is_exit_node( ) )
+                return;
+            
+            if( current->is_graph_node( ) )
+            {
+                // Add inner tasks recursively, if exist
+                collect_tasks_between_nodes( current->get_graph_entry_node( ), last, skip, result );
+                
+                // Add current node if it is a task
+                if( current->is_omp_task_node( ) && ( current != skip ) )
+                    result.insert( current );
+            }
+            
+            ObjectList<Node*> children = current->get_children( );
+            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            {
+                collect_tasks_between_nodes( *it, last, skip, result );
+            }
+        }
+    }
+    
+    bool task_in_loop_is_synchronized_within_loop( Node* task )
+    {
+        bool res = false;
+        
+        Node* task_sync = task->get_children( )[0];
+        if( !task_sync->is_omp_virtual_tasksync( ) )
+        {
+            Node* task_outer = task->get_outer_node( );
+            
+            while( ( task_outer != NULL ) && !res )
+            {
+                // Get the next loop were the task is nested
+                while( !task_outer->is_loop_node( ) && ( task_outer != NULL ) )
+                    task_outer = task_outer->get_outer_node( );
+                
+                if( ( task_outer != NULL ) && ExtensibleGraph::node_contains_node( task_outer, task_sync ) )
+                    res = true;
+            }
+        }
+        
+        return res;
+    }
+    
+    void collect_previous_tasks_synchronized_after_scheduling_point( Node* task, ObjectList<Node*> currents, ObjectList<Node*>& result )
+    {
+        for( ObjectList<Node*>::iterator it = currents.begin( ); it != currents.end( ); ++it )
+        {
+            if( !( *it )->is_visited_aux( ) )
+            {
+                ( *it )->set_visited_aux( true );
+                
+                if( ( *it )->is_omp_task_node( ) )
+                {
+                    Node* it_sync = ( *it )->get_children( )[0];
+                    if( ExtensibleGraph::node_is_ancestor_of_node( task, it_sync ) )
+                    {
+                        result.insert( *it );
+                    }
+                }
+            }
+        }
+    }
+    
+    Utils::UseDefVariant compute_usage_in_region_rec( Node* current, Nodecl::NodeclBase ei_nodecl, Node* region )
+    {
+        Utils::UseDefVariant result( Utils::UseDefVariant::NONE );
+        
+        if( !current->is_visited_aux( ) && ExtensibleGraph::node_contains_node( region, current ) )
+        {
+            current->set_visited_aux( true );
+            
+            if( !current->is_exit_node( ) )
+            {
+                if( current->is_graph_node( ) )
+                {
+                    result = compute_usage_in_region_rec( current->get_graph_entry_node( ), ei_nodecl, region );
+                }
+                else
+                {
+                    Utils::ext_sym_set undef = current->get_undefined_behaviour_vars( );
+                    if( Utils::ext_sym_set_contains_nodecl( ei_nodecl, undef ) )
+                        result = Utils::UseDefVariant::UNDEFINED;
+                    Utils::ext_sym_set ue = current->get_ue_vars( );
+                    if( Utils::ext_sym_set_contains_nodecl( ei_nodecl, ue ) )
+                        result = Utils::UseDefVariant::USED;
+                    Utils::ext_sym_set killed = current->get_killed_vars( );
+                    if( Utils::ext_sym_set_contains_nodecl( ei_nodecl, killed ) )
+                        result = Utils::UseDefVariant::DEFINED;
+                }
+                
+                if( result._usage_variants & Utils::UseDefVariant::UNDEFINED )
+                {}   // Nothing else to be done because we will not be able to say anything about this variable
+                else
+                {
+                    ObjectList<Node*> children = current->get_children( );
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                    {
+                        result = result | compute_usage_in_region_rec( *it, ei_nodecl, region );
+                    }
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    Utils::UseDefVariant compute_usage_in_region( Utils::ExtendedSymbol ei, Node* region )
+    {
+        Node* region_entry = region->get_graph_entry_node( );
+        Utils::UseDefVariant result = compute_usage_in_region_rec( region_entry, ei.get_nodecl( ), region );
+        ExtensibleGraph::clear_visits_aux_in_level( region_entry, region );
+        return result;
+    }
+    
+    Utils::UseDefVariant compute_usage_in_regions( Utils::ExtendedSymbol ei, ObjectList<Node*> regions )
+    {
+        Utils::UseDefVariant result = Utils::UseDefVariant::NONE;
+        
+        for( ObjectList<Node*>::iterator it = regions.begin( ); it != regions.end( ); it++ )
+            result = result | compute_usage_in_region( ei, *it );
+        
+        return result;
+    }
+    
+    bool access_are_synchronous_rec( Node* current, Nodecl::NodeclBase ei_nodecl, Node* region )
+    {
+        bool result = true;
+        
+        if( !current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( true );
+            
+            if( !current->is_exit_node( ) )
+            {
+                if( current->is_graph_node( ) )
+                {
+                    result = access_are_synchronous_rec( current->get_graph_entry_node( ), ei_nodecl, region );
+                }
+                else
+                {
+                    Utils::ext_sym_set ue_vars = current->get_ue_vars( );
+                    Utils::ext_sym_set killed_vars = current->get_killed_vars( );
+                    if( ( Utils::ext_sym_set_contains_nodecl( ei_nodecl, ue_vars ) || 
+                          Utils::ext_sym_set_contains_nodecl( ei_nodecl, killed_vars ) ) &&
+                        !ExtensibleGraph::node_is_in_synchronous_construct( current ) )
+                    {
+                        result = false;
+                    }
+                }
+                
+                if( result )
+                {
+                    ObjectList<Node*> children = current->get_children( );
+                    for( ObjectList<Node*>::iterator it = children.begin( ); ( it != children.end( ) ) && result; it++ )
+                        result = access_are_synchronous_rec( *it, ei_nodecl, region );
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    bool access_are_synchronous( Utils::ExtendedSymbol ei, Node* region )
+    {
+        Node* region_entry = region->get_graph_entry_node( );
+        bool result = access_are_synchronous_rec( region_entry, ei.get_nodecl( ), region );
+        ExtensibleGraph::clear_visits_aux_in_level( region_entry, region );
+        return result;
+    }
+    
+    bool access_are_synchronous( Utils::ExtendedSymbol ei, ObjectList<Node*> regions )
+    {
+        bool result = true;
+        for( ObjectList<Node*>::iterator it = regions.begin( ); ( it != regions.end( ) ) && result; ++it )
+            result = result && access_are_synchronous( ei, *it );
+        return result;
+    }
+    
+}
     
     AutoScoping::AutoScoping( ExtensibleGraph* pcfg )
         : _graph( pcfg ),
@@ -63,31 +301,14 @@ namespace Analysis {
         if( _last_sync.empty( ) )
             _check_only_local = true;
         
-        // All variables with an undefined behavior cannot be scoped
-        Utils::ext_sym_set undef_beh = task->get_undefined_behaviour_vars( );
-        for( Utils::ext_sym_set::iterator it = undef_beh.begin( ); it != undef_beh.end( ); ++it )
-        {
-            Scope sc( task->get_graph_label( ).retrieve_context( ) );
-            if( !it->get_symbol( ).get_scope( ).scope_is_enclosed_by( sc ) )
-                task->set_sc_undef_var( *it );
-        }   
-        
-        // FIXME Check from here!!!
-        
         // Compute the regions of code that can be simultaneous with the current tasks
         compute_simultaneous_tasks( task );
-//         for( ObjectList<Node*>::iterator it = task_parents.begin( ); it != task_parents.end( ); ++it )
-//         {
-//             ExtensibleGraph::clear_visits_aux_backwards( *it );
-//         }
-//         
-//         // If the current task is created in a loop, then it is simultaneous with itself
-//         bool is_in_loop = ExtensibleGraph::node_is_in_loop( task );
-//         
-//         // Scope non-undefined behavior variables
-//         Utils::ext_sym_set scoped_vars;
-//         Node* task_entry = task->get_graph_entry_node( );
-//         compute_task_auto_scoping_rec( task, task_entry, is_in_loop, scoped_vars );
+        
+        // Scope variables
+        Utils::ext_sym_set scoped_vars;
+        Node* task_entry = task->get_graph_entry_node( );
+        compute_task_auto_scoping_rec( task, task_entry, scoped_vars );
+        ExtensibleGraph::clear_visits( task_entry );
     }
 
     void AutoScoping::define_concurrent_regions_limits( Node* task )
@@ -149,60 +370,6 @@ namespace Analysis {
 //             find_last_synchronization_point_in_children( task, task_outer );
 //         }
         ExtensibleGraph::clear_visits_backwards( task );
-//         ExtensibleGraph::clear_visits_aux( task );
-    }
-    
-    static bool sync_in_all_branches( Node* current, Node* original )
-    {
-        bool res = false;
-        
-        if( !current->is_visited_aux( ) )
-        {
-            current->set_visited_aux( true );
-            
-            if( !current->is_exit_node( ) )
-            {
-                if( current->is_graph_node( ) )
-                {
-                    if( current->is_ifelse_statement( ) || current->is_switch_statement( ) )
-                    {
-                        Node* condition = current->get_graph_entry_node( )->get_children( )[0];
-                        ObjectList<Node*> children = condition->get_children( );
-                        bool partial_res = true;
-                        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
-                        {
-                            partial_res = partial_res && sync_in_all_branches( *it, original );
-                        }
-                        res = partial_res;
-                    }
-                    else
-                    {
-                        res = sync_in_all_branches( current->get_graph_entry_node( ), original );
-                    }
-                }
-                else if( current->is_omp_taskwait_node( ) || current->is_omp_barrier_node( ) )
-                {
-                    res = true;
-                }
-                
-                // If we are navigating inside a graph node
-                if( !res && ( current != original ) )
-                {
-                    ObjectList<Node*> children = current->get_children( );
-                    ERROR_CONDITION( children.size( ) != 1, 
-                                     "PCFG non-conditional nodes other than a graph exit node, are expected to have one child.\n"\
-                                     "Node '%d' has '%d' children.\n", current->get_id( ), children.size( ) );
-                    bool partial_res = true;
-                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
-                    {
-                        partial_res = partial_res && sync_in_all_branches( *it, original );
-                    }
-                    res = partial_res;
-                }
-            }
-        }
-        
-        return res;
     }
     
     void AutoScoping::find_last_synchronization_point_in_parents( Node* current )
@@ -317,76 +484,6 @@ namespace Analysis {
         }
     }
     
-    static void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result )
-    {
-        if( !current->is_visited( ) && ( current != last ) )
-        {
-            current->set_visited( true );
-            
-            if( current->is_exit_node( ) )
-                return;
-            
-            if( current->is_graph_node( ) )
-            {
-                // Add inner tasks recursively, if exist
-                collect_tasks_between_nodes( current->get_graph_entry_node( ), last, skip, result );
-                
-                // Add current node if it is a task
-                if( current->is_omp_task_node( ) && ( current != skip ) )
-                    result.insert( current );
-            }
-            
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                collect_tasks_between_nodes( *it, last, skip, result );
-            }
-        }
-    }
-    
-    static bool task_in_loop_is_synchronized_within_loop( Node* task )
-    {
-        bool res = false;
-        
-        Node* task_sync = task->get_children( )[0];
-        if( !task_sync->is_omp_virtual_tasksync( ) )
-        {
-            Node* task_outer = task->get_outer_node( );
-            
-            while( ( task_outer != NULL ) && !res )
-            {
-                // Get the next loop were the task is nested
-                while( !task_outer->is_loop_node( ) && ( task_outer != NULL ) )
-                    task_outer = task_outer->get_outer_node( );
-                
-                if( ( task_outer != NULL ) && ExtensibleGraph::node_contains_node( task_outer, task_sync ) )
-                    res = true;
-            }
-        }
-        
-        return res;
-    }
-    
-    static void collect_previous_tasks_synchronized_after_scheduling_point( Node* task, ObjectList<Node*> currents, ObjectList<Node*>& result )
-    {
-        for( ObjectList<Node*>::iterator it = currents.begin( ); it != currents.end( ); ++it )
-        {
-            if( !( *it )->is_visited_aux( ) )
-            {
-                ( *it )->set_visited_aux( true );
-                
-                if( ( *it )->is_omp_task_node( ) )
-                {
-                    Node* it_sync = ( *it )->get_children( )[0];
-                    if( ExtensibleGraph::node_is_ancestor_of_node( task, it_sync ) )
-                    {
-                        result.insert( *it );
-                    }
-                }
-            }
-        }
-    }
-    
     void AutoScoping::compute_simultaneous_tasks( Node* task )
     {
         // When the task is in a loop and it is not synchronized inside the loop and
@@ -421,9 +518,7 @@ namespace Analysis {
                 collect_previous_tasks_synchronized_after_scheduling_point( task, it_parents, _simultaneous_tasks );
                 // We don want to clear the visit in *it, but from its parents
                 for( ObjectList<Node*>::iterator itp = it_parents.begin( ); itp != it_parents.end( ); ++itp )
-                {
                     ExtensibleGraph::clear_visits_backwards( *itp );
-                }
             }
         }
         for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
@@ -432,7 +527,7 @@ namespace Analysis {
         }
     }
 
-    void AutoScoping::compute_task_auto_scoping_rec( Node* task, Node* current, bool is_in_loop, Utils::ext_sym_set& scoped_vars )
+    void AutoScoping::compute_task_auto_scoping_rec( Node* task, Node* current, Utils::ext_sym_set& scoped_vars )
     {
         if( !current->is_visited( ) )
         {
@@ -440,7 +535,7 @@ namespace Analysis {
 
             if( current->is_graph_node( ) )
             {
-                compute_task_auto_scoping_rec( task, current->get_graph_entry_node( ), is_in_loop, scoped_vars );
+                compute_task_auto_scoping_rec( task, current->get_graph_entry_node( ), scoped_vars );
             }
             else if( current->has_statements( ) )
             {
@@ -451,98 +546,88 @@ namespace Analysis {
                 for( Utils::ext_sym_set::iterator it = ue.begin( ); it != ue.end( ); ++it )
                 {
                     Symbol s( it->get_symbol( ) );
-                    if( s.is_valid( ) && !s.get_scope( ).scope_is_enclosed_by( sc )
-                        && !ext_sym_set_contains_englobing_nodecl( *it, undef ) )
-                        scope_variable( task, current, '1', *it, is_in_loop, scoped_vars );
+                    if( s.is_valid( ) && !s.get_scope( ).scope_is_enclosed_by( sc ) )
+                        scope_variable( task, current, Utils::UseDefVariant::USED, *it, scoped_vars );
                 }
 
                 Utils::ext_sym_set killed = current->get_killed_vars( );
                 for( Utils::ext_sym_set::iterator it = killed.begin( ); it != killed.end( ); ++it )
                 {
                     Symbol s( it->get_symbol( ) );
-                    if( s.is_valid( ) && !s.get_scope( ).scope_is_enclosed_by( sc )
-                        && !Utils::ext_sym_set_contains_englobing_nodecl( *it, undef ) )
-                        scope_variable( task, current, '0', *it, is_in_loop, scoped_vars );
+                    if( s.is_valid( ) && !s.get_scope( ).scope_is_enclosed_by( sc ) )
+                        scope_variable( task, current, Utils::UseDefVariant::DEFINED, *it, scoped_vars );
                 }
             }
 
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                compute_task_auto_scoping_rec( task, *it, is_in_loop, scoped_vars );
-            }
+                compute_task_auto_scoping_rec( task, *it, scoped_vars );
         }
     }
-
-    void AutoScoping::scope_variable( Node* task, Node* ei_node, char usage, Utils::ExtendedSymbol ei,
-                                      bool is_in_loop, Utils::ext_sym_set& scoped_vars )
+    
+    void AutoScoping::scope_variable( Node* task, Node* ei_node, Utils::UseDefVariant usage, Utils::ExtendedSymbol ei,
+                                      Utils::ext_sym_set& scoped_vars )
     {
         if( !Utils::ext_sym_set_contains_englobing_nodecl( ei, scoped_vars ) )
         {   // The expression is not a symbol local from the task
             scoped_vars.insert( ei );
-            ObjectList<Node*> uses_out = var_uses_out_task( task, ei );
-            ObjectList<Node*> uses_in = var_uses_in_task(task, ei);
-            ExtensibleGraph::clear_visits_aux(task);
 
-            if( uses_out.empty( ) )
+            Utils::UseDefVariant usage_in_concurrent_regions = compute_usage_in_regions( ei, _simultaneous_tasks );
+            Utils::UseDefVariant usage_in_task = compute_usage_in_region( ei, task );
+            
+            if( ( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::UNDEFINED ) || 
+                ( usage_in_task._usage_variants & Utils::UseDefVariant::UNDEFINED ) )
             {
-                bool scoped = false;
-                if( is_in_loop )
+                task->set_sc_undef_var( ei );
+            }
+            else if( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::NONE )
+            {
+                if( usage_in_task._usage_variants & Utils::UseDefVariant::DEFINED )
                 {
-                    scoped = scope_ie_in_iterated_task( task, ei_node, ei_node, usage, ei );
-                    ExtensibleGraph::clear_visits_aux( ei_node );
-                }
-
-                if( !scoped )
-                {   // No need to privatize the variable because of a race condition with the same task
-                    Utils::ext_sym_set task_killed = task->get_killed_vars( );
-                    if ( !Utils::ext_sym_set_contains_englobing_nodecl( ei, task_killed )
-                        && !Utils::ext_sym_set_contains_englobed_nodecl( ei, task_killed ) )
+                    if( usage_list_contains_extsym( ei, _graph->get_global_variables( ) ) || 
+                        Utils::ext_sym_set_contains_nodecl( ei.get_nodecl( ), task->get_live_out_vars( ) ) )
                     {
-                        task->set_sc_firstprivate_var( ei );
+                        task->set_sc_shared_var( ei );
                     }
                     else
                     {
-                        Utils::ext_sym_set task_live_out = task->get_live_out_vars( );
-                        if ( ext_sym_set_contains_englobing_nodecl( ei, task_live_out )
-                                || ext_sym_set_contains_englobed_nodecl( ei, task_live_out )
-                                || ( is_in_loop && task_reads_and_writes( task, ei ) ) )
-                        {
-                            task->set_sc_shared_var( ei );
-                        }
+                        if( usage._usage_variants & Utils::UseDefVariant::DEFINED )
+                            task->set_sc_private_var( ei );
                         else
-                        {
-                            Utils::ext_sym_set task_live_in = task->get_live_in_vars( );
-                            if ( Utils::ext_sym_set_contains_englobing_nodecl( ei, task_live_in )
-                                    || Utils::ext_sym_set_contains_englobed_nodecl( ei, task_live_out ) )
-                            {
-                                task->set_sc_firstprivate_var( ei );
-                            }
-                            else
-                            {
-                                task->set_sc_private_var( ei );
-                            }
-                        }
+                            task->set_sc_firstprivate_var( ei );
                     }
+                }
+                else
+                {   // SHARED_OR_FIRSTPRIVATE
+                    Type ei_type = ei.get_nodecl( ).get_type( );
+                    if( ei_type.is_scalar_type( ) || ei_type.is_any_reference( ) )
+                        task->set_sc_firstprivate_var( ei );
+                    else
+                        task->set_sc_shared_var( ei );
+                }
+            }
+            else if( ( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::DEFINED ) || 
+                     ( ( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::USED ) && 
+                         usage._usage_variants & Utils::UseDefVariant::DEFINED ) )
+            {   // The variable is used in concurrent regions and at least one of the access is a write
+                // Check for data race conditions
+                if( access_are_synchronous( ei, _simultaneous_tasks ) && access_are_synchronous( ei, task ) )
+                {
+                    task->set_sc_shared_var( ei );
+                }
+                else
+                {   // Avoid data race conditions by privatizing the variable
+                    task->set_sc_private_var( ei );
                 }
             }
             else
-            {
-                if( task_and_simultaneous_only_read( task, ei ) )
-                {
+            {   // Either the variable not used in the concurrent regions, or, if it is, all the access are read
+                // SHARED_OR_FIRSTPRIVATE
+                Type ei_type = ei.get_nodecl( ).get_type( );
+                if( ei_type.is_scalar_type( ) || ei_type.is_any_reference( ) )
                     task->set_sc_firstprivate_var( ei );
-                }
                 else
-                {   // look for data race  conditions:
-                    //   A. If it can occur a data race condition, then v has to be privatized. Sic:
-                    //      − If the first action performed in v within the task is a write, then v is scoped as PRIVATE.
-                    //      − If the first action performed in v within the task is a read, then v is scoped as FIRSTPRIVATE.
-                    //   B. If we can assure that no data race can occur, then v is scoped as SHARED.
-                    // TODO
-                    WARNING_MESSAGE( "Variable '%s' within task is written, we should look for data race conditions here!! "\
-                                        "This is not yet implemented", ei.get_nodecl( ).prettyprint( ).c_str( ) );
-                    task->set_sc_race_var( ei );
-                }
+                    task->set_sc_shared_var( ei );
             }
         }
     }

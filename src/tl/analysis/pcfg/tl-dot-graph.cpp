@@ -161,10 +161,10 @@ namespace {
             std::string sc_firstprivate = prettyprint_ext_sym_set( current->get_sc_firstprivate_vars( ), /*dot*/ true );
             std::string sc_shared = prettyprint_ext_sym_set( current->get_sc_shared_vars( ), /*dot*/ true );
             std::string sc_undefined = prettyprint_ext_sym_set( current->get_sc_undef_vars( ), /*dot*/ true );
-            auto_scope = ( sc_private.empty( )     ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
-                         + ( sc_private.empty( )   ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
-                         + ( sc_shared.empty( )    ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
-                         + ( sc_undefined.empty( ) ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
+            auto_scope = ( sc_private.empty( )        ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
+                         + ( sc_firstprivate.empty( ) ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
+                         + ( sc_shared.empty( )       ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
+                         + ( sc_undefined.empty( )    ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
         }
         return auto_scope;
     }

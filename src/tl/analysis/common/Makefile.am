@@ -35,7 +35,9 @@ libanalysis_utils_la_LIBADD = $(tl_libadd) ../../libtl.la
 
 END=
 
-libanalysis_utils_la_SOURCES= tl-extended-symbol.hpp \
+libanalysis_utils_la_SOURCES= tl-rename-visitor.hpp \
+                              tl-rename-visitor.cpp \
+                              tl-extended-symbol.hpp \
                               tl-extended-symbol.cpp \
                               tl-extended-symbol-utils.hpp \
                               tl-extended-symbol-utils.cpp \

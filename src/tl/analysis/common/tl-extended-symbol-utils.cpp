@@ -35,15 +35,57 @@ namespace Analysis {
 namespace Utils {
 
     // **************************************************************************************** //
-    // ***************************** Extended Symbol comparisons ****************************** //
-
+    // ******************* Class representing the usage of Extended Symbols ******************* //
+    
+    UseDefVariant::UseDefVariant( Usage_tag a )
+        : _usage_variants( a )
+    {}
+    
+    UseDefVariant::UseDefVariant( int a )
+        : _usage_variants( Usage_tag( a ) )
+    {}
+    
+    UseDefVariant UseDefVariant::operator|( UseDefVariant a )
+    {
+        return UseDefVariant( int( this->_usage_variants ) | int( a._usage_variants ) );
+    }
+    
+    ExtendedSymbolUsage::ExtendedSymbolUsage( ExtendedSymbol es, UseDefVariant usage )
+        : _es( es ), _usage( usage )
+    {}
+    
+    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
+    {
+        return _es;
+    }
+    
+    Nodecl::NodeclBase ExtendedSymbolUsage::get_nodecl( ) const
+    {
+        return _es.get_nodecl();
+    }
+    
+    UseDefVariant ExtendedSymbolUsage::get_usage( ) const
+    {
+        return _usage;
+    }
+    
+    void ExtendedSymbolUsage::set_usage( UseDefVariant usage )
+    {
+        _usage = usage;
+    }
+    
+    bool ExtendedSymbolUsage::operator==( const ExtendedSymbolUsage& esu ) const
+    {
+        return ( Nodecl::Utils::equal_nodecls( this->get_nodecl( ), esu.get_nodecl( ) ) );
+    }
+    
     bool extended_symbol_contains_extended_symbol( ExtendedSymbol container, ExtendedSymbol contained )
     {
         return Nodecl::Utils::nodecl_contains_nodecl( container.get_nodecl( ), contained.get_nodecl( ) );
     }
-
+    
+    // ***************** END class representing the usage of Extended Symbols ***************** //
     // **************************************************************************************** //
-    // *************************** END extended Symbol comparisons **************************** //
 
 
 
@@ -290,6 +332,11 @@ namespace Utils {
         }
     }
 
+    bool usage_list_contains_extsym( ExtendedSymbol ei, ObjectList<ExtendedSymbolUsage> list )
+    {
+        return usage_list_contains_nodecl( ei.get_nodecl( ), list );
+    }
+    
     bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
     {
         for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
@@ -350,7 +397,7 @@ namespace Utils {
 
     bool usage_list_contains_englobed_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
     {
-        ExtendedSymbolUsage fake_usage( n, undefined_usage );
+        ExtendedSymbolUsage fake_usage( n, UseDefVariant::UNDEFINED );
         ObjectList<ExtendedSymbolUsage> fake_list( 1, fake_usage );
         for(ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -404,7 +451,7 @@ namespace Utils {
 
     void delete_englobed_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
     {
-        ExtendedSymbolUsage fake_usage( n, undefined_usage );
+        ExtendedSymbolUsage fake_usage( n, UseDefVariant::UNDEFINED );
         ObjectList<ExtendedSymbolUsage> fake_list( 1, fake_usage );
         for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -447,44 +494,6 @@ namespace Utils {
     }
 
     // ************* END methods for dealing with containers of Extended Symbols ************** //
-    // **************************************************************************************** //
-
-
-
-    // **************************************************************************************** //
-    // ******************* Class representing the usage of Extended Symbols ******************* //
-
-    ExtendedSymbolUsage::ExtendedSymbolUsage( ExtendedSymbol es, UsageValue usage )
-        : _es( es ), _usage( usage )
-    {}
-
-    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
-    {
-        return _es;
-    }
-
-    Nodecl::NodeclBase ExtendedSymbolUsage::get_nodecl( ) const
-    {
-        return _es.get_nodecl();
-    }
-
-    UsageValue ExtendedSymbolUsage::get_usage( ) const
-    {
-        return _usage;
-    }
-
-    void ExtendedSymbolUsage::set_usage( UsageValue usage )
-    {
-        _usage = usage;
-    }
-
-
-    bool ExtendedSymbolUsage::operator==( const ExtendedSymbolUsage& esu ) const
-    {
-        return ( Nodecl::Utils::equal_nodecls( this->get_nodecl( ), esu.get_nodecl( ) ) );
-    }
-
-    // ***************** END class representing the usage of Extended Symbols ***************** //
     // **************************************************************************************** //
 }
 }
