@@ -183,17 +183,9 @@ namespace TL
                 if(mask_check_cost_if > MASK_CHECK_THRESHOLD)
                 {
                     // Create IF to check if if_mask is all zero
-                    Nodecl::IfElseStatement if_check =
-                        Nodecl::IfElseStatement::make(
-                                Nodecl::Different::make(
-                                    if_mask_nodecl.shallow_copy(),
-                                    Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                        const_value_get_zero(4, 0),
-                                        n.get_locus()),
-                                    TL::Type::get_bool_type(),
-                                    n.get_locus()),
-                                n.get_then().shallow_copy(),
-                                Nodecl::NodeclBase::null());
+                    Nodecl::NodeclBase if_check = 
+                        Vectorization::Utils::get_if_mask_is_not_zero_nodecl(if_mask_nodecl,
+                                n.get_then().shallow_copy());
 
                     list.append(if_check);
                 }
@@ -234,17 +226,9 @@ namespace TL
                     if(mask_check_cost_else > MASK_CHECK_THRESHOLD)
                     {
                         // Create IF to check if else_mask is all zero
-                        Nodecl::IfElseStatement else_check =
-                            Nodecl::IfElseStatement::make(
-                                    Nodecl::Different::make(
-                                        else_mask_nodecl.shallow_copy(),
-                                        Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                            const_value_get_zero(4, 0),
-                                            n.get_locus()),
-                                        TL::Type::get_bool_type(),
-                                        n.get_locus()),
-                                    n.get_else().shallow_copy(),
-                                    Nodecl::NodeclBase::null());
+                        Nodecl::NodeclBase else_check =
+                            Vectorization::Utils::get_if_mask_is_not_zero_nodecl(else_mask_nodecl,
+                                    n.get_else().shallow_copy());
 
                         list.append(else_check);
                     }

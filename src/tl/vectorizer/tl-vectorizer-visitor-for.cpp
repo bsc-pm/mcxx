@@ -517,7 +517,7 @@ namespace TL
             _environment._mask_list.pop_back();
            
             Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
-                    comp_statement.retrieve_context(),
+                    for_statement.retrieve_context(),
                     _environment._unroll_factor, true);
 
             // Compute epilog mask expression
@@ -530,7 +530,7 @@ namespace TL
                 mask_exp =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
-                                mask_value,
+                                mask_value.shallow_copy(),
                                 mask_nodecl_sym.get_type(),
                                 for_statement.get_locus()));
             }
@@ -542,7 +542,7 @@ namespace TL
                     Nodecl::ExpressionStatement::make(
                             Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
                                 Nodecl::VectorMaskConversion::make(
-                                    mask_value,
+                                    mask_value.shallow_copy(),
                                     mask_nodecl_sym.get_type(),
                                     for_statement.get_locus()),
                                 mask_nodecl_sym.get_type(),
@@ -559,23 +559,42 @@ namespace TL
             _environment._mask_list.pop_back();
 
 
-            Nodecl::List stmts_list = comp_statement.as<Nodecl::CompoundStatement>().
-                get_statements().as<Nodecl::List>();
+            Nodecl::List result_stmt_list;
+//            = comp_statement.as<Nodecl::CompoundStatement>().
+//                get_statements().as<Nodecl::List>();
 
-            // Add mask expression after vectorization
-            stmts_list.prepend(mask_exp); 
+            Nodecl::NodeclBase iv;
+            Nodecl::NodeclBase iv_init;
 
+            get_parallel_iv_init(for_statement, iv, iv_init);
+
+            // Special IV initialitation if parallel loop
             if (_environment._is_parallel_loop)
             {
                 Nodecl::ExpressionStatement iv_stmt =
                     Nodecl::ExpressionStatement::make(
-                            get_parallel_iv_init(for_statement));
+                            Nodecl::Assignment::make(
+                                iv.shallow_copy(),
+                                iv_init.shallow_copy(),
+                                iv.get_type(),
+                                iv.get_locus()),
+                            iv.get_locus());
 
-                stmts_list.prepend(iv_stmt);
+                result_stmt_list.append(iv_stmt);
             }
 
-            // Remove loop header
-            for_statement.replace(for_statement.get_statement());
+            // Add mask expression after vectorization
+            result_stmt_list.append(mask_exp); 
+
+            // Add IF check to skip epilog if mask is not zero
+            Nodecl::NodeclBase if_mask_is_not_zero = 
+                Vectorization::Utils::get_if_mask_is_not_zero_nodecl(mask_nodecl_sym.shallow_copy(),
+                        for_statement.get_statement().shallow_copy());
+
+            result_stmt_list.append(if_mask_is_not_zero);
+
+            // Replace for by list of statements
+            for_statement.replace(result_stmt_list);
 
             _environment._analysis_scopes.pop_back();
             _environment._local_scope_list.pop_back();
@@ -593,7 +612,16 @@ namespace TL
             Nodecl::NodeclBase new_iv_init;
             if (_environment._is_parallel_loop)
             {
-                new_iv_init = get_parallel_iv_init(for_statement);
+                Nodecl::NodeclBase iv;
+                Nodecl::NodeclBase iv_init;
+
+                get_parallel_iv_init(for_statement, iv, iv_init);
+
+                new_iv_init = Nodecl::Assignment::make(
+                        iv.shallow_copy(),
+                        iv_init.shallow_copy(),
+                        iv.get_type(),
+                        iv.get_locus());
             }
             else
             {
@@ -609,8 +637,10 @@ namespace TL
         }
 
 
-        Nodecl::Assignment VectorizerVisitorForEpilog::get_parallel_iv_init(
-                const Nodecl::ForStatement& for_statement)
+        void VectorizerVisitorForEpilog::get_parallel_iv_init(
+                const Nodecl::ForStatement& for_statement, 
+                Nodecl::NodeclBase &induction_variable,
+                Nodecl::NodeclBase &iv_init)
         {
             // Add IV initialization after vectorization
             TL::ForStatement tl_for_statement(for_statement);
@@ -634,28 +664,26 @@ namespace TL
             TL::Symbol iv = tl_for_statement.get_induction_variable();
             TL::Type iv_type = iv.get_type();
 
-            Nodecl::Assignment iv_new_init =
-                Nodecl::Assignment::make(
-                        iv.make_nodecl(true),
-                        Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Minus::make(
-                                par_upper_bound.shallow_copy(),
-                                Nodecl::Add::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        Nodecl::Mod::make(
-                                            par_upper_bound.shallow_copy(),
-                                            Nodecl::IntegerLiteral::make(
-                                                TL::Type::get_int_type(),
-                                                const_value_get_signed_int(_environment._unroll_factor)),
-                                            iv_type),
-                                        iv_type),
-                                    lower_bound.shallow_copy(),
+            // Induction Variable
+            induction_variable = iv.make_nodecl(true);
+
+            // Induction Variable Init
+            iv_init = Nodecl::ParenthesizedExpression::make(
+                    Nodecl::Minus::make(
+                        par_upper_bound.shallow_copy(),
+                        Nodecl::Add::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                Nodecl::Mod::make(
+                                    par_upper_bound.shallow_copy(),
+                                    Nodecl::IntegerLiteral::make(
+                                        TL::Type::get_int_type(),
+                                        const_value_get_signed_int(_environment._unroll_factor)),
                                     iv_type),
                                 iv_type),
+                            lower_bound.shallow_copy(),
                             iv_type),
-                        iv_type);
-            
-            return iv_new_init;
+                        iv_type),
+                    iv_type);
         }
 
 

@@ -306,6 +306,33 @@ namespace TL
 
                 return false;
             }
+
+            Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
+                    const Nodecl::NodeclBase& then)
+            {
+                Nodecl::NodeclBase processed_then;
+
+                if (then.is<Nodecl::List>())
+                    processed_then = then;
+                else
+                    processed_then = Nodecl::List::make(then);
+                    
+
+                // Create IF to check if if_mask is all zero
+                Nodecl::IfElseStatement if_mask_is_zero =
+                    Nodecl::IfElseStatement::make(
+                            Nodecl::Different::make(
+                                mask,
+                                Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                    const_value_get_zero(4, 0),
+                                    mask.get_locus()),
+                                TL::Type::get_bool_type(),
+                                mask.get_locus()),
+                            processed_then,
+                            Nodecl::NodeclBase::null());
+
+                return if_mask_is_zero;
+            }
         }
     }
 }
