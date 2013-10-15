@@ -1118,7 +1118,7 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args, extra_args;
+                mask_prefix, casting_args, args, mask_args;
 
             intrin_src << as_expression(lhs)
                 << " = "
@@ -1140,13 +1140,12 @@ namespace TL
             }
             else
             {
-                process_mask_component(mask, mask_prefix, mask_args, type,
-                        ConfigMaskProcessing::KEEP_OLD);
-
                 // Nodes that needs implicit blending
-                if (rhs.is<Nodecl::Symbol>() ||
-                        rhs.is<Nodecl::VectorFunctionCall>())
+                if (!_old_m512.empty())
                 {
+                    process_mask_component(mask, mask_prefix, mask_args, type,
+                            Vectorization::ConfigMaskProcessing::ONLY_MASK);
+
                     intrin_name << KNC_INTRIN_PREFIX
                         << mask_prefix
                         << intrin_op_name
@@ -1155,26 +1154,25 @@ namespace TL
                         ;
 
                     args << mask_args
+                        << as_expression(lhs)
+                        << ", "
                         << as_expression(rhs)
-                        << extra_args
                         ;
 
                     if (type.is_float()) 
                     {
-                        intrin_op_name << "mov";
+                        intrin_op_name << "blend";
                         intrin_type_suffix << "ps";
                     } 
                     else if (type.is_double()) 
                     { 
-                        intrin_op_name << "mov";
+                        intrin_op_name << "blend";
                         intrin_type_suffix << "pd";
                     } 
                     else if (type.is_integral_type()) 
                     { 
-                        intrin_op_name << "swizzle";
+                        intrin_op_name << "blend";
                         intrin_type_suffix << "epi32";
-
-                        extra_args << ", _MM_SWIZ_REG_NONE";
                     }
                 }
                 else

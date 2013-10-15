@@ -43,7 +43,7 @@ int main()
 
 #pragma omp parallel
     {
-#pragma omp simd for reduction(+:s,f,t) 
+#pragma omp simd for reduction(+:s,f) 
         for(i=0; i<100; i++)
         {
             s += (i+1);

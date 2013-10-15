@@ -426,8 +426,9 @@ namespace TL {
                     }
                     else
                     {
-                        running_error("SIMD: reduction '%s:%s' is not supported", 
-                                reduction_name.c_str(), scalar_tl_symbol.get_name().c_str());
+                        running_error("SIMD: reduction '%s:%s' (%s) is not supported", 
+                                reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
+                                reduction_type.get_simple_declaration(for_statement.retrieve_context(), "").c_str());
                     }
                 }
 
