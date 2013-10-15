@@ -65,6 +65,10 @@ namespace TL
             }
             return ptr;
         }
+        else if (IS_FORTRAN_LANGUAGE && this->is_any_reference())
+        {
+            return this->references_to();
+        }
         else if (this->is_array())
         {
             if (this->array_is_region())
