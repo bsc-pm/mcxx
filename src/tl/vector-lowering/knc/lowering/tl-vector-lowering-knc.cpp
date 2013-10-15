@@ -82,8 +82,8 @@ namespace TL
                         << ")"
                         << as_expression(_old_m512.back());
 
-                    if ((conf & ConfigMaskProcessing::NO_KEEP_OLD) ==
-                            ConfigMaskProcessing::NO_KEEP_OLD)
+                    if ((conf & ConfigMaskProcessing::KEEP_OLD) !=
+                            ConfigMaskProcessing::KEEP_OLD)
                     {
                         _old_m512.pop_back();
                     }
@@ -1140,36 +1140,46 @@ namespace TL
             }
             else
             {
-                process_mask_component(mask, mask_prefix, mask_args, type);
+                process_mask_component(mask, mask_prefix, mask_args, type,
+                        ConfigMaskProcessing::KEEP_OLD);
 
-                intrin_name << KNC_INTRIN_PREFIX
-                    << mask_prefix
-                    << intrin_op_name
-                    << "_"
-                    << intrin_type_suffix
-                    ;
-
-                args << mask_args
-                    << as_expression(rhs)
-                    << extra_args
-                    ;
-
-                if (type.is_float()) 
+                // Nodes that needs implicit blending
+                if (rhs.is<Nodecl::Symbol>() ||
+                        rhs.is<Nodecl::VectorFunctionCall>())
                 {
-                    intrin_op_name << "mov";
-                    intrin_type_suffix << "ps";
-                } 
-                else if (type.is_double()) 
-                { 
-                    intrin_op_name << "mov";
-                    intrin_type_suffix << "pd";
-                } 
-                else if (type.is_integral_type()) 
-                { 
-                    intrin_op_name << "swizzle";
-                    intrin_type_suffix << "epi32";
- 
-                    extra_args << ", _MM_SWIZ_REG_NONE";
+                    intrin_name << KNC_INTRIN_PREFIX
+                        << mask_prefix
+                        << intrin_op_name
+                        << "_"
+                        << intrin_type_suffix
+                        ;
+
+                    args << mask_args
+                        << as_expression(rhs)
+                        << extra_args
+                        ;
+
+                    if (type.is_float()) 
+                    {
+                        intrin_op_name << "mov";
+                        intrin_type_suffix << "ps";
+                    } 
+                    else if (type.is_double()) 
+                    { 
+                        intrin_op_name << "mov";
+                        intrin_type_suffix << "pd";
+                    } 
+                    else if (type.is_integral_type()) 
+                    { 
+                        intrin_op_name << "swizzle";
+                        intrin_type_suffix << "epi32";
+
+                        extra_args << ", _MM_SWIZ_REG_NONE";
+                    }
+                }
+                else
+                {
+                    args << as_expression(rhs);
                 }
             }
 
