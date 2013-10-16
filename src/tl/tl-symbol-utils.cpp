@@ -196,6 +196,23 @@ namespace SymbolUtils
             new_function_sym->entity_specs.is_module_procedure = 1;
         }
 
+        // Result symbol
+        if (function_type_get_return_type(new_function_sym->type_information) != NULL
+                && !is_void_type(function_type_get_return_type(new_function_sym->type_information)))
+        {
+            const char* result_name = ".result";
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                result_name = new_function_sym->symbol_name;
+            }
+            scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, result_name);
+            result_sym->kind = SK_VARIABLE;
+            result_sym->type_information = function_type_get_return_type(new_function_sym->type_information);
+            result_sym->entity_specs.is_result_var = 1;
+
+            new_function_sym->entity_specs.result_var = result_sym;
+        }
+
         return new_function_sym;
     }
 

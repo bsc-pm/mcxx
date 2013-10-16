@@ -166,8 +166,14 @@ namespace TL
             //! States whether this symbol is a variable that stores a runtime value of the program
             bool is_saved_expression() const;
             //! States whether this symbol is the result variable
-            /*! \note Only meaningful in Fortran */
             bool is_result_variable() const;
+
+            //! Return the symbol variable of this function symbol
+            /*!
+             * There may be no such symbol if the function has not been defined
+             */
+            TL::Symbol get_result_variable() const;
+
             //! States whether this symbol is a label
             bool is_label() const;
             //! States whether this symbol is a typedef
@@ -636,14 +642,6 @@ namespace TL
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_recursive() const;
-
-            //! This symbol is RESULT
-            /*!
-              States whether this symbol is a RESULT attribute
-
-              This function is only meaningful in Fortran. In C/C++ it always returns false
-              */
-            bool is_result() const;
 
             //! This symbol is a generic-specifier name
             /*!

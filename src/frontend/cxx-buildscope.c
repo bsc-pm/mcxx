@@ -11929,6 +11929,20 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
     }
 
+    // Result symbol only if the function returns something
+    if (function_type_get_return_type(entry->type_information) != NULL
+            && !is_void_type(function_type_get_return_type(entry->type_information)))
+    {
+        scope_entry_t* result_sym = new_symbol(block_context,
+                block_context.current_scope,
+                ".result"); // This name is currently not user accessible
+        result_sym->kind = SK_VARIABLE;
+        result_sym->entity_specs.is_result_var = 1;
+        result_sym->type_information = get_unqualified_type(function_type_get_return_type(entry->type_information));
+
+        entry->entity_specs.result_var = result_sym;
+    }
+
     linkage_push(NULL, /* is_braced */ 1);
 
     nodecl_t body_nodecl = nodecl_null();

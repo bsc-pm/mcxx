@@ -210,12 +210,6 @@ namespace TL
         return this->_symbol->entity_specs.is_saved_expression;
     }
 
-    bool Symbol::is_result_variable() const
-    {
-        return (this->_symbol->kind == SK_VARIABLE
-                && this->_symbol->entity_specs.is_result);
-    }
-
     bool Symbol::is_label() const
     {
         return (this->_symbol->kind == SK_LABEL);
@@ -724,9 +718,15 @@ namespace TL
         return _symbol->entity_specs.is_recursive;
     }
 
-    bool Symbol::is_result() const
+    bool Symbol::is_result_variable() const
     {
-        return _symbol->entity_specs.is_result;
+        return (this->_symbol->kind == SK_VARIABLE
+                && this->_symbol->entity_specs.is_result_var);
+    }
+
+    Symbol Symbol::get_result_variable() const
+    {
+        return this->_symbol->entity_specs.result_var;
     }
 
     bool Symbol::is_generic_specifier() const
