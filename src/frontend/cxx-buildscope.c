@@ -11900,7 +11900,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 print_decl_type_str(entry->type_information,
                         decl_context, get_qualified_symbol_name(entry, decl_context));
             const_value_t* nice_name_value = const_value_make_string(nice_name, strlen(nice_name));
-            // Count the zero in the array
             nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
 
             // Adjust type to include room for the final \0
