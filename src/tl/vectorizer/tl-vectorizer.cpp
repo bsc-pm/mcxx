@@ -157,10 +157,11 @@ namespace TL
         }
 
         void Vectorizer::process_epilog(const Nodecl::ForStatement& for_statement, 
-                VectorizerEnvironment& environment)
+                VectorizerEnvironment& environment,
+                Nodecl::NodeclBase& net_epilog_node)
         {
             VectorizerVisitorForEpilog visitor_epilog(environment);
-            visitor_epilog.walk(for_statement);
+            visitor_epilog.visit(for_statement, net_epilog_node);
         }
 
         bool Vectorizer::is_supported_reduction(bool is_builtin,

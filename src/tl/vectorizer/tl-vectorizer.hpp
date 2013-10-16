@@ -123,7 +123,8 @@ namespace TL
                         const bool masked_version);
  
                 void process_epilog(const Nodecl::ForStatement& for_statement, 
-                        VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment,
+                        Nodecl::NodeclBase& net_epilog_node);
 
                 bool is_supported_reduction(bool is_builtin,
                         const std::string& reduction_name,

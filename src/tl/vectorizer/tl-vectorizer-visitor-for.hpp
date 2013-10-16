@@ -115,24 +115,25 @@ namespace TL
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);
         };
 
-        class VectorizerVisitorForEpilog : public Nodecl::NodeclVisitor<void>
+        class VectorizerVisitorForEpilog 
         {
             private:
                 VectorizerEnvironment& _environment;
 
-                void get_parallel_iv_init(const Nodecl::ForStatement& for_statement, 
+                void get_parallel_iv_init_for_epilog(const Nodecl::ForStatement& for_statement, 
                         Nodecl::NodeclBase &induction_variable,
                         Nodecl::NodeclBase &iv_init);
 
             public:
                 VectorizerVisitorForEpilog(VectorizerEnvironment& environment);
 
-                virtual void visit(const Nodecl::ForStatement& for_statement);
+                void visit(const Nodecl::ForStatement& for_statement,
+                        Nodecl::NodeclBase& net_epilog_node);
                 
-                void visit_scalar_epilog(const Nodecl::ForStatement& for_statement);
-                void visit_vector_epilog(const Nodecl::ForStatement& for_statement);
-
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                void visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
+                        Nodecl::NodeclBase& net_epilog_node);
+                void visit_vector_epilog(const Nodecl::ForStatement& for_statement,
+                        Nodecl::NodeclBase& net_epilog_node);
         };
 
 

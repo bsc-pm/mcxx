@@ -173,10 +173,10 @@ namespace TL {
                     for_statement);
 
             // Add epilog before vectorization
-            Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
-                    for_statement, for_statement).as<Nodecl::ForStatement>();
+            Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
+                    simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
 
-            simd_node.append_sibling(epilog);
+            simd_node.append_sibling(simd_node_epilog);
 
             // VECTORIZE FOR
             VectorizerEnvironment for_environment(
@@ -246,7 +246,7 @@ namespace TL {
 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
-                epilog.append_sibling(post_for_nodecls);
+                simd_node_epilog.append_sibling(post_for_nodecls);
 
                 // TODO: 
                 // firstprivate in SIMD
@@ -255,14 +255,18 @@ namespace TL {
             // Process epilog
             if (needs_epilog)
             {
-                _vectorizer.process_epilog(epilog, for_environment);
+                Nodecl::NodeclBase net_epilog_node;
+                _vectorizer.process_epilog(simd_node_epilog.get_statement().as<Nodecl::ForStatement>(),
+                        for_environment,
+                        net_epilog_node);
             }
             else // Remove epilog
             {
-                Nodecl::Utils::remove_from_enclosing_list(epilog);
+                Nodecl::Utils::remove_from_enclosing_list(simd_node_epilog);
             }
 
-            // Remove Simd node
+            // Remove Simd nodes
+            simd_node_epilog.replace(simd_node_epilog.get_statement());
             simd_node.replace(for_statement);
         }
 
@@ -299,71 +303,15 @@ namespace TL {
                         for_statement);
 
             // Add epilog with single before vectorization
-            Nodecl::ForStatement epilog = Nodecl::Utils::deep_copy(
-                    for_statement, for_statement).as<Nodecl::ForStatement>();
+            Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
+                    simd_node, simd_node).as<Nodecl::OpenMP::SimdFor>();
 
             TL::Symbol iv = 
                 TL::ForStatement(for_statement).get_induction_variable();
-            /*
-            // Remove IV as private
-            for(Nodecl::List::iterator it = omp_for_environment.begin();
-                    it != omp_for_environment.end();
-                    it++)
-            {
-                if (it->is<Nodecl::OpenMP::Private>())
-                {
-                    Nodecl::List priv_sym_list = 
-                        it->as<Nodecl::OpenMP::Private>().get_private_symbols().as<Nodecl::List>();
 
-                    Nodecl::List::iterator sym_it = priv_sym_list.begin();
-                    while(sym_it != priv_sym_list.end())
-                    {
-                        if(sym_it->get_symbol() == iv)
-                        {
-                            sym_it = priv_sym_list.erase(sym_it);
-                        }
-                        else
-                        {
-                            sym_it++;
-                        }
-                    }
-                    
-                    // Empty returns false even when the list is empty.
-                    // A new copy is necessary. Ask Roger
-                    priv_sym_list = 
-                        it->as<Nodecl::OpenMP::Private>().get_private_symbols().as<Nodecl::List>();
-                    
-                    if (priv_sym_list.empty())
-                    {
-                        it = omp_for_environment.erase(it);
-                        it--;
-                    }
-                }
-            }
-
-            // Mark the induction variable as lastprivate 
-            // entity in the For and firstprivate in the Single construct
-            Nodecl::OpenMP::Lastprivate ind_var_lastpriv = 
-                Nodecl::OpenMP::Lastprivate::make(Nodecl::List::make(
-                            iv.make_nodecl()));
-            omp_for_environment.append(ind_var_lastpriv);
-            */
-
-            // Mark the induction variable a private 
-            // entity in Single construct
-            Nodecl::List single_environment;
-
-            Nodecl::OpenMP::Private ind_var_priv = 
-                Nodecl::OpenMP::Private::make(Nodecl::List::make(
-                            iv.make_nodecl()));
-            single_environment.append(ind_var_priv);
-
-            // SINGLE
-            Nodecl::OpenMP::Single single_epilog =
-                Nodecl::OpenMP::Single::make(single_environment,
-                        Nodecl::List::make(epilog), epilog.get_locus());
-
-            simd_node.append_sibling(single_epilog);
+           
+            // Add epilog before analysis
+            simd_node.append_sibling(simd_node_epilog);
 
             // VECTORIZE FOR
             VectorizerEnvironment for_environment(
@@ -441,16 +389,37 @@ namespace TL {
             // Process epilog
             if (needs_epilog)
             {
-                _vectorizer.process_epilog(epilog, for_environment);
+                Nodecl::NodeclBase net_epilog_node;
+
+                Nodecl::ForStatement epilog_for_statement = simd_node_epilog.get_openmp_for().as<Nodecl::OpenMP::For>().
+                        get_loop().as<Nodecl::ForStatement>();
+
+                _vectorizer.process_epilog(epilog_for_statement,
+                        for_environment,
+                        net_epilog_node);
+
+                // SINGLE
+                // Mark the induction variable a private entity in Single construct
+                Nodecl::List single_environment;
+                /*
+                Nodecl::OpenMP::Private ind_var_priv = 
+                    Nodecl::OpenMP::Private::make(Nodecl::List::make(
+                                iv.make_nodecl()));
+                single_environment.append(ind_var_priv);
+                */
+                // Create single node
+                Nodecl::OpenMP::Single single_epilog =
+                    Nodecl::OpenMP::Single::make(single_environment,
+                            net_epilog_node.shallow_copy(), net_epilog_node.get_locus());
+
+                net_epilog_node.replace(single_epilog);
 
                 // Move single_epilog to its final position
-                Nodecl::Utils::remove_from_enclosing_list(single_epilog);
-                appendix_list.append(single_epilog);
+                appendix_list.append(epilog_for_statement);
             }
-            else // Remove epilog
-            {
-                Nodecl::Utils::remove_from_enclosing_list(single_epilog);
-            }
+
+            // Remove epilog from original code
+            Nodecl::Utils::remove_from_enclosing_list(simd_node_epilog);
 
             if(!post_for_nodecls.empty())
                 appendix_list.append(post_for_nodecls);
@@ -471,7 +440,7 @@ namespace TL {
             if (!flush.is_null())
                 Nodecl::Utils::remove_from_enclosing_list(flush);
 
-            // Remove Simd node
+            // Remove Simd nodes
             simd_node.replace(for_epilog);
         }
 

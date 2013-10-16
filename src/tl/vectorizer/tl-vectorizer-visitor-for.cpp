@@ -464,15 +464,16 @@ namespace TL
         {
         }
 
-        void VectorizerVisitorForEpilog::visit(const Nodecl::ForStatement& for_statement)
+        void VectorizerVisitorForEpilog::visit(const Nodecl::ForStatement& for_statement,
+                Nodecl::NodeclBase& net_epilog_node)
         {
             if(_environment._support_masking)
             {
-                visit_vector_epilog(for_statement);
+                visit_vector_epilog(for_statement, net_epilog_node);
             }
             else
             {
-                visit_scalar_epilog(for_statement);
+                visit_scalar_epilog(for_statement, net_epilog_node);
             }
 
             // Epilog reused the analysis from the original ForStatement
@@ -480,7 +481,8 @@ namespace TL
             Vectorizer::finalize_analysis();
         }
 
-        void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement)
+        void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement,
+                Nodecl::NodeclBase& net_epilog_node)
         {
             // Set up enviroment
             _environment._external_scope =
@@ -520,8 +522,38 @@ namespace TL
                     for_statement.retrieve_context(),
                     _environment._unroll_factor, true);
 
-            // Compute epilog mask expression
+            
+            // Vectorize Loop Body
+            _environment._mask_list.push_back(mask_nodecl_sym);
 
+            VectorizerVisitorStatement visitor_stmt(_environment);
+            visitor_stmt.walk(comp_statement);
+
+            _environment._mask_list.pop_back();
+
+            Nodecl::NodeclBase for_inner_statement = for_statement.get_statement().shallow_copy();
+            Nodecl::List result_stmt_list;
+
+            Nodecl::NodeclBase iv;
+            Nodecl::NodeclBase iv_init;
+
+            get_parallel_iv_init_for_epilog(for_statement, iv, iv_init);
+ 
+            // Set new IV init
+            if (_environment._is_parallel_loop)
+            {
+                Nodecl::ExpressionStatement new_iv_init = 
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                iv.shallow_copy(),
+                                iv_init.shallow_copy(),
+                                iv.get_type(),
+                                iv.get_locus()));
+
+                result_stmt_list.append(new_iv_init);
+            }
+
+            // Compute epilog mask expression and add it after vectorization
             Nodecl::ExpressionStatement mask_exp;
             if (mask_nodecl_sym.get_type().no_ref().is_same_type(mask_value.get_type().no_ref()))
             {
@@ -549,59 +581,31 @@ namespace TL
                                 for_statement.get_locus()));
             }
 
-
-            // Vectorize Loop Body
-            _environment._mask_list.push_back(mask_nodecl_sym);
-
-            VectorizerVisitorStatement visitor_stmt(_environment);
-            visitor_stmt.walk(comp_statement);
-
-            _environment._mask_list.pop_back();
-
-
-            Nodecl::List result_stmt_list;
-//            = comp_statement.as<Nodecl::CompoundStatement>().
-//                get_statements().as<Nodecl::List>();
-
-            Nodecl::NodeclBase iv;
-            Nodecl::NodeclBase iv_init;
-
-            get_parallel_iv_init(for_statement, iv, iv_init);
-
-            // Special IV initialitation if parallel loop
-            if (_environment._is_parallel_loop)
-            {
-                Nodecl::ExpressionStatement iv_stmt =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                iv.shallow_copy(),
-                                iv_init.shallow_copy(),
-                                iv.get_type(),
-                                iv.get_locus()),
-                            iv.get_locus());
-
-                result_stmt_list.append(iv_stmt);
-            }
-
-            // Add mask expression after vectorization
             result_stmt_list.append(mask_exp); 
 
-            // Add IF check to skip epilog if mask is not zero
+            // Add IF check ito skip epilog if mask is not zero
             Nodecl::NodeclBase if_mask_is_not_zero = 
                 Vectorization::Utils::get_if_mask_is_not_zero_nodecl(mask_nodecl_sym.shallow_copy(),
-                        for_statement.get_statement().shallow_copy());
+                        for_inner_statement);
 
             result_stmt_list.append(if_mask_is_not_zero);
 
             // Replace for by list of statements
-            for_statement.replace(result_stmt_list);
+            Nodecl::CompoundStatement result_compound_statement =
+                Nodecl::CompoundStatement::make(result_stmt_list,
+                        Nodecl::NodeclBase::null());
+
+            for_statement.replace(result_compound_statement);
+
+            // Output reference to just the epilog code
+            net_epilog_node = for_inner_statement;
 
             _environment._analysis_scopes.pop_back();
             _environment._local_scope_list.pop_back();
         }
 
-
-        void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement)
+        void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
+                Nodecl::NodeclBase& net_epilog_code)
         {
             // Set up environment
             _environment._external_scope = for_statement.retrieve_context();
@@ -610,12 +614,12 @@ namespace TL
 
             // Set new IV init
             Nodecl::NodeclBase new_iv_init;
-            if (_environment._is_parallel_loop)
+           if (_environment._is_parallel_loop)
             {
                 Nodecl::NodeclBase iv;
                 Nodecl::NodeclBase iv_init;
 
-                get_parallel_iv_init(for_statement, iv, iv_init);
+                get_parallel_iv_init_for_epilog(for_statement, iv, iv_init);
 
                 new_iv_init = Nodecl::Assignment::make(
                         iv.shallow_copy(),
@@ -633,11 +637,13 @@ namespace TL
 
             loop_control.set_init(new_iv_init);
 
+            net_epilog_code = for_statement;
+
             _environment._local_scope_list.pop_back();
         }
 
 
-        void VectorizerVisitorForEpilog::get_parallel_iv_init(
+        void VectorizerVisitorForEpilog::get_parallel_iv_init_for_epilog(
                 const Nodecl::ForStatement& for_statement, 
                 Nodecl::NodeclBase &induction_variable,
                 Nodecl::NodeclBase &iv_init)
@@ -685,18 +691,5 @@ namespace TL
                         iv_type),
                     iv_type);
         }
-
-
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorForEpilog::unhandled_node(const Nodecl::NodeclBase& n)
-        {
-            std::cerr << "VectorizerVisitorForEpilog: Unknown node "
-                << ast_print_node_type(n.get_kind())
-                << " at " << n.get_locus_str()
-                << std::endl;
-
-            return Ret();
-        }
-
-
     }
 }
