@@ -871,9 +871,10 @@ namespace TL
                         mask,
                         Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
                         n.get_locus());
-printf("Casting %s %s\n",
-        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),
-        n.get_rhs().get_type().get_simple_declaration(n.retrieve_context(), "").c_str());
+            
+            printf("Casting %s %s\n",
+                    Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    n.get_rhs().get_type().get_simple_declaration(n.retrieve_context(), "").c_str());
 
             n.replace(vector_conv);
         }
@@ -1295,7 +1296,8 @@ printf("Casting %s %s\n",
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         Utils::get_null_mask(),
-                        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
+                        Utils::get_qualified_vector_to(n.get_type(), 
+                            _environment._unroll_factor),
                         n.get_locus());
 
             n.replace(vector_prom);
@@ -1307,7 +1309,8 @@ printf("Casting %s %s\n",
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         Utils::get_null_mask(),
-                        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
+                        Utils::get_qualified_vector_to(n.get_type(), 
+                            _environment._unroll_factor),
                         n.get_locus());
 
             n.replace(vector_prom);
@@ -1356,7 +1359,7 @@ printf("Casting %s %s\n",
 
                 // IV cannot be a reference
                 TL::Type ind_var_type = Utils::get_qualified_vector_to(
-                        n.get_type(), _environment._vector_length).no_ref();
+                        n.get_type(), _environment._unroll_factor).no_ref();
 
                 TL::Type offset_type = ind_var_type;
                 Nodecl::ParenthesizedExpression vector_induction_var =
@@ -1373,9 +1376,11 @@ printf("Casting %s %s\n",
                                     offset_type,
                                     n.get_locus()),
                                 Utils::get_null_mask(),
-                                Utils::get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                Utils::get_qualified_vector_to(n.get_type(), 
+                                    _environment._unroll_factor),
                                 n.get_locus()),
-                            Utils::get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            Utils::get_qualified_vector_to(n.get_type(), 
+                                _environment._unroll_factor),
                             n.get_locus());
 
                 n.replace(vector_induction_var);
