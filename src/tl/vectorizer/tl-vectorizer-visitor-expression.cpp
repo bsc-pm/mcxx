@@ -1073,7 +1073,8 @@ namespace TL
 
             if (!sym_type.is_vector())
             {
-               // Vectorize BASIC induction variable
+                // Vectorize BASIC induction variable
+#warning Diego, this query should be is_non_reduction_basic_induction_variable
                 if (Vectorizer::_analysis_info->is_basic_induction_variable(
                             _environment._analysis_scopes.back(),
                             n))

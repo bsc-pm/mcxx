@@ -367,10 +367,6 @@ namespace {
         // Check whether the variable is modified in other places inside the loop
         bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        if( !res )
-        {   // Check whether the variable is private in case it is in a parallel or simd region
-            res = check_private_status( iv, loop );
-        }
         return !res;
     }
 
@@ -416,62 +412,6 @@ namespace {
             }
         }
 
-        return result;
-    }
-
-    
-    
-    bool InductionVariableAnalysis::check_private_status( Nodecl::NodeclBase iv, Node* loop )
-    {
-        bool result = false;
-        Node* outer_node = loop->get_outer_node( );
-        while( outer_node != NULL )
-        {
-            if( outer_node->is_omp_parallel_node( ) || outer_node->is_omp_simd_node( ) 
-                || outer_node->is_omp_sections_node( ) || outer_node->is_omp_loop_node( )
-                || outer_node->is_omp_task_node( ) )
-            {
-                // We are a bit tricky here. Just cast to Parallel for convenience, 
-                // because we know all these nodes have a get_environment method
-                Nodecl::List environ = 
-                    outer_node->get_graph_label( ).as<Nodecl::OpenMP::Parallel>( ).get_environment( ).as<Nodecl::List>( );
-                for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ) && !result; ++it )
-                {
-                    if( it->is<Nodecl::OpenMP::Firstprivate>( ) || it->is<Nodecl::OpenMP::Private>( ) )
-                    {
-                        Nodecl::List syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
-                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
-                        {
-                            result = true;
-                            break;
-                        }
-                    }
-                    else if( it->is<Nodecl::OpenMP::Reduction>( ) )
-                    {
-                        Nodecl::List reds = it->as<Nodecl::OpenMP::Reduction>( ).get_reductions( ).as<Nodecl::List>( );
-                        for( Nodecl::List::iterator itr = reds.begin( ); itr != reds.end( ); ++itr )
-                        {
-                            Nodecl::NodeclBase sym = itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( );
-                            if( Nodecl::Utils::equal_nodecls( iv, sym ) )
-                            {
-                                result = true;
-                                break;
-                            }
-                        }
-                    }
-                    else if( it->is<Nodecl::OpenMP::Shared>( ) )
-                    {
-                        Nodecl::List syms = it->as<Nodecl::OpenMP::Shared>( ).get_symbols( ).as<Nodecl::List>( );
-                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            outer_node = outer_node->get_outer_node( );
-        }
         return result;
     }
     

@@ -88,6 +88,7 @@ namespace Analysis {
     {
         private:
             ObjectList<Utils::InductionVariableData*> _induction_variables;
+            ObjectList<Symbol> _reductions;
             Utils::ext_sym_set _killed;
             ObjectList<ExtensibleGraph*> _pcfgs;
             Node* _autoscoped_task;
@@ -96,6 +97,7 @@ namespace Analysis {
             
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
+                              ObjectList<Symbol> reductions,
                               Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
                               Node* autoscoped_task );
 
@@ -114,6 +116,8 @@ namespace Analysis {
 
             bool is_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
 
+            bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
+            
             Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
 
             ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const;
@@ -125,7 +129,6 @@ namespace Analysis {
             Utils::InductionVariableData* get_induction_variable( const Nodecl::NodeclBase& n ) const;
 
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
-
             
             // *** Queries for Vectorization *** //
             
@@ -193,6 +196,8 @@ namespace Analysis {
             //! Returns true when an object is an induction variable in a given scope
             bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+            
             //! Returns the const_value corresponding to the increment of an induction variable in a given scope
             Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;

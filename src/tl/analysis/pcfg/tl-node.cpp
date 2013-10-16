@@ -1994,6 +1994,36 @@ namespace Analysis {
     // ************ END getters and setters for task dependence analysis ************ //
     // ****************************************************************************** //
 
+
+    
+    // ****************************************************************************** //
+    // **************** Getters and setters for vectorization analysis ************** //
+    
+    ObjectList<Symbol> Node::get_reductions( )
+    {
+        ObjectList<Symbol> result;
+        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info( ).get_clauses( );
+        for( ObjectList<PCFGClause>::const_iterator it = clauses.begin( ); it != clauses.end( ); ++it )
+        {
+            if( it->get_clause( ) == REDUCTION )
+            {
+                ObjectList<Nodecl::NodeclBase> reductions = it->get_args( );
+                for( ObjectList<Nodecl::NodeclBase>::iterator itr = reductions.begin( ); itr != reductions.end( ); ++itr )
+                {
+                    Symbol reduc( itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( ).get_symbol( ) );
+                    ERROR_CONDITION( !reduc.is_valid( ), "Invalid symbol stored for Reduction argument '%s'", 
+                                     itr->prettyprint( ).c_str( ) );
+                    result.insert( reduc );
+                }
+                break;
+            }
+        }
+        return result;
+    }
+    
+    // ************** END getters and setters for vectorization analysis ************ //
+    // ****************************************************************************** //
+    
     
     
     // ****************************************************************************** //

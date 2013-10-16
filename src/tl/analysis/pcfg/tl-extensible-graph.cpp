@@ -1189,6 +1189,14 @@ namespace Analysis {
         return res;
     }
     
+    Node* ExtensibleGraph::get_omp_enclosing_node( Node* current )
+    {
+        Node* result = current->get_outer_node( );
+        while( result != NULL && !result->is_omp_node( ) )
+            result = result->get_outer_node( );
+        return result;
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;

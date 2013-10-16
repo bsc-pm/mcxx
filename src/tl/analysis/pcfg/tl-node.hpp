@@ -706,6 +706,16 @@ namespace Analysis {
 
 
             // ****************************************************************************** //
+            // **************** Getters and setters for vectorization analysis ************** //
+            
+            ObjectList<Symbol> get_reductions( );
+            
+            // ************** END getters and setters for vectorization analysis ************ //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
             // ****************** Getters and setters for analysis checking ***************** //
             
             Utils::ext_sym_set get_assert_ue_vars( );

@@ -407,6 +407,7 @@ namespace Analysis {
         static bool node_contains_node( Node* container, Node* contained );
         static Node* get_extensible_graph_from_node( Node* node );
         static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
+        static Node* get_omp_enclosing_node( Node* current );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
