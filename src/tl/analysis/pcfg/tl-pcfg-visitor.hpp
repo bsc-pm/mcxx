@@ -296,6 +296,7 @@ namespace Analysis {
         Ret visit( const Nodecl::EmptyStatement& n );
         Ret visit( const Nodecl::Equal& n );
         Ret visit( const Nodecl::ExpressionStatement& n );
+        Ret visit( const Nodecl::FieldDesignator& n );
         Ret visit( const Nodecl::FloatingLiteral& n );
         Ret visit( const Nodecl::ForStatement& n );
         Ret visit( const Nodecl::FunctionCall& n );

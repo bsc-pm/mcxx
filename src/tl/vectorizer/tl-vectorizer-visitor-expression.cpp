@@ -582,13 +582,13 @@ namespace TL
                     _environment._unroll_factor);
 
             // IV vectorization: i = i + 3 --> i = i + (unroll_factor * 3)
-            if(Vectorizer::_analysis_info->is_basic_induction_variable(_environment._analysis_simd_scope,
+            if(Vectorizer::_analysis_info->is_non_reduction_basic_induction_variable(_environment._analysis_simd_scope,
                         lhs))
             {
                 std::cerr << "Vectorizing IV update: " << lhs.prettyprint() << std::endl;
 
-                Nodecl::NodeclBase step = const_value_to_nodecl(Vectorizer::_analysis_info->get_induction_variable_increment(
-                        _environment._analysis_simd_scope, lhs));
+                Nodecl::NodeclBase step = Vectorizer::_analysis_info->get_induction_variable_increment(
+                        _environment._analysis_simd_scope, lhs);
 
                     //Vectorizer::_analysis_info->get_induction_variable_increment(
                     //    _environment._analysis_simd_scope, lhs);
@@ -1187,12 +1187,10 @@ printf("Casting %s %s\n",
 
             if (!sym_type.is_vector())
             {
-               // Vectorize BASIC induction variable
-                if (Vectorizer::_analysis_info->is_basic_induction_variable(
+                // Vectorize BASIC induction variable
+                if (Vectorizer::_analysis_info->is_non_reduction_basic_induction_variable(
                             _environment._analysis_simd_scope,
-                            n)
-                        && (_environment._reduction_list != NULL && 
-                            (!_environment._reduction_list->contains(tl_sym)))) //FIXME: Ticket 1643
+                            n)) 
                 {
                     vectorize_basic_induction_variable(n);
                 }
@@ -1340,44 +1338,52 @@ printf("Casting %s %s\n",
             // Computing IV offset {0, 1, 2, 3}
             TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
-            const_value_t *ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
-                    _environment._analysis_simd_scope, n);
-
-            const_value_t *i = const_value_get_zero(4, 0);
-            for(unsigned int j = 0;
-                    j < _environment._unroll_factor;
-                    i = const_value_add(i, ind_var_increment), j++)
+            Nodecl::NodeclBase ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
+                    _environment._analysis_scopes.back(), n);
+            
+            if (ind_var_increment.is_constant())
             {
-                literal_list.prepend(const_value_to_nodecl(i));
+                const_value_t *ind_var_increment_const = ind_var_increment.get_constant();
+                const_value_t *i = const_value_get_zero(4, 0);
+                for(unsigned int j = 0;
+                        j < _environment._unroll_factor;
+                        i = const_value_add(i, ind_var_increment_const), j++)
+                {
+                    literal_list.prepend(const_value_to_nodecl(i));
+                }
+
+                Nodecl::List offset = Nodecl::List::make(literal_list);
+
+                // IV cannot be a reference
+                TL::Type ind_var_type = Utils::get_qualified_vector_to(
+                        n.get_type(), _environment._vector_length).no_ref();
+
+                TL::Type offset_type = ind_var_type;
+                Nodecl::ParenthesizedExpression vector_induction_var =
+                    Nodecl::ParenthesizedExpression::make(
+                            Nodecl::VectorAdd::make(
+                                Nodecl::VectorPromotion::make(
+                                    n.shallow_copy(),
+                                    Utils::get_null_mask(),
+                                    ind_var_type,
+                                    n.get_locus()),
+                                Nodecl::VectorLiteral::make(
+                                    offset,
+                                    Utils::get_null_mask(),
+                                    offset_type,
+                                    n.get_locus()),
+                                Utils::get_null_mask(),
+                                Utils::get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                                n.get_locus()),
+                            Utils::get_qualified_vector_to(n.get_type(), _environment._vector_length),
+                            n.get_locus());
+
+                n.replace(vector_induction_var);
             }
-
-            Nodecl::List offset = Nodecl::List::make(literal_list);
-
-            // IV cannot be a reference
-            TL::Type ind_var_type = Utils::get_qualified_vector_to(
-                    n.get_type(), _environment._unroll_factor).no_ref();
-
-            TL::Type offset_type = ind_var_type;
-            Nodecl::ParenthesizedExpression vector_induction_var =
-                Nodecl::ParenthesizedExpression::make(
-                        Nodecl::VectorAdd::make(
-                            Nodecl::VectorPromotion::make(
-                                n.shallow_copy(),
-                                Utils::get_null_mask(),
-                                ind_var_type,
-                                n.get_locus()),
-                            Nodecl::VectorLiteral::make(
-                                offset,
-                                Utils::get_null_mask(),
-                                offset_type,
-                                n.get_locus()),
-                            Utils::get_null_mask(),
-                            Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
-                            n.get_locus()),
-                        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
-                        n.get_locus());
-
-            n.replace(vector_induction_var);
+            else
+            {
+                running_error("Vectorizer: IV increment is not constant.");
+            }
         }
 
 

@@ -7933,16 +7933,36 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                                 || parameter_names[i] == NULL)
                         {
                             // Abstract declarator
-                            prototype = strappend(prototype,
-                                    get_declaration_string_ex(parameter_type, decl_context,
-                                        "", "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
+                            if (!type_info->function->lacks_prototype)
+                            {
+                                prototype = strappend(prototype,
+                                        get_declaration_string_ex(parameter_type, decl_context,
+                                            "", "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
+                            }
+                            else
+                            {
+                                // We create a name
+                                char parameter_name[20];
+                                snprintf(parameter_name, 19, "_p_%d", i);
+                                parameter_name[19] = '\0';
+
+                                prototype = strappend(prototype, parameter_name);
+                            }
                         }
                         else if (parameter_names != NULL
                                 && parameter_names[i] != NULL)
                         {
-                            prototype = strappend(prototype,
-                                    get_declaration_string_ex(parameter_type, decl_context,
-                                        parameter_names[i], "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
+                            if (!type_info->function->lacks_prototype)
+                            {
+                                prototype = strappend(prototype,
+                                        get_declaration_string_ex(parameter_type, decl_context,
+                                            parameter_names[i], "", 0, 0, NULL, NULL, 1,
+                                            print_symbol_fun, print_symbol_data));
+                            }
+                            else
+                            {
+                                prototype = strappend(prototype, parameter_names[i]);
+                            }
                         }
                         else // parameter_names != NULL && parameter_names[i] == NULL
                         {
@@ -7951,11 +7971,18 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                             snprintf(parameter_name, 19, "_p_%d", i);
                             parameter_name[19] = '\0';
 
-                            parameter_names[i] = uniquestr(parameter_name);
+                            if (!type_info->function->lacks_prototype)
+                            {
+                                parameter_names[i] = uniquestr(parameter_name);
 
-                            prototype = strappend(prototype,
-                                    get_declaration_string_ex(parameter_type, decl_context,
-                                        parameter_name, "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
+                                prototype = strappend(prototype,
+                                        get_declaration_string_ex(parameter_type, decl_context,
+                                            parameter_name, "", 0, 0, NULL, NULL, 1, print_symbol_fun, print_symbol_data));
+                            }
+                            else
+                            {
+                                prototype = strappend(prototype, parameter_name);
+                            }
                         }
                     }
 

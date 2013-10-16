@@ -1308,6 +1308,7 @@ namespace Nodecl
 
         void visit(const Nodecl::ForStatement& stmt)
         {
+            walk(stmt.get_statement());
             if (!stmt.get_loop_name().is_null())
             {
                 insert_new_label_symbol(stmt.get_loop_name().get_symbol(), /* is_numeric_label*/ false);
@@ -1316,6 +1317,7 @@ namespace Nodecl
 
         void visit(const Nodecl::WhileStatement& stmt)
         {
+            walk(stmt.get_statement());
             if (!stmt.get_loop_name().is_null())
             {
                 insert_new_label_symbol(stmt.get_loop_name().get_symbol(), /* is_numeric_label*/ false);

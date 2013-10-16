@@ -923,7 +923,7 @@ OPERATOR_TABLE
                     t = t.array_element();
                     m++;
                 }
-               
+
                 *(file) << "RESHAPE( SOURCE=";
                 *(file) << "(/ ";
 
@@ -942,7 +942,7 @@ OPERATOR_TABLE
             {
                 type = type.get_symbol().get_type();
             }
-            
+
             std::string real_name = rename(type.get_symbol());
             real_name = fix_class_name(real_name);
 
@@ -1039,7 +1039,7 @@ OPERATOR_TABLE
 
                 TL::Symbol last = members.back();
                 // Only up to the size of the bitfield now
-                
+
                 int num_bytes = 
                     std::max((uint64_t)1,
                             const_value_cast_to_8(
@@ -1108,63 +1108,18 @@ OPERATOR_TABLE
             value = fortran_const_value_rank_zero(value);
         }
 
-        int num_bytes = const_value_get_bytes(value);
-
-        if (node.get_type().is_bool())
-        {
-            if((long long int)const_value_cast_to_8(value) == 0ll)
-            {
-                *(file) << ".FALSE.";
-            }
-            else
-            {
-                *(file) << ".TRUE.";
-            }
-
-            if (num_bytes != fortran_get_default_logical_type_kind())
-            {
-                *(file) << "_" << num_bytes;
-            }
-        }
+        if (const_value_is_floating(value))
+            emit_floating_constant(value, node.get_type());
+        else if (const_value_is_integer(value))
+            emit_integer_constant(value, node.get_type());
         else
-        {
-            long long int v = (long long int)const_value_cast_to_8(value);
-
-            if (!state.in_data_value
-                    && v < 0)
-                *(file) << "(";
-
-            long long tiniest_of_its_type = (~0LL);
-            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
-
-            std::string suffix;
-            if (num_bytes != fortran_get_default_integer_type_kind())
-            {
-                std::stringstream ss;
-                ss << "_" << num_bytes;
-                suffix = ss.str();
-            }
-
-            // The tiniest integer cannot be printed as a constant
-            if (v == tiniest_of_its_type)
-            {
-                *(file) << (v  + 1) << suffix <<  "-1" << suffix;
-            }
-            else
-            {
-                *(file) << v << suffix;
-            }
-
-            if (!state.in_data_value
-                    && v < 0)
-                *(file) << ")";
-        }
+            internal_error("Code unreachable", 0);
     }
 
     void FortranBase::visit(const Nodecl::ComplexLiteral& node)
     {
         bool in_data = state.in_data_value;
-        
+
         // This ommits parentheses in negative literals
         state.in_data_value = 1;
 
@@ -1264,6 +1219,61 @@ OPERATOR_TABLE
         }
     }
 
+    void FortranBase::emit_integer_constant(const_value_t* value, TL::Type t)
+    {
+        int num_bytes = const_value_get_bytes(value);
+
+        if (t.is_bool())
+        {
+            if((long long int)const_value_cast_to_8(value) == 0ll)
+            {
+                *(file) << ".FALSE.";
+            }
+            else
+            {
+                *(file) << ".TRUE.";
+            }
+
+            if (num_bytes != fortran_get_default_logical_type_kind())
+            {
+                *(file) << "_" << num_bytes;
+            }
+        }
+        else
+        {
+            long long int v = (long long int)const_value_cast_to_8(value);
+
+            if (!state.in_data_value
+                    && v < 0)
+                *(file) << "(";
+
+            long long tiniest_of_its_type = (~0LL);
+            tiniest_of_its_type <<= (sizeof(tiniest_of_its_type) * num_bytes - 1);
+
+            std::string suffix;
+            if (num_bytes != fortran_get_default_integer_type_kind())
+            {
+                std::stringstream ss;
+                ss << "_" << num_bytes;
+                suffix = ss.str();
+            }
+
+            // The tiniest integer cannot be printed as a constant
+            if (v == tiniest_of_its_type)
+            {
+                *(file) << (v  + 1) << suffix <<  "-1" << suffix;
+            }
+            else
+            {
+                *(file) << v << suffix;
+            }
+
+            if (!state.in_data_value
+                    && v < 0)
+                *(file) << ")";
+        }
+    }
+
     void FortranBase::visit(const Nodecl::FloatingLiteral& node)
     {
         const_value_t* value = node.get_constant();
@@ -1275,7 +1285,12 @@ OPERATOR_TABLE
             value = fortran_const_value_rank_zero(value);
         }
 
-        emit_floating_constant(value, node.get_type());
+        if (const_value_is_floating(value))
+            emit_floating_constant(value, node.get_type());
+        else if (const_value_is_integer(value))
+            emit_integer_constant(value, node.get_type());
+        else
+            internal_error("Code unreachable", 0);
     }
 
     void FortranBase::visit(const Nodecl::Symbol& node)
@@ -2246,7 +2261,7 @@ OPERATOR_TABLE
         *(file) << "ENTRY " 
              << entry.get_name() 
              << "(";
-        
+
         TL::Symbol result_var;
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
@@ -2574,7 +2589,7 @@ OPERATOR_TABLE
     void FortranBase::visit(const Nodecl::PragmaCustomDirective& node)
     {
         bool print = true;
-       
+
         // If the pragma is inside a module and the symbol of this module does not correspond with the
         // 'state.current_module' then we don't print anything
         Nodecl::NodeclBase context = node.get_context_of_decl();
@@ -4141,7 +4156,7 @@ OPERATOR_TABLE
             {
                 TL::Symbol last = members.back();
                 // Only up to the size of the bitfield now
-                
+
                 int num_bytes = 
                     // At least one byte
                     std::max((uint64_t)1,
@@ -4172,7 +4187,7 @@ OPERATOR_TABLE
 
             indent();
             *(file) << "END TYPE " << real_name << "\n";
-            
+
             // And restore it after the internal function has been emitted
             if (!_name_set_stack.empty()) _name_set_stack.back() = old_name_set;
             if (!_rename_map_stack.empty()) _rename_map_stack.back() = old_rename_map;
@@ -4559,7 +4574,7 @@ OPERATOR_TABLE
             // Declare USEs that may affect internal subprograms but appear at the
             // enclosing program unit
             declare_use_statements(internal_subprograms, statement_seq.retrieve_context(), use_stmt_info);
-            
+
             // Check every related entries lest they required stuff coming from other modules
             TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
 
@@ -4873,7 +4888,7 @@ OPERATOR_TABLE
 
             walk(*it);
         }
-        
+
         // Do not forget the first one
         if (list.begin() != list.last())
             *(file) << ", ";
@@ -5247,7 +5262,7 @@ OPERATOR_TABLE
         {
             t = t.points_to();
         }
-        
+
         // If this is an enum, use its underlying integer type
         if (t.is_enum())
         {
@@ -5261,7 +5276,7 @@ OPERATOR_TABLE
             bool with_descriptor;
            array_spec_tag() : lower(nodecl_null()), upper(nodecl_null()), is_undefined(false), with_descriptor(false) { }
         } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER];
-        
+
         int array_spec_idx;
         for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
                 fortran_is_array_type(t.get_internal_type());
@@ -5425,7 +5440,7 @@ OPERATOR_TABLE
                     type_specifier = ss.str();
                 }
             }
-            
+
             if (!solved_type)
             {
                 size_t size = t.get_size();
@@ -5633,7 +5648,7 @@ OPERATOR_TABLE
             << "(";
 
         TL::Symbol result_var;
-        
+
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
@@ -5708,7 +5723,7 @@ OPERATOR_TABLE
 
         inc_indent();
     }
-    
+
     void FortranBase::codegen_procedure_declaration_footer(TL::Symbol entry)
     {
         dec_indent();

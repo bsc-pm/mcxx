@@ -302,6 +302,9 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP SECTIONS node
             bool is_omp_sections_node( );
 
+            //! Returns true when the node is any kind of OpenMP SIMD node
+            bool is_omp_simd_node( );
+            
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
 
@@ -698,6 +701,16 @@ namespace Analysis {
             void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // **************** Getters and setters for vectorization analysis ************** //
+            
+            ObjectList<Symbol> get_reductions( );
+            
+            // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //
 
 

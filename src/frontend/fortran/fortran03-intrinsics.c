@@ -1647,6 +1647,8 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("imag", "aimag", get_complex_type(fortran_get_default_real_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("imagpart", "aimag", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("derf", "erf", fortran_get_doubleprecision_type());
 
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 

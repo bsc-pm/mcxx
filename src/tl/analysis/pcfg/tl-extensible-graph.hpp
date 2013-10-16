@@ -351,6 +351,7 @@ namespace Analysis {
         static void clear_visits_extgraph( Node* node );
         static void clear_visits_extgraph_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
+        static void clear_visits_aux_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
         static void clear_visits_aux_backwards( Node* current );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
@@ -401,10 +402,12 @@ namespace Analysis {
         static Node* is_for_loop_increment( Node* node );
         static bool node_is_in_loop( Node* current );
         static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
+        static bool node_is_in_synchronous_construct( Node* current );
         static bool is_backward_parent( Node* son, Node* parent );
         static bool node_contains_node( Node* container, Node* contained );
         static Node* get_extensible_graph_from_node( Node* node );
         static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
+        static Node* get_omp_enclosing_node( Node* current );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

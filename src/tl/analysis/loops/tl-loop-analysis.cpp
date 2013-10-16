@@ -73,9 +73,9 @@ namespace Analysis {
                         }
                         else
                         {
-                            nodecl_t iv = ( *it )->get_variable( ).get_nodecl( ).get_internal_nodecl( );
-                            WARNING_MESSAGE( "Induction Variable '%s' not found in the RD_IN set of loop '%d'",
-                                             codegen_to_str( iv, nodecl_retrieve_context( iv ) ), current->get_id( ) );
+                            WARNING_MESSAGE( "Cannot compute the lower bound of the Induction Variable '%s' in node '%d'", 
+                                             ( *it )->get_variable( ).get_nodecl( ).prettyprint( ).c_str( ), 
+                                             current->get_id( ) );
                         }
 
                         // Loop limits

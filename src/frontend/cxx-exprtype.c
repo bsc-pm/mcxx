@@ -7881,14 +7881,21 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
         }
 
         type_t* full_type = pointer_type_get_pointee_type(deleted_type);
+
+        if (is_named_class_type(no_ref(full_type)))
+        {
+            scope_entry_t* symbol = named_type_get_symbol(no_ref(full_type));
+            instantiate_template_class_if_possible(symbol, decl_context, locus);
+        }
+
         if (!is_complete_type(full_type))
         {
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: invalid incomplete type '%s' in delete%s expression\n",
                         locus_to_str(locus),
-                        is_array_delete ? "[]" : "",
-                        print_type_str(full_type, decl_context));
+                        print_type_str(full_type, decl_context),
+                        is_array_delete ? "[]" : "");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
             return;

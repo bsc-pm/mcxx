@@ -29,7 +29,7 @@
 
 #include <climits>
 
-#include "tl-extended-symbol.hpp"
+#include "tl-extended-symbol-utils.hpp"
 #include "tl-extensible-graph.hpp"
 
 namespace TL {
@@ -69,10 +69,10 @@ namespace Analysis {
         ObjectList<Node*> var_uses_out_task( Node* task, Utils::ExtendedSymbol ei );
 
         bool scope_ie_in_iterated_task( Node* task, Node* current, Node* ei_node, char usage, Utils::ExtendedSymbol ei );
-        void scope_variable( Node* task, Node* ei_node, char usage, Utils::ExtendedSymbol ei,
-                             bool is_in_loop, Utils::ext_sym_set& scoped_vars );
+        void scope_variable( Node* task, Node* ei_node, Utils::UseDefVariant usage, 
+                             Utils::ExtendedSymbol ei, Utils::ext_sym_set& scoped_vars );
 
-        void compute_task_auto_scoping_rec( Node* task, Node* current, bool is_in_loop, Utils::ext_sym_set& scoped_vars );
+        void compute_task_auto_scoping_rec( Node* task, Node* current, Utils::ext_sym_set& scoped_vars );
         void compute_task_auto_scoping( Node* task );
 
     public:

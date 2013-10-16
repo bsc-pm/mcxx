@@ -34,6 +34,7 @@
 namespace TL {
 namespace Analysis {
 
+namespace {
     bool is_accepted_induction_variable_syntax( Node* loop, Nodecl::NodeclBase stmt,
                                                 Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr )
     {
@@ -130,6 +131,7 @@ namespace Analysis {
 
         return is_iv;
     }
+}
 
     // ***************************************** END Utils ***************************************** //
     // ********************************************************************************************* //
@@ -350,7 +352,7 @@ namespace Analysis {
 //             }
 //         }
 //
-//         if( check_potential_induction_variable( res, st, loop_entry, id_end ) )
+//         if( !check_potential_induction_variable( res, st, loop_entry, id_end ) )
 //         {
 //             res = Nodecl::NodeclBase::null( );
 //         }
@@ -362,16 +364,17 @@ namespace Analysis {
                                                                         ObjectList<Nodecl::NodeclBase>& incr_list,
                                                                         Nodecl::NodeclBase stmt, Node* loop )
     {
-        bool res = check_potential_induction_variable_rec( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
+        // Check whether the variable is modified in other places inside the loop
+        bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        return res;
+        return !res;
     }
 
-    bool InductionVariableAnalysis::check_potential_induction_variable_rec( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                                            ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                            Nodecl::NodeclBase stmt, Node* node, Node* loop )
+    bool InductionVariableAnalysis::check_undesired_modifications( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                                   ObjectList<Nodecl::NodeclBase>& incr_list,
+                                                                   Nodecl::NodeclBase stmt, Node* node, Node* loop )
     {
-        bool result = true;
+        bool result = false;
 
         if( ( node->get_id( ) != loop->get_graph_exit_node( )->get_id( ) ) && !node->is_visited_aux( ) )
         {
@@ -388,21 +391,21 @@ namespace Analysis {
                     v.walk( *it );
                     if( !v.get_is_induction_variable( ) )
                     {
-                        result = false;
+                        result = true;
                         break;
                     }
                 }
             }
 
             // If IV still looks like an IV, check for false positives in the children nodes
-            if( result )
+            if( !result )
             {
                 ObjectList<Node*> children = node->get_children( );
                 for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    if( !check_potential_induction_variable_rec( iv, incr, incr_list, stmt, *it, loop ) )
+                    if( !check_undesired_modifications( iv, incr, incr_list, stmt, *it, loop ) )
                     {
-                        result = false;
+                        result = true;
                         break;
                     }
                 }
@@ -411,7 +414,7 @@ namespace Analysis {
 
         return result;
     }
-
+    
     Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
     {
         return _induction_vars;

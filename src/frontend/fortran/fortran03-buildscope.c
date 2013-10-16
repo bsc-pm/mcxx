@@ -2844,12 +2844,24 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 
     scope_entry_t* entry = fortran_query_name_str(decl_context, strtolower(ASTText(name)), 
                 ast_get_locus(name));
-    if (entry != NULL
-            && entry->kind == SK_CLASS)
-    {
-        result = get_user_defined_type(entry);
-    }
 
+    if (entry != NULL)
+    {
+        if (entry->kind == SK_TYPEDEF
+                && is_named_type(advance_over_typedefs(entry->type_information)))
+        {
+            entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
+        }
+
+        if (entry->kind == SK_CLASS)
+        {
+            result = get_user_defined_type(entry);
+        }
+        else if (entry->kind == SK_ENUM)
+        {
+            result = enum_type_get_underlying_type(entry->type_information);
+        }
+    }
     return result;
 }
 

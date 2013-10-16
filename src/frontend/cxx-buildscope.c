@@ -11520,6 +11520,31 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
     }
 }
 
+static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pretty_function,
+        nodecl_t node)
+{
+    if (nodecl_is_null(node))
+        return 0;
+
+    // Stop in nested functions
+    if (nodecl_get_kind(node) == NODECL_FUNCTION_CODE)
+        return 0;
+
+    if (nodecl_get_symbol(node) == mercurium_pretty_function)
+        return 1;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (mercurium_pretty_function_has_been_used(
+                    mercurium_pretty_function,
+                    nodecl_get_child(node, i)))
+            return 1;
+    }
+
+    return 0;
+}
+
 /*
  * This function builds symbol table information for a function definition
  *
@@ -11828,25 +11853,25 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
 
     // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = NULL;
     {
-        type_t* const_char_ptr_const_type =
-            get_cv_qualified_type(
-                    get_pointer_type(
-                        get_cv_qualified_type(get_char_type(), CV_CONST)),
-                    CV_CONST);
+        nodecl_t nodecl_expr = const_value_to_nodecl(
+                const_value_make_string(entry->symbol_name, strlen(entry->symbol_name)));
 
-        // For C++ we should elaborate a bit more __PRETTY_FUNCTION__
-        // but this is very gcc specific
-        const char* c;
-        uniquestr_sprintf(&c, "\"%s\"", entry->symbol_name);
-
-        nodecl_t nodecl_expr = internal_expression_parse(c, block_context);
+        // Adjust type to include room for the final \0
+        nodecl_set_type(nodecl_expr,
+                get_array_type(
+                    get_const_qualified_type(get_char_type()),
+                    nodecl_make_integer_literal(
+                        get_signed_int_type(),
+                        const_value_get_signed_int(strlen(entry->symbol_name) + 1),
+                        make_locus("", 0, 0)),
+                    block_context));
 
         const char* func_names[] =
         {
             "__func__",
             "__FUNCTION__",
-            "__PRETTY_FUNCTION__"
         };
 
         unsigned int j;
@@ -11854,9 +11879,54 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         {
             scope_entry_t* func_var = new_symbol(block_context, block_context.current_scope, func_names[j]);
             func_var->kind = SK_VARIABLE;
-            func_var->type_information = const_char_ptr_const_type;
+            func_var->type_information = no_ref(nodecl_get_type(nodecl_expr));
             func_var->value = nodecl_expr;
             func_var->entity_specs.is_builtin = 1;
+        }
+
+        if (is_dependent_function(entry))
+        {
+            // Insert a dependent __PRETTY_FUNCTION__
+            scope_entry_t* pretty_function = new_symbol(block_context,
+                    block_context.current_scope,
+                    "__PRETTY_FUNCTION__");
+            pretty_function->kind = SK_VARIABLE;
+            pretty_function->type_information = get_unknown_dependent_type();
+            pretty_function->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            const char* nice_name =
+                print_decl_type_str(entry->type_information,
+                        decl_context, get_qualified_symbol_name(entry, decl_context));
+            const_value_t* nice_name_value = const_value_make_string(nice_name, strlen(nice_name));
+            // Count the zero in the array
+            nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
+
+            // Adjust type to include room for the final \0
+            nodecl_set_type(nice_name_tree,
+                    get_array_type(
+                        get_const_qualified_type(get_char_type()),
+                        nodecl_make_integer_literal(get_signed_int_type(),
+                            const_value_get_signed_int(strlen(nice_name) + 1),
+                            make_locus("", 0, 0)),
+                        block_context));
+
+            // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
+            // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
+            // to it
+            //
+            // Sign in __MERCURIUM_PRETTY_FUNCTION__
+            mercurium_pretty_function = new_symbol(block_context,
+                    block_context.current_scope,
+                    "__MERCURIUM_PRETTY_FUNCTION__");
+            mercurium_pretty_function->kind = SK_VARIABLE;
+            mercurium_pretty_function->type_information = no_ref(nodecl_get_type(nice_name_tree));
+            mercurium_pretty_function->value = nice_name_tree;
+            mercurium_pretty_function->entity_specs.is_user_declared = 1;
+
+            // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
+            insert_alias(block_context.current_scope, mercurium_pretty_function, "__PRETTY_FUNCTION__");
         }
     }
 
@@ -11871,10 +11941,31 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         AST list = ASTSon0(statement);
         if (list != NULL)
         {
-
             build_scope_statement_seq(list, block_context, &body_nodecl);
         }
-        
+
+        // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
+        if (mercurium_pretty_function != NULL
+                && mercurium_pretty_function_has_been_used(mercurium_pretty_function, body_nodecl))
+        {
+            nodecl_t emit_mercurium_pretty_function = nodecl_null();
+            CXX_LANGUAGE()
+            {
+                emit_mercurium_pretty_function = nodecl_append_to_list(
+                        emit_mercurium_pretty_function,
+                        nodecl_make_cxx_def(
+                            nodecl_null(),
+                            mercurium_pretty_function,
+                            ast_get_locus(statement)));
+            }
+            emit_mercurium_pretty_function = nodecl_append_to_list(
+                    emit_mercurium_pretty_function,
+                    nodecl_make_object_init(mercurium_pretty_function,
+                        ast_get_locus(statement)));
+
+            body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function, body_nodecl);
+        }
+
         // C99 VLA object-inits
         C_LANGUAGE()
         {
@@ -11887,8 +11978,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 nodecl_vla_init = nodecl_append_to_list(
                         nodecl_vla_init,
                         nodecl_make_object_init(
-                            vla_dim, 
-                            ast_get_locus(statement))); 
+                            vla_dim,
+                            ast_get_locus(statement)));
             }
 
             gather_info.num_vla_dimension_symbols = 0;
@@ -11898,7 +11989,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             // Note that we are prepending an object init list for VLAs
             body_nodecl = nodecl_concat_lists(nodecl_vla_init, body_nodecl);
         }
-        
+
         // C++ destructors
         nodecl_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
@@ -11912,6 +12003,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
     else if (ASTType(statement) == AST_TRY_BLOCK)
     {
+        // FIXME - Wrap this inside a big compound statement
         // This only can be a try-except, but a normal context is created
         // for this one
         build_scope_statement(statement, block_context, &body_nodecl);

@@ -440,8 +440,8 @@ namespace Analysis {
     {
         return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
                  is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
-                 is_omp_sections_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || is_omp_task_node( ) ||
-                 is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+                 is_omp_sections_node( ) || is_omp_simd_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || 
+                 is_omp_task_node( ) || is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
     }
     
     bool Node::is_omp_atomic_node( )
@@ -489,6 +489,14 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTIONS ) );
     }
 
+    bool Node::is_omp_simd_node( )
+    {
+        Graph_type gt = get_graph_type( );
+        return ( is_graph_node( ) 
+                 && ( ( gt == OMP_SIMD ) || ( gt == OMP_SIMD_FOR ) 
+                        || ( gt == OMP_SIMD_FUNCTION ) || ( gt == OMP_SIMD_PARALLEL_FOR ) ) );
+    }
+    
     bool Node::is_omp_single_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
@@ -1986,6 +1994,36 @@ namespace Analysis {
     // ************ END getters and setters for task dependence analysis ************ //
     // ****************************************************************************** //
 
+
+    
+    // ****************************************************************************** //
+    // **************** Getters and setters for vectorization analysis ************** //
+    
+    ObjectList<Symbol> Node::get_reductions( )
+    {
+        ObjectList<Symbol> result;
+        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info( ).get_clauses( );
+        for( ObjectList<PCFGClause>::const_iterator it = clauses.begin( ); it != clauses.end( ); ++it )
+        {
+            if( it->get_clause( ) == REDUCTION )
+            {
+                ObjectList<Nodecl::NodeclBase> reductions = it->get_args( );
+                for( ObjectList<Nodecl::NodeclBase>::iterator itr = reductions.begin( ); itr != reductions.end( ); ++itr )
+                {
+                    Symbol reduc( itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( ).get_symbol( ) );
+                    ERROR_CONDITION( !reduc.is_valid( ), "Invalid symbol stored for Reduction argument '%s'", 
+                                     itr->prettyprint( ).c_str( ) );
+                    result.insert( reduc );
+                }
+                break;
+            }
+        }
+        return result;
+    }
+    
+    // ************** END getters and setters for vectorization analysis ************ //
+    // ****************************************************************************** //
+    
     
     
     // ****************************************************************************** //
