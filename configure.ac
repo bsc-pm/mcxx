@@ -1625,6 +1625,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/common/Makefile
            src/tl/analysis/pcfg/Makefile
            src/tl/analysis/use_def/Makefile
+           src/tl/analysis/constants/Makefile
            src/tl/analysis/liveness/Makefile
            src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
