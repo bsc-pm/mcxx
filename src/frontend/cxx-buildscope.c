@@ -11884,17 +11884,17 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             func_var->entity_specs.is_builtin = 1;
         }
 
-        if (is_dependent_function(entry))
-        {
-            // Insert a dependent __PRETTY_FUNCTION__
-            scope_entry_t* pretty_function = new_symbol(block_context,
-                    block_context.current_scope,
-                    "__PRETTY_FUNCTION__");
-            pretty_function->kind = SK_VARIABLE;
-            pretty_function->type_information = get_unknown_dependent_type();
-            pretty_function->entity_specs.is_builtin = 1;
-        }
-        else
+        // if (is_dependent_function(entry))
+        // {
+        //     // Insert a dependent __PRETTY_FUNCTION__
+        //     scope_entry_t* pretty_function = new_symbol(block_context,
+        //             block_context.current_scope,
+        //             "__PRETTY_FUNCTION__");
+        //     pretty_function->kind = SK_VARIABLE;
+        //     pretty_function->type_information = get_unknown_dependent_type();
+        //     pretty_function->entity_specs.is_builtin = 1;
+        // }
+        // else
         {
             const char* nice_name =
                 print_decl_type_str(entry->type_information,
