@@ -653,11 +653,10 @@ fi
 AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
-#add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
-   COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} smpcc smpcxx"
 fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
