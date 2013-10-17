@@ -4343,6 +4343,10 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_ALIGNOF_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
+| TOKEN_NOEXCEPT '(' expression ')'
+{
+    $$ = ASTMake1(AST_NOEXCEPT_EXPRESSION, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 // GNU Extensions
 | EXTENSION cast_expression
 {

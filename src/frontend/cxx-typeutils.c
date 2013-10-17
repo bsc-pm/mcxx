@@ -3568,6 +3568,23 @@ void class_type_set_is_abstract(type_t* class_type, char is_abstract)
     class_type->type->class_info->is_abstract = is_abstract;
 }
 
+char class_type_is_polymorphic(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    scope_entry_list_t* virtuals = class_type_get_virtual_functions(class_type);
+    // If we have virtual functions we are dynamic
+    if (virtuals != NULL)
+    {
+        entry_list_free(virtuals);
+        return 1;
+    }
+
+    return 0;
+}
+
 char class_type_is_dynamic(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);

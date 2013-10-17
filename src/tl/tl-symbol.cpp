@@ -543,6 +543,11 @@ namespace TL
         return result;
     }
 
+    Nodecl::NodeclBase Symbol::function_noexcept() const
+    {
+        return _symbol->entity_specs.noexception;
+    }
+
     bool Symbol::has_initialization() const
     {
         return (!nodecl_is_null(_symbol->value));

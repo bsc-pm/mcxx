@@ -385,6 +385,8 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context,
 static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void check_noexcept_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_vla_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -827,6 +829,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_INITIALIZER_CLAUSE_PACK_EXPANSION:
             {
                 check_initializer_clause_pack_expansion(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_NOEXCEPT_EXPRESSION:
+            {
+                check_noexcept_expression(expression, decl_context, nodecl_output);
                 break;
             }
             // GCC Extension
@@ -10212,6 +10219,122 @@ static void check_initializer_clause_pack_expansion(AST expression, decl_context
     check_nodecl_initializer_clause_expansion(nodecl_expander, decl_context, ast_get_locus(expanded_expr), nodecl_output);
 }
 
+static char dynamic_cast_requires_runtime_check(nodecl_t nodecl_expr)
+{
+    type_t* t = nodecl_get_type(nodecl_expr);
+    return (is_lvalue_reference_type(t)
+            && is_class_type(no_ref(t)));
+}
+
+static char typeid_of_lvalue_polymorphic_class(nodecl_t nodecl_expr)
+{
+    type_t* t = nodecl_get_type(nodecl_expr);
+    return (is_lvalue_reference_type(t)
+            && class_type_is_polymorphic(t));
+}
+
+static char function_is_non_throwing(scope_entry_t* entry)
+{
+    if (!nodecl_is_null(entry->entity_specs.noexception))
+    {
+        return nodecl_is_constant(entry->entity_specs.noexception)
+            && const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.noexception));
+    }
+    else
+    {
+        return !entry->entity_specs.any_exception
+            && (entry->entity_specs.num_exceptions == 0);
+    }
+}
+
+static char check_nodecl_noexcept_rec(nodecl_t nodecl_expr)
+{
+    if (nodecl_is_null(nodecl_expr))
+        return 1;
+
+    // Stop at these nonevaluated things
+    if (nodecl_get_kind(nodecl_expr) == NODECL_SIZEOF
+            || nodecl_get_kind(nodecl_expr) == NODECL_CXX_SIZEOF
+            || nodecl_get_kind(nodecl_expr) == NODECL_CXX_SIZEOF_PACK
+            || nodecl_get_kind(nodecl_expr) == NODECL_ALIGNOF
+            || nodecl_get_kind(nodecl_expr) == NODECL_CXX_ALIGNOF
+            || nodecl_get_kind(nodecl_expr) == NODECL_CXX_NOEXCEPT)
+        return 1;
+
+    if (nodecl_get_kind(nodecl_expr) == NODECL_FUNCTION_CALL)
+    {
+        nodecl_t called = nodecl_get_child(nodecl_expr, 0);
+        scope_entry_t* entry = nodecl_get_symbol(called);
+
+        if (entry != NULL && !function_is_non_throwing(entry))
+            return 0;
+    }
+    else if (nodecl_get_kind(nodecl_expr) == NODECL_THROW)
+    {
+        return 0;
+    }
+    else if (nodecl_get_kind(nodecl_expr) == NODECL_CAST
+            && strcmp(nodecl_get_text(nodecl_expr), "dynamic_cast") == 0
+            && dynamic_cast_requires_runtime_check(nodecl_expr))
+    {
+        return 0;
+    }
+    else if (nodecl_get_kind(nodecl_expr) == NODECL_TYPEID
+            && typeid_of_lvalue_polymorphic_class(nodecl_expr))
+    {
+        return 0;
+    }
+
+    int i;
+    char result = 1;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        result = result && check_nodecl_noexcept_rec(nodecl_get_child(nodecl_expr, i));
+    }
+
+    return result;
+}
+
+static void check_nodecl_noexcept(nodecl_t nodecl_expr, nodecl_t* nodecl_output)
+{
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
+    if (nodecl_expr_is_value_dependent(nodecl_expr))
+    {
+        *nodecl_output = nodecl_make_cxx_noexcept(nodecl_expr, get_bool_type(), nodecl_get_locus(nodecl_expr));
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    type_t* t = get_bool_type();
+    const_value_t* val = NULL;
+
+    if (check_nodecl_noexcept_rec(nodecl_expr))
+    {
+        val = const_value_get_one(type_get_size(t), 1);
+    }
+    else
+    {
+        val = const_value_get_zero(type_get_size(t), 1);
+    }
+
+    *nodecl_output = nodecl_make_boolean_literal(t, val, nodecl_get_locus(nodecl_expr));
+}
+
+static void check_noexcept_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST noexcept_expr = ASTSon0(expression);
+
+    nodecl_t nodecl_noexcept = nodecl_null();
+    check_expression_impl_(noexcept_expr, decl_context, &nodecl_noexcept);
+
+    check_nodecl_noexcept(nodecl_noexcept, nodecl_output);
+}
+
 static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
         char is_arrow, nodecl_t* nodecl_output)
 {
@@ -16008,6 +16131,76 @@ nodecl_t cxx_nodecl_make_function_call(
 
     if (called_symbol != NULL)
     {
+        CXX_LANGUAGE()
+        {
+            // Update exception stuff
+            if (called_symbol->kind == SK_FUNCTION
+                    || called_symbol->kind == SK_VARIABLE)
+            {
+                if (!nodecl_is_null(called_symbol->entity_specs.noexception)
+                        && nodecl_expr_is_value_dependent(called_symbol->entity_specs.noexception))
+                {
+                    nodecl_t new_noexception = instantiate_expression(
+                            called_symbol->entity_specs.noexception,
+                            called_symbol->decl_context);
+
+                    if (nodecl_is_err_expr(new_noexception))
+                    {
+                        return new_noexception;
+                    }
+
+                    called_symbol->entity_specs.noexception = new_noexception;
+                }
+                else if (!called_symbol->entity_specs.any_exception
+                        && called_symbol->entity_specs.num_exceptions != 0)
+                {
+                    char any_is_dependent = 0;
+
+                    int idx_exception;
+                    for (idx_exception = 0; idx_exception < called_symbol->entity_specs.num_exceptions; idx_exception++)
+                    {
+                        if (is_dependent_type(called_symbol->entity_specs.exceptions[idx_exception]))
+                        {
+                            any_is_dependent = 1;
+                            break;
+                        }
+                    }
+
+                    if (any_is_dependent)
+                    {
+                        int new_num_exceptions = 0;
+                        type_t** new_exceptions = NULL;
+
+                        for (idx_exception = 0; idx_exception < called_symbol->entity_specs.num_exceptions; idx_exception++)
+                        {
+                            type_t* updated_exception = update_type_for_instantiation(
+                                    called_symbol->entity_specs.exceptions[idx_exception],
+                                    called_symbol->decl_context,
+                                    locus,
+                                    /* pack_index */ -1);
+
+                            if (is_sequence_of_types(updated_exception))
+                            {
+                                int idx_seq, n = sequence_of_types_get_num_types(updated_exception);
+                                for (idx_seq = 0; idx_seq < n; idx_seq++)
+                                {
+                                    P_LIST_ADD(new_exceptions, new_num_exceptions,
+                                            sequence_of_types_get_type_num(updated_exception, idx_seq));
+                                }
+                            }
+                            else
+                            {
+                                P_LIST_ADD(new_exceptions, new_num_exceptions, updated_exception);
+                            }
+                        }
+
+                        called_symbol->entity_specs.num_exceptions = new_num_exceptions;
+                        called_symbol->entity_specs.exceptions = new_exceptions;
+                    }
+                }
+            }
+        }
+
         if (called_symbol->kind == SK_FUNCTION)
         {
             ensure_function_is_emitted(called_symbol, nodecl_get_locus(called));
@@ -16912,6 +17105,13 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
     v->nodecl_result = result;
 }
 
+static void instantiate_noexcept(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t dep_expr = nodecl_get_child(node, 0);
+    nodecl_t expr = instantiate_expr_walk(v, dep_expr);
+
+    check_nodecl_noexcept(expr, &v->nodecl_result);
+}
 
 static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
@@ -17267,6 +17467,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Alignof
     NODECL_VISITOR(v)->visit_alignof = instantiate_expr_visitor_fun(instantiate_nondep_alignof);
     NODECL_VISITOR(v)->visit_cxx_alignof = instantiate_expr_visitor_fun(instantiate_dep_alignof_expr);
+
+    // noexcept
+    NODECL_VISITOR(v)->visit_cxx_noexcept = instantiate_expr_visitor_fun(instantiate_noexcept);
 
     // Casts
     NODECL_VISITOR(v)->visit_cast = instantiate_expr_visitor_fun(instantiate_cast);

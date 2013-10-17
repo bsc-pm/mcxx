@@ -106,6 +106,7 @@ symbol|fortran|in_module|If not NULL it means that this symbol is a component of
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 symbol|fortran|used_modules|Symbol that keeps track of the USEd modules in this program unit
 string|all|linkage_spec|The linkage specifier (C, C++)
+nodecl|all|noexception|C++ noexcept specifier. If this tree is not null it will be at least 'true'
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(function_parameter_info_t))|all|function_parameter_info|Information kept for a symbol that is a parameter of a function
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions

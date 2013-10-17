@@ -604,6 +604,7 @@ LIBMCXX_EXTERN char pointer_to_class_type_is_derived(type_t* possible_pclass_der
 LIBMCXX_EXTERN char class_type_is_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_nearly_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_dynamic(type_t* t);
+LIBMCXX_EXTERN char class_type_is_polymorphic(type_t* t);
 
 LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
 LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);

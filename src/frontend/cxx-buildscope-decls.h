@@ -112,9 +112,12 @@ struct gather_decl_spec_tag {
     // Mode type for old GCC vector syntax
     struct type_tag* mode_type;
 
-    // exception-specifiers
+    // dynamic exception-specifiers
     int num_exceptions;
     struct type_tag** exceptions;
+
+    // noexception
+    nodecl_t noexception;
 
     // Vector info
     unsigned int vector_size;

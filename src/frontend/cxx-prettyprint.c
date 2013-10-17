@@ -80,7 +80,7 @@ HANDLER_PROTOTYPE(binary_operator_handler);
 HANDLER_PROTOTYPE(throw_expression_handler);
 HANDLER_PROTOTYPE(conditional_expression_handler);
 HANDLER_PROTOTYPE(cast_expression_handler);
-HANDLER_PROTOTYPE(sizeof_typeid_handler);
+HANDLER_PROTOTYPE(prefix_with_parameter_then_parenthesized_son_handler);
 HANDLER_PROTOTYPE(new_expression_handler);
 HANDLER_PROTOTYPE(new_type_id_handler);
 HANDLER_PROTOTYPE(new_type_id_expr_handler);
@@ -339,7 +339,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_LOGICAL_NOT, prefix_with_parameter_then_son_handler, "!"),
     NODE_HANDLER(AST_BITWISE_NOT, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_SIZEOF, prefix_with_parameter_then_son_handler, "sizeof "),
-    NODE_HANDLER(AST_SIZEOF_TYPEID, sizeof_typeid_handler, "sizeof"),
+    NODE_HANDLER(AST_SIZEOF_TYPEID, prefix_with_parameter_then_parenthesized_son_handler, "sizeof"),
     NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID, new_type_id_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID_EXPR, new_type_id_expr_handler, NULL),
@@ -359,8 +359,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_STATIC_CAST, templated_cast_handler, "static_cast"),
     NODE_HANDLER(AST_REINTERPRET_CAST, templated_cast_handler, "reinterpret_cast"),
     NODE_HANDLER(AST_CONST_CAST, templated_cast_handler, "const_cast"),
-    NODE_HANDLER(AST_TYPEID_EXPR, sizeof_typeid_handler, "typeid"),
-    NODE_HANDLER(AST_TYPEID_TYPE, sizeof_typeid_handler, "typeid"),
+    NODE_HANDLER(AST_TYPEID_EXPR, prefix_with_parameter_then_parenthesized_son_handler, "typeid"),
+    NODE_HANDLER(AST_TYPEID_TYPE, prefix_with_parameter_then_parenthesized_son_handler, "typeid"),
     NODE_HANDLER(AST_THIS_VARIABLE, simple_parameter_handler, "this"),
     NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_QUALIFIED_ID, qualified_id_handler, NULL),
@@ -495,6 +495,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_STATIC_ASSERT, static_assert_handler, NULL),
     NODE_HANDLER(AST_DEFAULTED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
     NODE_HANDLER(AST_DELETED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
+    NODE_HANDLER(AST_NOEXCEPT_EXPRESSION, prefix_with_parameter_then_parenthesized_son_handler, "noexcept"),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -1136,7 +1137,7 @@ static void cast_expression_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
     prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
-static void sizeof_typeid_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void prefix_with_parameter_then_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "%s(", HELPER_PARAMETER_STRING);
     prettyprint_level(f, ASTSon0(a), pt_ctx);

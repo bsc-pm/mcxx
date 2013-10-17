@@ -7296,7 +7296,14 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
     std::string exception_spec;
     CXX_LANGUAGE()
     {
-        if (!symbol.function_throws_any_exception())
+        if (!symbol.function_noexcept().is_null())
+        {
+            exception_spec += " noexcept(";
+            exception_spec += this->codegen_to_str(symbol.function_noexcept(),
+                    symbol.get_scope());
+            exception_spec += ")";
+        }
+        else if (!symbol.function_throws_any_exception())
         {
             exception_spec += " throw(";
 

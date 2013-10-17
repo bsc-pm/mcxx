@@ -9042,6 +9042,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry->entity_specs.any_exception = gather_info->any_exception;
         entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         entry->entity_specs.exceptions = gather_info->exceptions;
+        entry->entity_specs.noexception = gather_info->noexception;
 
         set_parameters_as_related_symbols(entry, gather_info, /* is_definition */ 0,
                 ast_get_locus(declarator_id));
@@ -9082,6 +9083,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             entry->entity_specs.any_exception = gather_info->any_exception;
             entry->entity_specs.num_exceptions = named_type->entity_specs.num_exceptions;
             entry->entity_specs.exceptions = named_type->entity_specs.exceptions;
+            entry->entity_specs.noexception = named_type->entity_specs.noexception;
 
             // Copy parameter info
             copy_related_symbols(entry, named_type);
@@ -9418,6 +9420,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.any_exception = gather_info->any_exception;
         new_entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         new_entry->entity_specs.exceptions = gather_info->exceptions;
+        new_entry->entity_specs.noexception = gather_info->noexception;
 
         new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
@@ -9502,6 +9505,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             // Copy exception info as well
             new_entry->entity_specs.num_exceptions = named_function_type->entity_specs.num_exceptions;
             new_entry->entity_specs.exceptions = named_function_type->entity_specs.exceptions;
+            new_entry->entity_specs.noexception = named_function_type->entity_specs.noexception;
         }
 
         return new_entry;
@@ -13735,18 +13739,11 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
 // This function fills returns an exception_spec_t* It returns NULL if no
 // exception spec has been defined. Note that 'throw ()' is an exception spec
 // and non-NULL is returned in this case.
-static void build_exception_spec(type_t* function_type UNUSED_PARAMETER, 
+static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER, 
         AST a, gather_decl_spec_t *gather_info, 
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    // No exception specifier at all
-    if (a == NULL)
-    {
-        gather_info->any_exception = 1;
-        return;
-    }
-
     // function_type_set_exception_spec(function_type);
 
     AST type_id_list = ASTSon0(a);
@@ -13793,6 +13790,84 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
         }
 
         P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
+    }
+}
+
+static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER, 
+        AST a, gather_decl_spec_t *gather_info, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    AST const_expr = ASTSon0(a);
+
+    if (const_expr == NULL)
+    {
+        nodecl_t true_expr = nodecl_make_boolean_literal(
+                get_bool_type(),
+                const_value_get_one(type_get_size(get_bool_type()), 0),
+                ast_get_locus(a));
+        gather_info->noexception = true_expr;
+    }
+    else
+    {
+        check_expression(const_expr, decl_context, &gather_info->noexception);
+
+        if (!nodecl_is_err_expr(gather_info->noexception))
+        {
+            if (!nodecl_is_constant(gather_info->noexception)
+                    && !nodecl_expr_is_value_dependent(gather_info->noexception))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: noexcept must specify a constant expression\n",
+                            nodecl_locus_to_str(gather_info->noexception));
+                }
+            }
+            if (!nodecl_expr_is_type_dependent(gather_info->noexception))
+            {
+                scope_entry_t* conversor = NULL;
+                char ambiguous_conversion = 0;
+                if (!type_can_be_implicitly_converted_to(nodecl_get_type(gather_info->noexception),
+                            get_bool_type(), decl_context, 
+                            &ambiguous_conversion,
+                            &conversor,
+                            nodecl_get_locus(gather_info->noexception))
+                        || ambiguous_conversion)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: noexcept expression must be convertible to bool\n",
+                                nodecl_locus_to_str(gather_info->noexception));
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void build_exception_spec(type_t* function_type UNUSED_PARAMETER, 
+        AST a, gather_decl_spec_t *gather_info, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    // No exception specifier at all
+    if (a == NULL)
+    {
+        gather_info->any_exception = 1;
+        return;
+    }
+
+    if (ASTType(a) == AST_EXCEPTION_SPECIFICATION)
+    {
+        build_dynamic_exception_spec(function_type, a, gather_info, decl_context, nodecl_output);
+    }
+    else if (ASTType(a) == AST_NOEXCEPT_SPECIFICATION)
+    {
+        build_noexcept_spec(function_type, a, gather_info, decl_context, nodecl_output);
+    }
+    else
+    {
+        internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(a)));
     }
 }
 

@@ -474,6 +474,9 @@ namespace TL
             //! States whether this function was defined with no exception-specifier
             bool function_throws_any_exception() const;
 
+            //! Returns the noexcept specifier of this function (if any)
+            Nodecl::NodeclBase function_noexcept() const;
+
             //! Returns the thrown exceptions
             /*!
              * \note This function returns empty if function_throws_any_exception is true
