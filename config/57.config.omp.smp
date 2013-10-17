@@ -1,0 +1,16 @@
+[smpcc : omp-base]
+language = C
+options = -std=gnu99 
+options = --vector-flavor=gnu 
+{simd} compiler_options = -flax-vector-conversions
+{ffast-math} compiler_options = -ffast-math
+
+[smpcxx : omp-base]
+language = C++
+{openmp} preprocessor_options = -include new 
+options = --vector-flavor=gnu 
+{simd} compiler_options = -flax-vector-conversions
+preprocessor_name = g++
+compiler_name = g++
+linker_name = g++
+{ffast-math} compiler_options = -ffast-math
