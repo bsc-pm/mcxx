@@ -67,6 +67,7 @@ bool|all|is_nested_function|States that this function is nested inside another o
 bool|all|is_saved_expression|States that this variable is actually a phony one created to store a runtime value used elsewhere
 bool|all|gcc_extension|States that this variable has the gcc __extension__ attribute
 bool|all|is_result_var|This symbol is the result variable of the function
+bool|all|is_constexpr|States that this symbol is a C++ constexpr
 bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
