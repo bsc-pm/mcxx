@@ -453,6 +453,7 @@ namespace Analysis {
                 stmt_l.append( ( *it )->get_statements( ) );
             }
             Node* new_node = new Node( _utils->_nid, NORMAL, node_l[0]->get_outer_node( ), stmt_l );
+            new_node->set_visited_extgraph( true );
             Node* front = node_l.front( );
             Node* back = node_l.back( );
             ObjectList<Node*> front_parents = front->get_parents( );
