@@ -313,7 +313,6 @@ namespace Codegen
         *(file) << "IMPLICIT NONE\n";
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
-
         if (entry.is_function())
         {
             if (lacks_result)
@@ -342,6 +341,10 @@ namespace Codegen
                 declare_symbol(*it, it->get_scope());
             }
 
+            if (!lacks_result
+                    && entry.get_result_variable().is_valid())
+                declare_symbol(entry.get_result_variable(), entry.get_result_variable().get_scope());
+
             state.emit_interoperable_types = keep_emit_interop;
         }
 
@@ -369,6 +372,9 @@ namespace Codegen
                 // We explicitly check dummy arguments because they might not be used
                 TL::Symbol internal_procedure = it->get_symbol();
                 TL::ObjectList<TL::Symbol> internal_related_symbols = internal_procedure.get_related_symbols();
+                // Count also RESULT, if any
+                if (internal_procedure.get_result_variable().is_valid())
+                    internal_related_symbols.append(internal_procedure.get_result_variable());
                 for (TL::ObjectList<TL::Symbol>::iterator it2 = internal_related_symbols.begin();
                         it2 != internal_related_symbols.end();
                         it2++)
@@ -1522,8 +1528,6 @@ OPERATOR_TABLE
                     ERROR_CONDITION (pos >= (signed int)parameter_symbols.size(),
                             "This should not happen if some argument has been omitted", 0);
 
-                    ERROR_CONDITION(parameter_symbols[pos].is_result_variable(),
-                            "Invalid argument", 0);
                     std::string keyword_name = parameter_symbols[pos].get_name();
 
                     ERROR_CONDITION(keyword_name == "", "Invalid name for parameter\n", 0);
@@ -2258,22 +2262,17 @@ OPERATOR_TABLE
         indent();
         TL::Symbol entry = node.get_symbol();
 
-        *(file) << "ENTRY " 
-             << entry.get_name() 
+        *(file) << "ENTRY "
+             << entry.get_name()
              << "(";
 
-        TL::Symbol result_var;
+        TL::Symbol result_var = entry.get_result_variable();
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
         {
             TL::Symbol &dummy(*it);
-            if (dummy.is_result_variable())
-            {
-                result_var = dummy;
-                continue;
-            }
 
             if (it != related_symbols.begin())
                 *(file) << ", ";
@@ -2290,7 +2289,8 @@ OPERATOR_TABLE
         }
         *(file) << ")";
         if (result_var.is_valid()
-                && result_var.get_name() != entry.get_name())
+                && result_var.get_name() != entry.get_name()
+                && result_var.get_name() != ".result")
         {
             *(file) << " RESULT(" << result_var.get_name() << ")";
         }
@@ -3139,6 +3139,8 @@ OPERATOR_TABLE
         TL::Symbol used_modules = entry.get_used_modules();
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+        if (entry.get_result_variable().is_valid())
+            related_symbols.append(entry.get_result_variable());
         if (used_modules.is_valid())
         {
             UseStmtInfo use_stmt_info;
@@ -3794,6 +3796,8 @@ OPERATOR_TABLE
             {
                 // First pass to declare everything that might be needed by the dummy arguments
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                if (entry.get_result_variable().is_valid())
+                    related_symbols.append(entry.get_result_variable());
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
@@ -3809,6 +3813,8 @@ OPERATOR_TABLE
             if (entry.is_entry())
             {
                 TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
+                if (entry.get_result_variable().is_valid())
+                    related_symbols.append(entry.get_result_variable());
                 for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                         it != related_symbols.end();
                         it++)
@@ -3931,18 +3937,12 @@ OPERATOR_TABLE
                         it++)
                 {
                     TL::Symbol &sym(*it);
-
-                    // Do not declare this one otherwise the name for the
-                    // function statement will be renamed
-                    if (sym.is_result_variable())
-                        continue;
-
                     declare_symbol(sym, sym.get_scope());
                 }
 
                 std::string type_spec;
                 std::string array_specifier;
-                codegen_type(entry.get_type().returns(), 
+                codegen_type(entry.get_type().returns(),
                         type_spec, array_specifier);
 
                 // Declare the scalar representing this statement function statement
@@ -3959,8 +3959,6 @@ OPERATOR_TABLE
                         it++)
                 {
                     TL::Symbol &dummy(*it);
-                    if (dummy.is_result_variable())
-                        continue;
 
                     if (it != related_symbols.begin())
                         *(file) << ", ";
@@ -5647,18 +5645,13 @@ OPERATOR_TABLE
             << entry.get_name()
             << "(";
 
-        TL::Symbol result_var;
+        TL::Symbol result_var = entry.get_result_variable();
 
         TL::ObjectList<TL::Symbol> related_symbols = entry.get_related_symbols();
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
         {
-            if (it->is_result_variable())
-            {
-                result_var = *it;
-                continue;
-            }
             if (it != related_symbols.begin())
                 *(file) << ", ";
 
@@ -5701,7 +5694,8 @@ OPERATOR_TABLE
         {
             if (result_var.is_valid())
             {
-                if (result_var.get_name() != entry.get_name())
+                if (result_var.get_name() != entry.get_name()
+                        && result_var.get_name() != ".result")
                 {
                     if (is_protected_name(result_var))
                     {
@@ -5712,6 +5706,9 @@ OPERATOR_TABLE
                         *(file) << " RESULT(" << result_var.get_name() << ")";
                     }
                 }
+
+                if (result_var.get_name() == ".result")
+                    lacks_result = true;
             }
             else
             {

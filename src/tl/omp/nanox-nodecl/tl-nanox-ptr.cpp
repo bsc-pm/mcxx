@@ -117,15 +117,13 @@ namespace TL { namespace Nanox {
 
         return_sym->defined = 1;
 
-        return_sym->entity_specs.is_result = 1;
+        return_sym->entity_specs.is_result_var = 1;
 
         return_sym->type_information = get_unqualified_type(return_type.get_internal_type());
 
         parameter_symbols.append(return_sym);
 
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
-                return_sym);
+        entry->entity_specs.result_var = return_sym;
 
         // Type of the function
         type_t *function_type = get_new_function_type(
