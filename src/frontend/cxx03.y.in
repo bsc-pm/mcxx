@@ -373,6 +373,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> parent_initializer_ctor
 %type<ast> equal_or_parent_initializer
 %type<ast> iteration_statement
+%type<ast> for_range_declaration
 %type<ast> jump_statement
 %type<ast> label_declaration
 %type<ast> label_declarator_seq
@@ -3594,7 +3595,23 @@ iteration_statement : WHILE '(' condition ')' statement
     AST loop_control = ASTMake3(AST_LOOP_CONTROL, $3, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
 	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+| FOR '(' for_range_declaration ':' expression ')' statement
+{
+    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
 ;
+
+for_range_declaration : type_specifier_seq_0 declarator %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_FOR_RANGE_DECLARATION, $1, $2, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier nonglobal_declarator %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_FOR_RANGE_DECLARATION, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
 expression_opt : expression
 {
     $$ = $1;
