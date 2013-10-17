@@ -4638,9 +4638,6 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     {
         if (value->entry == NULL)
         {
-            // FIXME: Note the absence of TPK_TEMPLATE because it is currently
-            // being handled different. Could we use a template alias? See note
-            // below in case TPK_TEMPLATE
             value->entry = counted_xcalloc(1, sizeof(*value->entry), &_bytes_used_scopes);
             value->entry->symbol_name = parameter_entry->symbol_name;
             value->entry->decl_context = context;

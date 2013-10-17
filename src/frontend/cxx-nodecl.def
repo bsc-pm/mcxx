@@ -353,6 +353,8 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
     | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type const-value-opt
 # sizeof(expr)
     | NODECL_CXX_SIZEOF([expr] expression) type const-value-opt
+# sizeof...(expr)
+    | NODECL_CXX_SIZEOF_PACK([expr] expression) type const-value-opt
 # alignof(expr)
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }

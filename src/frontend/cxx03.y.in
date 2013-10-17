@@ -4327,7 +4327,7 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 }
 | SIZEOF ELLIPSIS '(' IDENTIFIER ')'
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 
     $$ = ASTMake1(AST_SIZEOF_PACK, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
 }

@@ -992,6 +992,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeofPack& node)
+{
+    *(file) << "sizeof...(";
+    walk(node.get_expr());
+    *(file) << ")";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::DefaultArgument& node)
 {
     internal_error("Code unreachable", 0);
