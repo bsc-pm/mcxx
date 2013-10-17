@@ -1046,6 +1046,9 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                 << _sectionCodeDevice
                 << "}; ";
         
+        if (_mpi_task_processed)
+        functions_section << "__attribute__((weak)) char ompss_uses_offload = 1;";
+        
         if (IS_FORTRAN_LANGUAGE)
            Source::source_language = SourceLanguage::C;
         Nodecl::NodeclBase functions_section_tree = functions_section.parse_global(_root);
