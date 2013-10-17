@@ -13771,6 +13771,9 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
         gather_decl_spec_t inner_gather_info;
         memset(&inner_gather_info, 0, sizeof(inner_gather_info));
 
+        // We allow variadic typeid's
+        inner_gather_info.parameter_declaration = 1;
+
         build_scope_decl_specifier_seq(type_specifier_seq, &inner_gather_info, &type_info,
                 decl_context, /* first_declarator */ NULL, nodecl_output);
 
@@ -13783,6 +13786,11 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
 
         if (is_error_type(declarator_type))
             continue;
+
+        if (inner_gather_info.is_template_pack)
+        {
+            declarator_type = get_pack_type(declarator_type);
+        }
 
         P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
     }
@@ -14784,7 +14792,6 @@ static void build_scope_try_block(AST a,
             nodecl_t dummy = nodecl_null();
             build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                     block_context, /* first_declarator */ NULL, &dummy);
-
 
             type_t* declarator_type = type_info;
 

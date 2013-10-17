@@ -5693,23 +5693,13 @@ exception_specification_opt : /* empty */
 }
 ;
 
-throw_type_id_list : type_id 
+throw_type_id_list : type_id
 {
 	$$ = ASTListLeaf($1);
 }
 | throw_type_id_list ',' type_id
 {
 	$$ = ASTList($1, $3);
-}
-| type_id_not_ellipsis ELLIPSIS
-{
-    AST type_id_pack = ASTMake1(AST_TYPE_ID_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
-	$$ = ASTListLeaf(type_id_pack);
-}
-| throw_type_id_list ',' type_id_not_ellipsis ELLIPSIS
-{
-    AST type_id_pack = ASTMake1(AST_TYPE_ID_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
-	$$ = ASTList($1, type_id_pack);
 }
 ;
 
