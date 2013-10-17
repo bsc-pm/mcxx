@@ -13594,6 +13594,18 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 entry->entity_specs.is_defined_inside_class_specifier = 1;
 
                                 entry->value = nodecl_expr;
+
+                                if (!current_gather_info.is_static)
+                                {
+                                    CXX03_LANGUAGE()
+                                    {
+                                        if (!checking_ambiguity())
+                                        {
+                                            warn_printf("%s: warning: initialization of nonstatic data members is only valid in C++11\n",
+                                                    ast_location(initializer));
+                                        }
+                                    }
+                                }
                             }
                             // Special initializer for functions
                             else if (entry->kind == SK_FUNCTION)
@@ -14762,6 +14774,7 @@ static void build_scope_return_statement(AST a,
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
             check_initializer_clause(expression, decl_context, return_type, &nodecl_expr);
+            // FIXME - Emit a warning here
         }
         else 
         {

@@ -12455,6 +12455,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             nodecl_locus_to_str(braced_initializer),
                             print_type_str(declared_type, decl_context));
                 }
+                xfree(nodecl_list);
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
                 return;
@@ -12503,6 +12504,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     nodecl_arguments_output = nodecl_append_to_list(nodecl_arguments_output,
                             nodecl_current);
                 }
+
+                xfree(nodecl_list);
 
                 *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor,
