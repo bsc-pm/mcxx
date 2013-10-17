@@ -34,6 +34,7 @@
 namespace TL {
 namespace Analysis {
 
+namespace {
     bool is_accepted_induction_variable_syntax( Node* loop, Nodecl::NodeclBase stmt,
                                                 Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr )
     {
@@ -51,28 +52,11 @@ namespace Analysis {
 
             Nodecl::NodeclBase lhs_rhs, rhs_rhs;
             if( rhs.is<Nodecl::Add>( ) )
-            {   // Expression accepted: iv = x + iv;
+            {   // Expression accepted: iv = x + iv; iv = -x + iv;
                 Nodecl::Add _rhs = rhs.as<Nodecl::Add>( );
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
-
-                if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
-                    && ( !lhs.is<Nodecl::ArraySubscript>( )
-                         || ( lhs.is<Nodecl::ArraySubscript>( )
-                              && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
-                {
-                    iv = lhs;
-                    incr = lhs_rhs;
-                    is_iv = true;
-                }
-            }
-            else if( rhs.is<Nodecl::Minus>( ) )
-            {   // Expression accepted: iv = -x + iv;
-                Nodecl::Minus _rhs = rhs.as<Nodecl::Minus>( );
-                lhs_rhs = _rhs.get_lhs( );
-                rhs_rhs = _rhs.get_rhs( );
-
+                
                 if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
                     && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
                     && ( !lhs.is<Nodecl::ArraySubscript>( )
@@ -147,6 +131,7 @@ namespace Analysis {
 
         return is_iv;
     }
+}
 
     // ***************************************** END Utils ***************************************** //
     // ********************************************************************************************* //
@@ -219,12 +204,14 @@ namespace Analysis {
             for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
             {
                 Nodecl::NodeclBase incr;
-                Nodecl::NodeclBase iv = is_basic_induction_variable( *it, loop, incr );
+                ObjectList<Nodecl::NodeclBase> incr_list;
+                Nodecl::NodeclBase iv = is_basic_induction_variable( *it, loop, incr, incr_list );
                 if( !iv.is_null( ) )
                 {
                     Utils::InductionVariableData* ivd = new Utils::InductionVariableData( Utils::ExtendedSymbol( iv ),
                                                                                           Utils::BASIC_IV, iv );
                     ivd->set_increment( incr );
+                    ivd->set_increment_list( incr_list );
                     loop->set_induction_variable( ivd );
                     _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), ivd ) );
                 }
@@ -242,12 +229,14 @@ namespace Analysis {
     // FIXME This method does not cover all kind induction variable.
     // F.i., 'st': iv = 1 + iv + z, where 'z' is loop invariant, will return false
     Nodecl::NodeclBase InductionVariableAnalysis::is_basic_induction_variable( Nodecl::NodeclBase st, Node* loop,
-                                                                               Nodecl::NodeclBase& incr )
+                                                                               Nodecl::NodeclBase& incr,
+                                                                               ObjectList<Nodecl::NodeclBase>& incr_list )
     {
         Nodecl::NodeclBase iv = Nodecl::NodeclBase::null( );
 
         if( is_accepted_induction_variable_syntax( loop, st, iv, incr ) )
         {
+            incr_list.insert( incr );
             // Get a list from the IVs in the map corresponding to the current loop
             ObjectList<Utils::InductionVariableData*> ivs;
             std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
@@ -259,7 +248,7 @@ namespace Analysis {
 
             if( !Utils::induction_variable_list_contains_variable( ivs, iv ) )
             {
-                if( !check_potential_induction_variable( iv, incr, st, loop ) )
+                if( !check_potential_induction_variable( iv, incr, incr_list, st, loop ) )
                 {
                     iv = Nodecl::NodeclBase::null( );
                 }
@@ -363,7 +352,7 @@ namespace Analysis {
 //             }
 //         }
 //
-//         if( check_potential_induction_variable( res, st, loop_entry, id_end ) )
+//         if( !check_potential_induction_variable( res, st, loop_entry, id_end ) )
 //         {
 //             res = Nodecl::NodeclBase::null( );
 //         }
@@ -372,17 +361,24 @@ namespace Analysis {
     }
 
     bool InductionVariableAnalysis::check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                                        ObjectList<Nodecl::NodeclBase>& incr_list,
                                                                         Nodecl::NodeclBase stmt, Node* loop )
     {
-        bool res = check_potential_induction_variable_rec( iv, incr, stmt, loop->get_graph_entry_node( ), loop );
+        // Check whether the variable is modified in other places inside the loop
+        bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        return res;
+        if( !res )
+        {   // Check whether the variable is private in case it is in a parallel or simd region
+            res = check_private_status( iv, loop );
+        }
+        return !res;
     }
 
-    bool InductionVariableAnalysis::check_potential_induction_variable_rec( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
-                                                                            Nodecl::NodeclBase stmt, Node* node, Node* loop )
+    bool InductionVariableAnalysis::check_undesired_modifications( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+                                                                   ObjectList<Nodecl::NodeclBase>& incr_list,
+                                                                   Nodecl::NodeclBase stmt, Node* node, Node* loop )
     {
-        bool result = true;
+        bool result = false;
 
         if( ( node->get_id( ) != loop->get_graph_exit_node( )->get_id( ) ) && !node->is_visited_aux( ) )
         {
@@ -395,25 +391,25 @@ namespace Analysis {
                 // Check the statement only if it is not the statement where the potential IV was found
                 if( !Nodecl::Utils::equal_nodecls( stmt, *it, /* skip conversion nodes */ true ) )
                 {
-                    FalseInductionVariablesVisitor v( iv, &incr, loop );
+                    FalseInductionVariablesVisitor v( iv, &incr, &incr_list, loop );
                     v.walk( *it );
                     if( !v.get_is_induction_variable( ) )
                     {
-                        result = false;
+                        result = true;
                         break;
                     }
                 }
             }
 
-            // If IV still locks like an IV, check for false positives in the children nodes
-            if( result )
+            // If IV still looks like an IV, check for false positives in the children nodes
+            if( !result )
             {
                 ObjectList<Node*> children = node->get_children( );
                 for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    if( !check_potential_induction_variable_rec( iv, incr, stmt, *it, loop ) )
+                    if( !check_undesired_modifications( iv, incr, incr_list, stmt, *it, loop ) )
                     {
-                        result = false;
+                        result = true;
                         break;
                     }
                 }
@@ -423,6 +419,62 @@ namespace Analysis {
         return result;
     }
 
+    
+    
+    bool InductionVariableAnalysis::check_private_status( Nodecl::NodeclBase iv, Node* loop )
+    {
+        bool result = false;
+        Node* outer_node = loop->get_outer_node( );
+        while( outer_node != NULL )
+        {
+            if( outer_node->is_omp_parallel_node( ) || outer_node->is_omp_simd_node( ) 
+                || outer_node->is_omp_sections_node( ) || outer_node->is_omp_loop_node( )
+                || outer_node->is_omp_task_node( ) )
+            {
+                // We are a bit tricky here. Just cast to Parallel for convenience, 
+                // because we know all these nodes have a get_environment method
+                Nodecl::List environ = 
+                    outer_node->get_graph_label( ).as<Nodecl::OpenMP::Parallel>( ).get_environment( ).as<Nodecl::List>( );
+                for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ) && !result; ++it )
+                {
+                    if( it->is<Nodecl::OpenMP::Firstprivate>( ) || it->is<Nodecl::OpenMP::Private>( ) )
+                    {
+                        Nodecl::List syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
+                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
+                        {
+                            result = true;
+                            break;
+                        }
+                    }
+                    else if( it->is<Nodecl::OpenMP::Reduction>( ) )
+                    {
+                        Nodecl::List reds = it->as<Nodecl::OpenMP::Reduction>( ).get_reductions( ).as<Nodecl::List>( );
+                        for( Nodecl::List::iterator itr = reds.begin( ); itr != reds.end( ); ++itr )
+                        {
+                            Nodecl::NodeclBase sym = itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( );
+                            if( Nodecl::Utils::equal_nodecls( iv, sym ) )
+                            {
+                                result = true;
+                                break;
+                            }
+                        }
+                    }
+                    else if( it->is<Nodecl::OpenMP::Shared>( ) )
+                    {
+                        Nodecl::List syms = it->as<Nodecl::OpenMP::Shared>( ).get_symbols( ).as<Nodecl::List>( );
+                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            outer_node = outer_node->get_outer_node( );
+        }
+        return result;
+    }
+    
     Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
     {
         return _induction_vars;
@@ -436,8 +488,10 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ****************** Visitor that checks whether a potential IV is a real IV ****************** //
 
-    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr, Node* loop )
-            : _iv( iv ), _incr( incr ), _loop( loop ), _is_induction_var( true ), _n_nested_conditionals( 0 ), _calc( )
+    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr, 
+                                                                    ObjectList<Nodecl::NodeclBase>* incr_list, Node* loop )
+        : _iv( iv ), _incr( incr ), _incr_list( incr_list ),  _loop( loop ), 
+          _is_induction_var( true ), _n_nested_conditionals( 0 ), _calc( )
     {}
 
     bool FalseInductionVariablesVisitor::get_is_induction_variable( ) const
@@ -449,12 +503,21 @@ namespace Analysis {
     {
         _is_induction_var = false;
         _incr = NULL;
+        _incr_list->empty( );
     }
 
     void FalseInductionVariablesVisitor::join_list( TL::ObjectList<bool>& list )
     {   // nothing to be done
     }
 
+    void FalseInductionVariablesVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    {
+        std::cerr << "Unhandled node while Induction Variable analysis '"
+                  << codegen_to_str( n.get_internal_nodecl( ),
+                                     nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
+                  << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+    }
+    
     void FalseInductionVariablesVisitor::visit( const Nodecl::AddAssignment& n )
     {
         if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||
@@ -475,6 +538,7 @@ namespace Analysis {
                     if( const_value_is_positive( _incr->get_constant( ) ) &&
                         const_value_is_positive( new_incr.get_constant( ) ) )
                     {
+                        _incr_list->insert( new_incr );
                         Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
                         const_value_t* c_value = _calc.compute_const_value( c );
                         *_incr = const_value_to_nodecl( c_value );
@@ -482,6 +546,7 @@ namespace Analysis {
                     else if( const_value_is_negative( _incr->get_constant( ) ) &&
                         const_value_is_negative( new_incr.get_constant( ) ) )
                     {
+                        _incr_list->insert( new_incr );
                         Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
                         const_value_t* c_value = _calc.compute_const_value( c );
                         *_incr = const_value_to_nodecl( c_value );
@@ -524,6 +589,7 @@ namespace Analysis {
                     if( const_value_is_positive( _incr->get_constant( ) ) &&
                         const_value_is_positive( new_incr.get_constant( ) ) )
                     {
+                        _incr_list->insert( new_incr );
                         Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
                         const_value_t* c_value = _calc.compute_const_value( c );
                         *_incr = const_value_to_nodecl( c_value );
@@ -532,6 +598,7 @@ namespace Analysis {
                     else if( const_value_is_negative( _incr->get_constant( ) ) &&
                         const_value_is_negative( new_incr.get_constant( ) ) )
                     {
+                        _incr_list->insert( new_incr );
                         Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
                         const_value_t* c_value = _calc.compute_const_value( c );
                         *_incr = const_value_to_nodecl( c_value );
@@ -637,6 +704,7 @@ namespace Analysis {
                     if( const_value_is_positive( _incr->get_constant( ) ) &&
                         const_value_is_positive( new_incr.get_constant( ) ) )
                     {
+                        _incr_list->insert( new_incr );
                         Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
                         const_value_t* c_value = _calc.compute_const_value( c );
                         *_incr = const_value_to_nodecl( c_value );
@@ -644,6 +712,7 @@ namespace Analysis {
                     else if( const_value_is_negative( _incr->get_constant( ) ) &&
                         const_value_is_negative( new_incr.get_constant( ) ) )
                     {
+                        _incr_list->insert( new_incr );
                         Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
                         const_value_t* c_value = _calc.compute_const_value( c );
                         *_incr = const_value_to_nodecl( c_value );
@@ -694,6 +763,7 @@ namespace Analysis {
                     Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
                     const_value_t* c_value = _calc.compute_const_value( c );
                     *_incr = const_value_to_nodecl( c_value );
+                    _incr_list->insert( new_incr );
                 }
                 else
                 {
@@ -722,6 +792,7 @@ namespace Analysis {
                     Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
                     const_value_t* c_value = _calc.compute_const_value( c );
                     *_incr = const_value_to_nodecl( c_value );
+                    _incr_list->insert( new_incr );
                 }
                 else
                 {
@@ -750,6 +821,7 @@ namespace Analysis {
                     Nodecl::NodeclBase c = Nodecl::Minus::make( *_incr, new_incr, _incr->get_type( ) );
                     const_value_t* c_value = _calc.compute_const_value( c );
                     *_incr = const_value_to_nodecl( c_value );
+                    _incr_list->insert( new_incr );
                 }
                 else
                 {
@@ -778,6 +850,7 @@ namespace Analysis {
                     Nodecl::NodeclBase c = Nodecl::Add::make( *_incr, new_incr, _incr->get_type( ) );
                     const_value_t* c_value = _calc.compute_const_value( c );
                     *_incr = const_value_to_nodecl( c_value );
+                    _incr_list->insert( new_incr );
                 }
                 else
                 {

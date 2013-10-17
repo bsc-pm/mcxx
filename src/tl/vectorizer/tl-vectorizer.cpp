@@ -27,33 +27,37 @@
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
+#include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-source.hpp"
 
 namespace TL 
 {
     namespace Vectorization
     {
-        
         VectorizerEnvironment::VectorizerEnvironment(const std::string& device,
                 const unsigned int vector_length,
                 const bool support_masking,
                 const unsigned int mask_size,
                 const TL::Type& target_type,
-                const TL::Scope& local_scope,
-                const Nodecl::List& suitable_expr_list) : 
-           _device(device), _vector_length(vector_length), _unroll_factor(vector_length/4), //TODO
+                const Nodecl::List * suitable_expr_list,
+                const TL::ObjectList<TL::Symbol> * reduction_list,
+                std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
+           _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
            _mask_size(mask_size), _support_masking(support_masking), _target_type(target_type), 
-           _suitable_expr_list(suitable_expr_list)
+           _suitable_expr_list(suitable_expr_list), _reduction_list(reduction_list),
+           _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
-            _local_scope_list.push_back(local_scope);
-            _mask_list.push_back(Nodecl::NodeclBase::null());
+            std::cerr << "VECTORIZER: Target type size: " << target_type.get_size() << std::endl;
+
+            _inside_inner_masked_bb.push_back(false);
+            _mask_check_bb_cost.push_back(0);
         }
-        
+ 
         VectorizerEnvironment::~VectorizerEnvironment()
         {
-            _local_scope_list.pop_back();
+            _inside_inner_masked_bb.pop_back();
+            _mask_check_bb_cost.pop_back();
         }
-
 
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
@@ -67,7 +71,65 @@ namespace TL
             return *_vectorizer;
         }
 
-        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _ffast_math_enabled(false)
+        void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
+        {
+            std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
+
+            if(Vectorizer::_analysis_info != 0)
+                running_error("VECTORIZER: Analysis was previously initialize");
+
+            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                    enclosing_function,
+                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                    Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+        }
+
+#if 0
+        void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
+        {
+            if ((Vectorizer::_analysis_info == 0) || 
+                    (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function))
+            {
+                std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
+               
+                /* 
+                if (Vectorizer::_analysis_info != 0 && Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function)
+                {
+                    std::cerr << _analysis_info->get_nodecl_origin().prettyprint()
+                        << std::endl
+                        << std::endl
+                        << enclosing_function.prettyprint();
+                }
+                */
+
+                if(Vectorizer::_analysis_info != 0)
+                    delete Vectorizer::_analysis_info;
+
+                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+                        enclosing_function,
+                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
+                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
+                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+            }
+            else
+            {
+                std::cerr << "VECTORIZER: Reusing previous analysis" << std::endl;
+            }
+        }
+#endif
+        void Vectorizer::finalize_analysis()
+        {
+            std::cerr << "VECTORIZER: Finalizing analysis" << std::endl;
+
+            if(Vectorizer::_analysis_info != 0)
+            {
+                delete Vectorizer::_analysis_info;
+                Vectorizer::_analysis_info = 0;
+            }
+        }
+
+        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _fast_math_enabled(false)
         {
             _var_counter = 0;
         }
@@ -109,6 +171,38 @@ namespace TL
             visitor_epilog.walk(for_statement);
         }
 
+        bool Vectorizer::is_supported_reduction(bool is_builtin,
+                const std::string& reduction_name,
+                const TL::Type& reduction_type,
+                const VectorizerEnvironment& environment)
+        {
+            VectorizerVectorReduction vector_reduction(environment);
+
+            return vector_reduction.is_supported_reduction(is_builtin,
+                    reduction_name, reduction_type);
+        }
+
+        void Vectorizer::vectorize_reduction(const TL::Symbol& scalar_symbol,
+                TL::Symbol& vector_symbol,
+                const Nodecl::NodeclBase& initializer,
+                const std::string& reduction_name,
+                const TL::Type& reduction_type,
+                const VectorizerEnvironment& environment,
+                Nodecl::List& pre_nodecls,
+                Nodecl::List& post_nodecls)
+        {
+            VectorizerVectorReduction vector_reduction(environment);
+
+            vector_reduction.vectorize_reduction(
+                    scalar_symbol,
+                    vector_symbol,
+                    initializer,
+                    reduction_name,
+                    reduction_type,
+                    pre_nodecls,
+                    post_nodecls);
+        }
+
         void Vectorizer::add_vector_function_version(const std::string& func_name, 
                 const Nodecl::NodeclBase& func_version,
                 const std::string& device, const unsigned int vector_length, 
@@ -140,12 +234,12 @@ namespace TL
         {
             fprintf(stderr, "Enabling SVML SSE\n");
 
-            if (!_ffast_math_enabled)
+            if (!_fast_math_enabled)
             {
-                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
+                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
             }
 
-            if (!_svml_sse_enabled && _ffast_math_enabled)
+            if (!_svml_sse_enabled && _fast_math_enabled)
             {
                 _svml_sse_enabled = true;
 
@@ -190,12 +284,12 @@ namespace TL
         {
             fprintf(stderr, "Enabling SVML KNC\n");
 
-            if (!_ffast_math_enabled)
+            if (!_fast_math_enabled)
             {
-                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '-ffast-math' also enabled. SVML disabled.\n");
+                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
             }
 
-            if (!_svml_sse_enabled && _ffast_math_enabled)
+            if (!_svml_sse_enabled && _fast_math_enabled)
             {
                 _svml_sse_enabled = true;
 
@@ -212,12 +306,12 @@ namespace TL
                     ;
 
                 // Mask
-                svml_sse_vector_math << "__m512 __svml_mask_expf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_sqrtf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_logf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_sinf16(__m512, __mmask16, __m512);\n"
-                    << "__m512 __svml_mask_sincosf16(__m512, __mmask16, __m512*, __m512*);\n"
-                    << "__m512 __svml_mask_floorf16(__m512, __mmask16, __m512);\n"
+                svml_sse_vector_math << "__m512 __svml_expf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_sqrtf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_logf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_sinf16_mask(__m512, __mmask16, __m512);\n"
+                    << "__m512 __svml_sincosf16_mask(__m512, __mmask16, __m512*, __m512*);\n"
+                    << "__m512 __svml_floorf16_mask(__m512, __mmask16, __m512);\n"
                     ;
 
                 // Parse SVML declarations
@@ -246,30 +340,30 @@ namespace TL
                 
                 // Add SVML math masked function as vector version of the scalar one
                 add_vector_function_version("expf", 
-                            global_scope.get_symbol_from_name("__svml_mask_expf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_expf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
-                            global_scope.get_symbol_from_name("__svml_mask_sqrtf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_sqrtf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
-                            global_scope.get_symbol_from_name("__svml_mask_logf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_logf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
-                            global_scope.get_symbol_from_name("__svml_mask_sinf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_sinf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
-                            global_scope.get_symbol_from_name("__svml_mask_sincosf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_sincosf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
-                            global_scope.get_symbol_from_name("__svml_mask_floorf16").make_nodecl(true),
+                            global_scope.get_symbol_from_name("__svml_floorf16_mask").make_nodecl(true),
                             "knc", 64, NULL, true, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 
 
-        void Vectorizer::enable_ffast_math()
+        void Vectorizer::enable_fast_math()
         {
-            _ffast_math_enabled = true;
+            _fast_math_enabled = true;
         }
 
         TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size) 

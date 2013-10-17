@@ -412,8 +412,6 @@ namespace Codegen
             void remove_rename(TL::Symbol sym);
             void clear_renames();
 
-            bool is_protected_name(TL::Symbol sym);
-
             void emit_ptr_loc_C();
 
             void push_declaration_status();
@@ -439,6 +437,7 @@ namespace Codegen
             void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
 
             void emit_floating_constant(const_value_t* value, TL::Type t);
+            void emit_integer_constant(const_value_t* value, TL::Type t);
 
             void emit_only_list(Nodecl::List only_items);
 

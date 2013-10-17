@@ -43,18 +43,21 @@ namespace TL
                 virtual void visit(const Nodecl::ObjectInit& node);
                 
                 virtual void visit(const Nodecl::VectorAdd& node);
-                virtual void visit(const Nodecl::VectorAddMask& node);
+                virtual void visit(const Nodecl::MaskedVectorAdd& node);
                 virtual void visit(const Nodecl::VectorMinus& node);
-                virtual void visit(const Nodecl::VectorMinusMask& node);
+                virtual void visit(const Nodecl::MaskedVectorMinus& node);
                 virtual void visit(const Nodecl::VectorMul& node);
-                virtual void visit(const Nodecl::VectorMulMask& node);
+                virtual void visit(const Nodecl::MaskedVectorMul& node);
                 virtual void visit(const Nodecl::VectorDiv& node);
-                virtual void visit(const Nodecl::VectorDivMask& node);
+                virtual void visit(const Nodecl::MaskedVectorDiv& node);
                 virtual void visit(const Nodecl::VectorNeg& node);
 
                 virtual void visit(const Nodecl::VectorLowerThan& node);
+                virtual void visit(const Nodecl::VectorLowerOrEqualThan& node);
                 virtual void visit(const Nodecl::VectorGreaterThan& node);
+                virtual void visit(const Nodecl::VectorGreaterOrEqualThan& node);
                 virtual void visit(const Nodecl::VectorEqual& node);
+                virtual void visit(const Nodecl::VectorDifferent& node);
 
                 virtual void visit(const Nodecl::VectorBitwiseAnd& node);
                 virtual void visit(const Nodecl::VectorBitwiseOr& node);
@@ -74,10 +77,12 @@ namespace TL
                 virtual void visit(const Nodecl::VectorScatter& node);
 
                 virtual void visit(const Nodecl::VectorFunctionCall& node);
-                virtual void visit(const Nodecl::VectorFunctionCallMask& node);
+                virtual void visit(const Nodecl::MaskedVectorFunctionCall& node);
                 virtual void visit(const Nodecl::VectorFabs& node);
                 
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
+
+                virtual void visit(const Nodecl::VectorReductionAdd& node);
 
                 virtual void visit(const Nodecl::VectorMaskAssignment& node);
                 virtual void visit(const Nodecl::VectorMaskNot& node);

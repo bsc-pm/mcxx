@@ -106,16 +106,30 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     enum Clause {
+        ASSERT_DEAD,
+        ASSERT_DEFINED,
+        ASSERT_LIVE_IN,
+        ASSERT_INDUCTION_VAR,
+        ASSERT_LIVE_OUT,
+        ASSERT_REACH_IN,
+        ASSERT_REACH_OUT,
+        ASSERT_UPPER_EXPOSED,
         AUTO,
         DEP_IN,
+        DEP_IN_VALUE,
         DEP_OUT,
         DEP_INOUT,
+        DEP_CONCURRENT,
+        DEP_COMMUTATIVE,
         COPY_IN,
         COPY_OUT,
         COPY_INOUT,
         FIRSTPRIVATE,
+        FIRSTLASTPRIVATE,
+        LASTPRIVATE,
         FLUSHED_VARS,       // Convenient clause for FLUSH flushed vars
         IF,
+        FINAL_TASK,
         NAME,
         NOWAIT,
         PRIORITY,
@@ -126,6 +140,11 @@ namespace Analysis {
         TARGET,
         UNDEFINED_CLAUSE,
         UNTIED,
+        VECTOR_DEVICE,
+        VECTOR_LENGTH_FOR,
+        VECTOR_MASK,
+        VECTOR_NO_MASK,
+        VECTOR_SUITABLE,
         WAITON
     };
 
@@ -145,6 +164,11 @@ namespace Analysis {
         //! Copy constructor
         PCFGClause( const PCFGClause& clause );
 
+        //! Getters
+        Clause get_clause( ) const;
+        std::string get_clause_as_string( ) const;
+        ObjectList<Nodecl::NodeclBase> get_args( ) const;
+        
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
     };
@@ -168,9 +192,11 @@ namespace Analysis {
         //! Destructor
         ~PCFGPragmaInfo( );
 
-        bool has_clause( Clause clause );
+        bool has_clause( Clause clause ) const;
 
         void add_clause( PCFGClause pcfg_clause );
+        
+        ObjectList<PCFGClause> get_clauses( ) const;
 
     friend class PCFGVisitor;
     };
@@ -229,10 +255,8 @@ namespace Analysis {
         //! creates new nodes
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;
 
-        //! Container to store TASK nodes to be used when synchronizations are reached
-        std::vector<ObjectList<ObjectList<Node*> > > _tasks_to_sync;
-        //! Integer indicating the level of nested tasks we are traversing
-        unsigned int _task_level;
+        //! Boolean indicating whether we are building vector nodes or not
+        bool _is_vector;
 
         //! Counter used to create a unique key for each new node
         unsigned int _nid;
@@ -251,6 +275,41 @@ namespace Analysis {
 
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
+    
+    // ******************************************************************************************* //
+    // **************************** Class for task synchronizations ****************************** //
+    
+    struct AliveTaskItem
+    {
+        Node* node;
+        // Arbitrary domain id. Every nesting domain has its own domain id
+        int domain;
+        
+        AliveTaskItem(Node* node_, int domain_)
+            : node(node_), domain(domain_)
+        {
+        }
+        
+        bool operator<(const AliveTaskItem& it) const
+        {
+            return (this->node < it.node)
+                    || (!(it.node < this->node) && 
+                    (this->domain < it.domain));
+        }
+        
+        bool operator==(const AliveTaskItem& it) const
+        {
+            return (this->node == it.node)
+                    && (this->domain == it.domain);
+        }
+        
+    };
+    
+    typedef std::set<AliveTaskItem> StaticSyncTaskSet;
+    typedef std::set<AliveTaskItem> AliveTaskSet;
+    
+    // ************************** END class for task synchronizations **************************** //
+    // ******************************************************************************************* //
 }
 }
 

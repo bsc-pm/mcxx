@@ -47,12 +47,13 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ompss
 	chmod +x config/mercurium-serial-simd
-	chmod +x config/mercurium-serial-simd-svml
 	chmod +x config/mercurium-parallel-simd
+	chmod +x config/mercurium-serial-simd-mic
+	chmod +x config/mercurium-parallel-simd-mic
 	chmod +x config/mercurium-cuda
 	chmod +x config/mercurium-opencl
 	chmod +x config/mercurium-run
-#	chmod +x config/mercurium-analysis
+	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
 
 BETS_DIRS=$(srcdir)
@@ -101,6 +102,10 @@ OMP_DIRS= \
         $(BETS_DIRS)/07_phases_omp.dg \
         $(BETS_DIRS)/07_phases_ompss.dg \
         $(END)
+        
+ANALYSIS_DIRS=\
+	$(BETS_DIRS)/07_phases_analysis.dg \
+	$(END)
 
 fortran-check : prepare-check
 	./config/bets \
@@ -118,6 +123,10 @@ omp-check : prepare-check
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
 
+analysis-check : prepare-check
+	./config/bets \
+		$(BETS_OPTIONS) $(ANALYSIS_DIRS)
+		
 dist-hook:
 	for i in $(srcdir)/*.dg; \
 	do  \

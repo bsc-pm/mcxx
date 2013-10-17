@@ -51,7 +51,8 @@ namespace TL { namespace Nanox {
             // Builtin identifiers that became reserved names in later versions
             // of gcc
             if (name == "__PRETTY_FUNCTION__" // g++
-                    || name == "__FUNCTION__") // gcc
+                    || name == "__FUNCTION__" // gcc
+                    || name == "__MERCURIUM_PRETTY_FUNCTION__") // Mercurium
                 name = strtolower(name.c_str());
             else if (name == "__func__") // C99
                 name = "__function__";
@@ -887,7 +888,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Auto& shared)
             {
-                Nodecl::List l = shared.get_auto_symbols().as<Nodecl::List>();
+                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -905,7 +906,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Shared& shared)
             {
-                Nodecl::List l = shared.get_shared_symbols().as<Nodecl::List>();
+                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1030,7 +1031,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Firstprivate& shared)
             {
-                Nodecl::List l = shared.get_firstprivate_symbols().as<Nodecl::List>();
+                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1042,7 +1043,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Lastprivate& shared)
             {
-                Nodecl::List l = shared.get_lastprivate_symbols().as<Nodecl::List>();
+                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1054,7 +1055,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::FirstLastprivate& shared)
             {
-                Nodecl::List l = shared.get_firstlastprivate_symbols().as<Nodecl::List>();
+                Nodecl::List l = shared.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1066,7 +1067,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Private& private_)
             {
-                Nodecl::List l = private_.get_private_symbols().as<Nodecl::List>();
+                Nodecl::List l = private_.get_symbols().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)

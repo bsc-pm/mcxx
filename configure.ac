@@ -113,7 +113,7 @@ TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
 
 # plaincxx is always installed as a binary
-COMPILER_NAMES="plaincc plainfc plainf95 analysiscc analysiscxx"
+COMPILER_NAMES="plaincc plainfc plainf95 analysiscc analysiscxx analysisfc analysisfc"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -653,11 +653,10 @@ fi
 AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
-#add allmcc/mcxx, profile which works like mcc/mcxx+cuda+opencl (ignoring the non-installed ones)
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
-   COMPILER_NAMES="${COMPILER_NAMES} allmcc allmcxx"
+   COMPILER_NAMES="${COMPILER_NAMES} smpcc smpcxx"
 fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
@@ -902,6 +901,14 @@ AC_ARG_ENABLE([ifort],
 
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
+mic_compilation="no"
+mic_testing="no"
+mic_testing_device="no"
+
+MIC_COMPILATION=$mic_compilation
+MIC_TESTING=$mic_testing
+MIC_TESTING_DEVICE=$mic_testing_device
+
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
 then
@@ -921,8 +928,44 @@ then
       if test x$ICC != x;
       then
          COMPILER_NAMES="${COMPILER_NAMES} imcc"
-      fi
 
+         AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
+         AC_ARG_ENABLE([mic],
+                AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
+                [
+                    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+                    then
+                        mic_compilation="yes"
+                        AC_MSG_RESULT([yes])
+                    else if test x"$enableval" = x"no";
+                         then
+                            AC_MSG_RESULT([no])
+                            mic_compilation="no"
+                         else
+                            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                         fi
+                    fi
+                ])
+
+         AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
+         AC_ARG_ENABLE([mic-testing],
+                AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
+                [
+                   if test x$enableval != x;
+                   then
+                      AC_MSG_RESULT([yes])
+                      mic_testing_device="$enableval"
+                   else
+                      AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
+                   fi
+                ])
+
+         MIC_COMPILATION=$mic_compilation
+         MIC_TESTING=$mic_testing
+         MIC_TESTING_DEVICE=$mic_testing_device
+
+         dnl end
+      fi
       dnl Check Intel Compiler C++
       AC_PATH_PROG([ICPC], [icpc], [$ICPC])
       if test x$ICPC != x;
@@ -990,6 +1033,10 @@ then
        XLF=
    fi
 fi
+
+AC_SUBST([MIC_COMPILATION])
+AC_SUBST([MIC_TESTING])
+AC_SUBST([MIC_TESTING_DEVICE])
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
 
@@ -1578,12 +1625,14 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/common/Makefile
            src/tl/analysis/pcfg/Makefile
            src/tl/analysis/use_def/Makefile
+           src/tl/analysis/constants/Makefile
            src/tl/analysis/liveness/Makefile
            src/tl/analysis/reach_defs/Makefile
            src/tl/analysis/loops/Makefile
            src/tl/analysis/auto-scope/Makefile
            src/tl/analysis/singleton/Makefile
            src/tl/analysis/test_phase/Makefile
+           src/tl/analysis/checker/Makefile
            src/tl/vectorizer/Makefile
            src/tl/vector-lowering/Makefile
            src/tl/vector-lowering/sse/Makefile
@@ -1603,6 +1652,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/auto-scope/Makefile
            src/tl/omp/simd/Makefile
            src/tl/omp/profile/Makefile
+           src/tl/omp/lint/Makefile
            src/tl/omp/ss2omp/Makefile
            src/tl/omp/nanos-common/Makefile
            src/tl/omp/nanox-nodecl/Makefile
@@ -1646,10 +1696,12 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd
-           tests/config/mercurium-serial-simd-svml
            tests/config/mercurium-parallel-simd
+           tests/config/mercurium-serial-simd-mic
+           tests/config/mercurium-parallel-simd-mic
            tests/config/mercurium-cuda
            tests/config/mercurium-opencl
+           tests/config/mercurium-analysis
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium
@@ -1702,6 +1754,8 @@ echo ""
 echo "   Host supports __float128 and quadmath.h : " $have_float_128
 echo "   Host supports __int128 : " $have_int128
 echo "   SIMD Support: " $simd_version $simd_math_version
+echo "   Intel Xeon Phi compilation support: " $mic_compilation
+echo "   Intel Xeon Phi remote device used for testing: " $mic_testing_device
 echo ""
 echo "   Fortran tests enabled: " $fortran_tests_enabled
 echo ""

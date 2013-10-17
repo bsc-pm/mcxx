@@ -85,6 +85,131 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    // Some bits have been shamelessly copied from tl-lower-task-call.cpp
+    typedef std::map<TL::Symbol, Nodecl::NodeclBase> sym_to_argument_expr_t;
+
+    class InstantiateExecEnvironment : public Nodecl::NodeclVisitor<void>
+    {
+        private:
+            sym_to_argument_expr_t& _sym_to_arg;
+
+        public:
+            InstantiateExecEnvironment(sym_to_argument_expr_t& sym_to_arg)
+                : _sym_to_arg(sym_to_arg)
+            {
+            }
+
+            void visit(const Nodecl::Symbol& n)
+            {
+                sym_to_argument_expr_t::iterator it = _sym_to_arg.find(n.get_symbol());
+                if (it == _sym_to_arg.end())
+                    return;
+
+                n.replace(it->second.shallow_copy());
+                // Crude
+                const_cast<Nodecl::Symbol&>(n).set_type(rewrite_type(n.get_type()));
+            }
+
+            // Do nothing for environments involving only name-lists
+            void visit(const Nodecl::OpenMP::Shared& n) { }
+            void visit(const Nodecl::OpenMP::Firstprivate& n) { }
+            void visit(const Nodecl::OpenMP::Private& n) { }
+            void visit(const Nodecl::OpenMP::Lastprivate& n) { }
+            void visit(const Nodecl::OpenMP::FirstLastprivate& n) { }
+
+            void unhandled_node(const Nodecl::NodeclBase & n)
+            {
+                TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                        it != children.end();
+                        it++)
+                {
+                    walk(*it);
+                }
+                // Crude
+                const_cast<Nodecl::NodeclBase&>(n).set_type(rewrite_type(n.get_type()));
+            }
+
+            TL::Type rewrite_type(TL::Type t)
+            {
+                if (!t.is_valid())
+                    return t;
+
+                if (t.is_lvalue_reference())
+                {
+                    return rewrite_type(t.references_to()).get_lvalue_reference_to();
+                }
+                else if (t.is_pointer())
+                {
+                    return (rewrite_type(t.points_to())).get_pointer_to();
+                }
+                else if (t.is_array())
+                {
+                    TL::Type element_type = rewrite_type(t.array_element());
+
+                    Nodecl::NodeclBase lower_bound, upper_bound;
+                    t.array_get_bounds(lower_bound, upper_bound);
+
+                    lower_bound = lower_bound.shallow_copy();
+                    this->walk(lower_bound);
+
+                    upper_bound = upper_bound.shallow_copy();
+                    this->walk(upper_bound);
+
+                    if (!t.array_is_region())
+                    {
+                        return element_type.get_array_to(lower_bound, upper_bound,
+                                CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                    else
+                    {
+                        Nodecl::NodeclBase region_lower_bound, region_upper_bound;
+                        t.array_get_region_bounds(region_lower_bound, region_upper_bound);
+
+                        region_lower_bound = region_lower_bound.shallow_copy();
+                        this->walk(region_lower_bound);
+
+                        region_upper_bound = region_upper_bound.shallow_copy();
+                        this->walk(region_upper_bound);
+
+                        return element_type.get_array_to_with_region(
+                                lower_bound, upper_bound,
+                                region_lower_bound, region_upper_bound,
+                                CURRENT_COMPILED_FILE->global_decl_context);
+                    }
+                }
+                else
+                {
+                    // Best effort
+                    return t;
+                }
+            }
+    };
+
+    class SimplifyExecEnvironment : public Nodecl::ExhaustiveVisitor<void>
+    {
+        public:
+
+            virtual void visit(const Nodecl::Reference& node)
+            {
+                walk(node.get_rhs());
+                if (node.get_rhs().is<Nodecl::Dereference>())
+                {
+                    // &*a => a
+                    node.replace(node.get_rhs().as<Nodecl::Dereference>().get_rhs());
+                }
+            }
+
+            virtual void visit(const Nodecl::Dereference& node)
+            {
+                walk(node.get_rhs());
+                if (node.get_rhs().is<Nodecl::Reference>())
+                {
+                    // *&a => a
+                    node.replace(node.get_rhs().as<Nodecl::Reference>().get_rhs());
+                }
+            }
+    };
     class FunctionCallVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -92,15 +217,12 @@ namespace TL { namespace OpenMP {
 
             typedef std::set<Symbol> module_function_tasks_set_t;
             module_function_tasks_set_t _module_function_tasks;
-
             // This information is computed by the TransformNonVoidFunctionCalls visitor
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& _funct_call_to_enclosing_stmt_map;
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& _enclosing_stmt_to_return_vars_map;
 
             std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_stmt_to_task_calls_map;
-
         public:
-
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
                     const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map)
@@ -143,11 +265,14 @@ namespace TL { namespace OpenMP {
                         FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
                         Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
+                        Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
 
                         Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
                                 exec_env,
                                 // Do we need to copy this?
                                 call.shallow_copy(),
+                                // Site environment, do not use it
+                                call_site_exec_env,
                                 call.get_locus());
 
                         std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::const_iterator it =
@@ -214,7 +339,6 @@ namespace TL { namespace OpenMP {
                     Nodecl::Utils::remove_from_enclosing_list(enclosing_stmt);
                 }
             }
-
         private:
 
             Nodecl::NodeclBase make_exec_environment(const Nodecl::FunctionCall &call,
@@ -238,7 +362,6 @@ namespace TL { namespace OpenMP {
                         OpenMP::DEP_DIR_IN_VALUE,
                         locus,
                         result_list);
-
                 make_dependency_list<Nodecl::OpenMP::DepOut>(
                         task_dependences,
                         OpenMP::DEP_DIR_OUT,
@@ -306,11 +429,14 @@ namespace TL { namespace OpenMP {
                                 Nodecl::Symbol::make(*it, locus);
                             symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
 
-                            warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
-                                    "is SHARED because it does not have VALUE attribute\n",
-                                    function_sym.get_locus_str().c_str(),
-                                    it->get_name().c_str(),
-                                    function_sym.get_name().c_str());
+                            if(!it->get_type().is_fortran_array())
+                            {
+                                warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
+                                        "is SHARED because it does not have VALUE attribute\n",
+                                        function_sym.get_locus_str().c_str(),
+                                        it->get_name().c_str(),
+                                        function_sym.get_name().c_str());
+                            }
 
                             assumed_shareds.append(symbol_ref);
                         }
@@ -476,6 +602,74 @@ namespace TL { namespace OpenMP {
             {
                 lhs_expr = expr.as<T>().get_lhs();
                 rhs_expr = expr.as<T>().get_rhs();
+            }
+
+            void fill_map_parameters_to_arguments(
+                    TL::Symbol function,
+                    Nodecl::List arguments,
+                    sym_to_argument_expr_t& param_to_arg_expr)
+            {
+                int i = 0;
+                Nodecl::List::iterator it = arguments.begin();
+
+                // If the current function is a non-static function and It is member of a
+                // class, the first argument of the arguments list represents the object of
+                // this class. Skip it!
+                if (IS_CXX_LANGUAGE
+                        && !function.is_static()
+                        && function.is_member())
+                {
+                    it++;
+                }
+
+                for (; it != arguments.end(); it++, i++)
+                {
+                    Nodecl::NodeclBase expression;
+                    TL::Symbol parameter_sym;
+                    Nodecl::NodeclBase arg;
+
+                    if (it->is<Nodecl::FortranActualArgument>())
+                    {
+                        // If this is a Fortran style argument use the symbol
+                        Nodecl::FortranActualArgument named_pair(it->as<Nodecl::FortranActualArgument>());
+
+                        parameter_sym = named_pair.get_symbol();
+                        arg = named_pair.get_argument();
+                    }
+                    else
+                    {
+                        // Get the i-th parameter of the function
+                        ERROR_CONDITION(((signed int)function.get_related_symbols().size() <= i), "Too many parameters", 0);
+                        parameter_sym = function.get_related_symbols()[i];
+                        arg = *it;
+                    }
+
+                    while (arg.is<Nodecl::Conversion>())
+                    {
+                        arg = arg.as<Nodecl::Conversion>().get_nest();
+                    }
+
+                    param_to_arg_expr[parameter_sym] = arg;
+                }
+            }
+
+            Nodecl::NodeclBase instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call)
+            {
+                sym_to_argument_expr_t param_to_arg_expr;
+                Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
+                TL::Symbol called_sym = call.get_called().get_symbol();
+                fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
+
+                Nodecl::NodeclBase result = exec_env.shallow_copy();
+
+                InstantiateExecEnvironment instantiate_visitor(param_to_arg_expr);
+                instantiate_visitor.walk(result);
+
+                // Simplify dependences
+                SimplifyExecEnvironment simplify_env;
+                simplify_env.walk(result);
+
+                return result;
             }
 
             Nodecl::NodeclBase update_join_task(const Nodecl::NodeclBase& enclosing_stmt)
@@ -2399,11 +2593,13 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
+
         if (_simd_enabled)
         {
             // SIMD Clauses
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
-            Nodecl::List environment;
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(stmt);
+            Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
             // Suitable
             PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
@@ -2413,6 +2609,23 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::VectorSuitable::make(
                             Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+            // VectorLengthFor
+            PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
+
+            if (vectorlengthfor_clause.is_defined())
+            {
+                TL::Source target_type_src;
+
+                target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
+
+                TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
+
+                environment.append(
+                        Nodecl::OpenMP::VectorLengthFor::make(
+                            target_type,
                             stmt.get_locus()));
             }
 
@@ -2461,7 +2674,8 @@ namespace TL { namespace OpenMP {
         {
             // SIMD Clauses
             TL::PragmaCustomLine pragma_line = decl.get_pragma_line();
-            Nodecl::List environment;
+            OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(decl);
+            Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
             // Suitable
             PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
@@ -2491,7 +2705,6 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::VectorNoMask::make(decl.get_locus()));
             }
-
             ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
 
             TL::Symbol sym = decl.get_symbol();
@@ -2517,6 +2730,7 @@ namespace TL { namespace OpenMP {
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
+
         if (_simd_enabled)
         {
             // SIMD Clauses
@@ -2535,7 +2749,6 @@ namespace TL { namespace OpenMP {
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase statements = stmt.get_statements();
-
             ERROR_CONDITION(!statements.is<Nodecl::List>(),
                     "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
             Nodecl::List ast_list_node = statements.as<Nodecl::List>();
@@ -2586,6 +2799,7 @@ namespace TL { namespace OpenMP {
         TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
         pragma_line.diagnostic_unused_clauses();
         // FIXME - What is supposed to happen here?
+        // It is still not supported
     }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }

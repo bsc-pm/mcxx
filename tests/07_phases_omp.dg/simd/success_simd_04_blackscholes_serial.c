@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-serial-simd-svml
+test_generator="config/mercurium-serial-simd svml"
 </testinfo>
 */
 

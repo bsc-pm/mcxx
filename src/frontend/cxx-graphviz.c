@@ -28,7 +28,6 @@
 
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "cxx-driver.h"

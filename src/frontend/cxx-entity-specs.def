@@ -65,6 +65,7 @@ bool|all|is_non_emitted|States that this function symbol has not been emitted ye
 bool|all|is_nested_function|States that this function is nested inside another one
 bool|all|is_saved_expression|States that this variable is actually a phony one created to store a runtime value used elsewhere
 bool|all|gcc_extension|States that this variable has the gcc __extension__ attribute
+bool|all|is_result_var|This symbol is the result variable of the function
 bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
@@ -74,7 +75,6 @@ bool|fortran|is_optional|This dummy argument has the OPTIONAL attribute
 bool|fortran|is_target|This entity has the TARGET attribute
 bool|fortran|is_elemental|This is an ELEMENTAL function
 bool|fortran|is_recursive|This is a RECURSIVE function
-bool|fortran|is_result|This symbol is the RESULT variable of the function
 bool|fortran|is_stmt_function|This symbol has been declared after a statement function statement
 bool|fortran|is_generic_spec|This symbol is a generic specifier name
 bool|fortran|is_intrinsic_subroutine|This symbol is an INTRINSIC SUBROUTINE
@@ -85,6 +85,7 @@ bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 bool|fortran|is_cray_pointer|This symbol is a Cray pointer
 bool|fortran|is_saved_program_unit|States that all non-automatic entities are SAVEd in that program unit
+symbol|all|result_var|If this symbol is a function, its result variable, NULL otherwise
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|The generic symbol of an intrinsic (Fortran). The template that must be used to emit this specialization (C++)
 nodecl|all|anonymous_accessor|Is this symbol is_member_of_anonymous it must be accessed using this nodecl

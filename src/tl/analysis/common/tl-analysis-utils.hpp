@@ -105,6 +105,8 @@ namespace Utils {
         Ret visit( const Nodecl::FunctionCode& n );
         Ret visit( const Nodecl::GxxTrait& n );
         Ret visit( const Nodecl::ObjectInit& n );
+        Ret visit( const Nodecl::OpenMP::SimdFunction& n );
+        Ret visit( const Nodecl::OpenMP::TaskCall& n );
         Ret visit( const Nodecl::PragmaCustomDeclaration& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );
         Ret visit( const Nodecl::PreprocessorLine& n );
@@ -116,6 +118,18 @@ namespace Utils {
     };
 
     // **************************** END visitor for Top Level nodes ****************************** //
+    // ******************************************************************************************* //
+    
+    
+    
+    // ******************************************************************************************* //
+    // ************************************ Printing methods ************************************* //
+    
+    void makeup_dot_block( std::string& str );
+    std::string prettyprint_ext_sym_set( Utils::ext_sym_set s, bool print_in_dot );
+    std::string prettyprint_ext_sym_map( Utils::ext_sym_map s, bool print_in_dot );
+    
+    // ********************************** END printing methods *********************************** //
     // ******************************************************************************************* //
 }
 }

@@ -32,6 +32,7 @@
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-task-sync.hpp"
 #include "tl-use-def.hpp"
 #include "tl-liveness.hpp"
 #include "tl-reaching-definitions.hpp"
@@ -67,6 +68,16 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
+    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs( )
+    {
+        ObjectList<ExtensibleGraph*> result;
+        for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            result.insert( it->second );
+        }
+        return result;
+    }
+    
     bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
     {
         return _constants_propagation;
@@ -156,7 +167,7 @@ namespace Analysis {
     {
         _auto_deps = true;
     }
-
+    
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
@@ -235,13 +246,15 @@ namespace Analysis {
         if( result == NULL )
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
-            WARNING_MESSAGE( "Nodecl '%s' do not found in current memento. "\
-                             "You probably misstepped during the analysis.",
+            WARNING_MESSAGE( "Nodecl '%s' do not found in current analysis state. "\
+                             "You might have modified the code you used to compute the analyses and"\
+                             "the nodecl you are asking for now did not exist before.",
                              codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
         }
 
         return result;
     }
+
 
     ObjectList<Utils::InductionVariableData*> PCFGAnalysis_memento::get_induction_variables(
             const Nodecl::NodeclBase& n )
@@ -345,13 +358,18 @@ namespace Analysis {
             // Create the PCFG only if it has not been created previously
             if( memento.get_pcfg( pcfg_name ) == NULL )
             {
+                // Create the PCFG
                 if( VERBOSE )
                     printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
-
-                // Create the PCFG
                 PCFGVisitor v( pcfg_name, *it );
                 ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
 
+                // Synchronize the tasks, if applies
+                if( VERBOSE )
+                    printf( "Task sync of PCFG '%s'\n", pcfg_name.c_str( ) );
+                TaskAnalysis::TaskSynchronizations task_sync_analysis( pcfg );
+                task_sync_analysis.compute_task_synchronizations( );
+                
                 // Store the pcfg in the singleton
                 memento.set_pcfg( pcfg_name, pcfg );
                 result.append( pcfg );
@@ -501,7 +519,6 @@ namespace Analysis {
             {
                 if( VERBOSE )
                     printf( "Auto-Scoping of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                print_pcfg( memento, ( *it )->get_name( ) );
 
                 AutoScoping as( *it );
                 as.compute_auto_scoping( );
@@ -520,6 +537,20 @@ namespace Analysis {
                                   memento.is_reaching_definitions_computed( ),
                                   memento.is_induction_variables_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
+    }
+    
+    void AnalysisSingleton::print_all_pcfg( PCFGAnalysis_memento& memento )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs( );
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        {
+            if( VERBOSE )
+                printf( "Printing to DOT  PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+            ( *it )->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
+                                         memento.is_reaching_definitions_computed( ),
+                                         memento.is_induction_variables_computed( ),
+                                         memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
+        }
     }
 }
 }

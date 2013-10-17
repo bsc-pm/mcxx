@@ -2661,9 +2661,6 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             {
                 scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
 
-                if (related_sym->entity_specs.is_result)
-                    continue;
-
                 if (symbol_is_parameter_of_function(related_sym, specific_symbol))
                 {
                     if (argument_types[i].type == NULL)
@@ -3136,9 +3133,6 @@ static void check_called_symbol_list(
         for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
-
-            if (related_sym->entity_specs.is_result)
-                continue;
 
             if (symbol_is_parameter_of_function(related_sym, symbol))
             {
@@ -4724,6 +4718,11 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 
     conform_types_in_assignment(lvalue_type, rvalue_type, &conf_lhs_type, &conf_rhs_type);
 
+    if (is_enum_type(conf_lhs_type))
+        conf_lhs_type = enum_type_get_underlying_type(conf_lhs_type);
+    if (is_enum_type(conf_rhs_type))
+        conf_rhs_type = enum_type_get_underlying_type(conf_rhs_type);
+
     if ((is_integer_type(conf_lhs_type)
                 || is_floating_type(conf_lhs_type)
                 || is_complex_type(conf_lhs_type))
@@ -4771,8 +4770,10 @@ static char is_defined_assignment(AST expr, AST lvalue,
 
     int num_actual_arguments = 2;
     nodecl_t nodecl_arguments[2] = {
-        nodecl_make_fortran_actual_argument(nodecl_lvalue, nodecl_get_locus(nodecl_lvalue)),
-        nodecl_make_fortran_actual_argument(nodecl_rvalue, nodecl_get_locus(nodecl_rvalue)) };
+        nodecl_make_fortran_actual_argument(nodecl_shallow_copy(nodecl_lvalue),
+                nodecl_get_locus(nodecl_lvalue)),
+        nodecl_make_fortran_actual_argument(nodecl_shallow_copy(nodecl_rvalue),
+                nodecl_get_locus(nodecl_rvalue)) };
 
     type_t* result_type = NULL;
 
@@ -4794,6 +4795,8 @@ static char is_defined_assignment(AST expr, AST lvalue,
             &nodecl_simplify);
     leave_test_expression();
 
+    nodecl_free(nodecl_arguments[0]);
+    nodecl_free(nodecl_arguments[1]);
     ast_free(operator_designation);
 
     return !is_error_type(result_type);
@@ -4946,7 +4949,7 @@ static void cast_initialization(
     }
     // The user is initializing a real using an integer
     else if (is_floating_type(initialized_type)
-            & const_value_is_integer(val))
+            && const_value_is_integer(val))
     {
         type_t* flt_type = initialized_type;
 

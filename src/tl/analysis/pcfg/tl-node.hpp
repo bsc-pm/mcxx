@@ -55,20 +55,16 @@ namespace Analysis {
             int _id;
             ObjectList<Edge*> _entry_edges;
             ObjectList<Edge*> _exit_edges;
+            bool _has_assertion;
+            
             bool _visited;
             bool _visited_aux;
-
+            bool _visited_extgraph;     // Used in ExtensibleGraph class traversal
+                                        // to avoid interfering with other traversals
+            bool _visited_extgraph_aux;
+                                        
             bool _has_deps_computed;    // This boolean only makes sense for Task nodes
                                         // It is true when the auto-dependencies for the node has been computed
-
-
-            // *** Private constructors *** //
-
-            //! Empty Node Constructor.
-            /*! The method sets to -1 the node identifier and has empty entry and exit edges lists.
-             *  The type of Node_type is, by default, UNCLASSIFIED_NODE.
-             */
-            Node( );
 
             // *** Not allowed construction methods *** //
             Node( const Node& n );
@@ -76,26 +72,34 @@ namespace Analysis {
 
         public:
             // *** Constructors *** //
-
+            
+            //! Empty Node Constructor.
+            /*! 
+             * The method sets to -1 the node identifier and has empty entry and exit edges lists.
+             * The type of Node_type is, by default, UNCLASSIFIED_NODE.
+             * \internal
+             */
+            Node( );
+            
             //! Node Constructor.
             /*!
-            The entry and exit edges lists are empty.
-            A node may contain other nodes, depending on its type.
-            \param id Last identifier used to built a node (the method increments it by 1).
-            \param outer_node Pointer to the wrapper node. If the node does not belong to other
-                                node, then this parameter must be NULL.
-            */
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                    node, then this parameter must be NULL.
+             */
             Node( unsigned int& id, Node_type type, Node* outer_node );
 
             //! Node Constructor for Basic Normal Nodes.
             /*!
-            * The entry and exit edges lists are empty.
-            * A node may contain other nodes, depending on its type.
-            * \param id Last identifier used to built a node (the method increments it by 1).
-            * \param outer_node Pointer to the wrapper node. If the node does not belong to other
-            *                   node, then this parameter must be NULL.
-            * \param nodecls List of Nodecl containing the Statements to be included in the new node
-            */
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                   node, then this parameter must be NULL.
+             * \param nodecls List of Nodecl containing the Statements to be included in the new node
+             */
             Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls );
 
             //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
@@ -130,6 +134,12 @@ namespace Analysis {
             //! Sets the node identifier
             void set_id( unsigned int id );
 
+            //! Returns true when the node has some assert clause associated
+            bool has_assertion( ) const;
+            
+            //! Sets to true the member indicating that the node has some assert clause associated
+            void set_assertion( );
+            
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
             * This method is useful when traversals among the nodes are performed.
@@ -138,11 +148,15 @@ namespace Analysis {
             */
             bool is_visited( ) const;
             bool is_visited_aux( ) const;
-
+            bool is_visited_extgraph( ) const;
+            bool is_visited_extgraph_aux( ) const;
+            
             //! Sets the node as visited.
             void set_visited( bool visited );
             void set_visited_aux( bool visited );
-
+            void set_visited_extgraph( bool visited );
+            void set_visited_extgraph_aux( bool visited );
+            
             //! Returns a boolean indicating whether the node is empty or not
             /*!
             * A empty node is created in the cases when we need a node to be returned but
@@ -258,6 +272,9 @@ namespace Analysis {
             //! Returns true when the node is an ASM_OP node
             bool is_asm_op_node( );
 
+            //! Returns true when the node is any kind of OpenMP node
+            bool is_omp_node( );
+            
             //! Returns true when the node is an OpenMP ATOMIC node
             bool is_omp_atomic_node( );
 
@@ -285,18 +302,37 @@ namespace Analysis {
             //! Returns true when the node is an OpenMP SECTIONS node
             bool is_omp_sections_node( );
 
+            //! Returns true when the node is any kind of OpenMP SIMD node
+            bool is_omp_simd_node( );
+            
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
+
+            //! Returns true when the node is an OpenMP WORKSHARE node
+            // Fortran only
+            bool is_omp_workshare_node( );
 
             //! Returns true when the node is an OpenMP TASK node
             bool is_omp_task_node( );
 
+            //! Returns true when the node is an OpenMP TASK CREATION node
+            bool is_omp_task_creation_node( );
+
             //! Returns true when the node is a TASKWAIT node
             bool is_omp_taskwait_node( );
+
+            //! Returns true when the node is a WAITON_DEPS node
+            bool is_ompss_taskwait_on_node( );
 
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node( );
 
+            //! Returns true when the node is a OMP_VIRTUAL_TASKSYNC node
+            bool is_omp_virtual_tasksync( );
+            
+            //! Returns true when the node is any type of vector node
+            bool is_vector_node( );
+            
             //! Returns true when the node is connected to any parent and/or any child
             bool is_connected( );
 
@@ -356,10 +392,10 @@ namespace Analysis {
             void set_graph_type( Graph_type graph_type );
 
             //! Returns info associated to an OmpSs node: type and associated clauses
-            PCFGPragmaInfo get_omp_node_info( );
+            PCFGPragmaInfo get_pragma_node_info( );
 
             //! Set info to an OmpSs node: pragma type and associated clauses
-            void set_omp_node_info( PCFGPragmaInfo pragma );
+            void set_pragma_node_info( PCFGPragmaInfo pragma );
 
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned
@@ -400,8 +436,28 @@ namespace Analysis {
             // ******** END Getters and setters for PCFG structural nodes and types ********* //
             // ****************************************************************************** //
 
+            
+            
+            // ****************************************************************************** //
+            // ****************** Getters and setters for PCFG analysis ********************* //
+            
+            //! Returns the set of tasks that are alive at the entry of the node
+            AliveTaskSet& get_live_in_tasks( );
+            
+            //! Returns the set of tasks that are alive at the exit of the node
+            AliveTaskSet& get_live_out_tasks( );
+ 
+            //! Returns the set of tasks that are alive at the entry of the node
+            StaticSyncTaskSet& get_static_sync_in_tasks( );
+            
+            //! Returns the set of tasks that are alive at the exit of the node
+            StaticSyncTaskSet& get_static_sync_out_tasks( );
 
-
+            // **************** END getters and setters for PCFG analysis ******************* //
+            // ****************************************************************************** //
+            
+            
+            
             // ****************************************************************************** //
             // **************** Getters and setters for constants analysis ****************** //
 
@@ -645,6 +701,38 @@ namespace Analysis {
             void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ****************** Getters and setters for analysis checking ***************** //
+            
+            Utils::ext_sym_set get_assert_ue_vars( );
+            void set_assert_ue_var( ObjectList<Nodecl::NodeclBase> new_assert_ue_vars );
+            
+            Utils::ext_sym_set get_assert_killed_vars( );
+            void set_assert_killed_var( ObjectList<Nodecl::NodeclBase> new_assert_killed_vars );
+            
+            Utils::ext_sym_set get_assert_live_in_vars( );
+            void set_assert_live_in_var( ObjectList<Nodecl::NodeclBase> new_assert_live_in_vars );
+            
+            Utils::ext_sym_set get_assert_live_out_vars( );
+            void set_assert_live_out_var( ObjectList<Nodecl::NodeclBase> new_assert_live_out_vars );
+            
+            Utils::ext_sym_set get_assert_dead_vars( );
+            void set_assert_dead_var( ObjectList<Nodecl::NodeclBase> new_assert_dead_vars );
+            
+            Utils::ext_sym_map get_assert_reaching_definitions_in( );
+            void set_assert_reaching_definitions_in( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_in );
+            
+            Utils::ext_sym_map get_assert_reaching_definitions_out( );
+            void set_assert_reaching_definitions_out( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_out );
+            
+            ObjectList<Utils::InductionVariableData*> get_assert_induction_vars( );
+            void set_assert_induction_variables( ObjectList<Nodecl::NodeclBase> new_assert_induction_vars );
+            
+            // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //
 
 

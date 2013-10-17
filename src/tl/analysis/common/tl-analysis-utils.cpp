@@ -88,36 +88,35 @@ namespace Utils {
         walk( n );
     }
 
-    TopLevelVisitor::Ret TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    void TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         nodecl_t intern_n = n.get_internal_nodecl( );
         WARNING_MESSAGE( "Unhandled node '%s' while PCFG construction of type '%s''",
                          codegen_to_str( intern_n, nodecl_retrieve_context( intern_n ) ),
                          ast_print_node_type( n.get_kind( ) ) );
-        return Ret( );
     }
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GccBuiltinVaArg& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GccBuiltinVaArg& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxDecl& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxDecl& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxDef& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxDef& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiation& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxExplicitInstantiation& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxExternExplicitInstantiation& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxUsingNamespace& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxUsingNamespace& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::CxxUsingDecl& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::CxxUsingDecl& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
+    void TopLevelVisitor::visit( const Nodecl::FunctionCode& n )
     {
         if( _filename == n.get_filename( ) )
         {
@@ -132,27 +131,163 @@ namespace Utils {
         }
     }
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::ObjectInit& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::ObjectInit& n ) {}
+    
+    void TopLevelVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
+    {
+        if( _filename == n.get_filename( ) )
+        {
+            _functions.append( n );
+        }
+    }
+    
+    void TopLevelVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
+    {
+        if( _filename == n.get_filename( ) )
+        {
+            _functions.append( n );
+        }
+    }
+    
+    void TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::PragmaCustomDirective& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PragmaCustomDirective& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::PreprocessorLine& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::PreprocessorLine& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::SourceComment& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::SourceComment& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::Text& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Text& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::UnknownPragma& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::UnknownPragma& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::UpcSyncStatement& n ) {}
 
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::UpcSyncStatement& n ) {}
-
-    TopLevelVisitor::Ret TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
+    void TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
 
     // **************************** END visitor for Top Level nodes ****************************** //
+    // ******************************************************************************************* //
+    
+    
+    
+    // ******************************************************************************************* //
+    // ************************************ Printing methods ************************************* //
+    
+    void makeup_dot_block( std::string& str )
+    {
+        int pos;
+        // Escape double quotes
+        pos = 0;
+        while( ( pos=str.find( "\"", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\\"" );
+            pos += 2;
+        }
+        // Delete implicit line feeds
+        pos = 0;
+        while( ( pos=str.find( "\n", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "" );
+        }
+        // Delete explicit line feeds
+        pos = 0;
+        while( ( pos=str.find( "\\n", pos ) ) != -1 ) {
+            str.replace ( pos, 2, "\\\\n" );
+            pos += 3;
+        }
+        // Escape the comparison symbols '<' and '>'
+        pos = 0;
+        while( ( pos=str.find( "<", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\<" );
+            pos += 2;
+        }
+        pos = 0;
+        while( ( pos=str.find( ">", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\>" );
+            pos += 2;
+        }
+        // Escape the brackets '{' '}'
+        pos = 0;
+        while( ( pos=str.find( "{", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\{" );
+                pos += 2;
+        }
+        pos = 0;
+        while( ( pos=str.find( "}", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\}" );
+            pos += 2;
+        }
+        // Escape the OR operand
+        pos = 0;
+        while( ( pos=str.find( "|", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\|" );
+            pos += 2;
+        }
+        // Escape '%' operand
+        pos = 0;
+        while( ( pos=str.find( "%", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\%" );
+            pos += 2;
+        }
+        // Escape '?' token
+        pos = 0;
+        while( ( pos=str.find( "?", pos ) ) != -1 ) {
+            str.replace ( pos, 1, "\\?" );
+            pos += 2;
+        }
+    }
+    
+    std::string prettyprint_ext_sym_set( ext_sym_set s, bool print_in_dot )
+    {
+        std::string result;
+        
+        for( ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
+        {
+            result += it->get_nodecl( ).prettyprint( ) + ", ";
+        }
+        
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            if( print_in_dot )
+                makeup_dot_block( result );
+        }
+        
+        return result;
+    }
+    
+    std::string prettyprint_ext_sym_map( ext_sym_map s, bool print_in_dot )
+    {
+        std::string result;
+        
+        for( ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
+        {
+            nodecl_t first = it->first.get_nodecl( ).get_internal_nodecl( );
+            nodecl_t second = it->second.get_internal_nodecl( );
+            
+            if( it->second.is_null( ) )
+            {
+                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) )
+                        + "=UNKNOWN VALUE; ";
+            }
+            else
+            {
+                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) ) + "="
+                        + std::string( codegen_to_str( second, nodecl_retrieve_context( second ) ) ) + "; ";
+            }
+        }
+        
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            if( print_in_dot )
+                makeup_dot_block(result);
+        }
+        
+        return result;
+    }
+    
+    // ********************************** END printing methods *********************************** //
     // ******************************************************************************************* //
 }
 }

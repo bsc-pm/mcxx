@@ -1865,14 +1865,12 @@ void LoweringVisitor::visit_task_call_fortran(
             /* parameter outline info */ NULL,
             placeholder_task_expr_transformation);
 
-    // Add a map from the original called task to the adapter function
-     symbol_map->add_map(called_task_function, adapter_function);
-
-    // Now call the adapter function instead of the original
+    // Replace the call to the original function for a call to the adapter
     Nodecl::FunctionCall new_function_call = function_call.shallow_copy().as<Nodecl::FunctionCall>();
 
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
-    new_function_call.get_called().replace(adapter_sym_ref);
+    new_function_call.set_called(adapter_sym_ref);
+    new_function_call.set_alternate_name(Nodecl::NodeclBase::null());
 
     if (!free_vars.empty())
     {
