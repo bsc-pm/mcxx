@@ -10333,11 +10333,13 @@ char is_literal_type(type_t* t)
     {
         return 1;
     }
-    if (is_class_type(t))
+    else if (is_class_type(t))
     {
         scope_entry_list_t* copy_constructors = class_type_get_copy_constructors(t);
         scope_entry_list_iterator_t* it = NULL;
 
+        char found_bad_case = 1;
+        // 2.1 a trivial copy constructors
         for (it = entry_list_iterator_begin(copy_constructors);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
@@ -10345,73 +10347,120 @@ char is_literal_type(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->entity_specs.is_trivial)
             {
-                return 1;
+                found_bad_case = 0;
+                break;
             }
         }
+        entry_list_iterator_free(it);
 
-        char found_bad_case = 0;
+        if (found_bad_case)
+            return 0;
+
+        // 2.2 no non-trivial move constructor,
+        found_bad_case = 0;
         scope_entry_list_t* move_constructors = class_type_get_move_constructors(t);
         for (it = entry_list_iterator_begin(move_constructors);
-                !entry_list_iterator_end(it) && !found_bad_case;
+                !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
             {
                 found_bad_case = 1;
+                break;
             }
         }
-        if (!found_bad_case)
-        {
-            return 1;
-        }
+        entry_list_iterator_free(it);
 
+        if (found_bad_case)
+            return 0;
+
+        // 2.3 a trivial destructor,
         scope_entry_t* destructor = class_type_get_destructor(t);
-        if (destructor != NULL && destructor->entity_specs.is_trivial)
+        if (destructor != NULL 
+                && !destructor->entity_specs.is_trivial)
         {
-            return 1;
+            return 0;
         }
 
+        scope_entry_t* default_ctor = class_type_get_default_constructor(t);
+        if (default_ctor != NULL && !default_ctor->entity_specs.is_trivial)
+        {
+            //  2.4 a trivial default constructor or at least one constexpr constructor
+            //      other than the copy or move constructor
+            // (We found a default constructor but it is not trivial, check for
+            // one constexpr constructors that is not a copy or move
+            // constructor)
+            found_bad_case = 1;
+            scope_entry_list_t* all_constructors = class_type_get_constructors(t);
+            for (it = entry_list_iterator_begin(all_constructors);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* entry = entry_list_iterator_current(it);
+                if (!entry->entity_specs.is_constexpr
+                        && !entry->entity_specs.is_move_constructor
+                        && !entry->entity_specs.is_copy_constructor)
+                {
+                    found_bad_case = 0;
+                    break;
+                }
+            }
+            entry_list_iterator_free(it);
+
+            if (found_bad_case)
+                return 0;
+        }
+
+        // 2.5 all non-static data members...
         found_bad_case = 0;
         scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(t);
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it) && !found_bad_case;
+                !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
             if (!is_literal_type(data_member->type_information))
             {
                 found_bad_case = 1;
+                break;
             }
         }
+        entry_list_iterator_free(it);
 
-        if (!found_bad_case)
+        if (found_bad_case)
+            return 0;
+
+        // 2.5 ...and base classes of literal types
+        int i, n = class_type_get_num_bases(t);
+        for (i = 0 ; i < n; i++)
         {
-            int i;
-            for (i = 0 ; i < class_type_get_num_bases(t) && !found_bad_case; i++)
+            char is_virtual = 0;
+            char is_dependent = 0;
+            char is_expansion = 0;
+            scope_entry_t* base = class_type_get_base_num(t, i,
+                    &is_virtual, &is_dependent, &is_expansion, NULL);
+            if (!is_literal_type(base->type_information))
             {
-                char is_virtual = 0;
-                char is_dependent = 0;
-                char is_expansion = 0;
-                scope_entry_t* base = class_type_get_base_num(t, i,
-                        &is_virtual, &is_dependent, &is_expansion, NULL);
-                if (!is_literal_type(base->type_information))
-                {
-                    found_bad_case = 1;
-                }
-            }
-            if (!found_bad_case)
-            {
-                return 1;
+                found_bad_case = 1;
+                break;
             }
         }
-    }
 
-    if (is_array_type(t) && is_literal_type(array_type_get_element_type(t)))
-    {
+        if (found_bad_case)
+            return 0;
+
+        // Everything seems fine
         return 1;
     }
-    return 0;
+    else if (is_array_type(t))
+    {
+        return is_literal_type(array_type_get_element_type(t));
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 // A trivial type may be:
