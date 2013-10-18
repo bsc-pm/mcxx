@@ -2292,6 +2292,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_THREAD_SPEC :
             gather_info->is_thread = 1;
             break;
+        case AST_THREAD_LOCAL_SPEC :
+            gather_info->is_thread_local = 1;
+            break;
             // Friend
         case AST_FRIEND_SPEC :
             gather_info->is_friend = 1;
@@ -9173,6 +9176,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             || (!entry->entity_specs.is_member && linkage_current_get_name() != NULL && !linkage_current_is_braced());
         entry->entity_specs.is_register = gather_info->is_register;
         entry->entity_specs.is_thread = gather_info->is_thread;
+        entry->entity_specs.is_thread_local = gather_info->is_thread_local;
         entry->entity_specs.linkage_spec = linkage_current_get_name();
 
         return entry;

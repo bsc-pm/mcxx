@@ -373,8 +373,11 @@ namespace TL
             //! States whether this symbol is register
             bool is_register() const;
 
-            //! States whether this symbol is __thread
+            //! States whether this symbol is __thread (gcc, ELF)
             bool is_thread() const;
+
+            //! States whether this symbol is thread_local (C++11)
+            bool is_thread_local() const;
 
             //! States if this member is a bitfield
             bool is_bitfield() const;

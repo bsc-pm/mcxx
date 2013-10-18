@@ -437,6 +437,11 @@ namespace TL
         return (_symbol->entity_specs.is_thread);
     }
 
+    bool Symbol::is_thread_local() const
+    {
+        return (_symbol->entity_specs.is_thread_local);
+    }
+
     bool Symbol::is_bitfield() const
     {
         return (_symbol->entity_specs.is_bitfield);

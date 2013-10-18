@@ -70,6 +70,7 @@ struct gather_decl_spec_tag {
     bool is_extern:1;
     bool is_mutable:1;
     bool is_thread:1;
+    bool is_thread_local:1;
     bool is_friend:1;
     bool is_typedef:1;
     bool is_signed:1;

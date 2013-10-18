@@ -5233,6 +5233,10 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     {
         decl_specifiers += "__thread ";
     }
+    if (symbol.is_thread_local())
+    {
+        decl_specifiers += "thread_local ";
+    }
     if (symbol.is_mutable())
     {
         decl_specifiers += "mutable ";

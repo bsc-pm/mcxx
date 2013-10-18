@@ -28,6 +28,7 @@ bool|all|is_static|States if this is a static storage (or SAVEd in Fortran) vari
 bool|all|is_register|States if this is a register variable
 bool|all|is_extern|The symbol has an explicit extern storage
 bool|all|is_thread|The symbol has thread local storage
+bool|all|is_thread_local|The symbol has thread local storage C++11
 bool|all|is_mutable|The symbol is a mutable entity of a const-class
 bool|all|is_export|This is an exported template. Not used at all
 bool|all|is_inline|The function has been explicitly set as inline
