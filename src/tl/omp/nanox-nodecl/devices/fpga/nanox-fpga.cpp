@@ -28,6 +28,7 @@
 
 #include <fstream>
 
+#include "cxx-diagnostic.h"
 #include "tl-devices.hpp"
 #include "tl-compilerpipeline.hpp"
 #include "tl-multifile.hpp"
@@ -37,7 +38,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-driver-utils.h"
 #include "cxx-process.h"
-#include "cxx-cexpr-fwd.h"
+#include "cxx-cexpr.h"
 
 #include "nanox-fpga.hpp"
 
@@ -382,6 +383,51 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
     // Restore the original name of the current function
     current_function.set_name(original_name);
 
+    //get onto information
+    ObjectList<Nodecl::NodeclBase> onto_clause = info._target_info.get_onto();
+
+    std::string acc_num = "-1";
+    if (onto_clause.size() >= 1)
+    {
+        //TODO
+        //Process list of values in onto clause. Multiple values mean that the task
+        //can be run in several accelerators
+
+        Nodecl::NodeclBase onto_acc = onto_clause[0];
+        if (onto_clause.size() > 1)
+        {
+            warn_printf("%s: warning: More than one argument in onto clause. Using only first one\n",
+                    onto_acc.get_locus_str().c_str());
+        }
+
+        if (onto_clause[0].is_constant())
+        {
+            const_value_t *ct_val = onto_acc.get_constant();
+            if (!const_value_is_integer(ct_val))
+            {
+                error_printf("%s: error: Constant is not integer type in onto clause\n", onto_acc.get_locus_str().c_str());
+            }
+            else
+            {
+                int acc = const_value_cast_to_signed_int(ct_val);
+                std::stringstream tmp_str;
+                tmp_str << acc;
+                acc_num = tmp_str.str();
+            }
+        }
+        else
+        {
+            //TODO get symbol and output to the string
+        }
+
+    }
+    else
+    {
+        //warning??
+    }
+
+
+
     if (!IS_FORTRAN_LANGUAGE)
     {
         // Extra cast for solving some issues of GCC 4.6.* and lowers (this
@@ -390,8 +436,10 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
 
         ancillary_device_description
-            << "static nanos_smp_args_t " << outline_name << "_args = {"
-            << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
+            << comment("device argument type")
+            << "static nanos_fpga_args_t " << outline_name << "_args = {"
+            << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name << ","
+            << ".acc_num = " << acc_num
             << "};"
             ;
         device_descriptor
