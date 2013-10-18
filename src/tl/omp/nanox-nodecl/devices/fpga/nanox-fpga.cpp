@@ -385,6 +385,7 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
 
     //get onto information
     ObjectList<Nodecl::NodeclBase> onto_clause = info._target_info.get_onto();
+    Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
 
     std::string acc_num = "-1";
     if (onto_clause.size() >= 1)
@@ -417,9 +418,11 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         }
         else
         {
-            //TODO get symbol and output to the string
+            if (onto_acc.get_symbol().is_valid() ) {
+                acc_num = as_symbol(onto_acc.get_symbol());
+                //as_symbol(param_to_args_map.map(onto_acc.get_symbol()));
+            }
         }
-
     }
     else
     {
@@ -435,12 +438,14 @@ void DeviceFPGA::get_device_descriptor(DeviceDescriptorInfo& info,
         std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
         std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
 
+        Source args_name;
+        args_name << outline_name << "_args";
+
         ancillary_device_description
             << comment("device argument type")
-            << "static nanos_fpga_args_t " << outline_name << "_args = {"
-            << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name << ","
-            << ".acc_num = " << acc_num
-            << "};"
+            << "static nanos_fpga_args_t " << args_name << ";"
+            << args_name << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name << ";"
+            << args_name << ".acc_num = " << acc_num << ";"
             ;
         device_descriptor
             << "{"
