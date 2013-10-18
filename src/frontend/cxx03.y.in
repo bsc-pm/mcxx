@@ -285,6 +285,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> gcc_attributes_opt
 %type<ast> gcc_attribute_value
 %type<ast> base_clause
+%type<ast> base_clause_opt
 %type<ast> base_specifier
 %type<ast> base_specifier_list
 %type<ast> block_declaration
@@ -293,6 +294,10 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> builtin_types
 %type<ast> cast_expression
 %type<ast> class_head
+%type<ast> class_head_name
+%type<ast> class_virt_specifier_seq_opt
+%type<ast> class_virt_specifier_seq
+%type<ast> class_virt_specifier
 %type<ast> class_key
 %type<ast> class_or_namespace_name
 %type<ast> class_specifier
@@ -387,6 +392,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> member_declarator_list
 %type<ast> member_specification
 %type<ast> member_specification_seq
+%type<ast> virt_specifier_seq_opt
+%type<ast> virt_specifier_seq
+%type<ast> virt_specifier
 %type<ast> mem_initializer
 %type<ast> mem_initializer_id
 %type<ast> mem_initializer_list
@@ -502,6 +510,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 %type<ast> attribute_specifier
 %type<ast> attribute_specifier_opt
+%type<ast> attribute_specifier_seq
+%type<ast> attribute_specifier_seq_opt
 %type<ast> attribute_list
 
 %type<ast> trailing_return_type
@@ -1000,9 +1010,29 @@ attribute_specifier : '[' '[' attribute_list ']' ']'
 }
 ;
 
+attribute_specifier_seq : attribute_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| attribute_specifier_seq attribute_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+attribute_specifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| attribute_specifier_seq
+{
+    $$ = $1;
+}
+;
+
 attribute_list : /* empty */
 {
-// TODO - NOT YET IMPLEMENTED
+    // FIXME - Not yet implemented
     $$ = NULL;
 }
 ;
@@ -3073,23 +3103,17 @@ class_specifier : class_head '{' member_specification_seq '}'
 }
 ;
 
-class_head : class_key 
+class_head : class_key attribute_specifier_seq_opt class_head_name class_virt_specifier_seq_opt base_clause_opt
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake2(AST_CLASS_HEAD_EXTRA, $2, $4, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, $3, $5, class_head_extra, ast_get_locus($1), NULL);
 }
-| class_key id_type_expr
+| class_key attribute_specifier_seq_opt base_clause_opt
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, $2, NULL, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake2(AST_CLASS_HEAD_EXTRA, $2, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, $3, class_head_extra, ast_get_locus($1), NULL);
 }
-| class_key base_clause
-{
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, NULL, $2, ast_get_locus($1), NULL);
-}
-| class_key id_type_expr base_clause
-{
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, $2, $3, ast_get_locus($1), NULL);
-}
-// GNU Extensions
+// GNU Extensions (old syntax to be merged with that of C++11)
 | class_key gcc_attributes
 {
 	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
@@ -3105,6 +3129,60 @@ class_head : class_key
 | class_key gcc_attributes id_type_expr base_clause
 {
 	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, $3, $4, $2, ast_get_locus($1), NULL);
+}
+;
+
+base_clause_opt : /* empty */
+{
+    $$ = NULL;
+}
+| base_clause
+{
+    $$ = $1;
+}
+;
+
+class_head_name : id_type_expr
+{
+    $$ = $1;
+}
+;
+
+class_virt_specifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| class_virt_specifier_seq
+{
+    $$ = $1;
+}
+;
+
+class_virt_specifier_seq : class_virt_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| class_virt_specifier_seq class_virt_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+class_virt_specifier : EXPLICIT
+{
+    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| IDENTIFIER
+{
+    // Only "final" is allowed
+    if (strcmp($1.token_text, "final") == 0)
+    {
+        $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
+    else
+    {
+        $$ = ASTLeaf(AST_INVALID_KEYWORD, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
 }
 ;
 
@@ -3221,31 +3299,36 @@ member_declarator_list : member_declarator
 }
 ;
 
-member_declarator : declarator 
+member_declarator : declarator virt_specifier_seq_opt
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| declarator equal_initializer
+| declarator virt_specifier_seq_opt equal_initializer
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| non_functional_declarator braced_init_list
+| non_functional_declarator virt_specifier_seq_opt braced_init_list
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| ':' constant_expression
+| attribute_specifier_seq_opt virt_specifier_seq_opt ':' constant_expression
 {
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_BITFIELD_DECLARATOR, NULL, $4,
+        $1, $2,
+        make_locus($3.token_file, $3.token_line, 0), NULL);
 }
-| IDENTIFIER ':' constant_expression
+| IDENTIFIER attribute_specifier_seq_opt virt_specifier_seq_opt ':' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, declarator_id_expr, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_BITFIELD_DECLARATOR,
+        declarator_id_expr, $5,
+        $2, $3,
+        make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 // GNU Extensions
-| declarator gcc_attributes 
+| declarator gcc_attributes
 {
 	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
@@ -3266,6 +3349,45 @@ member_declarator : declarator
 | gcc_attributes ':' constant_expression
 {
 	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $3, $1, ast_get_locus($1), NULL);
+}
+;
+
+virt_specifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| virt_specifier_seq
+{
+    $$ = $1;
+}
+;
+
+virt_specifier_seq : virt_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| virt_specifier_seq virt_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+virt_specifier : IDENTIFIER
+{
+    // Only 'override' and 'final' are allowed
+    if (strcmp($1.token_text, "final") == 0
+        || strcmp($1.token_text, "override") == 0)
+    {
+        $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
+    else
+    {
+        $$ = ASTLeaf(AST_INVALID_KEYWORD, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
+}
+| TOKEN_NEW
+{
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
