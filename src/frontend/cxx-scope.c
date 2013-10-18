@@ -2590,7 +2590,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 // A type template parameter replaced by another one
                 cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-                cv_qualif |= get_cv_qualifier(argument->type_information);
                 return get_cv_qualified_type(get_user_defined_type(argument), cv_qualif);
             }
             else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
