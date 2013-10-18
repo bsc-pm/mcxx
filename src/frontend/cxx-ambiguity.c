@@ -759,14 +759,14 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
 
         // Additional check. Ensure we are using the longest possible nested name seq
         AST first_init_declarator = NULL;
-        AST list = ASTSon1(a);
-        AST iter;
+        AST declarator_list = ASTSon1(a);
+        AST declarator_iter;
 
-        if (list != NULL)
+        if (declarator_list != NULL)
         {
-            for_each_element(list, iter)
+            for_each_element(declarator_list, declarator_iter)
             {
-                first_init_declarator = ASTSon1(iter);
+                first_init_declarator = ASTSon1(declarator_iter);
                 break;
             }
         }
@@ -780,6 +780,30 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 return 0;
             }
         }
+        if (type_spec == NULL
+                && first_init_declarator != NULL
+                && ASTType(first_init_declarator) == AST_MEMBER_DECLARATOR)
+        {
+            // This case "typedef Q P" can be understood as "typedef <no-type> Q <invalid-virt-spec:P>"
+            //
+            // Note that we check all the member declarators
+            for_each_element(declarator_list, declarator_iter)
+            {
+                AST current_member_declarator = ASTSon1(declarator_iter);
+                ERROR_CONDITION(ASTType(current_member_declarator) != AST_MEMBER_DECLARATOR, "Invalid node", 0);
+
+                AST virt_specifiers = ASTSon2(current_member_declarator);
+                if (virt_specifiers != NULL)
+                {
+                    AST it_virt_specs;
+                    for_each_element(virt_specifiers, it_virt_specs)
+                    {
+                        if (ASTType(ASTSon1(it_virt_specs)) == AST_INVALID_VIRT_SPEC)
+                            return 0;
+                    }
+                }
+            }
+        }
 
         AST first_declarator = NULL;
         if (first_init_declarator != NULL)
@@ -791,7 +815,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             }
             else if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR)
             {
-                // This ambiguity brought to you by C++0x
+                // This ambiguity brought to you by C++11
                 // A bit-field shall have integral or enumeration type. This
                 // check is done to avoid the following ambiguity:
                 //
@@ -852,12 +876,12 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         //    * 'T' is just a declarator_id_expr
         //    * 'T' names a type
 
-        if (first_declarator != NULL 
+        if (first_declarator != NULL
                 && type_spec != NULL)
         {
-            // This ambiguity brought to you by C++0x
-            // struct X :   T { }; 
-            // enum E : class { }; 
+            // This ambiguity brought to you by C++11
+            // struct X :   T { };
+            // enum E : class { };
             if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR
                     && (ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
                         || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC))
