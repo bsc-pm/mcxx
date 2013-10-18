@@ -1404,17 +1404,17 @@ namespace Nodecl
             // First one is special
             if (it_indexes == indexes.begin())
             {
-                new_linearized_subscript = *it_indexes;
+                new_linearized_subscript = it_indexes->shallow_copy();
             }
             else
             {
                 new_linearized_subscript = Nodecl::Add::make(
                         Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
-                                Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
+                                Nodecl::ParenthesizedExpression::make(it_sizes->shallow_copy(), it_sizes->get_type()),
                                 Nodecl::ParenthesizedExpression::make(new_linearized_subscript, new_linearized_subscript.get_type()),
                                 get_ptrdiff_t_type()), get_ptrdiff_t_type()),
-                        Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
+                        Nodecl::ParenthesizedExpression::make(it_indexes->shallow_copy(), it_indexes->get_type()),
                         get_ptrdiff_t_type());
             }
 

@@ -1319,6 +1319,17 @@ namespace TL
             n.replace(vector_prom);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::ParenthesizedExpression& n)
+        {
+            walk(n.get_nest());
+
+            Nodecl::ParenthesizedExpression parent = n.shallow_copy().as<Nodecl::ParenthesizedExpression>();
+
+            parent.set_type(n.get_nest().get_type());
+
+            n.replace(parent);
+        }
+
         void VectorizerVisitorExpression::visit(const Nodecl::Reference& n)
         {
             walk(n.get_rhs());
