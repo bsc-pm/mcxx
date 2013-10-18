@@ -11884,23 +11884,22 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             func_var->entity_specs.is_builtin = 1;
         }
 
-        if (is_dependent_function(entry))
-        {
-            // Insert a dependent __PRETTY_FUNCTION__
-            scope_entry_t* pretty_function = new_symbol(block_context,
-                    block_context.current_scope,
-                    "__PRETTY_FUNCTION__");
-            pretty_function->kind = SK_VARIABLE;
-            pretty_function->type_information = get_unknown_dependent_type();
-            pretty_function->entity_specs.is_builtin = 1;
-        }
-        else
+        // if (is_dependent_function(entry))
+        // {
+        //     // Insert a dependent __PRETTY_FUNCTION__
+        //     scope_entry_t* pretty_function = new_symbol(block_context,
+        //             block_context.current_scope,
+        //             "__PRETTY_FUNCTION__");
+        //     pretty_function->kind = SK_VARIABLE;
+        //     pretty_function->type_information = get_unknown_dependent_type();
+        //     pretty_function->entity_specs.is_builtin = 1;
+        // }
+        // else
         {
             const char* nice_name =
                 print_decl_type_str(entry->type_information,
                         decl_context, get_qualified_symbol_name(entry, decl_context));
             const_value_t* nice_name_value = const_value_make_string(nice_name, strlen(nice_name));
-            // Count the zero in the array
             nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
 
             // Adjust type to include room for the final \0
@@ -11928,6 +11927,20 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
             insert_alias(block_context.current_scope, mercurium_pretty_function, "__PRETTY_FUNCTION__");
         }
+    }
+
+    // Result symbol only if the function returns something
+    if (function_type_get_return_type(entry->type_information) != NULL
+            && !is_void_type(function_type_get_return_type(entry->type_information)))
+    {
+        scope_entry_t* result_sym = new_symbol(block_context,
+                block_context.current_scope,
+                ".result"); // This name is currently not user accessible
+        result_sym->kind = SK_VARIABLE;
+        result_sym->entity_specs.is_result_var = 1;
+        result_sym->type_information = get_unqualified_type(function_type_get_return_type(entry->type_information));
+
+        entry->entity_specs.result_var = result_sym;
     }
 
     linkage_push(NULL, /* is_braced */ 1);

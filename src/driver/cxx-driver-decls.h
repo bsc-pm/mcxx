@@ -477,9 +477,6 @@ typedef struct compilation_configuration_tag
     // If this is not null, this should be a constant expression
     const char *upc_threads;
 
-    // Enable HLT
-    char enable_hlt;
-
     // Enable C++1x
     char enable_cxx1x;
 
