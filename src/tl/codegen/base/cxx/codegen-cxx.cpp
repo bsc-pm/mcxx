@@ -5322,7 +5322,20 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         gcc_attributes += "__attribute__((unused)) ";
     }
 
-    *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
+    std::string virt_specifiers;
+    *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << virt_specifiers << bit_field;
+
+    if (symbol.is_member())
+    {
+        if (symbol.is_explicit_override())
+        {
+            virt_specifiers += " override";
+        }
+        if (symbol.is_final())
+        {
+            virt_specifiers += " final";
+        }
+    }
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
@@ -5917,8 +5930,23 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         std::string exception_spec = exception_specifier_to_str(symbol);
 
+        std::string virt_specifiers
+
         indent();
-        *(file) << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
+        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers 
+            << pure_spec << asm_specification << gcc_attributes << ";\n";
+
+        if (symbol.is_member())
+        {
+            if (symbol.is_explicit_override())
+            {
+                virt_specifiers += " override";
+            }
+            if (symbol.is_final())
+            {
+                virt_specifiers += " final";
+            }
+        }
 
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())

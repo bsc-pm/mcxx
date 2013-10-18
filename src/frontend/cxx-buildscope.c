@@ -73,6 +73,16 @@
  * this is a full type checking phase
  */
 
+static void gather_extra_attributes(AST a, gather_decl_spec_t* gather_info,
+        decl_context_t decl_context);
+
+static void gather_virt_specifiers(AST a,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context);
+static void gather_single_virt_specifier(AST item,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context);
+
 static void build_scope_declaration(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output, 
         scope_entry_list_t** declared_symbols,
@@ -160,7 +170,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
-static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
+static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gather_info, 
         decl_context_t declarator_context);
 static void build_scope_declarator_rec(
         AST a, type_t** declarator_type, 
@@ -835,16 +845,6 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 build_scope_gcc_asm_definition(a, decl_context, nodecl_output);
                 break;
             }
-        case AST_GCC_USING_NAMESPACE_DIRECTIVE:
-            {
-                build_scope_using_directive(a, decl_context, nodecl_output);
-                break;
-            }
-        case AST_GCC_NAMESPACE_DEFINITION :
-            {
-                build_scope_namespace_definition(a, decl_context, nodecl_output);
-                break;
-            }
         case AST_PP_COMMENT :
             {
                 *nodecl_output = 
@@ -1113,21 +1113,18 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
 
     char turn_into_inline = 0;
 
-    if (ASTType(a) == AST_GCC_USING_NAMESPACE_DIRECTIVE)
+    AST attr_list = ASTSon1(a);
+
+    if (attr_list != NULL)
     {
-        AST attr_list = ASTSon1(a);
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
 
-        if (attr_list != NULL)
+        gather_extra_attributes(attr_list, &gather_info, decl_context);
+
+        if (gather_info.is_inline)
         {
-            gather_decl_spec_t gather_info;
-            memset(&gather_info, 0, sizeof(gather_info));
-
-            gather_gcc_attribute_list(attr_list, &gather_info, decl_context);
-
-            if (gather_info.is_inline)
-            {
-                turn_into_inline = 1;
-            }
+            turn_into_inline = 1;
         }
     }
 
@@ -1464,7 +1461,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     // should be signed in as if they were members
 }
 
-static void gather_cxx_attributes(AST a, gather_decl_spec_t* gather_info UNUSED_PARAMETER)
+static void gather_cxx11_attributes(AST a, gather_decl_spec_t* gather_info UNUSED_PARAMETER)
 {
     if (a != NULL)
     {
@@ -1610,19 +1607,14 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 solve_ambiguous_init_declarator(init_declarator, decl_context);
             }
 
-            ERROR_CONDITION(ASTType(init_declarator) != AST_INIT_DECLARATOR
-                    && ASTType(init_declarator) != AST_GCC_INIT_DECLARATOR,
+            ERROR_CONDITION(ASTType(init_declarator) != AST_INIT_DECLARATOR,
                     "Invalid node", 0);
 
-            AST asm_specification = NULL;
-            if (ASTType(init_declarator) == AST_GCC_INIT_DECLARATOR)
+            AST asm_specification_or_gcc_attributes = ASTSon2(init_declarator);
+            if (asm_specification_or_gcc_attributes)
             {
-                if (ASTSon3(init_declarator) != NULL)
-                {
-                    AST attribute_list = ASTSon3(init_declarator);
-                    gather_gcc_attribute_list(attribute_list, &current_gather_info, decl_context);
-                }
-                asm_specification = ASTSon2(init_declarator);
+                gather_extra_attributes(asm_specification_or_gcc_attributes,
+                        &current_gather_info, decl_context);
             }
 
             AST declarator = ASTSon0(init_declarator);
@@ -1896,11 +1888,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             }
 
             // GCC weird stuff
-            if (asm_specification != NULL)
+            if (current_gather_info.gcc_asm_spec != NULL)
             {
                 nodecl_t asm_spec = nodecl_make_gcc_asm_spec(
-                        ASTText(ASTSon0(asm_specification)), 
-                        ast_get_locus(asm_specification));
+                        ASTText(ASTSon0(current_gather_info.gcc_asm_spec)), 
+                        ast_get_locus(current_gather_info.gcc_asm_spec));
                 entry->entity_specs.asm_specification = asm_spec;
             }
 
@@ -2059,18 +2051,19 @@ void build_scope_decl_specifier_seq(AST a,
 
         // This should not happen
         ERROR_CONDITION(first_declarator != NULL
-                && (ASTType(first_declarator) == AST_INIT_DECLARATOR
-                    || ASTType(first_declarator) == AST_GCC_INIT_DECLARATOR), "Code unreachable", 0);
+                && ASTType(first_declarator) == AST_INIT_DECLARATOR , "Code unreachable", 0);
 
-        if (first_declarator != NULL
-                && ASTType(first_declarator) == AST_GCC_DECLARATOR)
+        if (first_declarator != NULL)
         {
-            AST attribute_list = ASTSon0(first_declarator);
+            AST attribute_list = ASTSon2(first_declarator);
             if (attribute_list != NULL)
             {
                 for_each_element(attribute_list, iter)
                 {
                     AST attribute = ASTSon1(iter);
+
+                    if (ASTType(attribute) != AST_GCC_ATTRIBUTE)
+                        continue;
 
                     AST iter2;
                     list = ASTSon0(attribute);
@@ -2447,20 +2440,13 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_ENUM_SPECIFIER :
             gather_type_spec_from_enum_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
-        case AST_GCC_ENUM_SPECIFIER :
-            internal_error("GCC enums not supported yet", 0);
-            break;
         case AST_CLASS_SPECIFIER :
             gather_type_spec_from_class_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_ELABORATED_TYPE_ENUM_SPEC :
             gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
-        case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
-            internal_error("Elaborated GCC enums not supported yet", 0);
-            break;
         case AST_ELABORATED_TYPE_CLASS_SPEC :
-        case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
             gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_CHAR_TYPE :
@@ -3195,6 +3181,46 @@ static char check_class_template_parameters(const locus_t* locus, template_param
     return 1;
 }
 
+static void gather_extra_attributes(AST a, 
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context)
+{
+    if (a == NULL)
+        return;
+
+    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Invalid node", 0);
+
+    AST it;
+    for_each_element(a, it)
+    {
+        AST item = ASTSon1(it);
+        switch (ASTType(item))
+        {
+            case AST_GCC_ATTRIBUTE:
+                {
+                    gather_gcc_attribute(item, gather_info, decl_context);
+                    break;
+                }
+            case AST_GCC_ASM_SPEC:
+                {
+                    gather_info->gcc_asm_spec = item;
+                    break;
+                }
+            case AST_CLASS_VIRT_SPEC:
+            case AST_MEMBER_VIRT_SPEC:
+            case AST_INVALID_VIRT_SPEC:
+                {
+                    gather_single_virt_specifier(item, gather_info, decl_context);
+                    break;
+                }
+            default:
+                {
+                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(item)));
+                    break;
+                }
+        }
+    }
+}
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a,
         type_t** type_info,
@@ -3252,22 +3278,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     }
 
     AST id_expression = ASTSon1(a);
-    AST gcc_attributes = ASTSon2(a);
+    AST extra_attributes = ASTSon2(a);
 
-    if (gcc_attributes != NULL)
+    if (extra_attributes != NULL)
     {
-        if (ASTType(a) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
-        {
-            gather_gcc_attribute_list(gcc_attributes, &class_gather_info, decl_context);
-        }
-        else if (ASTType(a) == AST_MS_ELABORATED_TYPE_CLASS_SPEC)
-        {
-            gather_ms_declspec_list(gcc_attributes, &class_gather_info, decl_context);
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
+        gather_extra_attributes(extra_attributes, &class_gather_info, decl_context);
     }
 
     scope_entry_list_t* result_list = NULL;
@@ -3691,7 +3706,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     AST id_expression = ASTSon0(a);
     AST enum_base = ASTSon2(a);
 
-    gather_cxx_attributes(enum_attribute_specifier, gather_info);
+    gather_cxx11_attributes(enum_attribute_specifier, gather_info);
 
     if( !checking_ambiguity()
             && IS_CXX03_LANGUAGE
@@ -4272,7 +4287,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     AST enum_name = ASTSon2(enum_head);
     AST enum_base = ASTSon3(enum_head);
 
-    gather_cxx_attributes(enum_attribute_specifier, gather_info);
+    gather_cxx11_attributes(enum_attribute_specifier, gather_info);
 
     scope_entry_t* new_enum = NULL;
 
@@ -6643,23 +6658,19 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     AST class_key = ASTSon0(class_head);
     AST class_id_expression = ASTSon1(class_head);
     AST base_clause = ASTSon2(class_head);
-    AST attribute_list = ASTSon3(class_head);
 
-    if (attribute_list != NULL)
+    AST extra_attributes = NULL;
+    AST class_virt_specifiers = NULL;
+
+    AST class_head_extra = ASTSon3(class_head);
+    if (class_head_extra != NULL)
     {
-        if (ASTType(class_head) == AST_GCC_CLASS_HEAD_SPEC)
-        {
-            gather_gcc_attribute_list(attribute_list, gather_info, decl_context);
-        }
-        else if (ASTType(class_head) == AST_MS_CLASS_HEAD_SPEC)
-        {
-            gather_ms_declspec_list(attribute_list, gather_info, decl_context);
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
+        extra_attributes = ASTSon0(class_head_extra);
+        class_virt_specifiers = ASTSon1(class_head_extra);
     }
+
+    gather_extra_attributes(extra_attributes, gather_info, decl_context);
+    gather_virt_specifiers(class_virt_specifiers, gather_info, decl_context);
 
     enum type_tag_t class_kind = TT_INVALID;
     const char *class_kind_name = NULL;
@@ -7407,18 +7418,18 @@ static void build_scope_declarator_with_parameter_context(AST a,
     // reason we have an extra parameter called 'first_declarator' in this function
     //
     if (first_declarator != NULL
-            && ASTType(first_declarator) == AST_GCC_DECLARATOR
+            && ASTType(first_declarator) == AST_DECLARATOR
             && first_declarator != a)
     {
-        AST common_gcc_attribute_list = ASTSon0(first_declarator);
-        gather_gcc_attribute_list(common_gcc_attribute_list, gather_info, decl_context);
+        AST common_gcc_attribute_list = ASTSon1(first_declarator);
+        gather_extra_attributes(common_gcc_attribute_list, gather_info, decl_context);
     }
 
     if (a != NULL)
     {
         // First traversal along the declarator
         // just to get all attributes
-        gather_gcc_attributes_spread(a, gather_info, decl_context);
+        gather_extra_attributes_in_declarator(a, gather_info, decl_context);
     }
 
 
@@ -7920,8 +7931,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 continue;
             }
 
-            ERROR_CONDITION(ASTType(parameter_declaration) != AST_PARAMETER_DECL
-                    && ASTType(parameter_declaration) != AST_GCC_PARAMETER_DECL, 
+            ERROR_CONDITION(ASTType(parameter_declaration) != AST_PARAMETER_DECL,
                     "Invalid node", 0);
 
             // This is never null
@@ -7991,11 +8001,8 @@ static void set_function_parameter_clause(type_t** function_type,
                 return;
             }
 
-            if (ASTType(parameter_declaration) == AST_GCC_PARAMETER_DECL)
-            {
-                AST attribute_list = ASTSon3(parameter_declaration);
-                gather_gcc_attribute_list(attribute_list, &param_decl_gather_info, param_decl_context);
-            }
+            AST attribute_list = ASTSon3(parameter_declaration);
+            gather_extra_attributes(attribute_list, &param_decl_gather_info, param_decl_context);
 
             if (param_decl_gather_info.is_extern)
             {
@@ -8227,32 +8234,42 @@ static void set_function_type(type_t** declarator_type,
 // This function traverses the declarator tree gathering all attributes that might appear there
 // We need to traverse the declarator twice because of gcc allowing attributes appear in many
 // places
-static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, decl_context_t declarator_context)
+static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gather_info, decl_context_t declarator_context)
 {
     if (a == NULL)
         return;
 
     switch(ASTType(a))
     {
-        case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                gather_extra_attributes_in_declarator(ASTSon0(a), gather_info, declarator_context);
+                break;
+            }
+        case AST_DECLARATOR :
+            {
+                AST attribute_list = ASTSon1(a);
+                gather_extra_attributes(attribute_list, gather_info, declarator_context);
+
+                gather_extra_attributes_in_declarator(ASTSon0(a), gather_info, declarator_context);
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
-                gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
+                AST attribute_list = ASTSon2(a);
+                gather_extra_attributes(attribute_list, gather_info, declarator_context);
+
+                gather_extra_attributes_in_declarator(ASTSon1(a), gather_info, declarator_context);
                 break;
             }
         case AST_DECLARATOR_ARRAY :
             {
-                gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                gather_extra_attributes_in_declarator(ASTSon0(a), gather_info, declarator_context);
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                gather_extra_attributes_in_declarator(ASTSon0(a), gather_info, declarator_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -8261,43 +8278,11 @@ static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info,
                 // Do nothing
                 break;
             }
-            // GNU extensions
-            // attribute declarator
-        case AST_GCC_DECLARATOR :
-            {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
-                gather_gcc_attributes_spread(ASTSon1(a), 
-                        gather_info, declarator_context); 
-                break;
-            }
-            // attribute * declarator
-            // attribute & declarator
-        case AST_GCC_POINTER_DECLARATOR :
-            {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
-                gather_gcc_attributes_spread(ASTSon2(a), 
-                        gather_info, declarator_context);
-                break;
-            }
-            // functional-declarator attribute
-        case AST_GCC_FUNCTIONAL_DECLARATOR :
-            {
-                AST attribute_list = ASTSon1(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
-                gather_gcc_attributes_spread(ASTSon0(a), 
-                        gather_info, declarator_context);
-                break;
-            }
         case AST_AMBIGUITY :
             {
                 solve_ambiguous_declarator(a, declarator_context);
                 // Restart function
-                gather_gcc_attributes_spread(a, gather_info, declarator_context);
+                gather_extra_attributes_in_declarator(a, gather_info, declarator_context);
                 break;
             }
         default:
@@ -8407,34 +8392,6 @@ static void build_scope_declarator_rec(
                 }
                 break;
             }
-            // GNU extensions
-            // attribute declarator
-        case AST_GCC_DECLARATOR :
-            {
-                build_scope_declarator_rec(ASTSon1(a), declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output); 
-                break;
-            }
-            // attribute * declarator
-            // attribute & declarator
-        case AST_GCC_POINTER_DECLARATOR :
-            {
-                set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
-                if (is_error_type(*declarator_type))
-                {
-                    return;
-                }
-                build_scope_declarator_rec(ASTSon2(a), declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
-                break;
-            }
-            // functional-declarator attribute
-        case AST_GCC_FUNCTIONAL_DECLARATOR :
-            {
-                build_scope_declarator_rec(ASTSon0(a), declarator_type,
-                        gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
-                break;
-            }
         case AST_AMBIGUITY :
             {
                 solve_ambiguous_declarator(a, declarator_context);
@@ -8457,7 +8414,6 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
     switch(ASTType(a))
     {
         case AST_INIT_DECLARATOR :
-        case AST_GCC_MEMBER_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
@@ -8494,18 +8450,9 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                 }
             }
         case AST_POINTER_DECLARATOR :
-        case AST_GCC_POINTER_DECLARATOR :
         case AST_DECLARATOR_ARRAY :
             {
                 return 0;
-            }
-        case AST_GCC_FUNCTIONAL_DECLARATOR :
-            {
-                return is_constructor_declarator_rec(ASTSon0(a), seen_decl_func);
-            }
-        case AST_GCC_DECLARATOR :
-            {
-                return is_constructor_declarator_rec(ASTSon1(a), seen_decl_func);
             }
         case AST_DECLARATOR_FUNC :
             {
@@ -10876,10 +10823,6 @@ static void build_scope_template_parameter(AST a,
 {
     switch (ASTType(a))
     {
-        case AST_GCC_PARAMETER_DECL :
-            // We are ignoring here attributes
-            build_scope_nontype_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
-            break;
         case AST_PARAMETER_DECL :
             build_scope_nontype_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
@@ -11362,18 +11305,15 @@ static void build_scope_namespace_definition(AST a,
     AST namespace_name = ASTSon0(a);
 
     char is_inline = 0;
-    if (ASTType(a) == AST_GCC_NAMESPACE_DEFINITION)
+    // Technically this is not a gcc extension but c++0x
+    AST namespace_inline = ASTSon3(a);
+
+    if (namespace_inline != NULL)
     {
-        // Technically this is not a gcc extension but c++0x
-        AST namespace_inline = ASTSon3(a);
+        ERROR_CONDITION(ASTType(namespace_inline) != AST_INLINE_SPEC,
+                "Invalid inline specifier tree", 0);
 
-        if (namespace_inline != NULL)
-        {
-            ERROR_CONDITION(ASTType(namespace_inline) != AST_INLINE_SPEC,
-                    "Invalid inline specifier tree", 0);
-
-            is_inline = 1;
-        }
+        is_inline = 1;
     }
 
     if (namespace_name != NULL)
@@ -11441,10 +11381,10 @@ static void build_scope_namespace_definition(AST a,
         }
 
         // Anonymous namespace cannot have gcc attributes
-        AST gcc_attributes = ASTSon2(a);
+        AST attributes = ASTSon2(a);
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
-        gather_gcc_attribute_list(gcc_attributes, &gather_info, decl_context);
+        gather_extra_attributes(attributes, &gather_info, decl_context);
 
         // Copy the gcc attributes
         keep_gcc_attributes_in_symbol(entry, &gather_info);
@@ -11931,9 +11871,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     AST decl_spec_seq = ASTSon0(function_header);
     AST function_declarator = ASTSon1(function_header);
-    AST gcc_attributes = ASTSon2(function_header);
+    AST attributes = ASTSon2(function_header);
 
-    gather_gcc_attribute_list(gcc_attributes, &gather_info, decl_context);
+    gather_extra_attributes(attributes, &gather_info, decl_context);
 
     char is_constructor = 0;
     if (decl_spec_seq != NULL)
@@ -13183,6 +13123,75 @@ void build_scope_friend_declarator(decl_context_t decl_context,
     class_type_add_friend_symbol(class_type, entry);
 }
 
+static void gather_single_virt_specifier(AST item,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    switch (ASTType(item))
+    {
+        case AST_INVALID_VIRT_SPEC:
+        case AST_CLASS_VIRT_SPEC:
+        case AST_MEMBER_VIRT_SPEC:
+            {
+                ERROR_CONDITION( (ASTText(item) == NULL), "Invalid node", 0);
+                const char* spec = ASTText(item);
+
+                if (ASTType(item) == AST_INVALID_VIRT_SPEC)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: unexpected identifier '%s'\n",
+                                ast_location(item),
+                                spec);
+                    }
+                    return;
+                }
+
+                if (strcmp(spec, "final") == 0)
+                {
+                    gather_info->is_final = 1;
+                }
+                else if (strcmp(spec, "explicit") == 0)
+                {
+                    gather_info->is_explicit = 1;
+                }
+                else if (strcmp(spec, "new") == 0)
+                {
+                    gather_info->is_hides_member = 1;
+                }
+                else if (strcmp(spec, "override") == 0)
+                {
+                    gather_info->is_overrider = 1;
+                }
+                else
+                {
+                    internal_error("Unhandled valid keyword '%s' at %s\n", spec, ast_location(item));
+                }
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(item)));
+                break;
+            }
+    }
+}
+
+static void gather_virt_specifiers(AST a,
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    if (a == NULL)
+        return;
+    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Invalid node", 0);
+
+    AST it;
+    for_each_element(a, it)
+    {
+        AST item = ASTSon1(it);
+        gather_single_virt_specifier(item, gather_info, decl_context);
+    }
+}
 
 /*
  * This is a member declaration inlined in a class, not a function definition
@@ -13269,25 +13278,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         && !gather_info.is_friend
                         && (ASTType(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
                             // class A; (no declarator)
-                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC 
-                                    // class __attribute__((foo)) A; (no declarator)
-                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC
-                                    // class __declspec(X) A; (no declarator)
-                                    || ASTType(type_specifier) == AST_MS_ELABORATED_TYPE_CLASS_SPEC)
+                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
                                 && (member_init_declarator_list == NULL))
                             // enum E { } [x];
                             || ASTType(type_specifier) == AST_ENUM_SPECIFIER
-                            // enum __attribute__((foo)) E { } [x];
-                            || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
-                            // enum __declspec(D) E { } [x];
-                            || ASTType(type_specifier) == AST_MS_ENUM_SPECIFIER
                             // enum E; (no declarator)
-                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC
-                                    // enum  __attribute__((foo)) E; (no declarator)
-                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC
-                                    // enum  __declspec(X) E; (no declarator)
-                                    || ASTType(type_specifier) == AST_MS_ELABORATED_TYPE_ENUM_SPEC
-                                    )
+                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
                                 && (member_init_declarator_list == NULL))))
                 {
                     scope_entry_t* entry = named_type_get_symbol(member_type);
@@ -13335,7 +13331,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         return;
                         break;
                     }
-                case AST_GCC_BITFIELD_DECLARATOR :
                 case AST_BITFIELD_DECLARATOR :
                     {
                         if (current_gather_info.is_friend)
@@ -13348,11 +13343,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             return;
                         }
 
-                        if (ASTType(declarator) == AST_GCC_BITFIELD_DECLARATOR)
-                        {
-                            AST attribute_list = decl_spec_seq;
-                            gather_gcc_attribute_list(attribute_list, &current_gather_info, decl_context);
-                        }
+                        AST attribute_list = ASTSon3(declarator);
+                        gather_extra_attributes(attribute_list, &current_gather_info, decl_context);
 
                         AST identifier = ASTSon0(declarator);
                         type_t* declarator_type = member_type;
@@ -13434,13 +13426,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     // init declarator may appear here because of templates
                 case AST_INIT_DECLARATOR :
                 case AST_MEMBER_DECLARATOR :
-                case AST_GCC_MEMBER_DECLARATOR :
                     {
-                        if (ASTType(declarator) == AST_GCC_MEMBER_DECLARATOR)
-                        {
-                            AST attribute_list = ASTSon2(declarator);
-                            gather_gcc_attribute_list(attribute_list, &current_gather_info, decl_context);
-                        }
+                        AST attribute_list = ASTSon2(declarator);
+                        gather_extra_attributes(attribute_list, &current_gather_info, decl_context);
 
                         // Friend declarations are so special
                         if (current_gather_info.is_friend)
@@ -15617,19 +15605,8 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
                 break;
             }
         case AST_DECLARATOR_FUNC :
-        case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
                 return ASTSon1(funct_declarator);
-                break;
-            }
-        case AST_GCC_DECLARATOR :
-            {
-                return get_function_declarator_parameter_list(ASTSon1(funct_declarator), decl_context);
-                break;
-            }
-        case AST_GCC_POINTER_DECLARATOR :
-            {
-                return get_function_declarator_parameter_list(ASTSon2(funct_declarator), decl_context);
                 break;
             }
         default:
@@ -15670,7 +15647,6 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
     {
         case AST_INIT_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
-        case AST_GCC_MEMBER_DECLARATOR :
         case AST_DECLARATOR :
         case AST_DECLARATOR_ID_PACK:
         case AST_PARENTHESIZED_DECLARATOR :
@@ -15697,20 +15673,6 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
             {
                 return a;
                 break;
-            }
-        case AST_GCC_DECLARATOR :
-            {
-                return get_declarator_id_expression(ASTSon1(a), decl_context);
-                break;
-            }
-        case AST_GCC_POINTER_DECLARATOR :
-            {
-                return get_declarator_id_expression(ASTSon2(a), decl_context);
-                break;
-            }
-        case AST_GCC_FUNCTIONAL_DECLARATOR :
-            {
-                return get_declarator_id_expression(ASTSon0(a), decl_context);
             }
         case AST_AMBIGUITY :
             {

@@ -379,6 +379,15 @@ namespace TL
             //! States whether this symbol is thread_local (C++11)
             bool is_thread_local() const;
 
+            //! States whether this symbol is final (C++11)
+            bool is_final() const;
+
+            //! States whether this symbol is explicit override (C++11)
+            bool is_explicit_override() const;
+
+            //! States whether this symbol hides a member of a base class (C++11)
+            bool is_hides_member() const;
+
             //! States if this member is a bitfield
             bool is_bitfield() const;
 

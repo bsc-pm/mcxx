@@ -612,23 +612,6 @@ void gather_gcc_attribute(AST attribute,
     }
 }
 
-void gather_gcc_attribute_list(AST attribute_list, 
-        gather_decl_spec_t *gather_info, 
-        decl_context_t decl_context)
-{
-    // We allow this since we may have removed all the attributes
-    if (attribute_list == NULL)
-        return;
-
-    AST iter;
-    for_each_element(attribute_list, iter)
-    {
-        AST attribute = ASTSon1(iter);
-
-        gather_gcc_attribute(attribute, gather_info, decl_context);
-    }
-}
-
 void keep_gcc_attributes_in_symbol(
         scope_entry_t* entry,
         gather_decl_spec_t* gather_info)

@@ -206,6 +206,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> asm_operand
 %type<ast> asm_operand_list
 %type<ast> asm_operand_list_nonempty
+%type<ast> gcc_extra_bits_init_declarator_opt
+%type<ast> gcc_extra_bits_init_declarator
 %type<ast> asm_specification
 %type<ast> assignment_expression
 %type<ast> gcc_attribute
@@ -991,30 +993,17 @@ builtin_types : TOKEN_CHAR
 }
 ;
 
-elaborated_type_specifier : class_key IDENTIFIER
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake2(AST_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, ast_get_locus($1), NULL);
-}
-| enum_key IDENTIFIER
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM_SPEC, identifier, NULL, NULL, $1, ast_get_locus($1), NULL);
-}
-// GNU Extensions
-| class_key gcc_attributes IDENTIFIER
+elaborated_type_specifier : class_key gcc_attributes_opt IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake3(AST_GCC_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ast_get_locus($1), NULL);
 }
-| ENUM gcc_attributes IDENTIFIER
+| enum_key gcc_attributes_opt IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_ENUM_SPEC, identifier, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM_SPEC, identifier, $2, NULL, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1031,38 +1020,37 @@ init_declarator_list : init_declarator
 }
 ;
 
-init_declarator : declarator 
+init_declarator : declarator gcc_extra_bits_init_declarator_opt
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| declarator initializer
+| declarator gcc_extra_bits_init_declarator_opt initializer
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
-// GNU Extensions
-| declarator asm_specification 
+;
+
+gcc_extra_bits_init_declarator_opt : /* empty */
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, NULL, ast_get_locus($1), NULL);
+    $$ = NULL;
 }
-| declarator gcc_attributes
+| gcc_extra_bits_init_declarator
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| declarator asm_specification gcc_attributes
+;
+
+gcc_extra_bits_init_declarator : asm_specification
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTListLeaf($1);
 }
-| declarator asm_specification initializer
+| gcc_attributes
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, $2, NULL, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| declarator gcc_attributes initializer
+| asm_specification gcc_attributes
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, NULL, $2, ast_get_locus($1), NULL);
-}
-| declarator asm_specification gcc_attributes initializer
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $4, $2, $3, ast_get_locus($1), NULL);
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
 }
 ;
 
@@ -1074,22 +1062,13 @@ asm_specification : ASM '(' string_literal ')'
 ;
 /* End of GNU Extension */
 
-declarator : direct_declarator
+declarator : gcc_attributes_opt direct_declarator
 {
-	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($2), NULL);
 }
-| ptr_operator declarator
+| gcc_attributes_opt ptr_operator declarator
 {
-	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-/* GNU Extension */
-| gcc_attributes direct_declarator
-{
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-| gcc_attributes ptr_operator declarator
-{
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($2), NULL);
 }
 ;
 
@@ -1115,22 +1094,13 @@ ptr_operator : '*'
    A functional declarator is a syntactic enforced declarator that will have
    a functional nature
  */
-functional_declarator : functional_direct_declarator
+functional_declarator : gcc_attributes_opt functional_direct_declarator
 {
-	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($2), NULL);
 }
-| ptr_operator functional_declarator
+| gcc_attributes_opt ptr_operator functional_declarator
 {
-	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-/* GNU Extension */
-| gcc_attributes functional_direct_declarator
-{
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-| gcc_attributes ptr_operator functional_declarator
-{
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($2), NULL);
 }
 ;
 
@@ -1377,30 +1347,17 @@ type_id : type_specifier_seq_may_end_with_attribute
 }
 ;
 
-abstract_declarator : ptr_operator
+abstract_declarator : gcc_attributes_opt ptr_operator
 {
-	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, NULL, $1, ast_get_locus($2), NULL);
 }
-| ptr_operator abstract_declarator
+| gcc_attributes_opt ptr_operator abstract_declarator
 {
-	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($2), NULL);
 }
-| abstract_direct_declarator
+| gcc_attributes_opt abstract_direct_declarator
 {
-	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
-}
-// GNU extension
-| gcc_attributes ptr_operator
-{
-	$$ = ASTMake2(AST_GCC_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-| gcc_attributes ptr_operator abstract_declarator
-{
-	$$ = ASTMake2(AST_GCC_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-| gcc_attributes abstract_direct_declarator
-{
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($2), NULL);
 }
 ;
 
@@ -1494,26 +1451,17 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq declarator %merge<ambiguityHandler>
+parameter_declaration : decl_specifier_seq declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_may_end_with_declarator %merge<ambiguityHandler>
+| decl_specifier_seq_may_end_with_declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq abstract_declarator %merge<ambiguityHandler>
+| decl_specifier_seq abstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ast_get_locus($1), NULL);
-}
-// GCC Extension
-| decl_specifier_seq declarator gcc_attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
-}
-| decl_specifier_seq abstract_declarator gcc_attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1658,24 +1606,27 @@ class_specifier : class_head '{' member_specification_seq '}'
 
 class_head : class_key 
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, NULL, ast_get_locus($1), NULL);
 }
 | class_key IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, identifier, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, identifier, NULL, NULL, ast_get_locus($1), NULL);
 }
 // GNU Extensions
 | class_key gcc_attributes
 {
-	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, NULL, NULL, $2, ast_get_locus($1), NULL);
+
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, class_head_extra, ast_get_locus($1), NULL);
 }
 | class_key gcc_attributes IDENTIFIER
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, NULL, NULL, $2, ast_get_locus($1), NULL);
 
-	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, identifier, NULL, $2, ast_get_locus($1), NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, identifier, NULL, class_head_extra, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1729,43 +1680,24 @@ member_declarator_list : member_declarator
 }
 ;
 
-member_declarator : declarator 
+member_declarator : declarator gcc_attributes_opt
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| declarator constant_initializer
+| declarator gcc_attributes_opt constant_initializer
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
-| ':' constant_expression
+| gcc_attributes_opt ':' constant_expression
 {
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| IDENTIFIER ':' constant_expression
+| IDENTIFIER gcc_attributes_opt ':' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, declarator_id_expr, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-// GNU Extensions
-| declarator gcc_attributes 
-{
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
-}
-| declarator gcc_attributes constant_initializer
-{
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
-}
-| IDENTIFIER gcc_attributes ':' constant_expression
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| gcc_attributes ':' constant_expression
-{
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $3, $1, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, declarator_id_expr, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -1906,28 +1838,9 @@ condition : expression
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ast_get_locus($1), NULL);
 }
-| type_specifier_seq declarator initializer
+| type_specifier_seq declarator gcc_extra_bits_init_declarator_opt initializer
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ast_get_locus($1), NULL);
-}
-// GNU Extension
-| type_specifier_seq declarator asm_specification gcc_attributes '=' assignment_expression
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, $4,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $6, ast_get_locus($1), NULL),
-			ast_get_locus($1), NULL);
-}
-| type_specifier_seq declarator gcc_attributes '=' assignment_expression
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, $3,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $5, ast_get_locus($1), NULL),
-			ast_get_locus($1), NULL);
-}
-| type_specifier_seq declarator asm_specification '=' assignment_expression
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ast_get_locus($1), NULL),
-			ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CONDITION, $1, $2, $4, $3, ast_get_locus($1), NULL);
 }
 ;
 

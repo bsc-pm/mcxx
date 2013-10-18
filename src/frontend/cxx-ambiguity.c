@@ -1544,14 +1544,6 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
                 return 1;
                 break;
             }
-        case AST_GCC_DECLARATOR :
-            {
-                return check_declarator_rec(ASTSon1(declarator), decl_context, enclosing_is_array, enclosing_is_function);
-            }	
-        case AST_GCC_POINTER_DECLARATOR :
-            {
-                return check_declarator_rec(ASTSon2(declarator), decl_context, 0, 0);
-            }	
         case AST_AMBIGUITY:
             {
                 solve_ambiguous_declarator(declarator, decl_context);
@@ -1670,8 +1662,7 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
                 return 0;
         }
 
-        if (ASTType(parameter) != AST_PARAMETER_DECL
-                && ASTType(parameter) != AST_GCC_PARAMETER_DECL)
+        if (ASTType(parameter) != AST_PARAMETER_DECL)
         {
             internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(parameter)));
         }

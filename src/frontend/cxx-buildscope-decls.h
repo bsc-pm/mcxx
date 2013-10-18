@@ -88,6 +88,9 @@ struct gather_decl_spec_tag {
     bool any_exception:1; // Set to 1 if no exception specifier was seen
     bool is_vector:1;
     bool is_template_pack:1;
+    bool is_final:1;
+    bool is_hides_member:1;
+    bool is_overrider:1;
 
     // GCC extension
     bool is_transparent_union:1;
@@ -168,6 +171,8 @@ struct gather_decl_spec_tag {
     } opencl;
 
     access_specifier_t current_access;
+
+    AST gcc_asm_spec;
 
 } gather_decl_spec_t;
 

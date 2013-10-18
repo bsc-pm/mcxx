@@ -442,6 +442,21 @@ namespace TL
         return (_symbol->entity_specs.is_thread_local);
     }
 
+    bool Symbol::is_final() const
+    {
+        return (_symbol->entity_specs.is_final);
+    }
+
+    bool Symbol::is_explicit_override() const
+    {
+        return (_symbol->entity_specs.is_override);
+    }
+
+    bool Symbol::is_hides_member() const
+    {
+        return (_symbol->entity_specs.is_hides_member);
+    }
+
     bool Symbol::is_bitfield() const
     {
         return (_symbol->entity_specs.is_bitfield);
