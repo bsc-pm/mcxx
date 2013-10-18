@@ -26,6 +26,7 @@
 
 #include "tl-vectorizer-visitor-expression.hpp"
 #include "tl-vectorizer-utils.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL
 {
@@ -192,6 +193,8 @@ namespace TL
         {
             Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
+
+            Nodecl::NodeclBase lhs = n.get_lhs();
 
             walk(n.get_lhs());
             walk(n.get_rhs());
@@ -711,10 +714,10 @@ namespace TL
 
                     std::cerr << "Scatter: " << lhs_array.prettyprint() << std::endl;
 
-                    ERROR_CONDITION(subscripts.size() > 1,
-                            "Vectorizer: Scatter on multidimensional array is not supported yet!", 0);
+                    Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(lhs.as<Nodecl::ArraySubscript>());
 
-                    Nodecl::NodeclBase strides = *subscripts.begin();
+                    std::cerr << "Stride: " << strides.prettyprint() << std::endl;
+
                     walk(strides);
 
                     const Nodecl::VectorScatter vector_scatter =
@@ -979,10 +982,10 @@ namespace TL
 
                 std::cerr << "Gather: " << n.prettyprint() << "\n";
 
-                ERROR_CONDITION(subscripts.size() > 1,
-                    "Vectorizer: Gather on multidimensional array is not supported yet!", 0);
+                Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(n);
 
-                Nodecl::NodeclBase strides = *subscripts.begin();
+                std::cerr << "Stride: " << strides.prettyprint() << std::endl;
+
                 walk(strides);
 
                 const Nodecl::VectorGather vector_gather =

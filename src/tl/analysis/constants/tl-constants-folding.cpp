@@ -62,7 +62,7 @@ namespace TL {
     Nodecl::NodeclBase Analysis::fold_constants(Nodecl::NodeclBase expression)
     {
         Nodecl::NodeclBase copy = expression.shallow_copy();
-        fold_constants_in_place(expression);
+        fold_constants_in_place(copy);
         return copy;
     }
 

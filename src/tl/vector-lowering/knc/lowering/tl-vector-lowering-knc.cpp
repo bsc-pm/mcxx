@@ -84,7 +84,7 @@ namespace TL
 
                     if ((conf & ConfigMaskProcessing::KEEP_OLD) !=
                             ConfigMaskProcessing::KEEP_OLD)
-                    {
+                    { // DEFAULT
                         _old_m512.pop_back();
                     }
                 }
@@ -113,6 +113,13 @@ namespace TL
             else if((conf & ConfigMaskProcessing::ALWAYS_OLD) ==
                     ConfigMaskProcessing::ALWAYS_OLD)
             {
+                if (!_old_m512.empty())
+                {
+                    internal_error("KNC Lowering: mask is null but old is not null. Old '%s'. At %s", 
+                            _old_m512.back().prettyprint().c_str(),
+                            locus_to_str(mask.get_locus()));
+                }
+
                 mask_args << get_undef_intrinsic(type) << ", ";
             }
         }
@@ -178,7 +185,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(binary_node.get_kind()),
                         locus_to_str(binary_node.get_locus()));
             }      
@@ -250,7 +257,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(binary_node.get_kind()),
                         locus_to_str(binary_node.get_locus()));
             }      
@@ -343,7 +350,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -393,7 +400,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -438,7 +445,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -483,7 +490,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }     
@@ -529,7 +536,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }     
@@ -574,7 +581,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -620,7 +627,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -756,7 +763,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             } 
@@ -778,13 +785,13 @@ namespace TL
             const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
             const int src_type_size = src_type.get_size();
             const int dst_type_size = dst_type.get_size();
-
+/*
             printf("Conversion from %s(%s) to %s(%s)\n",
                     src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
-
+*/
             //const unsigned int src_num_elements = src_vector_type.vector_num_elements();
             const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
@@ -971,7 +978,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1022,7 +1029,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported scalar_type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported scalar_type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1085,7 +1092,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1130,19 +1137,30 @@ namespace TL
 
             walk(lhs);
 
-            // lhs has old_value of rhs
-            _old_m512.push_back(lhs.shallow_copy());
-            walk(rhs);
-
             if (mask.is_null())
             {
+                walk(rhs);
                 args << as_expression(rhs);
             }
             else
             {
+                // LHS has old_value of rhs
+                _old_m512.push_back(lhs);
+
+                // Visit RHS with lhs as old
+                walk(rhs);
+
                 // Nodes that needs implicit blending
                 if (!_old_m512.empty())
                 {
+                    if (lhs != _old_m512.back())
+                    {
+                        internal_error("KNC Lowering: Different old value and lhs in assignment with blend. LHS node '%s'. Old '%s'. At %s", 
+                                lhs.prettyprint().c_str(),
+                                _old_m512.back().prettyprint().c_str(),
+                                locus_to_str(node.get_locus()));
+                    }
+
                     process_mask_component(mask, mask_prefix, mask_args, type,
                             Vectorization::ConfigMaskProcessing::ONLY_MASK);
 
@@ -1158,6 +1176,9 @@ namespace TL
                         << ", "
                         << as_expression(rhs)
                         ;
+
+                    // Remove old_m512
+                    _old_m512.pop_back();
 
                     if (type.is_float()) 
                     {
@@ -1228,7 +1249,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1301,7 +1322,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1381,7 +1402,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1467,7 +1488,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1551,14 +1572,14 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
 
             if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()))
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1620,7 +1641,7 @@ namespace TL
             if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()) &&
                   (!index_type.is_signed_long_int()) && (!index_type.is_unsigned_long_int())) 
             { 
-                running_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported index type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1638,7 +1659,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported source type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1749,7 +1770,7 @@ namespace TL
                         << ")";
 
                     // Conditional expression
-#warning This should work
+//#warning This should work
 /*
                     conditional_exp << "("
                         << "(" << as_expression(mask) << "!= " << "(" << mask_casting << "0))"
@@ -1800,7 +1821,7 @@ namespace TL
             }
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1843,7 +1864,7 @@ namespace TL
             } 
             else
             {
-                running_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
@@ -1852,7 +1873,7 @@ namespace TL
             walk(node.get_vector_src());
 
             intrin_src << as_expression(node.get_scalar_dst())
-                << " = "
+                << " += "
                 << intrin_name 
                 << "("
                 << as_expression(node.get_vector_src())
@@ -2038,7 +2059,7 @@ namespace TL
 
         Nodecl::NodeclVisitor<void>::Ret KNCVectorLowering::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
-            running_error("KNC Lowering: Unknown node %s at %s.",
+            internal_error("KNC Lowering: Unknown node %s at %s.",
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
 

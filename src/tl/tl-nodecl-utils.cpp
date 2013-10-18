@@ -1356,6 +1356,74 @@ namespace Nodecl
 
 
     }
+
+    Nodecl::NodeclBase Utils::linearize_array_subscript(const Nodecl::ArraySubscript& n)
+    {
+        Nodecl::List indexes = n.get_subscripts().as<Nodecl::List>();
+        int num_dimensions = indexes.size();
+
+        TL::ObjectList<Nodecl::NodeclBase> sizes;
+
+        if (num_dimensions > 1)
+        {
+            TL::Type subscripted_type = n.get_subscripted().get_type();
+
+            for(int i=0; i<num_dimensions; i++)
+            {
+                if(subscripted_type.is_pointer() && (i == 0))
+                {
+                    // Put a NULL
+                    sizes.append(Nodecl::NodeclBase::null());
+                    subscripted_type = subscripted_type.points_to();
+                }
+                else if (subscripted_type.is_array())
+                {
+                    if (!subscripted_type.array_has_size())
+                    {
+                        internal_error("Linearize_array_subscript: it does not have size", 0);
+                    }
+
+                    sizes.append(subscripted_type.array_get_size());
+                    subscripted_type = subscripted_type.array_element();
+                }
+                else
+                {
+                    internal_error("Linearize_array_subscript: it is not array type or pointer", 0);
+                }
+            }
+        }
+
+        Nodecl::List::iterator it_indexes = indexes.begin();
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it_sizes = sizes.begin();
+
+        Nodecl::NodeclBase new_linearized_subscript;
+
+        // Horner algorithm
+        while (it_indexes != indexes.end())
+        {
+            // First one is special
+            if (it_indexes == indexes.begin())
+            {
+                new_linearized_subscript = *it_indexes;
+            }
+            else
+            {
+                new_linearized_subscript = Nodecl::Add::make(
+                        Nodecl::ParenthesizedExpression::make(
+                            Nodecl::Mul::make(
+                                Nodecl::ParenthesizedExpression::make(*it_sizes, it_sizes->get_type()),
+                                Nodecl::ParenthesizedExpression::make(new_linearized_subscript, new_linearized_subscript.get_type()),
+                                get_ptrdiff_t_type()), get_ptrdiff_t_type()),
+                        Nodecl::ParenthesizedExpression::make(*it_indexes, it_indexes->get_type()),
+                        get_ptrdiff_t_type());
+            }
+
+            it_indexes++;
+            it_sizes++;
+        }
+
+        return new_linearized_subscript;
+    }
 }
 
 namespace TL

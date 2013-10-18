@@ -287,6 +287,9 @@ namespace Nodecl
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
+
+        // Returns a single subscript linearized (not the whole ArraySubscript)
+        Nodecl::NodeclBase linearize_array_subscript(const Nodecl::ArraySubscript& n);
     }
 }
 

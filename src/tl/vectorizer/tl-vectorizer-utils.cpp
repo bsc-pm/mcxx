@@ -333,6 +333,39 @@ namespace TL
 
                 return if_mask_is_zero;
             }
+
+            Nodecl::NodeclBase get_dimension_offset(const TL::Type& type)
+            {
+                if (!type.is_array())
+                {
+                    internal_error("GDO: type is not an array", 0);
+                }
+                
+                if (!type.array_has_size())
+                {
+                    internal_error("GDO: array has no size", 0);
+                }
+                
+                Nodecl::NodeclBase array_size = type.array_get_size();
+
+                if(!type.array_element().is_array()) // Last Dimension
+                {
+                    return Nodecl::ParenthesizedExpression::make(
+                            array_size,
+                            array_size.get_type());
+                }
+                else
+                {
+                    Nodecl::Mul result = Nodecl::Mul::make(
+                            Nodecl::ParenthesizedExpression::make(
+                                array_size,
+                                array_size.get_type()),
+                            get_dimension_offset(type.array_element()),
+                            array_size.get_type());
+
+                    return result;
+                }
+            }
         }
     }
 }

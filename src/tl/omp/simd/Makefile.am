@@ -35,6 +35,7 @@ libtlomp_simd_la_CFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/analysis/constants \
                           -I $(top_srcdir)/src/tl/omp/core \
                           $(END)
 
@@ -43,11 +44,14 @@ libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/analysis/constants \
                           -I $(top_srcdir)/src/tl/omp/core \
                           $(END)
 
 libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
 libtlomp_simd_la_LIBADD = $(phases_libadd) \
+                          $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+                          $(top_builddir)/src/tl/analysis/constants/libconstants_folding.la \
                           $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
                           $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
                           $(END)

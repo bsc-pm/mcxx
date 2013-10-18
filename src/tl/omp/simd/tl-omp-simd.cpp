@@ -27,6 +27,7 @@
 #include "tl-omp-simd.hpp"
 #include "tl-omp.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-constants-folding.hpp"
 
 using namespace TL::Vectorization;
 
@@ -172,6 +173,9 @@ namespace TL {
                     reductions, new_external_vector_symbol_map,
                     for_statement);
 
+            // CONSTANT FOLDING
+            for_statement.replace(TL::Analysis::fold_constants(for_statement));
+
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
                     simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
@@ -283,6 +287,9 @@ namespace TL {
                     ast_print_node_type(loop.get_kind()));
 
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
+
+            // CONSTANT FOLDING
+            for_statement.replace(TL::Analysis::fold_constants(for_statement));
 
             // Suitable clause
             Nodecl::List suitable_expressions;
@@ -450,6 +457,9 @@ namespace TL {
                 .as<Nodecl::FunctionCode>();
 
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
+
+            // CONSTANT FOLDING
+            function_code.replace(TL::Analysis::fold_constants(function_code));
 
             // Remove SimdFunction node
             simd_node.replace(function_code);
