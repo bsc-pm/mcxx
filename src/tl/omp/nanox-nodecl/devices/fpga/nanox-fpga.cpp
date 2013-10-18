@@ -124,7 +124,6 @@ void DeviceFPGA::create_outline(CreateOutlineInfo &info,
         }
 
     }
-    const TL::Scope & called_scope = called_task.get_scope();
     Source unpacked_arguments, private_entities;
 
     TL::ObjectList<OutlineDataItem*> data_items = info._data_items;
