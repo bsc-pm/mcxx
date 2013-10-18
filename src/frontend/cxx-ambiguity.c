@@ -795,12 +795,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 AST virt_specifiers = ASTSon2(current_member_declarator);
                 if (virt_specifiers != NULL)
                 {
-                    AST it_virt_specs;
-                    for_each_element(virt_specifiers, it_virt_specs)
-                    {
-                        if (ASTType(ASTSon1(it_virt_specs)) == AST_INVALID_VIRT_SPEC)
-                            return 0;
-                    }
+                    return 0;
                 }
             }
         }
