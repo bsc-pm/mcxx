@@ -704,7 +704,7 @@ char deduce_template_arguments_common(
     {
         int i_tpl_parameters;
         for (i_tpl_parameters = 0;
-                i_tpl_parameters < template_parameters->num_parameters;
+                i_tpl_parameters < type_template_parameters->num_parameters;
                 i_tpl_parameters++)
         {
             // Parameter i_tpl_parameters-th was not deduced a template argument
@@ -796,6 +796,11 @@ char deduce_template_arguments_common(
                     "Error a parameter is deduced more than one argument here", 0);
 
             deduced_parameter_t* current_deduced_parameter = current_deduction->deduced_parameters[0];
+
+            ERROR_CONDITION(current_deduction->parameter_position >= deduced_arguments.num_deductions,
+                    "Invalid parameter position %d >= %d ",
+                    current_deduction->parameter_position,
+                    deduced_arguments.num_deductions);
 
             deduction_t* result_deduction =
                 deduced_arguments.deduction_list[current_deduction->parameter_position];
@@ -889,7 +894,7 @@ char deduce_template_arguments_common(
     // C++11: Now complete with default deduced template arguments and template packs
     // and update nontype template parameters
     int i_tpl_parameters;
-    for (i_tpl_parameters = 0; i_tpl_parameters < template_parameters->num_parameters; i_tpl_parameters++)
+    for (i_tpl_parameters = 0; i_tpl_parameters < type_template_parameters->num_parameters; i_tpl_parameters++)
     {
         // Argument i_tpl_parameters-th was not deduced a template argument
         if (!c[i_tpl_parameters])
