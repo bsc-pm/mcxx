@@ -1093,13 +1093,23 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                         << "return 0;"
                         << "} else {";
                 
+                Source args_main;
+                
+                if (main.get_function_parameters().size()==2){
+                    args_main << "argc,argv";
+                }
+                //Possible?
+                if (main.get_function_parameters().size()==1){
+                    args_main << "argc";
+                }
+                
                 if (main.get_type().returns().is_signed_int() || main.get_type().returns().is_unsigned_int()){
-                     real_main << "err= main(argc,argv);"
+                     real_main << "err= main(" << args_main<< ");"
                         << "return err;"
                         << "}}"
                         ;
                 } else {
-                    real_main << "main(argc,argv);"
+                    real_main << "main(" << args_main << ");"
                         << "return 0;"
                         << "}}"
                         ;
