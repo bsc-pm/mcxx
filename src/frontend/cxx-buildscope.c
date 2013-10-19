@@ -5678,6 +5678,18 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     if (strcmp(entry->symbol_name, current_virtual->symbol_name) == 0
                             && function_type_can_override(entry->type_information, current_virtual->type_information))
                     {
+                        if (current_virtual->entity_specs.is_final)
+                        {
+                            error_printf("%s: error: member function '%s' overrides final '%s'\n",
+                                    locus_to_str(entry->locus),
+                                    print_decl_type_str(entry->type_information,
+                                        entry->decl_context,
+                                        get_qualified_symbol_name(entry, entry->decl_context)),
+                                    print_decl_type_str(current_virtual->type_information,
+                                        current_virtual->decl_context,
+                                        get_qualified_symbol_name(current_virtual, current_virtual->decl_context)));
+                        }
+
                         entry->entity_specs.is_virtual = 1;
 
                         is_overriden = 1;
@@ -5705,6 +5717,35 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             entry_list_free(virtual_functions);
         }
         entry_list_iterator_free(it1);
+
+        scope_entry_list_iterator_t* it3 = NULL;
+        for (it3 = entry_list_iterator_begin(member_functions);
+                !entry_list_iterator_end(it3);
+                entry_list_iterator_next(it3))
+        {
+            scope_entry_t *entry = entry_list_iterator_current(it3);
+
+            if (entry->entity_specs.is_final && !entry->entity_specs.is_virtual)
+            {
+                error_printf("%s: error: member function '%s' declared as final but it is not virtual\n",
+                        locus_to_str(entry->locus),
+                        print_decl_type_str(entry->type_information,
+                            entry->decl_context,
+                            get_qualified_symbol_name(entry, entry->decl_context)));
+            }
+
+            if (entry->entity_specs.is_override
+                    && !entry->entity_specs.is_virtual)
+            {
+                error_printf("%s: error: member function '%s' declared as override but it does not override\n",
+                        locus_to_str(entry->locus),
+                        print_decl_type_str(entry->type_information,
+                            entry->decl_context,
+                            get_qualified_symbol_name(entry, entry->decl_context)));
+            }
+        }
+        entry_list_iterator_free(it3);
+
         entry_list_free(member_functions);
     }
 
@@ -13161,7 +13202,7 @@ static void gather_single_virt_specifier(AST item,
                 }
                 else if (strcmp(spec, "override") == 0)
                 {
-                    gather_info->is_overrider = 1;
+                    gather_info->is_override = 1;
                 }
                 else
                 {
@@ -13525,6 +13566,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         entry->entity_specs.access = current_access;
                         entry->entity_specs.class_type = class_info;
 
+                        // Copy some extra attributes
+                        entry->entity_specs.is_override = current_gather_info.is_override;
+                        entry->entity_specs.is_hides_member = current_gather_info.is_hides_member;
+                        entry->entity_specs.is_final = current_gather_info.is_final;
+
                         class_type_add_member(get_actual_class_type(class_type), entry);
 
                         if (entry->kind == SK_FUNCTION)
@@ -13565,16 +13611,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (initializer != NULL)
                         {
-                            if (current_gather_info.is_friend)
-                            {
-                                if (!checking_ambiguity())
-                                {
-                                    error_printf("%s: error: a friend-declaration cannot have initializer\n",
-                                            ast_location(declarator));
-                                }
-                                return;
-                            }
-
                             if (entry->kind == SK_VARIABLE)
                             {
                                 nodecl_t nodecl_expr = nodecl_null();

@@ -90,7 +90,7 @@ struct gather_decl_spec_tag {
     bool is_template_pack:1;
     bool is_final:1;
     bool is_hides_member:1;
-    bool is_overrider:1;
+    bool is_override:1;
 
     // GCC extension
     bool is_transparent_union:1;
