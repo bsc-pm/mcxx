@@ -114,7 +114,9 @@ namespace TL
 
             bool is_nested_induction_variable_dependent_access(const VectorizerEnvironment& environment,
                     const Nodecl::NodeclBase& n);
-
+            bool is_nested_non_reduction_basic_induction_variable(const VectorizerEnvironment& environment,
+                    const Nodecl::NodeclBase& n);
+ 
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then);
         }

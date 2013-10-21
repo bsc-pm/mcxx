@@ -92,7 +92,9 @@ namespace TL
                 friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
                         const VectorizerEnvironment& environment,
                         const Nodecl::NodeclBase& n);
-
+                friend bool Vectorization::Utils::is_nested_non_reduction_basic_induction_variable(
+                        const VectorizerEnvironment& environment,
+                        const Nodecl::NodeclBase& n);
         };
 
         class Vectorizer
@@ -163,6 +165,9 @@ namespace TL
                 friend class VectorizerVisitorExpression;
 
                 friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
+                        const VectorizerEnvironment& environment,
+                        const Nodecl::NodeclBase& n);
+                friend bool Vectorization::Utils::is_nested_non_reduction_basic_induction_variable(
                         const VectorizerEnvironment& environment,
                         const Nodecl::NodeclBase& n);
         };

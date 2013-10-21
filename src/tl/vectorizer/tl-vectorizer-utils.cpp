@@ -333,6 +333,32 @@ namespace TL
                 return false;
             }
 
+            bool is_nested_non_reduction_basic_induction_variable(const VectorizerEnvironment& environment,
+                    const Nodecl::NodeclBase& n)
+            {
+                for(std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator> current_scope(environment._analysis_scopes.end());
+                        current_scope != std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator>(environment._analysis_scopes.begin());
+                        current_scope++)
+                {
+                    if((*current_scope) == environment._analysis_simd_scope)
+                        return false;
+
+                    if((*current_scope).is<Nodecl::ForStatement>() ||
+                            (*current_scope).is<Nodecl::IfElseStatement>() ||
+                            (*current_scope).is<Nodecl::FunctionCode>())
+                    {
+                        if(Vectorizer::_analysis_info->is_non_reduction_basic_induction_variable(
+                                    *current_scope,
+                                    n))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then)
             {

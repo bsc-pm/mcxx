@@ -1198,6 +1198,26 @@ namespace TL
                 {
                     vectorize_basic_induction_variable(n);
                 }
+                // Vectorize NESTED IV
+                else if (Vectorization::Utils::is_nested_non_reduction_basic_induction_variable(
+                            _environment,
+                            n)) 
+                {
+                    {
+                        fprintf(stderr,"VECTORIZER: '%s' is NESTED IV and will be PROMOTED to vector\n", 
+                                n.prettyprint().c_str()); 
+                    }
+
+                    const Nodecl::VectorPromotion vector_prom =
+                        Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
+                                Utils::get_null_mask(),
+                                Utils::get_qualified_vector_to(sym_type, 
+                                    _environment._unroll_factor),
+                                n.get_locus());
+
+                    n.replace(vector_prom);
+                }
                 // Vectorize symbols declared in the SIMD scope
                 else if (Utils::is_declared_in_inner_scope(
                             _environment._local_scope_list.front().get_decl_context().current_scope,

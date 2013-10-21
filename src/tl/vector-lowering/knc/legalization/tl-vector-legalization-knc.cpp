@@ -110,7 +110,6 @@ namespace TL
 
         void KNCVectorLegalization::visit(const Nodecl::VectorGather& node) 
         {
-            walk(node.get_strides());
             walk(node.get_base());
 
             TL::Type index_vector_type = node.get_strides().get_type();
@@ -128,16 +127,21 @@ namespace TL
                     dst_vector_type.basic_type().get_simple_declaration(node.retrieve_context(), "").c_str());
 
                 Nodecl::VectorGather new_gather = node.shallow_copy().as<Nodecl::VectorGather>();
+                KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
+                stride_visitor.walk(new_gather.get_strides());
 
                 new_gather.get_strides().set_type(dst_vector_type);
 
                 node.replace(new_gather);
             }
+            else
+            {
+                walk(node.get_strides());
+            }
         }
 
         void KNCVectorLegalization::visit(const Nodecl::VectorScatter& node) 
         { 
-            walk(node.get_strides());
             walk(node.get_base());
             walk(node.get_source());
 
@@ -156,10 +160,16 @@ namespace TL
                     dst_vector_type.basic_type().get_simple_declaration(node.retrieve_context(), "").c_str());
 
                 Nodecl::VectorScatter new_scatter = node.shallow_copy().as<Nodecl::VectorScatter>();
+                KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
+                stride_visitor.walk(new_scatter.get_strides());
 
                 new_scatter.get_strides().set_type(dst_vector_type);
 
                 node.replace(new_scatter);
+            }
+            else
+            {
+                walk(node.get_strides());
             }
         }
 
@@ -2514,6 +2524,53 @@ namespace TL
                     ast_print_node_type(n.get_kind()),
                     locus_to_str(n.get_locus())); 
 
+            return Ret(); 
+        }
+
+
+        KNCStrideVisitorConv::KNCStrideVisitorConv(unsigned int vector_num_elements)
+            : _vector_num_elements(vector_num_elements)
+        {
+        }
+
+        /*
+        void KNCStrideVisitorConv::visit(const Nodecl::VectorConversion& node)
+        {
+            walk(node.get_nest());
+
+            Nodecl::VectorConversion new_node = node.shallow_copy().as<Nodecl::VectorConversion>();
+
+            // TODO better
+            new_node.set_type(TL::Type::get_int_type().get_vector_of_elements(
+                        _vector_num_elements));
+
+            node.replace(new_node);
+        }
+        */
+
+        Nodecl::NodeclVisitor<void>::Ret KNCStrideVisitorConv::unhandled_node(const Nodecl::NodeclBase& node) 
+        {
+            //printf("Unsupported %d: %s\n", _vector_num_elements, node.prettyprint().c_str()); 
+            
+            if (node.get_type().is_vector())
+            {
+
+                Nodecl::NodeclBase new_node = node.shallow_copy().as<Nodecl::NodeclBase>();
+
+                new_node.set_type(TL::Type::get_int_type().get_vector_of_elements(
+                            _vector_num_elements));
+
+                // TODO better
+                node.replace(new_node);
+
+                TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+                for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                        it != children.end();
+                        it ++)
+                {
+                    walk(*it);
+                }
+            }
             return Ret(); 
         }
     }

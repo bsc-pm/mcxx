@@ -185,9 +185,10 @@ namespace TL
             } 
             else
             {
-                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type: %s.", 
                         ast_print_node_type(binary_node.get_kind()),
-                        locus_to_str(binary_node.get_locus()));
+                        locus_to_str(binary_node.get_locus()),
+                        type.get_simple_declaration(node.retrieve_context(), "").c_str());
             }      
 
             walk(lhs);

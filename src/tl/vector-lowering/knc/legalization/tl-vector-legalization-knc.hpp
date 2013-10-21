@@ -57,6 +57,19 @@ namespace TL
 
                 virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
+
+        class KNCStrideVisitorConv : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+                unsigned int _vector_num_elements;
+
+            public:
+                KNCStrideVisitorConv(unsigned int vector_num_elements);
+        //        virtual void visit(const Nodecl::VectorConversion& node);
+
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+
+        };
     }
 }
 
