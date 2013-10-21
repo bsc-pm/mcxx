@@ -1654,6 +1654,98 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     return 1;
 }
 
+
+char deduce_arguments_of_auto_initialization(
+        type_t* destination_type,
+        type_t* initializer_type,
+        decl_context_t decl_context,
+        template_parameter_list_t** deduced_template_arguments,
+        char is_braced_array,
+        const locus_t* locus)
+{
+
+    // Fake type template parameter
+    scope_entry_t* fake_template_parameter_symbol = xcalloc(1, sizeof(*fake_template_parameter_symbol));
+    fake_template_parameter_symbol->symbol_name = uniquestr("FakeTypeTemplateParameter");
+    fake_template_parameter_symbol->kind = SK_TEMPLATE_TYPE_PARAMETER;
+    fake_template_parameter_symbol->locus = locus;
+
+    // Fake template parameter list
+    template_parameter_list_t *fake_template_parameter_list = xcalloc(1, sizeof(*fake_template_parameter_list));
+    template_parameter_t* fake_template_parameter = xcalloc(1, sizeof(*fake_template_parameter));
+    fake_template_parameter->kind = TPK_TYPE;
+    fake_template_parameter->entry = fake_template_parameter_symbol;
+
+    P_LIST_ADD(fake_template_parameter_list->parameters,
+            fake_template_parameter_list->num_parameters,
+            fake_template_parameter);
+    int num_args = 0;
+    P_LIST_ADD(fake_template_parameter_list->arguments,
+            num_args,
+            NULL);
+
+    // Create a suitable type for the fake function using the fake type template parameter
+    // const auto& -> const FakeTypeTemplateParameter&
+    type_t* type_in_place_of_auto = NULL;
+    if (!is_braced_array)
+    {
+        type_in_place_of_auto = get_user_defined_type(fake_template_parameter_symbol);
+    }
+    else
+    {
+        scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(
+                decl_context,
+                locus,
+                /* mandatory */ 1);
+        if (std_initializer_list_template == NULL)
+            return 0;
+
+        template_parameter_list_t* fake_template_argument_list = duplicate_template_argument_list(
+                template_type_get_template_parameters(std_initializer_list_template->type_information));
+        template_parameter_value_t* fake_template_argument = xcalloc(1, sizeof(*fake_template_argument));
+        fake_template_argument->kind = TPK_TYPE;
+        fake_template_argument->type = get_user_defined_type(fake_template_parameter_symbol);
+        fake_template_argument_list->arguments[0] = fake_template_argument;
+
+        // Now get a silly specialization using our fake template parameter
+        type_in_place_of_auto = template_type_get_specialized_type(std_initializer_list_template->type_information,
+                fake_template_argument_list,
+                decl_context,
+                locus);
+    }
+    ERROR_CONDITION(type_in_place_of_auto == NULL, "Invalid type in place for auto", 0);
+
+    type_t* fake_parameter_type = update_type_for_auto(destination_type, type_in_place_of_auto);
+
+    // Create a function type
+    parameter_info_t parameter_types[1];
+    memset(&parameter_types, 0, sizeof(parameter_types));
+
+    parameter_types[0].type_info = fake_parameter_type;
+
+    type_t* fake_function_type = get_new_function_type(get_void_type(),
+            parameter_types, 1);
+
+    // Fake template type
+    type_t* fake_template_type = get_new_template_type(fake_template_parameter_list,
+            fake_function_type,
+            "FakeTemplate",
+            decl_context,
+            locus);
+
+    type_t* primary_specialization = template_type_get_primary_type(fake_template_type);
+
+    return deduce_arguments_from_call_to_specific_template_function(
+            &initializer_type, 1,
+            primary_specialization,
+            fake_template_parameter_list,
+            fake_template_parameter_list,
+            decl_context,
+            deduced_template_arguments,
+            locus,
+            NULL);
+}
+
 static template_parameter_list_t* build_template_parameter_list_from_deduction_set(
         template_parameter_list_t* template_parameters,
         deduction_set_t* deduction_set)

@@ -1666,6 +1666,15 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 }
             }
 
+            if (initializer == NULL
+                    && current_gather_info.is_auto_type)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: declaration with auto type-specifier requires an initializer\n", ast_location(a));
+                }
+            }
+
             if (entry->kind == SK_FUNCTION
                     && decl_context.current_scope->kind == BLOCK_SCOPE
                     && !entry->entity_specs.is_nested_function)
@@ -1778,9 +1787,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         fprintf(stderr, "BUILDSCOPE: Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
                     }
 
-                    char init_check = check_initialization(initializer, entry->decl_context, 
+                    char init_check = check_initialization(initializer,
+                            entry->decl_context,
+                            entry,
                             get_unqualified_type(declarator_type),
-                            &nodecl_initializer);
+                            &nodecl_initializer,
+                            current_gather_info.is_auto_type);
+
+                    if (current_gather_info.is_auto_type)
+                    {
+                        entry->type_information = declarator_type;
+                    }
 
                     // Update unbounded arrays, bounded by their initialization
                     if (init_check)
@@ -5227,8 +5244,10 @@ static void build_scope_ctor_initializer(
                 compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
                 check_initialization(initializer,
                         decl_context,
+                        NULL, /* We do not really know what is being initialized */
                         get_unknown_dependent_type(),
-                        &nodecl_init);
+                        &nodecl_init,
+                        /* is_auto_type */ 0);
 
                 nodecl_t nodecl_cxx_init = nodecl_make_cxx_member_init(
                         nodecl_name, nodecl_init,
@@ -5319,8 +5338,10 @@ static void build_scope_ctor_initializer(
 
                 check_initialization(initializer,
                         decl_context,
+                        entry,
                         get_unqualified_type(entry->type_information),
-                        &nodecl_init);
+                        &nodecl_init,
+                        /* is_auto_type */ 0);
 
                 already_initialized = entry_list_add(already_initialized, entry);
             }
@@ -5337,8 +5358,10 @@ static void build_scope_ctor_initializer(
 
                 check_initialization(initializer,
                         decl_context,
-                        get_user_defined_type(entry),
-                        &nodecl_init);
+                        entry,
+                        get_unqualified_type(get_user_defined_type(entry)),
+                        &nodecl_init,
+                        /* is_auto_type */ 0);
 
                 already_initialized = entry_list_add(already_initialized, entry);
             }
@@ -10837,8 +10860,10 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 nodecl_t nodecl_expr = nodecl_null();
                 check_initialization(initializer,
                         initializer_context,
+                        entry,
                         get_unqualified_type(declarator_type),
-                        &nodecl_expr);
+                        &nodecl_expr,
+                        /* is_auto_type */ 0);
                 entry->value = nodecl_expr;
             }
             // This is always a definition actually
@@ -13651,16 +13676,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             if (entry->kind == SK_VARIABLE)
                             {
-                                nodecl_t nodecl_expr = nodecl_null();
-                                check_initialization(initializer,
-                                        entry->decl_context,
-                                        get_unqualified_type(entry->type_information), 
-                                        &nodecl_expr);
-
-                                entry->entity_specs.is_defined_inside_class_specifier = 1;
-
-                                entry->value = nodecl_expr;
-
                                 if (!current_gather_info.is_static)
                                 {
                                     CXX03_LANGUAGE()
@@ -13672,6 +13687,18 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         }
                                     }
                                 }
+
+                                nodecl_t nodecl_expr = nodecl_null();
+                                check_initialization(initializer,
+                                        entry->decl_context,
+                                        entry,
+                                        get_unqualified_type(entry->type_information),
+                                        &nodecl_expr,
+                                        current_gather_info.is_auto_type);
+
+                                entry->entity_specs.is_defined_inside_class_specifier = 1;
+                                entry->value = nodecl_expr;
+
                             }
                             // Special initializer for functions
                             else if (entry->kind == SK_FUNCTION)
@@ -14300,7 +14327,12 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         AST initializer = ASTSon2(a);
 
         nodecl_t nodecl_expr = nodecl_null();
-        if (!check_initialization(initializer, decl_context, entry->type_information, &nodecl_expr))
+        if (!check_initialization(initializer,
+                    decl_context,
+                    entry,
+                    get_unqualified_type(entry->type_information),
+                    &nodecl_expr,
+                    gather_info.is_auto_type))
         {
             *nodecl_output = nodecl_expr;
             return;

@@ -2476,6 +2476,93 @@ int get_length_of_pack_expansion_from_type(type_t* pack_type,
     return len;
 }
 
+type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
+{
+    if (is_auto_type(t))
+    {
+        return get_cv_qualified_type(template_parameter, get_cv_qualifier(t));
+    }
+    else if (is_pointer_type(t))
+    {
+        type_t* result = update_type_for_auto(pointer_type_get_pointee_type(t), template_parameter);
+        return get_cv_qualified_type(
+                get_pointer_type(result),
+                get_cv_qualifier(t));
+    }
+    else if (is_lvalue_reference_type(t))
+    {
+        type_t* result = update_type_for_auto(reference_type_get_referenced_type(t), template_parameter);
+        return get_cv_qualified_type(
+                get_lvalue_reference_type(result),
+                get_cv_qualifier(t));
+    }
+    else if (is_rvalue_reference_type(t))
+    {
+        type_t* result = update_type_for_auto(reference_type_get_referenced_type(t), template_parameter);
+        return get_cv_qualified_type(
+                get_rvalue_reference_type(result),
+                get_cv_qualifier(t));
+    }
+    else if (is_array_type(t))
+    {
+        type_t* result = update_type_for_auto(array_type_get_element_type(t), template_parameter);
+        return get_cv_qualified_type(
+                get_array_type(result,
+                    array_type_get_array_size_expr(t),
+                    array_type_get_array_size_expr_context(t)),
+                get_cv_qualifier(t));
+    }
+    else if (is_function_type(t))
+    {
+        type_t* return_type = update_type_for_auto(function_type_get_return_type(t), template_parameter);
+
+        parameter_info_t *parameter_types = NULL;
+        int num_parameter_types = 0;
+
+        int last = function_type_get_num_parameters(t);
+
+        char has_ellipsis = function_type_get_has_ellipsis(t);
+
+        if (has_ellipsis)
+            last--;
+
+        int i;
+        for (i = 0; i < last; i++)
+        {
+            type_t* param_orig_type = function_type_get_parameter_type_num(t, i);
+
+            // Technically this should not happen, do it anyway
+            param_orig_type = update_type_for_auto(param_orig_type, template_parameter);
+
+            parameter_info_t parameter_info;
+
+            memset(&parameter_info, 0, sizeof(parameter_info));
+            parameter_info.type_info = param_orig_type;
+
+            P_LIST_ADD(parameter_types, num_parameter_types, parameter_info);
+        }
+
+        type_t* updated_function_type = get_new_function_type(return_type,
+                parameter_types, num_parameter_types);
+
+        return get_cv_qualified_type(updated_function_type,
+                get_cv_qualifier(t));
+    }
+    else if (is_vector_type(t))
+    {
+        return get_cv_qualified_type(
+                get_vector_type(
+                    update_type_for_auto(vector_type_get_element_type(t), template_parameter),
+                    vector_type_get_vector_size(t)),
+                get_cv_qualifier(t));
+    }
+    else
+    {
+        return t;
+    }
+}
+
+
 static type_t* update_pack_type(type_t* pack_type, decl_context_t decl_context, const locus_t* locus)
 {
     // T... may be expanded to {T1, T2, T3, ...} or just be replaced by

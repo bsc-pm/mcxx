@@ -13962,7 +13962,30 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
     }
 }
 
-char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
+static char check_self_reference(nodecl_t initializer, scope_entry_t* entry)
+{
+    if (nodecl_is_null(initializer))
+        return 1;
+
+    if (nodecl_get_symbol(initializer) == entry)
+        return 0;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (!check_self_reference(nodecl_get_child(initializer, i), entry))
+            return 0;
+    }
+
+    return 1;
+}
+
+char check_initialization(AST initializer,
+        decl_context_t decl_context,
+        scope_entry_t* initialized_entry,
+        type_t* declared_type,
+        nodecl_t* nodecl_output,
+        char is_auto_type)
 {
     DEBUG_CODE()
     {
@@ -13973,6 +13996,75 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
     nodecl_t nodecl_init = nodecl_null();
 
     compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
+
+    if (is_auto_type)
+    {
+        if (initialized_entry != NULL
+                && !nodecl_is_null(nodecl_init))
+        {
+            if (!check_self_reference(nodecl_init, initialized_entry))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
+                            nodecl_locus_to_str(nodecl_init));
+                }
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(initializer));
+                return 0;
+            }
+        }
+
+        // Now try to deduce the type
+        char is_braced_initializer = nodecl_get_kind(nodecl_init) == NODECL_CXX_BRACED_INITIALIZER
+            ||(nodecl_get_kind(nodecl_init) == NODECL_CXX_EQUAL_INITIALIZER
+                    && nodecl_get_kind(nodecl_get_child(nodecl_init, 0)) == NODECL_CXX_BRACED_INITIALIZER);
+
+        template_parameter_list_t* deduced_template_arguments = NULL;
+        if (deduce_arguments_of_auto_initialization(
+                initialized_entry->type_information,
+                nodecl_get_type(nodecl_init),
+                decl_context,
+                &deduced_template_arguments,
+                is_braced_initializer,
+                ast_get_locus(initializer)))
+        {
+            if (!is_braced_initializer)
+            {
+                // const auto& -> const int&
+                initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information,
+                        deduced_template_arguments->arguments[0]->type);
+            }
+            else
+            {
+                // const auto& -> const std::initializer_list<T>
+                type_t* specialized_type = template_type_get_specialized_type(
+                        get_std_initializer_list_template(decl_context,
+                            ast_get_locus(initializer),
+                            /* mandatory */ 1)->type_information,
+                        deduced_template_arguments,
+                        decl_context,
+                        ast_get_locus(initializer));
+
+                initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
+            }
+
+            declared_type = get_unqualified_type(initialized_entry->type_information);
+
+            fprintf(stderr, "DEDUCED TYPE IS '%s'\n", print_declarator(initialized_entry->type_information));
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
+                        nodecl_locus_to_str(nodecl_init),
+                        print_type_str(declared_type, decl_context),
+                        print_type_str(nodecl_get_type(nodecl_init), decl_context));
+            }
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(initializer));
+            return 0;
+        }
+    }
 
     if (is_dependent_type(declared_type))
     {
@@ -13990,8 +14082,8 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
         {
             fprintf(stderr, "EXPRTYPE: Initializer '%s' has type '%s'",
                     prettyprint_in_buffer(initializer),
-                    nodecl_get_type(*nodecl_output) == NULL 
-                    ? "<< no type >>" 
+                    nodecl_get_type(*nodecl_output) == NULL
+                    ? "<< no type >>"
                     : print_declarator(nodecl_get_type(*nodecl_output)));
 
             if (nodecl_is_constant(*nodecl_output))

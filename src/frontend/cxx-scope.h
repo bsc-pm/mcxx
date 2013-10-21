@@ -149,6 +149,9 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,
         const locus_t* locus);
 
+LIBMCXX_EXTERN type_t* update_type_for_auto(type_t* orig_type,
+        type_t* template_parameter);
+
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
         const locus_t* locus,
