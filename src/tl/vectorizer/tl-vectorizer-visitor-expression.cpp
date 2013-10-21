@@ -705,8 +705,6 @@ namespace TL
                 }
                 else // Vector Scatter
                 {
-                    walk(rhs);
-
                     const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
 
                     const Nodecl::NodeclBase base = lhs_array.get_subscripted();
@@ -1411,12 +1409,18 @@ namespace TL
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(
                 const Nodecl::NodeclBase& n)
         {
+            internal_error("Vectorizer: Unknown 'Expression' node %s at %s.\n%s",
+                    ast_print_node_type(n.get_kind()),
+                    n.get_locus(),
+                    n.prettyprint().c_str());
+/*
             std::cerr << "Vectorizer: Unknown 'Expression' node "
                 << ast_print_node_type(n.get_kind())
                 //<< "(" << n.prettyprint() << ")"
-                << " at " << n.get_locus()
+                << " at " << n.get_locus() << "." << std::endl
+                << n.prettyprint()
                 << std::endl;
-
+*/
             return Ret();
         }
     }

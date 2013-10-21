@@ -30,6 +30,8 @@ test_generator=config/mercurium-serial-simd-mic
 </testinfo>
 */
 
+#include <stdio.h>
+
 void foo(float *A, float *B, float *C)
 {
     int i, j;
