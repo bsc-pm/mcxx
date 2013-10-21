@@ -1199,8 +1199,8 @@ namespace TL
                     vectorize_basic_induction_variable(n);
                 }
                 // Vectorize symbols declared in the SIMD scope
-                else if (Utils::is_declared_in_scope(
-                            _environment._local_scope_list.back().get_decl_context().current_scope,
+                else if (Utils::is_declared_in_inner_scope(
+                            _environment._local_scope_list.front().get_decl_context().current_scope,
                             n.get_symbol().get_scope().get_decl_context().current_scope))
                 {
                     DEBUG_CODE()
@@ -1356,7 +1356,7 @@ namespace TL
             TL::ObjectList<Nodecl::NodeclBase> literal_list;
 
             Nodecl::NodeclBase ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
-                    _environment._analysis_scopes.back(), n);
+                    _environment._analysis_simd_scope, n);
             
             if (ind_var_increment.is_constant())
             {

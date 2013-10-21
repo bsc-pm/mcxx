@@ -72,6 +72,8 @@ namespace TL
                     dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
 */
+            std::cerr << node.prettyprint() << std::endl;
+
             const unsigned int src_num_elements = src_vector_type.vector_num_elements();
             const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
