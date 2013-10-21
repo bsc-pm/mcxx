@@ -13420,6 +13420,9 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
 {
     AST initializer_list = ASTSon0(initializer);
 
+    int num_types = 0;
+    type_t** types = NULL;
+
     char any_is_type_dependent = 0;
     *nodecl_output = nodecl_null();
     if (initializer_list != NULL)
@@ -13438,20 +13441,25 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
                 return;
             }
 
-            any_is_type_dependent = any_is_type_dependent || 
-                nodecl_expr_is_type_dependent(nodecl_initializer_clause);
+            any_is_type_dependent = any_is_type_dependent
+                || nodecl_expr_is_type_dependent(nodecl_initializer_clause);
 
             *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_initializer_clause);
+
+            P_LIST_ADD(types, num_types, nodecl_get_type(nodecl_initializer_clause));
         }
     }
 
     if (nodecl_is_null(*nodecl_output)
             || !nodecl_is_err_expr(*nodecl_output))
     {
-        *nodecl_output = nodecl_make_cxx_braced_initializer(*nodecl_output, 
+        *nodecl_output = nodecl_make_cxx_braced_initializer(*nodecl_output,
                 ast_get_locus(initializer));
+        nodecl_set_type(*nodecl_output, get_braced_list_type(num_types, types));
         nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
     }
+
+    xfree(types);
 }
 
 static void compute_nodecl_designator_list(AST designator_list, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -17226,6 +17234,9 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
 
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
+
+    type_t** types = NULL;
+    int num_types = 0;
 
     int i;
     for (i = 0; i < num_items; i++)
