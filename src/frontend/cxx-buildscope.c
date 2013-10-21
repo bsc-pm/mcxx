@@ -443,6 +443,15 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     CXX_LANGUAGE()
     {
         {
+            // Namespace std preexists
+            scope_entry_t* namespace_std = new_symbol(decl_context, decl_context.global_scope, "std");
+            namespace_std->kind = SK_NAMESPACE;
+            namespace_std->entity_specs.is_user_declared = 1;
+
+            decl_context_t namespace_std_context = new_namespace_context(decl_context, namespace_std);
+            namespace_std->related_decl_context = namespace_std_context;
+        }
+        {
             // __null is a magic NULL in g++
             scope_entry_t* null_keyword;
 
