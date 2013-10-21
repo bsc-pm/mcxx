@@ -212,8 +212,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> assignment_expression
 %type<ast> gcc_attribute
 %type<ast> gcc_attribute_list
-%type<ast> gcc_attributes
-%type<ast> gcc_attributes_opt
+%type<ast> attribute_specifier
+%type<ast> attribute_specifier_seq
+%type<ast> attribute_specifier_seq_opt
 %type<ast> gcc_attribute_value
 %type<ast> block_declaration
 %type<ast> non_empty_block_declaration
@@ -490,17 +491,23 @@ label_declarator_seq : IDENTIFIER
 /* End of GNU extension */
 
 /* GNU Extension */
-gcc_attributes : gcc_attributes gcc_attribute
+attribute_specifier : gcc_attribute
 {
-	$$ = ASTList($1, $2);
-}
-| gcc_attribute
-{
-	$$ = ASTListLeaf($1);
+    $$ = $1;
 }
 ;
 
-gcc_attributes_opt : gcc_attribute
+attribute_specifier_seq : attribute_specifier_seq attribute_specifier
+{
+	$$ = ASTList($1, $2);
+}
+| attribute_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+;
+
+attribute_specifier_seq_opt : attribute_specifier_seq
 {
     $$ = $1;
 }
@@ -993,13 +1000,13 @@ builtin_types : TOKEN_CHAR
 }
 ;
 
-elaborated_type_specifier : class_key gcc_attributes_opt IDENTIFIER
+elaborated_type_specifier : class_key attribute_specifier_seq_opt IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
 	$$ = ASTMake3(AST_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ast_get_locus($1), NULL);
 }
-| enum_key gcc_attributes_opt IDENTIFIER
+| enum_key attribute_specifier_seq_opt IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -1044,11 +1051,11 @@ gcc_extra_bits_init_declarator : asm_specification
 {
     $$ = ASTListLeaf($1);
 }
-| gcc_attributes
+| attribute_specifier_seq
 {
     $$ = $1;
 }
-| asm_specification gcc_attributes
+| asm_specification attribute_specifier_seq
 {
     $$ = ast_list_concat(ASTListLeaf($1), $2);
 }
@@ -1062,11 +1069,11 @@ asm_specification : ASM '(' string_literal ')'
 ;
 /* End of GNU Extension */
 
-declarator : gcc_attributes_opt direct_declarator
+declarator : attribute_specifier_seq_opt direct_declarator
 {
 	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($2), NULL);
 }
-| gcc_attributes_opt ptr_operator declarator
+| attribute_specifier_seq_opt ptr_operator declarator
 {
 	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($2), NULL);
 }
@@ -1094,11 +1101,11 @@ ptr_operator : '*'
    A functional declarator is a syntactic enforced declarator that will have
    a functional nature
  */
-functional_declarator : gcc_attributes_opt functional_direct_declarator
+functional_declarator : attribute_specifier_seq_opt functional_direct_declarator
 {
 	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($2), NULL);
 }
-| gcc_attributes_opt ptr_operator functional_declarator
+| attribute_specifier_seq_opt ptr_operator functional_declarator
 {
 	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($2), NULL);
 }
@@ -1281,7 +1288,7 @@ declarator_id : id_expression
 }
 ;
 
-enum_head : enum_key gcc_attributes_opt identifier_opt 
+enum_head : enum_key attribute_specifier_seq_opt identifier_opt 
 {
     $$ = ASTMake4(AST_ENUM_HEAD, $1, $2, $3, NULL, ast_get_locus($1), NULL);
 }
@@ -1347,15 +1354,15 @@ type_id : type_specifier_seq_may_end_with_attribute
 }
 ;
 
-abstract_declarator : gcc_attributes_opt ptr_operator
+abstract_declarator : attribute_specifier_seq_opt ptr_operator
 {
 	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, NULL, $1, ast_get_locus($2), NULL);
 }
-| gcc_attributes_opt ptr_operator abstract_declarator
+| attribute_specifier_seq_opt ptr_operator abstract_declarator
 {
 	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($2), NULL);
 }
-| gcc_attributes_opt abstract_direct_declarator
+| attribute_specifier_seq_opt abstract_direct_declarator
 {
 	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($2), NULL);
 }
@@ -1451,15 +1458,15 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq declarator gcc_attributes_opt %merge<ambiguityHandler>
+parameter_declaration : decl_specifier_seq declarator attribute_specifier_seq_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_may_end_with_declarator gcc_attributes_opt %merge<ambiguityHandler>
+| decl_specifier_seq_may_end_with_declarator attribute_specifier_seq_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq abstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
+| decl_specifier_seq abstract_declarator attribute_specifier_seq_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
@@ -1615,13 +1622,13 @@ class_head : class_key
 	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, identifier, NULL, NULL, ast_get_locus($1), NULL);
 }
 // GNU Extensions
-| class_key gcc_attributes
+| class_key attribute_specifier_seq
 {
     AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, NULL, NULL, $2, ast_get_locus($1), NULL);
 
 	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, class_head_extra, ast_get_locus($1), NULL);
 }
-| class_key gcc_attributes IDENTIFIER
+| class_key attribute_specifier_seq IDENTIFIER
 {
     AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, NULL, NULL, $2, ast_get_locus($1), NULL);
 
@@ -1680,19 +1687,19 @@ member_declarator_list : member_declarator
 }
 ;
 
-member_declarator : declarator gcc_attributes_opt
+member_declarator : declarator attribute_specifier_seq_opt
 {
 	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| declarator gcc_attributes_opt constant_initializer
+| declarator attribute_specifier_seq_opt constant_initializer
 {
 	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
-| gcc_attributes_opt ':' constant_expression
+| attribute_specifier_seq_opt ':' constant_expression
 {
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| IDENTIFIER gcc_attributes_opt ':' constant_expression
+| IDENTIFIER attribute_specifier_seq_opt ':' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);

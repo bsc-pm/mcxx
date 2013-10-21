@@ -12260,3 +12260,8 @@ type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t* type)
 
     return get_sequence_of_types(n + m, types);
 }
+
+type_t* get_auto_type()
+{
+    return get_generic_type(0);
+}
