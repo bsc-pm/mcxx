@@ -555,38 +555,6 @@ static char check_simple_type_spec(AST type_spec,
         *computed_type = NULL;
     }
 
-    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPEC)
-    {
-        switch (ASTType(type_spec))
-        {
-            case AST_CHAR_TYPE :
-            case AST_INT_TYPE:
-            case AST_FLOAT_TYPE :
-            case AST_DOUBLE_TYPE :
-            case AST_LONG_TYPE :
-            case AST_SHORT_TYPE :
-            case AST_SIGNED_TYPE :
-            case AST_UNSIGNED_TYPE :
-            case AST_WCHAR_TYPE :
-            case AST_VOID_TYPE :
-            case AST_BOOL_TYPE :
-                {
-                    if (computed_type != NULL)
-                    {
-                        gather_decl_spec_t gather_info;
-                        memset(&gather_info, 0, sizeof(gather_info));
-
-                        nodecl_t dummy_nodecl_output = nodecl_null();
-                        gather_type_spec_information(type_spec, computed_type, &gather_info, decl_context, &dummy_nodecl_output);
-                    }
-                    return 1;
-                }
-                break;
-            default :
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_spec)));
-        }
-    }
-
     AST type_id_expr = ASTSon0(type_spec);
 
     scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
