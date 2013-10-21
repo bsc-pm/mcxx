@@ -5734,18 +5734,47 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                             get_qualified_symbol_name(entry, entry->decl_context)));
             }
 
-            if (entry->entity_specs.is_override
-                    && !entry->entity_specs.is_virtual)
+            if (entry->entity_specs.is_override)
             {
-                error_printf("%s: error: member function '%s' declared as override but it does not override\n",
-                        locus_to_str(entry->locus),
-                        print_decl_type_str(entry->type_information,
-                            entry->decl_context,
-                            get_qualified_symbol_name(entry, entry->decl_context)));
+                char does_override = 0;
+                for (it1 = entry_list_iterator_begin(all_bases);
+                        !entry_list_iterator_end(it1);
+                        entry_list_iterator_next(it1))
+                {
+                    scope_entry_t *base_class = entry_list_iterator_current(it1);
+
+                    scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(base_class->type_information);
+
+                    scope_entry_list_iterator_t* it2 = NULL;
+
+                    for (it2 = entry_list_iterator_begin(virtual_functions);
+                            !entry_list_iterator_end(it2);
+                            entry_list_iterator_next(it2))
+                    {
+                        scope_entry_t* current_virtual = entry_list_iterator_current(it2);
+
+                        if (strcmp(entry->symbol_name, current_virtual->symbol_name) == 0
+                                && function_type_can_override(entry->type_information, current_virtual->type_information))
+                        {
+                            does_override = 1;
+                        }
+                    }
+                    entry_list_iterator_free(it2);
+                    entry_list_free(virtual_functions);
+                }
+                entry_list_iterator_free(it1);
+
+                if (!does_override)
+                {
+                    error_printf("%s: error: member function '%s' declared as override but it does not override\n",
+                            locus_to_str(entry->locus),
+                            print_decl_type_str(entry->type_information,
+                                entry->decl_context,
+                                get_qualified_symbol_name(entry, entry->decl_context)));
+                }
             }
         }
         entry_list_iterator_free(it3);
-
         entry_list_free(member_functions);
     }
 
