@@ -757,6 +757,11 @@ LIBMCXX_EXTERN const char* vector_types_get_vector_flavor(void);
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
 LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(scope_entry_t* entry, void* p UNUSED_PARAMETER);
 
+
+// C++ auto
+LIBMCXX_EXTERN type_t* get_auto_type(void);
+LIBMCXX_EXTERN char is_auto_type(type_t* t);
+
 // C genericity stuff. 
 // Used only to implement gcc builtins. Not to be used elsewhere!
 LIBMCXX_EXTERN type_t* get_generic_type(int num);

@@ -79,6 +79,7 @@ enum type_kind
     TK_BRACED_LIST,
     TK_PACK,
     TK_SEQUENCE,
+    TK_AUTO,
     TK_ERROR
 };
 
@@ -435,7 +436,7 @@ struct type_tag
 {
     // Kind of the type
     // (all types)
-    enum type_kind kind:4;
+    enum type_kind kind:5;
 
     // cv-qualifier related to this type
     // The cv-qualifier is in the type
@@ -7507,6 +7508,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         print_symbol_fun, print_symbol_data));
         }
     }
+    else if (is_auto_type(type_info))
+    {
+        result = uniquestr("auto");
+    }
     else
     {
         result = get_cv_qualifier_string(type_info);
@@ -8118,6 +8123,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         case TK_OVERLOAD:
         case TK_ERROR:
         case TK_SEQUENCE:
+        case TK_AUTO:
             {
                 break;
             }
@@ -11685,6 +11691,10 @@ type_t* get_foundation_type(type_t* t)
     {
         return _dependent_type;
     }
+    else if (is_auto_type(t))
+    {
+        return t;
+    }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }
 
@@ -12261,7 +12271,23 @@ type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t* type)
     return get_sequence_of_types(n + m, types);
 }
 
-type_t* get_auto_type()
+static type_t* _auto = NULL;
+type_t* get_auto_type(void)
 {
-    return get_generic_type(0);
+    if (_auto == NULL)
+    {
+        _auto = new_empty_type();
+        _auto->kind = TK_AUTO;
+        _auto->unqualified_type = _auto;
+    }
+
+    return _auto;
+}
+
+char is_auto_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return t != NULL
+        && t->kind == TK_AUTO;
 }

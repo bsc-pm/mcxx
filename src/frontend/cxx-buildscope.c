@@ -2488,6 +2488,10 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_VOID_TYPE :
             *simple_type_info = get_void_type();
             break;
+        case AST_AUTO_TYPE:
+            *simple_type_info = get_auto_type();
+            gather_info->is_auto_type = 1;
+            break;
         case AST_GCC_COMPLEX_TYPE :
             *simple_type_info = get_signed_int_type();
             gather_info->is_complex = 1;
@@ -2793,6 +2797,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
                 break;
             }
+            // Internal nodes for dependent stuff
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_TEMPLATE_ID:
         case NODECL_CXX_DEP_NAME_CONVERSION:
