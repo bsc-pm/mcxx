@@ -12279,6 +12279,7 @@ type_t* get_auto_type(void)
         _auto = new_empty_type();
         _auto->kind = TK_AUTO;
         _auto->unqualified_type = _auto;
+        _auto->info->is_dependent = 1;
     }
 
     return _auto;
