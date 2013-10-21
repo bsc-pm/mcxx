@@ -13562,7 +13562,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
 {
     char any_is_type_dependent = 0;
     nodecl_t nodecl_initializer_list = nodecl_null();
-    
+
     AST initializer_list = ASTSon0(initializer);
     if (initializer_list != NULL)
     {

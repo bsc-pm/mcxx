@@ -1650,16 +1650,20 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (initializer != NULL)
             {
                 if (current_gather_info.is_extern)
+                {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: cannot initialize an 'extern' declaration\n", ast_location(a));
                     }
+                }
 
                 if (entry->kind == SK_TYPEDEF)
+                {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: cannot initialize an typedef\n", ast_location(a));
                     }
+                }
             }
 
             if (entry->kind == SK_FUNCTION
@@ -2499,7 +2503,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             // C++0x
         case AST_DECLTYPE :
             {
-                // Advance just before parentheses 
+                // Advance just before parentheses
                 // (a normal call to 'advance_expression_nest' would advance after them)
                 AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
 
@@ -2514,11 +2518,11 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
-                        scope_entry_list_t* entry_list = 
+                        scope_entry_list_t* entry_list =
                             unresolved_overloaded_type_get_overload_set(computed_type);
 
                         if (entry_list_size(entry_list) > 1)
-                        { 
+                        {
                             if (!checking_ambiguity())
                             {
                                 error_printf("%s: error: '%s' yields an unresolved overload type\n",
