@@ -115,7 +115,14 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     char *long_message = NULL;
 
     va_start(ap, function_name);
-    vasprintf(&long_message, sanitized_message, ap);
+    int ret = vasprintf(&long_message, sanitized_message, ap);
+    if (ret < 0)
+    {
+        // Desperate message
+        const char *oom_message = "allocation failure in vasprintf\n";
+        write(fileno(stderr), message, strlen(message));
+        abort();
+    }
 
     char* kind_copy = xstrdup(kind);
 
