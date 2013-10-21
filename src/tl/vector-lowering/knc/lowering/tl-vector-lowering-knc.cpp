@@ -1177,9 +1177,6 @@ namespace TL
                         << as_expression(rhs)
                         ;
 
-                    // Remove old_m512
-                    _old_m512.pop_back();
-
                     if (type.is_float()) 
                     {
                         intrin_op_name << "blend";

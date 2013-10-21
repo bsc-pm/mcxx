@@ -910,7 +910,9 @@ namespace TL
                 n.replace(vector_prom);
             }
             // Vector promotion from ArraySubscript indexed by nested IV
-            else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, n))
+            else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, n) &&
+                    !Vectorizer::_analysis_info->is_induction_variable_dependent_access(_environment._analysis_simd_scope,
+                        n))
             {
                 std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
 
