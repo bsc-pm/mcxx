@@ -1201,6 +1201,7 @@ namespace TL
                 // Vectorize symbols declared in the SIMD scope
                 else if (Utils::is_declared_in_inner_scope(
                             _environment._local_scope_list.front().get_decl_context().current_scope,
+                            _environment._local_scope_list.back().get_decl_context().current_scope,
                             n.get_symbol().get_scope().get_decl_context().current_scope))
                 {
                     DEBUG_CODE()

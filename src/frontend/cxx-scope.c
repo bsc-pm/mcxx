@@ -1512,15 +1512,17 @@ struct associated_namespace_tag
 
 typedef struct associated_namespace_tag associated_namespace_t;
 
-char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing)
+char scope_is_enclosed_by(const scope_t *const scope, const scope_t *const potential_enclosing)
 {
-    while (scope != NULL)
+    const scope_t* it = scope;
+
+    while (it != NULL)
     {
-        if (scope == potential_enclosing)
+        if (it == potential_enclosing)
         {
             return 1;
         }
-        scope = scope->contained_in;
+        it = it->contained_in;
     }
     return 0;
 }

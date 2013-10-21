@@ -222,6 +222,32 @@ namespace TL
                 }
             }
 
+            bool is_declared_in_inner_scope(const scope_t *const  target_scope,
+                    const scope_t *const current_scope,
+                    const scope_t *const symbol_scope)
+            {
+                if (symbol_scope == NULL)
+                    return false;
+                else if (target_scope == NULL)
+                    return false;
+                else if (current_scope == NULL)
+                    return false;
+                else if (is_declared_in_scope(current_scope, symbol_scope))
+                    return true;
+                else
+                {
+                    if(current_scope == target_scope)
+                        return false;
+                    else
+                    {
+                        if (scope_is_enclosed_by(target_scope, current_scope))
+                            internal_error("Vectorizer: is_declared_in_inner_scope. Scope is no enclosed", 0);
+
+                        return is_declared_in_inner_scope(target_scope, current_scope->contained_in, symbol_scope);
+                    }
+                }
+            }
+
             bool is_all_one_mask(const Nodecl::NodeclBase& n)
             {
                 if (n.is<Nodecl::MaskLiteral>())

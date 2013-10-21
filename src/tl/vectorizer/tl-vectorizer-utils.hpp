@@ -99,6 +99,9 @@ namespace TL
 
             bool is_declared_in_scope(const scope_t *const  target_scope,
                     const scope_t *const symbol_scope);
+            bool is_declared_in_inner_scope(const scope_t *const  target_scope,
+                    const scope_t *const current_scope,
+                    const scope_t *const symbol_scope);
 
             bool is_all_one_mask(const Nodecl::NodeclBase& n);
 
