@@ -310,7 +310,6 @@ namespace Analysis {
                                         "This type of node shouldn't be already connected.",
                                         (*it)->get_id( ), (*it)->get_type_as_string( ).c_str( ), aux.size( ) );
                     }
-
                     delete ( *it );
                 }
 
@@ -592,10 +591,6 @@ namespace Analysis {
             internal_error( "Unexpected type '%c' of vector memory access. Expecting types from 1 to 2\n", mem_access_type );
         
         Node* vector_mem_node = new Node( _utils->_nid, n_type, _utils->_outer_nodes.top( ), n );
-        // Connect with the last nodes created
-        _pcfg->connect_nodes( _utils->_last_nodes, vector_mem_node );
-        
-        _utils->_last_nodes = ObjectList<Node*>( 1, vector_mem_node );
         return ObjectList<Node*>( 1, vector_mem_node );
     }
     
