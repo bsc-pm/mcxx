@@ -2343,6 +2343,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_EXPLICIT_SPEC :
             gather_info->is_explicit = 1;
             break;
+        case AST_CONSTEXPR_SPEC:
+            gather_info->is_constexpr = 1;
+            break;
             // GCC Extensions
         case AST_GCC_RESTRICT_SPEC :
             gather_info->is_restrict = 1;
@@ -2406,7 +2409,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             break;
         case AST_CUDA_CONSTANT:
             gather_info->cuda.is_constant = 1;
-            break;                     
+            break;
             // OPENCL stuff
         case AST_OPENCL_KERNEL:
             gather_info->opencl.is_kernel = 1;

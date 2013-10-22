@@ -3559,7 +3559,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
     {
         case AST_TEMPLATE_EXPRESSION_ARGUMENT :
             {
-                template_parameter_value_t* t_argument = 
+                template_parameter_value_t* t_argument =
                     counted_xcalloc(1, sizeof(*t_argument), &_bytes_used_scopes);
 
                 AST expr = ASTSon0(template_parameter);
@@ -3568,15 +3568,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
 
                 if (nodecl_is_err_expr(nodecl_expr))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: invalid template-argument number %d\n",
-                                ast_location(template_parameter),
-                                position);
-                    }
                     return NULL;
-                }
 
                 if (is_expansion)
                 {
