@@ -16490,7 +16490,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         decl_context_t decl_context UNUSED_PARAMETER, 
         nodecl_t* nodecl_output)
 {
-    if (nodecl_expr_is_type_dependent(nodecl_expr))
+    if (nodecl_expr_is_value_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_expr;
         return 1;
@@ -16571,6 +16571,17 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)));
         }
 
+        *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+        return 0;
+    }
+
+    if (!nodecl_is_constant(nodecl_expr))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: nontype template argument is not constant\n",
+                    nodecl_locus_to_str(nodecl_expr));
+        }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
         return 0;
     }
