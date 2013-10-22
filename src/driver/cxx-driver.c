@@ -147,8 +147,8 @@
 "  --Wx:<profile>:<flags>,options\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
-"  --openmp                 Enables OpenMP support\n" \
-"  --no-openmp              Disables OpenMP support (default)\n" \
+"  --openmp                 Enables OpenMP support (default)\n" \
+"  --no-openmp              Disables OpenMP support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -913,7 +913,6 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_OPENMP :
                 case OPTION_NO_OPENMP :
                     {
-                        CURRENT_CONFIGURATION->enable_openmp = (parameter_info.value == OPTION_OPENMP);
                         // If 'openmp' is in the parameter flags, set it to true
                         int i;
                         char found = 0;
@@ -922,7 +921,11 @@ int parse_arguments(int argc, const char* argv[],
                             if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
                             {
                                 found = 1;
-                                compilation_process.parameter_flags[i]->value = CURRENT_CONFIGURATION->enable_openmp;
+                                // Note that we will finally set
+                                // CURRENT_CONFIGURATION->enable_openmp in
+                                // finalize_committed_configuration
+                                compilation_process.parameter_flags[i]->value = 
+                                    (parameter_info.value == OPTION_OPENMP);
                             }
                         }
                         if (!found)
@@ -2368,6 +2371,7 @@ static void initialize_default_values(void)
     struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
+    new_parameter_flag->value = 1;
 
     P_LIST_ADD(compilation_process.parameter_flags,
             compilation_process.num_parameter_flags,
@@ -2539,7 +2543,6 @@ static void load_configuration(void)
     compilation_process.command_line_configuration = CURRENT_CONFIGURATION;
 }
 
-
 static void commit_configuration(void)
 {
     // For every configuration commit its options depending on flags
@@ -2606,6 +2609,22 @@ static void register_upc_pragmae(compilation_configuration_t* configuration);
 
 static void finalize_committed_configuration(compilation_configuration_t* configuration)
 {
+    char found = 0;
+    int i;
+    for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+    {
+        if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
+        {
+            found = 1;
+            // Set enable_openmp
+            configuration->enable_openmp = compilation_process.parameter_flags[i]->value;
+        }
+    }
+    if (!found)
+    {
+        internal_error("'openmp' implicit flag was not properly registered", 0);
+    }
+
     // OpenMP support involves omp pragma
     if (configuration->enable_openmp)
     {

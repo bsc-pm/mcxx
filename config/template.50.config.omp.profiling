@@ -1,6 +1,5 @@
 # Profile mode
 [omp-prof-common]
-options = --openmp
 {openmp} preprocessor_options = -D_OPENMP=200805
 {openmp} compiler_phase = libtlomp-core.so
 {openmp} compiler_phase = libtlomp-profile.so
