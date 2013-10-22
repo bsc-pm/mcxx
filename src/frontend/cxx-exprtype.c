@@ -12023,6 +12023,16 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
     nodecl_t initializer_clause_list = nodecl_get_child(braced_initializer, 0);
 
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
+            locus,
+            /* mandatory */ 0);
+
+    if (is_named_class_type(no_ref(declared_type)))
+    {
+        scope_entry_t* symbol = named_type_get_symbol(no_ref(declared_type));
+        instantiate_template_class_if_possible(symbol, decl_context, locus);
+    }
+
     if ((is_class_type(declared_type)
                 || is_array_type(declared_type)
                 || is_vector_type(declared_type))
@@ -12364,19 +12374,85 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         *nodecl_output = nodecl_make_structured_value(init_list_output, initializer_type, locus);
         return;
     }
+    else if (is_named_class_type(declared_type)
+            && is_template_specialized_type(get_actual_class_type(declared_type))
+            && std_initializer_list_template != NULL
+            && (template_specialized_type_get_related_template_type(get_actual_class_type(declared_type))
+                == std_initializer_list_template->type_information))
+    {
+        // This is an initialization of a std::initializer_list<T> using a
+        // braced initializer list We have to call the ad-hoc private
+        // constructor std::initializer_list<T>(T*, size_type)
+        int num_args = 2;
+        type_t* arg_list[2];
+        memset(arg_list, 0, sizeof(arg_list));
+
+        template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                get_actual_class_type(declared_type));
+
+        arg_list[0] = get_pointer_type(template_arguments->arguments[0]->type);
+        arg_list[1] = get_size_t_type();
+
+        scope_entry_t* conversors[num_args + 1];
+        memset(conversors, 0, sizeof(conversors));
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* constructor = solve_constructor(declared_type,
+                arg_list,
+                num_args,
+                /* is_explicit */ 0,
+                decl_context,
+                locus,
+                conversors,
+                &candidates);
+        entry_list_free(candidates);
+
+        if (constructor != NULL)
+        {
+            nodecl_t nodecl_arguments_output = nodecl_make_list_2(
+                    // Codegen should do the right thing: this call is implicit
+                    // and only the first argument for these calls is emitted
+                    nodecl_shallow_copy(braced_initializer),
+                    /* num items */
+                    const_value_to_nodecl(const_value_get_integer(
+                            braced_list_type_get_num_types(
+                                nodecl_get_type(braced_initializer)),
+                            type_get_size(get_size_t_type()),
+                            /* signed */ 0)));
+            // FIXME: Verify there is no narrowing here
+            *nodecl_output = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(constructor,
+                        locus),
+                    /* called name */ nodecl_null(),
+                    nodecl_arguments_output,
+                    nodecl_make_cxx_function_form_implicit(locus),
+                    declared_type,
+                    locus);
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: cannot call internal constructor of '%s' for braced-initializer\n",
+                        locus_to_str(locus),
+                        print_type_str(declared_type, decl_context));
+            }
+            *nodecl_output = nodecl_make_err_expr(locus);
+        }
+        return;
+    }
     // Not an aggregate class
     else if (is_class_type(declared_type)
             && !is_aggregate_type(declared_type)
             && !braced_initializer_is_dependent)
     {
-        // This one is the toughest
-        type_t* arg_list[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-        memset(arg_list, 0, sizeof(arg_list));
-
         int i, num_args = 0;
         nodecl_t* nodecl_list = nodecl_unpack_list(initializer_clause_list, &num_args);
 
         ERROR_CONDITION(num_args >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many elements in braced initializer", 0);
+
+        // This one is the toughest
+        type_t* arg_list[num_args + 1];
+        memset(arg_list, 0, sizeof(arg_list));
 
         for (i = 0; i < num_args; i++)
         {
@@ -12386,10 +12462,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
         // Now construct the candidates for overloading among the constructors
         scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(declared_type));
-
-        scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
-                locus,
-                /* mandatory */ 0);
 
         char has_initializer_list_ctor = 0;
 
@@ -13046,6 +13118,7 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
                 char is_value_dependent = nodecl_expr_is_value_dependent(*nodecl_output);
 
                 *nodecl_output = nodecl_make_cxx_initializer(*nodecl_output, 
+                        nodecl_get_type(*nodecl_output),
                         nodecl_get_locus(*nodecl_output));
 
                 // Propagate attributes as needed
@@ -13408,11 +13481,10 @@ static void compute_nodecl_equal_initializer(AST initializer, decl_context_t dec
         type_t* t = nodecl_get_type(*nodecl_output);
 
         *nodecl_output = nodecl_make_cxx_equal_initializer(*nodecl_output, 
-                ast_get_locus(initializer));
+                t, ast_get_locus(initializer));
         nodecl_expr_set_is_type_dependent(*nodecl_output, is_type_dependent);
         nodecl_expr_set_is_value_dependent(*nodecl_output, is_value_dependent);
 
-        nodecl_set_type(*nodecl_output, t);
     }
 }
 
@@ -13454,8 +13526,8 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
             || !nodecl_is_err_expr(*nodecl_output))
     {
         *nodecl_output = nodecl_make_cxx_braced_initializer(*nodecl_output,
+                get_braced_list_type(num_types, types),
                 ast_get_locus(initializer));
-        nodecl_set_type(*nodecl_output, get_braced_list_type(num_types, types));
         nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
     }
 
@@ -13997,7 +14069,8 @@ char check_initialization(AST initializer,
 
     compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
 
-    if (is_auto_type)
+    if (is_auto_type
+            && !nodecl_expr_is_type_dependent(nodecl_init))
     {
         if (initialized_entry != NULL
                 && !nodecl_is_null(nodecl_init))
@@ -14048,9 +14121,12 @@ char check_initialization(AST initializer,
                 initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
             }
 
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Deduced type for auto initializer is '%s'\n",
+                        print_declarator(initialized_entry->type_information));
+            }
             declared_type = get_unqualified_type(initialized_entry->type_information);
-
-            fprintf(stderr, "DEDUCED TYPE IS '%s'\n", print_declarator(initialized_entry->type_information));
         }
         else
         {
@@ -17288,6 +17364,8 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
 
+    type_t** types = NULL;
+    int num_types = 0;
     int i;
     for (i = 0; i < num_items; i++)
     {
@@ -17359,7 +17437,7 @@ static void instantiate_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl
     }
     else
     {
-        v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_locus(node));
+        v->nodecl_result = nodecl_make_cxx_initializer(expr, nodecl_get_type(expr), nodecl_get_locus(node));
     }
 }
 
@@ -17373,7 +17451,7 @@ static void instantiate_equal_initializer(nodecl_instantiate_expr_visitor_t* v, 
     }
     else
     {
-        v->nodecl_result = nodecl_make_cxx_equal_initializer(expr, nodecl_get_locus(node));
+        v->nodecl_result = nodecl_make_cxx_equal_initializer(expr, nodecl_get_type(expr), nodecl_get_locus(node));
     }
 }
 
@@ -17396,11 +17474,15 @@ static void instantiate_braced_initializer(nodecl_instantiate_expr_visitor_t* v,
         }
 
         nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
+
+        P_LIST_ADD(types, num_types, nodecl_get_type(expr));
     }
 
     xfree(list);
 
-    v->nodecl_result = nodecl_make_cxx_braced_initializer(nodecl_result_list, nodecl_get_locus(node));
+    v->nodecl_result = nodecl_make_cxx_braced_initializer(nodecl_result_list,
+            get_braced_list_type(num_types, types),
+            nodecl_get_locus(node));
 }
 
 static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

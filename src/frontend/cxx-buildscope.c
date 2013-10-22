@@ -1794,11 +1794,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             &nodecl_initializer,
                             current_gather_info.is_auto_type);
 
-                    if (current_gather_info.is_auto_type)
-                    {
-                        entry->type_information = declarator_type;
-                    }
-
                     // Update unbounded arrays, bounded by their initialization
                     if (init_check)
                     {
@@ -2137,6 +2132,7 @@ void build_scope_decl_specifier_seq(AST a,
         gather_info->is_long = local_gather_info.is_long;
         gather_info->is_unsigned = local_gather_info.is_unsigned;
         gather_info->is_signed = local_gather_info.is_signed;
+        gather_info->is_auto_type = local_gather_info.is_auto_type;
 
         if (gather_info->is_short)
         {

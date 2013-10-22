@@ -1581,13 +1581,6 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         && is_template_specialized_type(get_actual_class_type(current_type))
                         && is_named_class_type(argument_types[current_arg]))
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "TYPEDEDUC: But argument type '%s' is a derived class type of "
-                                "the deduced parameter type '%s'\n",
-                                print_declarator(argument_types[current_arg]),
-                                print_declarator(current_type));
-                    }
                     if (is_named_class_type(no_ref(argument_types[current_arg])))
                     {
                         DEBUG_CODE()
@@ -1601,7 +1594,35 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                             fprintf(stderr, "TYPEDEDUC: Argument type instantiated\n");
                         }
                     }
-                    ok = class_type_is_base(current_type, argument_types[current_arg]);
+                    if (class_type_is_base(current_type, argument_types[current_arg]))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: But argument type '%s' is a derived class type of "
+                                    "the deduced parameter type '%s'\n",
+                                    print_declarator(argument_types[current_arg]),
+                                    print_declarator(current_type));
+                        }
+                        ok = 1;
+                    }
+                }
+                else if (is_braced_list_type(argument_types[current_arg]))
+                {
+                    scope_entry_t* std_initializer_type = get_std_initializer_list_template(decl_context, locus,
+                            /* mandatory */ 0);
+
+                    if (std_initializer_type != NULL
+                            && is_named_class_type(no_ref(current_type))
+                            && (std_initializer_type->type_information
+                                == template_specialized_type_get_related_template_type(
+                                    get_actual_class_type(no_ref(current_type)))))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: But parameter type is a std::initializer_type\n");
+                        }
+                        ok = 1;
+                    }
                 }
 
                 if (!ok)
@@ -1668,7 +1689,10 @@ char deduce_arguments_of_auto_initialization(
     scope_entry_t* fake_template_parameter_symbol = xcalloc(1, sizeof(*fake_template_parameter_symbol));
     fake_template_parameter_symbol->symbol_name = uniquestr("FakeTypeTemplateParameter");
     fake_template_parameter_symbol->kind = SK_TEMPLATE_TYPE_PARAMETER;
+    fake_template_parameter_symbol->entity_specs.is_template_parameter = 1;
     fake_template_parameter_symbol->locus = locus;
+    fake_template_parameter_symbol->entity_specs.template_parameter_nesting = 1;
+    fake_template_parameter_symbol->entity_specs.template_parameter_position = 0;
 
     // Fake template parameter list
     template_parameter_list_t *fake_template_parameter_list = xcalloc(1, sizeof(*fake_template_parameter_list));

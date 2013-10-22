@@ -1,3 +1,10 @@
+/*
+<testinfo>
+test_generator="config/mercurium"
+test_CXXFLAGS="-std=c++11"
+</testinfo>
+*/
+
 template <typename T>
 void f(const T&) noexcept(sizeof(T) > 1)
 {

@@ -540,15 +540,63 @@ void unificate_two_types(type_t* t1,
     // No unification is ever possible for this type
     if (is_braced_list_type(t2))
     {
-        // Unificate with each of the types of the braced list type
-        int i, num_types = braced_list_type_get_num_types(t2);
-        for (i = 0; i < num_types; i++)
+        // { 1, 2, 3 } can only be unificated with std::initializer_list<T>
+        // Unification with a plain type template parameter is not possible
+        scope_entry_t* std_initializer_list = get_std_initializer_list_template(decl_context, locus,
+                /* mandatory */ 0);
+
+        if (std_initializer_list == NULL)
         {
-            unificate_two_types(t1, braced_list_type_get_type_num(t2, i), 
-                    deduction_set, decl_context, locus, flags);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEDEDUC: Cannot unify braced initializer list because std::initializer_list has not been declared\n");
+            }
+            UNIFICATION_ENDED;
+            return;
         }
 
-        // Nothing else remains
+        if (!is_named_class_type(t1)
+                || !is_template_specialized_type(get_actual_class_type(t1))
+                || template_specialized_type_get_related_template_type(
+                    get_actual_class_type(t1)) != std_initializer_list->type_information)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEDEDUC: Cannot unify braced initializer list to something that is not a specialization "
+                        "of std::initializer_list<T>\n");
+            }
+            return;
+        }
+
+        // Now we know this is std::initializer_list<T1> <- {T2[0], T2[1], ... , }
+        // so proceed to unificate T1 with each T2[i]
+        template_parameter_list_t *targ_list_1
+            = template_specialized_type_get_template_arguments(get_actual_class_type(t1));
+
+        if (targ_list_1->num_parameters < 1
+                || targ_list_1->arguments[0] == NULL
+                || targ_list_1->arguments[0]->kind != TPK_TYPE)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEDEDUC: Cannot unify braced initializer list because "
+                        "std::initializer_list template specialization is wrong\n");
+            }
+            UNIFICATION_ENDED;
+            return;
+        }
+
+        int i, n = braced_list_type_get_num_types(t2);
+
+        for (i = 0; i < n; i++)
+        {
+            unificate_two_types(targ_list_1->arguments[0]->type,
+                    braced_list_type_get_type_num(t2, i),
+                    deduction_set,
+                    decl_context,
+                    locus, flags);
+        }
+
         UNIFICATION_ENDED;
         return;
     }

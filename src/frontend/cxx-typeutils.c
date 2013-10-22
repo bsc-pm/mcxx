@@ -7512,6 +7512,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         result = uniquestr("auto");
     }
+    else if (is_braced_list_type(type_info))
+    {
+        result = "<braced-initializer-list-type>";
+    }
     else
     {
         result = get_cv_qualifier_string(type_info);
@@ -8124,6 +8128,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
         case TK_ERROR:
         case TK_SEQUENCE:
         case TK_AUTO:
+        case TK_BRACED_LIST:
             {
                 break;
             }
@@ -8663,19 +8668,19 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_BRACED_LIST:
                 {
-                    tmp_result = strappend(tmp_result, " <braced-list-type>{ ");
+                    tmp_result = strappend(tmp_result, " <braced-initializer-list-type>{");
                     int i;
                     for (i = 0; i < braced_list_type_get_num_types(printed_declarator); i++)
                     {
                         if (i != 0)
                         {
-                            strappend(tmp_result, ", ");
+                            tmp_result = strappend(tmp_result, ", ");
                         }
 
-                        strappend(tmp_result, 
+                        tmp_result = strappend(tmp_result, 
                                 print_declarator(braced_list_type_get_type_num(printed_declarator, i)));
                     }
-                    tmp_result = strappend(tmp_result, " } ");
+                    tmp_result = strappend(tmp_result, "} ");
                 }
                 printed_declarator = NULL;
                 break;
@@ -10221,10 +10226,15 @@ type_t* get_braced_list_type(int num_types, type_t** type_list)
 
     result->kind = TK_BRACED_LIST;
 
+    result->unqualified_type = result;
+
     result->braced_type = counted_xcalloc(1, sizeof(*result->braced_type), &_bytes_due_to_type_system);
 
     result->braced_type->num_types = num_types;
-    result->braced_type->type_list = type_list;
+    result->braced_type->type_list = counted_xcalloc(num_types, sizeof(*result->braced_type->type_list),
+            &_bytes_due_to_type_system);
+    memcpy(result->braced_type->type_list, type_list,
+            num_types* sizeof(*result->braced_type->type_list));
 
     return result;
 }
@@ -11690,6 +11700,10 @@ type_t* get_foundation_type(type_t* t)
     else if (is_unknown_dependent_type(t))
     {
         return _dependent_type;
+    }
+    else if (is_braced_list_type(t))
+    {
+        return t;
     }
     else if (is_auto_type(t))
     {
