@@ -8648,8 +8648,11 @@ static void update_function_specifiers(scope_entry_t* entry,
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
     entry->entity_specs.is_user_declared = 1;
 
+    entry->entity_specs.is_constexpr |= gather_info->is_constexpr;
+
     // Merge inline attribute
-    entry->entity_specs.is_inline |= gather_info->is_inline;
+    entry->entity_specs.is_inline |= (gather_info->is_inline
+            || gather_info->is_constexpr);
 
     // Remove the friend-declared attribute if we find the function but
     // this is not a friend declaration
@@ -9390,8 +9393,10 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         new_entry->entity_specs.is_static = gather_info->is_static;
         new_entry->entity_specs.is_extern = gather_info->is_extern;
-        new_entry->entity_specs.is_inline = gather_info->is_inline;
+        new_entry->entity_specs.is_constexpr = gather_info->is_constexpr;
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
+        new_entry->entity_specs.is_inline = gather_info->is_inline
+            || gather_info->is_constexpr;
 
         if (gather_info->is_static && gather_info->is_extern
                 && !gather_info->is_auto_storage)
@@ -11408,7 +11413,6 @@ static void build_scope_namespace_definition(AST a,
     AST namespace_name = ASTSon0(a);
 
     char is_inline = 0;
-    // Technically this is not a gcc extension but c++0x
     AST namespace_inline = ASTSon3(a);
 
     if (namespace_inline != NULL)
@@ -11935,6 +11939,98 @@ static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pre
     return 0;
 }
 
+char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
+{
+    if (entry->entity_specs.is_virtual)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: a constexpr function cannot be virtual\n",
+                    locus_to_str(locus));
+        }
+        return 0;
+    }
+
+    int num_types = function_type_get_num_parameters(entry->type_information);
+    if (function_type_get_has_ellipsis(entry->type_information))
+        num_types--;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        if (!is_literal_type(no_ref(function_type_get_parameter_type_num(entry->type_information, i))))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: parameter types of a constexpr function or constructor must be a literal type or "
+                        "reference to literal type\n",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    if (!entry->entity_specs.is_constructor)
+    {
+        type_t* return_type = function_type_get_return_type(entry->type_information);
+
+        if (!is_literal_type(no_ref(return_type)))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: the return type of a constexpr function must be a literal type or reference to literal type\n",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
+{
+    if (nodecl_get_kind(nodecl_body) != NODECL_COMPOUND_STATEMENT)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: the body of a constexpr function or constructor must be a compound-statement\n",
+                    nodecl_locus_to_str(nodecl_body));
+        }
+        return 0;
+    }
+
+    nodecl_t compound_list = nodecl_get_child(nodecl_body, 0);
+
+    if (entry->entity_specs.is_constructor)
+    {
+        if (nodecl_list_length(compound_list) == 0)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: the compound-statement of a constexpr construct must contain no statements\n",
+                        nodecl_locus_to_str(nodecl_body));
+            }
+            return 0;
+        }
+    }
+    else
+    {
+        if (nodecl_list_length(compound_list) != 1
+                || nodecl_get_kind(nodecl_list_head(compound_list)) != NODECL_RETURN_STATEMENT)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: the body of a constexpr function must contain a single return-statement\n",
+                        nodecl_locus_to_str(nodecl_body));
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 /*
  * This function builds symbol table information for a function definition
  *
@@ -12136,8 +12232,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         return NULL;
     }
 
-    // Inline may be added in a function definition
-    entry->entity_specs.is_inline |= gather_info.is_inline;
+    entry->entity_specs.is_constexpr |= gather_info.is_constexpr;
+    entry->entity_specs.is_inline |= gather_info.is_inline || gather_info.is_constexpr;
 
     // Set defined now, otherwise some infinite recursion may happen when
     // instantiating template functions
@@ -12422,6 +12518,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     ptr_nodecl_make_func_code = is_dependent_function(entry)
         ? &nodecl_make_template_function_code : &nodecl_make_function_code;
+
+    if (entry->entity_specs.is_constexpr)
+    {
+        check_constexpr_function(entry, nodecl_get_locus(body_nodecl));
+        check_constexpr_function_body(entry, body_nodecl);
+    }
 
     // Create nodecl
     nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(

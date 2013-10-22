@@ -455,6 +455,9 @@ namespace TL
             //! States whether this function was defined inline
             bool is_inline() const;
 
+            //! States whether this function was defined constexpr
+            bool is_constexpr() const;
+
             //! States whether this member function was defined as virtual
             bool is_virtual() const;
 

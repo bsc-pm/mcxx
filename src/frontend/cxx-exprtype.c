@@ -16198,6 +16198,13 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
     return result;
 }
 
+static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry UNUSED_PARAMETER,
+        nodecl_t converted_arg_list UNUSED_PARAMETER,
+        const locus_t* locus UNUSED_PARAMETER)
+{
+    internal_error("Not yet implemented", 0);
+}
+
 nodecl_t cxx_nodecl_make_function_call(
         nodecl_t orig_called,
         nodecl_t called_name,
@@ -16437,11 +16444,22 @@ nodecl_t cxx_nodecl_make_function_call(
                     alternate_name = orig_called;
                 }
 
-                return nodecl_make_function_call(called,
+                nodecl_t result = nodecl_make_function_call(called,
                         converted_arg_list,
                         alternate_name,
                         function_form, t,
                         locus);
+
+                if (called_symbol->entity_specs.is_constexpr)
+                {
+                    const_value_t* const_value = evaluate_constexpr_function_call(called_symbol,
+                            converted_arg_list,
+                            locus);
+
+                    nodecl_set_constant(result, const_value);
+                }
+
+                return result;
             }
         }
         else if (called_symbol->kind == SK_VARIABLE

@@ -1987,6 +1987,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "inline ";
     }
 
+    if (symbol.is_constexpr())
+    {
+        decl_spec_seq += "constexpr ";
+    }
+
     if (symbol.is_virtual() && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "virtual ";
@@ -2331,6 +2336,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         {
             decl_spec_seq += "inline ";
         }
+    }
+
+    if (symbol.is_constexpr())
+    {
+        decl_spec_seq += "constexpr ";
     }
 
     if (symbol.is_explicit_constructor()

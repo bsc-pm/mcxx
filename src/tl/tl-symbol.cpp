@@ -503,6 +503,11 @@ namespace TL
         return (_symbol->entity_specs.is_inline);
     }
 
+    bool Symbol::is_constexpr() const
+    {
+        return (_symbol->entity_specs.is_constexpr);
+    }
+
     // Virtual function
     bool Symbol::is_virtual() const
     {
