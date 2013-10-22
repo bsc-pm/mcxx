@@ -248,7 +248,7 @@ namespace Analysis {
                 {
                     int n_connects = graph_parents.size( );
                     _pcfg->connect_nodes( graph_parents, result, ObjectList<Edge_type>( n_connects, ALWAYS ),
-                                        ObjectList<std::string>( n_connects, "" ) );
+                                          ObjectList<std::string>( n_connects, "" ) );
                 }
 
                 // Erase those positions in the list that are non-Graph nodes
@@ -1829,102 +1829,124 @@ namespace Analysis {
         else
         {
             Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus( ) );
-            ObjectList<Node*> init_sym = walk( n_sym );
-            ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
-
-            if( init_expr.empty( ) )
-            {   // do nothing: The Object Init is not initialized
-                return ObjectList<Node*>( );
-            }
-            else
-            {
-                bool unnamed_member_initialization = false;
-                for( ObjectList<Node*>::iterator it = init_expr.begin( ); it != init_expr.end( ); ++it )
+            Type n_type = n.get_symbol( ).get_type( );
+            if( n_type.is_aggregate( ) || n_type.is_class( ) || n_type.is_array( ) )
+            {   // Field or Index designators can appear
+                ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
+                if( init_expr.empty( ) )
+                {   // do nothing: The Object Init is not initialized
+                    return ObjectList<Node*>( );
+                }
+                else
                 {
-                    if( ( *it )->is_graph_node( ) )
+                    bool unnamed_member_initialization = false;
+                    for( ObjectList<Node*>::iterator it = init_expr.begin( ); it != init_expr.end( ); ++it )
                     {
-                        ObjectList<Node*> exit_parents = ( *it )->get_graph_exit_node( )->get_parents( );
-                        ERROR_CONDITION( exit_parents.size( )!=1, 
-                                         "More than one parent found for the exit node of an split_node ", 0 );
-                        Node* exit_parent = exit_parents[0];
-                        ObjectList<Nodecl::NodeclBase> stmts = exit_parent->get_statements( );
-                        ERROR_CONDITION( stmts.size( )!=1, "More than one statement found in the last node of an split_node", 0 );
-                        if( stmts[0].is<Nodecl::Assignment>( ) )
-                        {   // struct A a = { .b = { .y = bar() } }  ->  b.y = bar() is Assignment created by visit::FieldDesignator
-                            Nodecl::Assignment ass = stmts[0].as<Nodecl::Assignment>( );
-                            Nodecl::ClassMemberAccess new_lhs = 
-                                Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ), 
-                                                                 Nodecl::NodeclBase::null( ), ass.get_type( ), n.get_locus( ) );
-                            Nodecl::NodeclBase new_assign = 
-                                Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
-                            exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
-                        }
-                        else if( stmts[0].is<Nodecl::FieldDesignator>( ) )
-                        {   // struct A a = { .x = bar() }            -> .x = bar() is FieldDesignator
-                            Nodecl::FieldDesignator fd = stmts[0].as<Nodecl::FieldDesignator>( );
-                            Type t = fd.get_field( ).get_symbol( ).get_type( );
-                            Nodecl::ClassMemberAccess new_lhs = 
-                                Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ), 
-                                                                 Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
-                            Nodecl::NodeclBase new_assign = 
-                                Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
-                            exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
+                        if( ( *it )->is_graph_node( ) )
+                        {
+                            ObjectList<Node*> exit_parents = ( *it )->get_graph_exit_node( )->get_parents( );
+                            ERROR_CONDITION( exit_parents.size( )!=1, 
+                                            "More than one parent found for the exit node of an split_node ", 0 );
+                            Node* exit_parent = exit_parents[0];
+                            ObjectList<Nodecl::NodeclBase> stmts = exit_parent->get_statements( );
+                            ERROR_CONDITION( stmts.size( )!=1, "More than one statement found in the last node of an split_node", 0 );
+                            if( stmts[0].is<Nodecl::Assignment>( ) )
+                            {   // struct A a = { .b = { .y = bar() } }  ->  b.y = bar() is Assignment created by visit::FieldDesignator
+                                Nodecl::Assignment ass = stmts[0].as<Nodecl::Assignment>( );
+                                Nodecl::ClassMemberAccess new_lhs = 
+                                    Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ), 
+                                                                    Nodecl::NodeclBase::null( ), ass.get_type( ), n.get_locus( ) );
+                                Nodecl::NodeclBase new_assign = 
+                                    Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
+                                exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
+                            }
+                            else if( stmts[0].is<Nodecl::FieldDesignator>( ) )
+                            {   // struct A a = { .x = bar() }            -> .x = bar() is FieldDesignator
+                                Nodecl::FieldDesignator fd = stmts[0].as<Nodecl::FieldDesignator>( );
+                                Type t = fd.get_field( ).get_symbol( ).get_type( );
+                                Nodecl::ClassMemberAccess new_lhs = 
+                                    Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ), 
+                                                                    Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
+                                Nodecl::NodeclBase new_assign = 
+                                    Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
+                                exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
+                            }
+                            else
+                            {   // struct B b = { bar( ) };
+                                // FIXME We should be recovering the field that is being modified and creating an assignment
+                                unnamed_member_initialization = true;
+                                continue;
+                            }
+                            _utils->_last_nodes = ObjectList<Node*>( 1, *it );
                         }
                         else
-                        {   // struct B b = { bar( ) };
-                            // FIXME We should be recovering the field that is being modified and creating an assignment
-                            unnamed_member_initialization = true;
-                            continue;
-                        }
-                        _utils->_last_nodes = ObjectList<Node*>( 1, *it );
-                    }
-                    else
-                    {
-                        ObjectList<Nodecl::NodeclBase> it_expr = ( *it )->get_statements( );
-                        ERROR_CONDITION( it_expr.size( ) != 1, 
-                                         "More than one statement created for an structured value initialization\n", 0 );
-                        
-                        Nodecl::NodeclBase it_init;
-                        if( it_expr[0].is<Nodecl::Assignment>( ) )
-                        {   // struct A a = { .b = { .y = 3 } }  ->  b.y = 3 is Assignment created by visit::FieldDesignator
-                            Nodecl::Assignment ass = it_expr[0].as<Nodecl::Assignment>( );
-                            Nodecl::ClassMemberAccess new_lhs = 
-                                Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ), 
-                                                                Nodecl::NodeclBase::null( ), ass.get_type( ), n.get_locus( ) );
-                            it_init = Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
-                        }
-                        else if( it_expr[0].is<Nodecl::FieldDesignator>( ) )
-                        {   // struct A a = { .x = 3 }            -> .x = 3 is FieldDesignator
-                            Nodecl::FieldDesignator fd = it_expr[0].as<Nodecl::FieldDesignator>( );
+                        {
+                            ObjectList<Nodecl::NodeclBase> it_expr = ( *it )->get_statements( );
+                            ERROR_CONDITION( it_expr.size( ) != 1, 
+                                            "More than one statement created for an structured value initialization\n", 0 );
                             
-                            Type t = fd.get_field( ).get_symbol( ).get_type( );
-                            Nodecl::ClassMemberAccess new_lhs = 
-                                Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ), 
-                                                                 Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
-                            it_init = Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
+                            Nodecl::NodeclBase it_init;
+                            if( it_expr[0].is<Nodecl::Assignment>( ) )
+                            {   // struct A a = { .b = { .y = 3 } }  ->  b.y = 3 is Assignment created by visit::FieldDesignator
+                                Nodecl::Assignment ass = it_expr[0].as<Nodecl::Assignment>( );
+                                Nodecl::ClassMemberAccess new_lhs = 
+                                    Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ), 
+                                                                    Nodecl::NodeclBase::null( ), ass.get_type( ), n.get_locus( ) );
+                                it_init = Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
+                            }
+                            else if( it_expr[0].is<Nodecl::FieldDesignator>( ) )
+                            {   // struct A a = { .x = 3 }            -> .x = 3 is FieldDesignator
+                                Nodecl::FieldDesignator fd = it_expr[0].as<Nodecl::FieldDesignator>( );
+                                
+                                Type t = fd.get_field( ).get_symbol( ).get_type( );
+                                Nodecl::ClassMemberAccess new_lhs = 
+                                    Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ), 
+                                                                    Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
+                                it_init = Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
+                            }
+                            else
+                            {   // struct B b = { 3 };
+                                // FIXME We should be recovering the field that is being modified and creating an assignment
+                                unnamed_member_initialization = true;
+                                continue;
+                            }
+                            
+                            Node* it_init_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), it_init );
+                            _pcfg->connect_nodes( _utils->_last_nodes, it_init_node );
+                            _utils->_last_nodes = ObjectList<Node*>( 1, it_init_node );
                         }
-                        else
-                        {   // struct B b = { 3 };
-                            // FIXME We should be recovering the field that is being modified and creating an assignment
-                            unnamed_member_initialization = true;
-                            continue;
-                        }
-                        
-                        Node* it_init_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), it_init );
+                    }
+                    // FIXME If we fix the case of an unnamed member initialization, then we can delete this node
+                    if( unnamed_member_initialization )
+                    {   // Create a new node with the whole initialization
+                        Node* it_init_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), n );
                         _pcfg->connect_nodes( _utils->_last_nodes, it_init_node );
                         _utils->_last_nodes = ObjectList<Node*>( 1, it_init_node );
                     }
                 }
-                // FIXME If we fix the case of an unnamed member initialization, then we can delete this node
-                if( unnamed_member_initialization )
-                {   // Create a new node with the whole initialization
-                    Node* it_init_node = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ), n );
-                    _pcfg->connect_nodes( _utils->_last_nodes, it_init_node );
-                    _utils->_last_nodes = ObjectList<Node*>( 1, it_init_node );
+            }
+            else
+            {
+                ObjectList<Node*> init_last_nodes = _utils->_last_nodes;
+                ObjectList<Node*> init_expr = walk( n.get_symbol( ).get_value( ) );
+                if( init_expr.empty( ) )
+                {   // do nothing: The Object Init is not initialized
+                    return ObjectList<Node*>( );
                 }
-                return _utils->_last_nodes;
+                else
+                {
+                    ERROR_CONDITION( init_expr.size( ) != 1, 
+                                     "An ObjectInit of a variables which is neither a class, nor an aggregate nor an array "\
+                                     "must have at most one node generated for the initializing expression, but %d found", init_expr.size( ) );
+                    Node* init_node = merge_nodes( n, init_expr[0], NULL );
+                    if( !init_last_nodes.empty( ) )     // This is not the first statement in the code
+                        _pcfg->connect_nodes( init_last_nodes, init_node );
+                    _utils->_last_nodes = ObjectList<Node*>( 1, init_node );
+                }
             }
         }
+        
+        return _utils->_last_nodes;
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Offset& n )
