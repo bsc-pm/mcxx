@@ -5581,6 +5581,31 @@ static void emit_implicit_destructor(scope_entry_t* entry,
             ensure_destructor_is_emitted, &l);
 }
 
+static char one_constructor_is_usable(
+        scope_entry_list_t* constructors UNUSED_PARAMETER,
+        int num_types UNUSED_PARAMETER,
+        type_t** types UNUSED_PARAMETER)
+{
+    return 1;
+}
+
+static char one_function_is_nontrivial(scope_entry_list_t* constructors)
+{
+    char found = 0;
+
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(constructors);
+            !entry_list_iterator_end(it) && !found;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        found = entry->entity_specs.is_trivial;
+    }
+    entry_list_iterator_free(it);
+
+    return found;
+}
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
 //
@@ -5811,6 +5836,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
     scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(class_type);
     char has_virtual_functions = virtual_functions != NULL;
+    char has_virtual_bases = virtual_base_classes != NULL;
     entry_list_free(virtual_functions);
 
     // Implicit default constructor
@@ -5858,110 +5884,310 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_default_constructor);
         class_type_set_default_constructor(class_type, implicit_default_constructor);
 
-        // We cannot do this here
-        //
-        // nodecl_t nodecl_ctor_initializer = nodecl_null();
-        // build_scope_ctor_initializer(/* ctor_initializer */ NULL,
-        //         implicit_default_constructor, decl_context,
-        //         locus,
-        //         &nodecl_ctor_initializer);
-
-
-        // Now figure out if it is trivial
-        //
-        // A constructor is trivial if it is an implicitly-declared default constructor and if:
-        //  1. its class has no virtual functions and no virtual base classes
-        //  2. all the direct base classes of its class have trivial constructors
-        //  3. for all the nonstatic data members of its class that are of class type (or array thereof),
-        //     each such class has a trivial constructor.
-        //  Otherwise, the constructor is non-trivial.
+        // Now check if the implicitly declared constructor is deleted
+        // 1. X is a union-like class that has a variant member with a non-trivial default constructor,
+        // 2. any non-static data member with no brace-or-equal-initializer is of reference type,
+        // 3. any non-variant non-static data member of const-qualified type (or array thereof) with no brace-or-
+        // equal-initializer does not have a user-provided default constructor,
+        // 4. X is a union and all of its variant members are of const-qualified type (or array thereof),
+        // 5. X is a non-union class and all members of any anonymous union member are of const-qualified type
+        // (or array thereof), or
+        // 6. any direct or virtual base class, or non-static data member with no brace-or-equal-initializer, has class
+        // type M (or array thereof) and either M has no default constructor or overload resolution (13.3) as applied
+        // to M’s default constructor results in an ambiguity or in a function that is deleted or inaccessible from
+        // the defaulted default constructor.
+        scope_entry_list_iterator_t* it = NULL;
 
         // 1.
-        char has_virtual_bases = (virtual_base_classes != NULL);
-
-        // 2.
-        char has_bases_with_non_trivial_constructors = 0;
-        scope_entry_list_iterator_t* it0 = NULL;
-        for (it0 = entry_list_iterator_begin(direct_base_classes);
-                !entry_list_iterator_end(it0) && !has_bases_with_non_trivial_constructors;
-                entry_list_iterator_next(it0))
+        char has_variant_member_with_nontrivial_default_ctor = 0;
+        if (is_union_type(class_type))
         {
-            scope_entry_t* base_class = entry_list_iterator_current(it0);
-
-            type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
-            scope_entry_list_t* base_constructors = class_type_get_constructors(base_class_type);
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(base_constructors);
-                    !entry_list_iterator_end(it);
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !has_variant_member_with_nontrivial_default_ctor;
                     entry_list_iterator_next(it))
             {
-                scope_entry_t* current_constructor 
-                    = entry_list_iterator_current(it);
-
-                has_bases_with_non_trivial_constructors
-                    |= !current_constructor->entity_specs.is_trivial;
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+                has_variant_member_with_nontrivial_default_ctor = (is_class_type(data_member->type_information)
+                        && !class_type_get_default_constructor(data_member->type_information)->entity_specs.is_trivial);
             }
             entry_list_iterator_free(it);
-            entry_list_free(base_constructors);
         }
-        entry_list_iterator_free(it0);
 
-        // 3.
-        char has_nonstatic_data_member_with_no_trivial_constructor = 0;
-        scope_entry_list_iterator_t* it = NULL;
+        // 2.
+        char has_nonstatic_data_member_with_reference_type_not_initialized = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it) 
-                && !has_nonstatic_data_member_with_no_trivial_constructor;
+                !entry_list_iterator_end(it)
+                && !has_nonstatic_data_member_with_reference_type_not_initialized;
                 entry_list_iterator_next(it))
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
+            has_nonstatic_data_member_with_reference_type_not_initialized =
+                    is_any_reference_type(data_member->type_information)
+                    && nodecl_is_null(data_member->value);
+        }
+        entry_list_iterator_free(it);
+
+        // 3.
+        char has_nonstatic_data_member_const_without_initializer_and_no_default_ctor = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it)
+                && !has_nonstatic_data_member_const_without_initializer_and_no_default_ctor;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t *data_member = entry_list_iterator_current(it);
+            if (data_member->entity_specs.is_member_of_anonymous)
+                continue;
+
+            has_nonstatic_data_member_const_without_initializer_and_no_default_ctor =
+                is_const_qualified_type(data_member->type_information)
+                && nodecl_is_null(data_member->value);
 
             if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+                    || is_array_type(data_member->type_information))
             {
-                type_t* member_class_type = data_member->type_information;
-                if (is_array_type(data_member->type_information))
-                {
-                    member_class_type = array_type_get_element_type(member_class_type);
-                }
+                type_t* member_type = data_member->type_information;
+                if (is_array_type(member_type))
+                    member_type = array_type_get_element_type(member_type);
 
-                type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
-                scope_entry_t* default_constructor
-                    = class_type_get_default_constructor(member_actual_class_type);
-
-                has_nonstatic_data_member_with_no_trivial_constructor
-                    |= !(default_constructor != NULL &&
-                            default_constructor->entity_specs.is_trivial);
+                has_nonstatic_data_member_const_without_initializer_and_no_default_ctor =
+                    class_type_get_default_constructor(member_type) == NULL;
             }
         }
         entry_list_iterator_free(it);
 
-        // After all these tests we can state that this constructor is
-        // trivial
-        if (!has_virtual_bases
-                && !has_bases_with_non_trivial_constructors
-                && !has_virtual_functions
-                && !has_nonstatic_data_member_with_no_trivial_constructor)
+        char all_members_of_union_are_const = 0;
+        // 4.
+        if (is_union_type(class_type))
         {
-            implicit_default_constructor->entity_specs.is_trivial = 1;
+            char nonconst_member = 0;
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !nonconst_member;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+                nonconst_member = !is_const_qualified_type(data_member->type_information);
+            }
+            entry_list_iterator_free(it);
+
+            all_members_of_union_are_const = !nonconst_member;
         }
 
-        implicit_default_constructor->entity_specs.is_non_emitted = 1;
-        implicit_default_constructor->entity_specs.emission_handler = emit_implicit_default_constructor;
+        // 5.
+        char has_one_anonymous_union_with_all_const_members = 0;
+        if (!is_union_type(class_type))
+        {
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !has_one_anonymous_union_with_all_const_members;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+                if (data_member->entity_specs.is_member_of_anonymous)
+                {
+                    char nonconst_member = 0;
+                    scope_entry_list_t* union_members = class_type_get_nonstatic_data_members(data_member->type_information);
+                    scope_entry_list_iterator_t* it0 = NULL;
+                    for (it0 = entry_list_iterator_begin(union_members);
+                            !entry_list_iterator_end(it0) && !nonconst_member;
+                            entry_list_iterator_next(it0))
+                    {
+                        scope_entry_t *union_member = entry_list_iterator_current(it0);
+                        nonconst_member = !is_const_qualified_type(union_member->type_information);
+                    }
+                    entry_list_iterator_free(it0);
+
+                    has_one_anonymous_union_with_all_const_members = !nonconst_member;
+                }
+            }
+            entry_list_iterator_free(it);
+        }
+
+        // 6.
+        char has_nonstatic_data_member_with_unusable_base_default_constructor = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it)
+                && !has_nonstatic_data_member_with_unusable_base_default_constructor;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t *data_member = entry_list_iterator_current(it);
+            if (!nodecl_is_null(data_member->value))
+                continue;
+
+            if (is_class_type(data_member->type_information)
+                    || (is_array_type(data_member->type_information)
+                        && array_type_get_element_type(data_member->type_information)))
+            {
+                type_t* member_type = data_member->type_information;
+                if (is_array_type(data_member->type_information))
+                {
+                    member_type = array_type_get_element_type(data_member->type_information);
+                }
+
+                has_nonstatic_data_member_with_unusable_base_default_constructor =
+                    !one_constructor_is_usable(entry_list_new(class_type_get_default_constructor(member_type)),
+                            /* num_args */ 0, NULL);
+            }
+        }
+
+        entry_list_iterator_free(it);
+
+        char has_base_with_unusable_default_constructor = 0;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it)
+                && !has_base_with_unusable_default_constructor;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t *base = entry_list_iterator_current(it);
+
+            if (!one_constructor_is_usable(
+                        entry_list_new(class_type_get_default_constructor(base->type_information)),
+                        /* num_args */ 0, NULL))
+            {
+                has_base_with_unusable_default_constructor = 1;
+            }
+        }
+        entry_list_iterator_free(it);
+
+        if (has_variant_member_with_nontrivial_default_ctor
+                || has_nonstatic_data_member_with_reference_type_not_initialized
+                || has_nonstatic_data_member_const_without_initializer_and_no_default_ctor
+                || all_members_of_union_are_const
+                || has_one_anonymous_union_with_all_const_members
+                || has_nonstatic_data_member_with_unusable_base_default_constructor
+                || has_base_with_unusable_default_constructor)
+        {
+            implicit_default_constructor->entity_specs.is_deleted = 1;
+        }
+        else
+        {
+            // If it was not deleted, figure out if it is trivial
+            //
+            // A constructor is trivial if it is an implicitly-declared default constructor and if:
+            //  1. its class has no virtual functions and no virtual base classes
+            //  2. no non-static data member of its class has a brace-or-equal-initializer
+            //  3. all the direct base classes of its class have trivial constructors
+            //  4. for all the nonstatic data members of its class that are of class type (or array thereof),
+            //     each such class has a trivial constructor.
+            //  Otherwise, the constructor is non-trivial.
+
+            // 1.
+
+            // 2.
+            char has_nonstatic_data_member_with_initializer = 0;
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !has_nonstatic_data_member_with_initializer;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+                has_nonstatic_data_member_with_initializer = !nodecl_is_null(data_member->value);
+            }
+            entry_list_iterator_free(it);
+
+            // 3.
+            char has_bases_with_non_trivial_constructors = 0;
+            scope_entry_list_iterator_t* it0 = NULL;
+            for (it0 = entry_list_iterator_begin(direct_base_classes);
+                    !entry_list_iterator_end(it0) && !has_bases_with_non_trivial_constructors;
+                    entry_list_iterator_next(it0))
+            {
+                scope_entry_t* base_class = entry_list_iterator_current(it0);
+
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+                scope_entry_list_t* base_constructors = class_type_get_constructors(base_class_type);
+                for (it = entry_list_iterator_begin(base_constructors);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current_constructor 
+                        = entry_list_iterator_current(it);
+
+                    has_bases_with_non_trivial_constructors
+                        |= !current_constructor->entity_specs.is_trivial;
+                }
+                entry_list_iterator_free(it);
+                entry_list_free(base_constructors);
+            }
+            entry_list_iterator_free(it0);
+
+            // 4.
+            char has_nonstatic_data_member_with_no_trivial_constructor = 0;
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it) 
+                    && !has_nonstatic_data_member_with_no_trivial_constructor;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    scope_entry_t* default_constructor
+                        = class_type_get_default_constructor(member_actual_class_type);
+
+                    has_nonstatic_data_member_with_no_trivial_constructor
+                        |= !(default_constructor != NULL &&
+                                default_constructor->entity_specs.is_trivial);
+                }
+            }
+            entry_list_iterator_free(it);
+
+            // After all these tests we can state that this constructor is
+            // trivial
+            if (!has_virtual_bases
+                    && !has_bases_with_non_trivial_constructors
+                    && !has_virtual_functions
+                    && !has_nonstatic_data_member_with_initializer
+                    && !has_nonstatic_data_member_with_no_trivial_constructor)
+            {
+                implicit_default_constructor->entity_specs.is_trivial = 1;
+            }
+
+            implicit_default_constructor->entity_specs.is_non_emitted = 1;
+            implicit_default_constructor->entity_specs.emission_handler = emit_implicit_default_constructor;
+        }
     }
 
 
-    scope_entry_list_t* copy_constructors = class_type_get_copy_constructors(class_type);
-    char no_copy_constructors = (copy_constructors == NULL);
-    entry_list_free(copy_constructors);
+    scope_entry_list_t* user_declared_copy_constructors = class_type_get_copy_constructors(class_type);
+    scope_entry_list_t* user_declared_copy_asssignment_operators = class_type_get_copy_assignment_operators(class_type);
 
-    // Copy constructors 
-    if (no_copy_constructors)
+    scope_entry_list_t* user_declared_move_constructors = class_type_get_move_constructors(class_type);
+    scope_entry_list_t* user_declared_move_assignment_operators = class_type_get_move_assignment_operators(class_type);
+
+    scope_entry_t* user_declared_destructor = class_type_get_destructor(class_type);
+
+    char have_to_emit_implicit_copy_constructor = (user_declared_copy_constructors == NULL)
+        && (user_declared_move_constructors == NULL)
+        && (user_declared_move_assignment_operators == NULL);
+
+    // Copy constructor
+    if (have_to_emit_implicit_copy_constructor)
     {
-        char const_parameter = 1; 
+        if (IS_CXX11_LANGUAGE)
+        {
+            if (user_declared_copy_asssignment_operators != NULL
+                    || user_declared_destructor != NULL)
+            {
+                warn_printf("%s: declaring an implicit copy constructor of a class with a user-provided "
+                        "destructor or copy assignment operator is deprecated in C++11\n",
+                        locus_to_str(locus));
+            }
+        }
+
+        char const_parameter = 1;
         // Now check bases for a const qualified version
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(all_bases);
@@ -6053,8 +6279,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_copy_constructor);
 
         // We have to see whether this copy constructor is trivial
-        char has_virtual_bases = (virtual_base_classes != NULL);
-
         char has_bases_with_no_trivial_copy_constructor = 0;
 
         // Now figure out if it is trivial
@@ -6135,6 +6359,231 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         implicit_copy_constructor->entity_specs.is_non_emitted = 1;
         implicit_copy_constructor->entity_specs.emission_handler = emit_implicit_copy_constructor;
+    }
+
+    /*
+       If the definition of a class X does not explicitly declare a move constructor, one will be implicitly declared
+       as defaulted if and only if
+       1. X does not have a user-declared copy constructor,
+       2. X does not have a user-declared copy assignment operator,
+       3. X does not have a user-declared move assignment operator,
+       4. X does not have a user-declared destructor, and
+       5. the move constructor would not be implicitly defined as deleted.
+       */
+    char have_to_emit_implicit_move_constructor = (user_declared_copy_constructors == NULL)
+        && (user_declared_copy_asssignment_operators == NULL)
+        && (user_declared_move_assignment_operators == NULL)
+        && (user_declared_destructor == NULL);
+
+    if (have_to_emit_implicit_move_constructor)
+    {
+        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
+
+        const char* constructor_name = NULL;
+        if (is_named_class_type(type_info))
+        {
+            uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+        }
+        else
+        {
+            uniquestr_sprintf(&constructor_name, "%s", "constructor ");
+        }
+
+        scope_entry_t* implicit_move_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
+                constructor_name);
+
+        parameter_info_t parameter_info[1];
+        memset(parameter_info, 0, sizeof(parameter_info));
+        parameter_info[0].is_ellipsis = 0;
+        parameter_info[0].type_info = get_rvalue_reference_type(type_info);
+
+        type_t* move_constructor_type = get_new_function_type(
+                NULL, // Constructors do not return anything
+                parameter_info,
+                1);
+
+        implicit_move_constructor->kind = SK_FUNCTION;
+        implicit_move_constructor->locus = locus;
+        implicit_move_constructor->entity_specs.is_member = 1;
+        implicit_move_constructor->entity_specs.access = AS_PUBLIC;
+        implicit_move_constructor->entity_specs.class_type = type_info;
+        implicit_move_constructor->entity_specs.is_constructor = 1;
+        implicit_move_constructor->entity_specs.is_move_constructor = 1;
+        implicit_move_constructor->entity_specs.is_conversor_constructor = 1;
+        implicit_move_constructor->entity_specs.is_inline = 1;
+
+        implicit_move_constructor->type_information = move_constructor_type;
+
+        implicit_move_constructor->defined = 1;
+
+        implicit_move_constructor->entity_specs.num_parameters = 1;
+        implicit_move_constructor->entity_specs.default_argument_info = empty_default_argument_info(1);
+
+        class_type_add_member(class_type, implicit_move_constructor);
+
+        /*
+           An implicitly-declared copy/move constructor is an inline public member of its class. A defaulted copy-
+           /move constructor for a class X is defined as deleted (8.4.3) if X has:
+           1. a variant member with a non-trivial corresponding constructor and X is a union-like class,
+           2. a non-static data member of class type M (or array thereof) that cannot be copied/moved because
+           overload resolution (13.3), as applied to M’s corresponding constructor, results in an ambiguity or a
+           function that is deleted or inaccessible from the defaulted constructor, or
+           3. a direct or virtual base class B that cannot be copied/moved because overload resolution (13.3), as
+           applied to B’s corresponding constructor, results in an ambiguity or a function that is deleted or
+           inaccessible from the defaulted constructor, or
+           4. for the copy constructor, a non-static data member of rvalue reference type, or
+           5. for the move constructor, a non-static data member or direct or virtual base class with a type that
+           does not have a move constructor and is not trivially copyable.
+           */
+
+        // 1.
+        scope_entry_list_iterator_t* it = NULL;
+        char has_member_with_nontrivial_move_constructor = 0;
+        if (is_union_type(class_type))
+        {
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !has_member_with_nontrivial_move_constructor;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* data_member = entry_list_iterator_current(it);
+                if (is_class_type(data_member->type_information))
+                {
+                    scope_entry_list_t* move_constructors = class_type_get_move_constructors(data_member->type_information);
+                    scope_entry_list_iterator_t* it0 = NULL;
+                    for (it0 = entry_list_iterator_begin(move_constructors);
+                            !entry_list_iterator_end(it0) && !has_member_with_nontrivial_move_constructor;
+                            entry_list_iterator_next(it0))
+                    {
+                        scope_entry_t* move_constructor = entry_list_iterator_current(it0);
+                        has_member_with_nontrivial_move_constructor = !move_constructor->entity_specs.is_trivial;
+                    }
+                    entry_list_iterator_free(it0);
+                }
+            }
+            entry_list_iterator_free(it);
+        }
+
+        // 2.
+        char has_member_with_unusable_move_constructor = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it)
+                && !has_member_with_unusable_move_constructor;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            if (is_class_type(data_member->type_information)
+                    || (is_array_type(data_member->type_information)
+                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            {
+                type_t* member_type = data_member->type_information;
+                if (is_array_type(data_member->type_information))
+                    member_type = array_type_get_element_type(data_member->type_information);
+
+                if (!one_constructor_is_usable(class_type_get_move_constructors(member_type),
+                            1, &member_type))
+                {
+                    has_member_with_unusable_move_constructor = 1;
+                }
+            }
+        }
+        entry_list_iterator_free(it);
+
+        // 3.
+        char has_base_with_unusable_move_constructor = 0;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it) && !has_base_with_unusable_move_constructor;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* base_class = entry_list_iterator_current(it);
+            type_t* base_type = base_class->type_information;
+
+            if (!one_constructor_is_usable(class_type_get_move_constructors(base_type),
+                        1, &base_type))
+            {
+                has_base_with_unusable_move_constructor = 1;
+            }
+        }
+        entry_list_iterator_free(it);
+
+        // 4. does not apply to move constructors
+
+        // 5.
+        char has_member_without_move_constructor_that_cannot_be_trivially_copied = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it)
+                && !has_member_without_move_constructor_that_cannot_be_trivially_copied;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            if (is_class_type(data_member->type_information)
+                    || (is_array_type(data_member->type_information)
+                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            {
+                type_t* member_type = data_member->type_information;
+                if (is_array_type(data_member->type_information))
+                    member_type = array_type_get_element_type(data_member->type_information);
+
+                has_member_without_move_constructor_that_cannot_be_trivially_copied = 
+                    class_type_get_move_constructors(member_type) == NULL
+                    && !is_trivially_copiable_type(member_type);
+            }
+        }
+
+        char has_base_without_move_constructor_that_cannot_be_trivially_copied = 0;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it) && !has_base_with_unusable_move_constructor;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* base_class = entry_list_iterator_current(it);
+            type_t* base_type = base_class->type_information;
+
+            has_base_without_move_constructor_that_cannot_be_trivially_copied = 
+                class_type_get_move_constructors(base_type) == NULL
+                && !is_trivially_copiable_type(base_type);
+        }
+
+        if (has_member_with_nontrivial_move_constructor
+                    || has_member_with_unusable_move_constructor
+                    || has_base_with_unusable_move_constructor
+                    || has_member_without_move_constructor_that_cannot_be_trivially_copied
+                    || has_base_without_move_constructor_that_cannot_be_trivially_copied)
+        {
+            // This move constructor is deleted
+            implicit_move_constructor->entity_specs.is_deleted = 1;
+        }
+        else
+        {
+            // If it is not deleted we still have to figure if it is trivial
+            /*
+               A copy/move constructor for class X is trivial if it is neither user-provided nor deleted and if
+               1. class X has no virtual functions (10.3) and no virtual base classes (10.1), and
+               2. the constructor selected to copy/move each direct base class subobject is trivial, and
+               3. for each non-static data member of X that is of class type (or array thereof), the constructor selected
+               to copy/move that member is trivial;
+               otherwise the copy/move constructor is non-trivial.
+               */
+
+            char has_base_with_nontrivial_move_constructor = 0;
+
+            for (it = entry_list_iterator_begin(all_bases);
+                    !entry_list_iterator_end(it) && !has_base_with_nontrivial_move_constructor;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* base_class = entry_list_iterator_current(it);
+                scope_entry_list_t* move_constructors = class_type_get_move_constructors(base_class->type_information);
+                has_base_with_nontrivial_move_constructor = one_function_is_nontrivial(move_constructors);
+            }
+            entry_list_iterator_free(it);
+
+            if (!has_virtual_functions
+                    && !has_virtual_bases
+                    && !has_base_with_nontrivial_move_constructor
+                    && !has_member_with_nontrivial_move_constructor)
+            {
+                implicit_move_constructor->entity_specs.is_trivial = 1;
+            }
+        }
     }
 
     // Copy assignment operators
@@ -6222,9 +6671,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_copy_assignment_function->entity_specs.is_copy_assignment_operator = 1;
 
         class_type_add_member(class_type, implicit_copy_assignment_function);
-
-        // Now check whether it is trivial
-        char has_virtual_bases = (virtual_base_classes != NULL);
 
         char has_base_classes_with_no_trivial_copy_assignment = 0;
 
