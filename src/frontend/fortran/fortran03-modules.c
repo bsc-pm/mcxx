@@ -460,10 +460,6 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     load_storage(&handle, filename);
 
-    prepare_statements(handle);
-
-    start_transaction(handle);
-
     module_info_t minfo;
     memset(&minfo, 0, sizeof(minfo));
 
@@ -474,6 +470,10 @@ void load_module_info(const char* module_name, scope_entry_t** module)
         running_error("Module file '%s' is not compatible with this version of Mercurium (got version %d but expected version %d)\n",
                 filename, minfo.version, CURRENT_MODULE_VERSION);
     }
+
+    prepare_statements(handle);
+
+    start_transaction(handle);
 
     module_oid_being_loaded = minfo.module_oid;
     *module = load_symbol(handle, minfo.module_oid);
