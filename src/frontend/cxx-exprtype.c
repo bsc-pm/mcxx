@@ -5420,6 +5420,59 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
     return get_error_type();
 }
 
+static char contains_rightmost_tree_as_unresolved_template(nodecl_t nodecl)
+{
+    if (nodecl_is_null(nodecl))
+        return 0;
+
+    type_t* t = nodecl_get_type(nodecl);
+
+    if (t != NULL
+            && is_unresolved_overloaded_type(t))
+    {
+        scope_entry_list_t *overload_set = unresolved_overloaded_type_get_overload_set(t);
+        char found = 0;
+
+        scope_entry_list_iterator_t* it;
+        for (it = entry_list_iterator_begin(overload_set);
+                !entry_list_iterator_end(it) && !found;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* function = entry_list_iterator_current(it);
+            found = (function->kind == SK_TEMPLATE);
+        }
+
+        entry_list_iterator_free(it);
+        entry_list_free(overload_set);
+
+        return found;
+    }
+
+    int i;
+    // Note we want the rightmost, this is why we iterate this way
+    for (i = MCXX_MAX_AST_CHILDREN; i >= 0; i--)
+    {
+        if (contains_rightmost_tree_as_unresolved_template(nodecl_get_child(nodecl, i)))
+            return 1;
+    }
+
+    return 0;
+}
+
+static void parse_lhs_lower_than(AST op,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    check_expression_impl_(op, decl_context, nodecl_output);
+
+    if (!nodecl_is_err_expr(*nodecl_output)
+            && contains_rightmost_tree_as_unresolved_template(*nodecl_output))
+    {
+        // This is something like a + p->f<3>(4) being parsed as a + (p->f<3)>4
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
+    }
+}
+
 static void parse_reference(AST op,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
@@ -5571,7 +5624,8 @@ static void compute_operator_reference_type(nodecl_t* op,
 
 struct bin_operator_funct_type_t
 {
-    void (*pre)(AST op, decl_context_t, nodecl_t*);
+    void (*pre_lhs)(AST op, decl_context_t, nodecl_t*);
+    void (*pre_rhs)(AST op, decl_context_t, nodecl_t*);
     void (*func)(nodecl_t* lhs, nodecl_t* rhs, decl_context_t, const locus_t*, nodecl_t*);
 };
 
@@ -5580,9 +5634,11 @@ struct unary_operator_funct_type_t
     void (*pre)(AST op, decl_context_t, nodecl_t*);
     void (*func)(nodecl_t* operand, decl_context_t, const locus_t*, nodecl_t*);
 };
+#undef OPERATOR_FUNCT_INIT
+#undef OPERATOR_FUNCT_INIT_PRE
 
-#define OPERATOR_FUNCT_INIT(_x) { .pre = check_expression_impl_, .func = _x }
-#define OPERATOR_FUNCT_INIT_PRE(_pre, _x) { .pre = _pre, .func = _x }
+#define OPERATOR_FUNCT_INIT(_x) { .pre_lhs = check_expression_impl_, .pre_rhs = check_expression_impl_, .func = _x }
+#define OPERATOR_FUNCT_INIT_PRE(pre_lhs_, pre_rhs_, _x) { .pre_lhs = pre_lhs_, .pre_rhs = pre_rhs_, .func = _x }
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
 {
@@ -5592,7 +5648,7 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
     [AST_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
     [AST_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
-    [AST_LOWER_THAN]            = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_than_type),
+    [AST_LOWER_THAN]            = OPERATOR_FUNCT_INIT_PRE(parse_lhs_lower_than, check_expression_impl_, compute_bin_operator_lower_than_type),
     [AST_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
     [AST_GREATER_OR_EQUAL_THAN] = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_equal_type),
     [AST_LOWER_OR_EQUAL_THAN]   = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_equal_type),
@@ -5652,6 +5708,11 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [NODECL_MOD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_assig_type),
 };
 
+#undef OPERATOR_FUNCT_INIT
+#undef OPERATOR_FUNCT_INIT_PRE
+#define OPERATOR_FUNCT_INIT(_x) { .pre = check_expression_impl_, .func = _x }
+#define OPERATOR_FUNCT_INIT_PRE(_pre, _x) { .pre = _pre, .func = _x }
+
 static struct unary_operator_funct_type_t unary_expression_fun[] =
 {
     [AST_DERREFERENCE]          = OPERATOR_FUNCT_INIT(compute_operator_derreference_type),
@@ -5669,6 +5730,9 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
     [NODECL_LOGICAL_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
     [NODECL_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
+
+#undef OPERATOR_FUNCT_INIT
+#undef OPERATOR_FUNCT_INIT_PRE
 
 static void check_unary_expression_(node_t node_kind,
         nodecl_t* op,
@@ -5706,8 +5770,8 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
     nodecl_t nodecl_rhs = nodecl_null();
 
     node_t node_kind = ASTType(expression);
-    (binary_expression_fun[node_kind].pre)(lhs, decl_context, &nodecl_lhs);
-    (binary_expression_fun[node_kind].pre)(rhs, decl_context, &nodecl_rhs);
+    (binary_expression_fun[node_kind].pre_lhs)(lhs, decl_context, &nodecl_lhs);
+    (binary_expression_fun[node_kind].pre_rhs)(rhs, decl_context, &nodecl_rhs);
 
     if (nodecl_is_err_expr(nodecl_lhs)
             || nodecl_is_err_expr(nodecl_rhs))
