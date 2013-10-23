@@ -25,6 +25,8 @@
 ##########################################################################
 
 
+include $(top_srcdir)/support/Makefile.modules
+
 mpi_modules = \
 			  mpi.mf03 \
 			  $(END)
@@ -55,14 +57,14 @@ PLAINFC_verbose_ = $(PLAINFC_verbose_$(AM_DEFAULT_VERBOSITY))
 PLAINFC_verbose_0 = @echo "  PLAINFC" $@;
 endif
 
-mpi.mf03 : mpi_constants.mf03 mpi_sizeofs.mf03 mpi_base.mf03
+mpi.mf03 : mpi_constants.mf03 mpi_sizeofs.mf03 mpi_base.mf03 $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi.f90
 
-mpi_constants.mf03 : $(srcdir)/mpi_constants.f90 $(srcdir)/mpifnoext.h
+mpi_constants.mf03 : $(srcdir)/mpi_constants.f90 $(srcdir)/mpifnoext.h $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi_constants.f90
 
-mpi_sizeofs.mf03 : $(srcdir)/mpi_sizeofs.f90
+mpi_sizeofs.mf03 : $(srcdir)/mpi_sizeofs.f90 $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi_sizeofs.f90
 
-mpi_base.mf03 : mpi_constants.mf03 $(srcdir)/mpi_base.f90
+mpi_base.mf03 : mpi_constants.mf03 $(srcdir)/mpi_base.f90 $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi_base.f90
