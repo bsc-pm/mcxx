@@ -1208,7 +1208,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (ASTType(expr) == AST_OCTAL_LITERAL
-            && (strcmp(ASTText(expr), "0") == 0))
+            && const_value_is_zero(val))
     {
         result = get_zero_type(get_signed_int_type());
     }
