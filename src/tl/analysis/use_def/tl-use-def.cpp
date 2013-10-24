@@ -657,10 +657,9 @@ namespace Analysis {
             return;
         
         // The function called must be analyzed only in case it has not been analyzed previously
+        TL::Symbol func_sym = called_sym.get_symbol( );
         if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
         {
-            TL::Symbol func_sym = called_sym.get_symbol( );
-            
             // The function called must be analyzed only in case it has not been analyzed previously (avoid only recursive calls)
             if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
             {
