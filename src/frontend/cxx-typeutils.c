@@ -2035,7 +2035,9 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     // Copy exception stuff
     if (specialized_symbol->kind == SK_FUNCTION)
     {
-        specialized_symbol->entity_specs.any_exception = primary_symbol->entity_specs.any_exception;
+        // Do not reuse the exceptions of the primary symbol (they may need to be updated)
+        specialized_symbol->entity_specs.num_exceptions = 0;
+        specialized_symbol->entity_specs.exceptions = NULL;
 
         // Update exception specifications
         decl_context_t updated_context = primary_symbol->decl_context;
