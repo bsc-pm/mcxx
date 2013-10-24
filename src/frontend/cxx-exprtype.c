@@ -84,6 +84,9 @@ struct check_expr_flags_tag
      * Otherwise it will be false.
      */
     char is_non_executable:1;
+    // Names are always folded into dependent typenames (i.e member may become
+    // A<T>::member) but sometimes this is not desired
+    char do_not_fold_into_dependent_typename:1;
 } check_expr_flags_t;
 
 static check_expr_flags_t check_expr_flags = {0};
@@ -5450,7 +5453,11 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
     {
         nodecl_t nodecl_check = nodecl_null();
         enter_test_expression();
+        // We do not want unresolved overloads to become dependent typenames
+        // even if they are members of dependent classes
+        check_expr_flags.do_not_fold_into_dependent_typename = 1;
         check_expression_impl_(a, decl_context, &nodecl_check);
+        check_expr_flags.do_not_fold_into_dependent_typename = 0;
         leave_test_expression();
 
         if (nodecl_is_err_expr(nodecl_check))
@@ -6023,7 +6030,6 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
     }
 }
 
-
 static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
         scope_entry_list_t* entry_list, 
         decl_context_t decl_context,
@@ -6084,7 +6090,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         return;
     }
 
-    if (entry->entity_specs.is_member
+    if (!check_expr_flags.do_not_fold_into_dependent_typename
+            && entry->entity_specs.is_member
             && !entry->entity_specs.is_injected_class_name
             && is_dependent_type(entry->entity_specs.class_type)
             && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
