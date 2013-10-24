@@ -187,9 +187,7 @@ namespace {
 
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
                 compute_induction_variables_rec( *it );
-            }
         }
     }
 
@@ -220,9 +218,7 @@ namespace {
             // Look for IVs in current's children
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
                 detect_basic_induction_variables( *it, loop );
-            }
         }
     }
 
@@ -242,16 +238,12 @@ namespace {
             std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
                     _induction_vars.equal_range( loop->get_id( ) );
             for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
-            {
                 ivs.append( it->second );
-            }
 
             if( !Utils::induction_variable_list_contains_variable( ivs, iv ) )
             {
                 if( !check_potential_induction_variable( iv, incr, incr_list, st, loop ) )
-                {
                     iv = Nodecl::NodeclBase::null( );
-                }
             }
             else
             {
@@ -274,7 +266,8 @@ namespace {
             {
                 Nodecl::NodeclBase iv_family;
                 Nodecl::NodeclBase n = is_derived_induction_variable( *it, current, loop, iv_family );
-                if( !n.is_null( ) ){
+                if( !n.is_null( ) )
+                {
                     Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
                                                                                          Utils::DERIVED_IV, n );
                     loop->set_induction_variable( iv );
@@ -360,19 +353,24 @@ namespace {
         return res;
     }
 
-    bool InductionVariableAnalysis::check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+    bool InductionVariableAnalysis::check_potential_induction_variable( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                                                         ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                        Nodecl::NodeclBase stmt, Node* loop )
+                                                                        const Nodecl::NodeclBase& stmt, Node* loop )
     {
         // Check whether the variable is modified in other places inside the loop
         bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        return !res;
+        
+        // Check whether the variable is always the same memory location (avoid things like a[b[0]]++)
+        res = !res && check_constant_memory_access( iv, loop );
+        ExtensibleGraph::clear_visits_aux( loop );
+        
+        return res;
     }
-
-    bool InductionVariableAnalysis::check_undesired_modifications( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+    
+    bool InductionVariableAnalysis::check_undesired_modifications( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                                                    ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                   Nodecl::NodeclBase stmt, Node* node, Node* loop )
+                                                                   const Nodecl::NodeclBase& stmt, Node* node, Node* loop )
     {
         bool result = false;
 
@@ -413,6 +411,34 @@ namespace {
         }
 
         return result;
+    }
+    
+    bool InductionVariableAnalysis::check_constant_memory_access( const Nodecl::NodeclBase& iv, Node* loop )
+    {
+        bool res = true;
+        
+        if( iv.is<Nodecl::Symbol>( ) || iv.is<Nodecl::ClassMemberAccess>( ) )
+        {}      // Nothing to be done: this will always be the same memory location
+        else if( iv.is<Nodecl::ArraySubscript>( ) )
+        {
+            Nodecl::ArraySubscript iv_as = iv.as<Nodecl::ArraySubscript>( );
+            Nodecl::List subscripts = iv_as.get_subscripts( ).as<Nodecl::List>( );
+            for( Nodecl::List::iterator it = subscripts.begin( ); it != subscripts.end( ) && res; ++it )
+            {
+                if( !ExtensibleGraph::is_constant_in_context( loop, *it ) )
+                    res = false;
+            }
+        }
+        else if( iv.is<Nodecl::Dereference>( ) )
+        {
+            WARNING_MESSAGE( "Dereference as Induction Variables analysis is not yet supported\n", 0 );
+        }
+        else
+        {
+            WARNING_MESSAGE( "Unexpected type of node '%s' as Induction Variable\n", ast_print_node_type( iv.get_kind( ) ) );
+        }
+        
+        return res;
     }
     
     Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
