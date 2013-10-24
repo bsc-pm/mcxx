@@ -3506,8 +3506,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             // This is a local class
             scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
+
+            // A local class is dependent if enclosed in a template function or
+            // a member function of a template class
             if (enclosing_function != NULL
-                    && is_dependent_type(enclosing_function->type_information))
+                    && (is_dependent_type(enclosing_function->type_information)
+                        || (enclosing_function->entity_specs.is_member
+                            && is_dependent_type(enclosing_function->entity_specs.class_type))))
             {
                 set_is_dependent_type(class_entry->type_information, 1);
             }
@@ -6954,9 +6959,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // This is a local class
         scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
-        if (is_dependent_type(enclosing_function->type_information))
+        if (enclosing_function != NULL
+                && (is_dependent_type(enclosing_function->type_information)
+                    || (enclosing_function->entity_specs.is_member
+                        && is_dependent_type(enclosing_function->entity_specs.class_type))))
         {
-            set_is_dependent_type(class_type, 1);
+            set_is_dependent_type(class_entry->type_information, 1);
         }
     }
 

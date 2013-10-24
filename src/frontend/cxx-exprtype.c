@@ -6385,34 +6385,16 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     }
 }
 
-static void check_nodecl_array_subscript_expression(
-        nodecl_t nodecl_subscripted, 
-        nodecl_t nodecl_subscript, 
-        decl_context_t decl_context, 
+static void check_nodecl_array_subscript_expression_c(
+        nodecl_t nodecl_subscripted,
+        nodecl_t nodecl_subscript,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_subscripted);
 
-    if (nodecl_is_err_expr(nodecl_subscripted)
-            || nodecl_is_err_expr(nodecl_subscript))
-    {
-        *nodecl_output = nodecl_make_err_expr(locus);
-        return;
-    }
-
-    if (nodecl_expr_is_type_dependent(nodecl_subscripted)
-            || nodecl_expr_is_type_dependent(nodecl_subscript))
-    {
-        *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
-                nodecl_make_list_1(nodecl_subscript),
-                get_unknown_dependent_type(), 
-                locus);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
     type_t* subscript_type = nodecl_get_type(nodecl_subscript);
+    type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
 
     if (is_pointer_and_integral_type(no_ref(subscript_type), no_ref(subscripted_type)))
     {
@@ -6433,86 +6415,29 @@ static void check_nodecl_array_subscript_expression(
     if (is_array_type(no_ref(subscripted_type))
             || is_pointer_type(no_ref(subscripted_type)))
     {
-        if (IS_C_LANGUAGE)
+        if (!is_integral_type(no_ref(subscript_type)) &&
+                !is_enum_type(no_ref(subscript_type)))
         {
-            if (!is_integral_type(no_ref(subscript_type)) &&
-                    !is_enum_type(no_ref(subscript_type)))
+            if (!checking_ambiguity())
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
-                            locus_to_str(nodecl_get_locus(nodecl_subscript)),
-                            codegen_to_str(nodecl_subscript, decl_context),
-                            print_type_str(no_ref(subscript_type), decl_context),
-                            print_type_str(get_ptrdiff_t_type(), decl_context));
-                }
-                *nodecl_output = nodecl_make_err_expr(locus);
-                return;
+                error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                        locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                        codegen_to_str(nodecl_subscript, decl_context),
+                        print_type_str(no_ref(subscript_type), decl_context),
+                        print_type_str(get_ptrdiff_t_type(), decl_context));
             }
-            else
-            {
-                // convert int -> ptrdiff_t
-                unary_record_conversion_to_result(
-                        get_ptrdiff_t_type(),
-                        &nodecl_subscript);
-            }
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
         }
-        else if (IS_CXX_LANGUAGE)
+        else
         {
-            // Try to see if there is an ICS for this type -> ptrdiff_t
-            scope_entry_t* conversor = NULL;
-            char ambiguous_conversion = 0;
-            if (type_can_be_implicitly_converted_to(subscript_type, get_ptrdiff_t_type(), decl_context,
-                    &ambiguous_conversion, &conversor, locus)
-                    && !ambiguous_conversion)
-            {
-                if (conversor == NULL)
-                {
-                    unary_record_conversion_to_result(
-                            no_ref(nodecl_get_type(nodecl_subscript)),
-                            &nodecl_subscript);
-                }
-                else
-                {
-                    if (function_has_been_deleted(decl_context, conversor, locus))
-                    {
-                        *nodecl_output = nodecl_make_err_expr(locus);
-                        return;
-                    }
-
-                    nodecl_subscript = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversor, locus),
-                            /* called_name */ nodecl_null(),
-                            nodecl_make_list_1(nodecl_subscript),
-                            nodecl_make_cxx_function_form_implicit(
-                                locus),
-                            actual_type_of_conversor(conversor),
-                            locus);
-
-                    unary_record_conversion_to_result(
-                            get_ptrdiff_t_type(),
-                            &nodecl_subscript);
-                }
-            }
-            else
-            {
-                if (!checking_ambiguity())
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
-                                locus_to_str(nodecl_get_locus(nodecl_subscript)),
-                                codegen_to_str(nodecl_subscript, decl_context),
-                                print_type_str(no_ref(subscript_type), decl_context),
-                                print_type_str(get_ptrdiff_t_type(), decl_context)
-                                );
-                    }
-                }
-                *nodecl_output = nodecl_make_err_expr(locus);
-                return;
-            }
+            // convert int -> ptrdiff_t
+            unary_record_conversion_to_result(
+                    get_ptrdiff_t_type(),
+                    &nodecl_subscript);
         }
     }
+
 
     if (is_array_type(no_ref(subscripted_type)))
     {
@@ -6560,32 +6485,106 @@ static void check_nodecl_array_subscript_expression(
     }
     else
     {
-        C_LANGUAGE()
+        if (!checking_ambiguity())
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is neither an array-type or pointer-type\n",
-                        nodecl_locus_to_str(nodecl_subscripted),
-                        codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                        codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-                        codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                        print_type_str(no_ref(subscripted_type), decl_context));
-            }
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
+            error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is "
+                    "neither an array-type or pointer-type\n",
+                    nodecl_locus_to_str(nodecl_subscripted),
+                    codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                    codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+                    codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                    print_type_str(no_ref(subscripted_type), decl_context));
         }
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+}
+
+static char pointer_type_and_integral_or_enum_type(type_t* t1, type_t* t2)
+{
+    return (is_pointer_type(no_ref(t1)) || is_array_type(no_ref(t1)))
+        && (is_integral_type(no_ref(t2)) || is_enum_type(no_ref(t2)));
+}
+
+static char array_subcript_types_pred(type_t* lhs, type_t* rhs)
+{
+    // T& operator[](T*, ptrdiff_t)
+    // T& operator[](ptrdiff_t, T*)
+    return pointer_type_and_integral_or_enum_type(lhs, rhs)
+        || pointer_type_and_integral_or_enum_type(rhs, lhs);
+}
+
+static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs)
+{
+    if (pointer_type_and_integral_or_enum_type(*lhs, *rhs))
+    {
+        *lhs = no_ref(*lhs);
+        if (is_array_type(*lhs))
+            *lhs = get_pointer_type(array_type_get_element_type(*lhs));
+
+        *rhs = get_ptrdiff_t_type();
+
+        *lhs = get_unqualified_type(*lhs);
+
+        return lvalue_ref(pointer_type_get_pointee_type(*lhs));
+    }
+    else if (pointer_type_and_integral_or_enum_type(*rhs, *lhs))
+    {
+        *lhs = get_ptrdiff_t_type();
+
+        *rhs = no_ref(*rhs);
+        if (is_array_type(*rhs))
+            *rhs = get_pointer_type(array_type_get_element_type(*rhs));
+
+        *rhs = get_unqualified_type(*rhs);
+
+        return lvalue_ref(pointer_type_get_pointee_type(*rhs));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+static void check_nodecl_array_subscript_expression_cxx(
+        nodecl_t nodecl_subscripted, 
+        nodecl_t nodecl_subscript, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
+{
+    const locus_t* locus = nodecl_get_locus(nodecl_subscripted);
+
+    if (nodecl_is_err_expr(nodecl_subscripted)
+            || nodecl_is_err_expr(nodecl_subscript))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
     }
 
-    // Now we are in C++ specific cases
+    if (nodecl_expr_is_type_dependent(nodecl_subscripted)
+            || nodecl_expr_is_type_dependent(nodecl_subscript))
+    {
+        *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
+                nodecl_make_list_1(nodecl_subscript),
+                get_unknown_dependent_type(), 
+                locus);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
+    type_t* subscript_type = nodecl_get_type(nodecl_subscript);
+
+    static AST operator_subscript_tree = NULL;
+    if (operator_subscript_tree == NULL)
+    {
+        operator_subscript_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_SUBSCRIPT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
+    }
+
+    // Try to see if an overload operator[] is useable
     if (is_class_type(no_ref(subscripted_type)))
     {
-        static AST operator_subscript_tree = NULL;
-        if (operator_subscript_tree == NULL)
-        {
-            operator_subscript_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                    ASTLeaf(AST_SUBSCRIPT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
-        }
-
         scope_entry_list_t* operator_subscript_list = get_member_of_class_type(
                 no_ref(subscripted_type),
                 operator_subscript_tree,
@@ -6624,105 +6623,157 @@ static void check_nodecl_array_subscript_expression(
                 conversors);
         scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
-        if (overloaded_call == NULL)
+        if (overloaded_call != NULL)
         {
-            if (!checking_ambiguity())
-            {
-                error_message_overload_failed(candidate_set, 
-                        "operator[]",
-                        decl_context,
-                        1, &argument_types[1],
-                        /* implicit_argument_type */ subscripted_type,
-                        locus);
-            }
             candidate_set_free(&candidate_set);
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-        candidate_set_free(&candidate_set);
 
-        if (function_has_been_deleted(decl_context, overloaded_call, locus))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
-        type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
-        
-        if (is_class_type(param_type))
-        {
-            check_nodecl_expr_initializer(nodecl_subscript, decl_context, param_type, &nodecl_subscript);
-        }
-        else
-        {
-            if (conversors[1] != NULL)
+            if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
-                if (function_has_been_deleted(decl_context, conversors[1], locus))
-                {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    return;
-                }
-
-                nodecl_subscript = cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(conversors[1], locus),
-                        /* called name */ nodecl_null(),
-                        nodecl_make_list_1(nodecl_subscript),
-                        nodecl_make_cxx_function_form_implicit(locus),
-                        actual_type_of_conversor(conversors[1]), locus);
-
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
             }
-            else if (is_unresolved_overloaded_type(subscript_type))
+
+            type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
+
+            if (is_class_type(param_type))
             {
-                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(subscript_type);
-                scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(subscript_type),
-                        param_type,
-                        decl_context,
-                        nodecl_get_locus(nodecl_subscript));
-
-                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                if (!solved_function->entity_specs.is_member
-                        || solved_function->entity_specs.is_static)
+                check_nodecl_expr_initializer(nodecl_subscript, decl_context, param_type, &nodecl_subscript);
+            }
+            else
+            {
+                if (conversors[1] != NULL)
                 {
-                    nodecl_subscript =
-                        nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_subscript));
-                    nodecl_set_type(nodecl_subscript, lvalue_ref(solved_function->type_information));
+                    if (function_has_been_deleted(decl_context, conversors[1], locus))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(locus);
+                        return;
+                    }
+
+                    nodecl_subscript = cxx_nodecl_make_function_call(
+                            nodecl_make_symbol(conversors[1], locus),
+                            /* called name */ nodecl_null(),
+                            nodecl_make_list_1(nodecl_subscript),
+                            nodecl_make_cxx_function_form_implicit(locus),
+                            actual_type_of_conversor(conversors[1]), locus);
+
                 }
-                else
+                else if (is_unresolved_overloaded_type(subscript_type))
                 {
-                    nodecl_subscript =
-                        nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        named_type_get_symbol(solved_function->entity_specs.class_type))),
-                                nodecl_get_locus(nodecl_subscript));
+                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(subscript_type);
+                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
+                            unresolved_overloaded_type_get_explicit_template_arguments(subscript_type),
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(nodecl_subscript));
+
+                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+                    if (!solved_function->entity_specs.is_member
+                            || solved_function->entity_specs.is_static)
+                    {
+                        nodecl_subscript =
+                            nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_subscript));
+                        nodecl_set_type(nodecl_subscript, lvalue_ref(solved_function->type_information));
+                    }
+                    else
+                    {
+                        nodecl_subscript =
+                            nodecl_make_pointer_to_member(solved_function,
+                                    get_lvalue_reference_type(
+                                        get_pointer_to_member_type(solved_function->type_information,
+                                            named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                    nodecl_get_locus(nodecl_subscript));
+                    }
                 }
             }
+
+            type_t* t = function_type_get_return_type(overloaded_call->type_information);
+
+            // a[b] becomes a.operator[](b)
+            *nodecl_output = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(overloaded_call, locus),
+                    /* called name */ nodecl_null(),
+                    nodecl_make_list_2(nodecl_subscripted, nodecl_subscript),
+                    // Ideally this should have a specific function form
+                    /* function-form */ nodecl_null(),
+                    t , locus);
+            return;
         }
-
-        type_t* t = function_type_get_return_type(overloaded_call->type_information);
-
-        // a[b] becomes a.operator[](b)
-        *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(overloaded_call, locus),
-                /* called name */ nodecl_null(),
-                nodecl_make_list_2(nodecl_subscripted, nodecl_subscript),
-                // Ideally this should have a specific function form
-                /* function-form */ nodecl_null(),
-                t , locus);
-        return;
     }
 
-    if (!checking_ambiguity())
+    // Now go back to usual builtins
+    builtin_operators_set_t builtin_set;
+    build_binary_builtin_operators(
+            nodecl_get_type(nodecl_subscripted),
+            nodecl_get_type(nodecl_subscript),
+            &builtin_set, decl_context,
+            operator_subscript_tree,
+            array_subcript_types_pred,
+            array_subscript_types_result);
+
+    scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
+
+    scope_entry_t* selected_operator = NULL;
+
+    nodecl_t lhs = nodecl_subscripted;
+    nodecl_t rhs = nodecl_subscript;
+
+    type_t* result = compute_user_defined_bin_operator_type(operator_subscript_tree, 
+            &lhs, &rhs, builtins, decl_context, locus, &selected_operator);
+
+    if (selected_operator != NULL)
     {
-        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
-                nodecl_locus_to_str(nodecl_subscripted),
-                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-                print_type_str(subscripted_type, decl_context));
+        ERROR_CONDITION(!selected_operator->entity_specs.is_builtin, "operator[] is not a builtin\n", 0);
+
+        unary_record_conversion_to_result(
+                function_type_get_parameter_type_num(selected_operator->type_information, 0), &lhs);
+        unary_record_conversion_to_result(
+                function_type_get_parameter_type_num(selected_operator->type_information, 1), &rhs);
+
+        *nodecl_output = nodecl_make_array_subscript(
+                lhs,
+                nodecl_make_list_1(rhs),
+                result,
+                locus);
     }
-    *nodecl_output = nodecl_make_err_expr(locus);
+    else
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
+                    nodecl_locus_to_str(nodecl_subscripted),
+                    codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                    codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+                    print_type_str(subscripted_type, decl_context));
+        }
+        *nodecl_output = nodecl_make_err_expr(locus);
+    }
+}
+
+static void check_nodecl_array_subscript_expression(
+        nodecl_t nodecl_subscripted, 
+        nodecl_t nodecl_subscript, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
+{
+    if (IS_C_LANGUAGE)
+    {
+        check_nodecl_array_subscript_expression_c(nodecl_subscripted,
+                nodecl_subscript,
+                decl_context,
+                nodecl_output);
+    }
+    else if (IS_CXX_LANGUAGE)
+    {
+        check_nodecl_array_subscript_expression_cxx(nodecl_subscripted,
+                nodecl_subscript,
+                decl_context,
+                nodecl_output);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 static void check_array_subscript_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
