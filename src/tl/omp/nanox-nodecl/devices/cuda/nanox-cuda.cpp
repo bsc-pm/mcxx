@@ -807,6 +807,36 @@ void DeviceCUDA::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::NodeclBa
     }
 }
 
+void DeviceCUDA::generate_outline_events_before(
+        Source& function_name_instr,
+        Source& extra_cast,
+        Source& instrumentation_before)
+{
+    if (Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
+    {
+        instrumentation_before << "err = nanos_instrument_raise_gpu_kernel_launch_event();";
+    }
+    else
+    {
+        DeviceProvider::generate_outline_events_before(function_name_instr, extra_cast, instrumentation_before);
+    }
+}
+
+void DeviceCUDA::generate_outline_events_after(
+        Source& function_name_instr,
+        Source& extra_cast,
+        Source& instrumentation_after)
+{
+    if (Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
+    {
+        instrumentation_after << "err = nanos_instrument_close_gpu_kernel_launch_event();";
+    }
+    else
+    {
+        instrumentation_after << "err = nanos_instrument_close_user_fun_event();";
+    }
+}
+
 void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (_cuda_tasks_processed)
