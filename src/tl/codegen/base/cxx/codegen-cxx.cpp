@@ -2716,7 +2716,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     Nodecl::NodeclBase type = node.get_init_real_type();
     TL::Type init_real_type = type.get_type();
 
-    *(file) << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
+    if (init_real_type.is_array()
+            && !init_real_type.array_get_size().is_constant())
+    {
+        // If the array is nonconstant do not emit parentheses
+        *(file) << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+    }
+    else
+    {
+        *(file) << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
+    }
 
     // new[] cannot have an initializer, so just print the init_real_type
     if (init_real_type.is_array())
