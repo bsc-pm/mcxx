@@ -1,4 +1,30 @@
 {
+scope_entry_t* sym___builtin_ia32_addcarryx_u32 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_addcarryx_u32");
+sym___builtin_ia32_addcarryx_u32->kind = SK_FUNCTION;sym___builtin_ia32_addcarryx_u32->do_not_print = 1;
+sym___builtin_ia32_addcarryx_u32->type_information = ({type_t* return_type = get_unsigned_char_type();
+parameter_info_t p[4]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_char_type();
+p[1].type_info = get_unsigned_int_type();
+p[2].type_info = get_unsigned_int_type();
+p[3].type_info = get_pointer_type(get_unsigned_int_type());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_addcarryx_u32->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_addcarryx_u64 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_addcarryx_u64");
+sym___builtin_ia32_addcarryx_u64->kind = SK_FUNCTION;sym___builtin_ia32_addcarryx_u64->do_not_print = 1;
+sym___builtin_ia32_addcarryx_u64->type_information = ({type_t* return_type = get_unsigned_char_type();
+parameter_info_t p[4]; memset(p, 0, sizeof(p));p[0].type_info = get_unsigned_char_type();
+p[1].type_info = get_unsigned_long_long_int_type();
+p[2].type_info = get_unsigned_long_long_int_type();
+p[3].type_info = get_pointer_type(get_unsigned_long_long_int_type());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_addcarryx_u64->entity_specs.is_builtin = 1;
+}
+{
 scope_entry_t* sym___builtin_ia32_addpd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_addpd");
 sym___builtin_ia32_addpd->kind = SK_FUNCTION;sym___builtin_ia32_addpd->do_not_print = 1;
 sym___builtin_ia32_addpd->type_information = ({type_t* return_type = get_vector_type(get_double_type(), 16);
@@ -1552,6 +1578,46 @@ get_new_function_type(return_type, 0, 0);
 })
 ;
 sym___builtin_ia32_emms->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_fxrstor = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_fxrstor");
+sym___builtin_ia32_fxrstor->kind = SK_FUNCTION;sym___builtin_ia32_fxrstor->do_not_print = 1;
+sym___builtin_ia32_fxrstor->type_information = ({type_t* return_type = get_void_type();
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type(get_void_type());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_fxrstor->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_fxrstor64 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_fxrstor64");
+sym___builtin_ia32_fxrstor64->kind = SK_FUNCTION;sym___builtin_ia32_fxrstor64->do_not_print = 1;
+sym___builtin_ia32_fxrstor64->type_information = ({type_t* return_type = get_void_type();
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type(get_void_type());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_fxrstor64->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_fxsave = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_fxsave");
+sym___builtin_ia32_fxsave->kind = SK_FUNCTION;sym___builtin_ia32_fxsave->do_not_print = 1;
+sym___builtin_ia32_fxsave->type_information = ({type_t* return_type = get_void_type();
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type(get_void_type());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_fxsave->entity_specs.is_builtin = 1;
+}
+{
+scope_entry_t* sym___builtin_ia32_fxsave64 = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_fxsave64");
+sym___builtin_ia32_fxsave64->kind = SK_FUNCTION;sym___builtin_ia32_fxsave64->do_not_print = 1;
+sym___builtin_ia32_fxsave64->type_information = ({type_t* return_type = get_void_type();
+parameter_info_t p[1]; memset(p, 0, sizeof(p));p[0].type_info = get_pointer_type(get_void_type());
+get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));
+})
+;
+sym___builtin_ia32_fxsave64->entity_specs.is_builtin = 1;
 }
 {
 scope_entry_t* sym___builtin_ia32_haddpd = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_haddpd");
