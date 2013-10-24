@@ -5420,43 +5420,73 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
     return get_error_type();
 }
 
-static char contains_rightmost_tree_as_unresolved_template(nodecl_t nodecl)
+static char contains_wrongly_associated_template_name(AST a, decl_context_t decl_context)
 {
-    if (nodecl_is_null(nodecl))
-        return 0;
-
-    type_t* t = nodecl_get_type(nodecl);
-
-    if (t != NULL
-            && is_unresolved_overloaded_type(t))
+    if (ASTType(a) == AST_BITWISE_SHL
+            || ASTType(a) == AST_SHR
+            || ASTType(a) == AST_ADD
+            || ASTType(a) == AST_MINUS
+            || ASTType(a) == AST_DIV
+            || ASTType(a) == AST_MOD
+            || ASTType(a) == AST_MUL)
     {
-        scope_entry_list_t *overload_set = unresolved_overloaded_type_get_overload_set(t);
-        char found = 0;
+        return contains_wrongly_associated_template_name(ASTSon1(a), decl_context);
+    }
+    else if (ASTType(a) == AST_PREINCREMENT
+            || ASTType(a) == AST_PREDECREMENT
+            || ASTType(a) == AST_DERREFERENCE
+            || ASTType(a) == AST_REFERENCE
+            || ASTType(a) == AST_PLUS
+            || ASTType(a) == AST_NEG
+            || ASTType(a) == AST_LOGICAL_NOT
+            || ASTType(a) == AST_BITWISE_NOT)
+    {
+        return contains_wrongly_associated_template_name(ASTSon0(a), decl_context);
+    }
+    else if (ASTType(a) == AST_SYMBOL                         // E + f<
+            || ASTType(a) == AST_QUALIFIED_ID                 // E + A::f<
+            || ASTType(a) == AST_CLASS_MEMBER_ACCESS          // E + a.f<
+            || ASTType(a) == AST_POINTER_CLASS_MEMBER_ACCESS) // E + p->f<
+    {
+        nodecl_t nodecl_check = nodecl_null();
+        enter_test_expression();
+        check_expression_impl_(a, decl_context, &nodecl_check);
+        leave_test_expression();
 
-        scope_entry_list_iterator_t* it;
-        for (it = entry_list_iterator_begin(overload_set);
-                !entry_list_iterator_end(it) && !found;
-                entry_list_iterator_next(it))
+        if (nodecl_is_err_expr(nodecl_check))
+            return 0;
+
+        type_t* t = nodecl_get_type(nodecl_check);
+        if (t != NULL
+                && is_unresolved_overloaded_type(t))
         {
-            scope_entry_t* function = entry_list_iterator_current(it);
-            found = (function->kind == SK_TEMPLATE);
+
+            scope_entry_list_t *overload_set = unresolved_overloaded_type_get_overload_set(t);
+            char found = 0;
+
+            scope_entry_list_iterator_t* it;
+            for (it = entry_list_iterator_begin(overload_set);
+                    !entry_list_iterator_end(it) && !found;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* function = entry_list_iterator_current(it);
+                found = (function->kind == SK_TEMPLATE);
+            }
+
+            entry_list_iterator_free(it);
+            entry_list_free(overload_set);
+
+            return found;
         }
-
-        entry_list_iterator_free(it);
-        entry_list_free(overload_set);
-
-        return found;
+        else
+        {
+            return 0;
+        }
     }
-
-    int i;
-    // Note we want the rightmost, this is why we iterate this way
-    for (i = MCXX_MAX_AST_CHILDREN; i >= 0; i--)
+    else
     {
-        if (contains_rightmost_tree_as_unresolved_template(nodecl_get_child(nodecl, i)))
-            return 1;
+        return 0;
     }
-
-    return 0;
 }
 
 static void parse_lhs_lower_than(AST op,
@@ -5466,9 +5496,14 @@ static void parse_lhs_lower_than(AST op,
     check_expression_impl_(op, decl_context, nodecl_output);
 
     if (!nodecl_is_err_expr(*nodecl_output)
-            && contains_rightmost_tree_as_unresolved_template(*nodecl_output))
+            && contains_wrongly_associated_template_name(op, decl_context))
     {
         // This is something like a + p->f<3>(4) being parsed as a + (p->f<3)>4
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: left-hand side of operator < is a template-name\n",
+                    ast_location(op));
+        }
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
     }
 }
