@@ -648,10 +648,13 @@ namespace Analysis {
 
     void UsageVisitor::function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments )
     {
-        if( !_avoid_func_calls )
+        if( _avoid_func_calls )
+            return;
+        
+        // The function called must be analyzed only in case it has not been analyzed previously
+        TL::Symbol func_sym = called_sym.get_symbol( );
+        if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
         {
-            TL::Symbol func_sym = called_sym.get_symbol( );
-            
             // The function called must be analyzed only in case it has not been analyzed previously (avoid only recursive calls)
             if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
             {
@@ -766,36 +769,51 @@ namespace Analysis {
                         // Still cannot determine which are the side effects of the function...
                         if( side_effects )
                         {
-                            // Set all reference parameters to undefined
-                            sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
-                            for( sym_to_nodecl_map::iterator it = ref_params.begin( );
-                                it != ref_params.end( ); ++it )
+                            if( func_sym.get_type( ).lacks_prototype( ) )
+                            {   // All parameters are passed by value
+                                for( Nodecl::List::iterator it = args.begin( ); it != args.end( ); ++it )
+                                {
+                                    if( !it->is_constant( ) )
+                                    {
+                                        _node->set_ue_var( Utils::ExtendedSymbol( *it ) );
+                                        if( it->get_type( ).is_pointer( ) )
+                                        {
+                                            Nodecl::Dereference pointed_var = 
+                                            Nodecl::Dereference::make( *it, it->get_type( ) );
+                                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                        }
+                                    }
+                                }
+                            }
+                            else
                             {
-                                if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                                // Set all reference parameters to undefined
+                                sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
+                                for( sym_to_nodecl_map::iterator it = ref_params.begin( );
+                                    it != ref_params.end( ); ++it )
+                                {
+                                    if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                                        _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                                Utils::ExtendedSymbol( it->second ) );
+                                }
+
+                                // Set the value passed parameters as upper exposed
+                                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                                    it != non_ref_params.end( ); ++it )
+                                {
+                                    ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                                    for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+                                        _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                                }
+
+                                // Set all global variables to undefined
+                                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
+                                    _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
                                 {
                                     _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                                            Utils::ExtendedSymbol( it->second ) );
+                                            it->get_extended_symbol() );
                                 }
-                            }
-
-                            // Set the value passed parameters as upper exposed
-                            sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
-                            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
-                                it != non_ref_params.end( ); ++it )
-                            {
-                                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
-                                for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
-                                {
-                                    _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
-                                }
-                            }
-
-                            // Set all global variables to undefined
-                            for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
-                                _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
-                            {
-                                _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                                        it->get_extended_symbol() );
                             }
                         }
                     }
@@ -1175,10 +1193,8 @@ namespace Analysis {
     
     void ReferenceUsageVisitor::visit( const Nodecl::Symbol& n )
     {
-        std::cerr << "      ReferenceUsageVisitor  ::  Symbol  ::  " << n.prettyprint( ) << std::endl;
         if( _store_symbol )
         {
-            std::cerr << "         We have to store the symbol!" << std::endl;
             Nodecl::NodeclBase var_in_use = n;
             if( !_current_nodecl.is_null( ) )
                 var_in_use = _current_nodecl;
