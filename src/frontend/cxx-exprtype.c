@@ -1210,7 +1210,8 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     if (ASTType(expr) == AST_OCTAL_LITERAL
             && const_value_is_zero(val))
     {
-        result = get_zero_type(get_signed_int_type());
+        // Get the appropiate zero value
+        result = get_zero_type(result);
     }
 
     if (is_complex)
