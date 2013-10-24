@@ -16039,6 +16039,115 @@ char check_copy_assignment_operator(scope_entry_t* entry,
     return 1;
 }
 
+char check_move_assignment_operator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char has_const,
+        const locus_t* locus,
+        scope_entry_t** constructor)
+{
+    if (constructor != NULL)
+    {
+        *constructor = NULL;
+    }
+
+    type_t* t = entry->type_information;
+    if (entry->kind == SK_CLASS)
+    {
+        t = get_user_defined_type(entry);
+    }
+
+    if (is_lvalue_reference_type(t))
+    {
+        return 1;
+    }
+
+    if (is_array_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
+
+    if (is_class_type(t))
+    {
+        static AST operation_tree = NULL;
+        if (operation_tree == NULL)
+        {
+            operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                    ASTLeaf(AST_ASSIGNMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
+        }
+
+        type_t* argument_type = t;
+        if (has_const)
+        {
+            argument_type = get_const_qualified_type(argument_type);
+        }
+        argument_type = get_lvalue_reference_type(argument_type);
+
+        int num_arguments = 2;
+        type_t* arguments[2] = { argument_type, argument_type };
+
+        scope_entry_list_t* operator_overload_set = NULL;
+        scope_entry_list_t* operator_entry_list = class_type_get_copy_assignment_operators(t);
+        operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
+                NULL, arguments + 1, num_arguments - 1,
+                decl_context,
+                locus,
+                /* explicit template arguments */ NULL);
+        entry_list_free(operator_entry_list);
+
+        candidate_t* candidate_set = NULL;
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(operator_overload_set);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            candidate_set = candidate_set_add(candidate_set,
+                    entry_list_iterator_current(it),
+                    num_arguments,
+                    arguments);
+        }
+        entry_list_iterator_free(it);
+
+        scope_entry_t* conversors[2] = { NULL, NULL };
+
+        scope_entry_t *overloaded_call = solve_overload(candidate_set,
+                decl_context,
+                locus, conversors);
+
+        if (overloaded_call == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                const char*  c = NULL;;
+                uniquestr_sprintf(&c, "move assignment operator of class %s", entry->symbol_name);
+                error_message_overload_failed(candidate_set, 
+                        c,
+                        decl_context,
+                        num_arguments, arguments,
+                        /* implicit_argument */ NULL,
+                        locus);
+                entry_list_free(operator_overload_set);
+            }
+            candidate_set_free(&candidate_set);
+            return 0;
+        }
+        else
+        {
+            candidate_set_free(&candidate_set);
+            entry_list_free(operator_overload_set);
+            if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
+            {
+                return 0;
+            }
+
+            if (constructor != NULL)
+            {
+                *constructor = overloaded_call;
+            }
+        }
+    }
+    return 1;
+}
+
 char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
         const locus_t* locus,
         scope_entry_t** constructor)

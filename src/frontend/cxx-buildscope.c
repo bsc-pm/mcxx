@@ -5510,6 +5510,16 @@ static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, voi
             p->locus, &constructor);
 }
 
+static void ensure_move_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
+{
+    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
+    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
+
+    scope_entry_t* constructor = NULL;
+    check_move_assignment_operator(entry, entry->decl_context, p->has_const,
+            p->locus, &constructor);
+}
+
 static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
@@ -5570,6 +5580,20 @@ static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
             ensure_copy_assignment_operator_is_emitted, &l);
 }
 
+static void emit_implicit_move_assignment_operator(scope_entry_t* entry,
+        const locus_t* locus)
+{
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
+
+    char has_const = is_const_qualified_type(
+            no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
+
+    struct check_constructor_helper l = { .locus = locus, .has_const = has_const };
+    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
+            ensure_move_assignment_operator_is_emitted, &l);
+}
+
 static void emit_implicit_destructor(scope_entry_t* entry,
         const locus_t* locus)
 {
@@ -5582,6 +5606,14 @@ static void emit_implicit_destructor(scope_entry_t* entry,
 }
 
 static char one_constructor_is_usable(
+        scope_entry_list_t* constructors UNUSED_PARAMETER,
+        int num_types UNUSED_PARAMETER,
+        type_t** types UNUSED_PARAMETER)
+{
+    return 1;
+}
+
+static char one_function_is_usable(
         scope_entry_list_t* constructors UNUSED_PARAMETER,
         int num_types UNUSED_PARAMETER,
         type_t** types UNUSED_PARAMETER)
@@ -6098,17 +6130,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
                 scope_entry_list_t* base_constructors = class_type_get_constructors(base_class_type);
-                for (it = entry_list_iterator_begin(base_constructors);
-                        !entry_list_iterator_end(it);
-                        entry_list_iterator_next(it))
-                {
-                    scope_entry_t* current_constructor 
-                        = entry_list_iterator_current(it);
-
-                    has_bases_with_non_trivial_constructors
-                        |= !current_constructor->entity_specs.is_trivial;
-                }
-                entry_list_iterator_free(it);
+                has_bases_with_non_trivial_constructors =
+                    one_function_is_nontrivial(base_constructors);
                 entry_list_free(base_constructors);
             }
             entry_list_iterator_free(it0);
@@ -6331,17 +6354,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
 
                 scope_entry_list_t* member_copy_constructors = class_type_get_copy_constructors(member_actual_class_type);
-                scope_entry_list_iterator_t* it2 = NULL;
-                for (it2 = entry_list_iterator_begin(member_copy_constructors);
-                        !entry_list_iterator_end(it2) && !has_nonstatic_data_member_with_no_trivial_copy_constructor;
-                        entry_list_iterator_next(it2))
-                {
-                    scope_entry_t* copy_constructor = entry_list_iterator_current(it2);
+                has_nonstatic_data_member_with_no_trivial_copy_constructor =
+                    one_function_is_nontrivial(member_copy_constructors);
 
-                    has_nonstatic_data_member_with_no_trivial_copy_constructor 
-                        |= !copy_constructor->entity_specs.is_trivial;
-                }
-                entry_list_iterator_free(it2);
                 entry_list_free(member_copy_constructors);
             }
         }
@@ -6449,15 +6464,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_class_type(data_member->type_information))
                 {
                     scope_entry_list_t* move_constructors = class_type_get_move_constructors(data_member->type_information);
-                    scope_entry_list_iterator_t* it0 = NULL;
-                    for (it0 = entry_list_iterator_begin(move_constructors);
-                            !entry_list_iterator_end(it0) && !has_member_with_nontrivial_move_constructor;
-                            entry_list_iterator_next(it0))
-                    {
-                        scope_entry_t* move_constructor = entry_list_iterator_current(it0);
-                        has_member_with_nontrivial_move_constructor = !move_constructor->entity_specs.is_trivial;
-                    }
-                    entry_list_iterator_free(it0);
+                    has_member_with_nontrivial_move_constructor =
+                        one_function_is_nontrivial(move_constructors);
+                    entry_list_free(move_constructors);
                 }
             }
             entry_list_iterator_free(it);
@@ -6669,85 +6678,156 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         class_type_add_member(class_type, implicit_copy_assignment_function);
 
-        char has_base_classes_with_no_trivial_copy_assignment = 0;
-
-        for (it = entry_list_iterator_begin(direct_base_classes);
-                !entry_list_iterator_end(it)
-                && !has_virtual_bases
-                && !has_base_classes_with_no_trivial_copy_assignment; 
-                entry_list_iterator_next(it))
+        char union_has_member_with_nontrivial_copy_assignment = 0;
+        if (is_union_type(class_type))
         {
-            scope_entry_t* base_class = entry_list_iterator_current(it);
-
-            type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
-            scope_entry_list_t* base_copy_assignment_operators = class_type_get_copy_assignment_operators(base_class_type);
-            scope_entry_list_iterator_t* it2 = NULL;
-            for (it2 = entry_list_iterator_begin(base_copy_assignment_operators);
-                    !entry_list_iterator_end(it2)
-                    && !has_virtual_bases
-                    && !has_base_classes_with_no_trivial_copy_assignment;  
-                    entry_list_iterator_next(it2))
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it) && union_has_member_with_nontrivial_copy_assignment;
+                    entry_list_iterator_next(it))
             {
-                scope_entry_t* copy_assignment_op = entry_list_iterator_current(it2);
+                scope_entry_t* data_member = entry_list_iterator_current(it);
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_type = data_member->type_information;
+                    if (is_array_type(member_type))
+                        member_type = array_type_get_element_type(member_type);
 
-                has_base_classes_with_no_trivial_copy_assignment |= 
-                    !copy_assignment_op->entity_specs.is_trivial;
+                    scope_entry_list_t* copy_assignment_ops = class_type_get_copy_assignment_operators(member_type);
+                    union_has_member_with_nontrivial_copy_assignment = one_function_is_nontrivial(copy_assignment_ops);
+                    entry_list_free(copy_assignment_ops);
+                }
             }
-            entry_list_iterator_free(it2);
-            entry_list_free(base_copy_assignment_operators);
         }
 
-        char has_nonstatic_data_member_with_no_trivial_copy_assignment = 0;
-
+        char has_nonstatic_data_member_const_of_non_class_type = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it) 
-                && !has_nonstatic_data_member_with_no_trivial_copy_assignment;
+                !entry_list_iterator_end(it) && has_nonstatic_data_member_const_of_non_class_type;
                 entry_list_iterator_next(it))
         {
-            scope_entry_t *data_member = entry_list_iterator_current(it);
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            if (!is_class_type(data_member->type_information)
+                    && !(is_array_type(data_member->type_information)
+                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            {
+                has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
+            }
+        }
 
+        char has_nonstatic_data_member_reference = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it) && !has_nonstatic_data_member_reference;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            has_nonstatic_data_member_reference = is_any_reference_type(data_member->type_information);
+        }
+
+        char has_non_assignment_operator_copiable_data_member = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it) && !has_non_assignment_operator_copiable_data_member;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
             if (is_class_type(data_member->type_information)
                     || (is_array_type(data_member->type_information)
                         && is_class_type(array_type_get_element_type(data_member->type_information))))
             {
-                type_t* member_class_type = data_member->type_information;
-                if (is_array_type(data_member->type_information))
-                {
-                    member_class_type = array_type_get_element_type(member_class_type);
-                }
+                type_t* member_type = data_member->type_information;
+                if (is_array_type(member_type))
+                    member_type = array_type_get_element_type(member_type);
 
-                type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
-                scope_entry_list_t* member_copy_assignment_operators = class_type_get_copy_assignment_operators(member_actual_class_type);
-                scope_entry_list_iterator_t* it2 = NULL;
-                for (it2 = entry_list_iterator_begin(member_copy_assignment_operators);
-                        !entry_list_iterator_end(it2)
-                        && !has_nonstatic_data_member_with_no_trivial_copy_assignment; 
-                        entry_list_iterator_next(it2))
-                {
-                    scope_entry_t* copy_assignment = entry_list_iterator_current(it2);
-
-                    has_nonstatic_data_member_with_no_trivial_copy_assignment 
-                        |= !copy_assignment->entity_specs.is_trivial;
-                }
-                entry_list_iterator_free(it2);
-                entry_list_free(member_copy_assignment_operators);
+                has_non_assignment_operator_copiable_data_member =  one_function_is_usable(
+                        class_type_get_copy_assignment_operators(member_type),
+                        1, &member_type);
             }
         }
-        entry_list_iterator_free(it);
 
-        // It is trivial
-        if (!has_virtual_bases
-                && !has_base_classes_with_no_trivial_copy_assignment
-                && !has_virtual_functions
-                && !has_nonstatic_data_member_with_no_trivial_copy_assignment)
+        char has_non_assignment_operator_copiable_base = 0;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it) && !has_non_assignment_operator_copiable_base;
+                entry_list_iterator_next(it))
         {
-            implicit_copy_assignment_function->entity_specs.is_trivial = 1;
+            scope_entry_t* base = entry_list_iterator_current(it);
+            type_t* base_type = base->type_information;
+
+            has_non_assignment_operator_copiable_base = one_function_is_usable(
+                    class_type_get_copy_assignment_operators(base_type),
+                    1, &base_type);
         }
 
-        implicit_copy_assignment_function->entity_specs.is_non_emitted = 1;
-        implicit_copy_assignment_function->entity_specs.emission_handler = emit_implicit_copy_assignment_operator;
+        if (union_has_member_with_nontrivial_copy_assignment
+                || has_nonstatic_data_member_const_of_non_class_type
+                || has_nonstatic_data_member_reference
+                || has_non_assignment_operator_copiable_data_member
+                || has_non_assignment_operator_copiable_base)
+        {
+            implicit_copy_assignment_function->entity_specs.is_deleted = 1;
+        }
+        else
+        {
+            // If it is not deleted it may be trivial
+
+            char has_base_classes_with_no_trivial_copy_assignment = 0;
+
+            for (it = entry_list_iterator_begin(direct_base_classes);
+                    !entry_list_iterator_end(it)
+                    && !has_virtual_bases
+                    && !has_base_classes_with_no_trivial_copy_assignment; 
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* base_class = entry_list_iterator_current(it);
+
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+                scope_entry_list_t* base_copy_assignment_operators = class_type_get_copy_assignment_operators(base_class_type);
+                has_base_classes_with_no_trivial_copy_assignment =
+                    one_function_is_nontrivial(base_copy_assignment_operators);
+                entry_list_free(base_copy_assignment_operators);
+            }
+
+            char has_nonstatic_data_member_with_no_trivial_copy_assignment = 0;
+
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !has_nonstatic_data_member_with_no_trivial_copy_assignment;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    scope_entry_list_t* member_copy_assignment_operators = class_type_get_copy_assignment_operators(member_actual_class_type);
+                    has_nonstatic_data_member_with_no_trivial_copy_assignment =
+                        one_function_is_nontrivial(member_copy_assignment_operators);
+                    entry_list_free(member_copy_assignment_operators);
+                }
+            }
+            entry_list_iterator_free(it);
+
+            // It is trivial
+            if (!has_virtual_bases
+                    && !has_base_classes_with_no_trivial_copy_assignment
+                    && !has_virtual_functions
+                    && !has_nonstatic_data_member_with_no_trivial_copy_assignment)
+            {
+                implicit_copy_assignment_function->entity_specs.is_trivial = 1;
+            }
+
+            implicit_copy_assignment_function->entity_specs.is_non_emitted = 1;
+            implicit_copy_assignment_function->entity_specs.emission_handler = emit_implicit_copy_assignment_operator;
+        }
     }
 
     char have_to_emit_implicit_move_assignment = user_declared_move_assignment_operators == NULL
@@ -6757,6 +6837,230 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
     if (have_to_emit_implicit_move_assignment)
     {
+        parameter_info_t parameter_info[1];
+        memset(parameter_info, 0, sizeof(parameter_info));
+        parameter_info[0].is_ellipsis = 0;
+
+        parameter_info[0].type_info = get_rvalue_reference_type(type_info);
+
+        type_t* move_assignment_type = get_new_function_type(
+                /* returns T& */ get_lvalue_reference_type(type_info), 
+                parameter_info,
+                1);
+
+        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
+        scope_entry_t* implicit_move_assignment_function = new_symbol(class_type_get_inner_context(class_type), sc,
+                STR_OPERATOR_ASSIGNMENT);
+
+        implicit_move_assignment_function->kind = SK_FUNCTION;
+        implicit_move_assignment_function->locus = locus;
+        implicit_move_assignment_function->entity_specs.is_member = 1;
+        implicit_move_assignment_function->entity_specs.access = AS_PUBLIC;
+        implicit_move_assignment_function->entity_specs.class_type = type_info;
+        implicit_move_assignment_function->entity_specs.is_inline = 1;
+
+        implicit_move_assignment_function->type_information = move_assignment_type;
+
+        implicit_move_assignment_function->defined = 1;
+
+        implicit_move_assignment_function->entity_specs.num_parameters = 1;
+        implicit_move_assignment_function->entity_specs.default_argument_info = empty_default_argument_info(1);
+
+        implicit_move_assignment_function->entity_specs.is_move_assignment_operator = 1;
+
+        class_type_add_member(class_type, implicit_move_assignment_function);
+
+        scope_entry_list_iterator_t* it = NULL;
+
+        char union_has_member_with_nontrivial_move_assignment = 0;
+        if (is_union_type(class_type))
+        {
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it) && union_has_member_with_nontrivial_move_assignment;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* data_member = entry_list_iterator_current(it);
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_type = data_member->type_information;
+                    if (is_array_type(member_type))
+                        member_type = array_type_get_element_type(member_type);
+
+                    scope_entry_list_t* move_assignment_ops = class_type_get_move_assignment_operators(member_type);
+                    union_has_member_with_nontrivial_move_assignment = one_function_is_nontrivial(move_assignment_ops);
+                    entry_list_free(move_assignment_ops);
+                }
+            }
+        }
+
+        char has_nonstatic_data_member_const_of_non_class_type = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it) && has_nonstatic_data_member_const_of_non_class_type;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            if (!is_class_type(data_member->type_information)
+                    && !(is_array_type(data_member->type_information)
+                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            {
+                has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
+            }
+        }
+
+        char has_nonstatic_data_member_reference = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it) && !has_nonstatic_data_member_reference;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            has_nonstatic_data_member_reference = is_any_reference_type(data_member->type_information);
+        }
+
+        char has_non_assignment_operator_moveable_data_member = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it) && !has_non_assignment_operator_moveable_data_member;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+            if (is_class_type(data_member->type_information)
+                    || (is_array_type(data_member->type_information)
+                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            {
+                type_t* member_type = data_member->type_information;
+                if (is_array_type(member_type))
+                    member_type = array_type_get_element_type(member_type);
+
+                has_non_assignment_operator_moveable_data_member =  one_function_is_usable(
+                        class_type_get_move_assignment_operators(member_type),
+                        1, &member_type);
+            }
+        }
+
+        char has_non_assignment_operator_moveable_base = 0;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it) && !has_non_assignment_operator_moveable_base;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* base = entry_list_iterator_current(it);
+            type_t* base_type = base->type_information;
+
+            has_non_assignment_operator_moveable_base = one_function_is_usable(
+                    class_type_get_move_assignment_operators(base_type),
+                    1, &base_type);
+        }
+
+        /*
+           for the move assignment operator, a non-static data member or direct base class with a type that does
+           not have a move assignment operator and is not trivially copyable, or any direct or indirect virtual
+           base class.
+           */
+        char has_nonstatic_data_member_without_move_assignment_operator_and_not_trivially_copiable = 0;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it)
+                && !has_nonstatic_data_member_without_move_assignment_operator_and_not_trivially_copiable;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* data_member = entry_list_iterator_current(it);
+
+            if (is_class_type(data_member->type_information)
+                    || (is_array_type(data_member->type_information)
+                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            {
+                type_t* member_type = data_member->type_information;
+
+                has_nonstatic_data_member_without_move_assignment_operator_and_not_trivially_copiable =
+                    class_type_get_move_assignment_operators(member_type) == NULL
+                    && !is_trivially_copiable_type(member_type);
+            }
+        }
+
+        char has_base_without_move_assignment_operator_and_not_trivially_copiable = 0;
+        for (it = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it) && !has_base_without_move_assignment_operator_and_not_trivially_copiable;
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* base = entry_list_iterator_current(it);
+            type_t* base_type = base->type_information;
+
+            has_non_assignment_operator_moveable_base = class_type_get_move_assignment_operators(base_type) == NULL
+                && !is_trivially_copiable_type(base_type);
+        }
+
+        if (union_has_member_with_nontrivial_move_assignment
+                || has_nonstatic_data_member_const_of_non_class_type
+                || has_nonstatic_data_member_reference
+                || has_non_assignment_operator_moveable_data_member
+                || has_non_assignment_operator_moveable_base
+                || has_nonstatic_data_member_without_move_assignment_operator_and_not_trivially_copiable
+                || has_base_without_move_assignment_operator_and_not_trivially_copiable
+                || has_virtual_bases)
+        {
+            implicit_move_assignment_function->entity_specs.is_deleted = 1;
+        }
+        else
+        {
+            // If not deleted it may be trivial
+            char has_base_classes_with_no_trivial_move_assignment = 0;
+
+            for (it = entry_list_iterator_begin(direct_base_classes);
+                    !entry_list_iterator_end(it)
+                    && !has_virtual_bases
+                    && !has_base_classes_with_no_trivial_move_assignment; 
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* base_class = entry_list_iterator_current(it);
+
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+                scope_entry_list_t* base_move_assignment_operators = class_type_get_move_assignment_operators(base_class_type);
+                has_base_classes_with_no_trivial_move_assignment =
+                    one_function_is_nontrivial(base_move_assignment_operators);
+                entry_list_free(base_move_assignment_operators);
+            }
+
+            char has_nonstatic_data_member_with_no_trivial_move_assignment = 0;
+
+            for (it = entry_list_iterator_begin(nonstatic_data_members);
+                    !entry_list_iterator_end(it)
+                    && !has_nonstatic_data_member_with_no_trivial_move_assignment;
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t *data_member = entry_list_iterator_current(it);
+
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    scope_entry_list_t* member_move_assignment_operators = class_type_get_move_assignment_operators(member_actual_class_type);
+                    has_nonstatic_data_member_with_no_trivial_move_assignment =
+                        one_function_is_nontrivial(member_move_assignment_operators);
+                    entry_list_free(member_move_assignment_operators);
+                }
+            }
+            entry_list_iterator_free(it);
+
+            // It is trivial
+            if (!has_virtual_bases
+                    && !has_base_classes_with_no_trivial_move_assignment
+                    && !has_virtual_functions
+                    && !has_nonstatic_data_member_with_no_trivial_move_assignment)
+            {
+                implicit_move_assignment_function->entity_specs.is_trivial = 1;
+            }
+
+            implicit_move_assignment_function->entity_specs.is_non_emitted = 1;
+            implicit_move_assignment_function->entity_specs.emission_handler = emit_implicit_move_assignment_operator;
+        }
     }
 
     // Implicit destructor
