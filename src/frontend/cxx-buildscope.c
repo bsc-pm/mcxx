@@ -6160,9 +6160,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
     }
 
-
     scope_entry_list_t* user_declared_copy_constructors = class_type_get_copy_constructors(class_type);
-    scope_entry_list_t* user_declared_copy_asssignment_operators = class_type_get_copy_assignment_operators(class_type);
+    scope_entry_list_t* user_declared_copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
 
     scope_entry_list_t* user_declared_move_constructors = class_type_get_move_constructors(class_type);
     scope_entry_list_t* user_declared_move_assignment_operators = class_type_get_move_assignment_operators(class_type);
@@ -6178,7 +6177,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     {
         if (IS_CXX11_LANGUAGE)
         {
-            if (user_declared_copy_asssignment_operators != NULL
+            if (user_declared_copy_assignment_operators != NULL
                     || user_declared_destructor != NULL)
             {
                 warn_printf("%s: declaring an implicit copy constructor of a class with a user-provided "
@@ -6371,7 +6370,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
        5. the move constructor would not be implicitly defined as deleted.
        */
     char have_to_emit_implicit_move_constructor = (user_declared_copy_constructors == NULL)
-        && (user_declared_copy_asssignment_operators == NULL)
+        && (user_declared_copy_assignment_operators == NULL)
         && (user_declared_move_assignment_operators == NULL)
         && (user_declared_destructor == NULL);
 
@@ -6587,9 +6586,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     }
 
     // Copy assignment operators
-    scope_entry_list_t* copy_asssignment_operators = class_type_get_copy_assignment_operators(class_type);
-    char no_copy_assignment_operators = (copy_asssignment_operators == NULL);
-    entry_list_free(copy_asssignment_operators);
+    char no_copy_assignment_operators = user_declared_copy_assignment_operators == NULL;
 
     if (no_copy_assignment_operators)
     {
@@ -6753,6 +6750,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_copy_assignment_function->entity_specs.emission_handler = emit_implicit_copy_assignment_operator;
     }
 
+    char have_to_emit_implicit_move_assignment = user_declared_move_assignment_operators == NULL
+        && user_declared_copy_constructors == NULL
+        && user_declared_move_constructors == NULL
+        && user_declared_copy_assignment_operators == NULL;
+
+    if (have_to_emit_implicit_move_assignment)
+    {
+    }
+
     // Implicit destructor
     if (class_type_get_destructor(class_type) == NULL)
     {
@@ -6855,10 +6861,17 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_destructor->entity_specs.emission_handler = emit_implicit_destructor;
     }
 
+    // Free temporary lists used in the function
+
     entry_list_free(all_bases);
     entry_list_free(nonstatic_data_members);
     entry_list_free(direct_base_classes);
     entry_list_free(virtual_base_classes);
+
+    entry_list_free(user_declared_move_constructors);
+    entry_list_free(user_declared_copy_constructors);
+    entry_list_free(user_declared_move_assignment_operators);
+    entry_list_free(user_declared_copy_assignment_operators);
 
     DEBUG_CODE()
     {
