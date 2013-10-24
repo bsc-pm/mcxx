@@ -82,6 +82,7 @@ namespace TL
                 virtual void visit(const Nodecl::ParenthesizedExpression& n);
                 
                 virtual void visit(const Nodecl::Reference& n);
+//                virtual void visit(const Nodecl::Dereference& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
 

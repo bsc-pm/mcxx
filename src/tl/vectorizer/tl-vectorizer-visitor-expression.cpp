@@ -714,7 +714,7 @@ namespace TL
 
                     Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(lhs.as<Nodecl::ArraySubscript>());
 
-                    std::cerr << "Stride: " << strides.prettyprint() << std::endl;
+                    //std::cerr << "Stride: " << strides.prettyprint() << std::endl;
 
                     walk(strides);
 
@@ -984,7 +984,7 @@ namespace TL
 
                 Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(n);
 
-                std::cerr << "Stride: " << strides.prettyprint() << std::endl;
+                //std::cerr << "Stride: " << strides.prettyprint() << std::endl;
 
                 walk(strides);
 
@@ -1121,6 +1121,28 @@ namespace TL
                             n.get_locus());
 
                 n.replace(vector_fabs_call);
+            }
+            else if (called_sym.get_symbol().get_name() == "sincosf")
+            {
+                Nodecl::List::iterator args = n.get_arguments().as<Nodecl::List>().begin();
+
+                Nodecl::NodeclBase source = *args;
+                args++;
+                Nodecl::NodeclBase sin_p = *args;
+                args++;
+                Nodecl::NodeclBase cos_p = *args;
+                args++;
+
+                const Nodecl::VectorSincos vector_sincos_call =
+                    Nodecl::VectorSincos::make(
+                            source.shallow_copy(),
+                            sin_p.shallow_copy(),
+                            cos_p.shallow_copy(),
+                            mask,
+                            Utils::get_qualified_vector_to(call_type, _environment._unroll_factor),
+                            n.get_locus());
+
+                n.replace(vector_sincos_call);
             }
             else //Common functions
             {
@@ -1358,13 +1380,27 @@ namespace TL
             const Nodecl::Reference reference =
                 Nodecl::Reference::make(
                         n.get_rhs().shallow_copy(),
+                        n.get_rhs().get_type().no_ref().get_pointer_to(),
+                        n.get_locus());
+
+            n.replace(reference);
+        } 
+/*
+        void VectorizerVisitorExpression::visit(const Nodecl::Dereference& n)
+        {
+            std::cerr << "Hola, soy una Dereference: " << n.prettyprint() << std::endl;
+            walk(n.get_rhs());
+
+            const Nodecl::Reference reference =
+                Nodecl::Reference::make(
+                        n.get_rhs().shallow_copy(),
                         Utils::get_qualified_vector_to(n.get_type(),
                             _environment._unroll_factor),
                         n.get_locus());
 
             n.replace(reference);
         } 
-
+*/
         void VectorizerVisitorExpression::vectorize_basic_induction_variable(const Nodecl::Symbol& n)
         {
             DEBUG_CODE()

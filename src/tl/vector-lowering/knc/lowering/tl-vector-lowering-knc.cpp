@@ -27,7 +27,7 @@
 #include "tl-vector-lowering-knc.hpp"
 #include "tl-source.hpp"
 
-#define KNC_INTRIN_PREFIX "_mm512_"
+#define KNC_INTRIN_PREFIX "_mm512"
 
 namespace TL 
 {
@@ -67,7 +67,7 @@ namespace TL
             {
                 TL::Source old;
 
-                mask_prefix << "mask_";
+                mask_prefix << "_mask";
 
                 if (_old_m512.empty())
                 {
@@ -163,6 +163,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 << "_"
                 << intrin_type_suffix
@@ -230,6 +231,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 << "_"
                 << intrin_type_suffix
@@ -328,6 +330,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << "fmadd_round"
                 << "_"
                 << intrin_type_suffix
@@ -805,8 +808,9 @@ namespace TL
                 << ")"
                 ;
 
-            intrin_name << "_mm512_"
+            intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 ;
 
@@ -1167,6 +1171,7 @@ namespace TL
 
                     intrin_name << KNC_INTRIN_PREFIX
                         << mask_prefix
+                        << "_"
                         << intrin_op_name
                         << "_"
                         << intrin_type_suffix
@@ -1224,6 +1229,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 << "_"
                 << intrin_type_suffix
@@ -1288,6 +1294,7 @@ namespace TL
 
             intrin_name_hi << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << "extloadunpackhi"
                 << "_"
                 << intrin_type_suffix
@@ -1295,6 +1302,7 @@ namespace TL
 
             intrin_name_lo << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << "extloadunpacklo"
                 << "_"
                 << intrin_type_suffix
@@ -1371,6 +1379,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 << "_"
                 << intrin_type_suffix
@@ -1445,6 +1454,7 @@ namespace TL
 
             intrin_name_hi << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << "extpackstorehi"
                 << "_"
                 << intrin_type_suffix
@@ -1452,6 +1462,7 @@ namespace TL
 
             intrin_name_lo << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << "extpackstorelo"
                 << "_"
                 << intrin_type_suffix
@@ -1548,6 +1559,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 << "_"
                 << intrin_type_suffix
@@ -1624,6 +1636,7 @@ namespace TL
 
             intrin_name << KNC_INTRIN_PREFIX
                 << mask_prefix
+                << "_"
                 << intrin_op_name
                 << "_"
                 << intrin_type_suffix
@@ -1803,7 +1816,7 @@ namespace TL
             // Handcoded implementations for float and double
             if (type.is_float()) 
             { 
-                intrin_src << "_mm512_castsi512_ps(_mm512_" << mask_prefix << "and_epi32("
+                intrin_src << "_mm512_castsi512_ps(" << KNC_INTRIN_PREFIX << mask_prefix << "_and_epi32("
                     << mask_args  
                     << "_mm512_castps_si512("
                     << as_expression(argument)
@@ -1811,7 +1824,7 @@ namespace TL
             } 
             else if (type.is_double()) 
             { 
-                intrin_src << "_mm512_castsi512_pd(_mm512_" << mask_prefix << "and_epi64("
+                intrin_src << "_mm512_castsi512_pd(" << KNC_INTRIN_PREFIX << mask_prefix << "_and_epi64("
                     << mask_args
                     << "_mm512_castpd_si512("
                     << as_expression(argument)
@@ -1824,6 +1837,47 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }
             
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+            
+            node.replace(function_call);
+        }
+
+        void KNCVectorLowering::visit(const Nodecl::VectorSincos& node) 
+        {
+            const Nodecl::NodeclBase mask = node.get_mask();
+            const Nodecl::NodeclBase source = node.get_source();
+            const Nodecl::NodeclBase sin_pointer = node.get_sin_pointer();
+            const Nodecl::NodeclBase cos_pointer = node.get_cos_pointer();
+
+            TL::Type type = source.get_type().basic_type();
+            
+            TL::Source intrin_src, mask_prefix, mask_args;
+
+            process_mask_component(mask, mask_prefix, mask_args, TL::Type::get_int_type(),
+                    ConfigMaskProcessing::ONLY_MASK);
+
+            walk(source);
+
+            // Handcoded implementations for float and double
+            if (type.is_float()) 
+            { 
+                intrin_src << "(*" << as_expression(sin_pointer) << ")"
+                    << " = __svml_sincosf16_ha" << mask_prefix
+                    << "("
+                    << as_expression(cos_pointer)
+                    << " ,"
+                    << mask_args  
+                    << as_expression(source)
+                    << ")"; 
+            } 
+            else
+            {
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }
+           
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
             

@@ -298,7 +298,8 @@ namespace TL
                     << "__m512 _mm512_log_ps(__m512);\n"
                     << "__m512 _mm512_sin_ps(__m512);\n"
                     << "__m512 _mm512_cos_ps(__m512);\n"
-//                    << "__m512 _mm512_sincos_ps(__m512, __m512*, __m512*);\n"
+//                    << "__m512 _mm512_sincos_ps(__m512, __m512*);\n"
+                    << "__m512 __svml_sincosf16_ha(__m512*, __m512);\n"
                     << "__m512 _mm512_floor_ps(__m512);\n"
                     ;
 
@@ -308,7 +309,8 @@ namespace TL
                     << "__m512 _mm512_mask_log_ps(__m512, __mmask16, __m512);\n"
                     << "__m512 _mm512_mask_sin_ps(__m512, __mmask16, __m512);\n"
                     << "__m512 _mm512_mask_cos_ps(__m512, __mmask16, __m512);\n"
-//                    << "__m512 _mm512_mask_sincos_ps(__m512, __mmask16, __m512*, __m512*);\n"
+//                    << "__m512 _mm512_mask_sincos_ps(__m512, __mmask16, __m512*);\n"
+                    << "__m512 __svml_sincosf16_ha_mask(__m512*, __mmask16, __m512);\n"
                     << "__m512 _mm512_mask_floor_ps(__m512, __mmask16, __m512);\n"
                     ;
 

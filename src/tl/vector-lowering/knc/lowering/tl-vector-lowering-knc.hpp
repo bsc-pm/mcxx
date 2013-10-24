@@ -127,6 +127,7 @@ namespace TL
 
                 virtual void visit(const Nodecl::VectorFunctionCall& node);
                 virtual void visit(const Nodecl::VectorFabs& node);
+                virtual void visit(const Nodecl::VectorSincos& node);
 
                 virtual void visit(const Nodecl::ParenthesizedExpression& node);
                 
