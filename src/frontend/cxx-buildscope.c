@@ -5606,10 +5606,26 @@ static void emit_implicit_destructor(scope_entry_t* entry,
 }
 
 static char one_constructor_is_usable(
-        scope_entry_list_t* constructors UNUSED_PARAMETER,
-        int num_types UNUSED_PARAMETER,
-        type_t** types UNUSED_PARAMETER)
+        scope_entry_list_t* candidates,
+        type_t* class_type,
+        type_t* arg_type,
+        decl_context_t decl_context,
+        const locus_t* locus)
 {
+    if (IS_CXX03_LANGUAGE)
+        return 1;
+
+    // ---
+#warning FIXME - solve constructor
+
+    if (entry == NULL)
+        return 0;
+
+    if (entry->entity_specs.is_deleted)
+        return 0;
+
+#warning FIXME - Accessibility
+
     return 1;
 }
 
@@ -5618,6 +5634,9 @@ static char one_function_is_usable(
         int num_types UNUSED_PARAMETER,
         type_t** types UNUSED_PARAMETER)
 {
+    if (IS_CXX03_LANGUAGE)
+        return 1;
+
     return 1;
 }
 
@@ -6384,10 +6403,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
        4. X does not have a user-declared destructor, and
        5. the move constructor would not be implicitly defined as deleted.
        */
-    char have_to_emit_implicit_move_constructor = (user_declared_copy_constructors == NULL)
-        && (user_declared_copy_assignment_operators == NULL)
-        && (user_declared_move_assignment_operators == NULL)
-        && (user_declared_destructor == NULL);
+    char have_to_emit_implicit_move_constructor =
+        IS_CXX11_LANGUAGE
+        && user_declared_copy_constructors == NULL
+        && user_declared_copy_assignment_operators == NULL
+        && user_declared_move_assignment_operators == NULL
+        && user_declared_destructor == NULL;
 
     if (have_to_emit_implicit_move_constructor)
     {
@@ -6488,7 +6509,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_array_type(data_member->type_information))
                     member_type = array_type_get_element_type(data_member->type_information);
 
-                if (!one_constructor_is_usable(class_type_get_move_constructors(member_type),
+                if (!one_constructor_is_usable(class_type_get_move_constructors(member_type),:
                             1, &member_type))
                 {
                     has_member_with_unusable_move_constructor = 1;
@@ -6507,7 +6528,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             type_t* base_type = base_class->type_information;
 
             if (!one_constructor_is_usable(class_type_get_move_constructors(base_type),
-                        1, &base_type))
+                        base_type,
+                        base_type,
+                        decl_context,
+                        locus))
             {
                 has_base_with_unusable_move_constructor = 1;
             }
@@ -6830,7 +6854,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
     }
 
-    char have_to_emit_implicit_move_assignment = user_declared_move_assignment_operators == NULL
+    char have_to_emit_implicit_move_assignment =
+        IS_CXX11_LANGUAGE
+        && user_declared_move_assignment_operators == NULL
         && user_declared_copy_constructors == NULL
         && user_declared_move_constructors == NULL
         && user_declared_copy_assignment_operators == NULL;
