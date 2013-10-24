@@ -1111,7 +1111,8 @@ namespace TL
             // Vectorizing arguments
             walk(n.get_arguments());
 
-            if (called_sym.get_symbol().get_name() == "fabsf")
+            if (called_sym.get_symbol().get_name() == "fabsf" ||
+                    called_sym.get_symbol().get_name() == "fabs")
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(

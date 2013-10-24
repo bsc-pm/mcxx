@@ -301,6 +301,13 @@ namespace TL
 //                    << "__m512 _mm512_sincos_ps(__m512, __m512*);\n"
                     << "__m512 __svml_sincosf16_ha(__m512*, __m512);\n"
                     << "__m512 _mm512_floor_ps(__m512);\n"
+                    << "__m512d _mm512_exp_pd(__m512d);\n"
+                    << "__m512d _mm512_sqrt_pd(__m512d);\n"
+                    << "__m512d _mm512_log_pd(__m512d);\n"
+                    << "__m512d _mm512_sin_pd(__m512d);\n"
+                    << "__m512d _mm512_cos_pd(__m512d);\n"
+//                    << "__m512d _mm512_sincos_pd(__m512d, __m512d*);\n"
+                    << "__m512d _mm512_floor_pd(__m512d);\n"
                     ;
 
                 // Mask
@@ -312,6 +319,13 @@ namespace TL
 //                    << "__m512 _mm512_mask_sincos_ps(__m512, __mmask16, __m512*);\n"
                     << "__m512 __svml_sincosf16_ha_mask(__m512*, __mmask16, __m512);\n"
                     << "__m512 _mm512_mask_floor_ps(__m512, __mmask16, __m512);\n"
+                    << "__m512d _mm512_mask_exp_pd(__m512d, __mmask8, __m512d);\n"
+                    << "__m512d _mm512_mask_sqrt_pd(__m512d, __mmask8, __m512d);\n"
+                    << "__m512d _mm512_mask_log_pd(__m512d, __mmask8, __m512d);\n"
+                    << "__m512d _mm512_mask_sin_pd(__m512d, __mmask8, __m512d);\n"
+                    << "__m512d _mm512_mask_cos_pd(__m512d, __mmask8, __m512d);\n"
+//                    << "__m512d _mm512_mask_sincos_pd(__m512d, __mmask8, __m512d*);\n"
+                    << "__m512d _mm512_mask_floor_pd(__m512d, __mmask8, __m512d);\n"
                     ;
 
                 // Parse SVML declarations
@@ -338,10 +352,33 @@ namespace TL
 //                add_vector_function_version("sincosf",
 //                            global_scope.get_symbol_from_name("_mm512_sincos_ps").make_nodecl(true),
 //                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
-                add_vector_function_version("floorf",
-                            global_scope.get_symbol_from_name("_mm512_floor_ps").make_nodecl(true),
-                            "knc", 64, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
-                
+                add_vector_function_version("floor",
+                            global_scope.get_symbol_from_name("_mm512_floor_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("exp", 
+                            global_scope.get_symbol_from_name("_mm512_exp_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sqrt", 
+                            global_scope.get_symbol_from_name("_mm512_sqrt_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("log", 
+                            global_scope.get_symbol_from_name("_mm512_log_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sin",
+                            global_scope.get_symbol_from_name("_mm512_sin_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("cos",
+                            global_scope.get_symbol_from_name("_mm512_cos_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+//It seems it doesn't exist in MIC
+//                add_vector_function_version("sincosf",
+//                            global_scope.get_symbol_from_name("_mm512_sincos_pd").make_nodecl(true),
+//                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("floor",
+                            global_scope.get_symbol_from_name("_mm512_floor_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), false, DEFAULT_FUNC_PRIORITY, true);
+
+
                 // Add SVML math masked function as vector version of the scalar one
                 add_vector_function_version("expf", 
                             global_scope.get_symbol_from_name("_mm512_mask_exp_ps").make_nodecl(true),
@@ -365,6 +402,28 @@ namespace TL
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("_mm512_mask_floor_ps").make_nodecl(true),
                             "knc", 64, TL::Type::get_float_type(), true, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("exp", 
+                            global_scope.get_symbol_from_name("_mm512_mask_exp_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sqrt", 
+                            global_scope.get_symbol_from_name("_mm512_mask_sqrt_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("log", 
+                            global_scope.get_symbol_from_name("_mm512_mask_log_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sin",
+                            global_scope.get_symbol_from_name("_mm512_mask_sin_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("cos",
+                            global_scope.get_symbol_from_name("_mm512_mask_cos_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+// It seems it doesn't exist in MIC
+//                add_vector_function_version("sincosf",
+//                            global_scope.get_symbol_from_name("_mm512_mask_sincos_pd").make_nodecl(true),
+//                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("floor",
+                            global_scope.get_symbol_from_name("_mm512_mask_floor_pd").make_nodecl(true),
+                            "knc", 64, TL::Type::get_double_type(), true, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 
