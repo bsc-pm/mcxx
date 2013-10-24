@@ -17393,8 +17393,6 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
 
-    type_t** types = NULL;
-    int num_types = 0;
     int i;
     for (i = 0; i < num_items; i++)
     {
