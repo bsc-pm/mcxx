@@ -14366,8 +14366,7 @@ static void build_scope_return_statement(AST a,
 
         if (is_void_type(return_type))
         {
-            if (!IS_CXX_LANGUAGE
-                    || (!nodecl_expr_is_type_dependent(nodecl_expr)
+            if ((!nodecl_expr_is_type_dependent(nodecl_expr)
                         && !is_void_type(nodecl_get_type(nodecl_expr))))
             {
                 if (!checking_ambiguity())
