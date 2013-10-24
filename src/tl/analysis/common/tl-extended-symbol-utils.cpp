@@ -256,15 +256,10 @@ namespace Utils {
         {
             Nodecl::NodeclBase current = it->get_nodecl( );
             if( current.is<Nodecl::Conversion>( ) )
-            {
-                Nodecl::Conversion aux = current.as<Nodecl::Conversion>( );
-                current = aux.get_nest( );
-            }
+                current = current.as<Nodecl::Conversion>( ).get_nest( );
 
             if( Nodecl::Utils::equal_nodecls( nodecl, current ) )
-            {
                 return true;
-            }
         }
 
         return false;
@@ -277,13 +272,13 @@ namespace Utils {
         {
             Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>( );
             return ( ext_sym_set_contains_nodecl(nodecl, sym_set )
-                    || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
+                     || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
         }
         else if( nodecl.is<Nodecl::ClassMemberAccess>( ) )
         {
             Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>( );
             return ( ext_sym_set_contains_nodecl( nodecl, sym_set )
-            || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
+                     || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
         }
         else if( nodecl.is<Nodecl::Conversion>( ) )
         {
@@ -307,12 +302,14 @@ namespace Utils {
         }
         return false;
     }
-
-    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set sym_set )
+    
+    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it)
         {
-            if( ext_sym_set_contains_englobing_nodecl( *it, sym_set ) )
+            ext_sym_set fake_set;
+            fake_set.insert( *it );
+            if( ext_sym_set_contains_englobing_nodecl( ei, fake_set ) )
             {
                 sym_set.erase( it );
                 return;
@@ -320,11 +317,13 @@ namespace Utils {
         }
     }
 
-    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set sym_set )
+    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
-            if( ext_sym_set_contains_englobed_nodecl( *it, sym_set ) )
+            ext_sym_set fake_set;
+            fake_set.insert( *it );
+            if( ext_sym_set_contains_englobed_nodecl( ei, fake_set ) )
             {
                 sym_set.erase( it );
                 return;

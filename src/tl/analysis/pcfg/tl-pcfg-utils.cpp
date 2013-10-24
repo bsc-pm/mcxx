@@ -128,6 +128,7 @@ namespace Analysis {
             case ASSERT_UPPER_EXPOSED:  clause = "upper_exposed";       break;
             case AUTO:                  clause = "auto";                break;
             case DEP_IN:                clause = "in";                  break;
+            case DEP_IN_ALLOCA:         clause = "in_alloca";           break;
             case DEP_IN_VALUE:          clause = "in_value";            break;
             case DEP_OUT:               clause = "out";                 break;
             case DEP_INOUT:             clause = "inout";               break;

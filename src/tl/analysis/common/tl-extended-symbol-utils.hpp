@@ -145,15 +145,15 @@ namespace Utils {
 
     bool ext_sym_set_equivalence( ext_sym_set c1, ext_sym_set c2 );
     bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
-
-    bool ext_sym_set_contains_sym(ExtendedSymbol s, ext_sym_set sym_set);
-    bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
-
-    bool ext_sym_set_contains_englobing_nodecl(ExtendedSymbol ei, ext_sym_set sym_set);
-    bool ext_sym_set_contains_englobed_nodecl(ExtendedSymbol ei, ext_sym_set sym_set);
-
-    void delete_englobing_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
-    void delete_englobed_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
+    
+    bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set );
+    bool ext_sym_set_contains_nodecl( Nodecl::NodeclBase nodecl, ext_sym_set sym_set );
+    
+    bool ext_sym_set_contains_englobing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    bool ext_sym_set_contains_englobed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    
+    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
+    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
 
 
     // ******* Extended Symbol Usage list ******* //

@@ -263,6 +263,9 @@ namespace Analysis {
             //! Returns true when the node is a LABELED node
             bool is_labeled_node( );
 
+            //! Returns true when the node is a FUNC_CALL graph node
+            bool is_function_call_graph_node( );
+            
             //! Returns true when the node is a FUNCTION_CALL node
             bool is_function_call_node( );
 

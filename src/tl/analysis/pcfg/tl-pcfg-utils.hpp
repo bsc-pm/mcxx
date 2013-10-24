@@ -116,6 +116,7 @@ namespace Analysis {
         ASSERT_UPPER_EXPOSED,
         AUTO,
         DEP_IN,
+        DEP_IN_ALLOCA,
         DEP_IN_VALUE,
         DEP_OUT,
         DEP_INOUT,

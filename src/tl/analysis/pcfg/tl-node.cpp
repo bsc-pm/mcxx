@@ -421,11 +421,16 @@ namespace Analysis {
         return ( get_type( ) == LABELED );
     }
 
+    bool Node::is_function_call_graph_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == FUNC_CALL ) );
+    }
+    
     bool Node::is_function_call_node( )
     {
         return ( get_type( ) == FUNCTION_CALL );
     }
-
+    
     bool Node::is_asm_def_node( )
     {
         return ( is_graph_node( ) && ( get_graph_type( ) == ASM_DEF ) );
@@ -1137,7 +1142,7 @@ namespace Analysis {
         return ue_vars;
     }
 
-    void Node::set_ue_var(Utils::ExtendedSymbol new_ue_var)
+    void Node::set_ue_var( Utils::ExtendedSymbol new_ue_var )
     {
         Utils::ext_sym_set ue_vars;
 
@@ -1147,34 +1152,38 @@ namespace Analysis {
         }
         if(!Utils::ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
         {
+            if( Utils::ext_sym_set_contains_englobed_nodecl( new_ue_var, ue_vars ) )
+                delete_englobed_var_from_list( new_ue_var, ue_vars );
+            
             ue_vars.insert(new_ue_var);
             set_data(_UPPER_EXPOSED, ue_vars);
         }
     }
 
-    void Node::set_ue_var(Utils::ext_sym_set new_ue_vars)
+    void Node::set_ue_var( Utils::ext_sym_set new_ue_vars )
     {
         Utils::ext_sym_set ue_vars;
 
-        if(this->has_key(_UPPER_EXPOSED))
+        if( this->has_key( _UPPER_EXPOSED ) )
         {
-            ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            ue_vars = get_data<Utils::ext_sym_set>( _UPPER_EXPOSED );
         }
 
         Utils::ext_sym_set purged_ue_vars;
         Utils::ext_sym_set::iterator it = new_ue_vars.begin( );
-        for (; it != new_ue_vars.end( ); ++it)
+        for( ; it != new_ue_vars.end( ); ++it )
         {
-            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, ue_vars))
+            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, ue_vars ) )
             {
-                purged_ue_vars.insert(*it);
+                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, ue_vars ) )
+                    delete_englobed_var_from_list( *it, ue_vars );
+                
+                purged_ue_vars.insert( *it );
             }
         }
-        if(it == new_ue_vars.end( ))
-        {
-            ue_vars.insert( purged_ue_vars.begin( ), purged_ue_vars.end( ) );
-            set_data(_UPPER_EXPOSED, ue_vars);
-        }
+
+        ue_vars.insert( purged_ue_vars.begin( ), purged_ue_vars.end( ) );
+        set_data( _UPPER_EXPOSED, ue_vars );
     }
 
     void Node::unset_ue_var( Utils::ExtendedSymbol old_ue_var )
@@ -1207,12 +1216,13 @@ namespace Analysis {
         Utils::ext_sym_set killed_vars;
 
         if( has_key( _KILLED ) )
-        {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-        }
 
         if( !Utils::ext_sym_set_contains_englobing_nodecl( new_killed_var, killed_vars ) )
         {
+            if( Utils::ext_sym_set_contains_englobed_nodecl( new_killed_var, killed_vars ) )
+                delete_englobed_var_from_list( new_killed_var, killed_vars );
+            
             killed_vars.insert( new_killed_var );
             set_data( _KILLED, killed_vars );
         }
@@ -1223,9 +1233,7 @@ namespace Analysis {
         Utils::ext_sym_set killed_vars;
 
         if( has_key( _KILLED ) )
-        {
             killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
-        }
 
         Utils::ext_sym_set purged_killed_vars;
         Utils::ext_sym_set::iterator it = new_killed_vars.begin( );
@@ -1233,14 +1241,14 @@ namespace Analysis {
         {
             if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, killed_vars ) )
             {
+                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, killed_vars ) )
+                    delete_englobed_var_from_list( *it, killed_vars );
                 purged_killed_vars.insert( *it );
             }
         }
-        if( it == new_killed_vars.end( ) )
-        {
-            killed_vars.insert( purged_killed_vars.begin( ), purged_killed_vars.end( ) );
-            set_data( _KILLED, killed_vars );
-        }
+
+        killed_vars.insert( purged_killed_vars.begin( ), purged_killed_vars.end( ) );
+        set_data( _KILLED, killed_vars );
     }
 
     void Node::unset_killed_var( Utils::ExtendedSymbol old_killed_var )
@@ -1279,6 +1287,8 @@ namespace Analysis {
 
         if( !Utils::ext_sym_set_contains_englobing_nodecl( new_undef_var, undef_vars ) )
         {
+            if( Utils::ext_sym_set_contains_englobed_nodecl( new_undef_var, undef_vars ) )
+                delete_englobed_var_from_list( new_undef_var, undef_vars );
             undef_vars.insert( new_undef_var );
             set_data( _UNDEF, undef_vars );
         }
@@ -1299,14 +1309,14 @@ namespace Analysis {
         {
             if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, undef_vars ) )
             {
+                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, undef_vars ) )
+                    delete_englobed_var_from_list( *it, undef_vars );
                 purged_undef_vars.insert( *it );
             }
         }
-        if( it == new_undef_vars.end( ) )
-        {
-            undef_vars.insert( purged_undef_vars.begin( ), purged_undef_vars.end( ) );
-            set_data( _UNDEF, undef_vars );
-        }
+
+        undef_vars.insert( purged_undef_vars.begin( ), purged_undef_vars.end( ) );
+        set_data( _UNDEF, undef_vars );
     }
 
     void Node::set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
@@ -1319,7 +1329,7 @@ namespace Analysis {
             unset_killed_var( new_undef_var );
 
         // Add the global variable to the UNDEF list
-            set_undefined_behaviour_var( new_undef_var );
+        set_undefined_behaviour_var( new_undef_var );
     }
 
     void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )

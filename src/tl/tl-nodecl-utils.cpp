@@ -300,30 +300,52 @@ namespace Nodecl
         return get_all_symbols_first_occurrence(n).filter(local);
     }
 
-    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, TL::ObjectList<Nodecl::NodeclBase>& result)
+    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, bool in_ref, TL::ObjectList<Nodecl::NodeclBase>& result)
     {
         if (n.is_null())
             return;
 
-        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::ObjectInit>()
-            || n.is<Nodecl::ArraySubscript>() || n.is<Nodecl::PointerToMember>()
-            || n.is<Nodecl::Reference>() || n.is<Nodecl::Dereference>())
+        if (!in_ref && (n.is<Nodecl::Symbol>() || n.is<Nodecl::ObjectInit>()
+                        || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::Dereference>() 
+                        || n.is<Nodecl::ArraySubscript>()))
         {
             result.insert(n);
         }
-
-        TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-             it != children.end(); it++)
-             {
-                 get_all_memory_accesses_rec(*it, result);
-             }
+        else if (n.is<Nodecl::Reference>())
+        {   // Nothing to be done for &x
+            in_ref = true;
+        }
+        
+        if (n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript as = n.as<Nodecl::ArraySubscript>();
+            Nodecl::NodeclBase subscripted = as.get_subscripted();
+            if (!subscripted.get_type().is_pointer())
+            {    // a[...] (if a array) only access memory for the subscripts
+                get_all_memory_accesses_rec(subscripted, /*in_ref*/false, result);
+            }
+            Nodecl::List subscripts = as.get_subscripts().as<Nodecl::List>( );
+            for (Nodecl::List::iterator it = subscripts.begin(); it != subscripts.end(); it++)
+            {
+                get_all_memory_accesses_rec(*it, /*in_ref*/false, result);
+            }
+            
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                it != children.end(); it++)
+            {
+                get_all_memory_accesses_rec(*it, in_ref, result);
+            }
+        }
     }
 
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_all_memory_accesses(Nodecl::NodeclBase n)
     {
         TL::ObjectList<Nodecl::NodeclBase> obj_list;
-        get_all_memory_accesses_rec(n, obj_list);
+        get_all_memory_accesses_rec(n, /*in ref*/false, obj_list);
         return obj_list;
     }
 

@@ -447,6 +447,7 @@ namespace {
         }
 
         Nodecl::NodeclBase source_dep_in;
+        Nodecl::NodeclBase source_dep_in_alloca;
         Nodecl::NodeclBase source_dep_out;
         Nodecl::NodeclBase source_dep_inout;
         for (Nodecl::List::iterator it = task_source_env.begin();
@@ -455,6 +456,8 @@ namespace {
         {
             if (it->is<Nodecl::OpenMP::DepIn>())
                 source_dep_in = *it;
+            else if (it->is<Nodecl::OpenMP::DepInAlloca>())
+                source_dep_in_alloca = *it;
             else if (it->is<Nodecl::OpenMP::DepOut>())
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
@@ -492,6 +495,7 @@ namespace {
         }
 
         Nodecl::NodeclBase target_dep_in;
+        Nodecl::NodeclBase target_dep_in_alloca;
         Nodecl::NodeclBase target_dep_out;
         Nodecl::NodeclBase target_dep_inout;
         for (Nodecl::List::iterator it = task_target_env.begin();
@@ -500,6 +504,8 @@ namespace {
         {
             if (it->is<Nodecl::OpenMP::DepIn>())
                 target_dep_in = *it;
+            else if (it->is<Nodecl::OpenMP::DepInAlloca>())
+                target_dep_in_alloca = *it;
             else if (it->is<Nodecl::OpenMP::DepOut>())
                 target_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
@@ -511,7 +517,7 @@ namespace {
         // DRY
         Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout };
+        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_in_alloca };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -522,7 +528,7 @@ namespace {
                         || targets[n_target].is_null())
                     continue;
 
-                // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
+                // Note we (ab)use the fact that DepIn/DepOut/DepInOut/DepInAlloca all have the
                 // same physical layout
                 may_have_dep = may_have_dep || may_have_dependence_list(
                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
