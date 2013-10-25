@@ -697,8 +697,6 @@ namespace Analysis {
                     Node* pcfg_node = pcfg->get_graph( );
                         // reference parameters and global variables
                     Utils::ext_sym_set ue_vars = pcfg_node->get_ue_vars( );
-                    for( Utils::ext_sym_set::iterator it = ue_vars.begin( ); it != ue_vars.end( ); ++it )
-                        std::cerr << "  - " << it->get_nodecl().prettyprint( ) << std::endl;
                     Utils::ext_sym_set killed_vars = pcfg_node->get_killed_vars( );
                     Utils::ext_sym_set undef_vars = pcfg_node->get_undefined_behaviour_vars( );
                         // value parameters

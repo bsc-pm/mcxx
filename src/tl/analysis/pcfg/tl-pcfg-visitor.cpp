@@ -1270,13 +1270,9 @@ namespace Analysis {
             if( cond != NULL )
             {   // This may connect the loop body last node or the condition with itself, if body is empty
                 if( ( _utils->_last_nodes.size( ) == 1 ) && ( _utils->_last_nodes[0] == cond ) )
-                {
                     _pcfg->connect_nodes( cond, cond, TRUE_EDGE );
-                }
                 else
-                {
                     _pcfg->connect_nodes( _utils->_last_nodes, cond );
-                }
             }
         }
         
@@ -2146,6 +2142,37 @@ namespace Analysis {
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_node );
         return ObjectList<Node*>( 1, for_node );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ForAppendix& n )
+    {
+        // Create the new graph node containing the for
+        Node* for_app_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, OMP_FOR_APPENDIX );
+        _pcfg->connect_nodes( _utils->_last_nodes, for_app_node );
+        
+        Node* for_app_entry = for_app_node->get_graph_entry_node( );
+        Node* for_app_exit = for_app_node->get_graph_exit_node( );
+        
+        _utils->_last_nodes = ObjectList<Node*>( 1, for_app_entry );
+        walk( n.get_loop( ) );
+        
+        walk( n.get_appendix( ) );
+        
+        for_app_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, for_app_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( for_app_entry, for_app_exit ) );
+        walk( n.get_environment( ) );
+        for_app_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, for_app_node );
+        return ObjectList<Node*>( 1, for_app_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )

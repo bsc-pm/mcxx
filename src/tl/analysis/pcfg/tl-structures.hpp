@@ -78,6 +78,7 @@ namespace Analysis {
         LOOP_WHILE,
         OMP_ATOMIC,
         OMP_CRITICAL,
+        OMP_FOR_APPENDIX,
         OMP_LOOP,
         OMP_MASTER,
         OMP_PARALLEL,

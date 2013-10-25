@@ -354,6 +354,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
+        Ret visit( const Nodecl::OpenMP::ForAppendix& n );
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Final& n );
         Ret visit( const Nodecl::OpenMP::Master& n );

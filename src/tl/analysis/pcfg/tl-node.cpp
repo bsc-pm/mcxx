@@ -715,6 +715,7 @@ namespace Analysis {
                 case LOOP_WHILE:            graph_type = "LOOP_WHILE";              break;
                 case OMP_ATOMIC:            graph_type = "OMP_ATOMIC";              break;
                 case OMP_CRITICAL:          graph_type = "OMP_CRITICAL";            break;
+                case OMP_FOR_APPENDIX:      graph_type = "OMP_FOR_APPENDIX";        break;
                 case OMP_LOOP:              graph_type = "OMP_LOOP";                break;
                 case OMP_PARALLEL:          graph_type = "OMP_PARALLEL";            break;
                 case OMP_MASTER:            graph_type = "OMP_MASTER";              break;

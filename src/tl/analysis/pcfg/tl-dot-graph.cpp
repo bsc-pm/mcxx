@@ -449,6 +449,7 @@ namespace {
                 break;
             case OMP_ATOMIC:
             case OMP_CRITICAL:
+            case OMP_FOR_APPENDIX:
             case OMP_LOOP:
             case OMP_PARALLEL:
             case OMP_SECTION:
