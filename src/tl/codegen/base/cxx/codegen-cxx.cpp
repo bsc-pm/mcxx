@@ -2339,6 +2339,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    // We do not want typedefs in function declarations
+    // because they break the syntax
+    real_type = real_type.advance_over_typedefs();
+
     std::string declarator = this->get_declaration_with_parameters(
             real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);
 
@@ -5794,6 +5798,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
+        // We do not want typedefs in function declarations
+        // because they break the syntax
+        real_type = real_type.advance_over_typedefs();
+
         std::string function_name = unmangle_symbol_name(symbol);
         if  (!symbol.is_member())
         {
@@ -5835,7 +5843,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
-
 
         indent();
         *(file) << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
