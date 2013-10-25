@@ -9692,6 +9692,14 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
     else
     {
+        if (standard_conversion_is_invalid((*result)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Exactly the same type after removing cv-qualifiers of the first type\n");
+            }
+            (*result) = identity_scs(t_orig, t_dest);
+        }
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: There is a standard conversion from '%s' to '%s'\n",
