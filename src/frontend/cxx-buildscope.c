@@ -2441,8 +2441,6 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
 
 /*
  * This function fills simple_type_info with type information.
- *
- * scope_t* sc is unused here
  */
 void gather_type_spec_information(AST a, type_t** simple_type_info,
         gather_decl_spec_t* gather_info,
@@ -5605,9 +5603,16 @@ static void emit_implicit_destructor(scope_entry_t* entry,
             ensure_destructor_is_emitted, &l);
 }
 
-static char one_constructor_is_usable(
+static char name_is_accessible_from_context(scope_entry_t* entry UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // FIXME - Not properly implemented yet
+    return 1;
+}
+
+static char one_function_is_usable(
         scope_entry_list_t* candidates,
-        type_t* class_type,
+        type_t* class_type UNUSED_PARAMETER,
         type_t* arg_type,
         decl_context_t decl_context,
         const locus_t* locus)
@@ -5615,27 +5620,47 @@ static char one_constructor_is_usable(
     if (IS_CXX03_LANGUAGE)
         return 1;
 
-    // ---
-#warning FIXME - solve constructor
-
-    if (entry == NULL)
+    if (candidates == NULL)
         return 0;
 
-    if (entry->entity_specs.is_deleted)
+    int num_arguments = arg_type != NULL ? 1 : 0;
+
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
+            candidates,
+            NULL, &arg_type, num_arguments,
+            decl_context,
+            locus, /* explicit_template_parameters */ NULL);
+
+    candidate_t* candidate_set = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        candidate_set = candidate_set_add(candidate_set,
+                entry_list_iterator_current(it),
+                num_arguments,
+                &arg_type);
+    }
+    entry_list_iterator_free(it);
+
+    scope_entry_t* augmented_conversors[num_arguments + 1];
+    memset(augmented_conversors, 0, sizeof(augmented_conversors));
+
+    scope_entry_t* overload_resolution = solve_overload(candidate_set, 
+            decl_context, 
+            locus, 
+            augmented_conversors);
+
+    if (overload_resolution == NULL)
         return 0;
 
-#warning FIXME - Accessibility
+    if (overload_resolution->entity_specs.is_deleted)
+        return 0;
 
-    return 1;
-}
-
-static char one_function_is_usable(
-        scope_entry_list_t* constructors UNUSED_PARAMETER,
-        int num_types UNUSED_PARAMETER,
-        type_t** types UNUSED_PARAMETER)
-{
-    if (IS_CXX03_LANGUAGE)
-        return 1;
+    if (!name_is_accessible_from_context(overload_resolution, decl_context))
+        return 0;
 
     return 1;
 }
@@ -5895,14 +5920,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     char no_constructors = (constructors == NULL);
     entry_list_free(constructors);
 
+    decl_context_t class_context = class_type_get_inner_context(class_type);
+    scope_t* class_scope = class_context.current_scope;
+
     if (no_constructors)
     {
         type_t* default_constructor_type = get_new_function_type(
                 NULL, // Constructors do not return anything
                 NULL, // Default constructor does not receive anything
                 0);
-
-        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
         const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
@@ -5914,7 +5940,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
-        scope_entry_t* implicit_default_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
+        scope_entry_t* implicit_default_constructor = new_symbol(class_type_get_inner_context(class_type), class_scope,
                 constructor_name);
 
         implicit_default_constructor->kind = SK_FUNCTION;
@@ -6077,8 +6103,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 }
 
                 has_nonstatic_data_member_with_unusable_base_default_constructor =
-                    !one_constructor_is_usable(entry_list_new(class_type_get_default_constructor(member_type)),
-                            /* num_args */ 0, NULL);
+                    !one_function_is_usable(
+                            entry_list_new(class_type_get_default_constructor(member_type)),
+                            member_type,
+                            NULL,
+                            decl_context, locus);
             }
         }
 
@@ -6092,9 +6121,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *base = entry_list_iterator_current(it);
 
-            if (!one_constructor_is_usable(
+            if (!one_function_is_usable(
                         entry_list_new(class_type_get_default_constructor(base->type_information)),
-                        /* num_args */ 0, NULL))
+                        base->type_information,
+                        NULL,
+                        decl_context,
+                        locus))
             {
                 has_base_with_unusable_default_constructor = 1;
             }
@@ -6285,8 +6317,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 parameter_info,
                 1);
 
-        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
-
         const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
         {
@@ -6297,7 +6327,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
-        scope_entry_t* implicit_copy_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
+        scope_entry_t* implicit_copy_constructor = new_symbol(class_type_get_inner_context(class_type),
+                class_scope,
                 constructor_name);
 
         implicit_copy_constructor->kind = SK_FUNCTION;
@@ -6412,8 +6443,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
     if (have_to_emit_implicit_move_constructor)
     {
-        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
-
         const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
         {
@@ -6424,7 +6453,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             uniquestr_sprintf(&constructor_name, "%s", "constructor ");
         }
 
-        scope_entry_t* implicit_move_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
+        scope_entry_t* implicit_move_constructor = new_symbol(class_type_get_inner_context(class_type),
+                class_scope,
                 constructor_name);
 
         parameter_info_t parameter_info[1];
@@ -6509,8 +6539,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_array_type(data_member->type_information))
                     member_type = array_type_get_element_type(data_member->type_information);
 
-                if (!one_constructor_is_usable(class_type_get_move_constructors(member_type),:
-                            1, &member_type))
+                if (!one_function_is_usable(class_type_get_move_constructors(member_type),
+                            member_type,
+                            member_type,
+                            decl_context,
+                            locus))
                 {
                     has_member_with_unusable_move_constructor = 1;
                 }
@@ -6527,7 +6560,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             scope_entry_t* base_class = entry_list_iterator_current(it);
             type_t* base_type = base_class->type_information;
 
-            if (!one_constructor_is_usable(class_type_get_move_constructors(base_type),
+            if (!one_function_is_usable(class_type_get_move_constructors(base_type),
                         base_type,
                         base_type,
                         decl_context,
@@ -6680,8 +6713,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 parameter_info,
                 1);
 
-        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
-        scope_entry_t* implicit_copy_assignment_function = new_symbol(class_type_get_inner_context(class_type), sc,
+        scope_entry_t* implicit_copy_assignment_function = new_symbol(class_type_get_inner_context(class_type),
+                class_scope,
                 STR_OPERATOR_ASSIGNMENT);
 
         implicit_copy_assignment_function->kind = SK_FUNCTION;
@@ -6764,7 +6797,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
                 has_non_assignment_operator_copiable_data_member =  one_function_is_usable(
                         class_type_get_copy_assignment_operators(member_type),
-                        1, &member_type);
+                        member_type,
+                        member_type,
+                        decl_context,
+                        locus);
             }
         }
 
@@ -6778,7 +6814,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
             has_non_assignment_operator_copiable_base = one_function_is_usable(
                     class_type_get_copy_assignment_operators(base_type),
-                    1, &base_type);
+                    base_type,
+                    base_type,
+                    decl_context,
+                    locus);
         }
 
         if (union_has_member_with_nontrivial_copy_assignment
@@ -6874,8 +6913,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 parameter_info,
                 1);
 
-        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
-        scope_entry_t* implicit_move_assignment_function = new_symbol(class_type_get_inner_context(class_type), sc,
+        scope_entry_t* implicit_move_assignment_function = new_symbol(class_type_get_inner_context(class_type),
+                class_scope,
                 STR_OPERATOR_ASSIGNMENT);
 
         implicit_move_assignment_function->kind = SK_FUNCTION;
@@ -6960,7 +6999,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
                 has_non_assignment_operator_moveable_data_member =  one_function_is_usable(
                         class_type_get_move_assignment_operators(member_type),
-                        1, &member_type);
+                        member_type,
+                        member_type,
+                        decl_context,
+                        locus);
             }
         }
 
@@ -6974,7 +7016,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
             has_non_assignment_operator_moveable_base = one_function_is_usable(
                     class_type_get_move_assignment_operators(base_type),
-                    1, &base_type);
+                    base_type,
+                    base_type,
+                    decl_context,
+                    locus);
         }
 
         /*
@@ -7102,9 +7147,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             uniquestr_sprintf(&destructor_name, "%s", "~destructor");
         }
 
-        scope_t* sc = class_type_get_inner_context(class_type).current_scope;
-
-        scope_entry_t* implicit_destructor = new_symbol(class_type_get_inner_context(class_type), sc,
+        scope_entry_t* implicit_destructor = new_symbol(class_type_get_inner_context(class_type),
+                class_scope, 
                 destructor_name);
 
         type_t* destructor_type = get_const_qualified_type(

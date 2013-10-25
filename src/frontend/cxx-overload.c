@@ -2693,7 +2693,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
 
-    scope_entry_t* augmented_conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    scope_entry_t* augmented_conversors[num_arguments + 1];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;
