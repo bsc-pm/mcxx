@@ -2738,46 +2738,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         // Dependent cases are always printed verbatim
         walk(initializer);
     }
-    else if (IS_CXX03_LANGUAGE
-            && init_real_type.is_aggregate()
-            && initializer.is<Nodecl::StructuredValue>())
-    {
-        // int a[] = { 1, 2, 3 };
-        // struct foo { int x; int y; } a = {1, 2};
-        //
-        // Note that C++11 allows struct foo { int x; int y; } a{1,2};
-        *(file) << " = ";
-
-        bool old = state.inside_structured_value;
-        state.inside_structured_value = true;
-        walk(initializer);
-        state.inside_structured_value = old;
-    }
-    else if (init_real_type.is_array()
-            && !initializer.is<Nodecl::StructuredValue>())
-    {
-        // Only for char and wchar_t
-        // const char c[] = "1234";
-        *(file) << " = ";
-        walk(initializer);
-    }
-    else if (init_real_type.is_array()
-            && initializer.is<Nodecl::StructuredValue>())
-    {
-        // char c = { 'a' };
-        // int x = { 1 };
-        *(file) << " = ";
-        bool old = state.inside_structured_value;
-        state.inside_structured_value = true;
-        walk(initializer);
-        state.inside_structured_value = old;
-    }
-    else if (state.in_condition)
-    {
-        // This is something like if (bool foo = expression)
-        *(file) << " = ";
-        walk(initializer);
-    }
     else
     {
         *(file) << "(";
