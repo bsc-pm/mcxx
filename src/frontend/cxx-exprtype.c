@@ -5615,17 +5615,13 @@ static void compute_operator_reference_type(nodecl_t* op,
         }
         else if (entry->kind == SK_FUNCTION)
         {
-            *nodecl_output = nodecl_make_symbol(entry, locus);
-
             template_parameter_list_t* last_template_args = NULL;
             if (nodecl_name_ends_in_template_id(*op))
             {
                 last_template_args = nodecl_name_get_last_template_arguments(*op);
             }
-
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
-
-            nodecl_set_type(*nodecl_output, t);
+            *nodecl_output = nodecl_make_reference(*op, t, locus);
         }
         else
         {
