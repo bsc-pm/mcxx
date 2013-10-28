@@ -25,15 +25,24 @@
 --------------------------------------------------------------------*/
 
 
-/*
-<testinfo>
-test_generator=config/mercurium
-</testinfo>
-*/
 
-int my_strlen(const char* c);
+struct D
+{
+    double foo() {}
+
+    template < typename T>
+    void eval()
+    {
+        typedef double (D::*_MP_FUNC)();
+        const _MP_FUNC funcs[] = { &D::foo };
+    }
+};
+
 int main()
 {
-   new char[my_strlen("foo")];
-   new char[my_strlen("foo")];
+    D d;
+    d.eval<int>();
+
+    typedef double (D::*pmf)();
+    pmf a[] = { &D::foo };
 }
