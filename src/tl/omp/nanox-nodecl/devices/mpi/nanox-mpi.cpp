@@ -30,13 +30,6 @@
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
-// #include "fortran03-scope.h"
-
-//#include "cuda-aux.hpp"
-//#include "tl-declarationclosure.hpp"
-
-//#include "tl-cuda.hpp"
-//#include "tl-omp-nanox.hpp"
 
 #include "cxx-profile.h"
 #include "codegen-phase.hpp"
@@ -45,13 +38,11 @@
 #include "filename.h"
 #include "tl-nodecl-utils-fortran.hpp"
 #include "tl-symbol-utils.hpp"
-//#include "codegen-fortran.hpp"
-
-//#include <iostream>
-//#include <fstream>
-
+#include "tl-nodecl-utils.hpp"
+#include "tl-nodecl-utils-c.hpp"
 #include <errno.h>
 #include "cxx-driver-utils.h"
+#include "mpi-aux.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -93,10 +84,9 @@ static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items)
             if ((*it)->get_symbol().is_allocatable()){
                 if ((*it)->get_symbol().is_from_module()){  
 //                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
+                    (*it)->set_sharing(OutlineDataItem::SHARING_ALLOCA);
                     (*it)->get_copies().clear();
                 } else {
-                   //std::cout << (*it)->get_symbol().get_name() << "es privatye\n";
 //                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
                     (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
                     (*it)->get_copies().clear();
@@ -114,7 +104,7 @@ static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items)
             }
         }
     }
-    
+        
 //    if (is_incompatible) std::cerr << "warning: error in MPI task, do not mix MPI device tasks with other devices (implements or multi-device)"
 //            " in this situation " << std::endl;
     
@@ -160,12 +150,12 @@ void DeviceMPI::generate_additional_mpi_code(
 
 
     code_host << "MPI_Status ompss___status; "
-            << "int err; ";
+            << "int offload_err; ";
     
     code_device_pre << struct_args.get_name() << " args;"
-            << "int err; "            
+            << "int offload_err; "            
             << "MPI_Comm ompss_parent_comp; "            
-            << "err= nanos_mpi_get_parent(&ompss_parent_comp);"
+            << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);"
             << "MPI_Status ompss___status; ";
 
     Source typelist_src, blocklen_src, displ_src;
@@ -180,11 +170,11 @@ void DeviceMPI::generate_additional_mpi_code(
 
 
         host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
-        host_call << " err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        host_call << " err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
-        host_call << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+        host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
+        host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
 
-        device_call << " err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
+        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
 
         for (int i = 0; i < num_params; ++i) { 
             //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
@@ -220,7 +210,7 @@ void DeviceMPI::generate_additional_mpi_code(
                 "int ompss___blocklen[" << count_params << "] = {" << blocklen_src << "};"
                 "MPI_Aint ompss___displ[" << count_params << "] = {" << displ_src << "};";
 
-        struct_mpi_create << "err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
+        struct_mpi_create << "offload_err= nanos_mpi_type_create_struct( " << count_params << ", ompss___blocklen, ompss___displ, ompss___typelist, &ompss___datatype); ";
         code_host << struct_mpi_create
                 << host_call;
         code_device_pre << struct_mpi_create
@@ -228,8 +218,8 @@ void DeviceMPI::generate_additional_mpi_code(
     //If there are no parameters, just send the order to start the task and wait for the ending ack
     } else {
         code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
-        code_host << " err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        code_host << " err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+        code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
     
     if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
@@ -283,7 +273,7 @@ void DeviceMPI::generate_additional_mpi_code(
         }
     }
     code_device_post << "int ompss_id_func=" << _currTaskId << ";";
-    code_device_post << "err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
+    code_device_post << "offload_err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
 
 
 }
@@ -343,7 +333,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 original_statements.get_locus_str().c_str());        
     }
 
-    Source unpacked_arguments, private_entities, cleanup_code;
+    Source unpacked_arguments, fortran_allocatable_translation, cleanup_code;
     
     
     ObjectList<std::string> structure_name;
@@ -384,7 +374,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             host_function_body);
     
     // Create the new unpacked function
-    Source dummy_initial_statements, dummy_final_statements;
+    Source initial_statements, final_statements;
     TL::Symbol unpacked_function, forward_function;
     
     if (IS_FORTRAN_LANGUAGE)
@@ -399,8 +389,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 info,
                 // out
                 symbol_map,
-                dummy_initial_statements,
-                dummy_final_statements);
+                initial_statements,
+                final_statements);
     }
     else
     {
@@ -410,14 +400,17 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 info,
                 // out
                 symbol_map,
-                dummy_initial_statements,
-                dummy_final_statements);
+                initial_statements,
+                final_statements);
     }
     
     Nodecl::NodeclBase unpacked_function_code, unpacked_function_body;
     SymbolUtils::build_empty_body_for_function(unpacked_function,
             unpacked_function_code,
             unpacked_function_body);
+    
+    // Add the unpacked function to the file
+    Nodecl::Utils::prepend_to_top_level_nodecl(unpacked_function_code);
     
     TL::Scope host_function_scope(host_function_body.retrieve_context());    
     TL::Symbol structure_symbol = host_function_scope.get_symbol_from_name("args");
@@ -438,6 +431,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         switch ((*it)->get_sharing())
         {
             case OutlineDataItem::SHARING_PRIVATE:
+            case OutlineDataItem::SHARING_ALLOCA:
                 {
                     // Do nothing
                     break;
@@ -449,7 +443,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                    std::string symbol_name=(*it)->get_symbol().get_name();
                    if ((*it)->get_sharing() == OutlineDataItem::SHARING_CAPTURE){
                        if (!(*it)->get_copies().empty())
-                       data_input_global << "err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";  
+                       data_input_global << "offload_err =  nanos_memcpy(&" << symbol_name <<",args." << symbol_name <<",sizeof(" << symbol_name << "));";  
                        
                        data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
                    }
@@ -464,12 +458,12 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
                         
                         if (!(*it)->get_copies().empty())
-                        data_input_global << "err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
+                        data_input_global << "offload_err =  nanos_memcpy(&" << symbol_name <<","<< symbol_name << "_BACKUP,sizeof(" << symbol_name << "));"; 
                         
                         data_input_global << "args." << symbol_name <<"= &" << symbol_name << ";"; 
 
                         if (!(*it)->get_copies().empty())
-                        data_output_global << "err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
+                        data_output_global << "offload_err =  nanos_memcpy("<< symbol_name << "_BACKUP,&" << symbol_name <<",sizeof(" << symbol_name << "));";    
                     }
                     
                     TL::Type param_type = (*it)->get_in_outline_type();
@@ -526,7 +520,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                                 modules_with_params.insert(std::pair<TL::Symbol,TL::ObjectList<TL::Symbol> >(mod_sym,list));
                             } else {
                                 mod_list->second.append((*it)->get_symbol());                    
-                            }
+                            }                            
                         }
                         argument << "args % " << (*it)->get_field_name();
 
@@ -582,81 +576,119 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             code_host,
             code_device_pre,
             code_device_post);
-
+    
+    Source unpacked_source;
     Source extra_declarations;
+    
+    if (!IS_FORTRAN_LANGUAGE)
+    {
+        unpacked_source
+            << "{";
+    }
+    unpacked_source
+        << extra_declarations
+        << initial_statements
+        << statement_placeholder(outline_placeholder)
+        << final_statements
+        ;
+    if (!IS_FORTRAN_LANGUAGE)
+    {
+        unpacked_source
+            << "}";
+    }
+    
+    
+    //if (IS_FORTRAN_LANGUAGE)
+    //   Source::source_language = SourceLanguage::C;
+    Nodecl::NodeclBase new_unpacked_body =
+            unpacked_source.parse_statement(unpacked_function_body);    
+    //Source::source_language = SourceLanguage::Current;
+    //unpacked_function_body.replace(new_unpacked_body);
+
+
     // Add a declaration of the unpacked function symbol in the original source
      // Fortran may require more symbols
     if (IS_FORTRAN_LANGUAGE)
     {
-          // Insert extra symbols
-            TL::Scope unpacked_function_scope = unpacked_function_body.retrieve_context();
+        TL::Scope unpacked_function_scope = unpacked_function.get_related_scope();
 
-            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
-                    unpacked_function_scope,
-                    current_function);
-            if (is_function_task)
-            {
-                fun_visitor.insert_extra_symbol(info._called_task);
-            }
-            fun_visitor.insert_extra_symbols(info._task_statements);
+        Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(symbol_map,
+                unpacked_function_scope,
+                current_function);
+        if (is_function_task)
+        {
+            fun_visitor.insert_extra_symbol(info._called_task);
+        }
+        fun_visitor.insert_extra_symbols(info._task_statements);
 
+        Nodecl::Utils::Fortran::append_used_modules(
+                original_statements.retrieve_context(),
+                unpacked_function_scope);
+
+        if (is_function_task)
+        {
             Nodecl::Utils::Fortran::append_used_modules(
-                    original_statements.retrieve_context(),
+                    info._called_task.get_related_scope(),
                     unpacked_function_scope);
+        }
 
-            if (is_function_task)
+        // Add also used types
+        add_used_types(data_items, unpacked_function.get_related_scope());
+
+        // Now get all the needed internal functions and duplicate them in the outline
+        Nodecl::Utils::Fortran::InternalFunctions internal_functions;
+        internal_functions.walk(info._original_statements);
+
+        duplicate_internal_subprograms(internal_functions.function_codes,
+                unpacked_function_scope,
+                symbol_map,
+                output_statements);
+
+        extra_declarations
+            << "IMPLICIT NONE\n";
+    }
+    else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+        TL::Scope scope_in_outline = outline_placeholder.retrieve_context();
+
+        Nodecl::Utils::C::ExtraDeclsVisitor fun_visitor(symbol_map,
+                scope_in_outline,
+                current_function);
+
+        if (is_function_task
+                && info._called_task.get_scope().is_block_scope()
+                && !info._called_task.is_nested_function())
+        {
+            fun_visitor.insert_extra_symbol(info._called_task);
+        }
+        fun_visitor.insert_extra_symbols(info._task_statements);
+
+        if (IS_CXX_LANGUAGE)
+        {
+            if (!unpacked_function.is_member())
             {
-                Nodecl::Utils::Fortran::append_used_modules(
-                        info._called_task.get_related_scope(),
-                        unpacked_function_scope);
+                Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
+                        /* optative context */ nodecl_null(),
+                        unpacked_function,
+                        original_statements.get_locus());
+                Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
             }
+        }
 
-            // Add also used types
-            add_used_types(data_items, unpacked_function.get_related_scope());
+        if (IS_C_LANGUAGE)
+        {
+            // Now get all the needed nested functions and duplicate them in the outline
+            Nodecl::Utils::C::NestedFunctions nested_functions;
+            nested_functions.walk(info._original_statements);
 
-            // Now get all the needed internal functions and replicate them in the outline
-            Nodecl::Utils::Fortran::InternalFunctions internal_functions;
-            internal_functions.walk(info._original_statements);
-
-            duplicate_internal_subprograms(internal_functions.function_codes,
-                    unpacked_function.get_related_scope(),
+            duplicate_nested_functions(nested_functions.function_codes,
+                    scope_in_outline,
                     symbol_map,
                     output_statements);
-    }
-    else if (IS_CXX_LANGUAGE) {
-       if (!unpacked_function.is_member())
-       {
-            Nodecl::NodeclBase nodecl_decl = Nodecl::CxxDecl::make(
-                    /* optative context */ nodecl_null(),
-                    host_function,
-                    original_statements.get_locus());
-            Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, nodecl_decl);
-      }
+        }
     }
     
-    
-
-    Source unpacked_source;
-    
-    unpacked_source
-             << "{"
-            << extra_declarations
-            << private_entities
-            //<< code_host
-            << statement_placeholder(outline_placeholder)
-            << "}";
-    
-    
-    if (IS_FORTRAN_LANGUAGE)
-       Source::source_language = SourceLanguage::C;
-    Nodecl::NodeclBase new_unpacked_body =
-            unpacked_source.parse_statement(unpacked_function_body);    
-    Source::source_language = SourceLanguage::Current;
     unpacked_function_body.replace(new_unpacked_body);
-
-
-    // Add the unpacked function to the file
-    Nodecl::Utils::prepend_to_enclosing_top_level_location(original_statements, unpacked_function_code);
 
     Source host_src,
            instrument_before_host,
@@ -826,6 +858,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         }
         Nodecl::NodeclBase code_post = code_device_post.parse_statement(device_function_body);
         device_src
+                << fortran_allocatable_translation
                 << unpacked_function_call;
         if (!data_output_global.empty()){        
             data_output_tree = data_output_global.parse_statement(device_function_body);
@@ -1070,7 +1103,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                                 "    IMPLICIT NONE\n"
                                 "    INTEGER(4) :: nargs\n"
                                 "    CHARACTER(LEN=24) :: arg\n"
-                                "    INTEGER(4) :: err\n"
+                                "    INTEGER(4) :: offload_err\n"
                                 "    INTEGER(4), EXTERNAL :: ompss___mpi_daemon_main\n"
                                 "    INTERFACE\n"
                                 "      SUBROUTINE ompss___user_main()\n"
@@ -1080,16 +1113,16 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                                 "    nargs = iargc()\n"
                                 "    CALL getarg(nargs, arg)\n"          
                                 "    IF (nargs > 1 .AND. arg == \"" << TAG_MAIN_OMPSS << "\") THEN\n"
-                                "      err = ompss___mpi_daemon_main()\n"
+                                "      offload_err = ompss___mpi_daemon_main()\n"
                                 "    ELSE\n"
                                 "      CALL " << main.get_name() << "()\n"
                                 "    END IF\n"
                                 "END PROGRAM ompss_main";                
             } else {
                 real_main << "int ompss_tmp_main(int argc, char* argv[]) {"
-                        << "int err;"
+                        << "int offload_err;"
                         << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
-                        << "err=ompss___mpi_daemon_main(argc,argv);"
+                        << "offload_err=ompss___mpi_daemon_main(argc,argv);"
                         << "return 0;"
                         << "} else {";
                 
@@ -1104,8 +1137,8 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                 }
                 
                 if (main.get_type().returns().is_signed_int() || main.get_type().returns().is_unsigned_int()){
-                     real_main << "err= main(" << args_main<< ");"
-                        << "return err;"
+                     real_main << "offload_err= main(" << args_main<< ");"
+                        << "return offload_err;"
                         << "}}"
                         ;
                 } else {

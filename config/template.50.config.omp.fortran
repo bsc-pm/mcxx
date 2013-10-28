@@ -31,6 +31,13 @@ linker_options =
 [mf95 : mfc]
 
 [auxcc : plaincc]
+language = C
+{mmic} options =
+{mmic} preprocessor_name = @ICC@
+{mmic} preprocessor_options = -E
+{mmic} compiler_name = @ICC@
+{mmic} linker_name = @ICC@
+{mmic} compiler_options = -mmic
 codegen_phase = libcodegen-cxx.so
 # gfortran
 target_options[mfc] = no_sublink embed
