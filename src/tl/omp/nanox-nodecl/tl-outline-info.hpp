@@ -509,7 +509,7 @@ namespace TL
                  * @param device_name
                  * @param function_symbol
                  */
-                void add_implementation(std::string device_name, TL::Symbol function_symbol);
+                void add_implementation(TL::Symbol function_symbol, std::string device_name);
                 implementation_table_t& get_implementation_table();
 
                 void set_param_arg_map(const Nodecl::Utils::SimpleSymbolMap param_arg_map,TL::Symbol function_symbol=Symbol::invalid());

@@ -770,6 +770,7 @@ static void copy_target_info_from_params_to_args(
             it != implementation_table.end();
             ++it)
     {
+        TL::Symbol implementor = it->first;
         TL::Nanox::TargetInformation target_info = it->second;
 
         ObjectList<Nodecl::NodeclBase> new_ndrange_args =
@@ -797,11 +798,12 @@ static void copy_target_info_from_params_to_args(
                 it2 != devices.end();
                 ++it2)
         {
-            arguments_outline_info.add_implementation(*it2, it->first);
-            arguments_outline_info.append_to_ndrange(it->first, new_ndrange_args);
-            arguments_outline_info.append_to_shmem(it->first, new_shmem_args);
-            arguments_outline_info.append_to_onto(it->first, target_info.get_onto());
-            arguments_outline_info.set_file(it->first, target_info.get_file());
+            std::string device_name = *it2;
+            arguments_outline_info.add_implementation(implementor, device_name);
+            arguments_outline_info.append_to_ndrange(implementor, new_ndrange_args);
+            arguments_outline_info.append_to_shmem(implementor, new_shmem_args);
+            arguments_outline_info.append_to_onto(implementor, target_info.get_onto());
+            arguments_outline_info.set_file(implementor, target_info.get_file());
         }
     }
 }
