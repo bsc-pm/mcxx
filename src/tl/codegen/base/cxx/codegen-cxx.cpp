@@ -2747,7 +2747,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     if (nodecl_calls_to_constructor(init_expr, type))
     {
         // Ignore top level constructor
-        walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());
+        walk_expression_list(nodecl_calls_to_constructor_get_arguments(init_expr));
     }
     else if (init_expr.is<Nodecl::StructuredValue>())
     {
@@ -2812,7 +2812,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         // A a; we cannot emmit it as A a(); since this would declare a function () returning A
         if (nodecl_calls_to_constructor(initializer, init_real_type))
         {
-            Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+            Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(initializer);
 
             // Here we add extra parentheses lest the direct-initialization looked like
             // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
@@ -5074,13 +5074,18 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     *(file) << " = ";
                     walk(init);
                 }
+                else if (nodecl_is_zero_args_call_to_constructor(init, symbol.get_type()))
+                {
+                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+                    (*file) << " = ";
+                    walk(init);
+                }
                 else
                 {
                     *(file) << "(";
-                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
                     if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
-                        Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
 
                         // Here we add extra parentheses lest the direct-initialization looked like
                         // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
@@ -7021,8 +7026,21 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
     return result;
 }
 
-bool CxxBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Type t)
+Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
+    while (node.is<Nodecl::Conversion>())
+        node = node.as<Nodecl::Conversion>().get_nest();
+
+    ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
+
+    return node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+}
+
+bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+{
+    while (node.is<Nodecl::Conversion>())
+        node = node.as<Nodecl::Conversion>().get_nest();
+
     if (node.is<Nodecl::FunctionCall>())
     {
         TL::Symbol called_sym = node.as<Nodecl::FunctionCall>().get_called().get_symbol();
@@ -7039,19 +7057,24 @@ bool CxxBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Ty
     return 0;
 }
 
-bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
+bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    return (nodecl_calls_to_constructor(node, TL::Type(NULL))
-            && node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().empty());
+    while (node.is<Nodecl::Conversion>())
+        node = node.as<Nodecl::Conversion>().get_nest();
+
+    return (nodecl_calls_to_constructor(node, t)
+            && nodecl_calls_to_constructor_get_arguments(node).empty());
 }
 
 bool CxxBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
 {
+    while (node.is<Nodecl::Conversion>())
+        node = node.as<Nodecl::Conversion>().get_nest();
+
     return (node.is<Nodecl::StructuredValue>()
             && (node.as<Nodecl::StructuredValue>().get_items().is_null()
                 || node.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>().empty()));
 }
-
 
 std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)
 {

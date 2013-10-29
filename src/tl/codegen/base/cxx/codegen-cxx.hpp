@@ -443,8 +443,9 @@ namespace Codegen
             bool same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand);
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, char is_wchar);
-            static bool nodecl_calls_to_constructor(const Nodecl::NodeclBase&, TL::Type t);
-            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node);
+            static bool nodecl_calls_to_constructor(Nodecl::NodeclBase, TL::Type t);
+            static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
+            static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type);
             static bool nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node);
 
             static std::string unmangle_symbol_name(TL::Symbol);
