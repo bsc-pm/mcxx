@@ -1580,6 +1580,15 @@ get_new_function_type(return_type, 0, 0);
 sym___builtin_ia32_emms->entity_specs.is_builtin = 1;
 }
 {
+scope_entry_t* sym___builtin_ia32_pause = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_pause");
+sym___builtin_ia32_pause->kind = SK_FUNCTION;sym___builtin_ia32_pause->do_not_print = 1;
+sym___builtin_ia32_pause->type_information = ({type_t* return_type = get_void_type();
+get_new_function_type(return_type, 0, 0);
+})
+;
+sym___builtin_ia32_pause->entity_specs.is_builtin = 1;
+}
+{
 scope_entry_t* sym___builtin_ia32_fxrstor = new_symbol(decl_context, decl_context.current_scope, "__builtin_ia32_fxrstor");
 sym___builtin_ia32_fxrstor->kind = SK_FUNCTION;sym___builtin_ia32_fxrstor->do_not_print = 1;
 sym___builtin_ia32_fxrstor->type_information = ({type_t* return_type = get_void_type();

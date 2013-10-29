@@ -599,6 +599,7 @@ VECTOR_INTRIN(__builtin_ia32_dppd) \
 VECTOR_INTRIN(__builtin_ia32_dpps) \
 VECTOR_INTRIN(__builtin_ia32_dpps256) \
 VECTOR_INTRIN(__builtin_ia32_emms) \
+VECTOR_INTRIN(__builtin_ia32_pause) \
 VECTOR_INTRIN(__builtin_ia32_fxrstor) \
 VECTOR_INTRIN(__builtin_ia32_fxrstor64) \
 VECTOR_INTRIN(__builtin_ia32_fxsave) \
