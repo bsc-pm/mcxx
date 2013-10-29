@@ -6393,7 +6393,7 @@ type_t* reference_type_get_referenced_type(type_t* t1)
     return t1->pointer->pointee;
 }
 
-// Remove the reference type, returning the referenced type
+// Transforms T& or T&& into T
 type_t* no_ref(type_t* t)
 {
     if (t == NULL)
@@ -6405,10 +6405,14 @@ type_t* no_ref(type_t* t)
     return t;
 }
 
+// Transforms T or T&& into T&
 type_t* lvalue_ref(type_t* t)
 {
     if (!is_any_reference_type(t))
         return get_lvalue_reference_type(t);
+    else if (is_rvalue_reference_type(t))
+        return get_lvalue_reference_type(
+                reference_type_get_referenced_type(t));
     return t;
 }
 
@@ -9149,11 +9153,12 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     // Special cases of identity due to how references can be initialized
-    // cv1 T -> const cv2 T&
-    // cv1 T -> cv2 T&&
-    if ((is_lvalue_reference_type(dest)
-            && is_const_qualified_type(reference_type_get_referenced_type(dest)))
-            || is_rvalue_reference_type(dest))
+    if (!is_any_reference_type(orig)
+            // cv1 T -> const cv2 T&
+            && ((is_lvalue_reference_type(dest)
+                    && is_const_qualified_type(reference_type_get_referenced_type(dest)))
+                // cv1 T -> cv2 T&&
+                || is_rvalue_reference_type(dest)))
     {
         type_t* unqualif_orig = get_unqualified_type(orig);
         type_t* unqualif_dest = get_unqualified_type(
@@ -9163,8 +9168,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         (*result) = identity_scs(t_orig, t_dest);
 
+        // Here we compute
+        // cv1 T -> T
         char ok = 0;
-        if (standard_conversion_between_types(&conversion_among_lvalues, no_ref(orig), unqualif_dest))
+        if (standard_conversion_between_types(&conversion_among_lvalues, orig, unqualif_dest))
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
             (*result).conv[1] = conversion_among_lvalues.conv[1];
@@ -9191,33 +9198,13 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 }
             }
 
-            if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
+            if (is_more_cv_qualified_type(no_ref(dest), orig))
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
 
             return 1;
         }
-    }
-    // cv1 T1& -> cv2 T1&&
-    if (is_lvalue_reference_type(orig)
-            && is_rvalue_reference_type(dest)
-            && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(orig)),
-                get_unqualified_type(reference_type_get_referenced_type(dest)))
-            && is_more_or_equal_cv_qualified_type(reference_type_get_referenced_type(dest),
-                reference_type_get_referenced_type(orig)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a lvalue\n");
-        }
-        (*result) = identity_scs(t_orig, t_dest);
-        if (is_more_cv_qualified_type(reference_type_get_referenced_type(dest),
-                    reference_type_get_referenced_type(orig)))
-        {
-            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
-        }
-        return 1;
     }
 
     // C only
@@ -9271,7 +9258,34 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             (*result) = identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCS: This is a binding to a reference by means of lvalue\n");
+                fprintf(stderr, "SCS: This is a binding to a lvalue-reference by means of a lvalue-reference\n");
+            }
+            if (is_more_cv_qualified_type(ref_dest, ref_orig))
+                    (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            return 1;
+        }
+    }
+
+    // cv1 T1&& -> cv2 T2&&
+    if (is_rvalue_reference_type(orig)
+            && is_rvalue_reference_type(dest))
+    {
+        type_t* ref_dest = reference_type_get_referenced_type(dest);
+        type_t* ref_orig = reference_type_get_referenced_type(orig);
+
+        type_t* unqualif_ref_orig = get_unqualified_type(ref_orig);
+        type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
+
+        if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
+                    || (is_class_type(unqualif_ref_dest)
+                        && is_class_type(unqualif_ref_orig)
+                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)))
+                && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
+        {
+            (*result) = identity_scs(t_orig, t_dest);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a rvalue-reference\n");
             }
             if (is_more_cv_qualified_type(ref_dest, ref_orig))
                     (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
