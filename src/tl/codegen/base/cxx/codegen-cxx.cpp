@@ -5940,11 +5940,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         std::string exception_spec = exception_specifier_to_str(symbol);
 
-        std::string virt_specifiers
-
-        indent();
-        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers 
-            << pure_spec << asm_specification << gcc_attributes << ";\n";
+        std::string virt_specifiers;
 
         if (symbol.is_member())
         {
@@ -5957,6 +5953,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 virt_specifiers += " final";
             }
         }
+
+        indent();
+        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers 
+            << pure_spec << asm_specification << gcc_attributes << ";\n";
 
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
