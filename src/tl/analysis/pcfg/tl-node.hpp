@@ -34,11 +34,8 @@
 #include "tl-builtin.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
-#include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-pcfg-utils.hpp"
-#include "tl-objectlist.hpp"
-#include "tl-structures.hpp"
 
 namespace TL  {
 namespace Analysis {

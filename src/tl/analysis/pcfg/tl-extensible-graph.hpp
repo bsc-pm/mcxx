@@ -215,17 +215,17 @@ namespace Analysis {
         * \return The new node created
         */
         Node* append_new_node_to_parent( ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS);
+                                         Node_type ntype = __Normal, Edge_type etype = __Always);
 
 
         Node* append_new_node_to_parent( Node* parent, Nodecl::NodeclBase nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
+                                         Node_type ntype = __Normal, Edge_type etype = __Always );
 
         Node* append_new_node_to_parent( Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
+                                         Node_type ntype = __Normal, Edge_type etype = __Always );
 
         Node* append_new_node_to_parent( ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
+                                         Node_type ntype = __Normal, Edge_type etype = __Always );
 
         //! Connects two nodes by creating a new edge between them.
         /*!
@@ -238,7 +238,7 @@ namespace Analysis {
         *                     Thus, the edge will have special type _TASK_EDGE
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = ALWAYS, std::string label = "",
+        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, std::string label = "",
                              bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
@@ -261,7 +261,7 @@ namespace Analysis {
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
-        void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = ALWAYS,
+        void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = __Always,
                             std::string label = "" );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.

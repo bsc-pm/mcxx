@@ -429,44 +429,44 @@ namespace {
     {
         switch( current->get_graph_type( ) )
         {
-            case ASM_DEF:
+            case __AsmDef:
                 dot_graph += indent + "color=lightsteelblue;\n";
                 break;
-            case COND_EXPR:
-            case FUNC_CALL:
-            case IF_ELSE:
-            case SPLIT_STMT:
-            case SWITCH:
+            case __CondExpr:
+            case __FuncCall:
+            case __IfElse:
+            case __SplitStmt:
+            case __Switch:
                 dot_graph += indent + "color=grey45;\n";
                 break;
-            case LOOP_DOWHILE:
-            case LOOP_FOR:
-            case LOOP_WHILE:
+            case __LoopDoWhile:
+            case __LoopFor:
+            case __LoopWhile:
                 dot_graph += indent + "color=maroon4;\n";
                 break;
-            case EXTENSIBLE_GRAPH:
+            case __ExtensibleGraph:
                 dot_graph += indent + "color=white;\n";
                 break;
-            case OMP_ATOMIC:
-            case OMP_CRITICAL:
-            case OMP_LOOP:
-            case OMP_PARALLEL:
-            case OMP_SECTION:
-            case OMP_SECTIONS:
-            case OMP_SINGLE:
-            case OMP_WORKSHARE:
-            case OMP_TASK:
-            case OMP_MASTER:
+            case __OmpAtomic:
+            case __OmpCritical:
+            case __OmpLoop:
+            case __OmpParallel:
+            case __OmpSection:
+            case __OmpSections:
+            case __OmpSingle:
+            case __OmpWorkshare:
+            case __OmpTask:
+            case __OmpMaster:
                 dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
                 break;
-            case OMP_SIMD:
-            case OMP_SIMD_FOR:
-            case OMP_SIMD_PARALLEL_FOR:
-            case OMP_SIMD_FUNCTION:
+            case __OmpSimd:
+            case __OmpSimdFor:
+            case __OmpSimdParallelFor:
+            case __OmpSimdFunction:
                 dot_graph += indent + "color=indianred2;\n";
                 break;
-            case VECTOR_COND_EXPR:
-            case VECTOR_FUNC_CALL:
+            case __VectorCondExpr:
+            case __VectorFuncCall:
                 dot_graph += indent + "color=limegreen;\n";
             default:
                 internal_error( "Unexpected node %d type while printing dot\n", current->get_graph_type() );
@@ -485,66 +485,66 @@ namespace {
 
         switch( current->get_type( ) )
         {
-            case ENTRY:
+            case __Entry:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY \\n" + "\", shape=box, fillcolor=lightgray, style=filled];\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
-            case EXIT:
+            case __Exit:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
-            case UNCLASSIFIED_NODE:
+            case __UnclassifiedNode:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] UNCLASSIFIED_NODE\"]\n";
                 break;
             }
-            case OMP_BARRIER:
+            case __OmpBarrier:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
                 break;
             }
-            case OMP_FLUSH:
+            case __OmpFlush:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] FLUSH\", shape=ellipse]\n";
                 break;
             }
-            case OMP_TASKWAIT:
+            case __OmpTaskwait:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
                 break;
             }
-            case OMP_WAITON_DEPS:
+            case __OmpWaitonDeps:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] WAITON_DEPS\", shape=ellipse]\n";
                 break;
             }
-            case OMP_VIRTUAL_TASKSYNC:
+            case __OmpVirtualTaskSync:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
                 break;
             }
-            case OMP_TASK_CREATION:
+            case __OmpTaskCreation:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASK_CREATION\", shape=ellipse]\n";
                 break;
             }
-            case BREAK:
+            case __Break:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond]\n";
                 break;
             }
-            case CONTINUE:
+            case __Continue:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond]\n";
                 break;
             }
-            case ASM_OP:
-            case GOTO:
-            case NORMAL:
-            case LABELED:
-            case FUNCTION_CALL:
+            case __AsmOp:
+            case __Goto:
+            case __Normal:
+            case __Labeled:
+            case __FunctionCall:
             {
                 // Get the Statements within the BB
                 ObjectList<Nodecl::NodeclBase> node_block = current->get_statements( );

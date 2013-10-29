@@ -30,7 +30,7 @@
 #define TL_EDGE_HPP
 
 #include "tl-builtin.hpp"
-#include "tl-structures.hpp"
+#include "tl-pcfg-utils.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -50,12 +50,12 @@ namespace Analysis {
         /*!
         * A new edge connecting to nodes is built.
         * This method does not modify the information of source and target nodes.
-        * \param source Pointer to the source node of the new edge
-        * \param target Pointer to the target node of the new edge
-        * \param is_task Boolean indicating whether the edge target is a Task
-        * \param type Type of the new edge, belonging to the enum Edge_type
-        * \param label Additional argument, when the edge will not be always taken in the graph
-        *              flow. It indicates the condition of the edge.
+        * \param source         Pointer to the source node of the new edge
+        * \param target         Pointer to the target node of the new edge
+        * \param is_task_edge   Boolean indicating whether the edge target is a Task
+        * \param type           Type of the new edge, belonging to the enum Edge_type
+        * \param label          Additional argument, when the edge will not be always taken in the graph
+        *                       flow. It indicates the condition of the edge.
         */
         Edge( Node *source, Node *target, bool is_task_edge, Edge_type type, std::string label = "" );
 

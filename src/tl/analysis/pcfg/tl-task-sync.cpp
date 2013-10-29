@@ -355,7 +355,7 @@ namespace {
         }
 
         // Target (taskwait)
-        ERROR_CONDITION(target->get_type() != OMP_WAITON_DEPS, "Invalid node", 0);
+        ERROR_CONDITION(target->get_type() != __OmpWaitonDeps, "Invalid node", 0);
         TL::ObjectList<Nodecl::NodeclBase> task_node_target_stmts = target->get_statements();
         ERROR_CONDITION(task_node_target_stmts.size() != 1, "Invalid list of statements", 0);
         Nodecl::NodeclBase taskwait_node_target = task_node_target_stmts[0];
@@ -904,13 +904,13 @@ namespace {
 #ifdef TASK_SYNC_DEBUG
                 std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
 #endif
-                Edge* edge = _graph->connect_nodes(it->first, (*jt).first, ALWAYS, "", /*is task edge*/ true);
+                Edge* edge = _graph->connect_nodes(it->first, (*jt).first, __Always, "", /*is task edge*/ true);
                 edge->set_label(sync_kind_to_str((*jt).second));
             }
         }
 
         Node* post_sync = _graph->create_unconnected_node(Nodecl::NodeclBase::null());
-        post_sync->set_type(OMP_VIRTUAL_TASKSYNC);
+        post_sync->set_type(__OmpVirtualTaskSync);
 
         Node* exit = root->get_graph_exit_node();
         for (AliveTaskSet::iterator it = exit->get_live_in_tasks().begin();
@@ -922,7 +922,7 @@ namespace {
 #ifdef TASK_SYNC_DEBUG
                 std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
 #endif
-                Edge* edge = _graph->connect_nodes(it->node, post_sync, ALWAYS, "", /*is task edge*/ true);
+                Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always, "", /*is task edge*/ true);
                 edge->set_label(sync_kind_to_str(Sync_post));
             }
         }
