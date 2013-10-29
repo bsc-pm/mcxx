@@ -773,10 +773,27 @@ static void copy_target_info_from_params_to_args(
         TL::Symbol implementor = it->first;
         TL::Nanox::TargetInformation target_info = it->second;
 
+        // Create a new param_to_arg_expr map for every implementation
+        TL::ObjectList<TL::Symbol> impl_parameters = implementor.get_function_parameters();
+        sym_to_argument_expr_t impl_param_to_arg_expr;
+        for (sym_to_argument_expr_t::const_iterator it2 = param_to_arg_expr.begin();
+                it2 != param_to_arg_expr.end();
+                ++it2)
+        {
+            TL::Symbol current_param = it2->first;
+            Nodecl::NodeclBase current_argum = it2->second;
+
+            ERROR_CONDITION(!current_param.is_parameter(), "Unreachable code", 0);
+
+            int param_pos = current_param.get_parameter_position();
+            TL::Symbol impl_current_param = impl_parameters[param_pos];
+            impl_param_to_arg_expr[impl_current_param] = current_argum;
+        }
+
         ObjectList<Nodecl::NodeclBase> new_ndrange_args =
             capture_the_values_of_these_expressions(
                     target_info.get_ndrange(),
-                    param_to_arg_expr,
+                    impl_param_to_arg_expr,
                     "ndrange",
                     arguments_outline_info,
                     outline_register_entities,
@@ -786,7 +803,7 @@ static void copy_target_info_from_params_to_args(
         ObjectList<Nodecl::NodeclBase> new_shmem_args =
             capture_the_values_of_these_expressions(
                     target_info.get_shmem(),
-                    param_to_arg_expr,
+                    impl_param_to_arg_expr,
                     "shmem",
                     arguments_outline_info,
                     outline_register_entities,
