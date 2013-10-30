@@ -784,6 +784,13 @@ char deduce_template_arguments_common(
         deduced_arguments.deduction_list[i_deductions]->num_deduced_parameters = 1;
         _deduced_parameters[i_deductions] = &_deduced_parameters_values[i_deductions];
         deduced_arguments.deduction_list[i_deductions]->deduced_parameters = &(_deduced_parameters[i_deductions]);
+
+        deduced_arguments.deduction_list[i_deductions]->parameter_name =
+            template_parameters->parameters[i_deductions]->entry->symbol_name;
+        deduced_arguments.deduction_list[i_deductions]->parameter_position =
+            template_parameters->parameters[i_deductions]->entry->entity_specs.template_parameter_position;
+        deduced_arguments.deduction_list[i_deductions]->parameter_nesting =
+            template_parameters->parameters[i_deductions]->entry->entity_specs.template_parameter_nesting;
     }
 
     for (i_deductions = 0; i_deductions < num_deduction_slots; i_deductions++)
@@ -811,9 +818,6 @@ char deduce_template_arguments_common(
             if (result_deduction->kind == TPK_UNKNOWN)
             {
                 result_deduction->kind = current_deduction->kind;
-                result_deduction->parameter_name = current_deduction->parameter_name;
-                result_deduction->parameter_position = current_deduction->parameter_position;
-                result_deduction->parameter_nesting = current_deduction->parameter_nesting;
 
                 *(result_deduction->deduced_parameters[0]) = *current_deduced_parameter;
             }
