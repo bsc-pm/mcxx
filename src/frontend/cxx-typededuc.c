@@ -1157,8 +1157,12 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     int relevant_arguments = num_arguments;
     int relevant_parameters = num_parameters;
 
-    type_t** parameter_types = counted_xcalloc(relevant_parameters, sizeof(*parameter_types), &_bytes_typededuc);
-    type_t** argument_types = counted_xcalloc(relevant_arguments, sizeof(*argument_types), &_bytes_typededuc);
+    // This one will keep P's adjusted
+    type_t** parameter_types = counted_xcalloc(relevant_parameters,
+            sizeof(*parameter_types), &_bytes_typededuc);
+    // This one keeps A's adjusted
+    type_t** argument_types = counted_xcalloc(relevant_arguments,
+            sizeof(*argument_types), &_bytes_typededuc);
 
     int i_arg = 0;
     int i_param = 0;
@@ -1299,13 +1303,14 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         }
         else
         {
-            // Once we have modified the expanded type, convert it back to an expansion type
-            // otherwise we would lose track of it
-            parameter_types[i_param] = get_pack_type(current_parameter_type);
+            // Once we have modified the expanded type, convert it back to an
+            // expansion type otherwise we would lose track of it
+            parameter_types[i_param] = get_pack_type(parameter_types[i_param]);
         }
     }
 
-
+    // This function modifies parameter_types using the
+    // explicit_template_parameters
     if (!deduce_template_arguments_common(template_parameters,
                 type_template_parameters,
                 argument_types, relevant_arguments,
@@ -1330,7 +1335,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     while (i_arg < relevant_arguments
             && i_param < relevant_parameters)
     {
-        type_t* original_parameter_type = parameter_types[i_param];
+        type_t* original_parameter_type =
+            function_type_get_parameter_type_num(specialized_type, i_param);
+        type_t* adjusted_parameter_type = parameter_types[i_arg];
 
         int number_of_args = 1;
 
@@ -1349,7 +1356,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         }
 
         type_t* updated_type =
-            update_type(original_parameter_type,
+            update_type(adjusted_parameter_type,
                     updated_context,
                     locus);
 
@@ -1361,11 +1368,18 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         for (current_arg = i_arg; current_arg < (i_arg + number_of_args); current_arg++)
         {
             type_t* current_type = updated_type;
+            type_t* current_parameter_type = adjusted_parameter_type;
+            type_t* current_original_parameter_type = original_parameter_type;
 
             if (is_sequence_of_types(current_type))
             {
                 // Unpack this type
                 current_type = sequence_of_types_get_type_num(current_type, current_arg - i_arg);
+            }
+
+            if (is_pack_type(current_original_parameter_type))
+            {
+                current_original_parameter_type = pack_type_get_packed_type(current_original_parameter_type);
             }
 
             if (is_unresolved_overloaded_type(argument_types[current_arg])
@@ -1379,10 +1393,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 if (is_pointer_type(argument_types[current_arg]))
                     unresolved_type = pointer_type_get_pointee_type(argument_types[current_arg]);
 
-                scope_entry_list_t* unresolved_set = 
+                scope_entry_list_t* unresolved_set =
                     unresolved_overloaded_type_get_overload_set(unresolved_type);
 
-                scope_entry_t* solved_function = solved_function = address_of_overloaded_function(
+                scope_entry_t* solved_function = address_of_overloaded_function(
                         unresolved_set,
                         unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                         current_type,
@@ -1395,10 +1409,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     // Some adjustment goes here so the equivalent_types check below works.
                     // We mimic the adjustments performed before
                     //
-                    type_t* original_parameter = 
-                        function_type_get_parameter_type_num(specialized_type, current_arg);
-
-                    if (!is_lvalue_reference_type(original_parameter))
+                    if (!is_lvalue_reference_type(current_parameter_type))
                     {
                         // If it is not a reference convert from function to pointer
                         if (!solved_function->entity_specs.is_member
@@ -1429,8 +1440,6 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                             print_declarator(argument_types[current_arg]));
                 }
                 // We have to check several things before giving up so early
-                type_t* original_parameter = 
-                    function_type_get_parameter_type_num(specialized_type, current_arg);
                 char ok = 0;
 
                 // This case must be valid and overload will stop if not
@@ -1447,21 +1456,19 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 // }
                 //
                 // Here we would see that 'unsigned int' (argument type) is not exactly 'int' (parameter type)
-                // and fail. So if the parameter type (original_parameter) is not dependent, allow this case
-
-                if (!is_dependent_type(original_parameter)
-                        // Nothing can be deduced from a dependent typename either
-                        || is_dependent_typename_type(original_parameter))
+                // and fail. So if the parameter type (current_parameter_type) is not dependent, allow this case
+                if (!is_dependent_type(parameter_types[i_param])
+                        // (???) Nothing can be deduced from a dependent typename either
+                        || is_dependent_typename_type(parameter_types[i_param]))
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: But the original parameter type '%s' was not dependent so "
                                 "it did not play any role in the overall deduction\n",
-                                print_declarator(original_parameter));
+                                print_declarator(current_parameter_type));
                     }
                     ok = 1;
                 }
-
                 // So, this case is not valid (obviously)
                 //
                 // template <typename _T>
@@ -1473,10 +1480,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 //   f(a); <-- won't match the template since the deduced 'A' is (int&) and we are passing (const int&)
                 // }
                 //
-                else if (is_lvalue_reference_type(original_parameter)
+                else if (is_lvalue_reference_type(current_original_parameter_type)
                         && equivalent_types(
-                            get_unqualified_type(no_ref(current_type)), 
-                            get_unqualified_type(no_ref(argument_types[current_arg])))
+                            get_unqualified_type(current_type), 
+                            get_unqualified_type(argument_types[current_arg]))
                         && is_more_or_equal_cv_qualified_type(current_type, argument_types[current_arg]))
                 {
                     DEBUG_CODE()

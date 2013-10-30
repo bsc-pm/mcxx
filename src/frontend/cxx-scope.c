@@ -2593,6 +2593,10 @@ static type_t* update_pack_type(type_t* pack_type, decl_context_t decl_context, 
                 decl_context,
                 locus,
                 i);
+        types[i] = get_cv_qualified_type(types[i],
+                // Add cv-qualification
+                get_cv_qualifier(types[i])
+                | get_cv_qualifier(pack_type_get_packed_type(pack_type)));
         if (types[i] == NULL)
         {
             xfree(types);
