@@ -12320,3 +12320,20 @@ char is_auto_type(type_t* t)
     return t != NULL
         && t->kind == TK_AUTO;
 }
+
+parameter_info_t get_parameter_info_for_type(type_t* t)
+{
+    parameter_info_t parameter_info;
+    memset(&parameter_info, 0, sizeof(parameter_info));
+
+    parameter_info.nonadjusted_type_info = t;
+    if (is_function_type(t))
+        t = get_pointer_type(t);
+    else if (is_array_type(t))
+        t = get_pointer_type(array_type_get_element_type(t));
+
+    parameter_info.type_info = get_unqualified_type(t);
+
+    return parameter_info;
+}
+

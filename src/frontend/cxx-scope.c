@@ -2534,11 +2534,7 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
             // Technically this should not happen, do it anyway
             param_orig_type = update_type_for_auto(param_orig_type, template_parameter);
 
-            parameter_info_t parameter_info;
-
-            memset(&parameter_info, 0, sizeof(parameter_info));
-            parameter_info.type_info = param_orig_type;
-
+            parameter_info_t parameter_info = get_parameter_info_for_type(param_orig_type);
             P_LIST_ADD(parameter_types, num_parameter_types, parameter_info);
         }
 
@@ -3212,11 +3208,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             if (param_orig_type == NULL)
                 return NULL;
 
-            parameter_info_t parameter_info;
-
-            memset(&parameter_info, 0, sizeof(parameter_info));
-            parameter_info.type_info = param_orig_type;
-
+            parameter_info_t parameter_info = get_parameter_info_for_type(param_orig_type);
             P_LIST_ADD(packed_parameter_types, num_packed_parameter_types, parameter_info);
         }
 
@@ -3247,11 +3239,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                     int j, N = sequence_of_types_get_num_types(packed_parameter_types[i].type_info);
                     for (j = 0; j < N; j++)
                     {
-                        parameter_info_t parameter_info;
-
-                        memset(&parameter_info, 0, sizeof(parameter_info));
-                        parameter_info.type_info = sequence_of_types_get_type_num(packed_parameter_types[i].type_info, j);
-
+                        type_t* param_orig_type = sequence_of_types_get_type_num(packed_parameter_types[i].type_info, j);
+                        parameter_info_t parameter_info = get_parameter_info_for_type(param_orig_type);
                         P_LIST_ADD(unpacked_parameter_types, num_unpacked_parameter_types, parameter_info);
                     }
                 }

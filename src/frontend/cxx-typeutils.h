@@ -792,5 +792,7 @@ LIBMCXX_EXTERN const char* print_opencl_vector_type(
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
 
+LIBMCXX_EXTERN parameter_info_t get_parameter_info_for_type(type_t* t);
+
 MCXX_END_DECLS
 #endif // CXX_TYPEUTILS_H
