@@ -296,6 +296,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> identifier_list_kr
 %type<ast> parameter_declaration
 %type<ast> parameter_declaration_list
+%type<ast> parameters_and_qualifiers
+%type<ast> parameter_or_kr_list
 %type<ast> postfix_expression
 %type<ast> primary_expression
 %type<ast> ptr_operator
@@ -1111,23 +1113,38 @@ functional_declarator : attribute_specifier_seq_opt functional_direct_declarator
 }
 ;
 
+// Isolate the ambiguity here
+parameter_or_kr_list : parameter_type_list %merge<ambiguityHandler>
+{
+    $$ = $1;
+}
+| identifier_list %merge<ambiguityHandler>
+{
+    $$ = $1;
+}
+;
+
+parameters_and_qualifiers : '(' parameter_or_kr_list ')'
+{
+    $$ = ASTMake4(AST_PARAMETERS_AND_QUALIFIERS,
+        $2, NULL, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| '(' ')' %merge <ambiguityHandler>
+{
+    $$ = ASTMake4(AST_PARAMETERS_AND_QUALIFIERS,
+        ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, make_locus($1.token_file, $1.token_line, 0), NULL),
+        NULL, NULL, NULL,
+        make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
 functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
-| functional_direct_declarator '(' ')'
+| functional_direct_declarator parameters_and_qualifiers
 {
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, make_locus("", 0, 0), NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ast_get_locus($1), NULL);
-}
-| functional_direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| functional_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 | functional_direct_declarator '[' optional_array_expression ']'
 {
@@ -1147,18 +1164,9 @@ functional_direct_declarator : functional_declarator_id
 }
 ;
 
-functional_declarator_id : functional_final_declarator_id '(' identifier_list ')' %merge<ambiguityHandler>
+functional_declarator_id : functional_final_declarator_id parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| functional_final_declarator_id '(' parameter_type_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| functional_final_declarator_id '(' ')'
-{
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, make_locus("", 0, 0), NULL);
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1250,19 +1258,9 @@ direct_declarator : declarator_id
 {
 	$$ = $1;
 }
-| direct_declarator '(' ')'
+| direct_declarator parameters_and_qualifiers
 {
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, make_locus("", 0, 0), NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ast_get_locus($1), NULL);
-}
-| direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 | direct_declarator '[' optional_array_expression ']'
 {
@@ -1372,25 +1370,13 @@ abstract_direct_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '(' parameter_type_list ')' %merge<ambiguityHandler>
+| parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, NULL, $1, ast_get_locus($1), NULL);
 }
-| abstract_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
+| abstract_direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| '(' ')'
-{
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, make_locus("", 0, 0), NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, empty_parameter, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| abstract_direct_declarator '(' ')'
-{
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, make_locus("", 0, 0), NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 | '[' optional_array_expression ']'
 {

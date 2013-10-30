@@ -9136,11 +9136,26 @@ static void set_function_parameter_clause(type_t** function_type,
  * This function converts a type "T" into a "function (...) returning T" type
  */
 static void set_function_type(type_t** declarator_type,  
-        gather_decl_spec_t* gather_info, AST parameter, AST cv_qualif_tree, AST except_spec, 
+        gather_decl_spec_t* gather_info, AST parameters_and_qualifiers, 
         decl_context_t decl_context, decl_context_t *p_prototype_context,
         nodecl_t* nodecl_output)
 {
     decl_context_t prototype_context;
+
+    AST parameters = ASTSon0(parameters_and_qualifiers);
+    AST extra_stuff = ASTSon1(parameters_and_qualifiers);
+
+    // AST attribute_specifiers = NULL;
+    AST cv_qualif_opt = NULL;
+    // AST ref_qualifier_opt = NULL;
+    AST except_spec = NULL;
+    if (extra_stuff != NULL)
+    {
+        // attribute_specifiers = ASTSon0(extra_stuff);
+        cv_qualif_opt = ASTSon1(extra_stuff);
+        // ref_qualifier_opt = ASTSon2(extra_stuff);
+        except_spec = ASTSon3(extra_stuff);
+    }
 
     if (p_prototype_context == NULL)
     {
@@ -9156,9 +9171,9 @@ static void set_function_type(type_t** declarator_type,
      * FIXME - Many things saved in the type actually belong to the symbol thus
      * hindering type information sharing accross symbols
      */
-    set_function_parameter_clause(declarator_type, parameter, prototype_context, gather_info, nodecl_output);
+    set_function_parameter_clause(declarator_type, parameters, prototype_context, gather_info, nodecl_output);
 
-    cv_qualifier_t cv_qualif = compute_cv_qualifier(cv_qualif_tree);
+    cv_qualifier_t cv_qualif = compute_cv_qualifier(cv_qualif_opt);
 
     *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
 
@@ -9209,7 +9224,7 @@ static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gat
         case AST_DECLARATOR_ID_EXPR :
         case AST_DECLARATOR_ID_PACK :
             {
-                // Do nothing
+                gather_extra_attributes_in_declarator(ASTSon1(a), gather_info, declarator_context);
                 break;
             }
         case AST_AMBIGUITY :
@@ -9292,14 +9307,14 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_FUNC :
             {
-                set_function_type(declarator_type, gather_info, ASTSon1(a), 
-                        ASTSon2(a), ASTSon3(a), entity_context, prototype_context, nodecl_output);
+                set_function_type(declarator_type, gather_info, ASTSon1(a),
+                        entity_context, prototype_context, nodecl_output);
                 if (is_error_type(*declarator_type))
                 {
                     return;
                 }
 
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon0(a), declarator_type,
                         gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
                 break;
             }
@@ -16646,7 +16661,8 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
             }
         case AST_DECLARATOR_FUNC :
             {
-                return ASTSon1(funct_declarator);
+                AST parameters_and_qualifiers = ASTSon1(funct_declarator);
+                return ASTSon0(parameters_and_qualifiers);
                 break;
             }
         default:
@@ -16720,87 +16736,6 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
 
                 // Restart function
                 return get_declarator_id_expression(a, decl_context);
-            }
-        default:
-            {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
-            }
-    }
-}
-
-#if 0
-static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
-{
-    ERROR_CONDITION(a == NULL, "This node cannot be null", 0);
-    ERROR_CONDITION(ASTType(a) == AST_AMBIGUITY, "This node should not be ambiguous here", 0);
-    ERROR_CONDITION(get_declarator_name(a, decl_context) == NULL, "This should be a non-abstract declarator", 0);
-
-    switch(ASTType(a))
-    {
-        case AST_INIT_DECLARATOR :
-        case AST_MEMBER_DECLARATOR :
-        case AST_DECLARATOR :
-        case AST_PARENTHESIZED_DECLARATOR :
-            {
-                return advance_over_declarator_nests(ASTSon0(a), decl_context); 
-                break;
-            }
-            // Note: GCC declarators are not advanced as we want their attributes
-            // to be visible later
-        default:
-            return a;
-    }
-}
-#endif
-
-// Returns non-null tree with the leftmost declarator
-// that is not preceded by any other sign 
-//
-//   int f(); // Returns the tree holding 'f'
-//   int (f()); // Returns null
-//   int a[10]; // Returns the tree holding 'a'
-AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
-{
-    if (a == NULL)
-        return NULL;
-
-    switch(ASTType(a))
-    {
-        case AST_DECLARATOR :
-        case AST_MEMBER_DECLARATOR :
-        case AST_INIT_DECLARATOR :
-            {
-                return get_leftmost_declarator_name(ASTSon0(a), decl_context); 
-                break;
-            }
-        case AST_PARENTHESIZED_DECLARATOR :
-            {
-                return NULL;
-            }
-        case AST_POINTER_DECLARATOR :
-            {
-                return NULL;
-            }
-        case AST_DECLARATOR_ARRAY :
-            {
-                return get_leftmost_declarator_name(ASTSon0(a), decl_context);
-                break;
-            }
-        case AST_DECLARATOR_FUNC :
-            {
-                return get_leftmost_declarator_name(ASTSon0(a), decl_context);
-                break;
-            }
-        case AST_DECLARATOR_ID_EXPR :
-            {
-                return ASTSon0(a);
-                break;
-            }
-        case AST_AMBIGUITY :
-            {
-                solve_ambiguous_declarator(a, decl_context);
-                // Restart function
-                return get_leftmost_declarator_name(a, decl_context);
             }
         default:
             {

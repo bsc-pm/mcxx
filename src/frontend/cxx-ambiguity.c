@@ -397,7 +397,7 @@ static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_conte
 /*
  * Ambiguity within a declarator.
  */
-void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
+void solve_ambiguous_declarator(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     CXX_LANGUAGE()
     {
@@ -416,55 +416,6 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
                 // We want the declarator_id_expr
                 choose_option(a, m);
                 return;
-            }
-        }
-    }
-
-    C_LANGUAGE()
-    {
-        // Case for
-        //
-        //   void f(a, b, c);
-        //
-        // we are unsure if this is a K&R-style function
-        // declaration or a proper prototype with all being
-        // abstract declarators
-
-        AST first_option = ast_get_ambiguity(a, 0);
-        AST second_option = ast_get_ambiguity(a, 1);
-
-        if (ASTType(first_option) == AST_DECLARATOR_FUNC
-                && ASTType(second_option) == AST_DECLARATOR_FUNC)
-        {
-            AST parameters = ASTSon1(first_option);
-
-            if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
-            {
-                if (check_kr_parameter_list(parameters, decl_context))
-                {
-                    choose_option(a, 0);
-                    return;
-                }
-                else
-                {
-                    choose_option(a, 1);
-                    return;
-                }
-            }
-
-            parameters = ASTSon1(second_option);
-            if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
-            {
-                if (check_kr_parameter_list(parameters, decl_context))
-                {
-                    choose_option(a, 1);
-                    return;
-                }
-                else
-                {
-                    choose_option(a, 0);
-                    return;
-                }
             }
         }
     }
@@ -1513,7 +1464,7 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
                     return 0;
 
                 // Check for parameters here
-                AST parameter_declaration_clause = ASTSon1(declarator);
+                AST parameter_declaration_clause = ASTSon0(ASTSon1(declarator));
                 if (parameter_declaration_clause != NULL)
                 {
                     if (!check_function_declarator_parameters(parameter_declaration_clause, decl_context))
@@ -2195,29 +2146,36 @@ static char solve_ambiguous_parameter_clause_check_interpretation(
         decl_context_t decl_context UNUSED_PARAMETER,
         void *info UNUSED_PARAMETER)
 {
-    ERROR_CONDITION(ASTType(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
-
     char result = 0;
-
-    AST last = ASTSon1(parameter_clause);
-
-    if (ASTType(last) == AST_VARIADIC_ARG)
+    if (ASTType(parameter_clause) == AST_KR_PARAMETER_LIST)
     {
-        // void f(T...); where T is NOT a parameter pack
-        ERROR_CONDITION(ASTSon0(parameter_clause) == NULL, "Invalid tree", 0);
-        AST before_last = ASTSon1(ASTSon0(parameter_clause));
-        ERROR_CONDITION(before_last == NULL, "Invalid tree", 0);
-        
-        result = !contains_template_parameter_pack(before_last, decl_context);
-    }
-    else if (ASTType(last) == AST_PARAMETER_DECL)
-    {
-        // void f(T...); where T is a parameter pack
-        result = contains_template_parameter_pack(last, decl_context);
+        return check_kr_parameter_list(parameter_clause, decl_context);
     }
     else
     {
-        internal_error("Invalid node %s", ast_print_node_type(ASTType(last)));
+        ERROR_CONDITION(ASTType(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
+
+
+        AST last = ASTSon1(parameter_clause);
+
+        if (ASTType(last) == AST_VARIADIC_ARG)
+        {
+            // void f(T...); where T is NOT a parameter pack
+            ERROR_CONDITION(ASTSon0(parameter_clause) == NULL, "Invalid tree", 0);
+            AST before_last = ASTSon1(ASTSon0(parameter_clause));
+            ERROR_CONDITION(before_last == NULL, "Invalid tree", 0);
+
+            result = !contains_template_parameter_pack(before_last, decl_context);
+        }
+        else if (ASTType(last) == AST_PARAMETER_DECL)
+        {
+            // void f(T...); where T is a parameter pack
+            result = contains_template_parameter_pack(last, decl_context);
+        }
+        else
+        {
+            internal_error("Invalid node %s", ast_print_node_type(ASTType(last)));
+        }
     }
 
     return result;
@@ -2231,6 +2189,8 @@ void solve_ambiguous_parameter_clause(AST parameter_clause, decl_context_t decl_
     //
     // We do not know if T... is a parameter-pack or a T abstract-declarator
     // followed by an ellipsis (int x, T, ...)
+    //
+    // In C99 it also may be caused by KR-identifier lists
     solve_ambiguity_generic(
             parameter_clause,
             decl_context, NULL,
