@@ -5682,6 +5682,12 @@ static char one_function_is_nontrivial(scope_entry_list_t* constructors)
     return found;
 }
 
+static char is_class_type_or_array_thereof(type_t* t)
+{
+    return is_class_type(t)
+        || (is_array_type(t) && is_class_type(array_type_get_element_type(t)));
+}
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
 //
@@ -6020,8 +6026,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 is_const_qualified_type(data_member->type_information)
                 && nodecl_is_null(data_member->value);
 
-            if (is_class_type(data_member->type_information)
-                    || is_array_type(data_member->type_information))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(member_type))
@@ -6092,9 +6097,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             if (!nodecl_is_null(data_member->value))
                 continue;
 
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && array_type_get_element_type(data_member->type_information)))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
@@ -6196,9 +6199,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 scope_entry_t *data_member = entry_list_iterator_current(it);
 
-                if (is_class_type(data_member->type_information)
-                        || (is_array_type(data_member->type_information)
-                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                if (is_class_type_or_array_thereof(data_member->type_information))
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
@@ -6282,9 +6283,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
 
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
@@ -6390,9 +6389,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
 
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
@@ -6531,9 +6528,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
@@ -6581,9 +6576,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
@@ -6678,9 +6671,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
 
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
@@ -6743,9 +6734,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* data_member = entry_list_iterator_current(it);
-                if (is_class_type(data_member->type_information)
-                        || (is_array_type(data_member->type_information)
-                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                if (is_class_type_or_array_thereof(data_member->type_information))
                 {
                     type_t* member_type = data_member->type_information;
                     if (is_array_type(member_type))
@@ -6764,9 +6753,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
-            if (!is_class_type(data_member->type_information)
-                    && !(is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (!is_class_type_or_array_thereof(data_member->type_information))
             {
                 has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
             }
@@ -6787,9 +6774,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(member_type))
@@ -6859,9 +6844,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 scope_entry_t *data_member = entry_list_iterator_current(it);
 
-                if (is_class_type(data_member->type_information)
-                        || (is_array_type(data_member->type_information)
-                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                if (is_class_type_or_array_thereof(data_member->type_information))
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
@@ -6945,9 +6928,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* data_member = entry_list_iterator_current(it);
-                if (is_class_type(data_member->type_information)
-                        || (is_array_type(data_member->type_information)
-                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                if (is_class_type_or_array_thereof(data_member->type_information))
                 {
                     type_t* member_type = data_member->type_information;
                     if (is_array_type(member_type))
@@ -6966,9 +6947,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
-            if (!is_class_type(data_member->type_information)
-                    && !(is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (!is_class_type_or_array_thereof(data_member->type_information))
             {
                 has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
             }
@@ -6989,9 +6968,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(member_type))
@@ -7035,9 +7012,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t* data_member = entry_list_iterator_current(it);
 
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
 
@@ -7100,9 +7075,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 scope_entry_t *data_member = entry_list_iterator_current(it);
 
-                if (is_class_type(data_member->type_information)
-                        || (is_array_type(data_member->type_information)
-                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                if (is_class_type_or_array_thereof(data_member->type_information))
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
@@ -7200,9 +7173,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_iterator_next(it))
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
-            if (is_class_type(data_member->type_information)
-                    || (is_array_type(data_member->type_information)
-                        && is_class_type(array_type_get_element_type(data_member->type_information))))
+            if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
