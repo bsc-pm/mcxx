@@ -16673,6 +16673,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
                         && is_function_type(template_type_get_primary_type(related_symbol->type_information))))
             {
                 valid = 1;
+                should_be_a_constant_expression = 0;
             }
         }
     }
