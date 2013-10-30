@@ -68,6 +68,8 @@ HANDLER_PROTOTYPE(abstract_array_declarator_handler);
 HANDLER_PROTOTYPE(abstract_declarator_function_handler);
 HANDLER_PROTOTYPE(null_handler);
 HANDLER_PROTOTYPE(parameter_decl_handler);
+HANDLER_PROTOTYPE(parameters_and_qualifiers_handler);
+HANDLER_PROTOTYPE(parameters_and_qualifiers_extra_handler);
 HANDLER_PROTOTYPE(init_declarator_handler);
 HANDLER_PROTOTYPE(pointer_decl_handler);
 HANDLER_PROTOTYPE(type_id_handler);
@@ -241,6 +243,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VARIADIC_ARG, simple_parameter_handler, "..."),
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
+    NODE_HANDLER(AST_PARAMETERS_AND_QUALIFIERS, parameters_and_qualifiers_handler, NULL),
+    NODE_HANDLER(AST_PARAMETERS_AND_QUALIFIERS_EXTRA, parameters_and_qualifiers_extra_handler, NULL),
     NODE_HANDLER(AST_PARENTHESIZED_INITIALIZER, parenthesized_initializer_handler, NULL),
     NODE_HANDLER(AST_EQUAL_INITIALIZER, prefix_with_parameter_then_son_handler, " = "),
     NODE_HANDLER(AST_INITIALIZER_BRACES, braced_initializer_handler, NULL),
@@ -969,6 +973,28 @@ static void parameter_decl_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
         token_fprintf(f, a, pt_ctx, " = ");
         prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
+}
+
+static void parameters_and_qualifiers_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "(");
+    list_handler(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+}
+
+static void parameters_and_qualifiers_extra_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+    if (ASTSon0(a) != NULL)
+        token_fprintf(f, a, pt_ctx, " ");
+    spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
+    if (ASTSon1(a) != NULL)
+        token_fprintf(f, a, pt_ctx, " ");
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    if (ASTSon2(a) != NULL)
+        token_fprintf(f, a, pt_ctx, " ");
+    prettyprint_level(f, ASTSon3(a), pt_ctx);
 }
 
 static void prefix_with_token_text_then_son_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

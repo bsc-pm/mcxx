@@ -16627,6 +16627,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
 
     scope_entry_t* related_symbol = NULL;
 
+    char should_be_a_constant_expression = 1;
     char valid = 0;
     if (nodecl_get_kind(nodecl_expr) == NODECL_SYMBOL
             && nodecl_get_symbol(nodecl_expr)->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
@@ -16662,6 +16663,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
             if (!lacks_ref)
             {
                 valid = 1;
+                should_be_a_constant_expression = 0;
             }
             else if ((related_symbol->kind == SK_VARIABLE 
                         && (is_array_type(related_symbol->type_information) 
@@ -16677,6 +16679,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
     else if (is_unresolved_overloaded_type(expr_type))
     {
         valid = 1;
+        should_be_a_constant_expression = 0;
     }
     else if (is_pointer_to_member_type(no_ref(expr_type)))
     {
@@ -16686,6 +16689,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         if (related_symbol != NULL)
         {
             valid = 1;
+            should_be_a_constant_expression = 0;
         }
     }
 
@@ -16702,7 +16706,8 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         return 0;
     }
 
-    if (!nodecl_is_constant(nodecl_expr))
+    if (should_be_a_constant_expression
+            && !nodecl_is_constant(nodecl_expr))
     {
         if (!checking_ambiguity())
         {
