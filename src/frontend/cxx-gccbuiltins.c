@@ -226,7 +226,7 @@ DEF_POINTER_VOLATILE_TYPE(BT_VPTR_INT, BT_VOID)
 
 static type_t* adjust_type_for_parameter_type(type_t* orig)
 {
-    type_t* result = get_unqualified_type(orig);
+    type_t* result = orig;
 
     if (is_function_type(result))
     {
@@ -237,7 +237,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
         result = get_pointer_type(array_type_get_element_type(result));
     }
 
-    return result;
+    return get_unqualified_type(result);
 }
 
 
