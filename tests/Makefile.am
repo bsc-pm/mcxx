@@ -87,6 +87,7 @@ CORE_DIRS=\
 		$(BETS_DIRS)/01_parser.dg \
 		$(BETS_DIRS)/02_typecalc_c.dg \
 		$(BETS_DIRS)/02_typecalc_cxx.dg \
+		$(BETS_DIRS)/02_typecalc_cxx11.dg \
 		$(BETS_DIRS)/03_extensions_c.dg \
 		$(BETS_DIRS)/03_extensions_cxx.dg \
 		$(BETS_DIRS)/04_compat_cxx0x.dg \
