@@ -537,7 +537,8 @@ char deduce_template_arguments_common(
         //  void f(int, _Q); <-- this is what we solve now
         //
 
-        for (j = 0; j < num_parameters; j++)
+        for (j = 0; j < num_parameters
+                && j < num_arguments; j++)
         {
             type_t* updated_parameter = NULL;
             updated_parameter = update_type(parameters[j],
@@ -1409,7 +1410,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     // Some adjustment goes here so the equivalent_types check below works.
                     // We mimic the adjustments performed before
                     //
-                    if (!is_lvalue_reference_type(current_parameter_type))
+                    if (!is_lvalue_reference_type(current_original_parameter_type))
                     {
                         // If it is not a reference convert from function to pointer
                         if (!solved_function->entity_specs.is_member
