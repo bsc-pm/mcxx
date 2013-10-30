@@ -16973,6 +16973,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         if (argument == NULL)
         {
             result = nodecl_shallow_copy(node);
+            nodecl_expr_set_is_value_dependent(result,
+                    nodecl_expr_is_value_dependent(node));
+            nodecl_expr_set_is_type_dependent(result,
+                    nodecl_expr_is_type_dependent(node));
         }
         else if (argument->kind == SK_VARIABLE)
         {
@@ -16982,7 +16986,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         {
             result = nodecl_make_symbol(argument, nodecl_get_locus(node));
             nodecl_set_type(result, nodecl_get_type(node));
-            nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+            nodecl_expr_set_is_value_dependent(result,
+                    nodecl_expr_is_value_dependent(node));
+            nodecl_expr_set_is_type_dependent(result,
+                    nodecl_expr_is_type_dependent(node));
         }
         else
         {
