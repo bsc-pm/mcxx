@@ -1610,13 +1610,13 @@ class_head : class_key
 // GNU Extensions
 | class_key attribute_specifier_seq
 {
-    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, NULL, NULL, $2, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, $2, NULL, NULL, ast_get_locus($1), NULL);
 
 	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, class_head_extra, ast_get_locus($1), NULL);
 }
 | class_key attribute_specifier_seq IDENTIFIER
 {
-    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, NULL, NULL, $2, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, $2, NULL, NULL, ast_get_locus($1), NULL);
 
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, identifier, NULL, class_head_extra, ast_get_locus($1), NULL);
