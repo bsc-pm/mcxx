@@ -112,8 +112,27 @@ namespace {
         return result;
     }
     
-    void check_pcfg_consistency_rec( Node* current )
-    {   // TODO
+    void check_task_synchronizations( Node* current )
+    {
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+            
+            if( current->is_omp_task_creation_node( ) )
+            {   // This nodes have two children, the task they create and the child that is sequentially executed
+                ObjectList<Node*> children = current->get_children( );
+                ERROR_CONDITION( children.size( ) != 2, 
+                                 "A task creation node must have 2 children, the created task and "\
+                                 "the node that is sequentially executed. "\
+                                 "Task creation node %d has %d children", current->get_id( ), children.size( ) );
+            }
+            else if( current->is_omp_task_node( ) )
+            {
+                ObjectList<Node*> children = current->get_children( );
+                ERROR_CONDITION( children.empty( ), 
+                                 "Task %d is never synchronized", current->get_id( ) );
+            }
+        }
     }
     
     void compare_assert_set_with_analysis_set( Utils::ext_sym_set assert_set, Utils::ext_sym_set analysis_set, 
@@ -542,8 +561,9 @@ namespace {
     void AnalysisCheckPhase::check_pcfg_consistency( ExtensibleGraph* graph )
     {
         Node* graph_node = graph->get_graph( );
-        check_pcfg_consistency_rec( graph_node );
+        check_task_synchronizations( graph_node );
         ExtensibleGraph::clear_visits( graph_node );
+        
     }
     
     void AnalysisCheckPhase::check_analysis_assertions( ExtensibleGraph* graph )
