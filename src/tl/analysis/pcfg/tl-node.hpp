@@ -280,6 +280,9 @@ namespace Analysis {
 
             //! Returns true when the node is an OpenMP BARRIER node
             bool is_omp_barrier_node( );
+            
+            //! Returns true when the node contains an OpenMP BARRIER node with its implicit flushes
+            bool is_omp_barrier_graph_node( );
 
             //! Returns true when the node is an OpenMP CRITICAL node
             bool is_omp_critical_node( );

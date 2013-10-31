@@ -324,10 +324,29 @@ namespace Analysis {
     // ************************************************************************************** //
     // ********************************** Visiting methods ********************************** //
 
-    ObjectList<Node*> PCFGVisitor::visit_barrier( )
+    ObjectList<Node*> PCFGVisitor::visit_barrier( const Nodecl::NodeclBase& n )
     {
-        Node* first_flush = _pcfg->create_barrier_node( _utils->_outer_nodes.top( ) );
-        return ObjectList<Node*>( 1, first_flush );
+        Node* barrier_graph = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpBarrierGraph );
+        _pcfg->connect_nodes( _utils->_last_nodes, barrier_graph );
+        
+        Node* barrier_entry = barrier_graph->get_graph_entry_node( );
+        Node* barrier_exit = barrier_graph->get_graph_exit_node( );
+        
+        Node* flush_1 = new Node( _utils->_nid, __OmpFlush, barrier_graph );
+        _pcfg->connect_nodes( barrier_entry, flush_1 );
+        
+        Node* barrier = new Node( _utils->_nid, __OmpBarrier, barrier_graph );
+        _pcfg->connect_nodes( flush_1, barrier );
+        
+        Node* flush_2 = new Node( _utils->_nid, __OmpFlush, barrier_graph );
+        _pcfg->connect_nodes( barrier, flush_2 );
+        
+        barrier_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( flush_2, barrier_exit );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, barrier_graph );
+        return ObjectList<Node*>( 1, barrier_graph );
     }
 
     ObjectList<Node*> PCFGVisitor::visit_binary_node( const Nodecl::NodeclBase& n,
@@ -426,7 +445,8 @@ namespace Analysis {
 
         // Create the new Function Call node and build it
         Node* func_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, 
-                                                          ( _utils->_is_vector ? __VectorFuncCall : __FuncCall ) );
+                                                          ( _utils->_is_vector ? __VectorFunctionCallGraph : 
+                                                                                 __FunctionCallGraph ) );
         if( !_utils->_last_nodes.empty( ) )
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _pcfg->connect_nodes( _utils->_last_nodes, func_graph_node );
@@ -440,14 +460,10 @@ namespace Analysis {
         ObjectList<Node*> arguments_l = walk( args );
         _utils->_is_vector = is_vector;
         if( !arguments_l.empty( ) )
-        {   // Method merge_nodes connects properly the nodes created
             func_node = merge_nodes( n, arguments_l );
-        }
         else
-        {
             func_node = new Node( _utils->_nid, ( _utils->_is_vector ? __VectorFunctionCall : __FunctionCall ), 
                                   func_graph_node, n );
-        }
         _pcfg->connect_nodes( _utils->_last_nodes, func_node );
 
         Node* graph_exit = func_graph_node->get_graph_exit_node( );
@@ -1960,7 +1976,7 @@ namespace Analysis {
         _utils->_last_nodes = exit_parents;
 
         // Create the barrier node
-        visit_barrier( );
+        visit_barrier( n );
         _pcfg->connect_nodes( _utils->_last_nodes[0], environ_exit );
 
         // Restore current info
@@ -1971,7 +1987,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierFull& n )
     {
-        return visit_barrier( );
+        return visit_barrier( n );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::BarrierSignal& n )
@@ -2665,7 +2681,6 @@ namespace Analysis {
         ObjectList<Node*> expression_nodes = walk( n.get_nest( ) );
         _utils->_is_vector = is_vector;
         Node* parenthesized_node = merge_nodes( n, expression_nodes );
-//         _pcfg->connect_nodes( current_last_nodes, parenthesized_node );
         return ObjectList<Node*>( 1, parenthesized_node );
     }
 

@@ -314,21 +314,6 @@ namespace Analysis {
         return result;
     }
 
-    Node* ExtensibleGraph::create_barrier_node( Node* outer_node )
-    {
-        Node* flush_node_1 = new Node( _utils->_nid, __OmpFlush, outer_node );
-        connect_nodes( _utils->_last_nodes, flush_node_1 );
-
-        Node* barrier_node = new Node( _utils->_nid, __OmpBarrier, outer_node );
-        connect_nodes( flush_node_1, barrier_node );
-
-        Node* flush_node_2 = new Node( _utils->_nid, __OmpFlush, outer_node );
-        connect_nodes( barrier_node, flush_node_2 );
-
-        _utils->_last_nodes = ObjectList<Node*>( 1, flush_node_2 );
-        return flush_node_1;
-    }
-
     Node* ExtensibleGraph::create_flush_node( Node* outer_node, Nodecl::NodeclBase n )
     {
         Node* flush_node = new Node( _utils->_nid, __OmpFlush, outer_node );
@@ -986,9 +971,7 @@ namespace Analysis {
                 WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
             }
             else
-            {
                 result = _concurrent_tasks[task];
-            }
         }
         return result;
     }
@@ -997,14 +980,14 @@ namespace Analysis {
     {
         if( _concurrent_tasks.find( task ) != _concurrent_tasks.end( ) )
         {
-            WARNING_MESSAGE( "You are trying to insert a task in the map of synchronous tasks of a PCFG."\
-                             "This should never happen!", 0 );
+            WARNING_MESSAGE( "You are trying to insert a task that already exists in the map of "\
+                             " synchronous tasks of a PCFG. This should never happen so we skip it", 0 );
             return;
         }
         
         _concurrent_tasks[task] = concurrent_tasks;
     }
-
+    
     //! This method returns the most outer node of a node before finding a loop node
     static Node* advance_over_outer_nodes_until_loop( Node* node )
     {

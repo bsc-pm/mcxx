@@ -420,7 +420,7 @@ namespace Analysis {
 
     bool Node::is_function_call_graph_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == __FuncCall ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __FunctionCallGraph ) );
     }
     
     bool Node::is_function_call_node( )
@@ -440,10 +440,10 @@ namespace Analysis {
 
     bool Node::is_omp_node( )
     {
-        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
-                 is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
-                 is_omp_sections_node( ) || is_omp_simd_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || 
-                 is_omp_task_node( ) || is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_barrier_graph_node( ) || is_omp_critical_node( ) || 
+                 is_omp_flush_node( ) || is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || 
+                 is_omp_section_node( ) || is_omp_sections_node( ) || is_omp_simd_node( ) || is_omp_single_node( ) || 
+                 is_omp_task_creation_node( ) || is_omp_task_node( ) || is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
     }
     
     bool Node::is_omp_atomic_node( )
@@ -451,6 +451,11 @@ namespace Analysis {
         return ( is_graph_node( ) && ( get_graph_type( ) == __OmpAtomic ) );
     }
 
+    bool Node::is_omp_barrier_graph_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpBarrierGraph ) );
+    }
+    
     bool Node::is_omp_barrier_node( )
     {
         return ( get_type( ) == __OmpBarrier );
@@ -546,7 +551,7 @@ namespace Analysis {
         if( is_graph_node( ) )
         {
             Graph_type gt = get_graph_type( );
-            if( ( gt == __VectorCondExpr ) || ( gt == __VectorFuncCall ) )
+            if( ( gt == __VectorCondExpr ) || ( gt == __VectorFunctionCallGraph ) )
             {    
                 result = true;
             }

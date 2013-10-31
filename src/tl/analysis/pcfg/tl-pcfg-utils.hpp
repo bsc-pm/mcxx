@@ -86,12 +86,13 @@ namespace Analysis {
     GRAPH_TYPE(AsmDef) \
     GRAPH_TYPE(CondExpr) \
     GRAPH_TYPE(ExtensibleGraph) \
-    GRAPH_TYPE(FuncCall) \
+    GRAPH_TYPE(FunctionCallGraph) \
     GRAPH_TYPE(IfElse) \
     GRAPH_TYPE(LoopDoWhile) \
     GRAPH_TYPE(LoopFor) \
     GRAPH_TYPE(LoopWhile) \
     GRAPH_TYPE(OmpAtomic) \
+    GRAPH_TYPE(OmpBarrierGraph) \
     GRAPH_TYPE(OmpCritical) \
     GRAPH_TYPE(OmpLoop) \
     GRAPH_TYPE(OmpMaster) \
@@ -108,7 +109,7 @@ namespace Analysis {
     GRAPH_TYPE(SplitStmt) \
     GRAPH_TYPE(Switch) \
     GRAPH_TYPE(VectorCondExpr) \
-    GRAPH_TYPE(VectorFuncCall)
+    GRAPH_TYPE(VectorFunctionCallGraph)
     
     enum Graph_type {
         #undef GRAPH_TYPE

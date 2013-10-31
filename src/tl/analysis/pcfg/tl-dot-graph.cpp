@@ -406,7 +406,7 @@ namespace {
                 dot_graph += indent + "color=lightsteelblue;\n";
                 break;
             case __CondExpr:
-            case __FuncCall:
+            case __FunctionCallGraph:
             case __IfElse:
             case __SplitStmt:
             case __Switch:
@@ -421,6 +421,7 @@ namespace {
                 dot_graph += indent + "color=white;\n";
                 break;
             case __OmpAtomic:
+            case __OmpBarrierGraph:
             case __OmpCritical:
             case __OmpLoop:
             case __OmpParallel:
@@ -439,7 +440,7 @@ namespace {
                 dot_graph += indent + "color=indianred2;\n";
                 break;
             case __VectorCondExpr:
-            case __VectorFuncCall:
+            case __VectorFunctionCallGraph:
                 dot_graph += indent + "color=limegreen;\n";
             default:
                 internal_error( "Unexpected node %d type while printing dot\n", current->get_graph_type() );

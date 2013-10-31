@@ -61,7 +61,6 @@ namespace Analysis {
          */
         Scope _sc;
 
-
         /*!While building the CFG, this list keeps information about which variables appear in the graph
          * But no information about their usage is stored
          * When IPA is performed, then the proper information about the usage is stored
@@ -288,16 +287,6 @@ namespace Analysis {
         //! Builds a Flush node and connects it with the existent graph
         Node* create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
 
-        //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
-        /*!
-        * As defined in OpenMP standard, a flush occurs while a barrier point. To describe this behaviour
-        * with the graph, we add a Flush node before and after a Barrier node.
-        * The method modifies the attribute #_last_nodes to the last Flush node created.
-        * \param outer_node Node to which the new nodes will belong to.
-        *                   It must be a Graph node.
-        */
-        Node* create_barrier_node( Node* outer_node );
-
         //! Builds a basic normal node (BASIC_NORMAL_NODE)
         /*!
         * \param nodecl Statement that will be added to the new node
@@ -384,10 +373,12 @@ namespace Analysis {
         void add_func_call_symbol( Symbol s );
 
         ObjectList<Symbol> get_function_calls( ) const;
-
-        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
         
+        // Task synchronization analysis
+        // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
+        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
         void add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks );
+        
         
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );

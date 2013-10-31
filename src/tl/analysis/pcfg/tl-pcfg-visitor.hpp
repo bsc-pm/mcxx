@@ -87,7 +87,7 @@ namespace Analysis {
         // ********************************** Visiting methods ********************************** //
 
         //! This method implements teh visitor for any kind of barrier: BarrierAtEnd, BarrierFull
-        Ret visit_barrier( );
+        Ret visit_barrier( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for binary nodecls
         /*!
