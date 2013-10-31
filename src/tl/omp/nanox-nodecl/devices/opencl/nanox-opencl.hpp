@@ -87,6 +87,11 @@ namespace TL
 
              virtual bool is_gpu_device() const;
 
+             virtual void generate_outline_events_after(
+                     Source& function_name_instr,
+                     Source& extra_cast,
+                     Source& instrumentation_after);
+
              virtual void phase_cleanup(DTO& data_flow);
         };
 

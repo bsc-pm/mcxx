@@ -41,11 +41,8 @@ void symbol_deep_copy(scope_entry_t* dest,
         for (i = 0; i < dest->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* current_symbol = dest->entity_specs.related_symbols[i];
-            if (!current_symbol->entity_specs.is_result)
-            {
-                symbol_set_as_parameter_of_function(current_symbol, dest,
-                        symbol_get_parameter_position_in_function(source->entity_specs.related_symbols[i], source));
-            }
+            symbol_set_as_parameter_of_function(current_symbol, dest,
+                    symbol_get_parameter_position_in_function(source->entity_specs.related_symbols[i], source));
         }
     }
 

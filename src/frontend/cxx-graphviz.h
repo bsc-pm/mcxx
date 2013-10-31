@@ -29,7 +29,7 @@
 
 #ifndef CXX_GRAPHVIZ_H
 #define CXX_GRAPHVIZ_H
-
+#include <stdio.h>
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"

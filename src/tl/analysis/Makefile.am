@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = common pcfg use_def liveness reach_defs loops auto-scope singleton test_phase checker
+SUBDIRS = common pcfg use_def liveness reach_defs loops auto-scope singleton test_phase checker constants
 
 END=
 
@@ -38,4 +38,5 @@ DIST_SUBDIRS= common \
               singleton \
               test_phase \
               checker \
+			  constants \
               $(END)

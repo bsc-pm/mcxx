@@ -770,12 +770,30 @@ static void copy_target_info_from_params_to_args(
             it != implementation_table.end();
             ++it)
     {
+        TL::Symbol implementor = it->first;
         TL::Nanox::TargetInformation target_info = it->second;
+
+        // Create a new param_to_arg_expr map for every implementation
+        TL::ObjectList<TL::Symbol> impl_parameters = implementor.get_function_parameters();
+        sym_to_argument_expr_t impl_param_to_arg_expr;
+        for (sym_to_argument_expr_t::const_iterator it2 = param_to_arg_expr.begin();
+                it2 != param_to_arg_expr.end();
+                ++it2)
+        {
+            TL::Symbol current_param = it2->first;
+            Nodecl::NodeclBase current_argum = it2->second;
+
+            ERROR_CONDITION(!current_param.is_parameter(), "Unreachable code", 0);
+
+            int param_pos = current_param.get_parameter_position();
+            TL::Symbol impl_current_param = impl_parameters[param_pos];
+            impl_param_to_arg_expr[impl_current_param] = current_argum;
+        }
 
         ObjectList<Nodecl::NodeclBase> new_ndrange_args =
             capture_the_values_of_these_expressions(
                     target_info.get_ndrange(),
-                    param_to_arg_expr,
+                    impl_param_to_arg_expr,
                     "ndrange",
                     arguments_outline_info,
                     outline_register_entities,
@@ -785,7 +803,7 @@ static void copy_target_info_from_params_to_args(
         ObjectList<Nodecl::NodeclBase> new_shmem_args =
             capture_the_values_of_these_expressions(
                     target_info.get_shmem(),
-                    param_to_arg_expr,
+                    impl_param_to_arg_expr,
                     "shmem",
                     arguments_outline_info,
                     outline_register_entities,
@@ -797,11 +815,59 @@ static void copy_target_info_from_params_to_args(
                 it2 != devices.end();
                 ++it2)
         {
-            arguments_outline_info.add_implementation(*it2, it->first);
-            arguments_outline_info.append_to_ndrange(it->first, new_ndrange_args);
-            arguments_outline_info.append_to_shmem(it->first, new_shmem_args);
-            arguments_outline_info.append_to_onto(it->first, target_info.get_onto());
-            arguments_outline_info.set_file(it->first, target_info.get_file());
+            std::string device_name = *it2;
+            arguments_outline_info.add_implementation(implementor, device_name);
+            arguments_outline_info.append_to_ndrange(implementor, new_ndrange_args);
+            arguments_outline_info.append_to_shmem(implementor, new_shmem_args);
+            arguments_outline_info.append_to_onto(implementor, target_info.get_onto());
+            arguments_outline_info.set_file(implementor, target_info.get_file());
+        }
+    }
+}
+
+static void create_new_param_to_args_map_for_every_implementation(
+        OutlineInfo& outline_info,
+        TL::Symbol called_symbol,
+        Nodecl::Utils::SimpleSymbolMap& param_to_args_map)
+{
+    // For every existant implementation we should create a new map and store
+    // it in the target information associated to this implementation. This
+    // information will be used in the device code, for translate some clauses
+    // (e. g.  ndrange clause)
+
+    OutlineInfo::implementation_table_t
+        args_implementation_table = outline_info.get_implementation_table();
+    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
+            it != args_implementation_table.end();
+            ++it)
+    {
+        TL::Symbol current_implementor = it->first;
+        if (current_implementor != called_symbol)
+        {
+            // We need to create a new map
+            Nodecl::Utils::SimpleSymbolMap implementor_params_to_args_map;
+            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
+
+            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
+            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
+                    it2 != simple_symbol_map->end();
+                    ++it2)
+            {
+                TL::Symbol param = it2->first;
+                TL::Symbol argum = it2->second;
+
+                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
+
+                int param_pos = param.get_parameter_position();
+                implementor_params_to_args_map.add_map(parameters_implementor[param_pos], argum);
+            }
+            outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
+        }
+        else
+        {
+            // We don't need to create a new map! We should use the
+            // 'param_to_args_map' map created in the previous loop
+            outline_info.set_param_arg_map(param_to_args_map, current_implementor);
         }
     }
 }
@@ -1079,43 +1145,10 @@ void LoweringVisitor::visit_task_call_c(
             new_block_context_sc,
             initializations_src);
 
-    // For every existant implementation we should create a new map and store it in their target information
-    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
-    OutlineInfo::implementation_table_t args_implementation_table =
-        arguments_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
-            it != args_implementation_table.end();
-            ++it)
-    {
-        TL::Symbol current_implementor = it->first;
-        if (current_implementor != called_sym)
-        {
-            // We need to create a new map
-            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
-            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
-
-            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = param_to_args_map.get_simple_symbol_map();
-            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
-                    it2 != simple_symbol_map->end();
-                    ++it2)
-            {
-                TL::Symbol param = it2->first;
-                TL::Symbol argum = it2->second;
-
-                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
-
-                int param_pos = param.get_parameter_position();
-                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
-            }
-            arguments_outline_info.set_param_arg_map(implementor_params_to_args_map, current_implementor);
-        }
-        else
-        {
-            // We don't need to create a new map! We should use the
-            // 'param_to_args_map' map created in the previous loop
-            arguments_outline_info.set_param_arg_map(param_to_args_map, current_implementor);
-        }
-    }
+    create_new_param_to_args_map_for_every_implementation(
+            arguments_outline_info,
+            called_sym,
+            param_to_args_map);
 
     // Register extra variables that might not be parameters of the function
     // task but are in context
@@ -1813,43 +1846,10 @@ void LoweringVisitor::visit_task_call_fortran(
         params_to_data_items_map.add_map(parameter, outline_data_item_sym);
     }
 
-    // For every existant implementation we should create a new map and store it in their target information
-    // This information will be used in the device code, for translate some clauses (e. g. ndrange clause)
-    OutlineInfo::implementation_table_t args_implementation_table =
-        new_outline_info.get_implementation_table();
-    for (OutlineInfo::implementation_table_t::iterator it = args_implementation_table.begin();
-            it != args_implementation_table.end();
-            ++it)
-    {
-        TL::Symbol current_implementor = it->first;
-        if (current_implementor != called_task_function)
-        {
-            // We need to create a new map
-            Nodecl::Utils::SimpleSymbolMap* implementor_params_to_args_map = new Nodecl::Utils::SimpleSymbolMap();
-            TL::ObjectList<TL::Symbol> parameters_implementor = current_implementor.get_function_parameters();
-
-            const std::map<TL::Symbol, TL::Symbol>* simple_symbol_map = params_to_data_items_map.get_simple_symbol_map();
-            for (std::map<TL::Symbol, TL::Symbol>::const_iterator it2 = simple_symbol_map->begin();
-                    it2 != simple_symbol_map->end();
-                    ++it2)
-            {
-                TL::Symbol param = it2->first;
-                TL::Symbol argum = it2->second;
-
-                ERROR_CONDITION(!param.is_parameter(), "Unreachable code", 0);
-
-                int param_pos = param.get_parameter_position();
-                implementor_params_to_args_map->add_map(parameters_implementor[param_pos], argum);
-            }
-            new_outline_info.set_param_arg_map(*implementor_params_to_args_map, current_implementor);
-        }
-        else
-        {
-            // We don't need to create a new map! We should use the
-            // 'param_to_args_map' map created in the previous loop
-            new_outline_info.set_param_arg_map(params_to_data_items_map, current_implementor);
-        }
-    }
+    create_new_param_to_args_map_for_every_implementation(
+            new_outline_info,
+            called_task_function,
+            params_to_data_items_map);
 
     emit_async_common(
             new_task_construct,
@@ -1865,14 +1865,12 @@ void LoweringVisitor::visit_task_call_fortran(
             /* parameter outline info */ NULL,
             placeholder_task_expr_transformation);
 
-    // Add a map from the original called task to the adapter function
-     symbol_map->add_map(called_task_function, adapter_function);
-
-    // Now call the adapter function instead of the original
+    // Replace the call to the original function for a call to the adapter
     Nodecl::FunctionCall new_function_call = function_call.shallow_copy().as<Nodecl::FunctionCall>();
 
     Nodecl::NodeclBase adapter_sym_ref = Nodecl::Symbol::make(adapter_function);
-    new_function_call.get_called().replace(adapter_sym_ref);
+    new_function_call.set_called(adapter_sym_ref);
+    new_function_call.set_alternate_name(Nodecl::NodeclBase::null());
 
     if (!free_vars.empty())
     {

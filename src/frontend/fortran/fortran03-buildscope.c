@@ -799,19 +799,13 @@ static void solve_delayed_function_type_spec(decl_context_t decl_context)
     remove_untyped_symbol(decl_context, current_function);
 
     // Update the result name as well
-    int i;
-    for (i = 0; i < current_function->entity_specs.num_related_symbols; i++)
+    scope_entry_t* result_name = current_function->entity_specs.result_var;
+    if (result_name != NULL)
     {
-        if (current_function->entity_specs.related_symbols[i]->entity_specs.is_result)
-        {
-            scope_entry_t* result_name = current_function->entity_specs.related_symbols[i];
-
-            result_name->type_information = fortran_update_basic_type_with_type(result_name->type_information,
-                    function_type_spec);
-            result_name->entity_specs.is_implicit_basic_type = 0;
-            remove_untyped_symbol(decl_context, result_name);
-            break;
-        }
+        result_name->type_information = fortran_update_basic_type_with_type(result_name->type_information,
+                function_type_spec);
+        result_name->entity_specs.is_implicit_basic_type = 0;
+        remove_untyped_symbol(decl_context, result_name);
     }
 }
 
@@ -1682,7 +1676,7 @@ static scope_entry_t* new_procedure_symbol(
 
             result_sym->kind = SK_VARIABLE;
             result_sym->locus = ast_get_locus(result);
-            result_sym->entity_specs.is_result = 1;
+            result_sym->entity_specs.is_result_var = 1;
 
             result_sym->entity_specs.is_implicit_basic_type = 1;
 
@@ -1692,9 +1686,7 @@ static scope_entry_t* new_procedure_symbol(
 
             return_type = get_indirect_type(result_sym);
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    result_sym);
+            entry->entity_specs.result_var = result_sym;
 
             if (strcasecmp(ASTText(result), entry->symbol_name) == 0)
             {
@@ -1716,7 +1708,7 @@ static scope_entry_t* new_procedure_symbol(
         result_sym = new_symbol(program_unit_context, program_unit_context.current_scope, entry->symbol_name);
         result_sym->kind = SK_VARIABLE;
         result_sym->locus = entry->locus;
-        result_sym->entity_specs.is_result = 1;
+        result_sym->entity_specs.is_result_var = 1;
 
         result_sym->type_information = return_type;
         result_sym->entity_specs.is_implicit_basic_type = 1;
@@ -1725,9 +1717,7 @@ static scope_entry_t* new_procedure_symbol(
 
         return_type = get_indirect_type(result_sym);
 
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
-                result_sym);
+        entry->entity_specs.result_var = result_sym;
     }
     else if (!is_function)
     {
@@ -1952,8 +1942,8 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
             result_sym->kind = SK_VARIABLE;
             result_sym->locus = ast_get_locus(result);
-            result_sym->entity_specs.is_result = 1;
-            
+            result_sym->entity_specs.is_result_var = 1;
+
             remove_unknown_kind_symbol(decl_context, result_sym);
 
             if (result_sym->entity_specs.is_implicit_basic_type)
@@ -1965,9 +1955,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
             return_type = get_indirect_type(result_sym);
 
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    result_sym);
+            entry->entity_specs.result_var = result_sym;
 
             if (strcasecmp(entry->symbol_name, result_sym->symbol_name) == 0)
             {
@@ -1990,7 +1978,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         result_sym->kind = SK_VARIABLE;
         result_sym->locus = entry->locus;
-        result_sym->entity_specs.is_result = 1;
+        result_sym->entity_specs.is_result_var = 1;
 
         remove_unknown_kind_symbol(decl_context, result_sym);
 
@@ -2003,9 +1991,7 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
         return_type = get_indirect_type(result_sym);
 
-        P_LIST_ADD(entry->entity_specs.related_symbols,
-                entry->entity_specs.num_related_symbols,
-                result_sym);
+        entry->entity_specs.result_var = result_sym;
     }
     else if (!is_function)
     {
@@ -5881,7 +5867,7 @@ static void build_scope_forall_stmt(AST a,
         nodecl_make_list_1(
                 nodecl_make_fortran_forall(nodecl_loop_control_list, 
                     nodecl_mask, 
-                    nodecl_make_list_1(nodecl_statement),
+                    nodecl_statement,
                     ast_get_locus(a)));
 }
 
@@ -7453,11 +7439,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     result_sym->kind = SK_VARIABLE;
     result_sym->decl_context = decl_context;
     result_sym->type_information = entry->type_information;
-    result_sym->entity_specs.is_result = 1;
+    result_sym->entity_specs.is_result_var = 1;
 
-    P_LIST_ADD(entry->entity_specs.related_symbols,
-            entry->entity_specs.num_related_symbols,
-            result_sym);
+    entry->entity_specs.result_var = result_sym;
 
     parameter_info_t parameter_info[1 + num_dummy_arguments];
     memset(parameter_info, 0, sizeof(parameter_info));
@@ -7698,16 +7682,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
             // Update the result name (if any) as well
             // Note that the result variable is never found through normal lookup, it is
             // only accessible through the function symbol
-            int i, num_symbols = entry->entity_specs.num_related_symbols;
-
-            for (i = 0; i < num_symbols; i++)
+            scope_entry_t* sym = entry->entity_specs.result_var;
+            if (sym != NULL)
             {
-                scope_entry_t* sym = entry->entity_specs.related_symbols[i];
-                if (sym->entity_specs.is_result)
-                {
-                    sym->type_information = fortran_update_basic_type_with_type(sym->type_information, basic_type);
-                    sym->entity_specs.is_implicit_basic_type = 0;
-                }
+                sym->type_information = fortran_update_basic_type_with_type(sym->type_information, basic_type);
+                sym->entity_specs.is_implicit_basic_type = 0;
             }
         }
 
@@ -9884,19 +9863,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
 
 scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
 {
-    scope_entry_t* result = entry;
-
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-    {
-        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result)
-        {
-            result = entry->entity_specs.related_symbols[i];
-            break;
-        }
-    }
-
-    return result;
+    return entry->entity_specs.result_var;
 }
 
 static scope_entry_t* symbol_name_is_in_external_list(const char *name,

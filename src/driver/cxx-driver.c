@@ -147,8 +147,8 @@
 "  --Wx:<profile>:<flags>,options\n" \
 "                           Like --W<flags>,<options> but for\n" \
 "                           a specific compiler profile\n" \
-"  --openmp                 Enables OpenMP support\n" \
-"  --no-openmp              Disables OpenMP support (default)\n" \
+"  --openmp                 Enables OpenMP support (default)\n" \
+"  --no-openmp              Disables OpenMP support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
@@ -187,8 +187,6 @@
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
 "  --opencl-build-opts=<options> Options passed to OpenCL compiler\n" \
-"  --hlt                    Enable High Level Transformations\n" \
-"                           This enables '#pragma hlt'\n" \
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
 "                           phases, use this flag to avoid the\n" \
 "                           compiler to unload them.\n" \
@@ -354,7 +352,6 @@ typedef enum
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_OPENCL,
     OPTION_OPENCL_OPTIONS,
-    OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
     OPTION_ALWAYS_PREPROCESS,
@@ -429,7 +426,6 @@ struct command_line_long_options command_line_long_options[] =
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
     {"opencl", CLP_NO_ARGUMENT, OPTION_ENABLE_OPENCL},
     {"opencl-build-opts",  CLP_REQUIRED_ARGUMENT, OPTION_OPENCL_OPTIONS},
-    {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
@@ -910,14 +906,13 @@ int parse_arguments(int argc, const char* argv[],
         {
             // Put here those flags that for some reason have special meanings
             // and at the same time they modify an implicit flag.
-            // Currently only --no-openmp and --hlt behave this way
+            // Currently only --no-openmp behaves this way
             char already_handled = 1;
             switch (parameter_info.value)
             {
                 case OPTION_OPENMP :
                 case OPTION_NO_OPENMP :
                     {
-                        CURRENT_CONFIGURATION->enable_openmp = (parameter_info.value == OPTION_OPENMP);
                         // If 'openmp' is in the parameter flags, set it to true
                         int i;
                         char found = 0;
@@ -926,32 +921,18 @@ int parse_arguments(int argc, const char* argv[],
                             if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
                             {
                                 found = 1;
-                                compilation_process.parameter_flags[i]->value = CURRENT_CONFIGURATION->enable_openmp;
+                                if (from_command_line
+                                        // Still undefined
+                                        || (compilation_process.parameter_flags[i]->value == 2))
+                                {
+                                    compilation_process.parameter_flags[i]->value = 
+                                        (parameter_info.value == OPTION_OPENMP);
+                                }
                             }
                         }
                         if (!found)
                         {
                             internal_error("'openmp' implicit flag was not properly registered", 0);
-                        }
-                        break;
-                    }
-                case OPTION_ENABLE_HLT :
-                    {
-                        CURRENT_CONFIGURATION->enable_hlt = 1;
-                        // If 'hlt' is in the parameter flags, set it to false, otherwise add it as false
-                        int i;
-                        char found = 0;
-                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
-                        {
-                            if (strcmp(compilation_process.parameter_flags[i]->name, "hlt") == 0)
-                            {
-                                found = 1;
-                                compilation_process.parameter_flags[i]->value = 1;
-                            }
-                        }
-                        if (!found)
-                        {
-                            internal_error("'hlt' implicit flag was not properly registered", 0);
                         }
                         break;
                     }
@@ -1622,10 +1603,13 @@ int parse_arguments(int argc, const char* argv[],
         const char* minus_v = uniquestr("-v");
         if (CURRENT_CONFIGURATION->do_not_link)
         {
+            // Clear compiler options
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_v);
         }
         else
         {
+            // Clear linker options as gcc may attempt to link
+            CURRENT_CONFIGURATION->linker_options = NULL;
             add_to_linker_command(uniquestr(minus_v), NULL);
         }
     }
@@ -2388,23 +2372,13 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->column_width = 132;
 
-    // Add openmp as an implicit (disabled) flag
+    // Add openmp as an implicitly enabled
     struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
+    new_parameter_flag->value = 2; // means UNDEFINED
 
-    P_LIST_ADD(compilation_process.parameter_flags, 
-            compilation_process.num_parameter_flags,
-            new_parameter_flag);
-
-    // Add hlt as an implicit flag
-    new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
-
-    new_parameter_flag->name = uniquestr("hlt");
-    // This is redundant because of xcalloc, but make it explicit here anyway
-    new_parameter_flag->value = 0;
-
-    P_LIST_ADD(compilation_process.parameter_flags, 
+    P_LIST_ADD(compilation_process.parameter_flags,
             compilation_process.num_parameter_flags,
             new_parameter_flag);
 
@@ -2574,7 +2548,6 @@ static void load_configuration(void)
     compilation_process.command_line_configuration = CURRENT_CONFIGURATION;
 }
 
-
 static void commit_configuration(void)
 {
     // For every configuration commit its options depending on flags
@@ -2638,10 +2611,25 @@ static void commit_configuration(void)
 }
 
 static void register_upc_pragmae(compilation_configuration_t* configuration);
-static void enable_hlt_phase(compilation_configuration_t* configuration);
 
 static void finalize_committed_configuration(compilation_configuration_t* configuration)
 {
+    char found = 0;
+    int i;
+    for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+    {
+        if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
+        {
+            found = 1;
+            // We check 1 because this option may have values {0, 1, 2}
+            configuration->enable_openmp = (compilation_process.parameter_flags[i]->value == 1);
+        }
+    }
+    if (!found)
+    {
+        internal_error("'openmp' implicit flag was not properly registered", 0);
+    }
+
     // OpenMP support involves omp pragma
     if (configuration->enable_openmp)
     {
@@ -2658,30 +2646,6 @@ static void finalize_committed_configuration(compilation_configuration_t* config
     {
         register_upc_pragmae(configuration);
     }
-
-    // HLT additional support
-    if (configuration->enable_hlt)
-    {
-        enable_hlt_phase(configuration);
-    }
-}
-
-static void enable_hlt_phase(compilation_configuration_t* configuration)
-{
-    // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
-    // Register '#pragma hlt'
-    config_add_preprocessor_prefix(configuration, /* index */ NULL, "hlt");
-
-    add_to_parameter_list_str(&configuration->preprocessor_options, "-D_MERCURIUM_HLT");
-
-    // When loading the compiler phase a proper extension will be added
-    const char* library_name = "libtl-hlt-pragma";
-	compiler_phase_loader_t* cl = xcalloc(1, sizeof(*cl));
-	cl->func = compiler_regular_phase_loader;
-	cl->data = (void*)uniquestr(library_name);
-    P_LIST_ADD_PREPEND(configuration->phase_loader, 
-            configuration->num_compiler_phases,
-			cl);
 }
 
 // FIXME: This should be in cxx-upc.c, but that file belongs to the frontend

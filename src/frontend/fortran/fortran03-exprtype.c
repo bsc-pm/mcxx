@@ -2661,9 +2661,6 @@ static scope_entry_list_t* get_specific_interface_aux(scope_entry_t* symbol,
             {
                 scope_entry_t* related_sym = specific_symbol->entity_specs.related_symbols[i];
 
-                if (related_sym->entity_specs.is_result)
-                    continue;
-
                 if (symbol_is_parameter_of_function(related_sym, specific_symbol))
                 {
                     if (argument_types[i].type == NULL)
@@ -3136,9 +3133,6 @@ static void check_called_symbol_list(
         for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
-
-            if (related_sym->entity_specs.is_result)
-                continue;
 
             if (symbol_is_parameter_of_function(related_sym, symbol))
             {

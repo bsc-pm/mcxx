@@ -25,6 +25,8 @@
 ##########################################################################
 
 
+include $(top_srcdir)/support/Makefile.modules
+
 mpi_modules = \
 			  mpi.mf03 \
 			  $(END)
@@ -63,5 +65,6 @@ mpi.mf03 : $(srcdir)/attr_fn-f90-interfaces.h \
 		  $(srcdir)/mpi-f90-interfaces.h \
 		  $(srcdir)/mpif-common.h \
 		  $(srcdir)/mpif-config.h \
-		  $(srcdir)/mpif-mpi-io.h
+		  $(srcdir)/mpif-mpi-io.h \
+		  $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/mpi.F90
