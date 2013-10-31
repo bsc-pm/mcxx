@@ -296,6 +296,7 @@ FORTRAN_GENERIC_INTRINSIC_2(NULL, besyn, "N,X", E, NULL, "N1,N2,X", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, chdir, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, dfloat, "A", E, simplify_float) \
 FORTRAN_GENERIC_INTRINSIC(NULL, etime, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, exit,  "?STATUS", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fgetc, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, free, "PTR", S, NULL) \
@@ -310,6 +311,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, or, "I,J", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, rshift, "I,SHIFT", E, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, sleep, "SECONDS", S, NULL)  \
 FORTRAN_GENERIC_INTRINSIC(NULL, system, NULL, M, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, time, NULL, T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, time8, NULL, T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, xor, "I,J", E, NULL)  \
 \
 FORTRAN_GENERIC_INTRINSIC(NULL, sind, "X", E, NULL) \
@@ -6253,6 +6256,25 @@ scope_entry_t* compute_intrinsic_system(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+
+scope_entry_t* compute_intrinsic_time(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "time", fortran_choose_int_type_from_kind(4));
+}
+
+scope_entry_t* compute_intrinsic_time8(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "time8", fortran_choose_int_type_from_kind(8));
+}
+
 scope_entry_t* compute_intrinsic_sleep(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         nodecl_t* argument_expressions UNUSED_PARAMETER,
@@ -6346,6 +6368,25 @@ scope_entry_t* compute_intrinsic_etime(scope_entry_t* symbol UNUSED_PARAMETER,
                 fortran_get_default_real_type(),
                 t0);
     }
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_exit(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+
+	if ((num_arguments == 0)
+			|| (num_arguments == 1 && is_integer_type(t0)))
+	{
+		return GET_INTRINSIC_IMPURE(symbol, "exit",
+				get_void_type(), // It is a subroutine
+				t0 == NULL ? fortran_get_default_integer_type() : t0);
+	}
+
     return NULL;
 }
 
