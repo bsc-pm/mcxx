@@ -5612,8 +5612,8 @@ static char name_is_accessible_from_context(scope_entry_t* entry UNUSED_PARAMETE
 
 static char one_function_is_usable(
         scope_entry_list_t* candidates,
-        type_t* class_type UNUSED_PARAMETER,
-        type_t* arg_type,
+        type_t* first_arg_type,
+        type_t* second_arg_type,
         decl_context_t decl_context,
         const locus_t* locus)
 {
@@ -5623,11 +5623,25 @@ static char one_function_is_usable(
     if (candidates == NULL)
         return 0;
 
-    int num_arguments = arg_type != NULL ? 1 : 0;
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Checking usability of functions\n");
+    }
+
+    int num_arguments = 0;
+    if (first_arg_type != NULL)
+        num_arguments++;
+    if (second_arg_type != NULL)
+        num_arguments++;
+    ERROR_CONDITION(second_arg_type != NULL
+            && first_arg_type == NULL,
+            "First type cannot be NULL if second type is not NULL", 0);
+
+    type_t* argument_types[] = { first_arg_type, second_arg_type };
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             candidates,
-            NULL, &arg_type, num_arguments,
+            NULL, &second_arg_type, second_arg_type != NULL ? 1 : 0,
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
 
@@ -5641,26 +5655,58 @@ static char one_function_is_usable(
         candidate_set = candidate_set_add(candidate_set,
                 entry_list_iterator_current(it),
                 num_arguments,
-                &arg_type);
+                argument_types);
     }
     entry_list_iterator_free(it);
 
     scope_entry_t* augmented_conversors[num_arguments + 1];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
-    scope_entry_t* overload_resolution = solve_overload(candidate_set, 
-            decl_context, 
+    scope_entry_t* overload_resolution = solve_overload(candidate_set,
+            decl_context,
             locus, 
             augmented_conversors);
 
     if (overload_resolution == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: No function was found to be usable\n");
+        }
         return 0;
+    }
 
     if (overload_resolution->entity_specs.is_deleted)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Function '%s', cannot be called because it has been deleted\n",
+                    print_decl_type_str(overload_resolution->type_information,
+                        overload_resolution->decl_context,
+                        get_qualified_symbol_name(overload_resolution, overload_resolution->decl_context)));
+        }
         return 0;
+    }
 
     if (!name_is_accessible_from_context(overload_resolution, decl_context))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Function '%s', although callable, is not accessible\n",
+                    print_decl_type_str(overload_resolution->type_information,
+                        overload_resolution->decl_context,
+                        get_qualified_symbol_name(overload_resolution, overload_resolution->decl_context)));
+        }
         return 0;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Function '%s' has been found to be usable\n",
+                print_decl_type_str(overload_resolution->type_information,
+                    overload_resolution->decl_context,
+                    get_qualified_symbol_name(overload_resolution, overload_resolution->decl_context)));
+    }
 
     return 1;
 }
@@ -5675,7 +5721,7 @@ static char one_function_is_nontrivial(scope_entry_list_t* constructors)
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
-        found = entry->entity_specs.is_trivial;
+        found = !entry->entity_specs.is_trivial;
     }
     entry_list_iterator_free(it);
 
@@ -6108,8 +6154,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 has_nonstatic_data_member_with_unusable_base_default_constructor =
                     !one_function_is_usable(
                             entry_list_new(class_type_get_default_constructor(member_type)),
-                            member_type,
-                            NULL,
+                            NULL, NULL,
                             decl_context, locus);
             }
         }
@@ -6126,8 +6171,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
             if (!one_function_is_usable(
                         entry_list_new(class_type_get_default_constructor(base->type_information)),
-                        base->type_information,
-                        NULL,
+                        NULL, NULL,
                         decl_context,
                         locus))
             {
@@ -6535,8 +6579,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     member_type = array_type_get_element_type(data_member->type_information);
 
                 if (!one_function_is_usable(class_type_get_move_constructors(member_type),
-                            member_type,
-                            member_type,
+                            member_type, member_type,
                             decl_context,
                             locus))
                 {
@@ -6556,8 +6599,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             type_t* base_type = base_class->type_information;
 
             if (!one_function_is_usable(class_type_get_move_constructors(base_type),
-                        base_type,
-                        base_type,
+                        get_user_defined_type(base_class), get_user_defined_type(base_class),
                         decl_context,
                         locus))
             {
@@ -6780,10 +6822,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_array_type(member_type))
                     member_type = array_type_get_element_type(member_type);
 
-                has_non_assignment_operator_copiable_data_member =  one_function_is_usable(
+                has_non_assignment_operator_copiable_data_member = !one_function_is_usable(
                         class_type_get_copy_assignment_operators(member_type),
-                        member_type,
-                        member_type,
+                        member_type, member_type,
                         decl_context,
                         locus);
             }
@@ -6797,10 +6838,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             scope_entry_t* base = entry_list_iterator_current(it);
             type_t* base_type = base->type_information;
 
-            has_non_assignment_operator_copiable_base = one_function_is_usable(
+            has_non_assignment_operator_copiable_base = !one_function_is_usable(
                     class_type_get_copy_assignment_operators(base_type),
-                    base_type,
-                    base_type,
+                    get_user_defined_type(base), get_user_defined_type(base),
                     decl_context,
                     locus);
         }
@@ -6974,10 +7014,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_array_type(member_type))
                     member_type = array_type_get_element_type(member_type);
 
-                has_non_assignment_operator_moveable_data_member =  one_function_is_usable(
+                has_non_assignment_operator_moveable_data_member = !one_function_is_usable(
                         class_type_get_move_assignment_operators(member_type),
-                        member_type,
-                        member_type,
+                        member_type, member_type,
                         decl_context,
                         locus);
             }
@@ -6991,10 +7030,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             scope_entry_t* base = entry_list_iterator_current(it);
             type_t* base_type = base->type_information;
 
-            has_non_assignment_operator_moveable_base = one_function_is_usable(
+            has_non_assignment_operator_moveable_base = !one_function_is_usable(
                     class_type_get_move_assignment_operators(base_type),
-                    base_type,
-                    base_type,
+                    get_user_defined_type(base), get_user_defined_type(base),
                     decl_context,
                     locus);
         }
