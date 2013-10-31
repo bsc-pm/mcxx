@@ -24,6 +24,11 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
 
 struct D
