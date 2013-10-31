@@ -7914,8 +7914,10 @@ static void set_function_parameter_clause(type_t** function_type,
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
 
-                // Update the type info
-                entry->type_information = type_info;
+                // Update the type info but try to to preserve the original if
+                // possible
+                if (!equivalent_types(type_info, original_type))
+                    entry->type_information = type_info;
                 entry->defined = 1;
             }
 

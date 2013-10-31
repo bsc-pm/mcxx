@@ -2010,8 +2010,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         declarator_name = unmangle_symbol_name(symbol);
     }
 
-    TL::Type real_type = symbol_type;
-
+    TL::Type real_type;
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
     {
@@ -2024,6 +2023,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
                 real_type = real_type.get_const_type();
             }
         }
+    }
+    else
+    {
+        real_type = coerce_parameter_types_of_function_type(symbol);
     }
 
     std::string declarator;
@@ -2099,6 +2102,44 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         indent();
         *(file) << "}\n";
     }
+}
+
+TL::Type CxxBase::coerce_parameter_types_of_function_type(TL::Symbol sym)
+{
+    // This function returns a new function type built using the types of the
+    // parameters This is needed only in function definitions where
+    // cv-qualifiers or types may be different in the declaration (which is
+    // what sym.get_type() returns) and the definition.
+
+    // Always advance over typedefs
+    TL::Type function_type = sym.get_type().advance_over_typedefs();
+
+    // Ignore unprototyped functions
+    if (function_type.lacks_prototype())
+        return function_type;
+
+    bool has_ellipsis = false;
+    TL::ObjectList<TL::Type> parameter_types = function_type.parameters(has_ellipsis);
+    TL::ObjectList<TL::Symbol> parameter_symbols = sym.get_related_symbols();
+
+    TL::ObjectList<TL::Type>::iterator it_type = parameter_types.begin();
+    TL::ObjectList<TL::Symbol>::iterator it_symbol = parameter_symbols.begin();
+    for (;
+            it_symbol != parameter_symbols.end() && it_type != parameter_types.end();
+            it_symbol++, it_type++)
+    {
+        // In C++ there may not be a symbol for a given parameter
+        if (!it_symbol->is_valid())
+            continue;
+
+        *it_type = it_symbol->get_type();
+    }
+
+    // Now rebuild the type
+    TL::Type result_type = function_type.returns().get_function_returning(parameter_types, has_ellipsis);
+    result_type = result_type.get_as_qualified_as(function_type);
+
+    return result_type;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
@@ -2322,7 +2363,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         declarator_name += template_arguments_to_str(symbol);
     }
 
-    TL::Type real_type = symbol_type;
+    TL::Type real_type;
 
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
@@ -2338,10 +2379,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             }
         }
     }
-
-    // We do not want typedefs in function declarations
-    // because they break the syntax
-    real_type = real_type.advance_over_typedefs();
+    else
+    {
+        real_type = coerce_parameter_types_of_function_type(symbol);
+    }
 
     std::string declarator = this->get_declaration_with_parameters(
             real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);

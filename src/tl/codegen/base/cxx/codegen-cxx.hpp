@@ -476,6 +476,8 @@ namespace Codegen
                     TL::ObjectList<std::string>& parameter_attributes,
                     bool emit_default_arguments);
 
+            TL::Type coerce_parameter_types_of_function_type(TL::Symbol sym);
+
             static const char* print_name_str(scope_entry_t* s, decl_context_t decl_context, void *data);
             static const char* print_type_str(type_t* t, decl_context_t decl_context, void *data);
 
