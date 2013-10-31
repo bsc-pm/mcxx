@@ -9074,13 +9074,15 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 type_info = get_pack_type(type_info);
                 original_type = get_pack_type(original_type);
+
+                entry->type_information = original_type;
             }
 
             if (entry != NULL)
             {
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
-                // unless it was a parameter pack
+                // it was a parameter pack
                 if (param_decl_gather_info.is_template_pack)
                 {
                     entry->kind = SK_VARIABLE_PACK;
