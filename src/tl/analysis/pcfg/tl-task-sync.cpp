@@ -709,10 +709,11 @@ namespace {
                     alive_tasks_it != current->get_live_in_tasks().end();
                     alive_tasks_it++)
             {
-                if (alive_tasks_it->domain != current_domain_id)
-                    continue;
-
-                tribool task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
+                tribool task_sync_rel = tribool::no;
+                if (alive_tasks_it->domain == current_domain_id)
+                {
+                    task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
+                }
                 set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, current);
             }
         }
@@ -762,10 +763,11 @@ namespace {
                     alive_tasks_it != current->get_live_in_tasks().end();
                     alive_tasks_it++)
             {
-                if (alive_tasks_it->domain != current_domain_id)
-                    continue;
-
-                tribool task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
+                tribool task_sync_rel = tribool::no;
+                if (alive_tasks_it->domain == current_domain_id)
+                {
+                    task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
+                }
                 set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, task);
             }
 
