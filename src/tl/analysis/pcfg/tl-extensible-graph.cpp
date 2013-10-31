@@ -33,7 +33,8 @@ namespace Analysis {
         : _name( name ), _graph( NULL ), _utils( utils ),
           _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
-          _task_nodes_l( ), _func_calls( ), _concurrent_tasks( ),
+          _task_nodes_l( ), _func_calls( ), 
+          _concurrent_tasks( ), _last_sync( ), _next_sync( ),
           _cluster_to_entry_map( )
     {
 
@@ -986,6 +987,67 @@ namespace Analysis {
         }
         
         _concurrent_tasks[task] = concurrent_tasks;
+    }
+
+    ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization( Node* task )
+    {
+        ObjectList<Node*> result;
+        if( !task->is_omp_task_node( ) )
+        {
+            WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
+        }
+        else
+        {
+            if( _last_sync.find( task ) == _last_sync.end( ) )
+            {
+                WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
+            }
+            else
+                result = _last_sync[task];
+        }
+        return result;
+    }
+    
+    void ExtensibleGraph::add_last_synchronization( Node* task, ObjectList<Node*> last_sync )
+    {
+        if( _last_sync.find( task ) != _last_sync.end( ) )
+        {
+            WARNING_MESSAGE( "You are trying to insert a task that already exists in the map of "\
+                             "last synchronization points of a task. This should never happen so we skip it", 0 );
+            return;
+        }
+        
+        _last_sync[task] = last_sync;
+    }
+    
+    Node* ExtensibleGraph::get_task_next_synchronization( Node* task )
+    {
+        Node* result;
+        if( !task->is_omp_task_node( ) )
+        {
+            WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
+        }
+        else
+        {
+            if( _next_sync.find( task ) == _next_sync.end( ) )
+            {
+                WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
+            }
+            else
+                result = _next_sync[task];
+        }
+        return result;
+    }
+    
+    void ExtensibleGraph::add_next_synchronization( Node* task, Node* next_sync )
+    {
+        if( _next_sync.find( task ) != _next_sync.end( ) )
+        {
+            WARNING_MESSAGE( "You are trying to insert a task that already exists in the map of "\
+                             "next synchronization points of a task. This should never happen so we skip it", 0 );
+            return;
+        }
+        _next_sync[task] = next_sync;
     }
     
     //! This method returns the most outer node of a node before finding a loop node
