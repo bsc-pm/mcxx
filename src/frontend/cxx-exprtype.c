@@ -16617,7 +16617,8 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         decl_context_t decl_context UNUSED_PARAMETER, 
         nodecl_t* nodecl_output)
 {
-    if (nodecl_expr_is_value_dependent(nodecl_expr))
+    if (nodecl_expr_is_value_dependent(nodecl_expr)
+            || nodecl_expr_is_type_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_expr;
         return 1;
