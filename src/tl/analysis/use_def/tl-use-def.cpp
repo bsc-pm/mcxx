@@ -416,7 +416,7 @@ namespace Analysis {
                 ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *ita );
                 for( ObjectList<Nodecl::NodeclBase>::iterator it = obj.begin( ); it != obj.end( ); ++it )
                 {
-                    if( it->has_symbol( ) )
+                    if( !it->is_constant( ) )
                     {
                         non_ref_params_to_args[*itp] = *ita;
                         break;
@@ -772,12 +772,16 @@ namespace Analysis {
                             {
                                 if( !it->is_constant( ) )
                                 {
-                                    _node->set_ue_var( Utils::ExtendedSymbol( *it ) );
-                                    if( it->get_type( ).is_pointer( ) )
+                                    ObjectList<Nodecl::NodeclBase> mem_access = Nodecl::Utils::get_all_memory_accesses( *it );
+                                    for( ObjectList<Nodecl::NodeclBase>::iterator ita = mem_access.begin( ); 
+                                         ita != mem_access.end( ); ++ita )
                                     {
-                                        Nodecl::Dereference pointed_var = 
-                                        Nodecl::Dereference::make( *it, it->get_type( ) );
-                                        _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                        _node->set_ue_var( Utils::ExtendedSymbol( *ita ) );
+                                        if( ita->get_type( ).is_pointer( ) )
+                                        {
+                                            Nodecl::Dereference pointed_var = Nodecl::Dereference::make( *ita, ita->get_type( ) );
+                                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                        }
                                     }
                                 }
                             }
@@ -823,14 +827,11 @@ namespace Analysis {
             ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
             Nodecl::List args = arguments.as<Nodecl::List>( );
             sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
-            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
-                it != non_ref_params.end( ); ++it )
+            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( ); it != non_ref_params.end( ); ++it )
             {
                 ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
                 for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
-                {
                     _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
-                }
             }
 
             // Check for the usage in the graph of the function to propagate Usage (Global variables and reference parameters)
