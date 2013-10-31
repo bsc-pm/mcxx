@@ -148,11 +148,8 @@ namespace Analysis {
          * \param subgraph_id Identifier for the actual cluster.
          */
         void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
-                                 std::vector<std::string>& outer_edges,
-                                 std::vector<Node*>& outer_nodes,
-                                 std::string indent, int& subgraph_id,
-                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                 bool auto_scoping, bool auto_deps );
+                                 std::vector<std::vector< std::string> >& outer_edges, 
+                                 std::vector<std::vector<Node*> >& outer_nodes, std::string indent );
         
         //! Prints both nodes and edges within a pcfg subgraph
         //! Prints nodes and relations between them in a string in a recursive way.
@@ -165,21 +162,15 @@ namespace Analysis {
          * \param subgraph_id Identifier for the actual cluster.
          */
         void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
-                               std::vector<std::string>& outer_edges,
-                               std::vector<Node*>& outer_nodes,
-                               std::string indent, int& subgraph_id,
-                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                               bool auto_scoping, bool auto_deps );
+                               std::vector<std::vector< std::string> >& outer_edges, 
+                               std::vector<std::vector<Node*> >& outer_nodes, std::string indent );
         
         //! Prints the data of an only node.
-        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
-                                bool usage, bool liveness, bool reaching_defs );
+        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent );
         
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
-                                       std::string cluster_name,
-                                       bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                       bool auto_scoping, bool auto_deps );
+                                       std::string cluster_name );
         
         //! Prints OpenMP clauses information only for OpenMP nodes
         std::string print_pragma_node_clauses( Node* current, std::string indent, std::string cluster_name );
@@ -408,6 +399,7 @@ namespace Analysis {
         static Node* get_extensible_graph_from_node( Node* node );
         static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
         static Node* get_omp_enclosing_node( Node* current );
+        static Edge* get_edge_between_nodes( Node* source, Node* target );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

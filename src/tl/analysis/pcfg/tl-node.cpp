@@ -886,15 +886,7 @@ namespace Analysis {
 
     void Node::set_outer_node( Node* node )
     {
-        if( node->is_graph_node( ) )
-        {
-            set_data( _OUTER_NODE, node );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting the exit node to node '%d'. GRAPH expected.",
-                            node->get_type_as_string( ).c_str( ), _id );
-        }
+        set_data( _OUTER_NODE, node );
     }
 
     Scope Node::get_node_scope( )
@@ -1981,7 +1973,7 @@ namespace Analysis {
         const ObjectList<PCFGClause> clauses = this->get_pragma_node_info( ).get_clauses( );
         for( ObjectList<PCFGClause>::const_iterator it = clauses.begin( ); it != clauses.end( ); ++it )
         {
-            if( it->get_clause( ) == __Reduction )
+            if( it->get_clause( ) == __reduction )
             {
                 ObjectList<Nodecl::NodeclBase> reductions = it->get_args( );
                 for( ObjectList<Nodecl::NodeclBase>::iterator itr = reductions.begin( ); itr != reductions.end( ); ++itr )

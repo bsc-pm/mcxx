@@ -590,22 +590,22 @@ namespace Analysis {
         {
             switch( it->get_clause( ) )
             {
-                case __AssertDead:           asserted_node->set_assert_dead_var( it->get_args( ) );
-                                            break;
-                case __AssertDefined:        asserted_node->set_assert_killed_var( it->get_args( ) );
-                                            break;
-                case __AssertLiveIn:        asserted_node->set_assert_live_in_var( it->get_args( ) );
-                                            break;
-                case __AssertLiveOut:       asserted_node->set_assert_live_out_var( it->get_args( ) );
-                                            break;
-                case __AssertUpperExposed:  asserted_node->set_assert_ue_var( it->get_args( ) );
-                                            break;
-                case __AssertReachIn:       asserted_node->set_assert_reaching_definitions_in( it->get_args( ) );
-                                            break;
-                case __AssertReachOut:      asserted_node->set_assert_reaching_definitions_out( it->get_args( ) );
-                                            break;
-                case __AssertInductionVar:  asserted_node->set_assert_induction_variables( it->get_args( ) );
-                                            break;
+                case __assert_dead:             asserted_node->set_assert_dead_var( it->get_args( ) );
+                                                break;
+                case __assert_defined:          asserted_node->set_assert_killed_var( it->get_args( ) );
+                                                break;
+                case __assert_live_in:          asserted_node->set_assert_live_in_var( it->get_args( ) );
+                                                break;
+                case __assert_live_out:         asserted_node->set_assert_live_out_var( it->get_args( ) );
+                                                break;
+                case __assert_upper_exposed:    asserted_node->set_assert_ue_var( it->get_args( ) );
+                                                break;
+                case __assert_reach_in:         asserted_node->set_assert_reaching_definitions_in( it->get_args( ) );
+                                                break;
+                case __assert_reach_out:        asserted_node->set_assert_reaching_definitions_out( it->get_args( ) );
+                                                break;
+                case __assert_induction_var:    asserted_node->set_assert_induction_variables( it->get_args( ) );
+                                                break;
                 default:
                     internal_error( "Unexpected clause found associated with an Analysis::Assert node.", 0 );
             }
@@ -618,14 +618,14 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Dead& n )
     {
-        PCFGClause current_clause( __AssertDead, n.get_dead_exprs( ) );
+        PCFGClause current_clause( __assert_dead, n.get_dead_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Defined& n )
     {
-        PCFGClause current_clause( __AssertDefined, n.get_defined_exprs( ) );
+        PCFGClause current_clause( __assert_defined, n.get_defined_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -638,21 +638,21 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::InductionVariable& n )
     {
-        PCFGClause current_clause( __AssertInductionVar, n.get_induction_variables( ) );
+        PCFGClause current_clause( __assert_induction_var, n.get_induction_variables( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::LiveIn& n )
     {
-        PCFGClause current_clause( __AssertLiveIn, n.get_live_in_exprs( ) );
+        PCFGClause current_clause( __assert_live_in, n.get_live_in_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::LiveOut& n )
     {
-        PCFGClause current_clause( __AssertLiveOut, n.get_live_out_exprs( ) );
+        PCFGClause current_clause( __assert_live_out, n.get_live_out_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -665,21 +665,21 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::ReachingDefinitionIn& n )
     {
-        PCFGClause current_clause( __AssertReachIn, n.get_reaching_definitions_in( ) );
+        PCFGClause current_clause( __assert_reach_in, n.get_reaching_definitions_in( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::ReachingDefinitionOut& n )
     {
-        PCFGClause current_clause( __AssertReachOut, n.get_reaching_definitions_out( ) );
+        PCFGClause current_clause( __assert_reach_out, n.get_reaching_definitions_out( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::UpperExposed& n )
     {
-        PCFGClause current_clause( __AssertUpperExposed, n.get_upper_exposed_exprs( ) );
+        PCFGClause current_clause( __assert_upper_exposed, n.get_upper_exposed_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -1133,7 +1133,17 @@ namespace Analysis {
             _pcfg->connect_nodes( _utils->_last_nodes, init,
                                   ObjectList<Edge_type>( n_connects, __Always ),
                                   ObjectList<std::string>( n_connects, "" ) );
-            _utils->_last_nodes = ObjectList<Node*>( 1, init );
+            // Init can generate more than one node: find the last
+            Node* last_init_node = init;
+            ObjectList<Node*> init_children = last_init_node->get_children( );
+            while( !init_children.empty( ) )
+            {
+                ERROR_CONDITION( init_children.size( ) != 1, 
+                                 "A LoopControl init can generate more than one node, but no branches are allowed", 0 );
+                last_init_node = init_children[0];
+                init_children = last_init_node->get_children( );
+            }
+            _utils->_last_nodes = ObjectList<Node*>( 1, last_init_node );
         }
 
         // Create the loop graph node
@@ -1930,7 +1940,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Auto& n )
     {
-        PCFGClause current_clause( __Auto, n.get_symbols( ) );
+        PCFGClause current_clause( __auto, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
 
         // Set the task related to this clause to have auto-scoping enabled
@@ -1978,14 +1988,14 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Commutative& n )
     {
-        PCFGClause current_clause( __DepCommutative, n.get_inout_deps( ) );
+        PCFGClause current_clause( __commutative, n.get_inout_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Concurrent& n )
     {
-        PCFGClause current_clause( __DepConcurrent, n.get_inout_deps( ) );
+        PCFGClause current_clause( __concurrent, n.get_inout_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -1993,21 +2003,21 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
     {
-        PCFGClause current_clause( __CopyIn, n.get_input_copies( ) );
+        PCFGClause current_clause( __copy_in, n.get_input_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
     {
-        PCFGClause current_clause( __CopyInout, n.get_inout_copies( ) );
+        PCFGClause current_clause( __copy_inout, n.get_inout_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
     {
-        PCFGClause current_clause( __CopyOut, n.get_output_copies( ) );
+        PCFGClause current_clause( __copy_out, n.get_output_copies( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2046,63 +2056,63 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CriticalName& n )
     {
-        PCFGClause current_clause( __Name, n );
+        PCFGClause current_clause( __name, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
     {
-        PCFGClause current_clause( __DepIn, n.get_in_deps( ) );
+        PCFGClause current_clause( __in, n.get_in_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInAlloca& n )
     {
-        PCFGClause current_clause( __DepInAlloca, n.get_in_deps( ) );
+        PCFGClause current_clause( __in_alloca, n.get_in_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInValue& n )
     {
-        PCFGClause current_clause( __DepInValue, n.get_in_deps( ) );
+        PCFGClause current_clause( __in_value, n.get_in_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
     {
-        PCFGClause current_clause( __DepInout, n.get_inout_deps( ) );
+        PCFGClause current_clause( __inout, n.get_inout_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepOut& n )
     {
-        PCFGClause current_clause( __DepOut, n.get_out_deps( ) );
+        PCFGClause current_clause( __out, n.get_out_deps( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Final& n )
     {
-        PCFGClause current_clause( __Final, n );
+        PCFGClause current_clause( __final, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
-        PCFGClause current_clause( __Firstprivate, n.get_symbols( ) );
+        PCFGClause current_clause( __firstprivate, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FirstLastprivate& n )
     {
-        PCFGClause current_clause( __Firstlastprivate, n.get_symbols( ) );
+        PCFGClause current_clause( __firstlastprivate, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2188,14 +2198,14 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
-        PCFGClause current_clause( __If, n.get_condition( ) );
+        PCFGClause current_clause( __if, n.get_condition( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Lastprivate& n )
     {
-        PCFGClause current_clause( __Lastprivate, n.get_symbols( ) );
+        PCFGClause current_clause( __lastprivate, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2281,14 +2291,14 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
     {
-        PCFGClause current_clause( __Priority, n.get_priority( ) );
+        PCFGClause current_clause( __priority, n.get_priority( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
-        PCFGClause current_clause( __Private, n.get_symbols( ) );
+        PCFGClause current_clause( __private, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2301,14 +2311,14 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
-        PCFGClause current_clause( __Reduction, n );
+        PCFGClause current_clause( __reduction, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
     {
-        PCFGClause current_clause( __Schedule, n.get_chunk( ) );
+        PCFGClause current_clause( __schedule, n.get_chunk( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2373,7 +2383,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
     {
-        PCFGClause current_clause( __Shared, n.get_symbols( ) );
+        PCFGClause current_clause( __shared, n.get_symbols( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2504,7 +2514,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
     {
-        PCFGClause current_clause( __Target, n );
+        PCFGClause current_clause( __target, n );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -2516,7 +2526,7 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
 
         // Create the new graph node containing the task
-        Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpTask, _utils->_context_nodecl.top( ) );
+        Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         Edge* edge = _pcfg->connect_nodes( task_creation, task_node, __Always, "", /* is task */ true );
         edge->set_label("create");
 
@@ -2553,7 +2563,7 @@ namespace Analysis {
 
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
         // Create the new graph node containing the task
-        Node* task_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpTask, _utils->_context_nodecl.top( ) );
+        Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         Edge* edge = _pcfg->connect_nodes( task_creation, task_node, __Always, "", /* is task */ true );
         edge->set_label("create");
 
@@ -2603,42 +2613,42 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Untied& n )
     {
-        PCFGClause current_clause( __Untied );
+        PCFGClause current_clause( __untied );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorDevice& n )
     {
-        PCFGClause current_clause( __VectorDevice, n.get_device( ) );
+        PCFGClause current_clause( __device, n.get_device( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );         
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorLengthFor& n )
     {
-        PCFGClause current_clause( __VectorLengthFor );
+        PCFGClause current_clause( __length_for );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( ); 
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorMask& n )
     {
-        PCFGClause current_clause( __VectorMask );
+        PCFGClause current_clause( __mask );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( ); 
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorNoMask& n )
     {
-        PCFGClause current_clause( __VectorNoMask );
+        PCFGClause current_clause( __no_mask );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );        
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorSuitable& n )
     {
-        PCFGClause current_clause( __VectorSuitable, n.get_suitable_expressions( ) );
+        PCFGClause current_clause( __suitable, n.get_suitable_expressions( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }

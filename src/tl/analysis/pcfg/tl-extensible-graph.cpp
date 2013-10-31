@@ -336,14 +336,14 @@ namespace Analysis {
         // Create the convenient clause with the flushed variables
         if ( n.is_null( ) )
         {   // Flushing all memory
-            PCFGClause current_clause( __FlushedVars );
+            PCFGClause current_clause( __flushed_vars );
             PCFGPragmaInfo current_info( current_clause );
             flush_node->set_pragma_node_info( current_info );
         }
         else
         {   // Flushing a list of expressions
             Nodecl::List flushed_vars = n.as<Nodecl::List>( );
-            PCFGClause current_clause( __FlushedVars, flushed_vars );
+            PCFGClause current_clause( __flushed_vars, flushed_vars );
             PCFGPragmaInfo current_info( current_clause );
             flush_node->set_pragma_node_info( current_info );
         }
@@ -1180,6 +1180,25 @@ namespace Analysis {
         Node* result = current->get_outer_node( );
         while( result != NULL && !result->is_omp_node( ) )
             result = result->get_outer_node( );
+        return result;
+    }
+    
+    Edge* ExtensibleGraph::get_edge_between_nodes( Node* source, Node* target )
+    {
+        Edge* result;
+        ObjectList<Edge*> exits = source->get_exit_edges( );
+        for( ObjectList<Edge*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
+        {
+            if( ( *it )->get_target( ) == target )
+            {
+                result = *it;
+                break;
+            }
+        }
+        
+        ERROR_CONDITION( result == NULL, 
+                         "Asking for the connection edge between two nodes ( %d, %d ) that are not connected\n", 
+                         source->get_id( ), target->get_id( ) );
         return result;
     }
     

@@ -78,7 +78,7 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     PCFGClause::PCFGClause( )
-        : _clause( __UndefinedClause ), _args( ObjectList<Nodecl::NodeclBase> ( 1, Nodecl::NodeclBase::null( ) ) )
+        : _clause( __undefined_clause ), _args( ObjectList<Nodecl::NodeclBase> ( 1, Nodecl::NodeclBase::null( ) ) )
     {}
 
     PCFGClause::PCFGClause( Clause c )
@@ -92,9 +92,7 @@ namespace Analysis {
         {
             Nodecl::List arg_list = arg.as<Nodecl::List>( );
             for( Nodecl::List::iterator it = arg_list.begin( ); it != arg_list.end( ); ++it )
-            {
                 _args.append( *it );
-            }
         }
         else
         {
