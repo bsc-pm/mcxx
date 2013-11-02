@@ -6376,6 +6376,32 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     }
 }
 
+// Special g++ identifiers are handled here
+char is_cxx_special_identifier(nodecl_t nodecl_name, nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(nodecl_is_null(nodecl_name), "Invalid tree", 0);
+    ERROR_CONDITION(nodecl_is_err_expr(nodecl_name), "Invalid tree", 0);
+
+    if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE)
+    {
+        const char* text = nodecl_get_text(nodecl_name);
+        // __null is a special item in g++
+        if (strcmp(text, "__null") == 0)
+        {
+            type_t* t = get_zero_type_variant((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
+
+            *nodecl_output = nodecl_make_integer_literal(
+                    t,
+                    const_value_get_integer(0, type_get_size(t), 1),
+                    nodecl_get_locus(nodecl_name));
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_name = nodecl_null();
@@ -6386,6 +6412,9 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
         *nodecl_output = nodecl_name;
         return;
     }
+
+    if (is_cxx_special_identifier(nodecl_name, nodecl_output))
+        return;
 
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             decl_context,

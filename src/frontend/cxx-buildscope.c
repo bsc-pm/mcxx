@@ -463,21 +463,6 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
             decl_context_t namespace_std_context = new_namespace_context(decl_context, namespace_std);
             namespace_std->related_decl_context = namespace_std_context;
         }
-        {
-            // __null is a magic NULL in g++
-            scope_entry_t* null_keyword;
-
-            null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
-            null_keyword->kind = SK_VARIABLE;
-            null_keyword->type_information = get_null_type();
-            const_value_t* val = const_value_get_signed_int(0);
-            null_keyword->value = const_value_to_nodecl(val);
-            null_keyword->defined = 1;
-            null_keyword->do_not_print = 1;
-            null_keyword->locus = make_locus("(global scope)", 0, 0);
-            // This should be renamed one day into 'builtin_symbol'
-            null_keyword->entity_specs.is_builtin = 1;
-        }
 
         // There are two 'operator new' and two 'operator delete' at global scope
         {

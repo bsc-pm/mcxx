@@ -146,14 +146,12 @@ LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 // States that this is a variably modified type
 LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 
-// This is an int type of 0
-LIBMCXX_EXTERN type_t* get_zero_type(type_t* t);
 // This is a type for a bool 'false'
 LIBMCXX_EXTERN type_t* get_bool_false_type(void);
+
 // This is a zero type based on any integer/boolean type
+LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_zero_type_variant
 LIBMCXX_EXTERN type_t* get_zero_type_variant(type_t* t);
-// This is for g++'s '__null'
-LIBMCXX_EXTERN type_t* get_null_type(void);
 
 // Error type
 LIBMCXX_EXTERN type_t* get_error_type(void);

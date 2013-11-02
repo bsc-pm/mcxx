@@ -10053,57 +10053,6 @@ char is_zero_type(type_t* t)
     return (t->info->is_zero_type);
 }
 
-static type_t* _null_type = NULL;
-
-// special type for '__null' and forthcoming 'nullptr_t'
-type_t* get_null_type(void)
-{
-    if (_null_type == NULL)
-    {
-        _null_type = get_simple_type();
-        _null_type->type->kind = STK_BUILTIN_TYPE;
-        _null_type->type->builtin_type = BT_INT;
-
-        _null_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
-        _null_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
-        _null_type->info->valid_size = 1;
-
-        // Fix the underlying integer type
-        // The two first are highly unlikely out of the embedded world
-        // FIXME - Should we use also unsigned?
-        if (_null_type->info->size == 1)
-        {
-            _null_type->type->builtin_type = BT_CHAR;
-        }
-        else if (_null_type->info->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_short)
-        {
-            // Set 'short'
-            _null_type->type->is_short = 1;
-        }
-        else if (_null_type->info->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_int)
-        {
-            // Do nothing
-        }
-        else if (_null_type->info->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_long)
-        {
-            // Set 'long'
-            _null_type->type->is_long = 1;
-        }
-        else if (_null_type->info->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long)
-        {
-            // Set 'long'
-            _null_type->type->is_long = 2;
-        }
-        else
-        {
-            internal_error("Unexpected size of null type '%d'", _null_type->info->size);
-        }
-        _null_type->info->is_zero_type = 1;
-    }
-
-    return _null_type;
-}
-
 static type_t* _error_type = NULL;
 type_t* get_error_type(void)
 {
