@@ -153,6 +153,9 @@ LIBMCXX_EXTERN type_t* get_bool_false_type(void);
 LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_zero_type_variant
 LIBMCXX_EXTERN type_t* get_zero_type_variant(type_t* t);
 
+// nullptr_t
+LIBMCXX_EXTERN type_t* get_nullptr_type(void);
+
 // Error type
 LIBMCXX_EXTERN type_t* get_error_type(void);
 
@@ -385,6 +388,10 @@ LIBMCXX_EXTERN char is_complex_type(type_t* t);
 LIBMCXX_EXTERN char is_unresolved_overloaded_type(type_t* t);
 
 LIBMCXX_EXTERN char is_zero_type(type_t* t);
+
+LIBMCXX_EXTERN char is_zero_type_or_nullptr_type(type_t* t);
+
+LIBMCXX_EXTERN char is_nullptr_type(type_t* t);
 
 LIBMCXX_EXTERN char is_error_type(type_t* t);
 

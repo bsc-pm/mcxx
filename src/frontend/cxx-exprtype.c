@@ -347,6 +347,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output);
 static void character_literal_type(AST expr, nodecl_t* nodecl_output);
 static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
+static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 // Typechecking functions
 static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -553,6 +554,12 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_STRING_LITERAL :
             {
                 string_literal_type(expression, nodecl_output);
+                break;
+            }
+        case AST_POINTER_LITERAL:
+            {
+                // nullptr
+                pointer_literal_type(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_THIS_VARIABLE :
@@ -1805,6 +1812,42 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
     *nodecl_output = nodecl_make_string_literal(result, value, ast_get_locus(expr));
 }
 
+static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
+{
+    decl_context_t global_context = decl_context;
+    global_context.current_scope = global_context.global_scope;
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, ".nullptr");
+
+    if (entry_list == NULL)
+    {
+        scope_entry_t* nullptr_sym = new_symbol(global_context, global_context.current_scope, ".nullptr");
+
+        // Change the name of the symbol
+        nullptr_sym->symbol_name = "nullptr";
+        nullptr_sym->kind = SK_VARIABLE;
+        nullptr_sym->entity_specs.is_builtin = 1;
+        nullptr_sym->type_information = get_nullptr_type();
+
+        return nullptr_sym;
+    }
+    else
+    {
+        scope_entry_t* result = entry_list_head(entry_list);
+        return result;
+    }
+}
+
+static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    scope_entry_t* entry = get_nullptr_symbol(decl_context);
+    ERROR_CONDITION(entry == NULL, "This should not happen, nullptr should always exist", 0);
+
+    *nodecl_output = nodecl_make_symbol(entry,
+            ast_get_locus(expr));
+
+    // Note that this is not an lvalue
+    nodecl_set_type(*nodecl_output, entry->type_information);
+}
 
 static 
 char operand_is_class_or_enum(type_t* op_type)
@@ -3571,8 +3614,8 @@ static char operator_bin_arithmetic_pointer_or_enum_pred_flags(type_t* lhs,
                         get_unqualified_type(get_unqualified_type(no_ref(lhs))))
                    )
                )
-            || (is_zero_type(no_ref(lhs)) && rhs_is_ptr_like)
-            || (lhs_is_ptr_like && is_zero_type(no_ref(rhs)))
+            || (is_zero_type_or_nullptr_type(no_ref(lhs)) && rhs_is_ptr_like)
+            || (lhs_is_ptr_like && is_zero_type_or_nullptr_type(no_ref(rhs)))
             // enum E < enum E
             || (is_enum_type(no_ref(lhs))
                 && is_enum_type(no_ref(rhs))
@@ -3612,14 +3655,14 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
     // 0 == p1
     // a1 == 0
     // 0 == a1
-    else if ((is_zero_type(no_ref(*lhs))
+    else if ((is_zero_type_or_nullptr_type(no_ref(*lhs))
                 && (is_pointer_type(no_ref(*rhs))
                     || is_array_type(no_ref(*rhs))
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref(*rhs)))))
             || ((is_pointer_type(no_ref(*lhs))
                     || is_array_type(no_ref(*lhs))
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref(*lhs))))
-                && is_zero_type(no_ref(*rhs))))
+                && is_zero_type_or_nullptr_type(no_ref(*rhs))))
     {
         if (is_array_type(no_ref(*lhs)))
         {
@@ -3632,12 +3675,12 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         }
 
         // Convert the zero type to the other pointer type
-        if (is_zero_type(no_ref(*lhs)))
+        if (is_zero_type_or_nullptr_type(no_ref(*lhs)))
         {
             *lhs = get_unqualified_type(no_ref(*rhs));
             *rhs = get_unqualified_type(no_ref(*rhs));
         }
-        if (is_zero_type(no_ref(*rhs)))
+        if (is_zero_type_or_nullptr_type(no_ref(*rhs)))
         {
             *lhs = get_unqualified_type(no_ref(*lhs));
             *rhs = get_unqualified_type(no_ref(*lhs));
@@ -3790,15 +3833,15 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             || ((is_pointer_type(no_ref_lhs_type)
                     || is_array_type(no_ref_lhs_type)
                     || is_function_type(no_ref_lhs_type)
-                    || is_zero_type(no_ref_lhs_type)
+                    || is_zero_type_or_nullptr_type(no_ref_lhs_type)
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_lhs_type)))
                 && (is_pointer_type(no_ref_rhs_type)
                     || is_array_type(no_ref_rhs_type)
                     || is_function_type(no_ref_rhs_type)
-                    || is_zero_type(no_ref_rhs_type)
+                    || is_zero_type_or_nullptr_type(no_ref_rhs_type)
                     || (allow_pointer_to_member && is_pointer_to_member_type(no_ref_rhs_type)))
-                && (is_zero_type(no_ref_lhs_type)
-                    || is_zero_type(no_ref_rhs_type)
+                && (is_zero_type_or_nullptr_type(no_ref_lhs_type)
+                    || is_zero_type_or_nullptr_type(no_ref_rhs_type)
                     || is_pointer_to_void_type(no_ref_lhs_type)
                     || is_pointer_to_void_type(no_ref_rhs_type)
                     || standard_conversion_between_types(&scs,
@@ -6995,12 +7038,12 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
             return 1;
         }
         else if (is_pointer_type(no_ref(t2)) != is_pointer_type(no_ref(t3))
-                && is_zero_type(no_ref(t2)) != is_zero_type(no_ref(t3)))
+                && is_zero_type_or_nullptr_type(no_ref(t2)) != is_zero_type_or_nullptr_type(no_ref(t3)))
         {
             return 1;
         }
         else if (is_pointer_to_member_type(no_ref(t2)) != is_pointer_to_member_type(no_ref(t3))
-                && is_zero_type(t2) != is_zero_type(t3))
+                && is_zero_type_or_nullptr_type(t2) != is_zero_type_or_nullptr_type(t3))
         {
             return 1;
         }
@@ -7034,10 +7077,10 @@ static type_t* composite_pointer_to_member(type_t* p1, type_t* p2)
     if (equivalent_types(p1, p2))
         return p1;
 
-    if (is_zero_type(p1))
+    if (is_zero_type_or_nullptr_type(p1))
         return p2;
 
-    if (is_zero_type(p2))
+    if (is_zero_type_or_nullptr_type(p2))
         return p1;
 
     cv_qualifier_t cv_qualif_1 = CV_NONE;
@@ -7075,10 +7118,10 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
     if (equivalent_types(p1, p2))
         return p1;
 
-    if (is_zero_type(p1))
+    if (is_zero_type_or_nullptr_type(p1))
         return p2;
 
-    if (is_zero_type(p2))
+    if (is_zero_type_or_nullptr_type(p2))
         return p1;
 
     cv_qualifier_t cv_qualif_1 = CV_NONE;
@@ -7438,12 +7481,12 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
     }
 
     char is_pointer_and_zero = 
-        (is_pointer_type(operand_types[0]) && is_zero_type(operand_types[1]))
-        || (is_pointer_type(operand_types[1]) && is_zero_type(operand_types[0]));
+        (is_pointer_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
+        || (is_pointer_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
 
     char is_pointer_to_member_and_zero = 
-        (is_pointer_to_member_type(operand_types[0]) && is_zero_type(operand_types[1]))
-        || (is_pointer_to_member_type(operand_types[1]) && is_zero_type(operand_types[0]));
+        (is_pointer_to_member_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
+        || (is_pointer_to_member_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
 
     type_t* final_type = NULL;
 
@@ -11331,7 +11374,7 @@ static char postoperator_incr_pred(type_t* lhs, type_t* rhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
                 || is_pointer_type(reference_type_get_referenced_type(lhs)))
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
-            && is_zero_type(rhs));
+            && is_zero_type_or_nullptr_type(rhs));
 }
 
 static char postoperator_decr_pred(type_t* lhs, type_t* rhs)
@@ -11341,7 +11384,7 @@ static char postoperator_decr_pred(type_t* lhs, type_t* rhs)
                 || is_pointer_type(reference_type_get_referenced_type(lhs)))
             && !is_bool_type(reference_type_get_referenced_type(lhs))
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
-            && is_zero_type(rhs));
+            && is_zero_type_or_nullptr_type(rhs));
 }
 
 static type_t* postoperator_result(type_t** lhs, 

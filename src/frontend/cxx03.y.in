@@ -4966,6 +4966,10 @@ literal : DECIMAL_LITERAL
 {
 	$$ = $1;
 }
+| TOKEN_NULLPTR
+{
+    $$ = ASTLeaf(AST_POINTER_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 ;
 
 // *********************************************************

@@ -97,6 +97,7 @@ enum builtin_type_tag
     BT_CHAR,
     BT_WCHAR,
     BT_VOID,
+    BT_NULLPTR_T
 } builtin_type_t;
 
 typedef 
@@ -7256,6 +7257,11 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                             result = strappend(result, "void");
                             break;
                         }
+                    case BT_NULLPTR_T :
+                        {
+                            result = strappend(result, "decltype(nullptr)");
+                            break;
+                        }
                     case BT_BYTE :
                         {
                             result = strappend(result, "@byte@");
@@ -8426,6 +8432,9 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_VOID :
                         result = strappend(result, "void");
                         break;
+                    case BT_NULLPTR_T :
+                        result = strappend(result, "decltype(nullptr)");
+                        break;
                     case BT_UNKNOWN :
                     default :
                         result = strappend(result, "???unknown builtin type???");
@@ -9153,14 +9162,23 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     // Special cases of identity due to how references can be initialized
-    if (!is_any_reference_type(orig)
+    if ((!is_any_reference_type(orig) || is_nullptr_type(no_ref(orig)))
             // cv1 T -> const cv2 T&
+            // std::nullptr_t -> const cv2 T&
+            // std::nullptr_t& -> const cv2 T&
+            // std::nullptr_t&& -> const cv2 T&
             && ((is_lvalue_reference_type(dest)
                     && is_const_qualified_type(reference_type_get_referenced_type(dest)))
                 // cv1 T -> cv2 T&&
+                // std::nullptr_t -> cv2 T&&
+                // std::nullptr_t& -> cv2 T&&
+                // std::nullptr_t&& -> cv2 T&&
                 || is_rvalue_reference_type(dest)))
     {
-        type_t* unqualif_orig = get_unqualified_type(orig);
+        // std::nullptr_t can be a reference here
+        type_t* no_ref_orig = no_ref(orig);
+
+        type_t* unqualif_orig = get_unqualified_type(no_ref_orig);
         type_t* unqualif_dest = get_unqualified_type(
                 reference_type_get_referenced_type(dest)
                 );
@@ -9171,6 +9189,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         // Here we compute
         // cv1 T -> T
         char ok = 0;
+        // Note that here we do not use no_ref_orig because we want
+        // std::nullptr_t& stuff record lvalue-to-rvalue conversions
         if (standard_conversion_between_types(&conversion_among_lvalues, orig, unqualif_dest))
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
@@ -9188,17 +9208,32 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         {
             DEBUG_CODE()
             {
+                const char* bind_to = "an lvalue-reference";
                 if (is_rvalue_reference_type(dest))
+                    bind_to = "an rvalue-reference";
+
+                const char* by_means_of = "an rvalue";
+                if (is_nullptr_type(no_ref(orig)))
                 {
-                    fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of an rvalue\n");
+                    if (!is_any_reference_type(orig))
+                    {
+                        by_means_of = "an rvalue of std::nullptr_t";
+                    }
+                    else if (is_lvalue_reference_type(orig))
+                    {
+                        by_means_of = "an lvalue-reference of std::nullptr_t";
+                    }
+                    // must be rvalue
+                    else
+                    {
+                        by_means_of = "an rvalue-reference of std::nullptr_t";
+                    }
                 }
-                else
-                {
-                    fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
-                }
+
+                fprintf(stderr, "SCS: This is a binding to %s by means of %s\n", bind_to, by_means_of);
             }
 
-            if (is_more_cv_qualified_type(no_ref(dest), orig))
+            if (is_more_cv_qualified_type(no_ref(dest), no_ref_orig))
             {
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
@@ -9261,7 +9296,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: This is a binding to a lvalue-reference by means of a lvalue-reference\n");
             }
             if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                    (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -9289,6 +9324,20 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             if (is_more_cv_qualified_type(ref_dest, ref_orig))
                     (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            return 1;
+        }
+        else if (is_nullptr_type(ref_orig)
+                && is_pointer_type(ref_dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: This is a binding to a rvalue-reference pointer from a rvalue-reference of std::nullptr_t\n");
+            }
+            // std::nullptr_t&& -> null pointer value is already a rvalue
+            // null pointer value -> c2 T2*&&
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            if (is_more_cv_qualified_type(ref_dest, ref_orig))
+                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -9531,6 +9580,20 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying pointer-conversion from 0 to pointer\n");
+            }
+
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_nullptr_type(orig)
+                && (is_pointer_type(dest)
+                    || is_pointer_to_member_type(dest)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-conversion from std::nullptr_t to pointer\n");
             }
 
             (*result).conv[1] = SCI_POINTER_CONVERSION;
@@ -10051,6 +10114,35 @@ char is_zero_type(type_t* t)
 
     t = advance_over_typedefs(t);
     return (t->info->is_zero_type);
+}
+
+static type_t* __nullptr_t = NULL;
+type_t* get_nullptr_type(void)
+{
+    if (__nullptr_t == NULL)
+    {
+        __nullptr_t = get_simple_type();
+        __nullptr_t->type->kind = STK_BUILTIN_TYPE;
+        __nullptr_t->type->builtin_type = BT_NULLPTR_T;
+        __nullptr_t->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+        __nullptr_t->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
+        __nullptr_t->info->valid_size = 1;
+    }
+    return __nullptr_t;
+}
+
+char is_nullptr_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return t != NULL
+        && t->kind == TK_DIRECT
+        && t->type->kind == STK_BUILTIN_TYPE
+        && t->type->builtin_type == BT_NULLPTR_T;
+}
+
+char is_zero_type_or_nullptr_type(type_t* t)
+{
+    return is_zero_type(t) || is_nullptr_type(t);
 }
 
 static type_t* _error_type = NULL;
