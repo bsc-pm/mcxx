@@ -2086,6 +2086,8 @@ namespace TL { namespace OpenMP {
             execution_environment.append(Nodecl::OpenMP::Final::make(expr_list[0].shallow_copy()));
         }
 
+        pragma_line.diagnostic_unused_clauses();
+
         Nodecl::NodeclBase async_code =
             Nodecl::OpenMP::Task::make(execution_environment,
                     directive.get_statements().shallow_copy(),
