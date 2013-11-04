@@ -268,6 +268,10 @@ then
            [
             nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
+            if test -d "${withval}/lib64";
+            then
+             nanox_lib="${withval}/lib64"
+            fi
            ]
    )
 
@@ -290,6 +294,10 @@ then
            [
             nanox_mic_include="${withval}/include/nanox"
             nanox_mic_lib="${withval}/lib"
+            if test -d "${withval}/lib64";
+            then
+             nanox_mic_lib="${withval}/lib64"
+            fi
            ]
    )
 
