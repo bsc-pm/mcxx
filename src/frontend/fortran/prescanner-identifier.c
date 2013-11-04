@@ -691,8 +691,11 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 
 		if (!statement)
 		{
-			fprintf(stderr, "Could not classify statement at %s:%d\n", prescanner->input_filename, li->num_line);
-			fprintf(stderr, "'%s'\n\n", li->statement_list[statement_index].statement);
+			fprintf(stderr, "%s:%d: warning: could not classify statement\n",
+					prescanner->input_filename, li->num_line);
+			fprintf(stderr, "%s:%d: info: unrecognized statement follows\n\n",
+					prescanner->input_filename, li->num_line);
+			fprintf(stderr, "%s\n\n", li->statement_list[statement_index].statement);
 		}
 	}
 
