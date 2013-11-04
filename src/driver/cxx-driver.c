@@ -1603,7 +1603,6 @@ int parse_arguments(int argc, const char* argv[],
         const char* minus_v = uniquestr("-v");
         if (CURRENT_CONFIGURATION->do_not_link)
         {
-            // Clear compiler options
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_v);
         }
         else
