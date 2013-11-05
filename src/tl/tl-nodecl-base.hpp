@@ -108,6 +108,11 @@ namespace Nodecl {
                 }
             }
 
+            void set_constant(const_value_t* cval)
+            {
+                ::nodecl_set_constant(get_internal_nodecl(), cval);
+            }
+
             // Prettyprint
             std::string prettyprint() const;
 

@@ -243,7 +243,7 @@ namespace TL
             if (rhs.is<Nodecl::IntegerLiteral>() || // -1
                 rhs.is<Nodecl::FloatingLiteral>())
             {
-                const Nodecl::VectorPromotion vector_prom =
+                Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
                             n.shallow_copy(),
                             mask,
@@ -251,19 +251,24 @@ namespace TL
                                 _environment._unroll_factor),
                             n.get_locus());
 
+                vector_prom.set_constant(get_vector_const_value(n));
+
                 n.replace(vector_prom);
             }
             else // -a
             {
                 walk(rhs);
 
-                const Nodecl::VectorNeg vector_neg =
+                Nodecl::VectorNeg vector_neg =
                     Nodecl::VectorNeg::make(
                             n.get_rhs().shallow_copy(),
                             mask,
                             Utils::get_qualified_vector_to(n.get_type(), 
                                 _environment._unroll_factor),
                             n.get_locus());
+
+                if(n.is_constant())
+                    vector_neg.set_constant(get_vector_const_value(n));
 
                 n.replace(vector_neg);
             }
@@ -887,6 +892,13 @@ namespace TL
 
             TL::Type basic_type = n.get_type().no_ref();
 
+            const_value_t* const_value = NULL;
+            if (n.is_constant())
+            {
+                std::cerr << "TODO: CONSTANT ARRAYSUBSCRIPT: " << n.prettyprint() << "\n";
+            }
+
+
             // Computing new vector type
             TL::Type vector_type = Utils::get_qualified_vector_to(basic_type, 
                     _environment._unroll_factor);
@@ -898,12 +910,14 @@ namespace TL
             {
                 std::cerr << "Constant load: " << n.prettyprint() << "\n";
 
-                const Nodecl::VectorPromotion vector_prom =
+                Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
                             n.shallow_copy(),
                             mask,
                             vector_type,
                             n.get_locus());
+
+                vector_prom.set_constant(const_value);
 
                 n.replace(vector_prom);
             }
@@ -914,12 +928,14 @@ namespace TL
             {
                 std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
 
-                const Nodecl::VectorPromotion vector_prom =
+                Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
                             n.shallow_copy(),
                             mask,
                             vector_type,
                             n.get_locus());
+
+                vector_prom.set_constant(const_value);
 
                 n.replace(vector_prom);
             }
@@ -939,7 +955,7 @@ namespace TL
                     printf("VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
 
-                    const Nodecl::VectorLoad vector_load =
+                    Nodecl::VectorLoad vector_load =
                         Nodecl::VectorLoad::make(
                                 Nodecl::Reference::make(
                                     Nodecl::ParenthesizedExpression::make(
@@ -952,6 +968,8 @@ namespace TL
                                 vector_type,
                                 n.get_locus());
 
+                    vector_load.set_constant(const_value);
+
                     n.replace(vector_load);
                 }
                 else // Unaligned
@@ -959,7 +977,7 @@ namespace TL
                     printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
                             n.prettyprint().c_str());
 
-                    const Nodecl::UnalignedVectorLoad vector_load =
+                    Nodecl::UnalignedVectorLoad vector_load =
                         Nodecl::UnalignedVectorLoad::make(
                                 Nodecl::Reference::make(
                                     Nodecl::ParenthesizedExpression::make(
@@ -971,6 +989,8 @@ namespace TL
                                 mask,
                                 vector_type,
                                 n.get_locus());
+
+                    vector_load.set_constant(const_value);
 
                     n.replace(vector_load);
                 } 
@@ -988,13 +1008,15 @@ namespace TL
 
                 walk(strides);
 
-                const Nodecl::VectorGather vector_gather =
+                Nodecl::VectorGather vector_gather =
                     Nodecl::VectorGather::make(
                             base.shallow_copy(),
                             strides,
                             mask,
                             vector_type,
                             n.get_locus());
+
+                vector_gather.set_constant(const_value);
 
                 n.replace(vector_gather);
             }
@@ -1303,13 +1325,16 @@ namespace TL
                                 n.prettyprint().c_str()); 
                     }
 
-                    const Nodecl::VectorPromotion vector_prom =
+                    Nodecl::VectorPromotion vector_prom =
                         Nodecl::VectorPromotion::make(
                                 n.shallow_copy(),
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(sym_type, 
                                     _environment._unroll_factor),
                                 n.get_locus());
+
+                    if(n.is_constant())
+                        vector_prom.set_constant(get_vector_const_value(n));
 
                     n.replace(vector_prom);
                 }
@@ -1339,26 +1364,30 @@ namespace TL
 
         void VectorizerVisitorExpression::visit(const Nodecl::IntegerLiteral& n)
         {
-            const Nodecl::VectorPromotion vector_prom =
+            Nodecl::VectorPromotion vector_prom =
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         Utils::get_null_mask(),
                         Utils::get_qualified_vector_to(n.get_type(), 
                             _environment._unroll_factor),
                         n.get_locus());
+
+            vector_prom.set_constant(get_vector_const_value(n));
 
             n.replace(vector_prom);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::FloatingLiteral& n)
         {
-            const Nodecl::VectorPromotion vector_prom =
+            Nodecl::VectorPromotion vector_prom =
                 Nodecl::VectorPromotion::make(
                         n.shallow_copy(),
                         Utils::get_null_mask(),
                         Utils::get_qualified_vector_to(n.get_type(), 
                             _environment._unroll_factor),
                         n.get_locus());
+
+            vector_prom.set_constant(get_vector_const_value(n));
 
             n.replace(vector_prom);
         }
@@ -1434,6 +1463,17 @@ namespace TL
                         n.get_type(), _environment._unroll_factor).no_ref();
 
                 TL::Type offset_type = ind_var_type;
+
+                // VectorLiteral offset
+                Nodecl::VectorLiteral offset_vector_literal =
+                    Nodecl::VectorLiteral::make(
+                            offset,
+                            Utils::get_null_mask(),
+                            offset_type,
+                            n.get_locus());
+
+                offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+
                 Nodecl::ParenthesizedExpression vector_induction_var =
                     Nodecl::ParenthesizedExpression::make(
                             Nodecl::VectorAdd::make(
@@ -1442,11 +1482,7 @@ namespace TL
                                     Utils::get_null_mask(),
                                     ind_var_type,
                                     n.get_locus()),
-                                Nodecl::VectorLiteral::make(
-                                    offset,
-                                    Utils::get_null_mask(),
-                                    offset_type,
-                                    n.get_locus()),
+                                offset_vector_literal,
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(n.get_type(), 
                                     _environment._unroll_factor),
@@ -1454,6 +1490,8 @@ namespace TL
                             Utils::get_qualified_vector_to(n.get_type(), 
                                 _environment._unroll_factor),
                             n.get_locus());
+
+
 
                 n.replace(vector_induction_var);
             }
@@ -1463,7 +1501,47 @@ namespace TL
             }
         }
 
+        const_value_t * VectorizerVisitorExpression::get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list)
+        {
+            int size = list.size();
+            ERROR_CONDITION(size == 0, "Invalid number of items in vector value", 0);
 
+            const_value_t** value_set = new const_value_t*[size];
+
+            int i = 0;
+            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
+                    it != list.end();
+                    it++, i++)
+            {
+                value_set[i] = it->get_constant();
+                ERROR_CONDITION(value_set[i] == NULL, "Invalid constant", 0);
+            }
+
+            const_value_t* result = const_value_make_vector(size, value_set);
+
+            delete[] value_set;
+
+            return result;
+        }
+
+        const_value_t * VectorizerVisitorExpression::get_vector_const_value(const Nodecl::NodeclBase& n)
+        {
+            const_value_t** value_set = new const_value_t*[_environment._unroll_factor];
+
+            for (unsigned int i = 0; i < _environment._unroll_factor; i++)
+            {
+                value_set[i] = n.get_constant();
+                ERROR_CONDITION(value_set[i] == NULL, "Invalid constant", 0);
+            }
+
+            const_value_t* result = const_value_make_vector(_environment._unroll_factor, value_set);
+
+            delete[] value_set;
+
+            return result;
+        }
+ 
+ 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(
                 const Nodecl::NodeclBase& n)
         {
