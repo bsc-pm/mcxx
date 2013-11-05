@@ -5867,7 +5867,7 @@ static void build_scope_forall_stmt(AST a,
         nodecl_make_list_1(
                 nodecl_make_fortran_forall(nodecl_loop_control_list, 
                     nodecl_mask, 
-                    nodecl_make_list_1(nodecl_statement),
+                    nodecl_statement,
                     ast_get_locus(a)));
 }
 

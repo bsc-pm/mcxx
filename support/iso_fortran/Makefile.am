@@ -1,3 +1,5 @@
+include $(top_srcdir)/support/Makefile.modules
+
 CLEANFILES =
 
 EXTRA_DIST = \
@@ -21,5 +23,5 @@ endif
 
 CLEANFILES += iso_fortran_env.mf03
 
-iso_fortran_env.mf03 : $(srcdir)/iso_fortran_env.f90
+iso_fortran_env.mf03 : $(srcdir)/iso_fortran_env.f90 $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/iso_fortran_env.f90

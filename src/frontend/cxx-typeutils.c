@@ -2035,7 +2035,9 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     // Copy exception stuff
     if (specialized_symbol->kind == SK_FUNCTION)
     {
-        specialized_symbol->entity_specs.any_exception = primary_symbol->entity_specs.any_exception;
+        // Do not reuse the exceptions of the primary symbol (they may need to be updated)
+        specialized_symbol->entity_specs.num_exceptions = 0;
+        specialized_symbol->entity_specs.exceptions = NULL;
 
         // Update exception specifications
         decl_context_t updated_context = primary_symbol->decl_context;
@@ -9704,6 +9706,14 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
     else
     {
+        if (standard_conversion_is_invalid((*result)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Exactly the same type after removing cv-qualifiers of the first type\n");
+            }
+            (*result) = identity_scs(t_orig, t_dest);
+        }
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: There is a standard conversion from '%s' to '%s'\n",
@@ -11461,18 +11471,6 @@ type_t* get_implicit_none_type(void)
 char is_implicit_none_type(type_t* t)
 {
     return t == _implicit_none_type;
-}
-
-type_t* _type_get_empty_type(void)
-{
-    type_t* result = get_simple_type();
-    return result;
-}
-
-void _type_assign_to(type_t* dest, type_t* src)
-{
-    // Bitwise copy will be enough
-    *dest = *src;
 }
 
 // Use this for embedding in a TL::Source

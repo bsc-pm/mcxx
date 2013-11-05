@@ -129,6 +129,8 @@ namespace TL
             static bool declarator_needs_parentheses(type_t* type_info);
             static std::string get_declaration_str_internal(type_t* type_info,
                     const std::string& symbol_name, const std::string& initializer, bool semicolon);
+
+            Type fix_references_();
         public:
 
             enum TypeDeclFlags
@@ -194,7 +196,6 @@ namespace TL
                     this->_type_info = NULL;
                 }
             }
-
 
             virtual ~Type()
             {

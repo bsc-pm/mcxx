@@ -1430,6 +1430,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
     }
 
     if (is_unsigned_char_type(t)
+            || is_unsigned_byte_type(t)
             || is_unsigned_short_int_type(t)
             || is_unsigned_long_int_type(t)
             || is_unsigned_long_long_int_type(t)
@@ -1438,6 +1439,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
         return const_value_get_zero(type_get_size(t), /* sign */ 0);
     }
     else if (is_signed_char_type(t)
+            || is_signed_byte_type(t)
             || is_signed_short_int_type(t)
             || is_signed_long_int_type(t)
             || is_signed_long_long_int_type(t)
@@ -2610,7 +2612,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     } \
     BOTH_ARE_FLOAT_SECOND_FLOAT128_FUN(a, b, _func)
 
-#define BINOP_FUN_REL(_opname, _binop) \
+#define BINOP_FUN_REL(_opname, _binop, _reduce_multival) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 { \
     ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
@@ -2675,7 +2677,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
             && IS_MULTIVALUE(v2->kind) \
             && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
     { \
-        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+        return _reduce_multival( const_value_##_opname, v1, v2); \
     } \
     else if (IS_MULTIVALUE(v1->kind)) \
     { \
@@ -2688,7 +2690,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     internal_error("Code unreachable", 0); \
 }
 
-#define BINOP_FUN_CALL_REL(_opname, _func) \
+#define BINOP_FUN_CALL_REL(_opname, _func, _reduce_multival) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 { \
     ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
@@ -2751,10 +2753,9 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
         return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
     } \
     else if (IS_MULTIVALUE(v1->kind) \
-            && IS_MULTIVALUE(v2->kind) \
-            && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
+            && IS_MULTIVALUE(v2->kind)) \
     { \
-        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+        return _reduce_multival ( const_value_##_opname, v1, v2 ); \
     } \
     else if (IS_MULTIVALUE(v1->kind)) \
     { \
@@ -2781,6 +2782,31 @@ static const_value_t* complex_eq(const_value_t*, const_value_t*);
 static const_value_t* complex_neq(const_value_t*, const_value_t*);
 static const_value_t* arith_powz(const_value_t*, const_value_t*);
 
+static const_value_t* reduce_lexicographic_lt(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_lexicographic_lte(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_lexicographic_gt(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_lexicographic_gte(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_equal_values_and_length(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+static const_value_t* reduce_different_values_or_length(
+        const_value_t* (*)(const_value_t*, const_value_t*),
+        const_value_t*,
+        const_value_t*);
+
 BINOP_FUN(add, +)
 BINOP_FUN(sub, -)
 BINOP_FUN(mul, *)
@@ -2793,12 +2819,12 @@ BINOP_FUN_I(bitor, |)
 BINOP_FUN_I(bitxor, ^)
 BINOP_FUN(and, &&)
 BINOP_FUN(or, ||)
-BINOP_FUN_REL(lt, <)
-BINOP_FUN_REL(lte, <=)
-BINOP_FUN_REL(gt, >)
-BINOP_FUN_REL(gte, >=)
-BINOP_FUN_REL(eq, ==)
-BINOP_FUN_REL(neq, !=)
+BINOP_FUN_REL(lt, <, reduce_lexicographic_lt)
+BINOP_FUN_REL(lte, <=, reduce_lexicographic_lte)
+BINOP_FUN_REL(gt, >, reduce_lexicographic_gt)
+BINOP_FUN_REL(gte, >=, reduce_lexicographic_gte)
+BINOP_FUN_REL(eq, ==, reduce_equal_values_and_length)
+BINOP_FUN_REL(neq, !=, reduce_different_values_or_length)
 
 static cvalue_uint_t arith_powu(cvalue_uint_t a, cvalue_uint_t b)
 {
@@ -3250,4 +3276,210 @@ const_value_t* const_value_build_from_raw_data(const char* raw_buffer)
     memcpy(result, raw_buffer, sizeof(const_value_t));
 
     return result;
+}
+
+static const_value_t* reduce_lexicographic_lt(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] < rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] < rhs[i])
+            // rhs[i] < lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] < rhs[i])
+            // !(rhs[i] < lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs < n_rhs);
+}
+
+static const_value_t* reduce_lexicographic_gt(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] > rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] > rhs[i])
+            // rhs[i] > lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] > rhs[i])
+            // !(rhs[i] > lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs > n_rhs);
+}
+
+static const_value_t* reduce_lexicographic_lte(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] < rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] < rhs[i])
+            // rhs[i] < lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] < rhs[i])
+            // !(rhs[i] < lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs <= n_rhs);
+}
+
+static const_value_t* reduce_lexicographic_gte(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    int n_min = n_lhs < n_rhs ? n_lhs : n_rhs;
+
+    int i;
+    for (i = 0; i < n_min; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                        const_value_get_element_num(rhs, i) )))
+        {
+            // lhs[i] > rhs[i]
+            return const_value_get_signed_int(1);
+        }
+        else if (const_value_is_zero(
+                    fun( const_value_get_element_num(rhs, i),
+                        const_value_get_element_num(lhs, i) )))
+        {
+            // !(lhs[i] > rhs[i])
+            // rhs[i] > lhs[i]
+            return const_value_get_signed_int(0);
+        }
+        else
+        {
+            // !(lhs[i] > rhs[i])
+            // !(rhs[i] > lhs[i])
+            // They are the same, this is a common prefix, continue
+        }
+    }
+
+    // All elements were the same
+    return const_value_get_signed_int(n_lhs >= n_rhs);
+}
+
+static const_value_t* reduce_equal_values_and_length(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    if (n_lhs != n_rhs)
+        return const_value_get_signed_int(0);
+
+    int i;
+    for (i = 0; i < n_lhs; i++)
+    {
+        if (const_value_is_zero(
+                    fun( const_value_get_element_num(lhs, i),
+                         const_value_get_element_num(rhs, i) )))
+            return const_value_get_signed_int(0);
+    }
+
+    return const_value_get_signed_int(1);
+}
+
+static const_value_t* reduce_different_values_or_length(
+        const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* lhs,
+        const_value_t* rhs)
+{
+    int n_lhs = const_value_get_num_elements(lhs);
+    int n_rhs = const_value_get_num_elements(rhs);
+
+    if (n_lhs != n_rhs)
+        return const_value_get_signed_int(1);
+
+    int i;
+    for (i = 0; i < n_lhs; i++)
+    {
+        if (const_value_is_nonzero(
+                    fun( const_value_get_element_num(lhs, i),
+                         const_value_get_element_num(rhs, i) )))
+            return const_value_get_signed_int(1);
+    }
+
+    return const_value_get_signed_int(0);
 }

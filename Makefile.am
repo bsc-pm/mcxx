@@ -45,3 +45,6 @@ dist-hook:
 	then \
 	    cp $(srcdir)/DIST_REVISION $(distdir)/DIST_REVISION; \
 	fi
+
+rpm: dist-gzip
+	$(MAKE) -C scripts rpm

@@ -1020,6 +1020,14 @@ void DeviceOpenCL::copy_stuff_to_device_file(const TL::ObjectList<Nodecl::Nodecl
     // Do nothing
 }
 
+void DeviceOpenCL::generate_outline_events_after(
+        Source& function_name_instr,
+        Source& extra_cast,
+        Source& instrumentation_after)
+{
+    instrumentation_after << "err = nanos_instrument_close_user_fun_event();";
+}
+
 void DeviceOpenCL::phase_cleanup(DTO& data_flow)
 {    
     if (_opencl_tasks_processed){

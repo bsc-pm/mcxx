@@ -164,6 +164,17 @@ static char is_better_initialization_ics(
         decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER)
 {
+    // Note that an ICS has two SCS's so we lexicographically compare them
+    // a:<SCS[0,0], SCS[0,0]> and b:<SCS[1,0], SCS[1,1]>
+    //
+    // a > b if
+    //     SCS[0,0]>SCS[1,0]
+    //   or if
+    //     SCS[0,0]==SCS[1,0] and SCS[0,1]>SCS[1,1]
+    // But since we do not have an equality operator, SCS[0,0] == SCS[1,0]
+    // the second condition is actually implemented as
+    //     not(SCS[0,0]>SCS[1,0]) and not(SCS[1,0]>SCS[0,0]) and SCS[0,1]>SCS[1,1]
+
     // Check the first SCS
     {
         // Get the converted type before the conversion
@@ -193,6 +204,20 @@ static char is_better_initialization_ics(
                         locus_to_str(ics_2.conversor->locus));
             }
             return 1;
+        }
+
+        if (standard_conversion_is_better(scs_2, scs_1))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Conversion %s at %s is NOT better than %s at %s "
+                        "because second converted type is better\n",
+                        ics_1.conversor->symbol_name,
+                        locus_to_str(ics_1.conversor->locus),
+                        ics_2.conversor->symbol_name,
+                        locus_to_str(ics_2.conversor->locus));
+            }
+            return 0;
         }
     }
 

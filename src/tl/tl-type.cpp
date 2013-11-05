@@ -46,6 +46,17 @@ namespace TL
 {
     Type Type::fix_references()
     {
+        TL::Type fixed_type = this->fix_references_();
+
+        if (this->is_same_type(fixed_type))
+            // We try hard to preserve types unchanged
+            return *this;
+        else
+            return fixed_type;
+    }
+
+    Type Type::fix_references_()
+    {
         if ((IS_C_LANGUAGE && this->is_any_reference())
                 || (IS_CXX_LANGUAGE && this->is_rebindable_reference()))
         {
@@ -78,19 +89,19 @@ namespace TL
                 this->array_get_region_bounds(reg_lb, reg_ub);
                 TL::Scope sc = array_type_get_region_size_expr_context(this->get_internal_type());
 
-                return this->array_element().fix_references().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
+                return this->array_element().fix_references_().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
             }
             else
             {
                 Nodecl::NodeclBase size = this->array_get_size();
                 TL::Scope sc = array_type_get_array_size_expr_context(this->get_internal_type());
 
-                return this->array_element().fix_references().get_array_to(size, sc);
+                return this->array_element().fix_references_().get_array_to(size, sc);
             }
         }
         else if (this->is_pointer())
         {
-            TL::Type fixed = this->points_to().fix_references().get_pointer_to();
+            TL::Type fixed = this->points_to().fix_references_().get_pointer_to();
 
             fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
                     get_cv_qualifier(this->get_internal_type()));
@@ -104,7 +115,7 @@ namespace TL
                 return (*this);
 
             cv_qualifier_t cv_qualif = get_cv_qualifier(this->get_internal_type());
-            TL::Type fixed_result = this->returns().fix_references();
+            TL::Type fixed_result = this->returns().fix_references_();
             bool has_ellipsis = 0;
 
             TL::ObjectList<TL::Type> fixed_parameters = this->parameters(has_ellipsis);
@@ -112,7 +123,7 @@ namespace TL
                     it != fixed_parameters.end();
                     it++)
             {
-                *it = it->fix_references();
+                *it = it->fix_references_();
             }
 
             TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = this->nonadjusted_parameters();
@@ -120,7 +131,7 @@ namespace TL
                     it != nonadjusted_fixed_parameters.end();
                     it++)
             {
-                *it = it->fix_references();
+                *it = it->fix_references_();
             }
 
             TL::Type fixed_function = fixed_result.get_function_returning(

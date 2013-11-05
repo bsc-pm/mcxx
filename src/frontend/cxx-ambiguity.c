@@ -2061,59 +2061,6 @@ static int solve_ambiguous_expression_choose_interpretation(
             return 1;
         }
     }
-    // If we see this is a valid function call forget anything about
-    // strange greater than operations (this happens because of
-    // template functions)
-    //
-    // template <int _N>
-    // void f(int k);
-    //
-    // template <int _N>
-    // void g()
-    // {
-    //   f<_N>(3);
-    // }
-    //
-    // is obviously a call, not the expression 'f < (_N > (3))'
-    //
-    else if ((either = either_type(current_choice, previous_choice,
-                    AST_FUNCTION_CALL, AST_GREATER_THAN)))
-    {
-        if (either > 0)
-        {
-            return -1;
-        }
-        else
-        {
-            return 1;
-        }
-    }
-    // If we see this is a valid explicit type conversion, forget anything  
-    // about strange greater than operations
-    //
-    // template<int _N>
-    //     class A
-    //     {
-    //         A() {}
-    //         A<_N> operator<<(int __p) const
-    //         { 
-    //             return A<_N>(*this) <<= __p; 
-    //         }
-    //     };
-    //
-    // is a explicit type conversion, not the expression 'A < (_N > (*this) <<= __p)'
-    else if ((either = either_type(current_choice, previous_choice,
-                    AST_EXPLICIT_TYPE_CONVERSION, AST_GREATER_THAN)))
-    {
-        if (either > 0)
-        {
-            return -1;
-        }
-        else
-        {
-            return 1;
-        }
-    }
     else
     {
         return 0;

@@ -1726,17 +1726,17 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     }
     else
     {
-        if (equivalent_types(element_type, get_float_type()))
+        if (equivalent_types(get_unqualified_type(element_type), get_float_type()))
         {
             cval_real_part = const_value_cast_to_float_value(cval_real_part);
             cval_imag_part = const_value_cast_to_float_value(cval_imag_part);
         }
-        else if (equivalent_types(element_type, get_double_type()))
+        else if (equivalent_types(get_unqualified_type(element_type), get_double_type()))
         {
             cval_real_part = const_value_cast_to_double_value(cval_real_part);
             cval_imag_part = const_value_cast_to_double_value(cval_imag_part);
         }
-        else if (equivalent_types(element_type, get_long_double_type()))
+        else if (equivalent_types(get_unqualified_type(element_type), get_long_double_type()))
         {
             cval_real_part = const_value_cast_to_long_double_value(cval_real_part);
             cval_imag_part = const_value_cast_to_long_double_value(cval_imag_part);

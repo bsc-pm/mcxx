@@ -230,9 +230,24 @@ namespace TL
     {
         public:
             PragmaCustomParameter(Nodecl::List node)
-                : PragmaClauseArgList(node) { }
+                : PragmaClauseArgList(node) { mark_as_used(); }
 
             bool is_defined() const;
+
+            //! Marks all the related clause as used. Use this for diagnotics
+            void mark_as_used();
+            //! Removes the "used" mark of all the related clauses. Use this for diagnotics
+            void mark_as_unused();
+            //! States if this clause was marked as "used". Use this for diagnostics
+            bool is_marked_as_used() const;
+            //! States if this clause was not marked as "used". Use this for diagnostics
+            bool is_marked_as_unused() const;
+        private:
+
+            // This is a private constructor only for PragmaCustomLine
+            friend class PragmaCustomLine;
+            PragmaCustomParameter(Nodecl::List node, int)
+                : PragmaClauseArgList(node) { }
     };
 
     class LIBTL_CLASS PragmaCustomLine : public Nodecl::PragmaCustomLine
@@ -279,6 +294,8 @@ namespace TL
 
             private:
                 ObjectList<Nodecl::PragmaCustomClause> get_all_clauses_nodes() const;
+
+                PragmaCustomParameter get_parameter_no_mark_used() const;
     };
     
     // Note that this is TL::PragmaCustomDirective 

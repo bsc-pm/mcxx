@@ -11,6 +11,7 @@
 #      -> AST
 #      -> scope /* Avoid at all costs to use these, they take a lot of memory */
 #      -> symbol
+#      -> type
 #      -> typeof("literal-c-typename")
 #      -> array(TYPE)
 #      -> static_array(TYPE, size)

@@ -1,7 +1,8 @@
 //
 // Generator of src/frontend/cxx-gccbuiltin-sse.h for gcc
 //
-// Compile it with g++-4.7 -fabi-version=6 -mavx -maes -mpclmul -mxop
+// Compile it with g++-4.8 -fabi-version=6 -mavx -maes -mpclmul -mxop
+// or use make generate_sse
 //
 
 #include <iostream> 
@@ -453,6 +454,8 @@ void f(const std::string& str)
 
 
 #define VECTOR_INTRINSICS_LIST \
+VECTOR_INTRIN(__builtin_ia32_addcarryx_u32) \
+VECTOR_INTRIN(__builtin_ia32_addcarryx_u64) \
 VECTOR_INTRIN(__builtin_ia32_addpd) \
 VECTOR_INTRIN(__builtin_ia32_addpd256) \
 VECTOR_INTRIN(__builtin_ia32_addps) \
@@ -596,6 +599,11 @@ VECTOR_INTRIN(__builtin_ia32_dppd) \
 VECTOR_INTRIN(__builtin_ia32_dpps) \
 VECTOR_INTRIN(__builtin_ia32_dpps256) \
 VECTOR_INTRIN(__builtin_ia32_emms) \
+VECTOR_INTRIN(__builtin_ia32_pause) \
+VECTOR_INTRIN(__builtin_ia32_fxrstor) \
+VECTOR_INTRIN(__builtin_ia32_fxrstor64) \
+VECTOR_INTRIN(__builtin_ia32_fxsave) \
+VECTOR_INTRIN(__builtin_ia32_fxsave64) \
 VECTOR_INTRIN(__builtin_ia32_haddpd) \
 VECTOR_INTRIN(__builtin_ia32_haddpd256) \
 VECTOR_INTRIN(__builtin_ia32_haddps) \

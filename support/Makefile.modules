@@ -1,0 +1,8 @@
+# Usually changes in these files should cause a rebuild of the modules
+
+FORTRAN_FRONTEND_FILES=\
+					   $(top_builddir)/src/driver/plaincxx \
+					   $(top_srcdir)/src/frontend/fortran/fortran03-modules.c \
+					   $(top_srcdir)/src/frontend/fortran/fortran03-modules.h \
+					   $(END)
+

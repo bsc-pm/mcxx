@@ -2010,8 +2010,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         declarator_name = unmangle_symbol_name(symbol);
     }
 
-    TL::Type real_type = symbol_type;
-
+    TL::Type real_type;
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
     {
@@ -2024,6 +2023,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
                 real_type = real_type.get_const_type();
             }
         }
+    }
+    else
+    {
+        real_type = coerce_parameter_types_of_function_type(symbol);
     }
 
     std::string declarator;
@@ -2099,6 +2102,44 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         indent();
         *(file) << "}\n";
     }
+}
+
+TL::Type CxxBase::coerce_parameter_types_of_function_type(TL::Symbol sym)
+{
+    // This function returns a new function type built using the types of the
+    // parameters This is needed only in function definitions where
+    // cv-qualifiers or types may be different in the declaration (which is
+    // what sym.get_type() returns) and the definition.
+
+    // Always advance over typedefs
+    TL::Type function_type = sym.get_type().advance_over_typedefs();
+
+    // Ignore unprototyped functions
+    if (function_type.lacks_prototype())
+        return function_type;
+
+    bool has_ellipsis = false;
+    TL::ObjectList<TL::Type> parameter_types = function_type.parameters(has_ellipsis);
+    TL::ObjectList<TL::Symbol> parameter_symbols = sym.get_related_symbols();
+
+    TL::ObjectList<TL::Type>::iterator it_type = parameter_types.begin();
+    TL::ObjectList<TL::Symbol>::iterator it_symbol = parameter_symbols.begin();
+    for (;
+            it_symbol != parameter_symbols.end() && it_type != parameter_types.end();
+            it_symbol++, it_type++)
+    {
+        // In C++ there may not be a symbol for a given parameter
+        if (!it_symbol->is_valid())
+            continue;
+
+        *it_type = it_symbol->get_type();
+    }
+
+    // Now rebuild the type
+    TL::Type result_type = function_type.returns().get_function_returning(parameter_types, has_ellipsis);
+    result_type = result_type.get_as_qualified_as(function_type);
+
+    return result_type;
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
@@ -2322,7 +2363,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         declarator_name += template_arguments_to_str(symbol);
     }
 
-    TL::Type real_type = symbol_type;
+    TL::Type real_type;
 
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
@@ -2337,6 +2378,10 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
                 real_type = real_type.get_const_type();
             }
         }
+    }
+    else
+    {
+        real_type = coerce_parameter_types_of_function_type(symbol);
     }
 
     std::string declarator = this->get_declaration_with_parameters(
@@ -2716,7 +2761,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     Nodecl::NodeclBase type = node.get_init_real_type();
     TL::Type init_real_type = type.get_type();
 
-    *(file) << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
+    if (init_real_type.is_array()
+            && !init_real_type.array_get_size().is_constant())
+    {
+        // If the array is nonconstant do not emit parentheses
+        *(file) << this->get_declaration(init_real_type, this->get_current_scope(),  "");
+    }
+    else
+    {
+        *(file) << "(" << this->get_declaration(init_real_type, this->get_current_scope(),  "") << ")";
+    }
 
     // new[] cannot have an initializer, so just print the init_real_type
     if (init_real_type.is_array())
@@ -2727,46 +2781,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
             || initializer.is<Nodecl::CxxParenthesizedInitializer>())
     {
         // Dependent cases are always printed verbatim
-        walk(initializer);
-    }
-    else if (IS_CXX03_LANGUAGE
-            && init_real_type.is_aggregate()
-            && initializer.is<Nodecl::StructuredValue>())
-    {
-        // int a[] = { 1, 2, 3 };
-        // struct foo { int x; int y; } a = {1, 2};
-        //
-        // Note that C++11 allows struct foo { int x; int y; } a{1,2};
-        *(file) << " = ";
-
-        bool old = state.inside_structured_value;
-        state.inside_structured_value = true;
-        walk(initializer);
-        state.inside_structured_value = old;
-    }
-    else if (init_real_type.is_array()
-            && !initializer.is<Nodecl::StructuredValue>())
-    {
-        // Only for char and wchar_t
-        // const char c[] = "1234";
-        *(file) << " = ";
-        walk(initializer);
-    }
-    else if (init_real_type.is_array()
-            && initializer.is<Nodecl::StructuredValue>())
-    {
-        // char c = { 'a' };
-        // int x = { 1 };
-        *(file) << " = ";
-        bool old = state.inside_structured_value;
-        state.inside_structured_value = true;
-        walk(initializer);
-        state.inside_structured_value = old;
-    }
-    else if (state.in_condition)
-    {
-        // This is something like if (bool foo = expression)
-        *(file) << " = ";
         walk(initializer);
     }
     else
@@ -5825,6 +5839,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             }
         }
 
+        // We do not want typedefs in function declarations
+        // because they break the syntax
+        real_type = real_type.advance_over_typedefs();
+
         std::string function_name = unmangle_symbol_name(symbol);
         if  (!symbol.is_member())
         {
@@ -5866,7 +5884,6 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
-
 
         indent();
         *(file) << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";

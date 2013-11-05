@@ -997,8 +997,8 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::Implements& implements)
             {
                 _outline_info.add_implementation(
-                        implements.get_device().as<Nodecl::Text>().get_text(),
-                        implements.get_function_name().as<Nodecl::Symbol>().get_symbol());
+                        implements.get_function_name().as<Nodecl::Symbol>().get_symbol(),
+                        implements.get_device().as<Nodecl::Text>().get_text());
             }
 
             void visit(const Nodecl::OpenMP::NDRange& ndrange)
@@ -1282,7 +1282,7 @@ namespace TL { namespace Nanox {
         _implementation_table[function_symbol].set_param_arg_map(param_arg_map);
     }
 
-    void OutlineInfo::add_implementation(std::string device_name, TL::Symbol function_symbol)
+    void OutlineInfo::add_implementation(TL::Symbol function_symbol, std::string device_name)
     {
         //if no impl present, we add it, otherwise just add a device
         if(_implementation_table.count(function_symbol) == 0)

@@ -443,6 +443,15 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     CXX_LANGUAGE()
     {
         {
+            // Namespace std preexists
+            scope_entry_t* namespace_std = new_symbol(decl_context, decl_context.global_scope, "std");
+            namespace_std->kind = SK_NAMESPACE;
+            namespace_std->entity_specs.is_user_declared = 1;
+
+            decl_context_t namespace_std_context = new_namespace_context(decl_context, namespace_std);
+            namespace_std->related_decl_context = namespace_std_context;
+        }
+        {
             // __null is a magic NULL in g++
             scope_entry_t* null_keyword;
 
@@ -3497,8 +3506,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             // This is a local class
             scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
+
+            // A local class is dependent if enclosed in a template function or
+            // a member function of a template class
             if (enclosing_function != NULL
-                    && is_dependent_type(enclosing_function->type_information))
+                    && (is_dependent_type(enclosing_function->type_information)
+                        || (enclosing_function->entity_specs.is_member
+                            && is_dependent_type(enclosing_function->entity_specs.class_type))))
             {
                 set_is_dependent_type(class_entry->type_information, 1);
             }
@@ -6945,9 +6959,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // This is a local class
         scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
-        if (is_dependent_type(enclosing_function->type_information))
+        if (enclosing_function != NULL
+                && (is_dependent_type(enclosing_function->type_information)
+                    || (enclosing_function->entity_specs.is_member
+                        && is_dependent_type(enclosing_function->entity_specs.class_type))))
         {
-            set_is_dependent_type(class_type, 1);
+            set_is_dependent_type(class_entry->type_information, 1);
         }
     }
 
@@ -7897,8 +7914,10 @@ static void set_function_parameter_clause(type_t** function_type,
                 // A parameter is always a variable entity
                 entry->kind = SK_VARIABLE;
 
-                // Update the type info
-                entry->type_information = type_info;
+                // Update the type info but try to to preserve the original if
+                // possible
+                if (!equivalent_types(type_info, original_type))
+                    entry->type_information = type_info;
                 entry->defined = 1;
             }
 
@@ -14349,8 +14368,7 @@ static void build_scope_return_statement(AST a,
 
         if (is_void_type(return_type))
         {
-            if (!IS_CXX_LANGUAGE
-                    || (!nodecl_expr_is_type_dependent(nodecl_expr)
+            if ((!nodecl_expr_is_type_dependent(nodecl_expr)
                         && !is_void_type(nodecl_get_type(nodecl_expr))))
             {
                 if (!checking_ambiguity())
