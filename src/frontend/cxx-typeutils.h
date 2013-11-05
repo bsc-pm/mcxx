@@ -738,11 +738,6 @@ LIBMCXX_EXTERN const char* vector_flavors[];
 LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
 LIBMCXX_EXTERN const char* vector_types_get_vector_flavor(void);
 
-// DO NOT USE THESE FUNCTIONS!
-// They are used solely for Fortran modules and type serialization
-LIBMCXX_EXTERN type_t* _type_get_empty_type(void);
-LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
-
 // TL::Source stuff
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
 LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(scope_entry_t* entry, void* p UNUSED_PARAMETER);
