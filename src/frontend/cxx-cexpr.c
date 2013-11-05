@@ -1430,6 +1430,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
     }
 
     if (is_unsigned_char_type(t)
+            || is_unsigned_byte_type(t)
             || is_unsigned_short_int_type(t)
             || is_unsigned_long_int_type(t)
             || is_unsigned_long_long_int_type(t)
@@ -1438,6 +1439,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
         return const_value_get_zero(type_get_size(t), /* sign */ 0);
     }
     else if (is_signed_char_type(t)
+            || is_signed_byte_type(t)
             || is_signed_short_int_type(t)
             || is_signed_long_int_type(t)
             || is_signed_long_long_int_type(t)
