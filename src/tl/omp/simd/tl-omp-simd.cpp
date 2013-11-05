@@ -248,6 +248,10 @@ namespace TL {
                     }
                 }
 
+                // CONSTANT FOLDING after vectorization
+                pre_for_nodecls.replace(TL::Analysis::fold_constants(pre_for_nodecls));
+                post_for_nodecls.replace(TL::Analysis::fold_constants(post_for_nodecls));
+ 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
                 simd_node_epilog.append_sibling(post_for_nodecls);
@@ -263,15 +267,25 @@ namespace TL {
                 _vectorizer.process_epilog(simd_node_epilog.get_statement().as<Nodecl::ForStatement>(),
                         for_environment,
                         net_epilog_node);
+ 
+                // CONSTANT FOLDING after vectorization
+                simd_node_epilog.replace(TL::Analysis::fold_constants(simd_node_epilog));
+               
+                // Remove Simd node from epilog
+                simd_node_epilog.replace(simd_node_epilog.get_statement());
+
             }
             else // Remove epilog
             {
                 Nodecl::Utils::remove_from_enclosing_list(simd_node_epilog);
             }
 
-            // Remove Simd nodes
-            simd_node_epilog.replace(simd_node_epilog.get_statement());
+            // CONSTANT FOLDING after vectorization
+            for_statement.replace(TL::Analysis::fold_constants(for_statement));
+
+            // Remove Simd node from for_statement
             simd_node.replace(for_statement);
+
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
@@ -387,6 +401,9 @@ namespace TL {
                     }
                 }
 
+                // CONSTANT FOLDING after vectorization
+                pre_for_nodecls.replace(TL::Analysis::fold_constants(pre_for_nodecls));
+ 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
                 //single_epilog.append_sibling(post_for_nodecls);
@@ -447,6 +464,9 @@ namespace TL {
             if (!flush.is_null())
                 Nodecl::Utils::remove_from_enclosing_list(flush);
 
+            // CONSTANT FOLDING after vectorization
+            for_epilog.replace(TL::Analysis::fold_constants(for_epilog));
+
             // Remove Simd nodes
             simd_node.replace(for_epilog);
         }
@@ -489,18 +509,16 @@ namespace TL {
             // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
-                Nodecl::FunctionCode mask_func =
-                    common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, true);
+                common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, true);
             }
             // Nomask Version
             if (omp_mask.is_null())
             {
-                Nodecl::FunctionCode no_mask_func =
-                    common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, false);
+                common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, false);
             }
         }
 
-        Nodecl::FunctionCode SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+        void SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
                 const Nodecl::FunctionCode& function_code,
                 const Nodecl::List& suitable_expressions,
                 const TL::Type& vectorlengthfor_type,
@@ -563,7 +581,8 @@ namespace TL {
 
             _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
 
-            return vector_func_code;
+            // CONSTANT FOLDING after vectorization
+            vector_func_code.replace(TL::Analysis::fold_constants(vector_func_code));
         }
 
 

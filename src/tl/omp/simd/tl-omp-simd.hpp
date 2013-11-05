@@ -88,7 +88,7 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-                virtual Nodecl::FunctionCode common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+                virtual void common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
                         const Nodecl::FunctionCode& function_code,
                         const Nodecl::List& suitable_expresions,
                         const TL::Type& vectorlengthfor_type,
