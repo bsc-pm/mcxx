@@ -439,7 +439,7 @@ namespace Codegen
                 static node_t get_kind_of_operator_function_call(const Node & node);
 
             static int get_rank_kind(node_t n, const std::string& t);
-            static int get_rank(const Nodecl::NodeclBase &n);
+            static int get_rank(Nodecl::NodeclBase n);
             bool same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand);
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, char is_wchar);

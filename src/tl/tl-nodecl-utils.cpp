@@ -970,6 +970,8 @@ namespace Nodecl
 
     Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)
     {
+        if (n.is_null())
+            return n;
         while (n.is<Nodecl::Conversion>())
         {
             n = n.as<Nodecl::Conversion>().get_nest();

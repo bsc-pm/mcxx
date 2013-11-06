@@ -39,6 +39,8 @@ MCXX_BEGIN_DECLS
 MCXX_END_DECLS
 #endif
 
+#include "tl-nodecl-utils.hpp"
+
 #include "cxx-printscope.h"
 namespace Codegen {
 
@@ -1338,10 +1340,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            while (actual_arg.is<Nodecl::Conversion>())
-            {
-                actual_arg = actual_arg.as<Nodecl::Conversion>().get_nest();
-            }
+            actual_arg = Nodecl::Utils::advance_conversions(actual_arg);
 
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
@@ -4993,6 +4992,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
         Nodecl::NodeclBase init = symbol.get_value();
+        init = Nodecl::Utils::advance_conversions(init);
 
         if (is_definition)
         {
@@ -6822,31 +6822,26 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
     return -1000;
 }
 
-int CxxBase::get_rank(const Nodecl::NodeclBase &n)
+int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    if (n.is<Nodecl::Conversion>())
+    n = Nodecl::Utils::advance_conversions(n);
+
+    node_t kind;
+    if (n.is<Nodecl::FunctionCall>()
+            && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
     {
-        return get_rank(n.as<Nodecl::Conversion>().get_nest());
+        kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
+    }
+    else if (n.is<Nodecl::VirtualFunctionCall>()
+            && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
+    {
+        kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
     }
     else
     {
-        node_t kind;
-        if (n.is<Nodecl::FunctionCall>()
-                && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
-        {
-            kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
-        }
-        else if (n.is<Nodecl::VirtualFunctionCall>()
-                && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
-        {
-            kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
-        }
-        else
-        {
-            kind = n.get_kind();
-        }
-        return get_rank_kind(kind, n.get_text());
+        kind = n.get_kind();
     }
+    return get_rank_kind(kind, n.get_text());
 }
 
 
@@ -6878,14 +6873,8 @@ static char is_additive_bin_operator(node_t n)
 
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    if (current_operator.is<Nodecl::Conversion>())
-    {
-        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
-    }
-    if (operand.is<Nodecl::Conversion>())
-    {
-        operand = operand.as<Nodecl::Conversion>().get_nest();
-    }
+    current_operator = Nodecl::Utils::advance_conversions(current_operator);
+    operand = Nodecl::Utils::advance_conversions(operand);
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -6896,14 +6885,8 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    if (current_operator.is<Nodecl::Conversion>())
-    {
-        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
-    }
-    if (operand.is<Nodecl::Conversion>())
-    {
-        operand = operand.as<Nodecl::Conversion>().get_nest();
-    }
+    current_operator = Nodecl::Utils::advance_conversions(current_operator);
+    operand = Nodecl::Utils::advance_conversions(operand);
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -7028,8 +7011,7 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
 
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
-    while (node.is<Nodecl::Conversion>())
-        node = node.as<Nodecl::Conversion>().get_nest();
+    node = Nodecl::Utils::advance_conversions(node);
 
     ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
 
@@ -7038,29 +7020,21 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
 
 bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    while (node.is<Nodecl::Conversion>())
-        node = node.as<Nodecl::Conversion>().get_nest();
+    node = Nodecl::Utils::advance_conversions(node);
 
     if (node.is<Nodecl::FunctionCall>())
     {
         TL::Symbol called_sym = node.as<Nodecl::FunctionCall>().get_called().get_symbol();
 
-        if (called_sym.is_valid()
-                && called_sym.is_constructor())
-        {
-            return (!t.is_valid())
-                || (t.no_ref()
-                        .get_unqualified_type()
-                        .is_same_type(called_sym.get_class_type().get_unqualified_type()));
-        }
+        return (called_sym.is_valid()
+                && called_sym.is_constructor());
     }
     return 0;
 }
 
 bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    while (node.is<Nodecl::Conversion>())
-        node = node.as<Nodecl::Conversion>().get_nest();
+    node = Nodecl::Utils::advance_conversions(node);
 
     return (nodecl_calls_to_constructor(node, t)
             && nodecl_calls_to_constructor_get_arguments(node).empty());
@@ -7068,8 +7042,7 @@ bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, T
 
 bool CxxBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
 {
-    while (node.is<Nodecl::Conversion>())
-        node = node.as<Nodecl::Conversion>().get_nest();
+    node = Nodecl::Utils::advance_conversions(node);
 
     return (node.is<Nodecl::StructuredValue>()
             && (node.as<Nodecl::StructuredValue>().get_items().is_null()
