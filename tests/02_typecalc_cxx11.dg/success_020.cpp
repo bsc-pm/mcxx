@@ -1,8 +1,7 @@
 /*
 <testinfo>
-# This test uses mercurium-extensions because g++ 4.8 does not accept this code
-test_generator="config/mercurium-extensions"
-test_CXXFLAGS="-std=c++11"
+# This test fails in g++ 4.8 but it is supposed to work in the future
+test_generator="config/mercurium-cxx11 gxx_fails"
 </testinfo>
 */
 
