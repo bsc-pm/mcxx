@@ -667,8 +667,11 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._unroll_factor * assignment_type.get_size()))
                     {
-                        printf("VECTORIZER: Store access '%s' is ALIGNED\n",
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "VECTORIZER: Store access '%s' is ALIGNED\n",
                                 lhs.prettyprint().c_str());
+                        }
 
                         const Nodecl::VectorStore vector_store =
                             Nodecl::VectorStore::make(
@@ -688,8 +691,11 @@ namespace TL
                     }
                     else // Unaligned
                     {
-                        printf("VECTORIZER: Store access '%s' is UNALIGNED\n",
-                                lhs.prettyprint().c_str());
+                        //DEBUG_CODE()
+                        {
+                            fprintf(stderr, "VECTORIZER: Store access '%s' is UNALIGNED\n",
+                                    lhs.prettyprint().c_str());
+                        }
 
                         const Nodecl::UnalignedVectorStore vector_store =
                             Nodecl::UnalignedVectorStore::make(
@@ -877,11 +883,11 @@ namespace TL
                         mask,
                         Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
                         n.get_locus());
-            
+/*            
             printf("Casting %s %s\n",
                     Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),
                     n.get_rhs().get_type().get_simple_declaration(n.retrieve_context(), "").c_str());
-
+*/
             n.replace(vector_conv);
         }
 
@@ -908,7 +914,7 @@ namespace TL
                         _environment._analysis_simd_scope,
                         n))
             {
-                std::cerr << "Constant load: " << n.prettyprint() << "\n";
+//                std::cerr << "Constant load: " << n.prettyprint() << "\n";
 
                 Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
@@ -926,7 +932,7 @@ namespace TL
                     !Vectorizer::_analysis_info->is_induction_variable_dependent_access(_environment._analysis_simd_scope,
                         n))
             {
-                std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
+//                std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
 
                 Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
@@ -952,8 +958,11 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._vector_length))
                 {
-                    printf("VECTORIZER: Load access '%s' is ALIGNED\n",
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
+                    }
 
                     Nodecl::VectorLoad vector_load =
                         Nodecl::VectorLoad::make(
@@ -974,8 +983,11 @@ namespace TL
                 }
                 else // Unaligned
                 {
-                    printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
+                    //DEBUG_CODE()
+                    {
+                        fprintf(stderr, "VECTORIZER: Load access '%s' is UNALIGNED\n",
                             n.prettyprint().c_str());
+                    }
 
                     Nodecl::UnalignedVectorLoad vector_load =
                         Nodecl::UnalignedVectorLoad::make(
@@ -1248,6 +1260,7 @@ namespace TL
                             _environment,
                             n)) 
                 {
+                    DEBUG_CODE()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is NESTED IV and will be PROMOTED to vector\n", 
                                 n.prettyprint().c_str()); 
@@ -1319,7 +1332,7 @@ namespace TL
                             _environment._analysis_simd_scope,
                             n))
                 {
-//                     DEBUG_CODE()
+                    DEBUG_CODE()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n", 
                                 n.prettyprint().c_str()); 

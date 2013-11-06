@@ -456,9 +456,11 @@ then
     AC_ARG_WITH([intel-omp],
             AS_HELP_STRING([--with-intel-omp=dir], [Directory of Intel OpenMP RTL]),
             [
-             intel_omp_include="${withval}/exports/common/include"
+dnl             intel_omp_include="${withval}/exports/common/include"
+             intel_omp_include="${withval}/include"
 
-             intel_omp_lib="${withval}/exports/lrb_32e.knc.lin.off/lib"
+dnl             intel_omp_lib="${withval}/exports/lrb_32e.knc.lin.off/lib"
+             intel_omp_lib="${withval}/lib"
 
 dnl             case "$target" in
 dnl                i?86-*-linux*)
