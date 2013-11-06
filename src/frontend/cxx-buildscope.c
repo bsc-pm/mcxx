@@ -4024,7 +4024,8 @@ static void gather_type_spec_from_dependent_typename(AST a,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "BUILDSCOPE: Dependent typename refers to an existing type '%s'\n", print_declarator(*type_info));
+            fprintf(stderr, "BUILDSCOPE: Dependent typename refers to an existing type '%s'\n",
+                    print_declarator(entry->type_information));
         }
 
         // Follow the usual path here
