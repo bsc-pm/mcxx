@@ -264,7 +264,8 @@ namespace TL {
             if (needs_epilog)
             {
                 Nodecl::NodeclBase net_epilog_node;
-                _vectorizer.process_epilog(simd_node_epilog.get_statement().as<Nodecl::ForStatement>(),
+                Nodecl::ForStatement for_stmt_epilog = simd_node_epilog.get_statement().as<Nodecl::ForStatement>();
+                _vectorizer.process_epilog(for_stmt_epilog,
                         for_environment,
                         net_epilog_node);
  

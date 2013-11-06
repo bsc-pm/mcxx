@@ -107,7 +107,8 @@ namespace Codegen
             return result;
         }
 
-        bool first_scope_is_enclosed_in_second(scope_t* first, scope_t* second)
+        // Do not call directly to this function! Use 'first_scope_is_contained_in_second' instead
+        bool first_scope_is_contained_in_second_(scope_t* first, scope_t* second)
         {
             if (first == NULL
                     // Everyone may be enclosed in the global scope
@@ -116,7 +117,14 @@ namespace Codegen
             else if (first == second)
                 return true;
             else
-                return first_scope_is_enclosed_in_second(first->contained_in, second);
+                return first_scope_is_contained_in_second_(first->contained_in, second);
+        }
+
+        bool first_scope_is_contained_in_second(scope_t* first, scope_t* second)
+        {
+            if (first == second)
+                return false;
+            return first_scope_is_contained_in_second_(first, second);
         }
     }
 
@@ -5152,7 +5160,7 @@ OPERATOR_TABLE
         // Has the symbol 'entry' been declared as USEd in the current context?
         if (!entry_is_in_scope(entry, sc)
                 // No it has not. But if it is found in an enclosing scope we will not emit it
-                && first_scope_is_enclosed_in_second(
+                && first_scope_is_contained_in_second(
                     sc.get_related_symbol().get_scope().get_decl_context().current_scope,
                     entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
             return;

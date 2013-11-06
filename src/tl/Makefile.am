@@ -26,7 +26,7 @@
 
 END=
 
-SUBDIRS = . analysis vectorizer vector-lowering omp codegen hlt @TL_EXTRAS@
+SUBDIRS = . codegen optimizations analysis vectorizer omp vector-lowering hlt @TL_EXTRAS@
 
 DIST_SUBDIRS= analysis \
               vectorizer \
@@ -40,6 +40,7 @@ DIST_SUBDIRS= analysis \
               hlt \
               old_hlt \
               codegen \
+              optimizations \
               $(END)
 
 lib_LTLIBRARIES = libtl.la

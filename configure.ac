@@ -1652,6 +1652,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/vector-lowering/knc/Makefile
            src/tl/vector-lowering/knc/legalization/Makefile
            src/tl/vector-lowering/knc/lowering/Makefile
+           src/tl/optimizations/Makefile
            src/tl/hlt/Makefile
            src/tl/old_hlt/Makefile
            src/tl/codegen/Makefile

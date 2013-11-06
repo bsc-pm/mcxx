@@ -26,46 +26,25 @@
 
 include $(top_srcdir)/src/tl/Makefile.phases
 
-phases_LTLIBRARIES = libtlvectorizer.la
+phases_LTLIBRARIES = libtloptimizations.la
 
 END=
 
 
-libtlvectorizer_la_CFLAGS = $(phases_cflags) -Wall \
-                            -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                            -I $(top_srcdir)/src/tl/analysis/common/ \
-                            -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                            -I $(top_srcdir)/src/tl/optimizations/ \
-                            $(END)
+libtloptimizations_la_CFLAGS = $(phases_cflags) -Wall \
+                               $(END)
 
-libtlvectorizer_la_CXXFLAGS = $(phases_cflags) -Wall \
-                              -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                              -I $(top_srcdir)/src/tl/analysis/common/ \
-                              -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                              -I $(top_srcdir)/src/tl/optimizations/ \
+libtloptimizations_la_CXXFLAGS = $(phases_cflags) -Wall \
                               $(END)
 
-libtlvectorizer_la_LDFLAGS = $(phases_ldflags)
-libtlvectorizer_la_LIBADD = $(phases_libadd) \
-                          $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
-                          $(END)
+libtloptimizations_la_LDFLAGS = $(phases_ldflags) \
+                                $(END)
+libtloptimizations_la_LIBADD = $(phases_libadd) \
+                               $(END)
 
-libtlvectorizer_la_SOURCES = \
-                           tl-vectorizer-utils.hpp \
-                           tl-vectorizer-utils.cpp \
-                           tl-function-versioning.cpp \
-                           tl-function-versioning.hpp \
-                           tl-vectorizer.cpp \
-                           tl-vectorizer.hpp \
-                           tl-vectorizer-visitor-for.cpp \
-                           tl-vectorizer-visitor-for.hpp \
-                           tl-vectorizer-visitor-function.cpp \
-                           tl-vectorizer-visitor-function.hpp \
-                           tl-vectorizer-visitor-statement.cpp \
-                           tl-vectorizer-visitor-statement.hpp \
-                           tl-vectorizer-visitor-expression.cpp \
-                           tl-vectorizer-visitor-expression.hpp \
-                           tl-vectorizer-vector-reduction.hpp \
-                           tl-vectorizer-vector-reduction.cpp \
+libtloptimizations_la_SOURCES = \
+                           tl-optimizations.hpp \
+                           tl-strength-reduction.hpp \
+                           tl-strength-reduction.cpp \
                            $(END)
 

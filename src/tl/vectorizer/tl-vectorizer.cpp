@@ -29,6 +29,7 @@
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-source.hpp"
+#include "tl-optimizations.hpp"
 
 namespace TL 
 {
@@ -140,26 +141,34 @@ namespace TL
         {
         }
 
-        bool Vectorizer::vectorize(const Nodecl::ForStatement& for_statement,
+        bool Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
-            VectorizerVisitorFor visitor_for(environment);
+            // Applying strenth reduction
+            TL::Optimizations::strength_reduce(for_statement);
 
+            VectorizerVisitorFor visitor_for(environment);
             return visitor_for.walk(for_statement);
         }
 
-        void Vectorizer::vectorize(const Nodecl::FunctionCode& func_code,
+        void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
                 VectorizerEnvironment& environment,
                 const bool masked_version)
         {
+            // Applying strenth reduction
+            TL::Optimizations::strength_reduce(func_code);
+
             VectorizerVisitorFunction visitor_function(environment, masked_version);
             visitor_function.walk(func_code);
         }
 
-        void Vectorizer::process_epilog(const Nodecl::ForStatement& for_statement, 
+        void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement, 
                 VectorizerEnvironment& environment,
                 Nodecl::NodeclBase& net_epilog_node)
         {
+            // Applying strenth reduction
+            TL::Optimizations::strength_reduce(for_statement);
+
             VectorizerVisitorForEpilog visitor_epilog(environment);
             visitor_epilog.visit(for_statement, net_epilog_node);
         }
