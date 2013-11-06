@@ -133,7 +133,7 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
         scope_entry_t* entry = named_type_get_symbol(t);
 
         if (entry == NULL
-                || entry->kind == SK_TEMPLATE_PARAMETER
+                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
                 || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
@@ -212,7 +212,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
 
     // Try to deduce types of template type F1 using F2
     template_parameter_list_t* type_template_parameters = 
-        template_type_get_template_parameters(template_specialized_type_get_related_template_type(f1));
+        template_specialized_type_get_template_parameters(f1);
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(f1);
 
@@ -226,7 +226,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
-                parameters, decl_context,
+                parameters, num_parameters,
+                decl_context,
                 deduced_template_arguments, 
                 locus,
                 explicit_template_parameters,
@@ -245,8 +246,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     for (i = 0; i < num_arguments; i++)
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, i);
-        
-        type_t* updated_type = update_type(original_type, 
+
+        type_t* updated_type = update_type(original_type,
                 updated_context,
                 locus);
 
@@ -315,9 +316,20 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
     type_t* faked_type_1 = get_new_function_type(get_void_type(), 
             c1_parameters, 1);
 
+    template_parameter_list_t* template_parameters = 
+        duplicate_template_argument_list(
+                template_specialized_type_get_template_parameters(get_actual_class_type(c1)
+                    ));
+    // Remove arguments from template parameters
+    int i;
+    for (i = 0; i < template_parameters->num_parameters; i++)
+    {
+        template_parameters->arguments[i] = NULL;
+    }
+
     set_as_template_specialized_type(faked_type_1,
             // Can be NULL if c1 is a full specialization
-            template_specialized_type_get_template_parameters(get_actual_class_type(c1)),
+            template_parameters,
             template_specialized_type_get_related_template_type(get_actual_class_type(c1)));
 
     type_t* faked_type_2 = get_new_function_type(get_void_type(), 
@@ -373,14 +385,15 @@ static char is_less_or_equal_specialized_template_conversion_function(
     // Try to deduce types of template type F1 using F2
 
     template_parameter_list_t* type_template_parameters = 
-        template_type_get_template_parameters(template_specialized_type_get_related_template_type(f1));
+        template_specialized_type_get_template_parameters(f1);
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(f1);
 
     if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
-                parameters, decl_context,
+                parameters, num_parameters,
+                decl_context,
                 deduced_template_arguments,
                 locus,
                 /* explicit_template_parameters */ NULL,

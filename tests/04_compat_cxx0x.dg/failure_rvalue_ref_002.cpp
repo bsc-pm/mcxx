@@ -29,12 +29,16 @@
 /*
 <testinfo>
 test_generator=config/mercurium-extensions
+test_compile_fail=yes
 </testinfo>
 */
 
-void f(int&&);
+int f(int &&a);
 
-void g(int &a)
+void g(int &&a)
 {
+    // Naming a rvalue-reference is actually a lvalue-reference to the
+    // referenced type, so this call must fail since a rvalue-reference
+    // can only bind to a rvalue
     f(a);
 }

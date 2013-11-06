@@ -297,6 +297,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
+                  | cxx-pack
 
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
@@ -309,6 +310,11 @@ cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-initializer
    | cxx-dependent-expressions
 
+cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
+         # Here we materialize the expansion, used for nontype template-arguments packs
+         | NODECL_CXX_VALUE_PACK_EXPANDED([values]expression-seq-opt) type
+         # | NODECL_CXX_TYPE_PACK_EXPANSION()
+
 # nodecl was created entirely to avoid this kind of "declaration nodes" but we
 # will not be able to get rid of them until we instantiate template functions
 cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
@@ -317,6 +323,8 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
          | NODECL_CXX_USING_NAMESPACE([context] context) symbol
          | NODECL_CXX_USING_DECL([context] context) symbol
+         # Used only in weird cases where parsing must be delayed in the frontend itself
+         # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()
 
 # Special nodes for dependent names
@@ -329,9 +337,9 @@ cxx-atom-dependent-name : cxx-simple-name
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text type-opt
 
-cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression)
-    | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
-    | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
+cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
+    | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type
+    | NODECL_CXX_EQUAL_INITIALIZER([init]expression) type
     | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
     | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
@@ -345,6 +353,8 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
     | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type const-value-opt
 # sizeof(expr)
     | NODECL_CXX_SIZEOF([expr] expression) type const-value-opt
+# sizeof...(expr)
+    | NODECL_CXX_SIZEOF_PACK([expr] expression) type const-value-opt
 # alignof(expr)
     | NODECL_CXX_ALIGNOF([expr] expression) type const-value-opt
 # (type) { ... }
@@ -358,6 +368,8 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
 # T(expr-list) (T being an expression)
     | NODECL_CXX_DEP_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt) type const-value-opt
     | NODECL_CXX_DEP_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt) type text
+# noexcept(expr)
+    | NODECL_CXX_NOEXCEPT([expr] expression) type const-value-opt
 
 # id-expr(expr) in a member initializer
 cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type const-value-opt

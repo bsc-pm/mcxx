@@ -147,25 +147,32 @@ struct decl_context_tag
 };
 
 #define SYMBOL_KIND_TABLE \
-    SYMBOL_KIND(SK_CLASS, "class-name") \
-    SYMBOL_KIND(SK_ENUM, "enum-name") \
-    SYMBOL_KIND(SK_ENUMERATOR, "enumerator-name") \
-    SYMBOL_KIND(SK_FUNCTION, "function-name") \
-    SYMBOL_KIND(SK_LABEL, "label-name") \
-    SYMBOL_KIND(SK_NAMESPACE, "namespace-name") \
-    SYMBOL_KIND(SK_VARIABLE, "data object name") \
-    SYMBOL_KIND(SK_TYPEDEF, "typedef-name") \
-    SYMBOL_KIND(SK_TEMPLATE, "template-name") \
-    SYMBOL_KIND(SK_TEMPLATE_PARAMETER, "nontype template parameter name") \
+    SYMBOL_KIND(SK_CLASS, "class name") \
+    SYMBOL_KIND(SK_ENUM, "enum name") \
+    SYMBOL_KIND(SK_ENUMERATOR, "enumerator name") \
+    SYMBOL_KIND(SK_FUNCTION, "function name") \
+    SYMBOL_KIND(SK_LABEL, "label name") \
+    SYMBOL_KIND(SK_NAMESPACE, "namespace name") \
+    SYMBOL_KIND(SK_VARIABLE, "object name") \
+    SYMBOL_KIND(SK_VARIABLE_PACK, "object name pack") \
+    SYMBOL_KIND(SK_TYPEDEF, "typedef name") \
+    SYMBOL_KIND(SK_TYPEDEF_PACK, "typedef name pack") \
+    SYMBOL_KIND(SK_TEMPLATE, "template name") \
+    SYMBOL_KIND(SK_TEMPLATE_PACK, "template name pack") \
+    SYMBOL_KIND(SK_TEMPLATE_ALIAS, "template alias") \
+    SYMBOL_KIND(SK_TEMPLATE_NONTYPE_PARAMETER, "nontype template parameter name") \
     SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER, "type template parameter name") \
-    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter") \
+    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter name") \
+    SYMBOL_KIND(SK_TEMPLATE_NONTYPE_PARAMETER_PACK, "nontype template parameter pack name") \
+    SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER_PACK, "type template parameter pack name") \
+    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, "template template parameter pack name") \
     SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend function") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend class") \
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_USING_TYPENAME, "using typename declared name") \
-    SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
+    SYMBOL_KIND(SK_OTHER, "<<internal symbol>>")
 
 #define SYMBOL_KIND_TABLE_FORTRAN \
     SYMBOL_KIND(SK_COMMON, "COMMON name") \
@@ -204,7 +211,11 @@ enum template_parameter_kind
     TPK_UNKNOWN = 0,
     TPK_NONTYPE, // template <int N> <-- 'N'
     TPK_TYPE, // template <class T> <-- 'T'
-    TPK_TEMPLATE // template <template <typename Q> class V > <-- 'V'
+    TPK_TEMPLATE, // template <template <typename Q> class V > <-- 'V'
+    // Pack equivalents (template arguments will never have this kind)
+    TPK_NONTYPE_PACK, // template <int ...N> <-- 'N'
+    TPK_TYPE_PACK, // template <class ...T> <-- 'T'
+    TPK_TEMPLATE_PACK, // template <template <typename Q> class ...V > <-- 'V'
 };
 
 struct template_parameter_value_tag

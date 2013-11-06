@@ -47,10 +47,6 @@ LIBMCXX_EXTERN void gather_one_gcc_attribute(const char* attribute_name,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
-LIBMCXX_EXTERN void gather_gcc_attribute_list(AST attribute_list,
-        gather_decl_spec_t *gather_info,
-        decl_context_t decl_context);
-
 LIBMCXX_EXTERN void check_gxx_type_traits(AST expression,
         decl_context_t decl_context, nodecl_t* nodecl_output);
 

@@ -58,8 +58,10 @@ LIBMCXX_EXTERN char check_list_of_expressions(AST expression_list, decl_context_
 
 LIBMCXX_EXTERN char check_initialization(AST initializer, 
         decl_context_t decl_context, 
-        type_t* declared_type, 
-        nodecl_t* nodecl_output);
+        scope_entry_t* initialized_entry, // May have its type_information updated
+        type_t* declared_type,
+        nodecl_t* nodecl_output,
+        char is_auto_type);
 
 LIBMCXX_EXTERN void check_nodecl_initialization(nodecl_t nodecl_initializer,
         decl_context_t decl_context,
@@ -83,6 +85,12 @@ LIBMCXX_EXTERN char check_copy_constructor(scope_entry_t* entry,
         scope_entry_t** constructor);
 
 LIBMCXX_EXTERN char check_copy_assignment_operator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char has_const,
+        const locus_t* locus,
+        scope_entry_t** constructor);
+
+LIBMCXX_EXTERN char check_move_assignment_operator(scope_entry_t* entry,
         decl_context_t decl_context,
         char has_const,
         const locus_t* locus,
@@ -117,6 +125,7 @@ LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const 
 LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
         const locus_t* locus);
 
+LIBMCXX_EXTERN char check_nontype_template_argument_type(type_t* t);
 LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context, nodecl_t*);
 LIBMCXX_EXTERN char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl, decl_context_t decl_context, nodecl_t*);
 LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr, 
@@ -145,6 +154,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context);
+nodecl_t instantiate_expression_with_pack_index(nodecl_t nodecl_expr, decl_context_t decl_context, int pack_index);
 
 
 MCXX_END_DECLS

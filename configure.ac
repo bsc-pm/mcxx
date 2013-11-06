@@ -1697,6 +1697,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-cxx11
            tests/config/mercurium-run
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries

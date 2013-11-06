@@ -373,8 +373,20 @@ namespace TL
             //! States whether this symbol is register
             bool is_register() const;
 
-            //! States whether this symbol is __thread
+            //! States whether this symbol is __thread (gcc, ELF)
             bool is_thread() const;
+
+            //! States whether this symbol is thread_local (C++11)
+            bool is_thread_local() const;
+
+            //! States whether this symbol is final (C++11)
+            bool is_final() const;
+
+            //! States whether this symbol is explicit override (C++11)
+            bool is_explicit_override() const;
+
+            //! States whether this symbol hides a member of a base class (C++11)
+            bool is_hides_member() const;
 
             //! States if this member is a bitfield
             bool is_bitfield() const;
@@ -443,6 +455,9 @@ namespace TL
             //! States whether this function was defined inline
             bool is_inline() const;
 
+            //! States whether this function was defined constexpr
+            bool is_constexpr() const;
+
             //! States whether this member function was defined as virtual
             bool is_virtual() const;
 
@@ -473,6 +488,9 @@ namespace TL
 
             //! States whether this function was defined with no exception-specifier
             bool function_throws_any_exception() const;
+
+            //! Returns the noexcept specifier of this function (if any)
+            Nodecl::NodeclBase function_noexcept() const;
 
             //! Returns the thrown exceptions
             /*!
