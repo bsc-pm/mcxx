@@ -1645,6 +1645,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/vector-lowering/Makefile
            src/tl/vector-lowering/sse/Makefile
            src/tl/vector-lowering/knc/Makefile
+           src/tl/optimizations/Makefile
            src/tl/hlt/Makefile
            src/tl/old_hlt/Makefile
            src/tl/codegen/Makefile
