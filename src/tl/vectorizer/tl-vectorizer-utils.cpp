@@ -402,16 +402,12 @@ namespace TL
 
                 if(!type.array_element().is_array()) // Last Dimension
                 {
-                    return Nodecl::ParenthesizedExpression::make(
-                            array_size,
-                            array_size.get_type());
+                    return array_size.shallow_copy();
                 }
                 else
                 {
                     Nodecl::Mul result = Nodecl::Mul::make(
-                            Nodecl::ParenthesizedExpression::make(
-                                array_size,
-                                array_size.get_type()),
+                            array_size.shallow_copy(),
                             get_dimension_offset(type.array_element()),
                             array_size.get_type());
 

@@ -47,16 +47,6 @@ namespace TL
             Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
-            if (lhs.is<Nodecl::ParenthesizedExpression>())
-            {
-                //TODO
-            }
-            if (rhs.is<Nodecl::ParenthesizedExpression>())
-            {
-                //TODO
-            }
-
-
             if (lhs.is<Nodecl::Mul>())
             {
                 /*
@@ -608,20 +598,14 @@ namespace TL
                         it != step_list.end();
                         it ++)
                 {
-                    Nodecl::ParenthesizedExpression new_step =
-                        Nodecl::ParenthesizedExpression::make(
-                                Nodecl::Mul::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        it->shallow_copy(),
-                                        it->get_type(),
-                                        it->get_locus()),
-                                    Nodecl::IntegerLiteral::make(
-                                        TL::Type::get_int_type(),
-                                        const_value_get_signed_int(_environment._unroll_factor),
-                                        it->get_locus()),
+                    Nodecl::Mul new_step =
+                        Nodecl::Mul::make(
+                                it->shallow_copy(),
+                                Nodecl::IntegerLiteral::make(
                                     TL::Type::get_int_type(),
+                                    const_value_get_signed_int(_environment._unroll_factor),
                                     it->get_locus()),
-                                it->get_type(),
+                                TL::Type::get_int_type(),
                                 it->get_locus());
 
                     it->replace(new_step);
@@ -676,10 +660,7 @@ namespace TL
                         const Nodecl::VectorStore vector_store =
                             Nodecl::VectorStore::make(
                                     Nodecl::Reference::make(
-                                        Nodecl::ParenthesizedExpression::make(
-                                            lhs.shallow_copy(),
-                                            basic_type,
-                                            n.get_locus()),
+                                        lhs.shallow_copy(),
                                         basic_type.get_pointer_to(),
                                         n.get_locus()),
                                     rhs.shallow_copy(),
@@ -700,10 +681,7 @@ namespace TL
                         const Nodecl::UnalignedVectorStore vector_store =
                             Nodecl::UnalignedVectorStore::make(
                                     Nodecl::Reference::make(
-                                        Nodecl::ParenthesizedExpression::make(
-                                            lhs.shallow_copy(),
-                                            basic_type,
-                                            n.get_locus()),
+                                        lhs.shallow_copy(),
                                         basic_type.get_pointer_to(),
                                         n.get_locus()),
                                     rhs.shallow_copy(),
@@ -967,10 +945,7 @@ namespace TL
                     Nodecl::VectorLoad vector_load =
                         Nodecl::VectorLoad::make(
                                 Nodecl::Reference::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        n.shallow_copy(),
-                                        basic_type,
-                                        n.get_locus()),
+                                    n.shallow_copy(),
                                     basic_type.get_pointer_to(),
                                     n.get_locus()),
                                 mask,
@@ -992,10 +967,7 @@ namespace TL
                     Nodecl::UnalignedVectorLoad vector_load =
                         Nodecl::UnalignedVectorLoad::make(
                                 Nodecl::Reference::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        n.shallow_copy(),
-                                        basic_type,
-                                        n.get_locus()),
+                                    n.shallow_copy(),
                                     basic_type.get_pointer_to(),
                                     n.get_locus()),
                                 mask,
@@ -1032,101 +1004,6 @@ namespace TL
 
                 n.replace(vector_gather);
             }
- 
-/*
-            // Vector Promotion from ArraySubscript
-            if (!Vectorizer::_analysis_info->is_induction_variable_dependent_access(
-                        _environment._analysis_simd_scope,
-                        n))
-            {
-
-                std::cerr << "No IV dependent access: " << n.prettyprint() << "\n";
-
-                const Nodecl::VectorPromotion vector_prom =
-                    Nodecl::VectorPromotion::make(
-                            n.shallow_copy(),
-                            mask,
-                            vector_type,
-                            n.get_locus());
-
-                n.replace(vector_prom);
-            }
-            // Vector Load
-            else if (Vectorizer::_analysis_info->is_adjacent_access(
-                        _environment._analysis_simd_scope,
-                        n))
-            {
-                // Aligned
-                if(Vectorizer::_analysis_info->is_simd_aligned_access(
-                            _environment.analysis_simd_scope,
-                            n,
-                            _environment._suitable_expr_list,
-                            _environment._unroll_factor,
-                            _environment._vector_length))
-                {
-                    printf("VECTORIZER: Load access '%s' is ALIGNED\n",
-                            n.prettyprint().c_str());
-
-                    const Nodecl::VectorLoad vector_load =
-                        Nodecl::VectorLoad::make(
-                                Nodecl::Reference::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        n.shallow_copy(),
-                                        basic_type,
-                                        n.get_locus()),
-                                    basic_type.get_pointer_to(),
-                                    n.get_locus()),
-                                mask,
-                                vector_type,
-                                n.get_locus());
-
-                    n.replace(vector_load);
-                }
-                else // Unaligned
-                {
-                    printf("VECTORIZER: Load access '%s' is UNALIGNED\n",
-                            n.prettyprint().c_str());
-
-                    const Nodecl::UnalignedVectorLoad vector_load =
-                        Nodecl::UnalignedVectorLoad::make(
-                                Nodecl::Reference::make(
-                                    Nodecl::ParenthesizedExpression::make(
-                                        n.shallow_copy(),
-                                        basic_type,
-                                        n.get_locus()),
-                                    basic_type.get_pointer_to(),
-                                    n.get_locus()),
-                                mask,
-                                vector_type,
-                                n.get_locus());
-
-                    n.replace(vector_load);
-                } 
-            }
-            else // Vector Gather
-            {
-                const Nodecl::NodeclBase base = n.get_subscripted();
-                const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
-
-                std::cerr << "Gather: " << n.prettyprint() << "\n";
-
-                ERROR_CONDITION(subscripts.size() > 1,
-                    "Vectorizer: Gather on multidimensional array is not supported yet!", 0);
-
-                Nodecl::NodeclBase strides = *subscripts.begin();
-                walk(strides);
-
-                const Nodecl::VectorGather vector_gather =
-                    Nodecl::VectorGather::make(
-                            base.shallow_copy(),
-                            strides,
-                            mask,
-                            vector_type,
-                            n.get_locus());
-
-                n.replace(vector_gather);
-            }
-            */
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::FunctionCall& n)
@@ -1487,24 +1364,18 @@ namespace TL
 
                 offset_vector_literal.set_constant(get_vector_const_value(literal_list));
 
-                Nodecl::ParenthesizedExpression vector_induction_var =
-                    Nodecl::ParenthesizedExpression::make(
-                            Nodecl::VectorAdd::make(
-                                Nodecl::VectorPromotion::make(
-                                    n.shallow_copy(),
-                                    Utils::get_null_mask(),
-                                    ind_var_type,
-                                    n.get_locus()),
-                                offset_vector_literal,
+                Nodecl::VectorAdd vector_induction_var =
+                    Nodecl::VectorAdd::make(
+                            Nodecl::VectorPromotion::make(
+                                n.shallow_copy(),
                                 Utils::get_null_mask(),
-                                Utils::get_qualified_vector_to(n.get_type(), 
-                                    _environment._unroll_factor),
+                                ind_var_type,
                                 n.get_locus()),
+                            offset_vector_literal,
+                            Utils::get_null_mask(),
                             Utils::get_qualified_vector_to(n.get_type(), 
                                 _environment._unroll_factor),
                             n.get_locus());
-
-
 
                 n.replace(vector_induction_var);
             }

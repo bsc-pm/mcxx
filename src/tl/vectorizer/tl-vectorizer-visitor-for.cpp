@@ -239,7 +239,7 @@ namespace TL
                 // Step
                 // TODO: Not only the trivial case
                 Nodecl::NodeclBase step;
-                Nodecl::ParenthesizedExpression new_step;
+                Nodecl::Mul new_step;
 
                 if (Vectorizer::_analysis_info->is_induction_variable(
                             _environment._analysis_simd_scope,
@@ -249,19 +249,13 @@ namespace TL
                             _environment._analysis_scopes.back(),
                             lhs);
 
-                    new_step = Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Mul::make(
-                                Nodecl::ParenthesizedExpression::make(
-                                    step,
-                                    step.get_type(),
-                                    node.get_locus()),
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(_environment._unroll_factor),
-                                    node.get_locus()),
+                    new_step = Nodecl::Mul::make(
+                            step,
+                            Nodecl::IntegerLiteral::make(
                                 TL::Type::get_int_type(),
+                                const_value_get_signed_int(_environment._unroll_factor),
                                 node.get_locus()),
-                            step.get_type(),
+                            TL::Type::get_int_type(),
                             node.get_locus());
                 }
                 else
@@ -272,20 +266,14 @@ namespace TL
 
 
                 // rhs = (rhs-(step-1))
-                const Nodecl::ParenthesizedExpression new_node =
-                    Nodecl::ParenthesizedExpression::make(
+                const Nodecl::Minus new_node =
+                    Nodecl::Minus::make(
+                            rhs.shallow_copy(),
                             Nodecl::Minus::make(
-                                rhs.shallow_copy(),
-                                Nodecl::ParenthesizedExpression::make(
-                                    Nodecl::Minus::make(
-                                        new_step,
-                                        Nodecl::IntegerLiteral::make(
-                                            TL::Type::get_int_type(),
-                                            const_value_get_signed_int(1),
-                                            node.get_locus()),
-                                        rhs_type,
-                                        node.get_locus()),
-                                    rhs_type,
+                                new_step,
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(1),
                                     node.get_locus()),
                                 rhs_type,
                                 node.get_locus()),
@@ -301,7 +289,7 @@ namespace TL
                 // Step
                 // TODO: Not only the trivial case
                 Nodecl::NodeclBase step;
-                Nodecl::ParenthesizedExpression new_step;
+                Nodecl::Mul new_step;
 
                 if (Vectorizer::_analysis_info->is_induction_variable(
                             _environment._analysis_simd_scope,
@@ -311,17 +299,11 @@ namespace TL
                             _environment._analysis_scopes.back(),
                             rhs);
 
-                    new_step = Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Mul::make(
-                                Nodecl::ParenthesizedExpression::make(
-                                    step,
-                                    step.get_type(),
-                                    node.get_locus()),
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(_environment._unroll_factor),
-                                    node.get_locus()),
-                                step.get_type(),
+                    new_step = Nodecl::Mul::make(
+                            step,
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_signed_int(_environment._unroll_factor),
                                 node.get_locus()),
                             step.get_type(),
                             node.get_locus());
@@ -334,20 +316,14 @@ namespace TL
 
 
                 // lhs = (lhs-(step-1))
-                const Nodecl::ParenthesizedExpression new_node =
-                    Nodecl::ParenthesizedExpression::make(
+                const Nodecl::Minus new_node =
+                    Nodecl::Minus::make(
+                            lhs.shallow_copy(),
                             Nodecl::Minus::make(
-                                lhs.shallow_copy(),
-                                Nodecl::ParenthesizedExpression::make(
-                                    Nodecl::Minus::make(
-                                        new_step,
-                                        Nodecl::IntegerLiteral::make(
-                                            TL::Type::get_int_type(),
-                                            const_value_get_signed_int(1),
-                                            node.get_locus()),
-                                        lhs_type,
-                                        node.get_locus()),
-                                    lhs_type,
+                                new_step,
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(1),
                                     node.get_locus()),
                                 lhs_type,
                                 node.get_locus()),
@@ -662,13 +638,6 @@ namespace TL
             Nodecl::NodeclBase upper_bound = tl_for_statement.get_upper_bound();
             Nodecl::NodeclBase lower_bound = tl_for_statement.get_lower_bound();
 
-            Nodecl::ParenthesizedExpression par_upper_bound =
-                Nodecl::ParenthesizedExpression::make(upper_bound.shallow_copy(),
-                        upper_bound.get_type());
-            Nodecl::ParenthesizedExpression par_lower_bound =
-                Nodecl::ParenthesizedExpression::make(lower_bound.shallow_copy(),
-                        lower_bound.get_type());
-
             TL::Symbol iv = tl_for_statement.get_induction_variable();
             TL::Type iv_type = iv.get_type();
 
@@ -676,20 +645,16 @@ namespace TL
             induction_variable = iv.make_nodecl(true);
 
             // Induction Variable Init
-            iv_init = Nodecl::ParenthesizedExpression::make(
-                    Nodecl::Minus::make(
-                        par_upper_bound.shallow_copy(),
-                        Nodecl::Add::make(
-                            Nodecl::ParenthesizedExpression::make(
-                                Nodecl::Mod::make(
-                                    par_upper_bound.shallow_copy(),
-                                    Nodecl::IntegerLiteral::make(
-                                        TL::Type::get_int_type(),
-                                        const_value_get_signed_int(_environment._unroll_factor)),
-                                    iv_type),
-                                iv_type),
-                            lower_bound.shallow_copy(),
+            iv_init = Nodecl::Minus::make(
+                    upper_bound.shallow_copy(),
+                    Nodecl::Add::make(
+                        Nodecl::Mod::make(
+                            upper_bound.shallow_copy(),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_signed_int(_environment._unroll_factor)),
                             iv_type),
+                        lower_bound.shallow_copy(),
                         iv_type),
                     iv_type);
         }
