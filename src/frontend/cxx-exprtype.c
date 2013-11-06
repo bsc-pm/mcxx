@@ -8307,7 +8307,24 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         // (const void *)"ABC";
         //
         // Something similar appears in strcmp function
-        if (const_value_is_integer(const_casted_expr)
+        if (is_bool_type(declarator_type))
+        {
+            // bool conversion is slightly different
+            const_value_t* cval = nodecl_get_constant(nodecl_casted_expr);
+            if (const_value_is_zero(cval))
+            {
+                nodecl_set_constant(*nodecl_output,
+                    const_value_get_zero(type_get_size(declarator_type), 1));
+                // Make sure we set the false type to this boolean cast
+                nodecl_set_type(*nodecl_output, get_bool_false_type());
+            }
+            else
+            {
+                nodecl_set_constant(*nodecl_output,
+                    const_value_get_one(type_get_size(declarator_type), 1));
+            }
+        }
+        else if (const_value_is_integer(const_casted_expr)
                 || const_value_is_floating(const_casted_expr))
         {
             nodecl_set_constant(*nodecl_output,
