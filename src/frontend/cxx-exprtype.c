@@ -1931,10 +1931,9 @@ static type_t* promote_integral_type(type_t* t)
     }
 }
 
-static char operand_is_arithmetic_or_bool_or_enum_type_noref(type_t* t)
+static char operand_is_arithmetic_or_enum_type_noref(type_t* t)
 {
     return (is_arithmetic_type(no_ref(t))
-            || is_bool_type(no_ref(t))
             || is_enum_type(no_ref(t)));
 }
 
@@ -1950,7 +1949,7 @@ static char operand_is_integral_or_bool_or_enum_type_noref(type_t* t)
             || is_enum_type(t));
 }
 
-static 
+static
 char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 {
     return (operand_is_integral_or_enum_type(rhs_type)
@@ -5235,7 +5234,7 @@ static void compute_operator_plus_type(nodecl_t* op,
             nodecl_make_plus,
             const_value_plus, 
             compute_type_no_overload_plus,
-            operand_is_arithmetic_or_bool_or_enum_type_noref,
+            operand_is_arithmetic_or_enum_type_noref,
             operator_unary_plus_pred,
             operator_unary_plus_result,
             /* save_conversions */ 1,
@@ -5310,7 +5309,7 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
             nodecl_make_neg,
             const_value_neg, 
             compute_type_no_overload_neg,
-            operand_is_arithmetic_or_bool_or_enum_type_noref,
+            operand_is_arithmetic_or_enum_type_noref,
             operator_unary_minus_pred,
             operator_unary_minus_result,
             /* save_conversions */ 1,
@@ -5433,13 +5432,13 @@ static void compute_operator_not_type(nodecl_t* op,
                 ASTLeaf(AST_LOGICAL_NOT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_unary_operator_generic(op, 
+    compute_unary_operator_generic(op,
             operation_tree, decl_context,
             operand_is_class_or_enum,
             nodecl_make_logical_not,
-            const_value_not, 
+            const_value_not,
             compute_type_no_overload_logical_not,
-            operand_is_arithmetic_or_bool_or_enum_type_noref,
+            operand_is_arithmetic_or_enum_type_noref,
             operator_unary_not_pred,
             operator_unary_not_result,
             /* save_conversions */ 1,
