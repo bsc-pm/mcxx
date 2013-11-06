@@ -2890,6 +2890,16 @@ static long double arith_powq(__float128 a, __float128 b)
 
 BINOP_FUN_CALL(pow, arith_pow)
 
+#ifndef HAVE_QUADMATH_H
+#define UNOP_FUN_FLOAT128(_unop)
+#else
+#define UNOP_FUN_FLOAT128(_unop) \
+    else if (v1->kind == CVK_FLOAT128) \
+    { \
+        return const_value_get_float128(_unop v1->value.f128); \
+    }
+#endif
+
 #define UNOP_FUN(_opname, _unop) \
 const_value_t* const_value_##_opname(const_value_t* v1) \
 { \
@@ -2919,6 +2929,50 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     { \
         return const_value_get_long_double(_unop v1->value.ld); \
     } \
+    UNOP_FUN_FLOAT128(_unop); \
+    return NULL; \
+}
+
+#ifndef HAVE_QUADMATH_H
+#define UNOP_FUN_I_OR_F_FLOAT128(_unop)
+#else
+#define UNOP_FUN_I_OR_F_FLOAT128(_unop) \
+    else if (v1->kind == CVK_FLOAT128) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.f128); \
+    }
+#endif
+
+#define UNOP_FUN_I_OR_F(_opname, _unop) \
+const_value_t* const_value_##_opname(const_value_t* v1) \
+{ \
+    ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
+    if (v1->kind == CVK_INTEGER) \
+    { \
+        cvalue_uint_t value = 0; \
+        if (v1->sign) \
+        { \
+            value = _unop v1->value.si; \
+        } \
+        else \
+        { \
+            value = _unop v1->value.i; \
+        } \
+        return const_value_get_integer(value, v1->num_bytes, v1->sign); \
+    } \
+    else if (v1->kind == CVK_FLOAT) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.f); \
+    } \
+    else if (v1->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.d); \
+    } \
+    else if (v1->kind == CVK_LONG_DOUBLE) \
+    { \
+        return const_value_get_signed_int(_unop v1->value.ld); \
+    } \
+    UNOP_FUN_I_OR_F_FLOAT128(_unop); \
     return NULL; \
 }
 
@@ -2945,7 +2999,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
 UNOP_FUN(plus, +)
 UNOP_FUN(neg, -)
 UNOP_FUN_I(bitnot, ~)
-UNOP_FUN_I(not, !)
+UNOP_FUN_I_OR_F(not, !)
 
 #define MEANINGLESS_IN_COMPLEX(name) \
 static const_value_t* name(const_value_t* v1 UNUSED_PARAMETER, const_value_t* v2 UNUSED_PARAMETER) \
