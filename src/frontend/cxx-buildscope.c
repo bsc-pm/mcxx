@@ -3221,6 +3221,11 @@ static void gather_extra_attributes(AST a,
                     gather_single_virt_specifier(item, gather_info, decl_context);
                     break;
                 }
+            case AST_MS_DECLSPEC:
+                {
+                    gather_ms_declspec(item, gather_info, decl_context);
+                    break;
+                }
             default:
                 {
                     internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(item)));
