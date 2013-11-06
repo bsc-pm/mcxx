@@ -9161,87 +9161,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         return 1;
     }
 
-    // Special cases of identity due to how references can be initialized
-    if ((!is_any_reference_type(orig) || is_nullptr_type(no_ref(orig)))
-            // cv1 T -> const cv2 T&
-            // std::nullptr_t -> const cv2 T&
-            // std::nullptr_t& -> const cv2 T&
-            // std::nullptr_t&& -> const cv2 T&
-            && ((is_lvalue_reference_type(dest)
-                    && is_const_qualified_type(reference_type_get_referenced_type(dest)))
-                // cv1 T -> cv2 T&&
-                // std::nullptr_t -> cv2 T&&
-                // std::nullptr_t& -> cv2 T&&
-                // std::nullptr_t&& -> cv2 T&&
-                || is_rvalue_reference_type(dest)))
-    {
-        // std::nullptr_t can be a reference here
-        type_t* no_ref_orig = no_ref(orig);
-
-        type_t* unqualif_orig = get_unqualified_type(no_ref_orig);
-        type_t* unqualif_dest = get_unqualified_type(
-                reference_type_get_referenced_type(dest)
-                );
-
-        standard_conversion_t conversion_among_lvalues = no_scs_conversion;
-        (*result) = identity_scs(t_orig, t_dest);
-
-        // Here we compute
-        // cv1 T -> T
-        char ok = 0;
-        // Note that here we do not use no_ref_orig because we want
-        // std::nullptr_t& stuff record lvalue-to-rvalue conversions
-        if (standard_conversion_between_types(&conversion_among_lvalues, orig, unqualif_dest))
-        {
-            (*result).conv[0] = conversion_among_lvalues.conv[0];
-            (*result).conv[1] = conversion_among_lvalues.conv[1];
-            ok = 1;
-        }
-        else if (is_class_type(unqualif_dest)
-                    && is_class_type(unqualif_orig)
-                    && class_type_is_base(unqualif_dest, unqualif_orig))
-        {
-            ok = 1;
-        }
-
-        if (ok)
-        {
-            DEBUG_CODE()
-            {
-                const char* bind_to = "an lvalue-reference";
-                if (is_rvalue_reference_type(dest))
-                    bind_to = "an rvalue-reference";
-
-                const char* by_means_of = "an rvalue";
-                if (is_nullptr_type(no_ref(orig)))
-                {
-                    if (!is_any_reference_type(orig))
-                    {
-                        by_means_of = "an rvalue of std::nullptr_t";
-                    }
-                    else if (is_lvalue_reference_type(orig))
-                    {
-                        by_means_of = "an lvalue-reference of std::nullptr_t";
-                    }
-                    // must be rvalue
-                    else
-                    {
-                        by_means_of = "an rvalue-reference of std::nullptr_t";
-                    }
-                }
-
-                fprintf(stderr, "SCS: This is a binding to %s by means of %s\n", bind_to, by_means_of);
-            }
-
-            if (is_more_cv_qualified_type(no_ref(dest), no_ref_orig))
-            {
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
-            }
-
-            return 1;
-        }
-    }
-
     // C only
     if (IS_C_LANGUAGE
             && is_lvalue_reference_type(dest))
@@ -9341,6 +9260,71 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             return 1;
         }
     }
+
+    // Some type converted to const T& or T&&
+    if ((is_lvalue_reference_type(dest)
+                && is_const_qualified_type(reference_type_get_referenced_type(dest)))
+            || (!is_lvalue_reference_type(orig) && is_rvalue_reference_type(dest)))
+    {
+        standard_conversion_t conversion_among_lvalues = no_scs_conversion;
+        // cv T1 -> T2
+        (*result) = identity_scs(no_ref(orig), get_unqualified_type(no_ref(dest)));
+
+        char ok = 0;
+        if (is_class_type(no_ref(orig))
+                && is_class_type(no_ref(dest))
+                && class_type_is_base(no_ref(dest),
+                    get_unqualified_type(no_ref(orig))))
+        {
+            ok = 1;
+        }
+        else if (standard_conversion_between_types(&conversion_among_lvalues,
+                    no_ref(orig),
+                    get_unqualified_type(no_ref(dest))))
+        {
+            (*result).conv[0] = conversion_among_lvalues.conv[0];
+            (*result).conv[1] = conversion_among_lvalues.conv[1];
+            ok = 1;
+        }
+
+        if (ok)
+        {
+            DEBUG_CODE()
+            {
+                const char* bind_to = "an lvalue-reference";
+                if (is_rvalue_reference_type(dest))
+                    bind_to = "an rvalue-reference";
+
+                const char* by_means_of = "an rvalue";
+                if (is_nullptr_type(no_ref(orig)))
+                {
+                    if (!is_any_reference_type(orig))
+                    {
+                        by_means_of = "an rvalue of std::nullptr_t";
+                    }
+                    else if (is_lvalue_reference_type(orig))
+                    {
+                        by_means_of = "an lvalue-reference of std::nullptr_t";
+                    }
+                    // must be rvalue
+                    else
+                    {
+                        by_means_of = "an rvalue-reference of std::nullptr_t";
+                    }
+                }
+
+                fprintf(stderr, "SCS: This is a binding to %s by means of %s\n", bind_to, by_means_of);
+            }
+
+            if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
+            {
+                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            }
+
+            return 1;
+        }
+    }
+
 
     // First kind of conversion
     //
