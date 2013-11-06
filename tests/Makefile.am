@@ -40,6 +40,7 @@ include ../config/Makefile.replace
 
 prepare-check: ./config/bets
 	chmod +x config/bets
+	chmod +x config/mercurium-cxx11
 	chmod +x config/mercurium-libraries
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
