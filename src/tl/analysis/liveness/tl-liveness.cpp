@@ -44,7 +44,7 @@ namespace Analysis {
         // Compute graph concurrent tasks since this information is needed to
         // properly propagate liveness information over the graph
         TaskAnalysis::TaskConcurrency tc( _graph );
-        tc.compute_task_concurrency( );
+        tc.compute_tasks_concurrency( );
         
         Node* graph = _graph->get_graph( );
 

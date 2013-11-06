@@ -33,11 +33,12 @@ namespace Analysis {
         : _name( name ), _graph( NULL ), _utils( utils ),
           _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
-          _task_nodes_l( ), _func_calls( ), _concurrent_tasks( ),
+          _task_nodes_l( ), _func_calls( ), 
+          _concurrent_tasks( ), _last_sync( ), _next_sync( ),
           _cluster_to_entry_map( )
     {
 
-        _graph = create_graph_node( NULL, nodecl, EXTENSIBLE_GRAPH );
+        _graph = create_graph_node( NULL, nodecl, __ExtensibleGraph );
         _utils->_last_nodes = ObjectList<Node*>( 1, _graph->get_graph_entry_node( ) );
     }
 
@@ -47,10 +48,10 @@ namespace Analysis {
         {
             old_node->set_visited_extgraph(true);
 
-            switch(old_node->get_type( ) )
+            switch( old_node->get_type( ) )
             {
-                case EXIT: return;
-                case GRAPH: connect_copied_nodes(old_node->get_graph_entry_node( ) );
+                case __Exit: return;
+                case __Graph: connect_copied_nodes(old_node->get_graph_entry_node( ) );
                 default:
                 {
                     // Connect the node with its parents
@@ -94,11 +95,9 @@ namespace Analysis {
     Node* ExtensibleGraph::append_new_node_to_parent( ObjectList<Node*> parents, ObjectList<Nodecl::NodeclBase> nodecls,
                                                       Node_type ntype, Edge_type etype )
     {
-        if( ntype == GRAPH )
-        {
+        if( ntype == __Graph )
             internal_error( "A Graph node must be created with the function 'create_graph_node' "
                             "and connected by hand [new id = %d]", _utils->_nid );
-        }
 
         if( !parents.empty( ) )
         {
@@ -109,7 +108,7 @@ namespace Analysis {
                 new_node->set_statements( nodecls );
                 connect_nodes( parents, new_node, etype );
             }
-            else if( nodecls.empty( ) && ntype != NORMAL )
+            else if( nodecls.empty( ) && ntype != __Normal )
             {
                 new_node = new Node( _utils->_nid, ntype, _utils->_outer_nodes.top( ) );
                 connect_nodes( parents, new_node, etype );
@@ -297,7 +296,7 @@ namespace Analysis {
     Node* ExtensibleGraph::create_graph_node( Node* outer_node, Nodecl::NodeclBase label,
                                               Graph_type graph_type, Nodecl::NodeclBase context )
     {
-        Node* result = new Node( _utils->_nid, GRAPH, outer_node );
+        Node* result = new Node( _utils->_nid, __Graph, outer_node );
 
         Node* entry_node = result->get_graph_entry_node( );
         entry_node->set_outer_node( result );
@@ -306,7 +305,7 @@ namespace Analysis {
 
         result->set_graph_label( label );
         result->set_graph_type( graph_type );
-        if( graph_type == OMP_TASK )
+        if( graph_type == __OmpTask )
         {
             result->set_task_context( context );
         }
@@ -316,36 +315,21 @@ namespace Analysis {
         return result;
     }
 
-    Node* ExtensibleGraph::create_barrier_node( Node* outer_node )
-    {
-        Node* flush_node_1 = new Node( _utils->_nid, OMP_FLUSH, outer_node );
-        connect_nodes( _utils->_last_nodes, flush_node_1 );
-
-        Node* barrier_node = new Node( _utils->_nid, OMP_BARRIER, outer_node );
-        connect_nodes( flush_node_1, barrier_node );
-
-        Node* flush_node_2 = new Node( _utils->_nid, OMP_FLUSH, outer_node );
-        connect_nodes( barrier_node, flush_node_2 );
-
-        _utils->_last_nodes = ObjectList<Node*>( 1, flush_node_2 );
-        return flush_node_1;
-    }
-
     Node* ExtensibleGraph::create_flush_node( Node* outer_node, Nodecl::NodeclBase n )
     {
-        Node* flush_node = new Node( _utils->_nid, OMP_FLUSH, outer_node );
+        Node* flush_node = new Node( _utils->_nid, __OmpFlush, outer_node );
 
         // Create the convenient clause with the flushed variables
         if ( n.is_null( ) )
         {   // Flushing all memory
-            PCFGClause current_clause( FLUSHED_VARS );
+            PCFGClause current_clause( __flushed_vars );
             PCFGPragmaInfo current_info( current_clause );
             flush_node->set_pragma_node_info( current_info );
         }
         else
         {   // Flushing a list of expressions
             Nodecl::List flushed_vars = n.as<Nodecl::List>( );
-            PCFGClause current_clause( FLUSHED_VARS, flushed_vars );
+            PCFGClause current_clause( __flushed_vars, flushed_vars );
             PCFGPragmaInfo current_info( current_clause );
             flush_node->set_pragma_node_info( current_info );
         }
@@ -358,7 +342,7 @@ namespace Analysis {
 
     Node* ExtensibleGraph::create_unconnected_node( Nodecl::NodeclBase nodecl )
     {
-        Node* result = new Node( _utils->_nid, NORMAL, _utils->_outer_nodes.top( ) );
+        Node* result = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ) );
         result->set_statements( ObjectList<Nodecl::NodeclBase>( 1, nodecl ) );
         return result;
     }
@@ -414,14 +398,9 @@ namespace Analysis {
                     last_seq_nodes.clear( );
 
                     if( actual_node->is_graph_node( ) )
-                    {
                         concat_sequential_nodes_recursive( actual_node->get_graph_entry_node( ), last_seq_nodes );
-                    }
                     else if( actual_node->is_exit_node( ) )
-                    {
                         return;
-                    }
-
                 }
                 else
                 {
@@ -431,9 +410,7 @@ namespace Analysis {
 
             ObjectList<Node*> actual_exits = actual_node->get_children( );
             for( ObjectList<Node*>::iterator it = actual_exits.begin( ); it != actual_exits.end( ); ++it )
-            {
                 concat_sequential_nodes_recursive( *it, last_seq_nodes );
-            }
         }
         else
         {
@@ -452,7 +429,7 @@ namespace Analysis {
             {
                 stmt_l.append( ( *it )->get_statements( ) );
             }
-            Node* new_node = new Node( _utils->_nid, NORMAL, node_l[0]->get_outer_node( ), stmt_l );
+            Node* new_node = new Node( _utils->_nid, __Normal, node_l[0]->get_outer_node( ), stmt_l );
             new_node->set_visited_extgraph( true );
             Node* front = node_l.front( );
             Node* back = node_l.back( );
@@ -558,7 +535,7 @@ namespace Analysis {
                     }
                     else
                     {
-                        etypes = ObjectList<Edge_type>( n_connects, ALWAYS );
+                        etypes = ObjectList<Edge_type>( n_connects, __Always );
                         elabels = ObjectList<std::string>( n_connects, "" );
                     }
 
@@ -995,9 +972,7 @@ namespace Analysis {
                 WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
             }
             else
-            {
                 result = _concurrent_tasks[task];
-            }
         }
         return result;
     }
@@ -1006,38 +981,94 @@ namespace Analysis {
     {
         if( _concurrent_tasks.find( task ) != _concurrent_tasks.end( ) )
         {
-            WARNING_MESSAGE( "You are trying to insert a task in the map of synchronous tasks of a PCFG."\
-                             "This should never happen!", 0 );
+            WARNING_MESSAGE( "You are trying to insert a task that already exists in the map of "\
+                             " synchronous tasks of a PCFG. This should never happen so we skip it", 0 );
             return;
         }
         
         _concurrent_tasks[task] = concurrent_tasks;
     }
 
+    ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization( Node* task )
+    {
+        ObjectList<Node*> result;
+        if( !task->is_omp_task_node( ) )
+        {
+            WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
+        }
+        else
+        {
+            if( _last_sync.find( task ) == _last_sync.end( ) )
+            {
+                WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
+            }
+            else
+                result = _last_sync[task];
+        }
+        return result;
+    }
+    
+    void ExtensibleGraph::add_last_synchronization( Node* task, ObjectList<Node*> last_sync )
+    {
+        if( _last_sync.find( task ) != _last_sync.end( ) )
+        {
+            WARNING_MESSAGE( "You are trying to insert a task that already exists in the map of "\
+                             "last synchronization points of a task. This should never happen so we skip it", 0 );
+            return;
+        }
+        
+        _last_sync[task] = last_sync;
+    }
+    
+    Node* ExtensibleGraph::get_task_next_synchronization( Node* task )
+    {
+        Node* result;
+        if( !task->is_omp_task_node( ) )
+        {
+            WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
+        }
+        else
+        {
+            if( _next_sync.find( task ) == _next_sync.end( ) )
+            {
+                WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
+            }
+            else
+                result = _next_sync[task];
+        }
+        return result;
+    }
+    
+    void ExtensibleGraph::add_next_synchronization( Node* task, Node* next_sync )
+    {
+        if( _next_sync.find( task ) != _next_sync.end( ) )
+        {
+            WARNING_MESSAGE( "You are trying to insert a task that already exists in the map of "\
+                             "next synchronization points of a task. This should never happen so we skip it", 0 );
+            return;
+        }
+        _next_sync[task] = next_sync;
+    }
+    
     //! This method returns the most outer node of a node before finding a loop node
     static Node* advance_over_outer_nodes_until_loop( Node* node )
     {
         Node* outer = node->get_outer_node( );
         Graph_type outer_type = outer->get_graph_type( );
-        if( ( outer_type == LOOP_DOWHILE ) || ( outer_type == LOOP_FOR ) || ( outer_type == LOOP_WHILE ) )
-        {
+        if( ( outer_type == __LoopDoWhile ) || ( outer_type == __LoopFor ) || ( outer_type == __LoopWhile ) )
             return node;
-        }
         else if( outer != NULL )
-        {
             return advance_over_outer_nodes_until_loop( outer );
-        }
-
         return outer;
     }
 
     // A node will be the increment of a FOR loop if its only children has
     // - as parent a ENTRY_NODE,
     // - as one of its children, joined with a FALSE_EDGE, a EXIT_NODE
-    Node* ExtensibleGraph::is_for_loop_increment(Node* node)
+    Node* ExtensibleGraph::is_for_loop_increment( Node* node )
     {
         // Get outer node of the actual node which is the potential increment of a loop (jump over func_calls, split_exprs, ...)
-        Node* potential_loop_increment = advance_over_outer_nodes_until_loop(node);
+        Node* potential_loop_increment = advance_over_outer_nodes_until_loop( node );
         Node* loop_node = potential_loop_increment->get_outer_node( );
         Node* loop_entry = loop_node->get_graph_entry_node( );
 
@@ -1194,6 +1225,25 @@ namespace Analysis {
         Node* result = current->get_outer_node( );
         while( result != NULL && !result->is_omp_node( ) )
             result = result->get_outer_node( );
+        return result;
+    }
+    
+    Edge* ExtensibleGraph::get_edge_between_nodes( Node* source, Node* target )
+    {
+        Edge* result;
+        ObjectList<Edge*> exits = source->get_exit_edges( );
+        for( ObjectList<Edge*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
+        {
+            if( ( *it )->get_target( ) == target )
+            {
+                result = *it;
+                break;
+            }
+        }
+        
+        ERROR_CONDITION( result == NULL, 
+                         "Asking for the connection edge between two nodes ( %d, %d ) that are not connected\n", 
+                         source->get_id( ), target->get_id( ) );
         return result;
     }
     

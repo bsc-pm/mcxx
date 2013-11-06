@@ -42,12 +42,21 @@
 namespace TL {
 namespace Analysis {
 
+    static int _subgraph_id = 0;
+    
+    static bool _usage;
+    static bool _liveness;
+    static bool _reaching_defs;
+    static bool _induction_vars;
+    static bool _auto_scoping;
+    static bool _auto_deps;
+    
 namespace {
     
-    std::string print_node_usage( Node* current, bool analysis_is_performed )
+    std::string print_node_usage( Node* current )
     {
         std::string usage = "";
-        if( analysis_is_performed )
+        if( _usage )
         {
             std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ), /*dot*/ true );
             std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ), /*dot*/ true );
@@ -68,10 +77,10 @@ namespace {
         return usage;
     }
 
-    std::string print_node_liveness( Node* current, bool analysis_is_performed )
+    std::string print_node_liveness( Node* current )
     {
         std::string liveness = "";
-        if( analysis_is_performed )
+        if( _liveness )
         {
             std::string live_in = prettyprint_ext_sym_set( current->get_live_in_vars( ), /*dot*/ true );
             std::string live_out = prettyprint_ext_sym_set( current->get_live_out_vars( ), /*dot*/ true );
@@ -93,10 +102,10 @@ namespace {
         return liveness;
     }
     
-    std::string print_node_reaching_defs( Node* current, bool analysis_is_performed )
+    std::string print_node_reaching_defs( Node* current )
     {
         std::string reaching_defs = "";
-        if( analysis_is_performed )
+        if( _reaching_defs )
         {
             std::string gen = prettyprint_ext_sym_map( current->get_generated_stmts( ), /*dot*/ true );
             std::string defs_in = prettyprint_ext_sym_map( current->get_reaching_definitions_in( ), /*dot*/ true );
@@ -117,10 +126,10 @@ namespace {
         return reaching_defs;
     }
     
-    std::string print_node_induction_variables( Node* current, bool analysis_is_performed )
+    std::string print_node_induction_variables( Node* current )
     {
         std::string induction_vars = "";
-        if( analysis_is_performed && ( current->is_loop_node( ) || current->is_omp_loop_node( ) ) )
+        if( _induction_vars && ( current->is_loop_node( ) || current->is_omp_loop_node( ) ) )
         {
             ObjectList<Utils::InductionVariableData*> ivs = current->get_induction_variables( );
             for( ObjectList<Utils::InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
@@ -152,10 +161,10 @@ namespace {
         return induction_vars;
     }
     
-    std::string print_node_data_sharing( Node* current, bool analysis_is_performed )
+    std::string print_node_data_sharing( Node* current )
     {
         std::string auto_scope = "";
-        if( analysis_is_performed )
+        if( _auto_scoping )
         {
             std::string sc_private = prettyprint_ext_sym_set( current->get_sc_private_vars( ), /*dot*/ true );
             std::string sc_firstprivate = prettyprint_ext_sym_set( current->get_sc_firstprivate_vars( ), /*dot*/ true );
@@ -169,10 +178,10 @@ namespace {
         return auto_scope;
     }
 
-    std::string print_node_deps( Node* current, bool analysis_is_performed )
+    std::string print_node_deps( Node* current )
     {
         std::string auto_deps = "";
-        if( analysis_is_performed )
+        if( _auto_deps )
         {
             std::string deps_private = prettyprint_ext_sym_set( current->get_deps_private_vars( ), /*dot*/ true );
             std::string deps_firstprivate = prettyprint_ext_sym_set( current->get_deps_firstprivate_vars( ), /*dot*/ true );
@@ -198,23 +207,18 @@ namespace {
     {
         std::ofstream dot_pcfg;
 
+        // Create the directory of dot files if it has not been previously created
         char buffer[1024];
         char* err = getcwd(buffer, 1024);
         if( err == NULL )
-        {
             internal_error ( "An error occurred while getting the path of the current directory", 0 );
-        }
-
-        // Create the directory of dot files if it has not been previously created
         struct stat st;
-        std::string directory_name = std::string(buffer) + "/dot/";
-        if( stat(directory_name.c_str( ), &st) != 0 )
+        std::string directory_name = std::string( buffer ) + "/dot/";
+        if( stat( directory_name.c_str( ), &st ) != 0 )
         {
             int dot_directory = mkdir( directory_name.c_str( ), S_IRWXU );
             if( dot_directory != 0 )
-            {
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
-            }
         }
 
         std::string date_str;
@@ -237,315 +241,282 @@ namespace {
         Nodecl::NodeclBase node = this->get_nodecl();
         std::string filename = ::give_basename(node.get_filename().c_str());
         int line = node.get_line();
-
         std::stringstream ss; ss << filename << "_" << line;
-
         std::string dot_file_name = directory_name + ss.str() + "_" + date_str + ".dot";
         dot_pcfg.open( dot_file_name.c_str( ) );
-        if( dot_pcfg.good( ) )
-        {   // Create the dot graphs
-            if( VERBOSE )
-                std::cerr << "- File '" << dot_file_name << "'" << std::endl;
-
-            int subgraph_id = 0;
-            dot_pcfg << "digraph CFG {\n";
-                dot_pcfg << "\tcompound=true;\n";
-                std::string graph_data = "";
-                std::string graph_analysis_info = "";
-                std::vector<std::string> outer_edges;
-                std::vector<Node*> outer_nodes;
-                get_nodes_dot_data( _graph, graph_data, graph_analysis_info, outer_edges, outer_nodes, "\t", subgraph_id,
-                                    usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
-                dot_pcfg << graph_data;
-                dot_pcfg << graph_analysis_info;
-            dot_pcfg << "}\n";
-
-            ExtensibleGraph::clear_visits( _graph );
-
-            dot_pcfg.close( );
-            if( !dot_pcfg.good( ) )
-            {
-                internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str( ) );
-            }
-        }
-        else
-        {
+        if( !dot_pcfg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
-        }
+            
+        // Create the dot graphs
+        if( VERBOSE )
+            std::cerr << "- File '" << dot_file_name << "'" << std::endl;
+
+        _usage = usage;
+        _liveness = liveness;
+        _reaching_defs = reaching_defs;
+        _induction_vars = induction_vars;
+        _auto_scoping = auto_scoping;
+        _auto_deps = auto_deps;
+        
+        dot_pcfg << "digraph CFG {\n";
+            dot_pcfg << "\tcompound=true;\n";
+            std::string dot_graph = "";
+            std::string graph_analysis_info = "";
+            std::vector<std::string> current_outer_edges;
+            std::vector< std::vector<std::string> > outer_edges( 1, current_outer_edges );
+            std::vector<Node*> current_outer_nodes;
+            std::vector<std::vector<Node*> > outer_nodes( 1, current_outer_nodes );
+            get_nodes_dot_data( _graph, dot_graph, graph_analysis_info, outer_edges, outer_nodes, /*indent*/ "\t" );
+            dot_pcfg << dot_graph;
+            dot_pcfg << graph_analysis_info;
+        dot_pcfg << "}\n";
+
+        ExtensibleGraph::clear_visits( _graph );
+        dot_pcfg.close( );
+        if( !dot_pcfg.good( ) )
+            internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str( ) );
     }
 
     // Preorder traversal
     void ExtensibleGraph::get_nodes_dot_data( Node* current, std::string& dot_graph, std::string& dot_analysis_info,
-                                              std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
-                                              std::string indent, int& subgraph_id,
-                                              bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                              bool auto_scoping, bool auto_deps )
+                                              std::vector<std::vector<std::string> >& outer_edges, 
+                                              std::vector<std::vector<Node*> >& outer_nodes, std::string indent )
     {
         if( !current->is_visited( ) )
         {
             current->set_visited( true );
+            
+            // Generate the node
             if( current->is_graph_node( ) )
             {
                 // Calculate the name of the new dot subgraph
                 std::stringstream node_id; node_id << current->get_id( );
-                std::string subgraph_label = "[" + node_id.str( ) + "] " + current->get_graph_type_as_string( )/* + "\n" + current->get_graph_label( ).prettyprint()*/;
-
-                std::stringstream ssgid; ssgid << subgraph_id;
+                std::string subgraph_label = "[" + node_id.str( ) + "] " + current->get_graph_type_as_string( );
+                std::stringstream ssgid; ssgid << _subgraph_id;
                 std::string cluster_name = "cluster" + ssgid.str( );
                 dot_graph += indent + "subgraph " + cluster_name + "{\n";
                 Utils::makeup_dot_block( subgraph_label );
-                indent = indent + "\t";
-                dot_graph += indent + "label=\"" + subgraph_label + "\";\n";
-                subgraph_id++;
+                dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
+                _subgraph_id++;
 
-                std::vector<std::string> new_outer_edges;
-                std::vector<Node*> new_outer_nodes;
-                get_dot_subgraph( current, dot_graph, dot_analysis_info, new_outer_edges, new_outer_nodes, indent, subgraph_id,
-                                  usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
+                // Print inner nodes of the graph
+                std::vector<std::string> new_outer_edges; 
+                outer_edges.push_back( new_outer_edges );
+                std::vector<Node*> new_outer_nodes; 
+                outer_nodes.push_back( new_outer_nodes );
+                get_dot_subgraph( current, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent + "\t" );
                 dot_graph += indent + "}\n";
-
+                
                 // Print additional information attached to the node
                 dot_graph += print_pragma_node_clauses( current, indent, cluster_name );
-                print_node_analysis_info( current, dot_analysis_info, cluster_name,
-                                          usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
-                std::vector<std::string> new_outer_edges_inner;
-                std::vector<Node*> new_outer_nodes_inner;
-                // This is a bit awkward
-                do
-                {
-                    for( std::vector<Node*>::iterator it = new_outer_nodes.begin( ); it != new_outer_nodes.end( ); ++it)
-                    {
-                        std::vector<std::string> new_outer_edges_current;
-                        std::vector<Node*> new_outer_nodes_current;
-                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, new_outer_edges_current,
-                                new_outer_nodes_current, indent, subgraph_id,
-                                usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
-
-                        new_outer_edges_inner.insert(new_outer_edges_inner.end(),
-                                new_outer_edges_current.begin(), new_outer_edges_current.end());
-                        new_outer_nodes_inner.insert(new_outer_nodes_inner.end(),
-                                new_outer_nodes_current.begin(), new_outer_nodes_current.end());
-                    }
-                    for( std::vector<std::string>::iterator it = new_outer_edges.begin( ); it != new_outer_edges.end( ); ++it )
-                    {
-                        dot_graph += indent + ( *it );
-                    }
-                    new_outer_edges = new_outer_edges_inner;
-                    new_outer_nodes = new_outer_nodes_inner;
-
-                    new_outer_edges_inner.clear();
-                    new_outer_nodes_inner.clear();
-                } while (!new_outer_edges.empty() || !new_outer_nodes.empty());
-            }
-
-            if( current->is_exit_node( ) )
-            {   // Ending the graph traversal, either the master graph or any subgraph
-                get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
+                print_node_analysis_info( current, dot_analysis_info, cluster_name );
             }
             else
             {
-                bool must_print_following = true;
-                std::stringstream sss;
-                if( !current->is_graph_node( ) )
-                {
-                    if( ( !current->has_key( _OUTER_NODE ) ) ||
-                        ( current->has_key( _OUTER_NODE ) &&
-                            ( ( ! current->is_entry_node( ) && !current->get_entry_edges( ).empty( ) )
-                              || current->is_entry_node( ) ) ) )
-                    {
-                        sss << current->get_id( );
-                        get_node_dot_data( current, dot_graph, dot_analysis_info, indent, usage, liveness, reaching_defs );
-                    }
-                    else
-                    {
-                        must_print_following = false;
-                    }
+                get_node_dot_data( current, dot_graph, dot_analysis_info, indent );
+            }
+            
+            // Connect the current node and the possible inner nodes (when current is a graph) 
+            // with the nodes in the current nesting level
+            std::stringstream ss_source_id;
+            if( current->is_graph_node( ) )
+                ss_source_id << current->get_graph_exit_node( )->get_id( );
+            else
+                ss_source_id << current->get_id( );
+            
+            // Connect current children
+            ObjectList<Node*> children = current->get_children( );
+            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            {
+                std::stringstream ss_target_id;
+                if( ( *it )->is_graph_node( ) )
+                    ss_target_id << ( *it )->get_graph_entry_node( )->get_id( );
+                else
+                    ss_target_id << ( *it )->get_id( );
+                
+                std::string direction = "";
+                if( ss_source_id.str( ) == ss_target_id.str( ) )
+                    direction = ", headport=n, tailport=s";
+                
+                std::string extra_edge_attrs = "";
+                Edge* current_edge = ExtensibleGraph::get_edge_between_nodes( current, *it );
+                if( current_edge->is_task_edge( ) )
+                    extra_edge_attrs = ", style=dashed";
+                
+                std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
+                                    + " [label=\"" + current_edge->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                Node* source_outer = current->get_outer_node( );
+                Node* target_outer = ( *it )->get_outer_node( );
+                if( source_outer == target_outer )
+                {   // The edge has to be printed now
+                    dot_graph += indent + edge;
+                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
                 }
                 else
                 {
-                    Node* exit_node = current->get_graph_exit_node( );
-                    if( !current->get_entry_edges( ).empty( ) && !exit_node->get_entry_edges( ).empty( ) )
+                    int nest = outer_edges.size( );
+                    while( source_outer != target_outer && source_outer != NULL )
                     {
-                        sss << exit_node->get_id( );
+                        source_outer = source_outer->get_outer_node( );
+                        nest--;
                     }
-                    else
-                    {
-                        must_print_following = false;
-                    }
+                    ERROR_CONDITION( nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0 );
+                    outer_edges[nest-1].push_back( edge );
+                    outer_nodes[nest-1].push_back( *it );
                 }
-
-                if( must_print_following )
+            }
+                
+            // Connect all edges and nodes corresponding to the current level of nesting
+            if( current->is_graph_node( ) && !outer_edges.empty( ) )
+            {
+                // Printing the nodes
                 {
-                    ObjectList<Edge*> exit_edges = current->get_exit_edges( );
-                    for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
+                    std::vector<Node*> current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
+                    for( std::vector<Node*>::iterator it = current_outer_nodes.begin( ); it != current_outer_nodes.end( ); ++it )
+                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                    // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level, 
+                    // so we have to iterate over again
+                    unsigned int last_nodes_size = current_outer_nodes.size( );
+                    while( current_outer_nodes.size( ) < outer_nodes[outer_nodes.size( )-1].size( ) )
                     {
-                        std::stringstream sst;
-                        if( ( *it )->get_target( )->is_graph_node( ) )
-                        {
-                            sst << ( *it )->get_target( )->get_graph_entry_node( )->get_id( );
-                        }
-                        else
-                        {
-                            sst << ( *it )->get_target( )->get_id( );
-                        }
-                        std::string direction = "";
-                        if( sss.str( ) == sst.str( ) )
-                        {
-                            direction = ", headport=n, tailport=s";
-                        }
-
-                        std::string extra_edge_attrs = "";
-                        if( ( *it )->is_task_edge( ) )
-                        {
-                            extra_edge_attrs = ", style=dashed";
-                        }
-
-                        std::string mes = indent  + sss.str( ) + " -> " + sst.str( ) +
-                            " [label=\"" + ( *it )->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
-                        if( belongs_to_the_same_graph( *it ) )
-                        {
-                            dot_graph += mes;
-
-                            get_nodes_dot_data( ( *it )->get_target( ), dot_graph, dot_analysis_info,
-                                                outer_edges, outer_nodes, indent, subgraph_id,
-                                                usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps);
-                        }
-                        else
-                        {
-                            outer_edges.push_back( mes );
-                            outer_nodes.push_back( ( *it )->get_target( ) );
-                        }
+                        current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
+                        for( unsigned int i = last_nodes_size; i < current_outer_nodes.size( ); ++i )
+                            get_nodes_dot_data( current_outer_nodes[i], dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                        last_nodes_size = current_outer_nodes.size( );
                     }
+                    outer_nodes.pop_back( );
                 }
+                
+                // Printing the edges
+                std::vector<std::string> current_outer_edges = outer_edges[outer_edges.size( )-1];
+                for( std::vector<std::string>::iterator it = current_outer_edges.begin( ); it != current_outer_edges.end( ); ++it )
+                    dot_graph += indent + ( *it );
+                outer_edges.pop_back( );
             }
         }
     }
 
     void ExtensibleGraph::get_dot_subgraph( Node* current, std::string& dot_graph, std::string& graph_analysis_info,
-                                            std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
-                                            std::string indent, int& subgraph_id,
-                                            bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                            bool auto_scoping, bool auto_deps )
+                                            std::vector<std::vector< std::string> >& outer_edges, 
+                                            std::vector<std::vector<Node*> >& outer_nodes, std::string indent )
     {
         switch( current->get_graph_type( ) )
         {
-            case ASM_DEF:
+            case __AsmDef:
                 dot_graph += indent + "color=lightsteelblue;\n";
                 break;
-            case COND_EXPR:
-            case FUNC_CALL:
-            case IF_ELSE:
-            case SPLIT_STMT:
-            case SWITCH:
+            case __CondExpr:
+            case __FunctionCallGraph:
+            case __IfElse:
+            case __SplitStmt:
+            case __Switch:
                 dot_graph += indent + "color=grey45;\n";
                 break;
-            case LOOP_DOWHILE:
-            case LOOP_FOR:
-            case LOOP_WHILE:
+            case __LoopDoWhile:
+            case __LoopFor:
+            case __LoopWhile:
                 dot_graph += indent + "color=maroon4;\n";
                 break;
-            case EXTENSIBLE_GRAPH:
+            case __ExtensibleGraph:
                 dot_graph += indent + "color=white;\n";
                 break;
-            case OMP_ATOMIC:
-            case OMP_CRITICAL:
-            case OMP_FOR_APPENDIX:
-            case OMP_LOOP:
-            case OMP_PARALLEL:
-            case OMP_SECTION:
-            case OMP_SECTIONS:
-            case OMP_SINGLE:
-            case OMP_WORKSHARE:
-            case OMP_TASK:
-            case OMP_MASTER:
+            case __OmpAtomic:
+            case __OmpBarrierGraph:
+            case __OmpCritical:
+            case __OmpLoop:
+            case __OmpParallel:
+            case __OmpSection:
+            case __OmpSections:
+            case __OmpSingle:
+            case __OmpWorkshare:
+            case __OmpTask:
+            case __OmpMaster:
                 dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
                 break;
-            case OMP_SIMD:
-            case OMP_SIMD_FOR:
-            case OMP_SIMD_PARALLEL_FOR:
-            case OMP_SIMD_FUNCTION:
+            case __OmpSimd:
+            case __OmpSimdFor:
+            case __OmpSimdParallelFor:
+            case __OmpSimdFunction:
                 dot_graph += indent + "color=indianred2;\n";
                 break;
-            case VECTOR_COND_EXPR:
-            case VECTOR_FUNC_CALL:
+            case __VectorCondExpr:
+            case __VectorFunctionCallGraph:
                 dot_graph += indent + "color=limegreen;\n";
             default:
                 internal_error( "Unexpected node %d type while printing dot\n", current->get_graph_type() );
         };
         Node* entry_node = current->get_graph_entry_node( );
         _cluster_to_entry_map[current->get_id( )] = entry_node->get_id( );
-        get_nodes_dot_data( entry_node, dot_graph, graph_analysis_info, outer_edges, outer_nodes, indent, subgraph_id,
-                            usage, liveness, reaching_defs, induction_vars, auto_scoping, auto_deps );
+        get_nodes_dot_data( entry_node, dot_graph, graph_analysis_info, outer_edges, outer_nodes, indent );
     }
 
-    void ExtensibleGraph::get_node_dot_data( Node* current, std::string& dot_graph, std::string& graph_analysis_info, std::string indent,
-                                             bool usage, bool liveness, bool reaching_defs )
+    void ExtensibleGraph::get_node_dot_data( Node* current, std::string& dot_graph, std::string& graph_analysis_info, std::string indent )
     {
         std::stringstream ss; ss << current->get_id( );
         std::string basic_attrs = "margin=\"0.1,0.1, height=0.1, width=0.1\"";
 
         switch( current->get_type( ) )
         {
-            case ENTRY:
+            case __Entry:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY \\n" + "\", shape=box, fillcolor=lightgray, style=filled];\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
-            case EXIT:
+            case __Exit:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
                 break;
             }
-            case UNCLASSIFIED_NODE:
+            case __UnclassifiedNode:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] UNCLASSIFIED_NODE\"]\n";
                 break;
             }
-            case OMP_BARRIER:
+            case __OmpBarrier:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
                 break;
             }
-            case OMP_FLUSH:
+            case __OmpFlush:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] FLUSH\", shape=ellipse]\n";
                 break;
             }
-            case OMP_TASKWAIT:
+            case __OmpTaskwait:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
                 break;
             }
-            case OMP_WAITON_DEPS:
+            case __OmpWaitonDeps:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] WAITON_DEPS\", shape=ellipse]\n";
                 break;
             }
-            case OMP_VIRTUAL_TASKSYNC:
+            case __OmpVirtualTaskSync:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
                 break;
             }
-            case OMP_TASK_CREATION:
+            case __OmpTaskCreation:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASK_CREATION\", shape=ellipse]\n";
                 break;
             }
-            case BREAK:
+            case __Break:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond]\n";
                 break;
             }
-            case CONTINUE:
+            case __Continue:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond]\n";
                 break;
             }
-            case ASM_OP:
-            case GOTO:
-            case NORMAL:
-            case LABELED:
-            case FUNCTION_CALL:
+            case __AsmOp:
+            case __Goto:
+            case __Normal:
+            case __Labeled:
+            case __FunctionCall:
             {
                 // Get the Statements within the BB
                 ObjectList<Nodecl::NodeclBase> node_block = current->get_statements( );
@@ -571,10 +542,13 @@ namespace {
                 dot_graph += indent + ss.str( ) + "[label=\"{[" + ss.str( ) + "] " + basic_block + "}\", shape=record, "
                            + basic_attrs + "];\n";
 
-                print_node_analysis_info( current, graph_analysis_info, /* cluster name */"",
-                                          usage, liveness, reaching_defs, /* induction_vars */ false,
-                                          /* auto_scoping */ false, /* auto_deps */ false );
-
+                bool induction_vars = _induction_vars;  _induction_vars = false;
+                bool auto_scoping = _auto_scoping;      _auto_scoping = false;
+                bool auto_deps = _auto_deps;            _auto_deps = false;
+                print_node_analysis_info( current, graph_analysis_info, /*cluster name*/ "" );
+                _induction_vars = induction_vars;
+                _auto_scoping = auto_scoping;
+                _auto_deps = auto_deps;
                 break;
             }
             default:
@@ -592,17 +566,24 @@ namespace {
         };
     }
 
-    static std::string get_clause_list_as_string( ObjectList<Nodecl::NodeclBase> clause_list )
+    static std::string pcfgclause_to_str( PCFGClause clause )
     {
         std::string clauses_str = ""; 
         int i = 0;
-        int n_args = clause_list.size( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = clause_list.begin( ); it != clause_list.end( ); ++it, ++i )
+        ObjectList<Nodecl::NodeclBase> args_list = clause.get_args( );
+        int n_args = args_list.size( );
+        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = args_list.begin( ); it != args_list.end( ); ++it, ++i )
         {
             if( it->is<Nodecl::OpenMP::ReductionItem>( ) )
             {
                 Nodecl::OpenMP::ReductionItem red = it->as<Nodecl::OpenMP::ReductionItem>( );
-                clauses_str += red.get_reductor( ).prettyprint( ) + ":" + red.get_reduced_symbol( ).prettyprint( );
+                clauses_str += clause.get_clause_as_string( ) + "(" 
+                             + red.get_reductor( ).prettyprint( ) + ":" + red.get_reduced_symbol( ).prettyprint( ) + ")";
+            }
+            else if( it->is<Nodecl::OpenMP::Final>( ) )
+            {
+                Nodecl::OpenMP::Final fin = it->as<Nodecl::OpenMP::Final>( );
+                clauses_str += "final(" + fin.get_condition( ).prettyprint( ) + ")";
             }
             else if( it->is<Nodecl::OpenMP::Target>( ) )
             {
@@ -616,11 +597,9 @@ namespace {
                 {
                     devices_str += it2->prettyprint( );
                     if( j < n_devices-1 )
-                    {
                         devices_str += ", ";
-                    }
                 }
-                clauses_str += "device(" + devices_str + ")";
+                clauses_str += "device(" + devices_str + ") ";
                 // Get other target clauses ( copies )
                 Nodecl::List copies = tar.get_items( ).as<Nodecl::List>( );
                 int n_copies = copies.size( );
@@ -665,7 +644,7 @@ namespace {
                     {
                         clauses_str += it2->children( )[0].prettyprint( );
                     }
-                    clauses_str += ")";
+                    clauses_str += ") ";
                     if( j < n_copies-1 )
                     {
                         clauses_str += "\\n";
@@ -674,13 +653,13 @@ namespace {
             }
             else
             {
-                clauses_str += it->prettyprint( );
-            }
+                clauses_str += clause.get_clause_as_string( ) + "(" + it->prettyprint( ) + ")";
+            }   
+            
             if( i < n_args-1 )
-            {
                 clauses_str += ", ";
-            }
         }
+        
         return clauses_str;
     }
     
@@ -702,18 +681,9 @@ namespace {
                 std::string clauses_str = "";
                 for( ObjectList<PCFGClause>::const_iterator it = clauses.begin( ); it != clauses.end( ); ++it, ++i )
                 {
-                    if( it->get_clause_as_string( ) == "target" )
-                    {   // We don want to print target because it is a directive in the input code
-                        clauses_str += get_clause_list_as_string( it->get_args( ) );
-                    }
-                    else
-                    {
-                        clauses_str += it->get_clause_as_string( ) + "(" + get_clause_list_as_string( it->get_args( ) ) + ")";
-                    }
+                    clauses_str += pcfgclause_to_str( *it );
                     if( i < n_clauses-1 )
-                    {
-                        clauses_str += "\\n";
-                    }
+                        clauses_str += "\\n ";
                 }
                 pragma_info_str += indent + id + "[label=\"" + clauses_str + "\", shape=box, color=wheat3];\n";
                 pragma_info_str += indent + current_entry_id + " -> " + id + " [style=dashed, color=wheat3, ltail=" + cluster_name + "]\n";
@@ -723,9 +693,7 @@ namespace {
     }
     
     void ExtensibleGraph::print_node_analysis_info( Node* current, std::string& dot_analysis_info,
-                                                    std::string cluster_name,
-                                                    bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                                    bool auto_scoping, bool auto_deps )
+                                                    std::string cluster_name )
     {
         std::stringstream node_id; node_id << current->get_id( );
         std::stringstream ssgeid;
@@ -733,10 +701,10 @@ namespace {
             ssgeid << _cluster_to_entry_map[current->get_id( )];
         else
             ssgeid << current->get_id( );
-        std::string usage_str = print_node_usage( current, usage );
-        std::string liveness_str = print_node_liveness( current, liveness );
-        std::string reach_defs_str = print_node_reaching_defs( current, reaching_defs );
-        std::string induction_vars_str = print_node_induction_variables( current, induction_vars );
+        std::string usage_str = print_node_usage( current );
+        std::string liveness_str = print_node_liveness( current );
+        std::string reach_defs_str = print_node_reaching_defs( current );
+        std::string induction_vars_str = print_node_induction_variables( current );
         std::string color;
         std::string common_attrs = "style=dashed";
         if( !usage_str.empty( ) )
@@ -793,7 +761,7 @@ namespace {
         }
         if( current->is_omp_task_node( ) )
         {
-            std::string auto_scope_str = print_node_data_sharing( current, auto_scoping );
+            std::string auto_scope_str = print_node_data_sharing( current );
             if( !auto_scope_str.empty() )
             {
                 std::string id = "-00000" + node_id.str( );
@@ -808,7 +776,7 @@ namespace {
                 }
             }
 
-            std::string auto_deps_str = print_node_deps( current, auto_deps );
+            std::string auto_deps_str = print_node_deps( current );
             if( !auto_deps_str.empty() )
             {
                 std::string id = "-000000" + node_id.str( );

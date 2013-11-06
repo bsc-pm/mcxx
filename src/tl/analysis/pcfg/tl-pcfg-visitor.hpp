@@ -30,7 +30,6 @@
 #include <stack>
 
 #include "tl-extensible-graph.hpp"
-#include "tl-nodecl-visitor.hpp"
 #include "tl-node.hpp"
 #include "tl-pcfg-utils.hpp"
 
@@ -88,7 +87,7 @@ namespace Analysis {
         // ********************************** Visiting methods ********************************** //
 
         //! This method implements teh visitor for any kind of barrier: BarrierAtEnd, BarrierFull
-        Ret visit_barrier( );
+        Ret visit_barrier( const Nodecl::NodeclBase& n );
 
         //! This method implements the visitor for binary nodecls
         /*!
@@ -144,9 +143,6 @@ namespace Analysis {
 
         //! This method implements the visitor for taskwait on dependences
         Ret visit_taskwait_on( const Nodecl::OpenMP::WaitOnDependences& n );
-
-        //! This method implements the visitor for taskwait on dependences
-        Ret visit_taskwait( const Nodecl::OpenMP::WaitOnDependences& n );
 
         //! This method implements the visitor for unary nodecls
         /*!
@@ -334,7 +330,8 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::BarrierFull& n );
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
-        Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
+        Ret visit( const Nodecl::OpenMP::Commutative& n );
+        Ret visit( const Nodecl::OpenMP::Concurrent& n );
         Ret visit( const Nodecl::OpenMP::CopyIn& n );
         Ret visit( const Nodecl::OpenMP::CopyInout& n );
         Ret visit( const Nodecl::OpenMP::CopyOut& n );
@@ -345,10 +342,8 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::DepInValue& n );
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
-        Ret visit( const Nodecl::OpenMP::Commutative& n );
-        Ret visit( const Nodecl::OpenMP::Concurrent& n );
+        Ret visit( const Nodecl::OpenMP::Final& n );
         Ret visit( const Nodecl::OpenMP::Firstprivate& n );
-        Ret visit( const Nodecl::OpenMP::Lastprivate& n );
         Ret visit( const Nodecl::OpenMP::FirstLastprivate& n );
         Ret visit( const Nodecl::OpenMP::FlushAtEntry& n );
         Ret visit( const Nodecl::OpenMP::FlushAtExit& n );
@@ -356,7 +351,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::For& n );
         Ret visit( const Nodecl::OpenMP::ForAppendix& n );
         Ret visit( const Nodecl::OpenMP::If& n );
-        Ret visit( const Nodecl::OpenMP::Final& n );
+        Ret visit( const Nodecl::OpenMP::Lastprivate& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
@@ -372,7 +367,6 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
-        Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
         Ret visit( const Nodecl::OpenMP::TaskCall& n );
@@ -385,6 +379,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::NoMask& n );
         Ret visit( const Nodecl::OpenMP::Suitable& n );
         Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
+        Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Plus& n );
         Ret visit( const Nodecl::PointerToMember& n );
