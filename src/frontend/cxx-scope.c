@@ -4424,6 +4424,12 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     //     fprintf(stderr, "SCOPE: Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
     // }
 
+    // Do not qualify symbol names if they appear inside an anonymous namespace
+    if (entry->decl_context.namespace_scope->related_entry->symbol_name != NULL
+            && strcmp(entry->decl_context.namespace_scope->related_entry->symbol_name, "(unnamed)") == 0)
+    {
+        return entry->symbol_name;
+    }
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->entity_specs.is_injected_class_name)
     {
