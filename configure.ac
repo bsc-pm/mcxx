@@ -1203,7 +1203,7 @@ AC_ARG_ENABLE([analysis],
 if test x$disable_analysis = xno;
 then
   echo "**************** Analysis is going to be compiled!!!!"
-  TL_EXTRAS_PRE_OMP="${TL_EXTRAS_PRE_OMP} analysis optimizations"
+  TL_EXTRAS_PRE_OMP="analysis optimizations ${TL_EXTRAS_PRE_OMP}"
   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} auto-scope lint"
   TL_EXTRAS="${TL_EXTRAS} hlt"
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
