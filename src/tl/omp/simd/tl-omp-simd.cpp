@@ -36,8 +36,9 @@ namespace TL {
 
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),  
-            _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), _mic_enabled(false)
-        {
+            _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), _mic_enabled(false),
+            _prefer_gather_scatter(false)
+        {        
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
 
@@ -61,6 +62,11 @@ namespace TL {
                     "If set to '1' enables compilation for MIC architecture, otherwise it is disabled",
                     _mic_enabled_str,
                     "0").connect(functor(&Simd::set_mic, *this));
+
+            register_parameter("prefer_gather_scatter",
+                    "If set to '1' enables generation of gather/scatter instructions instead of unaligned memory instructions",
+                    _prefer_gather_scatter_str,
+                    "0").connect(functor(&Simd::set_prefer_gather_scatter, *this));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -95,6 +101,14 @@ namespace TL {
             }
         }
 
+        void Simd::set_prefer_gather_scatter(const std::string prefer_gather_scatter_str)
+        {
+            if (prefer_gather_scatter_str == "1")
+            {
+                _prefer_gather_scatter = true;
+            }
+        }
+
         void Simd::pre_run(TL::DTO& dto)
         {
             this->PragmaCustomCompilerPhase::pre_run(dto);
@@ -110,14 +124,18 @@ namespace TL {
 
             if (_simd_enabled)
             {
-                SimdVisitor simd_visitor(_fast_math_enabled, _svml_enabled, _mic_enabled);
+                SimdVisitor simd_visitor(_fast_math_enabled, _svml_enabled,
+                        _mic_enabled, _prefer_gather_scatter);
                 simd_visitor.walk(translation_unit);
             }
         }
 
-        SimdVisitor::SimdVisitor(bool fast_math_enabled, bool svml_enabled, bool mic_enabled)
+        SimdVisitor::SimdVisitor(bool fast_math_enabled, bool svml_enabled, 
+                bool mic_enabled, bool prefer_gather_scatter)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
+            _prefer_gather_scatter = prefer_gather_scatter;
+
             if (fast_math_enabled)
             {
                 _fast_math_enabled = true;
@@ -190,6 +208,7 @@ namespace TL {
                     _mask_size,
                     _fast_math_enabled,
                     false, // Parallel Loop
+                    _prefer_gather_scatter,
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
@@ -343,6 +362,7 @@ namespace TL {
                     _mask_size,
                     _fast_math_enabled,
                     true, // Parallel Loop
+                    _prefer_gather_scatter,
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
@@ -574,6 +594,7 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     false, // Parallel loop (Not applicable)
+                    _prefer_gather_scatter,
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     &suitable_expressions,

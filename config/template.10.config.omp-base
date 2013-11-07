@@ -46,3 +46,6 @@ linker_options = -Xlinker --enable-new-dtags
 #analysis
 {analysis-check} pragma_prefix = analysis_check
 {analysis-check} compiler_phase = libanalysis_check.so
+#simd
+{prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
+

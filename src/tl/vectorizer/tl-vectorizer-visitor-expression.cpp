@@ -678,18 +678,44 @@ namespace TL
                                     lhs.prettyprint().c_str());
                         }
 
-                        const Nodecl::UnalignedVectorStore vector_store =
-                            Nodecl::UnalignedVectorStore::make(
-                                    Nodecl::Reference::make(
-                                        lhs.shallow_copy(),
-                                        basic_type.get_pointer_to(),
-                                        n.get_locus()),
-                                    rhs.shallow_copy(),
-                                    mask,
-                                    vector_type,
-                                    n.get_locus());
+                        if (_environment._prefer_gather_scatter) // Unaligned Load or Scatter
+                        {
+                            const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
 
-                        n.replace(vector_store);
+                            const Nodecl::NodeclBase base = lhs_array.get_subscripted();
+                            const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>();
+
+                            Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(lhs.as<Nodecl::ArraySubscript>());
+
+                            walk(strides);
+
+                            const Nodecl::VectorScatter vector_scatter =
+                                Nodecl::VectorScatter::make(
+                                        base.shallow_copy(),
+                                        strides,
+                                        rhs.shallow_copy(),
+                                        mask,
+                                        vector_type,
+                                        n.get_locus());
+
+                            n.replace(vector_scatter);
+                        }
+                        else
+                        {
+                            const Nodecl::UnalignedVectorStore vector_store =
+                                Nodecl::UnalignedVectorStore::make(
+                                        Nodecl::Reference::make(
+                                            lhs.shallow_copy(),
+                                            basic_type.get_pointer_to(),
+                                            n.get_locus()),
+                                        rhs.shallow_copy(),
+                                        mask,
+                                        vector_type,
+                                        n.get_locus());
+
+                            n.replace(vector_store);
+ 
+                        }
                     } 
                 }
                 else // Vector Scatter
@@ -964,19 +990,43 @@ namespace TL
                             n.prettyprint().c_str());
                     }
 
-                    Nodecl::UnalignedVectorLoad vector_load =
-                        Nodecl::UnalignedVectorLoad::make(
-                                Nodecl::Reference::make(
-                                    n.shallow_copy(),
-                                    basic_type.get_pointer_to(),
-                                    n.get_locus()),
-                                mask,
-                                vector_type,
-                                n.get_locus());
+                    if(_environment._prefer_gather_scatter) // Unaligned Load or Gather
+                    {
+                        const Nodecl::NodeclBase base = n.get_subscripted();
+                        const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
 
-                    vector_load.set_constant(const_value);
+                        Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(n);
 
-                    n.replace(vector_load);
+                        walk(strides);
+
+                        Nodecl::VectorGather vector_gather =
+                            Nodecl::VectorGather::make(
+                                    base.shallow_copy(),
+                                    strides,
+                                    mask,
+                                    vector_type,
+                                    n.get_locus());
+
+                        vector_gather.set_constant(const_value);
+
+                        n.replace(vector_gather);
+                    }
+                    else
+                    {
+                        Nodecl::UnalignedVectorLoad vector_load =
+                            Nodecl::UnalignedVectorLoad::make(
+                                    Nodecl::Reference::make(
+                                        n.shallow_copy(),
+                                        basic_type.get_pointer_to(),
+                                        n.get_locus()),
+                                    mask,
+                                    vector_type,
+                                    n.get_locus());
+
+                        vector_load.set_constant(const_value);
+
+                        n.replace(vector_load);
+                    }
                 } 
             }
             else // Vector Gather

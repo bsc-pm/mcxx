@@ -50,16 +50,19 @@ namespace TL
                 std::string _svml_enabled_str;
                 std::string _fast_math_enabled_str;
                 std::string _mic_enabled_str;
+                std::string _prefer_gather_scatter_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
                 bool _fast_math_enabled;
                 bool _mic_enabled;
+                bool _prefer_gather_scatter;
 
                 void set_simd(const std::string simd_enabled_str);
                 void set_svml(const std::string svml_enabled_str);
                 void set_fast_math(const std::string fast_math_enabled_str);
-                void set_mic(const std::string set_mic_enabled_str);
+                void set_mic(const std::string mic_enabled_str);
+                void set_prefer_gather_scatter(const std::string prefer_gather_scatter_str);
         };
 
         class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
@@ -72,6 +75,7 @@ namespace TL
                 bool _support_masking;
                 unsigned int _mask_size;
                 bool _fast_math_enabled;
+                bool _prefer_gather_scatter;
 
                 void process_suitable_clause(const Nodecl::List& environment,
                         Nodecl::List& suitable_expressions);
@@ -83,7 +87,8 @@ namespace TL
                         const Nodecl::ForStatement& for_statement);
 
             public:
-                SimdVisitor(bool fast_math_enabled, bool svml_enabled, bool mic_enabled);
+                SimdVisitor(bool fast_math_enabled, bool svml_enabled,
+                        bool mic_enabled, bool prefer_gather_scatter);
                 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
