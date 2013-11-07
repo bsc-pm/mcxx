@@ -317,6 +317,35 @@ namespace TL
         return !this->empty();
     }
 
+    void PragmaCustomParameter::mark_as_used()
+    {
+        if (is_defined())
+        {
+            this->set_type(TL::Type::get_void_type());
+        }
+    }
+
+    void PragmaCustomParameter::mark_as_unused()
+    {
+        if (is_defined())
+        {
+            this->set_type(TL::Type());
+        }
+    }
+
+    bool PragmaCustomParameter::is_marked_as_used() const
+    {
+        // If not defined it has somehow been "used"
+        if (!is_defined())
+            return true;
+        return this->get_type().is_valid();
+    }
+
+    bool PragmaCustomParameter::is_marked_as_unused() const
+    {
+        return !this->is_marked_as_used();
+    }
+
     bool PragmaCustomClause::is_singleton() const
     {
         return _pragma_clauses.size() == 1;
@@ -466,8 +495,21 @@ namespace TL
         return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>());
     }
 
+    PragmaCustomParameter PragmaCustomLine::get_parameter_no_mark_used() const
+    {
+        return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>(), (int)0);
+    }
+
     void PragmaCustomLine::diagnostic_unused_clauses() const
     {
+        PragmaCustomParameter param = this->get_parameter_no_mark_used();
+        if (param.is_marked_as_unused())
+        {
+            warn_printf("%s: warning: ignoring parameter '%s' of this pragma\n",
+                    param.get_locus_str().c_str(),
+                    param.get_raw_arguments().c_str());
+        }
+
         ObjectList<Nodecl::PragmaCustomClause> nodes = this->get_all_clauses_nodes();
         for (ObjectList<Nodecl::PragmaCustomClause>::iterator it = nodes.begin();
                 it != nodes.end();

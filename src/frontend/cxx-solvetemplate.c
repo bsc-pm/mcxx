@@ -73,7 +73,8 @@ type_t* solve_class_template(type_t* template_type,
         DEBUG_CODE()
         {
             scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
-            fprintf(stderr, "SOLVETEMPLATE: Checking with specialization defined in '%s'\n",
+            fprintf(stderr, "SOLVETEMPLATE: Checking with specialization defined in '%s' (%s)\n",
+                    print_declarator(current_specialized_type),
                     locus_to_str(entry->locus));
         }
 
@@ -84,7 +85,7 @@ type_t* solve_class_template(type_t* template_type,
             {
                 scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
                 fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it has been created by the typesystem\n",
-                        print_type_str(current_specialized_type, entry->decl_context),
+                        print_declarator(current_specialized_type),
                         locus_to_str(entry->locus));
             }
             continue;

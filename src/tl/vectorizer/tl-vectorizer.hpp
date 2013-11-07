@@ -109,13 +109,13 @@ namespace TL
 
                 ~Vectorizer();
 
-                bool vectorize(const Nodecl::ForStatement& for_statement, 
+                bool vectorize(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
-                void vectorize(const Nodecl::FunctionCode& func_code,
+                void vectorize(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
  
-                void process_epilog(const Nodecl::ForStatement& for_statement, 
+                void process_epilog(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
 
                 bool is_supported_reduction(bool is_builtin,

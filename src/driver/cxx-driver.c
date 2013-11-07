@@ -1603,7 +1603,6 @@ int parse_arguments(int argc, const char* argv[],
         const char* minus_v = uniquestr("-v");
         if (CURRENT_CONFIGURATION->do_not_link)
         {
-            // Clear compiler options
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_v);
         }
         else
@@ -1905,12 +1904,15 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 if ((strlen(argument) > strlen("-std="))
                         && argument[2] == 't'
                         && argument[3] == 'd'
-                        && argument[4] == '=') 
+                        && argument[4] == '=')
                 { 
-                    if (strcmp(&argument[5], "c++0x") == 0
+                    if ( strcmp(&argument[5], "c++11") == 0
+                            || strcmp(&argument[5], "gnu++11") == 0
+                            // Old flags
+                            || strcmp(&argument[5], "c++0x") == 0
                             || strcmp(&argument[5], "gnu++0x") == 0)
                     {
-                        CURRENT_CONFIGURATION->enable_cxx1x = 1;
+                        CURRENT_CONFIGURATION->enable_cxx11 = 1;
                     }
                 }
                 else if (strcmp(argument, "-static") == 0) { }

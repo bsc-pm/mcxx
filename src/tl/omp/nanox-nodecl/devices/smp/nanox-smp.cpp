@@ -159,6 +159,14 @@ namespace TL { namespace Nanox {
             }
             fun_visitor.insert_extra_symbols(task_statements);
 
+            if (current_function.is_in_module())
+            {
+                TL::Symbol in_module = current_function.in_module();
+                Nodecl::Utils::Fortran::append_used_modules(
+                        original_statements.retrieve_context(),
+                        in_module.get_related_scope());
+            }
+
             Nodecl::Utils::Fortran::append_used_modules(
                     original_statements.retrieve_context(),
                     unpacked_function_scope);

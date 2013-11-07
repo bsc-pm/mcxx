@@ -110,10 +110,10 @@ dnl --------------------- end check of old gcc ---
 
 TL_EXTRAS=""
 TL_OMP_EXTENSIONS=""
-INSTALL_CONFIG_FILES="00.config.plain 10.config.analysis-base"
+INSTALL_CONFIG_FILES="00.config.plain"
 
 # plaincxx is always installed as a binary
-COMPILER_NAMES="plaincc plainfc plainf95 analysiscc analysiscxx analysisfc analysisfc"
+COMPILER_NAMES="plaincc plainfc plainf95"
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -268,6 +268,10 @@ then
            [
             nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
+            if test -d "${withval}/lib64";
+            then
+             nanox_lib="${withval}/lib64"
+            fi
            ]
    )
 
@@ -290,6 +294,10 @@ then
            [
             nanox_mic_include="${withval}/include/nanox"
             nanox_mic_lib="${withval}/lib"
+            if test -d "${withval}/lib64";
+            then
+             nanox_mic_lib="${withval}/lib64"
+            fi
            ]
    )
 
@@ -1127,6 +1135,91 @@ fi
 
 dnl ------------------------------------
 
+dnl ---------------------- TL Vectorization ----------------------------
+
+disable_vectorization="no"
+AC_MSG_CHECKING([if disabled Vectorization build and install])
+AC_ARG_ENABLE([vectorization],
+  AS_HELP_STRING([--disable-vectorization], [Disables build and install Vectorization]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+      disable_vectorization="no"
+      AC_MSG_RESULT([no])
+    else if test x$enableval = xno;
+      then
+        AC_MSG_RESULT([yes])
+        disable_vectorization="yes"
+      else
+        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+      fi
+    fi
+  ],
+  [
+    disable_vectorization="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$disable_vectorization = xno;
+then
+  TL_EXTRAS_PRE_OMP="${TL_EXTRAS_PRE_OMP} vectorizer vector-lowering"
+  TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} simd"
+else
+  VECTORIZATION_DISABLED=$disable_vectorization
+  AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
+fi
+
+AM_CONDITIONAL([VECTORIZATION_DISABLED], [test x$disable_vectorization = xyes])
+
+dnl ------------------------------------
+
+dnl ---------------------- TL Analysis ----------------------------
+
+disable_analysis="no"
+AC_MSG_CHECKING([if disabled Analysis build and install])
+AC_ARG_ENABLE([analysis],
+  AS_HELP_STRING([--disable-analysis], [Disables build and install Analysis]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+      disable_analysis="no"
+      AC_MSG_RESULT([no])
+    else if test x$enableval = xno;
+      then
+        AC_MSG_RESULT([yes])
+        disable_analysis="yes"
+      else
+        AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+      fi
+    fi
+  ],
+  [
+    disable_analysis="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$disable_analysis = xno;
+then
+  echo "**************** Analysis is going to be compiled!!!!"
+  TL_EXTRAS_PRE_OMP="${TL_EXTRAS_PRE_OMP} analysis optimizations"
+  TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} auto-scope lint"
+  TL_EXTRAS="${TL_EXTRAS} hlt"
+  INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
+  COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
+else
+  if test x$disable_vectorization = xno
+  then
+    AC_MSG_ERROR([You must disable Vectorization when Analysis is disabled])
+  fi
+fi
+
+ANALYSIS_DISABLED=$disable_analysis
+
+dnl ------------------------------------
+
+
 dnl --------------------- Regeneration files ---------------------
 
 enable_regeneration=yes
@@ -1605,6 +1698,7 @@ AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
 AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
+AC_SUBST([TL_EXTRAS_PRE_OMP])
 AC_SUBST([TL_EXTRAS])
 AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
@@ -1637,6 +1731,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/vector-lowering/Makefile
            src/tl/vector-lowering/sse/Makefile
            src/tl/vector-lowering/knc/Makefile
+           src/tl/optimizations/Makefile
            src/tl/hlt/Makefile
            src/tl/old_hlt/Makefile
            src/tl/codegen/Makefile
@@ -1688,6 +1783,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-cxx11
            tests/config/mercurium-run
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
@@ -1804,4 +1900,22 @@ fi
 if test x$gperf_good = xno;
 then
    AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
+fi
+
+echo ""
+echo " * Optional phases :"
+echo ""
+
+if test x$disable_vectorization = xyes;
+then
+  echo "   Vectorization build and install disabled"
+else
+  echo "   Vectorization build and install enabled"
+fi
+
+if test x$disable_analysis = xyes;
+then
+  echo "   Analysis build and install disabled"
+else
+  echo "   Analysis build and install enabled"
 fi

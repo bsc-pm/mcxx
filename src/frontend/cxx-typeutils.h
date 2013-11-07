@@ -146,14 +146,15 @@ LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 // States that this is a variably modified type
 LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 
-// This is an int type of 0
-LIBMCXX_EXTERN type_t* get_zero_type(type_t* t);
 // This is a type for a bool 'false'
 LIBMCXX_EXTERN type_t* get_bool_false_type(void);
+
 // This is a zero type based on any integer/boolean type
+LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_zero_type_variant
 LIBMCXX_EXTERN type_t* get_zero_type_variant(type_t* t);
-// This is for g++'s '__null'
-LIBMCXX_EXTERN type_t* get_null_type(void);
+
+// nullptr_t
+LIBMCXX_EXTERN type_t* get_nullptr_type(void);
 
 // Error type
 LIBMCXX_EXTERN type_t* get_error_type(void);
@@ -165,6 +166,18 @@ LIBMCXX_EXTERN type_t* get_literal_string_type(int length, char is_wchar);
 LIBMCXX_EXTERN type_t* get_throw_expr_type(void);
 
 LIBMCXX_EXTERN type_t* get_implicit_none_type(void);
+
+// Used for parameter packs
+LIBMCXX_EXTERN type_t* get_pack_type(type_t* t);
+LIBMCXX_EXTERN char is_pack_type(type_t* t);
+LIBMCXX_EXTERN type_t* pack_type_get_packed_type(type_t* t);
+
+// Used for parameter packs when they are expanded but cannot be flattened
+LIBMCXX_EXTERN type_t* get_sequence_of_types(int num_types, type_t** types);
+LIBMCXX_EXTERN int sequence_of_types_get_num_types(type_t* seq_type);
+LIBMCXX_EXTERN type_t* sequence_of_types_get_type_num(type_t* seq_type, int num);
+LIBMCXX_EXTERN char is_sequence_of_types(type_t* seq_type);
+LIBMCXX_EXTERN type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t* type);
 
 /* Type constructors: cv-qualification */
 // The given cv_qualifier is strictly the one will have the returning type
@@ -231,7 +244,9 @@ LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type,
         scope_entry_t* base_class, 
         char is_virtual, 
         char is_dependent,
+        char is_expansion,
         access_specifier_t access_spec);
+
 LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause);
@@ -246,6 +261,7 @@ LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
+LIBMCXX_EXTERN void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fixed);
 
 LIBMCXX_EXTERN void set_is_incomplete_type(type_t* t, char is_incomplete);
 LIBMCXX_EXTERN void set_is_complete_type(type_t* t, char is_complete);
@@ -261,9 +277,6 @@ LIBMCXX_EXTERN char is_pod_type(type_t* t);
 
 LIBMCXX_EXTERN char is_trivially_copiable_type(type_t* t);
 LIBMCXX_EXTERN char is_standard_layout_type(type_t* t);
-
-// States whether a type is faulty
-LIBMCXX_EXTERN char is_faulty_type(type_t*);
 
 // Any type of 'int' nature regardless of being signed or not 
 // (int, short, long, long long)
@@ -376,6 +389,10 @@ LIBMCXX_EXTERN char is_unresolved_overloaded_type(type_t* t);
 
 LIBMCXX_EXTERN char is_zero_type(type_t* t);
 
+LIBMCXX_EXTERN char is_zero_type_or_nullptr_type(type_t* t);
+
+LIBMCXX_EXTERN char is_nullptr_type(type_t* t);
+
 LIBMCXX_EXTERN char is_error_type(type_t* t);
 
 LIBMCXX_EXTERN char is_throw_expr_type(type_t* t);
@@ -477,12 +494,14 @@ LIBMCXX_EXTERN nodecl_t array_type_get_region_stride(type_t* t);
 LIBMCXX_EXTERN int enum_type_get_num_enumerators(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n);
 LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
+LIBMCXX_EXTERN char enum_type_get_underlying_type_is_fixed(type_t* t);
 
 LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 
         char *is_dependent,
+        char *is_expansion,
         access_specifier_t *access_specifier);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
 
@@ -590,6 +609,7 @@ LIBMCXX_EXTERN char pointer_to_class_type_is_derived(type_t* possible_pclass_der
 LIBMCXX_EXTERN char class_type_is_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_nearly_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_dynamic(type_t* t);
+LIBMCXX_EXTERN char class_type_is_polymorphic(type_t* t);
 
 LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
 LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);
@@ -738,14 +758,14 @@ LIBMCXX_EXTERN const char* vector_flavors[];
 LIBMCXX_EXTERN void vector_types_set_flavor(const char* c);
 LIBMCXX_EXTERN const char* vector_types_get_vector_flavor(void);
 
-// DO NOT USE THESE FUNCTIONS!
-// They are used solely for Fortran modules and type serialization
-LIBMCXX_EXTERN type_t* _type_get_empty_type(void);
-LIBMCXX_EXTERN void _type_assign_to(type_t*, type_t*);
-
 // TL::Source stuff
 LIBMCXX_EXTERN const char* type_to_source(type_t* t);
 LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(scope_entry_t* entry, void* p UNUSED_PARAMETER);
+
+
+// C++ auto
+LIBMCXX_EXTERN type_t* get_auto_type(void);
+LIBMCXX_EXTERN char is_auto_type(type_t* t);
 
 // C genericity stuff. 
 // Used only to implement gcc builtins. Not to be used elsewhere!
@@ -776,6 +796,8 @@ LIBMCXX_EXTERN const char* print_opencl_vector_type(
         type_t* t,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
+
+LIBMCXX_EXTERN parameter_info_t get_parameter_info_for_type(type_t* t);
 
 MCXX_END_DECLS
 #endif // CXX_TYPEUTILS_H

@@ -344,9 +344,11 @@ namespace TL { namespace OpenMP {
 
             type_t* declarator_type = entry->type_information;
             char init_check = check_initialization(initializer,
-                    entry->decl_context, 
+                    entry->decl_context,
+                    entry,
                     get_unqualified_type(declarator_type),
-                    nodecl_output);
+                    nodecl_output,
+                    /* is_auto */ 0);
             if (!init_check)
             {
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));

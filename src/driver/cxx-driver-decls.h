@@ -478,7 +478,7 @@ typedef struct compilation_configuration_tag
     const char *upc_threads;
 
     // Enable C++1x
-    char enable_cxx1x;
+    char enable_cxx11;
 
     // Enable CUDA
     char enable_cuda;

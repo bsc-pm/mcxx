@@ -320,9 +320,11 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
             {
                 template_parameter_value_t* arg = template_parameters->arguments[i];
                 if (arg->kind == TPK_TYPE
-                        || arg->kind == TPK_TEMPLATE)
+                        || arg->kind == TPK_TEMPLATE
+                        || arg->kind == TPK_TYPE_PACK
+                        || arg->kind == TPK_TEMPLATE_PACK)
                 {
-                    compute_associated_scopes_rec( koenig_info, arg->type);
+                    compute_associated_scopes_rec(koenig_info, arg->type);
                 }
             }
         }
@@ -472,7 +474,8 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         char is_dependent = 0;
         scope_entry_t* base_symbol = class_type_get_base_num(type_info, i, 
                 /* is_virtual */ NULL, 
-                &is_dependent, 
+                &is_dependent,
+                /* is_expansion */ NULL,
                 /* access_specifier */ NULL);
         if (is_dependent)
             continue;
