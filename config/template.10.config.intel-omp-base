@@ -12,8 +12,8 @@ linker_name = @GCC@
 linker_options = -Xlinker --add-needed
 {openmp} preprocessor_options = -I@PKGDATADIR@/intel-omp -D_OPENMP=200805 -include intel-omp.h
 {openmp} compiler_phase = libtlomp-base.so
-{openmp} compiler_phase = libtlomp-simd.so
-{openmp} compiler_phase = libtlvector-lowering.so
+{openmp, simd} compiler_phase = libtlomp-simd.so
+{openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {simd, !mmic} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
 {simd, !mmic} compiler_options = @SIMD_FLAGS@
@@ -23,4 +23,4 @@ linker_options = -Xlinker --add-needed
 {ffast-math} options = --variable=ffast_math_enabled:1
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5
-{openmp, simd} compiler_phase = libtlintel-omp-lowering.so
+{openmp} compiler_phase = libtlintel-omp-lowering.so
