@@ -575,6 +575,46 @@ namespace Analysis {
         return !Utils::ext_sym_set_contains_nodecl( n, _killed );
     }
     
+    bool ArrayAccessInfoVisitor::visit( const Nodecl::BitwiseShl& n )
+    {
+        // Gather LHS info
+        Nodecl::NodeclBase lhs = n.get_lhs( );
+        bool lhs_is_const = walk( lhs );
+        bool lhs_is_adjacent_access = _is_adjacent_access;
+
+        // Gather RHS info
+        Nodecl::NodeclBase rhs = n.get_rhs( );
+        bool rhs_is_const = walk( rhs );
+        bool rhs_is_zero = false;
+        if( rhs_is_const )
+            rhs_is_zero = nodecl_is_zero( rhs );
+
+        // Compute adjacency info
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
+
+        return ( lhs_is_const && rhs_is_const );
+    }
+    
+    bool ArrayAccessInfoVisitor::visit( const Nodecl::BitwiseShr& n )
+    {
+        // Gather LHS info
+        Nodecl::NodeclBase lhs = n.get_lhs( );
+        bool lhs_is_const = walk( lhs );
+        bool lhs_is_adjacent_access = _is_adjacent_access;
+        
+        // Gather RHS info
+        Nodecl::NodeclBase rhs = n.get_rhs( );
+        bool rhs_is_const = walk( rhs );
+        bool rhs_is_zero = false;
+        if( rhs_is_const )
+            rhs_is_zero = nodecl_is_zero( rhs );
+        
+        // Compute adjacency info
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
+        
+        return ( lhs_is_const && rhs_is_const );
+    }
+    
     bool ArrayAccessInfoVisitor::visit( const Nodecl::BooleanLiteral& n )
     {
         return true;
@@ -610,8 +650,9 @@ namespace Analysis {
             rhs_is_one = nodecl_is_one( rhs );
         
         // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_const && rhs_is_const )
-                           || ( lhs_is_adjacent_access && rhs_is_one );
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_one;
+//         _is_adjacent_access = ( lhs_is_const && rhs_is_const )
+//                            || ( lhs_is_adjacent_access && rhs_is_one );
  
         return ( lhs_is_const && rhs_is_const );
     }
@@ -660,11 +701,11 @@ namespace Analysis {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
-        bool lhs_is_zero = false;
+//         bool lhs_is_zero = false;
         bool lhs_is_one = false;
         if( lhs_is_const )
         {
-            lhs_is_zero = nodecl_is_zero( lhs );
+//             lhs_is_zero = nodecl_is_zero( lhs );
             lhs_is_one = nodecl_is_one( lhs );
         }
         bool lhs_is_adjacent_access = _is_adjacent_access;
@@ -672,19 +713,21 @@ namespace Analysis {
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
-        bool rhs_is_zero = false;
+//         bool rhs_is_zero = false;
         bool rhs_is_one = false;
         if( rhs_is_const )
         {
-            rhs_is_zero = nodecl_is_zero( rhs );
+//             rhs_is_zero = nodecl_is_zero( rhs );
             rhs_is_one = nodecl_is_one( rhs );
         }
         bool rhs_is_adjacent_access = _is_adjacent_access;
         
         // Compute adjacency info
-        _is_adjacent_access = (lhs_is_const && rhs_is_const) 
-                           || (lhs_is_adjacent_access && (rhs_is_zero || rhs_is_one) ) 
-                           || (rhs_is_adjacent_access && (lhs_is_zero || lhs_is_one) );
+        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_one ) 
+                           || ( rhs_is_adjacent_access && lhs_is_one );
+//         _is_adjacent_access = (lhs_is_const && rhs_is_const) 
+//                            || (lhs_is_adjacent_access && (rhs_is_zero || rhs_is_one) ) 
+//                            || (rhs_is_adjacent_access && (lhs_is_zero || lhs_is_one) );
         
         return ( lhs_is_const && rhs_is_const );
     }

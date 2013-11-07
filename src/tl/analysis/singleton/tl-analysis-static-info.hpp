@@ -319,6 +319,8 @@ namespace Analysis {
         
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::BitwiseShl& n );
+        Ret visit( const Nodecl::BitwiseShr& n );
         Ret visit( const Nodecl::BooleanLiteral& n );
         Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
