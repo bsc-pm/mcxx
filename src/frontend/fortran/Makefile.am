@@ -125,6 +125,7 @@ libmf03_prescanner_la_CFLAGS = -DLIBMF03_PRESCANNER_DLL_EXPORT \
 				    -I$(top_srcdir)/src/frontend \
 				    -I$(top_builddir)/src/frontend \
 				    -I$(top_srcdir)/src/driver \
+					$(FLEX_FLAGS) \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 

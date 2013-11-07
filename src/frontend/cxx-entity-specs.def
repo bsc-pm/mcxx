@@ -11,6 +11,7 @@
 #      -> AST
 #      -> scope /* Avoid at all costs to use these, they take a lot of memory */
 #      -> symbol
+#      -> type
 #      -> typeof("literal-c-typename")
 #      -> array(TYPE)
 #      -> static_array(TYPE, size)
@@ -27,6 +28,7 @@ bool|all|is_static|States if this is a static storage (or SAVEd in Fortran) vari
 bool|all|is_register|States if this is a register variable
 bool|all|is_extern|The symbol has an explicit extern storage
 bool|all|is_thread|The symbol has thread local storage
+bool|all|is_thread_local|The symbol has thread local storage C++11
 bool|all|is_mutable|The symbol is a mutable entity of a const-class
 bool|all|is_export|This is an exported template. Not used at all
 bool|all|is_inline|The function has been explicitly set as inline
@@ -66,6 +68,10 @@ bool|all|is_nested_function|States that this function is nested inside another o
 bool|all|is_saved_expression|States that this variable is actually a phony one created to store a runtime value used elsewhere
 bool|all|gcc_extension|States that this variable has the gcc __extension__ attribute
 bool|all|is_result_var|This symbol is the result variable of the function
+bool|all|is_constexpr|States that this symbol is a C++ constexpr
+bool|all|is_override|States that this symbol is explicitly overriden
+bool|all|is_final|States that this symbol is final
+bool|all|is_hides_member|States that this symbol explicitly hides a member in the base class
 bool|fortran|is_global_hidden|States that this global symbol does not have to be visible in normal lookups
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
@@ -105,6 +111,7 @@ symbol|fortran|in_module|If not NULL it means that this symbol is a component of
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 symbol|fortran|used_modules|Symbol that keeps track of the USEd modules in this program unit
 string|all|linkage_spec|The linkage specifier (C, C++)
+nodecl|all|noexception|C++ noexcept specifier. If this tree is not null it will be at least 'true'
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(function_parameter_info_t))|all|function_parameter_info|Information kept for a symbol that is a parameter of a function
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions

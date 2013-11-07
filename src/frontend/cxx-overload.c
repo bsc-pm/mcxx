@@ -164,6 +164,17 @@ static char is_better_initialization_ics(
         decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER)
 {
+    // Note that an ICS has two SCS's so we lexicographically compare them
+    // a:<SCS[0,0], SCS[0,0]> and b:<SCS[1,0], SCS[1,1]>
+    //
+    // a > b if
+    //     SCS[0,0]>SCS[1,0]
+    //   or if
+    //     SCS[0,0]==SCS[1,0] and SCS[0,1]>SCS[1,1]
+    // But since we do not have an equality operator, SCS[0,0] == SCS[1,0]
+    // the second condition is actually implemented as
+    //     not(SCS[0,0]>SCS[1,0]) and not(SCS[1,0]>SCS[0,0]) and SCS[0,1]>SCS[1,1]
+
     // Check the first SCS
     {
         // Get the converted type before the conversion
@@ -193,6 +204,20 @@ static char is_better_initialization_ics(
                         locus_to_str(ics_2.conversor->locus));
             }
             return 1;
+        }
+
+        if (standard_conversion_is_better(scs_2, scs_1))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Conversion %s at %s is NOT better than %s at %s "
+                        "because second converted type is better\n",
+                        ics_1.conversor->symbol_name,
+                        locus_to_str(ics_1.conversor->locus),
+                        ics_2.conversor->symbol_name,
+                        locus_to_str(ics_2.conversor->locus));
+            }
+            return 0;
         }
     }
 
@@ -2359,6 +2384,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
                 type_t* primary_type = primary_symbol->type_information;
                 type_t* parameter_types[1] = { primary_type };
+                int num_parameter_types = 1;
 
                 template_parameter_list_t* template_parameters 
                     = template_specialized_type_get_template_parameters(primary_symbol->type_information);
@@ -2367,7 +2393,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 if (deduce_template_arguments_common(
                             template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
-                            parameter_types, 
+                            parameter_types, num_parameter_types,
                             primary_symbol->decl_context,
                             &deduced_template_arguments, locus,
                             explicit_template_parameters,
@@ -2667,7 +2693,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
 
-    scope_entry_t* augmented_conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    scope_entry_t* augmented_conversors[num_arguments + 1];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;

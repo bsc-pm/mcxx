@@ -992,6 +992,8 @@ type {
  /*!if CPLUSPLUS*/
 "wchar_t"       { parse_token_text(); return TOKEN_WCHAR_T; }
 "bool"          { parse_token_text(); return TOKEN_BOOL; }
+"char16_t"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR16_T; else return IDENTIFIER; }
+"char32_t"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CHAR32_T; else return IDENTIFIER; }
  /*!endif*/
  /*!if C99*/
 "_Bool"          { parse_token_text(); return TOKEN_BOOL; }
@@ -1010,7 +1012,17 @@ type {
 "typedef"       { parse_token_text(); return TYPEDEF; }
 "enum"          { parse_token_text(); return ENUM; } 
 "struct"        { parse_token_text(); return STRUCT; } 
-"auto"          { parse_token_text(); return AUTO; } 
+ /*!if C99*/
+"auto"          { parse_token_text(); return TOKEN_AUTO_STORAGE; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+"auto"          { parse_token_text();
+                  if (IS_CXX11_LANGUAGE)
+                      return TOKEN_AUTO_TYPE;
+                  else
+                      return TOKEN_AUTO_STORAGE;
+                } 
+ /*!endif*/
 "register"      { parse_token_text(); return REGISTER; } 
 "static"        { parse_token_text(); return STATIC; } 
 "extern"        { parse_token_text(); return EXTERN; } 
@@ -1029,6 +1041,7 @@ type {
 "public"        { parse_token_text(); return PUBLIC; } 
 "throw"         { parse_token_text(); return THROW; } 
 "operator"      { parse_token_text(); return OPERATOR; } 
+"operator[ \t\n]+\"\""  { parse_token_text(); return OPERATOR_LITERAL; } 
 "new"           { parse_token_text(); return TOKEN_NEW; } 
 "delete"        { parse_token_text(); return TOKEN_DELETE; }
 "typename"      { parse_token_text(); return TYPENAME; } 
@@ -1048,6 +1061,11 @@ type {
 "typeid"        { parse_token_text(); return TYPEID; }
 "try"           { parse_token_text(); return TRY; }
 "catch"         { parse_token_text(); return CATCH; }
+
+"constexpr"     { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CONSTEXPR; else return IDENTIFIER; }
+"thread_local"  { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_THREAD_LOCAL; else return IDENTIFIER; }
+"noexcept"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT; else return IDENTIFIER; }
+"nullptr"       { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NULLPTR; else return IDENTIFIER; }
  /*!endif*/
 
 "sizeof"        { parse_token_text(); return SIZEOF; }
@@ -1097,9 +1115,12 @@ type {
 "__builtin_types_compatible_p" { parse_token_text(); return BUILTIN_TYPES_COMPATIBLE_P; }
  /*!endif*/
 "__extension__" { parse_token_text(); return EXTENSION; }
-"__alignof" { parse_token_text(); return ALIGNOF; }
-"__alignof__" { parse_token_text(); return ALIGNOF; }
-"__ALIGNOF__" { parse_token_text(); return ALIGNOF; }
+"__alignof" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+"__alignof__" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+"__ALIGNOF__" { parse_token_text(); return TOKEN_GCC_ALIGNOF; }
+ /*!if CPLUSPLUS*/
+"alignof" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNOF; else return IDENTIFIER; }
+ /*!endif*/
 "__real" { parse_token_text(); return REAL; }
 "__real__" { parse_token_text(); return REAL; }
 "__imag__" { parse_token_text(); return IMAG; }
@@ -1119,8 +1140,8 @@ type {
 "__const" { parse_token_text(); return TOKEN_CONST; }
 "__const__" { parse_token_text(); return TOKEN_CONST; }
 "__declspec" { parse_token_text(); return TOKEN_DECLSPEC; }
-"__attribute" { parse_token_text(); return ATTRIBUTE; }
-"__attribute__" { parse_token_text(); return ATTRIBUTE; }
+"__attribute" { parse_token_text(); return TOKEN_GCC_ATTRIBUTE; }
+"__attribute__" { parse_token_text(); return TOKEN_GCC_ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
 "__inline"        { parse_token_text(); return INLINE; } 
 "__inline__"        { parse_token_text(); return INLINE; } 

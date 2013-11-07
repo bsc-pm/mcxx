@@ -26,7 +26,7 @@
 
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libtlvector-lowering-sse.la
+phases_LTLIBRARIES = libtlvector-lowering-sse.la
 
 END=
 
@@ -45,3 +45,12 @@ libtlvector_lowering_sse_la_SOURCES = \
 	 tl-vector-lowering-sse.cpp \
   	 $(END)
 
+
+# We used to (wrongly) install this library in $(libdir) so we make sure it is
+# not in the installation anymore (otherwise it is likely that Mercurium will
+# load the old/wrong one)
+#
+# See ticket #1807
+install-exec-hook:
+	rm -f ${libdir}/libtlvector-lowering-sse.la
+	rm -f ${libdir}/libtlvector-lowering-sse.so

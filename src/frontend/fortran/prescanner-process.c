@@ -82,7 +82,7 @@ static void convert_whole_line_comments(void);
 #if 0
 static void remove_inlined_comments(void);
 #endif
-static void normalize_line(prescanner_t*, char** line);
+static void normalize_line(prescanner_t*, char** line, int line_num);
 static void convert_lines(prescanner_t*);
 static void continuate_lines(prescanner_t*);
 static void xfree_line_t(line_t* l);
@@ -607,6 +607,18 @@ static void print_lines(prescanner_t* prescanner)
     fprintf(prescanner->output_file, "\n");
 }
 
+static char is_tab_form(const char* c)
+{
+    int i;
+    for (i = 0; i < 6; i++)
+    {
+        if (c[i] == '\t')
+            return 1;
+    }
+
+    return 0;
+}
+
 static void cut_lines(prescanner_t* prescanner)
 {
 	line_t* iter = file_lines;
@@ -625,9 +637,9 @@ static void cut_lines(prescanner_t* prescanner)
 		}
 
 		// First we normalize tab initiated lines as they are really annoying later
-		if (iter->line[0] == '\t')
+		if (is_tab_form(iter->line))
 		{
-			normalize_line(prescanner, &iter->line);
+			normalize_line(prescanner, &iter->line, iter->line_number);
 		}
 
 		iter->line[prescanner->width] = '\0';
@@ -825,35 +837,80 @@ static char* create_new_filename(char* c)
        return result;
 }
 
-
-#define EMPTY_LABEL "     "
 /*
 12345CLALA
 */
 
-static void normalize_line(prescanner_t *prescanner, char** line)
+static void normalize_line(prescanner_t* prescanner, char** line, int line_num)
 {
 	char* normalized_string;
 	// The new string has to be at least "width" long
 	int real_size = (int)strlen(*line) < prescanner->width ? prescanner->width + 10 : (int)strlen(*line) + 10;
-	real_size += strlen(EMPTY_LABEL);
 
 	normalized_string = xcalloc(real_size, sizeof(char));
 
-	strcat(normalized_string, EMPTY_LABEL);
+    const char* p = *line;
+    char *q = normalized_string;
 
-	/*
-	   If after the initial tab is a nonzero digit then this is a continuation line
-	   otherwise it is the initial line of the statement.
-	   
-	   So if this is not a digit we will add a padding space
-	 */
-	if (!isdigit((*line)[1]))
-	{
-		strcat(normalized_string, " ");
-	}
+    int i;
+    for (i = 0; i < 5; i++)
+    {
+        if (*p != '\t')
+        {
+            *q = *p;
+            p++; q++;
+        }
+        else
+        {
+            // Ignore tab and leave the loop
+            p++;
+            break;
+        }
+    }
 
-	strcat(normalized_string, &(*line)[1]);
+    // Note that the sixth column (i == 5) is filled conditionally depending on
+    // what went after the tab
+    while (i < 5)
+    {
+        *q = ' ';
+        q++;
+        i++;
+    }
+
+    // Now we fill the 6th column (i == 5)
+    // This is a continuation line if the tab was followed by a nonzero digit
+    if (!isdigit(*p) || *p == '0')
+    {
+        // Not a digit or a zero, add a blank to skip the continuation column
+        *q = ' ';
+        q++;
+    }
+    else
+    {
+        // Use this as the continuation
+        *q = *p;
+        p++;
+        q++;
+
+        // If this is a continuation, all previous characters should have been
+        // blanks, clear them but emit a warning
+        char some_was_nonblank = 0;
+        for (i = 0; i < 5; i++)
+        {
+            some_was_nonblank = some_was_nonblank || (normalized_string[i] != ' ');
+            normalized_string[i] = ' ';
+        }
+
+        if (some_was_nonblank)
+        {
+            fprintf(stderr, "%s:%d: warning: continuation line contains nonblank characters before continuation column\n",
+                    prescanner->input_filename,
+                    line_num);
+        }
+    }
+
+    // The remainder of the line
+	strcat(normalized_string, p);
 
 	xfree(*line);
 	*line = normalized_string;

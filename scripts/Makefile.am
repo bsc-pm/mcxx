@@ -25,14 +25,29 @@
 ##########################################################################
 
 EXTRA_DIST= \
-			bison-2.3-rofi-patch
+			bison-2.3-rofi-patch \
+			mcxx-rpm.spec \
+			$(END)
 
+LATEST_GXX=g++-4.8
+GXX_FLAGS=-fabi-version=6 -mavx -maes -mpclmul -mxop
 
 generate_sse.bin : builtins_ia32_sse.cpp
-	g++ -msse4.2 -fabi-version=6 -o generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
+	$(LATEST_GXX) $(GXX_FLAGS) -o generate_sse.bin $(srcdir)/builtins_ia32_sse.cpp
 
 generate_sse: generate_sse.bin
 	./generate_sse.bin > $(top_srcdir)/src/frontend/cxx-gccbuiltins-sse.h
 
-CLEANFILES = 
+CLEANFILES =
 CLEANFILES += generate_sse.bin
+
+
+rpm:
+	@echo "Generating RPM structure"
+	mkdir -p SOURCES BUILD RPMS SPECS SRPMS
+	cp $(top_build_prefix)*.tar.gz SOURCES
+
+	rpmbuild -v -bb --clean $(srcdir)/mcxx-rpm.spec --define '_topdir $(CURDIR)' --define 'version $(VERSION)' --define '_rpm_prefix $(RPM_PREFIX)' --with extrae
+
+clean-rpm:
+	-rm -rf BUILDROOT SOURCES BUILD RPMS SPECS SRPMS

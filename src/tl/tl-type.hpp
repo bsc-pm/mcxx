@@ -129,6 +129,8 @@ namespace TL
             static bool declarator_needs_parentheses(type_t* type_info);
             static std::string get_declaration_str_internal(type_t* type_info,
                     const std::string& symbol_name, const std::string& initializer, bool semicolon);
+
+            Type fix_references_();
         public:
 
             enum TypeDeclFlags
@@ -194,7 +196,6 @@ namespace TL
                     this->_type_info = NULL;
                 }
             }
-
 
             virtual ~Type()
             {
@@ -459,10 +460,14 @@ namespace TL
             {
                 TL::Symbol base;
                 bool is_virtual;
+                bool is_dependent;
+                bool is_expansion;
                 access_specifier_t access_specifier;
 
                 BaseInfo(TL::Symbol _base,
                         bool _is_virtual,
+                        bool _is_dependent,
+                        bool _is_expansioexpansion,
                         access_specifier_t _access_specifier);
             };
 
@@ -658,6 +663,12 @@ namespace TL
              * cannot be checked until instatiation time
              */
             bool is_expression_dependent() const;
+
+            //! States whether the current type is a pack
+            bool is_pack() const;
+
+            //! Returns the packed type of an pack type
+            TL::Type pack_type_get_packed() const;
 
             //! States whether the current type is incomplete
             bool is_incomplete() const;

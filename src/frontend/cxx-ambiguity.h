@@ -63,9 +63,12 @@ LIBMCXX_EXTERN void solve_ambiguous_type_specifier(AST type_specifier, decl_cont
 LIBMCXX_EXTERN void solve_ambiguous_function_header(AST function_header, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_nested_part(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN void solve_ambiguous_parameter_clause(AST parameter_clause, decl_context_t decl_context);
+LIBMCXX_EXTERN void solve_ambiguous_condition(AST a, decl_context_t decl_context);
 
 // To be deprecated
 LIBMCXX_EXTERN char check_type_id_tree(AST type_id, decl_context_t decl_context);
+
 // To be turned into a static
 LIBMCXX_EXTERN char check_type_id_tree_or_class_template_name(AST type_id, decl_context_t decl_context);
 
@@ -74,8 +77,6 @@ LIBMCXX_EXTERN void solve_ambiguous_expression(AST ambig_expression, decl_contex
 LIBMCXX_EXTERN char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambiguous_list, decl_context_t decl_context);
-
-LIBMCXX_EXTERN void solve_condition_ambiguity(AST a, decl_context_t decl_context);
 
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);
 

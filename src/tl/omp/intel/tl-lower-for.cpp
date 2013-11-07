@@ -32,6 +32,8 @@
 
 #include "tl-counters.hpp"
 
+#include "cxx-diagnostic.h"
+
 namespace TL { namespace Intel {
 
         void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
@@ -290,7 +292,61 @@ namespace TL { namespace Intel {
             }
             else
             {
-                internal_error("Nonstatic schedules not yet implemented", 0);
+                Source dynamic_loop;
+                Source sched_type, sched_init;
+                sched_type << "_sched_" << (int)private_num;
+                private_num++;
+
+                std::map<std::string, std::string> valid_schedules;
+                valid_schedules.insert(std::make_pair("dynamic", "kmp_sch_dynamic_chunked"));
+                valid_schedules.insert(std::make_pair("guided", "kmp_sch_guided_chunked"));
+                valid_schedules.insert(std::make_pair("auto", "kmp_sch_auto"));
+                valid_schedules.insert(std::make_pair("runtime", "kmp_sch_runtime"));
+
+                if (valid_schedules.find(schedule.get_text()) != valid_schedules.end())
+                {
+                    sched_init
+                        << sched_type << " = " << valid_schedules.find(schedule.get_text())->second << ";"
+                        ;
+                }
+                else
+                {
+                    error_printf("%s: error '%s' is not a valid OpenMP schedule\n",
+                            construct.get_locus_str().c_str(),
+                            schedule.get_text().c_str());
+                }
+
+                dynamic_loop
+                    << "enum sched_type " << sched_type << ";"
+                    << sched_init
+                    << common_initialization
+                    << "__kmpc_dispatch_init_" << type_kind << "(&" << as_symbol(ident_symbol)
+                    <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                    <<                "," << sched_type
+                    <<                "," << lower
+                    <<                "," << upper
+                    <<                "," << step
+                    <<                "," << chunk_size << ");"
+                    << "while (__kmpc_dispatch_next_" << type_kind << "(&" << as_symbol(ident_symbol)
+                    <<                ",__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
+                    <<                ",&" << lastiter
+                    <<                ",&" << lower
+                    <<                ",&" << upper
+                    <<                ",&" << step << "))"
+                    << "{"
+                    <<     "for (" << as_symbol(private_induction_var) << " = " << lower << ";"
+                    <<                as_symbol(private_induction_var) << "<=" << upper << ";"
+                    <<                as_symbol(private_induction_var) << "+=" << step << ")"
+                    <<     "{"
+                    <<         statement_placeholder(loop_body)
+                    <<     "}"
+                    << "}"
+                    << lastprivate_code
+                    << statement_placeholder(reduction_code)
+                    ;
+
+                Nodecl::NodeclBase dynamic_loop_tree = dynamic_loop.parse_statement(stmt_placeholder);
+                stmt_placeholder.prepend_sibling(dynamic_loop_tree);
             }
 
             TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);

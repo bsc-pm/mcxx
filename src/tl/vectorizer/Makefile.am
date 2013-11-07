@@ -35,16 +35,19 @@ libtlvectorizer_la_CFLAGS = $(phases_cflags) -Wall \
                             -I $(top_srcdir)/src/tl/analysis/singleton/ \
                             -I $(top_srcdir)/src/tl/analysis/common/ \
                             -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+                            -I $(top_srcdir)/src/tl/optimizations/ \
                             $(END)
 
 libtlvectorizer_la_CXXFLAGS = $(phases_cflags) -Wall \
                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
                               -I $(top_srcdir)/src/tl/analysis/common/ \
                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+                              -I $(top_srcdir)/src/tl/optimizations/ \
                               $(END)
 
 libtlvectorizer_la_LDFLAGS = $(phases_ldflags)
 libtlvectorizer_la_LIBADD = $(phases_libadd) \
+                          $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
                           $(END)
 

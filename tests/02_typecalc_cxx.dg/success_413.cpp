@@ -25,16 +25,15 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium
 </testinfo>
 */
 
-int f(int &&a);
-
-void g(int &&a)
+int my_strlen(const char* c);
+int main()
 {
-    f(a);
+   new char[my_strlen("foo")];
+   new char[my_strlen("foo")];
 }

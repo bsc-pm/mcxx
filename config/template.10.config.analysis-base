@@ -28,6 +28,7 @@ options = --openmp
 {openmp} compiler_phase = libtlnanox-smp.so
 
 [analysiscxx : plaincxx]
+options = --openmp
 {openmp} compiler_phase = libtlomp-base.so
 # {openmp} compiler_phase = libcodegen-vector.so
 {openmp} compiler_phase = libtlnanos-version.so

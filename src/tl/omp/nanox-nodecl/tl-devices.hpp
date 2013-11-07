@@ -183,6 +183,17 @@ namespace TL { namespace Nanox {
                      Source& instrumentation_before,
                      Source& instrumentation_after);
 
+
+             virtual void generate_outline_events_before(
+                     Source& function_name_instr,
+                     Source& extra_cast,
+                     Source& instrumentation_before);
+
+             virtual void generate_outline_events_after(
+                     Source& function_name_instr,
+                     Source& extra_cast,
+                     Source& instrumentation_after);
+
              virtual bool remove_function_task_from_original_source() const = 0;
 
              /*!

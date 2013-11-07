@@ -107,7 +107,8 @@ namespace TL { namespace Nanox {
             Source& instrumentation_before,
             Source& instrumentation_after)
     {
-        if (Nanos::Version::interface_is_at_least("master", 5019))
+        if (Nanos::Version::interface_is_at_least("master", 5019)
+                || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
             Source extended_descr, extra_cast, instrument_before_c,
             instrument_after_c, function_name_instr;
@@ -145,7 +146,7 @@ namespace TL { namespace Nanox {
             extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
 
             // GCC complains if you convert a pointer to an integer of different
-            // size. Since we target a unsigned long long, in architectures of 32
+            // size. Since we target an unsigned long long, in architectures of 32
             // bits we first cast to an unsigned int
             if (CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer == 4)
             {
@@ -170,26 +171,10 @@ namespace TL { namespace Nanox {
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
-                << "nanos_event_t event;"
-                << "event.type = NANOS_BURST_START;"
-                << "event.key = nanos_instr_uf_location_key;"
-                << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-                << "err = nanos_instrument_events(1, &event);"
                 ;
 
-            if (is_gpu_device())
-            {
-                instrument_after_c << "err = nanos_instrument_close_user_fun_event();";
-            }
-            else
-            {
-                instrument_after_c
-                    << "event.type = NANOS_BURST_END;"
-                    << "event.key = nanos_instr_uf_location_key;"
-                    << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
-                    << "err = nanos_instrument_events(1, &event);"
-                    ;
-            }
+            generate_outline_events_before(function_name_instr, extra_cast, instrument_before_c);
+            generate_outline_events_after(function_name_instr, extra_cast, instrument_after_c);
 
             if (IS_FORTRAN_LANGUAGE)
                 Source::source_language = SourceLanguage::C;
@@ -207,6 +192,33 @@ namespace TL { namespace Nanox {
         {
             internal_error("Unsupported nanox version for instrumentation", 0);
         }
+    }
+
+    void DeviceProvider::generate_outline_events_before(
+            Source& function_name_instr,
+            Source& extra_cast,
+            Source& instrumentation_before)
+    {
+        instrumentation_before
+            << "nanos_event_t event;"
+            << "event.type = NANOS_BURST_START;"
+            << "event.key = nanos_instr_uf_location_key;"
+            << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+            << "err = nanos_instrument_events(1, &event);"
+            ;
+    }
+
+    void DeviceProvider::generate_outline_events_after(
+            Source& function_name_instr,
+            Source& extra_cast,
+            Source& instrumentation_after)
+    {
+        instrumentation_after
+            << "event.type = NANOS_BURST_END;"
+            << "event.key = nanos_instr_uf_location_key;"
+            << "event.value = (nanos_event_value_t) " << extra_cast << function_name_instr << ";"
+            << "err = nanos_instrument_events(1, &event);"
+            ;
     }
 
     bool DeviceProvider::is_gpu_device() const

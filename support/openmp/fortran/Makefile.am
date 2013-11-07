@@ -24,6 +24,9 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+
+include $(top_srcdir)/support/Makefile.modules
+
 omp_modules = \
     omp_lib_kinds.mf03 \
     omp_lib.mf03 \
@@ -56,5 +59,5 @@ endif
 # This is a noop to avoid breaking parallel builds
 omp_lib_kinds.mf03 : omp_lib.mf03
 
-omp_lib.mf03 : $(srcdir)/omp_modules.f90
+omp_lib.mf03 : $(srcdir)/omp_modules.f90 $(FORTRAN_FRONTEND_FILES)
 	$(PLAINFC_verbose)$(PLAINFC) -y -o /dev/null $(srcdir)/omp_modules.f90

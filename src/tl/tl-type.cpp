@@ -46,6 +46,17 @@ namespace TL
 {
     Type Type::fix_references()
     {
+        TL::Type fixed_type = this->fix_references_();
+
+        if (this->is_same_type(fixed_type))
+            // We try hard to preserve types unchanged
+            return *this;
+        else
+            return fixed_type;
+    }
+
+    Type Type::fix_references_()
+    {
         if ((IS_C_LANGUAGE && this->is_any_reference())
                 || (IS_CXX_LANGUAGE && this->is_rebindable_reference()))
         {
@@ -78,19 +89,19 @@ namespace TL
                 this->array_get_region_bounds(reg_lb, reg_ub);
                 TL::Scope sc = array_type_get_region_size_expr_context(this->get_internal_type());
 
-                return this->array_element().fix_references().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
+                return this->array_element().fix_references_().get_array_to_with_region(lb, ub, reg_lb, reg_ub, sc);
             }
             else
             {
                 Nodecl::NodeclBase size = this->array_get_size();
                 TL::Scope sc = array_type_get_array_size_expr_context(this->get_internal_type());
 
-                return this->array_element().fix_references().get_array_to(size, sc);
+                return this->array_element().fix_references_().get_array_to(size, sc);
             }
         }
         else if (this->is_pointer())
         {
-            TL::Type fixed = this->points_to().fix_references().get_pointer_to();
+            TL::Type fixed = this->points_to().fix_references_().get_pointer_to();
 
             fixed = ::get_cv_qualified_type(fixed.get_internal_type(),
                     get_cv_qualifier(this->get_internal_type()));
@@ -104,7 +115,7 @@ namespace TL
                 return (*this);
 
             cv_qualifier_t cv_qualif = get_cv_qualifier(this->get_internal_type());
-            TL::Type fixed_result = this->returns().fix_references();
+            TL::Type fixed_result = this->returns().fix_references_();
             bool has_ellipsis = 0;
 
             TL::ObjectList<TL::Type> fixed_parameters = this->parameters(has_ellipsis);
@@ -112,7 +123,7 @@ namespace TL
                     it != fixed_parameters.end();
                     it++)
             {
-                *it = it->fix_references();
+                *it = it->fix_references_();
             }
 
             TL::ObjectList<TL::Type> nonadjusted_fixed_parameters = this->nonadjusted_parameters();
@@ -120,7 +131,7 @@ namespace TL
                     it != nonadjusted_fixed_parameters.end();
                     it++)
             {
-                *it = it->fix_references();
+                *it = it->fix_references_();
             }
 
             TL::Type fixed_function = fixed_result.get_function_returning(
@@ -512,6 +523,16 @@ namespace TL
     bool Type::is_expression_dependent() const
     {
         return false;
+    }
+
+    bool Type::is_pack() const
+    {
+        return ::is_pack_type(_type_info);
+    }
+
+    TL::Type Type::pack_type_get_packed() const
+    {
+        return ::pack_type_get_packed_type(_type_info);
     }
 
     Type Type::returns() const
@@ -1249,15 +1270,16 @@ namespace TL
         for (int i = 0; i < n; i++)
         {
             scope_entry_t* symbol = NULL;
-            char is_virtual = 0, is_dependent = 0;
+            char is_virtual = 0, is_dependent = 0, is_expansion = 0;
             access_specifier_t as = AS_UNKNOWN;
 
             symbol = class_type_get_base_num(_type_info, i,
                     &is_virtual,
                     &is_dependent,
+                    &is_expansion,
                     &as);
 
-            result.append(BaseInfo(symbol, is_virtual, as));
+            result.append(BaseInfo(symbol, is_virtual, is_dependent, is_expansion, as));
         }
 
         return result;
@@ -1387,11 +1409,15 @@ namespace TL
 
     Nodecl::NodeclBase TemplateArgument::get_value() const
     {
+        ERROR_CONDITION(template_parameter_kind_is_pack(_tpl_param_value->kind),
+                "Do not call this function on template packs", 0);
         return _tpl_param_value->value;
     }
 
     Type TemplateArgument::get_type() const
     {
+        ERROR_CONDITION(template_parameter_kind_is_pack(_tpl_param_value->kind),
+                "Do not call this function on template packs", 0);
         return _tpl_param_value->type;
     }
 
@@ -1454,9 +1480,13 @@ namespace TL
 
     Type::BaseInfo::BaseInfo(TL::Symbol _base,
             bool _is_virtual,
+            bool _is_dependent,
+            bool _is_expansion,
             access_specifier_t _access_specifier)
         : base(_base),
         is_virtual(_is_virtual),
+        is_dependent(_is_dependent),
+        is_expansion(_is_expansion),
         access_specifier(_access_specifier)
     {
     }

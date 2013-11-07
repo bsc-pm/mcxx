@@ -104,6 +104,9 @@ LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int 
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t* value);
 
+LIBMCXX_EXTERN cvalue_int_t const_value_cast_to_cvalue_int(const_value_t* value);
+LIBMCXX_EXTERN cvalue_uint_t const_value_cast_to_cvalue_uint(const_value_t* value);
+
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl(const_value_t* v);
 
 // This function uses the basic type for elemental types (both for integer or floating)

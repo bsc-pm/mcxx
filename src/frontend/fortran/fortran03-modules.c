@@ -416,7 +416,7 @@ static void load_storage(sqlite3** handle, const char* filename)
     _oid_map = rb_tree_create(int64cmp_vptr, null_dtor_func, null_dtor_func);
 }
 
-enum { CURRENT_MODULE_VERSION = 5 };
+enum { CURRENT_MODULE_VERSION = 11 };
 
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
@@ -460,10 +460,6 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     load_storage(&handle, filename);
 
-    prepare_statements(handle);
-
-    start_transaction(handle);
-
     module_info_t minfo;
     memset(&minfo, 0, sizeof(minfo));
 
@@ -474,6 +470,10 @@ void load_module_info(const char* module_name, scope_entry_t** module)
         running_error("Module file '%s' is not compatible with this version of Mercurium (got version %d but expected version %d)\n",
                 filename, minfo.version, CURRENT_MODULE_VERSION);
     }
+
+    prepare_statements(handle);
+
+    start_transaction(handle);
 
     module_oid_being_loaded = minfo.module_oid;
     *module = load_symbol(handle, minfo.module_oid);
@@ -2107,6 +2107,11 @@ static int get_symbol(void *datum,
     //             P2ULL(sym));
     // }
 
+    // Unpack bits again (we cannot directly write entity specs because we
+    // would be overwriting non-bits as well)
+    unpack_bits(&(*result)->entity_specs, packed_bits);
+    get_extra_attributes(handle, ncols, values, names, oid, *result);
+
     (*result)->type_information = load_type(handle, type_oid);
 
     (*result)->decl_context = load_decl_context(handle, decl_context_oid);
@@ -2120,11 +2125,6 @@ static int get_symbol(void *datum,
 
     (*result)->value = load_nodecl(handle, value_oid);
 
-    // Unpack bits again (we cannot directly write entity specs because we
-    // would be overwriting non-bits as well)
-    unpack_bits(&(*result)->entity_specs, packed_bits);
-
-    get_extra_attributes(handle, ncols, values, names, oid, *result);
 
     // Classes require a bit more of work
     if ((*result)->kind == SK_CLASS)
@@ -2524,52 +2524,56 @@ static int get_type(void *datum,
 
     nodecl_t nodecl_fake = nodecl_make_text("", make_locus("", 0, 0));
 
-    // We early register the type to avoid troublesome loops
-    *pt = _type_get_empty_type();
-    insert_map_ptr(handle, current_oid, *pt);
 
     switch (kind)
     {
         case TKT_INTEGER:
         {
-            _type_assign_to(*pt, choose_int_type_from_kind(nodecl_fake, kind_size));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = choose_int_type_from_kind(nodecl_fake, kind_size);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_CHARACTER:
         {
-            _type_assign_to(*pt, choose_character_type_from_kind(nodecl_fake, kind_size));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = choose_character_type_from_kind(nodecl_fake, kind_size);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_REAL:
         {
-            _type_assign_to(*pt, choose_float_type_from_kind(nodecl_fake, kind_size));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = choose_float_type_from_kind(nodecl_fake, kind_size);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_LOGICAL:
         {
-            _type_assign_to(*pt, choose_logical_type_from_kind(nodecl_fake, kind_size));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = choose_logical_type_from_kind(nodecl_fake, kind_size);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_COMPLEX:
         {
-            _type_assign_to(*pt, get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size)));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size));
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_POINTER:
         {
-            _type_assign_to(*pt, get_pointer_type(load_type(handle, ref)));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_pointer_type(load_type(handle, ref));
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_REFERENCE:
         {
-            _type_assign_to(*pt, get_lvalue_reference_type(load_type(handle, ref)));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_lvalue_reference_type(load_type(handle, ref));
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_ARRAY:
@@ -2585,30 +2589,30 @@ static int get_type(void *datum,
             decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
             if (kind == TKT_ARRAY)
             {
-                _type_assign_to(*pt,
-                        get_array_type_bounds(element_type,
-                            lower_bound, upper_bound, decl_context));
+                *pt = get_array_type_bounds(element_type,
+                        lower_bound, upper_bound, decl_context);
             }
             else if (kind == TKT_ARRAY_DESCRIPTOR)
             {
-                _type_assign_to(*pt,
-                        get_array_type_bounds_with_descriptor(element_type,
-                            lower_bound, upper_bound, decl_context));
+                *pt = get_array_type_bounds_with_descriptor(element_type,
+                        lower_bound, upper_bound, decl_context);
             }
             else
             {
                 internal_error("Code unreachable", 0);
             }
 
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_CLASS:
         {
             char *copy = xstrdup(symbols);
 
-            _type_assign_to(*pt, get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, TT_STRUCT);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
 
             // All classes are complete in fortran!
             set_is_complete_type(*pt, /* is_complete */ 1);
@@ -2620,7 +2624,7 @@ static int get_type(void *datum,
                 scope_entry_t* member = load_symbol(handle, safe_atoull(field));
 
                 ERROR_CONDITION(member == NULL, "Invalid member!\n", 0);
-                class_type_add_member(*pt, member);
+                class_type_add_member(*pt, member); // This mutates *pt
 
                 field = strtok_r(NULL, ",", &context);
             }
@@ -2668,14 +2672,16 @@ static int get_type(void *datum,
                 internal_error("Code unreachable", 0);
             }
 
-            _type_assign_to(*pt, new_function_type);
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = new_function_type;
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_VOID:
         {
-            _type_assign_to(*pt, get_void_type());
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_void_type();
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_NAMED:
@@ -2684,8 +2690,9 @@ static int get_type(void *datum,
 
             scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
-            _type_assign_to(*pt, get_user_defined_type(symbol));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_user_defined_type(symbol);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_INDIRECT:
@@ -2694,8 +2701,9 @@ static int get_type(void *datum,
 
             scope_entry_t* symbol = load_symbol(handle, symbol_oid);
 
-            _type_assign_to(*pt, get_indirect_type(symbol));
-            _type_assign_to(*pt, get_cv_qualified_type(*pt, cv_qualifier));
+            *pt = get_indirect_type(symbol);
+            *pt = get_cv_qualified_type(*pt, cv_qualifier);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         case TKT_COMPUTED_FUNCTION:
@@ -2709,7 +2717,8 @@ static int get_type(void *datum,
             ERROR_CONDITION((fun == NULL && id != 0), "Invalid intrinsic function id %d.\n"
                     "You may have to rebuild your Fortran modules\n", id);
 
-            _type_assign_to(*pt, get_computed_function_type(fun));
+            *pt = get_computed_function_type(fun);
+            insert_map_ptr(handle, current_oid, *pt);
             break;
         }
         default:

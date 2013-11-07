@@ -217,7 +217,7 @@ namespace Nodecl
         {
             SimpleSymbolMap()
                 : _symbol_map(), _enclosing(NULL) { }
-            SimpleSymbolMap(SymbolMap* enclosing)
+            explicit SimpleSymbolMap(SymbolMap* enclosing)
                 : _symbol_map(), _enclosing(enclosing) { }
 
             virtual TL::Symbol map(TL::Symbol s)

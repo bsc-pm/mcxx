@@ -28,13 +28,17 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium
 </testinfo>
 */
 
-void f(int&&);
+float  foo(float __x) { }
 
-void g(int &a)
+template <typename _T>
+_T foo( _T  __x) { }
+
+int main()
 {
-    f(a);
+    const float a = 3.0;
+    float ema = foo(-a);
 }

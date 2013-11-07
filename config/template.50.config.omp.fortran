@@ -18,15 +18,15 @@ compiler_options = -frecursive
 linker_name = @GFORTRAN@
 linker_options =
 #cuda
-@DISABLE_CUDA@preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 @DISABLE_CUDA@options = --cuda
-@DISABLE_CUDA@linker_options = -lnanox-gpu-api
-@DISABLE_CUDA@compiler_phase = libtlnanox-cuda.so
+@DISABLE_CUDA@{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+@DISABLE_CUDA@{openmp} linker_options = -lnanox-gpu-api
+@DISABLE_CUDA@{openmp} compiler_phase = libtlnanox-cuda.so
 #opencl
 @DISABLE_OPENCL@options = --opencl
-@DISABLE_OPENCL@preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-@DISABLE_OPENCL@compiler_phase = libtlnanox-opencl.so
-@DISABLE_OPENCL@linker_options = -lnanox-opencl-api
+@DISABLE_OPENCL@{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+@DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
+@DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
 
 [mf95 : mfc]
 
