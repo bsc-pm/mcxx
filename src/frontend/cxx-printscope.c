@@ -202,7 +202,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
                     codegen_to_str(entry->entity_specs.bitfield_size, nodecl_retrieve_context(entry->entity_specs.bitfield_size)));
         }
     }
-    if (entry->kind == SK_TEMPLATE_PARAMETER
+    if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {

@@ -968,6 +968,7 @@ def generate_routines_header(rule_map):
    for i in range(1, 7):
         params = map(lambda x : "nodecl_t element%d" % (x) , range(0, i))
         print "nodecl_t nodecl_make_list_%d(%s);" % (i, string.join(params, ", "))
+   print "nodecl_t nodecl_make_list_n(int num_items, nodecl_t* items);"
    print ""
    classes = {}
    for rule_name in rule_map:
@@ -1015,6 +1016,13 @@ def generate_routines_impl(rule_map):
         print "{"
         print "  return nodecl_append_to_list(nodecl_make_list_%d(%s), %s);" % (i-1, string.join(args[:-1], ", "), args[-1])
         print "}"
+   print "nodecl_t nodecl_make_list_n(int num_items, nodecl_t* items)"
+   print "{"
+   print "   int i;"
+   print "   nodecl_t result = nodecl_null();"
+   print "   for (i = 0; i < num_items; i++) result = nodecl_append_to_list(result, items[i]);"
+   print "   return result;"
+   print "}"
 
    classes = {}
    for rule_name in rule_map:

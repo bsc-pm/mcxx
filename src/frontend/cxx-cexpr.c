@@ -629,6 +629,20 @@ char const_value_is_negative(const_value_t* v)
     return !const_value_is_positive(v);
 }
 
+cvalue_int_t const_value_cast_to_cvalue_int(const_value_t* value)
+{
+    return (cvalue_int_t)const_value_cast_to_cvalue_uint(value);
+}
+
+cvalue_uint_t const_value_cast_to_cvalue_uint(const_value_t* value)
+{
+#ifdef HAVE_INT128
+    return const_value_cast_to_16(value);
+#else
+    return const_value_cast_to_8(value);
+#endif
+}
+
 uint64_t const_value_cast_to_8(const_value_t* val)
 {
     switch (val->kind)

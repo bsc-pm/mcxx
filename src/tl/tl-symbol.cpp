@@ -437,6 +437,26 @@ namespace TL
         return (_symbol->entity_specs.is_thread);
     }
 
+    bool Symbol::is_thread_local() const
+    {
+        return (_symbol->entity_specs.is_thread_local);
+    }
+
+    bool Symbol::is_final() const
+    {
+        return (_symbol->entity_specs.is_final);
+    }
+
+    bool Symbol::is_explicit_override() const
+    {
+        return (_symbol->entity_specs.is_override);
+    }
+
+    bool Symbol::is_hides_member() const
+    {
+        return (_symbol->entity_specs.is_hides_member);
+    }
+
     bool Symbol::is_bitfield() const
     {
         return (_symbol->entity_specs.is_bitfield);
@@ -481,6 +501,11 @@ namespace TL
     bool Symbol::is_inline() const
     {
         return (_symbol->entity_specs.is_inline);
+    }
+
+    bool Symbol::is_constexpr() const
+    {
+        return (_symbol->entity_specs.is_constexpr);
     }
 
     // Virtual function
@@ -541,6 +566,11 @@ namespace TL
         }
 
         return result;
+    }
+
+    Nodecl::NodeclBase Symbol::function_noexcept() const
+    {
+        return _symbol->entity_specs.noexception;
     }
 
     bool Symbol::has_initialization() const

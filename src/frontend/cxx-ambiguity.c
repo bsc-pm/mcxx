@@ -397,7 +397,7 @@ static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_conte
 /*
  * Ambiguity within a declarator.
  */
-void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
+void solve_ambiguous_declarator(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     CXX_LANGUAGE()
     {
@@ -416,55 +416,6 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
                 // We want the declarator_id_expr
                 choose_option(a, m);
                 return;
-            }
-        }
-    }
-
-    C_LANGUAGE()
-    {
-        // Case for
-        //
-        //   void f(a, b, c);
-        //
-        // we are unsure if this is a K&R-style function
-        // declaration or a proper prototype with all being
-        // abstract declarators
-
-        AST first_option = ast_get_ambiguity(a, 0);
-        AST second_option = ast_get_ambiguity(a, 1);
-
-        if (ASTType(first_option) == AST_DECLARATOR_FUNC
-                && ASTType(second_option) == AST_DECLARATOR_FUNC)
-        {
-            AST parameters = ASTSon1(first_option);
-
-            if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
-            {
-                if (check_kr_parameter_list(parameters, decl_context))
-                {
-                    choose_option(a, 0);
-                    return;
-                }
-                else
-                {
-                    choose_option(a, 1);
-                    return;
-                }
-            }
-
-            parameters = ASTSon1(second_option);
-            if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
-            {
-                if (check_kr_parameter_list(parameters, decl_context))
-                {
-                    choose_option(a, 1);
-                    return;
-                }
-                else
-                {
-                    choose_option(a, 0);
-                    return;
-                }
             }
         }
     }
@@ -555,38 +506,6 @@ static char check_simple_type_spec(AST type_spec,
         *computed_type = NULL;
     }
 
-    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPEC)
-    {
-        switch (ASTType(type_spec))
-        {
-            case AST_CHAR_TYPE :
-            case AST_INT_TYPE:
-            case AST_FLOAT_TYPE :
-            case AST_DOUBLE_TYPE :
-            case AST_LONG_TYPE :
-            case AST_SHORT_TYPE :
-            case AST_SIGNED_TYPE :
-            case AST_UNSIGNED_TYPE :
-            case AST_WCHAR_TYPE :
-            case AST_VOID_TYPE :
-            case AST_BOOL_TYPE :
-                {
-                    if (computed_type != NULL)
-                    {
-                        gather_decl_spec_t gather_info;
-                        memset(&gather_info, 0, sizeof(gather_info));
-
-                        nodecl_t dummy_nodecl_output = nodecl_null();
-                        gather_type_spec_information(type_spec, computed_type, &gather_info, decl_context, &dummy_nodecl_output);
-                    }
-                    return 1;
-                }
-                break;
-            default :
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_spec)));
-        }
-    }
-
     AST type_id_expr = ASTSon0(type_spec);
 
     scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
@@ -611,7 +530,9 @@ static char check_simple_type_spec(AST type_spec,
                 // We allow this because templates are like types
                 && entry->kind != SK_TEMPLATE
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
         {
             ok = 0;
         }
@@ -628,7 +549,8 @@ static char check_simple_type_spec(AST type_spec,
         if (!allow_class_templates
                 && ASTType(type_id_expr) == AST_SYMBOL
                 && (entry->kind == SK_TEMPLATE
-                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
         {
             ok = 0;
         }
@@ -756,14 +678,14 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
 
         // Additional check. Ensure we are using the longest possible nested name seq
         AST first_init_declarator = NULL;
-        AST list = ASTSon1(a);
-        AST iter;
+        AST declarator_list = ASTSon1(a);
+        AST declarator_iter;
 
-        if (list != NULL)
+        if (declarator_list != NULL)
         {
-            for_each_element(list, iter)
+            for_each_element(declarator_list, declarator_iter)
             {
-                first_init_declarator = ASTSon1(iter);
+                first_init_declarator = ASTSon1(declarator_iter);
                 break;
             }
         }
@@ -777,6 +699,25 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 return 0;
             }
         }
+        if (type_spec == NULL
+                && first_init_declarator != NULL
+                && ASTType(first_init_declarator) == AST_MEMBER_DECLARATOR)
+        {
+            // This case "typedef Q P" can be understood as "typedef <no-type> Q <invalid-virt-spec:P>"
+            //
+            // Note that we check all the member declarators
+            for_each_element(declarator_list, declarator_iter)
+            {
+                AST current_member_declarator = ASTSon1(declarator_iter);
+                ERROR_CONDITION(ASTType(current_member_declarator) != AST_MEMBER_DECLARATOR, "Invalid node", 0);
+
+                AST virt_specifiers = ASTSon2(current_member_declarator);
+                if (virt_specifiers != NULL)
+                {
+                    return 0;
+                }
+            }
+        }
 
         AST first_declarator = NULL;
         if (first_init_declarator != NULL)
@@ -788,7 +729,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
             }
             else if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR)
             {
-                // This ambiguity brought to you by C++0x
+                // This ambiguity brought to you by C++11
                 // A bit-field shall have integral or enumeration type. This
                 // check is done to avoid the following ambiguity:
                 //
@@ -849,12 +790,12 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         //    * 'T' is just a declarator_id_expr
         //    * 'T' names a type
 
-        if (first_declarator != NULL 
+        if (first_declarator != NULL
                 && type_spec != NULL)
         {
-            // This ambiguity brought to you by C++0x
-            // struct X :   T { }; 
-            // enum E : class { }; 
+            // This ambiguity brought to you by C++11
+            // struct X :   T { };
+            // enum E : class { };
             if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR
                     && (ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
                         || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC))
@@ -1214,14 +1155,19 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
 {
     ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
 
+    // FIXME - We should be using solve_ambiguity_generic
+
     int i;
     template_parameter_list_t* result = NULL;
+    int valid = -1;
     for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
     {
         AST current_template_argument_list = ast_get_ambiguity(ambiguous_list, i);
 
+        enter_test_expression();
         template_parameter_list_t* template_parameters =
-            get_template_parameters_from_syntax(current_template_argument_list, decl_context);
+            get_template_arguments_from_syntax(current_template_argument_list, decl_context);
+        leave_test_expression();
 
         if (template_parameters != NULL)
         {
@@ -1231,8 +1177,15 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
                 return NULL;
             }
             result = template_parameters;
+            valid = i;
         }
     }
+
+    if (valid >= 0)
+    {
+        choose_option(ambiguous_list, valid);
+    }
+
     return result;
 }
 
@@ -1511,7 +1464,7 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
                     return 0;
 
                 // Check for parameters here
-                AST parameter_declaration_clause = ASTSon1(declarator);
+                AST parameter_declaration_clause = ASTSon0(ASTSon1(declarator));
                 if (parameter_declaration_clause != NULL)
                 {
                     if (!check_function_declarator_parameters(parameter_declaration_clause, decl_context))
@@ -1523,19 +1476,12 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
+        case AST_DECLARATOR_ID_PACK :
             {
                 // Is this already correct or we have to check something else ?
                 return 1;
                 break;
             }
-        case AST_GCC_DECLARATOR :
-            {
-                return check_declarator_rec(ASTSon1(declarator), decl_context, enclosing_is_array, enclosing_is_function);
-            }	
-        case AST_GCC_POINTER_DECLARATOR :
-            {
-                return check_declarator_rec(ASTSon2(declarator), decl_context, 0, 0);
-            }	
         case AST_AMBIGUITY:
             {
                 solve_ambiguous_declarator(declarator, decl_context);
@@ -1627,6 +1573,11 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
     AST list = parameter_declaration_clause;
     AST iter;
 
+    if (ASTType(parameter_declaration_clause) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_parameter_clause(parameter_declaration_clause, decl_context);
+    }
+
     if (ASTType(parameter_declaration_clause) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
         return 1;
@@ -1649,8 +1600,7 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
                 return 0;
         }
 
-        if (ASTType(parameter) != AST_PARAMETER_DECL
-                && ASTType(parameter) != AST_GCC_PARAMETER_DECL)
+        if (ASTType(parameter) != AST_PARAMETER_DECL)
         {
             internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(parameter)));
         }
@@ -2148,7 +2098,7 @@ static int solve_ambiguous_condition_choose_interpretation(AST current_condition
             decl_context, p);
 }
 
-void solve_condition_ambiguity(AST a, decl_context_t decl_context)
+void solve_ambiguous_condition(AST a, decl_context_t decl_context)
 {
     if (!try_to_solve_ambiguity_generic(a, decl_context, NULL,
                 solve_ambiguous_condition_interpretation,
@@ -2157,4 +2107,94 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
         // Best effort
         choose_option(a, 0);
     }
+}
+
+// Look for a template parameter pack
+static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
+{
+    if (a == NULL)
+        return 0;
+
+    if (ASTType(a) == AST_SYMBOL)
+    {
+        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(a));
+        if (entry_list != NULL)
+        {
+            scope_entry_t* entry = entry_list_head(entry_list);
+
+            entry_list_free(entry_list);
+
+            if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+                return 1;
+        }
+    }
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (contains_template_parameter_pack(ast_get_child(a, i), decl_context))
+            return 1;
+    }
+
+    return 0;
+}
+
+static char solve_ambiguous_parameter_clause_check_interpretation(
+        AST parameter_clause UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void *info UNUSED_PARAMETER)
+{
+    char result = 0;
+    if (ASTType(parameter_clause) == AST_KR_PARAMETER_LIST)
+    {
+        return check_kr_parameter_list(parameter_clause, decl_context);
+    }
+    else
+    {
+        ERROR_CONDITION(ASTType(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
+
+
+        AST last = ASTSon1(parameter_clause);
+
+        if (ASTType(last) == AST_VARIADIC_ARG)
+        {
+            // void f(T...); where T is NOT a parameter pack
+            ERROR_CONDITION(ASTSon0(parameter_clause) == NULL, "Invalid tree", 0);
+            AST before_last = ASTSon1(ASTSon0(parameter_clause));
+            ERROR_CONDITION(before_last == NULL, "Invalid tree", 0);
+
+            result = !contains_template_parameter_pack(before_last, decl_context);
+        }
+        else if (ASTType(last) == AST_PARAMETER_DECL)
+        {
+            // void f(T...); where T is a parameter pack
+            result = contains_template_parameter_pack(last, decl_context);
+        }
+        else
+        {
+            internal_error("Invalid node %s", ast_print_node_type(ASTType(last)));
+        }
+    }
+
+    return result;
+}
+
+void solve_ambiguous_parameter_clause(AST parameter_clause, decl_context_t decl_context)
+{
+    // Ambiguity at this level arises in C++ because of this
+    //
+    // void f(int x, T...)
+    //
+    // We do not know if T... is a parameter-pack or a T abstract-declarator
+    // followed by an ellipsis (int x, T, ...)
+    //
+    // In C99 it also may be caused by KR-identifier lists
+    solve_ambiguity_generic(
+            parameter_clause,
+            decl_context, NULL,
+            solve_ambiguous_parameter_clause_check_interpretation,
+            NULL,
+            NULL);
 }

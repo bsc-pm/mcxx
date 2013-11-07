@@ -525,6 +525,16 @@ namespace TL
         return false;
     }
 
+    bool Type::is_pack() const
+    {
+        return ::is_pack_type(_type_info);
+    }
+
+    TL::Type Type::pack_type_get_packed() const
+    {
+        return ::pack_type_get_packed_type(_type_info);
+    }
+
     Type Type::returns() const
     {
         return function_type_get_return_type(_type_info);
@@ -1260,15 +1270,16 @@ namespace TL
         for (int i = 0; i < n; i++)
         {
             scope_entry_t* symbol = NULL;
-            char is_virtual = 0, is_dependent = 0;
+            char is_virtual = 0, is_dependent = 0, is_expansion = 0;
             access_specifier_t as = AS_UNKNOWN;
 
             symbol = class_type_get_base_num(_type_info, i,
                     &is_virtual,
                     &is_dependent,
+                    &is_expansion,
                     &as);
 
-            result.append(BaseInfo(symbol, is_virtual, as));
+            result.append(BaseInfo(symbol, is_virtual, is_dependent, is_expansion, as));
         }
 
         return result;
@@ -1398,11 +1409,15 @@ namespace TL
 
     Nodecl::NodeclBase TemplateArgument::get_value() const
     {
+        ERROR_CONDITION(template_parameter_kind_is_pack(_tpl_param_value->kind),
+                "Do not call this function on template packs", 0);
         return _tpl_param_value->value;
     }
 
     Type TemplateArgument::get_type() const
     {
+        ERROR_CONDITION(template_parameter_kind_is_pack(_tpl_param_value->kind),
+                "Do not call this function on template packs", 0);
         return _tpl_param_value->type;
     }
 
@@ -1465,9 +1480,13 @@ namespace TL
 
     Type::BaseInfo::BaseInfo(TL::Symbol _base,
             bool _is_virtual,
+            bool _is_dependent,
+            bool _is_expansion,
             access_specifier_t _access_specifier)
         : base(_base),
         is_virtual(_is_virtual),
+        is_dependent(_is_dependent),
+        is_expansion(_is_expansion),
         access_specifier(_access_specifier)
     {
     }

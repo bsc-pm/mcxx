@@ -870,7 +870,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 
 @IS_VARIABLE@ {
     parse_token_text();
-    RETURN_TOKEN(TOK_IS_VARIABLE);
+    RETURN_TOKEN(TOKEN_IS_VARIABLE);
 }
 
 @OMP-DECLARE-REDUCTION@ {
@@ -1083,7 +1083,7 @@ x["][0-9a-f]+["] {
 
         BEGIN(INITIAL);
         parse_token_text_str(hollerith_buffer);
-        return TOK_HOLLERITH_CONSTANT;
+        return TOKEN_HOLLERITH_CONSTANT;
     }
 }
 
@@ -1113,7 +1113,7 @@ x["][0-9a-f]+["] {
             nonblock_do_stack_idx--;
             // Now unput everything again so we will get a DECIMAL_LITERAL later
             yyless(0);
-            RETURN_TOKEN(TOK_END_NONBLOCK_DO);
+            RETURN_TOKEN(TOKEN_END_NONBLOCK_DO);
         }
     }
     parse_token_text();
@@ -1127,444 +1127,444 @@ x["][0-9a-f]+["] {
 
 <SEEN_FORMAT,INITIAL>format {
     parse_token_text();
-    RETURN_TOKEN(TOK_FORMAT);
+    RETURN_TOKEN(TOKEN_FORMAT);
 }
 
 generic {
     parse_token_text();
-    RETURN_TOKEN(TOK_GENERIC);
+    RETURN_TOKEN(TOKEN_GENERIC);
 }
 
 volatile {
     parse_token_text();
-    RETURN_TOKEN(TOK_VOLATILE);
+    RETURN_TOKEN(TOKEN_VOLATILE);
 }
 
 equivalence {
     parse_token_text();
-    RETURN_TOKEN(TOK_EQUIVALENCE);
+    RETURN_TOKEN(TOKEN_EQUIVALENCE);
 }
 
 eor {
     parse_token_text();
-    RETURN_TOKEN(TOK_EOR);
+    RETURN_TOKEN(TOKEN_EOR);
 }
 
 protected {
     parse_token_text();
-    RETURN_TOKEN(TOK_PROTECTED);
+    RETURN_TOKEN(TOKEN_PROTECTED);
 }
 
 pad {
     parse_token_text();
-    RETURN_TOKEN(TOK_PAD);
+    RETURN_TOKEN(TOKEN_PAD);
 }
 
 file {
     parse_token_text();
-    RETURN_TOKEN(TOK_FILE);
+    RETURN_TOKEN(TOKEN_FILE);
 }
 
 unformatted {
     parse_token_text();
-    RETURN_TOKEN(TOK_UNFORMATTED);
+    RETURN_TOKEN(TOKEN_UNFORMATTED);
 }
 
 named {
     parse_token_text();
-    RETURN_TOKEN(TOK_NAMED);
+    RETURN_TOKEN(TOKEN_NAMED);
 }
 
 subroutine {
     parse_token_text();
-    RETURN_TOKEN(TOK_SUBROUTINE);
+    RETURN_TOKEN(TOKEN_SUBROUTINE);
 }
 
 opened {
     parse_token_text();
-    RETURN_TOKEN(TOK_OPENED);
+    RETURN_TOKEN(TOKEN_OPENED);
 }
 
 delim {
     parse_token_text();
-    RETURN_TOKEN(TOK_DELIM);
+    RETURN_TOKEN(TOKEN_DELIM);
 }
 
 source {
     parse_token_text();
-    RETURN_TOKEN(TOK_SOURCE);
+    RETURN_TOKEN(TOKEN_SOURCE);
 }
 
 critical {
     parse_token_text();
-    RETURN_TOKEN(TOK_CRITICAL);
+    RETURN_TOKEN(TOKEN_CRITICAL);
 }
 
 action {
     parse_token_text();
-    RETURN_TOKEN(TOK_ACTION);
+    RETURN_TOKEN(TOKEN_ACTION);
 }
 
 import {
     parse_token_text();
-    RETURN_TOKEN(TOK_IMPORT);
+    RETURN_TOKEN(TOKEN_IMPORT);
 }
 
 block {
     parse_token_text();
-    RETURN_TOKEN(TOK_BLOCK);
+    RETURN_TOKEN(TOKEN_BLOCK);
 }
 
 enum {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENUM);
+    RETURN_TOKEN(TOKEN_ENUM);
 }
 
 overridable {
     parse_token_text();
-    RETURN_TOKEN(TOK_OVERRIDABLE);
+    RETURN_TOKEN(TOKEN_OVERRIDABLE);
 }
 
 module {
     parse_token_text();
-    RETURN_TOKEN(TOK_MODULE);
+    RETURN_TOKEN(TOKEN_MODULE);
 }
 
 sign {
     parse_token_text();
-    RETURN_TOKEN(TOK_SIGN);
+    RETURN_TOKEN(TOKEN_SIGN);
 }
 
 extends {
     parse_token_text();
-    RETURN_TOKEN(TOK_EXTENDS);
+    RETURN_TOKEN(TOKEN_EXTENDS);
 }
 
 pass {
     parse_token_text();
-    RETURN_TOKEN(TOK_PASS);
+    RETURN_TOKEN(TOKEN_PASS);
 }
 
 go {
     parse_token_text();
-    RETURN_TOKEN(TOK_GO);
+    RETURN_TOKEN(TOKEN_GO);
 }
 
 entry {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENTRY);
+    RETURN_TOKEN(TOKEN_ENTRY);
 }
 
 where {
     parse_token_text();
-    RETURN_TOKEN(TOK_WHERE);
+    RETURN_TOKEN(TOKEN_WHERE);
 }
 
 endwhere {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDWHERE);
+    RETURN_TOKEN(TOKEN_ENDWHERE);
 }
 
 procedure {
     parse_token_text();
-    RETURN_TOKEN(TOK_PROCEDURE);
+    RETURN_TOKEN(TOKEN_PROCEDURE);
 }
 
 name {
     parse_token_text();
-    RETURN_TOKEN(TOK_NAME);
+    RETURN_TOKEN(TOKEN_NAME);
 }
 
 double {
     parse_token_text();
-    RETURN_TOKEN(TOK_DOUBLE);
+    RETURN_TOKEN(TOKEN_DOUBLE);
 }
 
 contains {
     parse_token_text();
-    RETURN_TOKEN(TOK_CONTAINS);
+    RETURN_TOKEN(TOKEN_CONTAINS);
 }
 
 logical {
     parse_token_text();
-    RETURN_TOKEN(TOK_LOGICAL);
+    RETURN_TOKEN(TOKEN_LOGICAL);
 }
 
 newunit {
     parse_token_text();
-    RETURN_TOKEN(TOK_NEWUNIT);
+    RETURN_TOKEN(TOKEN_NEWUNIT);
 }
 
 nullify {
     parse_token_text();
-    RETURN_TOKEN(TOK_NULLIFY);
+    RETURN_TOKEN(TOKEN_NULLIFY);
 }
 
 deferred {
     parse_token_text();
-    RETURN_TOKEN(TOK_DEFERRED);
+    RETURN_TOKEN(TOKEN_DEFERRED);
 }
 
 only {
     parse_token_text();
-    RETURN_TOKEN(TOK_ONLY);
+    RETURN_TOKEN(TOKEN_ONLY);
 }
 
 exist {
     parse_token_text();
-    RETURN_TOKEN(TOK_EXIST);
+    RETURN_TOKEN(TOKEN_EXIST);
 }
 
 interface {
     parse_token_text();
-    RETURN_TOKEN(TOK_INTERFACE);
+    RETURN_TOKEN(TOKEN_INTERFACE);
 }
 
 save {
     parse_token_text();
-    RETURN_TOKEN(TOK_SAVE);
+    RETURN_TOKEN(TOKEN_SAVE);
 }
 
 advance {
     parse_token_text();
-    RETURN_TOKEN(TOK_ADVANCE);
+    RETURN_TOKEN(TOKEN_ADVANCE);
 }
 
 stat {
     parse_token_text();
-    RETURN_TOKEN(TOK_STAT);
+    RETURN_TOKEN(TOKEN_STAT);
 }
 
 return {
     parse_token_text();
-    RETURN_TOKEN(TOK_RETURN);
+    RETURN_TOKEN(TOKEN_RETURN);
 }
 
 readwrite {
     parse_token_text();
-    RETURN_TOKEN(TOK_READWRITE);
+    RETURN_TOKEN(TOKEN_READWRITE);
 }
 
 assign {
     parse_token_text();
-    RETURN_TOKEN(TOK_ASSIGN);
+    RETURN_TOKEN(TOKEN_ASSIGN);
 }
 
 assignment {
     parse_token_text();
-    RETURN_TOKEN(TOK_ASSIGNMENT);
+    RETURN_TOKEN(TOKEN_ASSIGNMENT);
 }
 
 print {
     parse_token_text();
-    RETURN_TOKEN(TOK_PRINT);
+    RETURN_TOKEN(TOKEN_PRINT);
 }
 
 iostat {
     parse_token_text();
-    RETURN_TOKEN(TOK_IOSTAT);
+    RETURN_TOKEN(TOKEN_IOSTAT);
 }
 
 sync {
     parse_token_text();
-    RETURN_TOKEN(TOK_SYNC);
+    RETURN_TOKEN(TOKEN_SYNC);
 }
 
 complex {
     parse_token_text();
-    RETURN_TOKEN(TOK_COMPLEX);
+    RETURN_TOKEN(TOKEN_COMPLEX);
 }
 
 asynchronous {
     parse_token_text();
-    RETURN_TOKEN(TOK_ASYNCHRONOUS);
+    RETURN_TOKEN(TOKEN_ASYNCHRONOUS);
 }
 
 images {
     parse_token_text();
-    RETURN_TOKEN(TOK_IMAGES);
+    RETURN_TOKEN(TOKEN_IMAGES);
 }
 
 end {
     parse_token_text();
-    RETURN_TOKEN(TOK_END);
+    RETURN_TOKEN(TOKEN_END);
 }
 
 final {
     parse_token_text();
-    RETURN_TOKEN(TOK_FINAL);
+    RETURN_TOKEN(TOKEN_FINAL);
 }
 
 inout {
     parse_token_text();
-    RETURN_TOKEN(TOK_INOUT);
+    RETURN_TOKEN(TOKEN_INOUT);
 }
 
 nextrec {
     parse_token_text();
-    RETURN_TOKEN(TOK_NEXTREC);
+    RETURN_TOKEN(TOKEN_NEXTREC);
 }
 
 kind {
     parse_token_text();
-    RETURN_TOKEN(TOK_KIND);
+    RETURN_TOKEN(TOKEN_KIND);
 }
 
 common {
     parse_token_text();
-    RETURN_TOKEN(TOK_COMMON);
+    RETURN_TOKEN(TOKEN_COMMON);
 }
 
 blank {
     parse_token_text();
-    RETURN_TOKEN(TOK_BLANK);
+    RETURN_TOKEN(TOKEN_BLANK);
 }
 
 iolength {
     parse_token_text();
-    RETURN_TOKEN(TOK_IOLENGTH);
+    RETURN_TOKEN(TOKEN_IOLENGTH);
 }
 
 integer {
     parse_token_text();
-    RETURN_TOKEN(TOK_INTEGER);
+    RETURN_TOKEN(TOKEN_INTEGER);
 }
 
 deallocate {
     parse_token_text();
-    RETURN_TOKEN(TOK_DEALLOCATE);
+    RETURN_TOKEN(TOKEN_DEALLOCATE);
 }
 
 function {
     parse_token_text();
-    RETURN_TOKEN(TOK_FUNCTION);
+    RETURN_TOKEN(TOKEN_FUNCTION);
 }
 
 c {
     parse_token_text();
-    RETURN_TOKEN(TOK_C);
+    RETURN_TOKEN(TOKEN_C);
 }
 
 enumerator {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENUMERATOR);
+    RETURN_TOKEN(TOKEN_ENUMERATOR);
 }
 
 recursive {
     parse_token_text();
-    RETURN_TOKEN(TOK_RECURSIVE);
+    RETURN_TOKEN(TOKEN_RECURSIVE);
 }
 
 sequence {
     parse_token_text();
-    RETURN_TOKEN(TOK_SEQUENCE);
+    RETURN_TOKEN(TOKEN_SEQUENCE);
 }
 
 inquire {
     parse_token_text();
-    RETURN_TOKEN(TOK_INQUIRE);
+    RETURN_TOKEN(TOKEN_INQUIRE);
 }
 
 flush {
     parse_token_text();
-    RETURN_TOKEN(TOK_FLUSH);
+    RETURN_TOKEN(TOKEN_FLUSH);
 }
 
 else {
     parse_token_text();
-    RETURN_TOKEN(TOK_ELSE);
+    RETURN_TOKEN(TOKEN_ELSE);
 }
 
 intent {
     parse_token_text();
-    RETURN_TOKEN(TOK_INTENT);
+    RETURN_TOKEN(TOKEN_INTENT);
 }
 
 external {
     parse_token_text();
-    RETURN_TOKEN(TOK_EXTERNAL);
+    RETURN_TOKEN(TOKEN_EXTERNAL);
 }
 
 operator {
     parse_token_text();
-    RETURN_TOKEN(TOK_OPERATOR);
+    RETURN_TOKEN(TOKEN_OPERATOR);
 }
 
 optional {
     parse_token_text();
-    RETURN_TOKEN(TOK_OPTIONAL);
+    RETURN_TOKEN(TOKEN_OPTIONAL);
 }
 
 unit {
     parse_token_text();
-    RETURN_TOKEN(TOK_UNIT);
+    RETURN_TOKEN(TOKEN_UNIT);
 }
 
 size {
     parse_token_text();
-    RETURN_TOKEN(TOK_SIZE);
+    RETURN_TOKEN(TOKEN_SIZE);
 }
 
 nopass {
     parse_token_text();
-    RETURN_TOKEN(TOK_NOPASS);
+    RETURN_TOKEN(TOKEN_NOPASS);
 }
 
 type {
     parse_token_text();
-    RETURN_TOKEN(TOK_TYPE);
+    RETURN_TOKEN(TOKEN_TYPE);
 }
 
 mold {
     parse_token_text();
-    RETURN_TOKEN(TOK_MOLD);
+    RETURN_TOKEN(TOKEN_MOLD);
 }
 
 precision {
     parse_token_text();
-    RETURN_TOKEN(TOK_PRECISION);
+    RETURN_TOKEN(TOKEN_PRECISION);
 }
 
 pending {
     parse_token_text();
-    RETURN_TOKEN(TOK_PENDING);
+    RETURN_TOKEN(TOKEN_PENDING);
 }
 
 continue {
     parse_token_text();
-    RETURN_TOKEN(TOK_CONTINUE);
+    RETURN_TOKEN(TOKEN_CONTINUE);
 }
 
 result {
     parse_token_text();
-    RETURN_TOKEN(TOK_RESULT);
+    RETURN_TOKEN(TOKEN_RESULT);
 }
 
 real {
     parse_token_text();
-    RETURN_TOKEN(TOK_REAL);
+    RETURN_TOKEN(TOKEN_REAL);
 }
 
 then {
     parse_token_text();
-    RETURN_TOKEN(TOK_THEN);
+    RETURN_TOKEN(TOKEN_THEN);
 }
 
 stream {
     parse_token_text();
-    RETURN_TOKEN(TOK_STREAM);
+    RETURN_TOKEN(TOKEN_STREAM);
 }
 
 do {
     parse_token_text();
-    RETURN_TOKEN(TOK_DO);
+    RETURN_TOKEN(TOKEN_DO);
 }
 
 do/[[:blank:]]+[0-9]+ {
     parse_token_text();
 
     BEGIN(NONBLOCK_DO);
-    RETURN_TOKEN(TOK_DO);
+    RETURN_TOKEN(TOKEN_DO);
 }
 
 <NONBLOCK_DO>{
@@ -1587,7 +1587,7 @@ do/[[:blank:]]+[0-9]+ {
                     label);
         }
         BEGIN(INITIAL);
-        RETURN_TOKEN(TOK_SHARED_LABEL);
+        RETURN_TOKEN(TOKEN_SHARED_LABEL);
     }
     else
     {
@@ -1612,528 +1612,528 @@ do/[[:blank:]]+[0-9]+ {
 
 default {
     parse_token_text();
-    RETURN_TOKEN(TOK_DEFAULT);
+    RETURN_TOKEN(TOKEN_DEFAULT);
 }
 
 contiguous {
     parse_token_text();
-    RETURN_TOKEN(TOK_CONTIGUOUS);
+    RETURN_TOKEN(TOKEN_CONTIGUOUS);
 }
 
 stop {
     parse_token_text();
-    RETURN_TOKEN(TOK_STOP);
+    RETURN_TOKEN(TOKEN_STOP);
 }
 
 while {
     parse_token_text();
-    RETURN_TOKEN(TOK_WHILE);
+    RETURN_TOKEN(TOKEN_WHILE);
 }
 
 program {
     parse_token_text();
-    RETURN_TOKEN(TOK_PROGRAM);
+    RETURN_TOKEN(TOKEN_PROGRAM);
 }
 
 rec {
     parse_token_text();
-    RETURN_TOKEN(TOK_REC);
+    RETURN_TOKEN(TOKEN_REC);
 }
 
 open {
     parse_token_text();
-    RETURN_TOKEN(TOK_OPEN);
+    RETURN_TOKEN(TOKEN_OPEN);
 }
 
 case {
     parse_token_text();
-    RETURN_TOKEN(TOK_CASE);
+    RETURN_TOKEN(TOKEN_CASE);
 }
 
 recl {
     parse_token_text();
-    RETURN_TOKEN(TOK_RECL);
+    RETURN_TOKEN(TOKEN_RECL);
 }
 
 dimension {
     parse_token_text();
-    RETURN_TOKEN(TOK_DIMENSION);
+    RETURN_TOKEN(TOKEN_DIMENSION);
 }
 
 elemental {
     parse_token_text();
-    RETURN_TOKEN(TOK_ELEMENTAL);
+    RETURN_TOKEN(TOKEN_ELEMENTAL);
 }
 
 forall {
     parse_token_text();
-    RETURN_TOKEN(TOK_FORALL);
+    RETURN_TOKEN(TOKEN_FORALL);
 }
 
 position {
     parse_token_text();
-    RETURN_TOKEN(TOK_POSITION);
+    RETURN_TOKEN(TOKEN_POSITION);
 }
 
 fmt {
     parse_token_text();
-    RETURN_TOKEN(TOK_FMT);
+    RETURN_TOKEN(TOKEN_FMT);
 }
 
 read {
     parse_token_text();
-    RETURN_TOKEN(TOK_READ);
+    RETURN_TOKEN(TOKEN_READ);
 }
 
 out {
     parse_token_text();
-    RETURN_TOKEN(TOK_OUT);
+    RETURN_TOKEN(TOKEN_OUT);
 }
 
 lock {
     parse_token_text();
-    RETURN_TOKEN(TOK_LOCK);
+    RETURN_TOKEN(TOKEN_LOCK);
 }
 
 decimal {
     parse_token_text();
-    RETURN_TOKEN(TOK_DECIMAL);
+    RETURN_TOKEN(TOKEN_DECIMAL);
 }
 
 select {
     parse_token_text();
-    RETURN_TOKEN(TOK_SELECT);
+    RETURN_TOKEN(TOKEN_SELECT);
 }
 
 selectcase {
     parse_token_text();
-    RETURN_TOKEN(TOK_SELECTCASE);
+    RETURN_TOKEN(TOKEN_SELECTCASE);
 }
 
 direct {
     parse_token_text();
-    RETURN_TOKEN(TOK_DIRECT);
+    RETURN_TOKEN(TOKEN_DIRECT);
 }
 
 write {
     parse_token_text();
-    RETURN_TOKEN(TOK_WRITE);
+    RETURN_TOKEN(TOKEN_WRITE);
 }
 
 codimension {
     parse_token_text();
-    RETURN_TOKEN(TOK_CODIMENSION);
+    RETURN_TOKEN(TOKEN_CODIMENSION);
 }
 
 close {
     parse_token_text();
-    RETURN_TOKEN(TOK_CLOSE);
+    RETURN_TOKEN(TOKEN_CLOSE);
 }
 
 id {
     parse_token_text();
-    RETURN_TOKEN(TOK_ID);
+    RETURN_TOKEN(TOKEN_ID);
 }
 
 wait {
     parse_token_text();
-    RETURN_TOKEN(TOK_WAIT);
+    RETURN_TOKEN(TOKEN_WAIT);
 }
 
 all {
     parse_token_text();
-    RETURN_TOKEN(TOK_ALL);
+    RETURN_TOKEN(TOKEN_ALL);
 }
 
 elsewhere {
     parse_token_text();
-    RETURN_TOKEN(TOK_ELSEWHERE);
+    RETURN_TOKEN(TOKEN_ELSEWHERE);
 }
 
 len {
     parse_token_text();
-    RETURN_TOKEN(TOK_LEN);
+    RETURN_TOKEN(TOKEN_LEN);
 }
 
 impure {
     parse_token_text();
-    RETURN_TOKEN(TOK_IMPURE);
+    RETURN_TOKEN(TOKEN_IMPURE);
 }
 
 exit {
     parse_token_text();
-    RETURN_TOKEN(TOK_EXIT);
+    RETURN_TOKEN(TOKEN_EXIT);
 }
 
 rewind {
     parse_token_text();
-    RETURN_TOKEN(TOK_REWIND);
+    RETURN_TOKEN(TOKEN_REWIND);
 }
 
 backspace {
     parse_token_text();
-    RETURN_TOKEN(TOK_BACKSPACE);
+    RETURN_TOKEN(TOKEN_BACKSPACE);
 }
 
 nml {
     parse_token_text();
-    RETURN_TOKEN(TOK_NML);
+    RETURN_TOKEN(TOKEN_NML);
 }
 
 intrinsic {
     parse_token_text();
-    RETURN_TOKEN(TOK_INTRINSIC);
+    RETURN_TOKEN(TOKEN_INTRINSIC);
 }
 
 public {
     parse_token_text();
-    RETURN_TOKEN(TOK_PUBLIC);
+    RETURN_TOKEN(TOKEN_PUBLIC);
 }
 
 errmsg {
     parse_token_text();
-    RETURN_TOKEN(TOK_ERRMSG);
+    RETURN_TOKEN(TOKEN_ERRMSG);
 }
 
 namelist {
     parse_token_text();
-    RETURN_TOKEN(TOK_NAMELIST);
+    RETURN_TOKEN(TOKEN_NAMELIST);
 }
 
 use {
     parse_token_text();
-    RETURN_TOKEN(TOK_USE);
+    RETURN_TOKEN(TOKEN_USE);
 }
 
 submodule {
     parse_token_text();
-    RETURN_TOKEN(TOK_SUBMODULE);
+    RETURN_TOKEN(TOKEN_SUBMODULE);
 }
 
 err {
     parse_token_text();
-    RETURN_TOKEN(TOK_ERR);
+    RETURN_TOKEN(TOKEN_ERR);
 }
 
 encoding {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENCODING);
+    RETURN_TOKEN(TOKEN_ENCODING);
 }
 
 acquired {
     parse_token_text();
-    RETURN_TOKEN(TOK_ACQUIRED);
+    RETURN_TOKEN(TOKEN_ACQUIRED);
 }
 
 abstract {
     parse_token_text();
-    RETURN_TOKEN(TOK_ABSTRACT);
+    RETURN_TOKEN(TOKEN_ABSTRACT);
 }
 
 character {
     parse_token_text();
-    RETURN_TOKEN(TOK_CHARACTER);
+    RETURN_TOKEN(TOKEN_CHARACTER);
 }
 
 number {
     parse_token_text();
-    RETURN_TOKEN(TOK_NUMBER);
+    RETURN_TOKEN(TOKEN_NUMBER);
 }
 
 concurrent {
     parse_token_text();
-    RETURN_TOKEN(TOK_CONCURRENT);
+    RETURN_TOKEN(TOKEN_CONCURRENT);
 }
 
 endfile {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDFILE);
+    RETURN_TOKEN(TOKEN_ENDFILE);
 }
 
 parameter {
     parse_token_text();
-    RETURN_TOKEN(TOK_PARAMETER);
+    RETURN_TOKEN(TOKEN_PARAMETER);
 }
 
 data {
     parse_token_text();
-    RETURN_TOKEN(TOK_DATA);
+    RETURN_TOKEN(TOKEN_DATA);
 }
 
 pos {
     parse_token_text();
-    RETURN_TOKEN(TOK_POS);
+    RETURN_TOKEN(TOKEN_POS);
 }
 
 private {
     parse_token_text();
-    RETURN_TOKEN(TOK_PRIVATE);
+    RETURN_TOKEN(TOKEN_PRIVATE);
 }
 
 round {
     parse_token_text();
-    RETURN_TOKEN(TOK_ROUND);
+    RETURN_TOKEN(TOKEN_ROUND);
 }
 
 to {
     parse_token_text();
-    RETURN_TOKEN(TOK_TO);
+    RETURN_TOKEN(TOKEN_TO);
 }
 
 sequential {
     parse_token_text();
-    RETURN_TOKEN(TOK_SEQUENTIAL);
+    RETURN_TOKEN(TOKEN_SEQUENTIAL);
 }
 
 allocate {
     parse_token_text();
-    RETURN_TOKEN(TOK_ALLOCATE);
+    RETURN_TOKEN(TOKEN_ALLOCATE);
 }
 
 target {
     parse_token_text();
-    RETURN_TOKEN(TOK_TARGET);
+    RETURN_TOKEN(TOKEN_TARGET);
 }
 
 class {
     parse_token_text();
-    RETURN_TOKEN(TOK_CLASS);
+    RETURN_TOKEN(TOKEN_CLASS);
 }
 
 cycle {
     parse_token_text();
-    RETURN_TOKEN(TOK_CYCLE);
+    RETURN_TOKEN(TOKEN_CYCLE);
 }
 
 status {
     parse_token_text();
-    RETURN_TOKEN(TOK_STATUS);
+    RETURN_TOKEN(TOKEN_STATUS);
 }
 
 iomsg {
     parse_token_text();
-    RETURN_TOKEN(TOK_IOMSG);
+    RETURN_TOKEN(TOKEN_IOMSG);
 }
 
 form {
     parse_token_text();
-    RETURN_TOKEN(TOK_FORM);
+    RETURN_TOKEN(TOKEN_FORM);
 }
 
 is {
     parse_token_text();
-    RETURN_TOKEN(TOK_IS);
+    RETURN_TOKEN(TOKEN_IS);
 }
 
 none {
     parse_token_text();
-    RETURN_TOKEN(TOK_NONE);
+    RETURN_TOKEN(TOKEN_NONE);
 }
 
 value {
     parse_token_text();
-    RETURN_TOKEN(TOK_VALUE);
+    RETURN_TOKEN(TOKEN_VALUE);
 }
 
 unlock {
     parse_token_text();
-    RETURN_TOKEN(TOK_UNLOCK);
+    RETURN_TOKEN(TOKEN_UNLOCK);
 }
 
 formatted {
     parse_token_text();
-    RETURN_TOKEN(TOK_FORMATTED);
+    RETURN_TOKEN(TOKEN_FORMATTED);
 }
 
 in {
     parse_token_text();
-    RETURN_TOKEN(TOK_IN);
+    RETURN_TOKEN(TOKEN_IN);
 }
 
 implicit {
     parse_token_text();
-    RETURN_TOKEN(TOK_IMPLICIT);
+    RETURN_TOKEN(TOKEN_IMPLICIT);
 }
 
 if {
     parse_token_text();
-    RETURN_TOKEN(TOK_IF);
+    RETURN_TOKEN(TOKEN_IF);
 }
 
 associate {
     parse_token_text();
-    RETURN_TOKEN(TOK_ASSOCIATE);
+    RETURN_TOKEN(TOKEN_ASSOCIATE);
 }
 
 bind {
     parse_token_text();
-    RETURN_TOKEN(TOK_BIND);
+    RETURN_TOKEN(TOKEN_BIND);
 }
 
 allocatable {
     parse_token_text();
-    RETURN_TOKEN(TOK_ALLOCATABLE);
+    RETURN_TOKEN(TOKEN_ALLOCATABLE);
 }
 
 access {
     parse_token_text();
-    RETURN_TOKEN(TOK_ACCESS);
+    RETURN_TOKEN(TOKEN_ACCESS);
 }
 
 call {
     parse_token_text();
-    RETURN_TOKEN(TOK_CALL);
+    RETURN_TOKEN(TOKEN_CALL);
 }
 
 pure {
     parse_token_text();
-    RETURN_TOKEN(TOK_PURE);
+    RETURN_TOKEN(TOKEN_PURE);
 }
 
 memory {
     parse_token_text();
-    RETURN_TOKEN(TOK_MEMORY);
+    RETURN_TOKEN(TOKEN_MEMORY);
 }
 
 pointer {
     parse_token_text();
-    RETURN_TOKEN(TOK_POINTER);
+    RETURN_TOKEN(TOKEN_POINTER);
 }
 
 non_overridable {
     parse_token_text();
-    RETURN_TOKEN(TOK_NON_OVERRIDABLE);
+    RETURN_TOKEN(TOKEN_NON_OVERRIDABLE);
 }
 
 non_intrinsic {
     parse_token_text();
-    RETURN_TOKEN(TOK_NON_INTRINSIC);
+    RETURN_TOKEN(TOKEN_NON_INTRINSIC);
 }
 
 vector {
     parse_token_text();
-    RETURN_TOKEN(TOK_VECTOR);
+    RETURN_TOKEN(TOKEN_VECTOR);
 }
 
 pause {
     parse_token_text();
-    RETURN_TOKEN(TOK_PAUSE);
+    RETURN_TOKEN(TOKEN_PAUSE);
 }
 
 pixel {
     parse_token_text();
-    RETURN_TOKEN(TOK_PIXEL);
+    RETURN_TOKEN(TOKEN_PIXEL);
 }
 
  /* Combined versions */
 allstop {
     parse_token_text();
-    RETURN_TOKEN(TOK_ALLSTOP);
+    RETURN_TOKEN(TOKEN_ALLSTOP);
 }
 
 endif {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDIF);
+    RETURN_TOKEN(TOKEN_ENDIF);
 }
 
 endfunction {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDFUNCTION);
+    RETURN_TOKEN(TOKEN_ENDFUNCTION);
 }
 
 enddo {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDDO);
+    RETURN_TOKEN(TOKEN_ENDDO);
 }
 
 blockdata  {
     parse_token_text();
-    RETURN_TOKEN(TOK_BLOCKDATA);
+    RETURN_TOKEN(TOKEN_BLOCKDATA);
 }
 
 endmodule {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDMODULE);
+    RETURN_TOKEN(TOKEN_ENDMODULE);
 }
 
 doubleprecision  {
     parse_token_text();
-    RETURN_TOKEN(TOK_DOUBLEPRECISION);
+    RETURN_TOKEN(TOKEN_DOUBLEPRECISION);
 }
 
 doublecomplex  {
     parse_token_text();
-    RETURN_TOKEN(TOK_DOUBLECOMPLEX);
+    RETURN_TOKEN(TOKEN_DOUBLECOMPLEX);
 }
 
 endinterface {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDINTERFACE);
+    RETURN_TOKEN(TOKEN_ENDINTERFACE);
 }
 
 elseif  {
     parse_token_text();
-    RETURN_TOKEN(TOK_ELSEIF );
+    RETURN_TOKEN(TOKEN_ELSEIF );
 }
 
 endprocedure {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDPROCEDURE);
+    RETURN_TOKEN(TOKEN_ENDPROCEDURE);
 }
 
 elsewhere  {
     parse_token_text();
-    RETURN_TOKEN(TOK_ELSEWHERE);
+    RETURN_TOKEN(TOKEN_ELSEWHERE);
 }
 
 endprogram {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDPROGRAM);
+    RETURN_TOKEN(TOKEN_ENDPROGRAM);
 }
 
 endassociate  {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDASSOCIATE);
+    RETURN_TOKEN(TOKEN_ENDASSOCIATE);
 }
 
 endselect {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDSELECT);
+    RETURN_TOKEN(TOKEN_ENDSELECT);
 }
 
 endblock  {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDBLOCK);
+    RETURN_TOKEN(TOKEN_ENDBLOCK);
 }
 
 endsubmodule {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDSUBMODULE);
+    RETURN_TOKEN(TOKEN_ENDSUBMODULE);
 }
 
 endblockdata  {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDBLOCKDATA);
+    RETURN_TOKEN(TOKEN_ENDBLOCKDATA);
 }
 
 endsubroutine {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDSUBROUTINE);
+    RETURN_TOKEN(TOKEN_ENDSUBROUTINE);
 }
 
 endcritical  {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDCRITICAL);
+    RETURN_TOKEN(TOKEN_ENDCRITICAL);
 }
 
 endtype {
     parse_token_text();
-    RETURN_TOKEN(TOK_ENDTYPE);
+    RETURN_TOKEN(TOKEN_ENDTYPE);
 }
 
 goto {
     parse_token_text();
-    RETURN_TOKEN(TOK_GOTO);
+    RETURN_TOKEN(TOKEN_GOTO);
 }
 
  /* Non keyword tokens */
@@ -2145,7 +2145,7 @@ goto {
 
 "**" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_RAISE);
+	RETURN_TOKEN(TOKEN_RAISE);
 }
 
 "*" {
@@ -2161,7 +2161,7 @@ goto {
 
 "//" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_DOUBLE_SLASH);
+	RETURN_TOKEN(TOKEN_DOUBLE_SLASH);
 }
 
 "(" {
@@ -2186,107 +2186,107 @@ goto {
 
 "(/" { 
     parse_token_text();
-    RETURN_TOKEN(TOK_LPARENT_SLASH); 
+    RETURN_TOKEN(TOKEN_LPARENT_SLASH); 
 }
 
 "/)" { 
     parse_token_text();
-    RETURN_TOKEN(TOK_SLASH_RPARENT); 
+    RETURN_TOKEN(TOKEN_SLASH_RPARENT); 
 }
 
 "==" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_EQUAL);
+	RETURN_TOKEN(TOKEN_EQUAL);
 }
 
 ".eq." {
 	parse_token_text_str("==");
-	RETURN_TOKEN(TOK_EQUAL);
+	RETURN_TOKEN(TOKEN_EQUAL);
 }
 
 ".eqv." {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOGICAL_EQUIVALENT);
+	RETURN_TOKEN(TOKEN_LOGICAL_EQUIVALENT);
 }
 
 "/=" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_NOT_EQUAL);
+	RETURN_TOKEN(TOKEN_NOT_EQUAL);
 }
 
 ".neqv." {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOGICAL_NOT_EQUIVALENT);
+	RETURN_TOKEN(TOKEN_LOGICAL_NOT_EQUIVALENT);
 }
 
 ".ne." {
 	parse_token_text_str("/=");
-	RETURN_TOKEN(TOK_NOT_EQUAL);
+	RETURN_TOKEN(TOKEN_NOT_EQUAL);
 }
 
 ".lt." {
 	parse_token_text_str("<");
-	RETURN_TOKEN(TOK_LOWER_THAN);
+	RETURN_TOKEN(TOKEN_LOWER_THAN);
 }
 
 "<" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOWER_THAN);
+	RETURN_TOKEN(TOKEN_LOWER_THAN);
 }
 
 ".le." {
 	parse_token_text_str("<=");
-	RETURN_TOKEN(TOK_LOWER_OR_EQUAL_THAN);
+	RETURN_TOKEN(TOKEN_LOWER_OR_EQUAL_THAN);
 }
 
 "<=" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOWER_OR_EQUAL_THAN);
+	RETURN_TOKEN(TOKEN_LOWER_OR_EQUAL_THAN);
 }
 
 ".gt." {
 	parse_token_text_str(">");
-	RETURN_TOKEN(TOK_GREATER_THAN);
+	RETURN_TOKEN(TOKEN_GREATER_THAN);
 }
 
 ">" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_GREATER_THAN);
+	RETURN_TOKEN(TOKEN_GREATER_THAN);
 }
 
 ".ge." {
 	parse_token_text_str(">=");
-	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
+	RETURN_TOKEN(TOKEN_GREATER_OR_EQUAL_THAN);
 }
 
 ">=" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_GREATER_OR_EQUAL_THAN);
+	RETURN_TOKEN(TOKEN_GREATER_OR_EQUAL_THAN);
 }
 
 ".and." {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOGICAL_AND);
+	RETURN_TOKEN(TOKEN_LOGICAL_AND);
 }
 
 ".or." {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOGICAL_OR);
+	RETURN_TOKEN(TOKEN_LOGICAL_OR);
 }
 
 ".not." {
 	parse_token_text();
-	RETURN_TOKEN(TOK_LOGICAL_NOT);
+	RETURN_TOKEN(TOKEN_LOGICAL_NOT);
 }
 
 ".true."(_{kind})? {
 	parse_token_text();
-	RETURN_TOKEN(TOK_TRUE);
+	RETURN_TOKEN(TOKEN_TRUE);
 }
 
 ".false."(_{kind})? {
 	parse_token_text();
-	RETURN_TOKEN(TOK_FALSE);
+	RETURN_TOKEN(TOKEN_FALSE);
 }
 
 "," {
@@ -2296,7 +2296,7 @@ goto {
 
 "=>" {
 	parse_token_text();
-	RETURN_TOKEN(TOK_POINTER_ACCESS);
+	RETURN_TOKEN(TOKEN_POINTER_ACCESS);
 }
 
 "=" {

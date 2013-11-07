@@ -29,10 +29,7 @@
 /*
    Parser of ISO/IEC 14882:2003 - C++
 
-   It parses a superset of the language.
-
-   Must be compiled with rofi-bison-2.3
-   Ask for it at <rferrer@ac.upc.edu>
+   Accepts a superset of the language that must be typechecked later
  */
 
 #include "cxx-ast.h"
@@ -83,7 +80,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> ANDAND "&&"
 %token<token_atrib> AND_ASSIGN "&="
 %token<token_atrib> ASM "__asm__"
-%token<token_atrib> AUTO "auto"
+%token<token_atrib> TOKEN_AUTO_STORAGE "auto storage-specifier"
+%token<token_atrib> TOKEN_AUTO_TYPE "auto type-specifier"
 %token<token_atrib> TOKEN_BOOL "bool"
 %token<token_atrib> BOOLEAN_LITERAL "boolean-literal"
 %token<token_atrib> BREAK "break"
@@ -136,6 +134,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> NOT_EQUAL "!="
 %token<token_atrib> OCTAL_LITERAL "octal-literal"
 %token<token_atrib> OPERATOR "operator"
+%token<token_atrib> OPERATOR_LITERAL "literal-operator-id"
 %token<token_atrib> OR_ASSIGN "|="
 %token<token_atrib> OROR "||"
 %token<token_atrib> PLUSPLUS "++"
@@ -171,6 +170,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> TOKEN_VOID "void"
 %token<token_atrib> TOKEN_VOLATILE "volatile"
 %token<token_atrib> TOKEN_WCHAR_T "wchar_t"
+%token<token_atrib> TOKEN_CHAR16_T "char16_t"
+%token<token_atrib> TOKEN_CHAR32_T "char32_t"
+%token<token_atrib> TOKEN_ALIGNOF "alignof"
 %token<token_atrib> WHILE "while"
 %token<token_atrib> XOR_ASSIGN "^="
 
@@ -237,6 +239,11 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> '}'
 %token<token_atrib> '~'
 
+%token<token_atrib> TOKEN_CONSTEXPR "constexpr"
+%token<token_atrib> TOKEN_THREAD_LOCAL "thread_local"
+%token<token_atrib> TOKEN_NULLPTR "nullptr"
+%token<token_atrib> TOKEN_NOEXCEPT "noexcept"
+
 // Tokens implemented with grammar
 %type<token_atrib> right_token
 %type<token_atrib> right_assign_token
@@ -246,7 +253,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // GNU Extensions
 %token<token_atrib> BUILTIN_VA_ARG "__builtin_va_arg"
 %token<token_atrib> BUILTIN_OFFSETOF "__builtin_offsetof"
-%token<token_atrib> ALIGNOF "__alignof__"
+%token<token_atrib> TOKEN_GCC_ALIGNOF "__alignof__"
 %token<token_atrib> EXTENSION "__extension__"
 %token<token_atrib> REAL "__real__"
 %token<token_atrib> IMAG "__imag__"
@@ -254,13 +261,17 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> COMPLEX "__complex__"
 %token<token_atrib> TYPEOF "__typeof__"
 %token<token_atrib> RESTRICT "__restrict__"
-%token<token_atrib> ATTRIBUTE "__attribute__"
+%token<token_atrib> TOKEN_GCC_ATTRIBUTE "__attribute__"
 %token<token_atrib> THREAD "__thread__"
 
 
 // Nonterminals
 %type<ast> abstract_declarator
+%type<ast> abstract_main_declarator
 %type<ast> abstract_direct_declarator
+%type<ast> abstract_declarator_not_ellipsis
+%type<ast> abstract_main_declarator_not_ellipsis
+%type<ast> abstract_direct_declarator_not_ellipsis
 %type<ast> access_specifier
 %type<ast> additive_expression
 %type<ast> and_expression
@@ -268,14 +279,17 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> asm_operand
 %type<ast> asm_operand_list
 %type<ast> asm_operand_list_nonempty
+%type<ast> gcc_extra_bits_init_declarator_opt
+%type<ast> gcc_extra_bits_init_declarator
 %type<ast> asm_specification
 %type<ast> assignment_expression
-%type<ast> attribute
-%type<ast> attribute_list
-%type<ast> attributes
-%type<ast> attributes_opt
-%type<ast> attribute_value
+%type<ast> gcc_attribute
+%type<ast> gcc_attribute_list
+%type<ast> gcc_attributes
+%type<ast> gcc_attributes_opt
+%type<ast> gcc_attribute_value
 %type<ast> base_clause
+%type<ast> base_clause_opt
 %type<ast> base_specifier
 %type<ast> base_specifier_list
 %type<ast> block_declaration
@@ -284,6 +298,10 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> builtin_types
 %type<ast> cast_expression
 %type<ast> class_head
+%type<ast> class_head_name
+%type<ast> class_virt_specifier_seq_opt
+%type<ast> class_virt_specifier_seq
+%type<ast> class_virt_specifier
 %type<ast> class_key
 %type<ast> class_or_namespace_name
 %type<ast> class_specifier
@@ -292,6 +310,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> condition_opt
 %type<ast> conditional_expression
 %type<ast> constant_expression
+%type<ast> constant_expression_opt
 %type<ast> conversion_declarator
 %type<ast> conversion_function_id
 %type<ast> conversion_type_id
@@ -299,8 +318,10 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> ctor_initializer_opt
 %type<ast> cv_qualifier
 %type<ast> cv_qualifier_seq
+%type<ast> cv_qualifier_seq_opt
 %type<ast> declaration
 %type<ast> declaration_sequence
+%type<ast> declaration_sequence_opt
 %type<ast> declaration_statement
 %type<ast> declarator
 %type<ast> declarator_id
@@ -314,15 +335,22 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> designator_list
 %type<ast> offsetof_member_designator
 %type<ast> direct_declarator
+%type<ast> main_declarator
 %type<ast> direct_new_declarator
 %type<ast> elaborated_type_specifier
 %type<ast> enumeration_definition
 %type<ast> enumeration_list
-%type<ast> enumeration_list_proper
+%type<ast> enumeration_list_opt
+%type<ast> enum_base_opt
+%type<ast> enum_base_type_specifier_seq
+%type<ast> enum_head
+%type<ast> enum_key
 %type<ast> enum_specifier
 %type<ast> equality_expression
 %type<ast> exception_declaration
 %type<ast> exception_specification
+%type<ast> dynamic_exception_specification
+%type<ast> noexcept_specification
 %type<ast> exclusive_or_expression
 %type<ast> explicit_instantiation
 %type<ast> explicit_specialization
@@ -332,10 +360,12 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> expression_statement
 %type<ast> for_init_statement
 %type<ast> non_functional_declarator
+%type<ast> non_functional_main_declarator
 %type<ast> non_functional_direct_declarator
 %type<ast> nonglobal_non_functional_declarator
 %type<ast> nonglobal_non_functional_direct_declarator
 %type<ast> functional_declarator
+%type<ast> functional_main_declarator
 %type<ast> functional_declarator_id
 %type<ast> functional_direct_declarator
 %type<ast> functional_final_declarator_id
@@ -359,6 +389,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> parent_initializer_ctor
 %type<ast> equal_or_parent_initializer
 %type<ast> iteration_statement
+%type<ast> for_range_declaration
 %type<ast> jump_statement
 %type<ast> label_declaration
 %type<ast> label_declarator_seq
@@ -372,12 +403,19 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> member_declarator_list
 %type<ast> member_specification
 %type<ast> member_specification_seq
+%type<ast> virt_specifier_seq
+// %type<ast> virt_specifier_seq_opt
+%type<ast> virt_specifier
+%type<ast> gcc_attr_or_virt_specifier_seq_opt
+%type<ast> gcc_attr_or_virt_specifier_seq
+%type<ast> gcc_attr_or_virt_specifier
 %type<ast> mem_initializer
 %type<ast> mem_initializer_id
 %type<ast> mem_initializer_list
 %type<ast> multiplicative_expression
 %type<ast> named_namespace_definition
 %type<ast> namespace_inline
+%type<ast> namespace_inline_opt
 %type<ast> namespace_alias_definition
 %type<ast> namespace_definition
 %type<ast> nested_name_specifier
@@ -388,6 +426,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> new_placement
 %type<ast> new_type_id
 %type<ast> nonabstract_declarator
+%type<ast> nonabstract_main_declarator
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
 %type<ast> nontype_specifier_but_SUSL
@@ -404,6 +443,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> operator
 %type<ast> operator_function_id
 %type<ast> parameter_declaration
+%type<ast> parameters_and_qualifiers
+%type<ast> ref_qualifier_opt
+%type<ast> ref_qualifier
 %type<ast> parameter_declaration_clause
 %type<ast> parameter_declaration_clause_nonempty
 %type<ast> parameter_declaration_list
@@ -458,7 +500,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> translation_unit
 %type<ast> try_block
 %type<ast> type_id
-%type<ast> type_id_list
+%type<ast> type_id_not_ellipsis
+%type<ast> throw_type_id_list
 %type<ast> type_parameter
 %type<ast> type_specifier_ended_with_identifier
 %type<ast> type_specifier_not_ended_with_identifier
@@ -471,6 +514,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
+%type<ast> alias_declaration
 %type<ast> using_declaration
 %type<ast> using_directive
 %type<ast> volatile_optional
@@ -478,11 +522,45 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> gnu_type_traits
 %type<ast> braced_init_list
 
+%type<ast> abstract_declarator_opt
+%type<ast> exception_specification_opt
+%type<ast> identifier_opt
+%type<ast> mutable_opt
+
+// These include gcc and C++11
+%type<ast> attribute_specifier
+%type<ast> attribute_specifier_opt
+%type<ast> attribute_specifier_seq
+%type<ast> attribute_specifier_seq_opt
+%type<ast> attribute_specifier_seq_and_virt_specifier_seq
+%type<ast> attribute_specifier_seq_and_virt_specifier_seq_opt
+
+// These are C++11 only
+%type<ast> std_attribute_specifier
+%type<ast> std_attribute_specifier_seq
+%type<ast> std_attribute_specifier_seq_opt
+
+%type<ast> std_attribute_list
+
+%type<ast> trailing_return_type
+%type<ast> trailing_return_type_opt
+%type<ast> trailing_type_specifier_seq
+%type<ast> trailing_type_specifier
+
+%type<ast> lambda_capture
+%type<ast> lambda_capture_default
+%type<ast> lambda_capture_list
+%type<ast> lambda_declarator
+%type<ast> lambda_expression
+%type<ast> lambda_introducer
+
 // Nonglobal versions of some productions
 // their FIRST set should never include '::' (TWO_COLONS)
 %type<ast> nonglobal_abstract_declarator
+%type<ast> nonglobal_abstract_declarator_not_ellipsis
 %type<ast> nonglobal_conversion_declarator
 %type<ast> nonglobal_declarator
+%type<ast> nonglobal_main_declarator
 %type<ast> nonglobal_declarator_id
 %type<ast> nonglobal_direct_declarator
 %type<ast> nonglobal_functional_declarator
@@ -557,6 +635,16 @@ declaration_sequence : declaration
 }
 ;
 
+declaration_sequence_opt : /* empty */
+{
+    $$ = NULL;
+}
+| declaration_sequence
+{
+	$$ = $1;
+}
+;
+
 declaration : block_declaration 
 {
 	$$ = $1;
@@ -617,54 +705,29 @@ namespace_inline : INLINE
 }
 ;
 
-// extension_namespace_definition generates exactly the same
-// so it is not repeated
-named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
+namespace_inline_opt : /* empty */
 {
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, identif, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = NULL;
 }
-| NAMESPACE IDENTIFIER '{' '}'
+| namespace_inline
 {
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, identif, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-// GNU extensions
-| namespace_inline NAMESPACE IDENTIFIER attributes_opt '{' declaration_sequence '}'
-{
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
-
-	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, $6, $4, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
-}
-| namespace_inline NAMESPACE IDENTIFIER attributes_opt '{' '}'
-{
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
-
-	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, NULL, $4, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
-}
-| NAMESPACE IDENTIFIER attributes '{' declaration_sequence '}'
-{
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, $5, $3, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| NAMESPACE IDENTIFIER attributes '{' '}'
-{
-	AST identif = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, NULL, $3, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = $1;
 }
 ;
 
-unnamed_namespace_definition : NAMESPACE '{' declaration_sequence '}'
+// extension_namespace_definition generates exactly the same
+// so it is not repeated
+named_namespace_definition : namespace_inline_opt NAMESPACE IDENTIFIER gcc_attributes_opt '{' declaration_sequence_opt '}'
 {
-	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST identif = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+
+	$$ = ASTMake4(AST_NAMESPACE_DEFINITION, identif, $6, $4, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| NAMESPACE '{' '}'
+;
+
+unnamed_namespace_definition : NAMESPACE '{' declaration_sequence_opt '}'
 {
-	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_NAMESPACE_DEFINITION, NULL, $3, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -712,6 +775,10 @@ common_block_declaration : asm_definition
 {
     $$ = $1;
 }
+| alias_declaration
+{
+    $$ = $1;
+}
 | EXTENSION block_declaration
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
@@ -725,6 +792,14 @@ common_block_declaration : asm_definition
 | PP_TOKEN
 {
 	$$ = ASTLeaf(AST_PP_TOKEN, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
+alias_declaration : USING IDENTIFIER '=' type_id ';'
+{
+    AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+
+    $$ = ASTMake2(AST_ALIAS_DECLARATION, identifier, $4, ast_get_locus(identifier), NULL);
 }
 ;
 
@@ -749,48 +824,48 @@ label_declarator_seq : IDENTIFIER
 /* End of GNU extension */
 
 /* GNU Extension */
-attributes : attributes attribute
+gcc_attributes : gcc_attributes gcc_attribute
 {
 	$$ = ASTList($1, $2);
 }
-| attribute
+| gcc_attribute
 {
 	$$ = ASTListLeaf($1);
 }
 ;
 
-attributes_opt : attributes
+gcc_attributes_opt : gcc_attributes
 {
     $$ = $1;
 }
-| 
+| /* empty */
 {
     $$ = NULL;
 }
 ;
 
-attribute : ATTRIBUTE '(' '(' attribute_list ')' ')'
+gcc_attribute : TOKEN_GCC_ATTRIBUTE '(' '(' gcc_attribute_list ')' ')'
 {
 	$$ = ASTMake1(AST_GCC_ATTRIBUTE, $4, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| ATTRIBUTE '(''(' ')'')'
+| TOKEN_GCC_ATTRIBUTE '(''(' ')'')'
 {
 	$$ = ASTMake1(AST_GCC_ATTRIBUTE, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
-attribute_list : attribute_value
+gcc_attribute_list : gcc_attribute_value
 {
 	$$ = ASTListLeaf($1);
 }
-| attribute_list ',' attribute_value
+| gcc_attribute_list ',' gcc_attribute_value
 {
 	$$ = ASTList($1, $3);
 }
 ;
 
 // Why on earth ASTSon1 is always null ?
-attribute_value : IDENTIFIER
+gcc_attribute_value : IDENTIFIER
 {
 	AST identif = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -933,6 +1008,80 @@ asm_operand : string_literal '(' expression ')'
 ;
 /* End of GNU extensions */
 
+attribute_specifier_opt : /* empty */
+{
+    $$ = NULL;
+}
+| attribute_specifier
+{
+    $$ = $1;
+}
+;
+
+std_attribute_specifier : '[' '[' std_attribute_list ']' ']'
+{
+    $$ = ASTMake1(AST_ATTRIBUTE_SPECIFIER, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+std_attribute_list : /* empty */
+{
+    // FIXME - Not yet implemented
+    $$ = NULL;
+}
+;
+
+attribute_specifier : std_attribute_specifier
+{
+    $$ = $1;
+}
+| gcc_attribute
+{
+    $$ = $1;
+}
+;
+
+attribute_specifier_seq : attribute_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| attribute_specifier_seq attribute_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+std_attribute_specifier_seq : std_attribute_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| std_attribute_specifier_seq std_attribute_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+std_attribute_specifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| std_attribute_specifier_seq
+{
+    $$ = $1;
+}
+;
+
+attribute_specifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| attribute_specifier_seq
+{
+    $$ = $1;
+}
+;
+
+
 static_assert_declaration : STATIC_ASSERT '(' constant_expression ',' string_literal ')' ';'
 {
     $$ = ASTMake2(AST_STATIC_ASSERT, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
@@ -957,14 +1106,9 @@ using_declaration : USING id_type_expr ';'
 }
 ;
 
-using_directive : USING NAMESPACE id_expression ';'
+using_directive : USING NAMESPACE id_expression gcc_attributes_opt ';'
 {
-	$$ = ASTMake1(AST_USING_NAMESPACE_DIRECTIVE, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-// GNU extension
-| USING NAMESPACE id_expression attributes ';'
-{
-	$$ = ASTMake2(AST_GCC_USING_NAMESPACE_DIRECTIVE, $3, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_USING_NAMESPACE_DIRECTIVE, $3, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -1071,7 +1215,7 @@ decl_specifier_seq_ended_with_named_type_spec : nontype_specifier_seq_for_named 
 
 // This does not declare an object, maybe just types, so restrict it a bit
 // 
-// Note that, in contrast to decl_specifier_seq, we allow here to end with an attribute
+// Note that, in contrast to decl_specifier_seq, we allow here to end with an gcc_attribute
 // ('nontype_specifier_seq' instead of 'nontype_specifier_no_end_attrib_seq')
 // In these cases there is not any declarator, so a trailing __attribute__ would not be
 // valid
@@ -1149,7 +1293,7 @@ nontype_specifier : nontype_specifier_without_attribute
     $$ = $1;
 }
 // GNU extension
-| attribute
+| gcc_attribute
 {
 	$$ = $1;
 }
@@ -1215,7 +1359,7 @@ nontype_specifier_for_named : nontype_specifier_for_named_without_attribute
     $$ = $1;
 }
 // GNU extension
-| attribute
+| gcc_attribute
 {
 	$$ = $1;
 }
@@ -1245,6 +1389,10 @@ nontype_specifier_without_attribute : storage_class_specifier
 {
     $$ = $1;
 }
+| TOKEN_CONSTEXPR
+{
+	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 // GNU Extension
 | COMPLEX
 {
@@ -1252,9 +1400,9 @@ nontype_specifier_without_attribute : storage_class_specifier
 }
 ;
 
-storage_class_specifier : AUTO 
+storage_class_specifier : TOKEN_AUTO_STORAGE
 {
-	$$ = ASTLeaf(AST_AUTO_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_AUTO_STORAGE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | REGISTER
 {
@@ -1271,6 +1419,10 @@ storage_class_specifier : AUTO
 | MUTABLE
 {
 	$$ = ASTLeaf(AST_MUTABLE_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_THREAD_LOCAL
+{
+	$$ = ASTLeaf(AST_THREAD_LOCAL_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 // GNU Extension
 | THREAD
@@ -1505,28 +1657,31 @@ builtin_types : TOKEN_CHAR
 {
 	$$ = ASTLeaf(AST_GCC_FLOAT128, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
+| TOKEN_CHAR16_T
+{
+	$$ = ASTLeaf(AST_CHAR16_T, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_CHAR32_T
+{
+	$$ = ASTLeaf(AST_CHAR32_T, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_AUTO_TYPE
+{
+	$$ = ASTLeaf(AST_AUTO_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 ;
 
-elaborated_type_specifier : class_key id_type_expr
+elaborated_type_specifier : class_key attribute_specifier_seq_opt id_type_expr
 {
-	$$ = ASTMake2(AST_ELABORATED_TYPE_CLASS_SPEC, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPE_CLASS_SPEC, $1, $3, $2, ast_get_locus($1), NULL);
 }
-| ENUM id_type_expr
+| enum_key attribute_specifier_seq_opt id_type_expr enum_base_opt
 {
-	$$ = ASTMake1(AST_ELABORATED_TYPE_ENUM_SPEC, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM_SPEC, $3, $2, $4, $1, ast_get_locus($1), NULL);
 }
 | TYPENAME qualified_id_type_expr
 {
 	$$ = ASTMake1(AST_ELABORATED_TYPENAME_SPEC, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-// GNU Extensions
-| class_key attributes id_type_expr
-{
-	$$ = ASTMake3(AST_GCC_ELABORATED_TYPE_CLASS_SPEC, $1, $3, $2, ast_get_locus($1), NULL);
-}
-| ENUM attributes id_type_expr
-{
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_ENUM_SPEC, $3, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -1561,81 +1716,31 @@ nonglobal_init_declarator_list : nonglobal_init_declarator
 }
 ;
 
-init_declarator : declarator %merge<ambiguityHandler>
+init_declarator : declarator gcc_extra_bits_init_declarator_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| declarator equal_or_parent_initializer %merge<ambiguityHandler>
+| declarator gcc_extra_bits_init_declarator_opt equal_or_parent_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
-| non_functional_declarator braced_init_list %merge<ambiguityHandler>
+| non_functional_declarator gcc_extra_bits_init_declarator_opt braced_init_list %merge<ambiguityHandler>
 {
-    $$ = ASTMake2(AST_INIT_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-// GNU Extensions
-| declarator asm_specification %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, NULL, ast_get_locus($1), NULL);
-}
-| declarator attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
-}
-| declarator asm_specification attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, $3, ast_get_locus($1), NULL);
-}
-| declarator asm_specification initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, $2, NULL, ast_get_locus($1), NULL);
-}
-| declarator attributes initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, NULL, $2, ast_get_locus($1), NULL);
-}
-| declarator asm_specification attributes initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $4, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake3(AST_INIT_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
 ;
 
-nonglobal_init_declarator : nonglobal_declarator %merge<ambiguityHandler>
+nonglobal_init_declarator : nonglobal_declarator gcc_extra_bits_init_declarator_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| nonglobal_declarator equal_or_parent_initializer %merge<ambiguityHandler>
+| nonglobal_declarator gcc_extra_bits_init_declarator_opt equal_or_parent_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
-| nonglobal_non_functional_declarator braced_init_list %merge<ambiguityHandler>
+| nonglobal_non_functional_declarator gcc_extra_bits_init_declarator_opt braced_init_list %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-// GNU Extensions
-| nonglobal_declarator asm_specification  %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_declarator attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
-}
-| nonglobal_declarator asm_specification attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, $3, ast_get_locus($1), NULL);
-}
-| nonglobal_declarator asm_specification initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, $2, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_declarator attributes initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, NULL, $2, ast_get_locus($1), NULL);
-}
-| nonglobal_declarator asm_specification attributes initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $4, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_INIT_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1647,22 +1752,31 @@ asm_specification : ASM '(' string_literal ')'
 ;
 /* End of GNU Extension */
 
-nonglobal_declarator : nonglobal_direct_declarator
+nonglobal_declarator : nonglobal_main_declarator
+{
+    $$ = $1;
+}
+| nonglobal_main_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+nonglobal_main_declarator : nonglobal_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| nonglobal_ptr_operator declarator
+| nonglobal_ptr_operator main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-/* GNU Extension */
-| attributes direct_declarator
+| attribute_specifier_seq direct_declarator
 {
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator declarator
+| attribute_specifier_seq ptr_operator main_declarator
 {
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1670,18 +1784,17 @@ nonglobal_non_functional_declarator : nonglobal_non_functional_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| nonglobal_ptr_operator non_functional_declarator
+| nonglobal_ptr_operator non_functional_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-/* GNU Extension */
-| attributes non_functional_direct_declarator
+| attribute_specifier_seq non_functional_direct_declarator
 {
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator non_functional_declarator
+| attribute_specifier_seq ptr_operator non_functional_main_declarator
 {
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1697,28 +1810,37 @@ nonglobal_non_functional_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
-| '(' non_functional_declarator ')'
+| '(' non_functional_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-declarator : direct_declarator
+declarator : main_declarator
+{
+    $$ = $1;
+}
+| main_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+main_declarator : direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| ptr_operator declarator
+| ptr_operator main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-/* GNU Extension */
-| attributes direct_declarator
+| attribute_specifier_seq direct_declarator
 {
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator declarator
+| attribute_specifier_seq ptr_operator main_declarator
 {
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1742,7 +1864,7 @@ nonglobal_ptr_operator : '*'
 {
 	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-// C++0x
+// C++11
 | ANDAND
 {
     $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
@@ -1779,7 +1901,7 @@ ptr_operator : '*'
 {
 	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-// C++0x
+// C++11
 | ANDAND
 {
     $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
@@ -1800,22 +1922,31 @@ ptr_operator : '*'
    A nonfunctional declarator will never generate a function declarator
  */
 
-non_functional_declarator : non_functional_direct_declarator
+non_functional_declarator : non_functional_main_declarator
+{
+    $$ = $1;
+}
+| non_functional_main_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+non_functional_main_declarator : non_functional_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| ptr_operator non_functional_declarator
+| ptr_operator non_functional_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-// GNU extension
-| attributes non_functional_direct_declarator
+| attribute_specifier_seq non_functional_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator non_functional_declarator
+| attribute_specifier_seq ptr_operator non_functional_main_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1831,7 +1962,7 @@ non_functional_direct_declarator : declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
-| '(' non_functional_declarator ')'
+| '(' non_functional_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -1841,22 +1972,72 @@ non_functional_direct_declarator : declarator_id %dprec 2
    A functional declarator is a syntactic enforced declarator that will have
    a functional nature
  */
-functional_declarator : functional_direct_declarator
+
+functional_declarator : functional_main_declarator
+{
+    $$ = $1;
+}
+| functional_main_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+functional_main_declarator : functional_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| ptr_operator functional_declarator
+| ptr_operator functional_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
 // GNU extension
-| attributes functional_direct_declarator
+| attribute_specifier_seq functional_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator functional_declarator
+| attribute_specifier_seq ptr_operator functional_main_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($1), NULL);
+}
+;
+
+// I think they could not cram more stuff here, but let's wait for C++2014
+parameters_and_qualifiers : '(' parameter_declaration_clause ')'
+                                          std_attribute_specifier_seq_opt
+                                          cv_qualifier_seq_opt
+                                          ref_qualifier_opt
+                                          exception_specification_opt
+{
+    $$ = ASTMake4(AST_PARAMETERS_AND_QUALIFIERS,
+            $2,
+            ASTMake4(AST_PARAMETERS_AND_QUALIFIERS_EXTRA, $4, $5, $6, $7,
+                    make_locus($1.token_file, $1.token_line, 0),
+                    NULL),
+            NULL, NULL,
+            make_locus($1.token_file, $1.token_line, 0),
+            NULL);
+}
+;
+
+ref_qualifier_opt : /* empty */
+{
+    $$ = NULL;
+}
+| ref_qualifier
+{
+    $$ = $1;
+}
+;
+
+ref_qualifier : '&'
+{
+	$$ = ASTLeaf(AST_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+// C++11
+| ANDAND
+{
+    $$ = ASTLeaf(AST_RVALUE_REFERENCE_SPEC, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -1864,51 +2045,23 @@ functional_direct_declarator : functional_declarator_id %dprec 2
 {
 	$$ = $1;
 }
-| functional_direct_declarator '(' parameter_declaration_clause ')'
+| functional_direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
-| functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| functional_direct_declarator '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
-}
-| functional_direct_declarator '[' constant_expression ']'
+| functional_direct_declarator '[' constant_expression_opt ']' %dprec 1
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| functional_direct_declarator '[' ']' %dprec 1
-{
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
-}
-| '(' functional_declarator ')'
+| '(' functional_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-functional_declarator_id : functional_final_declarator_id '(' parameter_declaration_clause ')'
+functional_declarator_id : functional_final_declarator_id parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| functional_final_declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| functional_final_declarator_id '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| functional_final_declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1927,18 +2080,18 @@ nonglobal_functional_declarator : nonglobal_functional_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| ptr_operator functional_declarator
+| ptr_operator functional_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
 // GNU extension
-| attributes functional_direct_declarator
+| attribute_specifier_seq functional_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator functional_declarator
+| attribute_specifier_seq ptr_operator functional_main_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $2, $3, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -1946,51 +2099,23 @@ nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id %dpr
 {
 	$$ = $1;
 }
-| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')'
+| nonglobal_functional_direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
-| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
-}
-| nonglobal_functional_direct_declarator '[' constant_expression ']'
+| nonglobal_functional_direct_declarator '[' constant_expression_opt ']' %dprec 1
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| nonglobal_functional_direct_declarator '[' ']' %dprec 1
-{
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
-}
-| '(' functional_declarator ')'
+| '(' functional_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-nonglobal_functional_declarator_id : nonglobal_functional_final_declarator_id '(' parameter_declaration_clause ')'
+nonglobal_functional_declarator_id : nonglobal_functional_final_declarator_id parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_functional_final_declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_functional_final_declarator_id '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| nonglobal_functional_final_declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
@@ -2002,6 +2127,62 @@ nonglobal_functional_final_declarator_id : nonglobal_declarator_id
 | '(' functional_final_declarator_id ')'
 {
     $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+trailing_return_type : PTR_OP trailing_type_specifier_seq abstract_declarator_opt
+{
+    $$ = ASTMake2(AST_TRAILING_RETURN, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+trailing_return_type_opt : /* empty */
+{
+    $$ = NULL;
+}
+| trailing_return_type
+{
+    $$ = $1;
+}
+;
+
+abstract_declarator_opt : /* empty */
+{
+    $$ = NULL;
+}
+| abstract_declarator
+{
+    $$ = $1;
+}
+;
+
+trailing_type_specifier_seq : trailing_type_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| trailing_type_specifier_seq trailing_type_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+trailing_type_specifier : type_specifier_alone
+{
+    $$ = $1;
+}
+| cv_qualifier
+{
+    $$ = $1;
+}
+;
+
+cv_qualifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| cv_qualifier_seq
+{
+    $$ = $1;
 }
 ;
 
@@ -2034,21 +2215,9 @@ nonglobal_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = $1;
 }
-| nonglobal_direct_declarator '(' parameter_declaration_clause ')'
+| nonglobal_direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| nonglobal_direct_declarator '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| nonglobal_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 | nonglobal_direct_declarator '[' constant_expression ']'
 {
@@ -2058,15 +2227,23 @@ nonglobal_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
-| '(' declarator ')'
+| '(' main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-nonglobal_declarator_id : nonglobal_id_expression
+nonglobal_declarator_id : nonglobal_id_expression std_attribute_specifier_seq_opt
 {
-	$$ = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_ID_EXPR, $1, $2, ast_get_locus($1), NULL);
+}
+| ELLIPSIS id_expression std_attribute_specifier_seq_opt
+{
+	AST declarator_id_expr = ASTMake2(AST_DECLARATOR_ID_EXPR, $2, $3, ast_get_locus($2), NULL);
+	$$ = ASTMake1(AST_DECLARATOR_ID_PACK,
+            declarator_id_expr,
+            ast_get_locus(declarator_id_expr),
+            NULL);
 }
 ;
 
@@ -2074,21 +2251,9 @@ direct_declarator : declarator_id %dprec 2
 {
 	$$ = $1;
 }
-| direct_declarator '(' parameter_declaration_clause ')'
+| direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| direct_declarator '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
 | direct_declarator '[' constant_expression ']'
 {
@@ -2098,73 +2263,105 @@ direct_declarator : declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
-| '(' declarator ')'
+| '(' main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-declarator_id : id_expression
+declarator_id : id_expression std_attribute_specifier_seq_opt
 {
-	$$ = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_ID_EXPR, $1, $2, ast_get_locus($1), NULL);
+}
+| ELLIPSIS id_expression std_attribute_specifier_seq_opt
+{
+	AST declarator_id_expr = ASTMake2(AST_DECLARATOR_ID_EXPR, $2, $3, ast_get_locus($2), NULL);
+	$$ = ASTMake1(AST_DECLARATOR_ID_PACK,
+            declarator_id_expr,
+            ast_get_locus(declarator_id_expr),
+            NULL);
 }
 ;
 
-enum_specifier : ENUM IDENTIFIER '{' enumeration_list '}'
+enum_head : enum_key attribute_specifier_seq_opt identifier_opt enum_base_opt
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    $$ = ASTMake4(AST_ENUM_HEAD, $1, $2, $3, $4, ast_get_locus($1), NULL);
+}
+| enum_key attribute_specifier_seq_opt nested_name_specifier IDENTIFIER enum_base_opt
+{
+	AST name = ASTMake3(AST_QUALIFIED_ID, NULL, $3, 
+                ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text),
+                ast_get_locus($3), NULL);
 
-	$$ = ASTMake2(AST_ENUM_SPECIFIER, identifier, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| ENUM '{' enumeration_list '}'
-{
-	$$ = ASTMake2(AST_ENUM_SPECIFIER, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| ENUM IDENTIFIER '{' '}'
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-
-	$$ = ASTMake2(AST_ENUM_SPECIFIER, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| ENUM '{' '}'
-{
-	$$ = ASTMake2(AST_ENUM_SPECIFIER, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-// GCC extensions
-| ENUM attributes IDENTIFIER '{' enumeration_list '}'
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
-
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, $5, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| ENUM attributes '{' enumeration_list '}'
-{
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| ENUM attributes IDENTIFIER '{' '}'
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
-
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| ENUM attributes '{' '}'
-{
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake4(AST_ENUM_HEAD, $1, $2, name, $5, ast_get_locus($1), NULL);
 }
 ;
 
-enumeration_list : enumeration_list_proper
+enum_key : ENUM
 {
-	$$ = $1;
+    $$ = ASTLeaf(AST_UNSCOPED_ENUM_KEY, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-// This is a running comma that many people forgets here. It is of non
-// standard nature
-| enumeration_list_proper ','
+| ENUM STRUCT
 {
-	$$ = $1;
-};
+    $$ = ASTLeaf(AST_SCOPED_ENUM_KEY, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| ENUM CLASS
+{
+    $$ = ASTLeaf(AST_SCOPED_ENUM_KEY, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
 
-enumeration_list_proper : enumeration_list_proper ',' enumeration_definition
+enum_base_opt : /* empty */
+{
+    $$ = NULL;
+}
+| ':' enum_base_type_specifier_seq
+{
+    $$ = $2;
+}
+;
+
+enum_base_type_specifier_seq : type_specifier_seq_0_may_end_with_attribute
+{
+    $$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
+}
+| type_specifier_ended_with_identifier
+{
+    $$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
+}
+;
+
+identifier_opt : IDENTIFIER
+{
+	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| /* empty */
+{
+    $$ = NULL;
+}
+;
+
+enum_specifier : enum_head '{' enumeration_list_opt '}'
+{
+	$$ = ASTMake2(AST_ENUM_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
+}
+| enum_head '{' enumeration_list_opt ',' '}'
+{
+	$$ = ASTMake2(AST_ENUM_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
+}
+;
+
+enumeration_list_opt : /* empty */
+{
+    $$ = NULL;
+}
+| enumeration_list
+{
+    $$ = $1;
+}
+;
+
+enumeration_list: enumeration_list ',' enumeration_definition
 {
 	$$ = ASTList($1, $3);
 }
@@ -2185,6 +2382,24 @@ enumeration_definition : IDENTIFIER
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
 	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+type_id_not_ellipsis : type_specifier_seq_0_may_end_with_attribute
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_0 abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, $2, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier nonglobal_abstract_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_TYPE_ID, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
@@ -2210,7 +2425,7 @@ nonglobal_abstract_declarator : nonglobal_ptr_operator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
 }
-| nonglobal_ptr_operator abstract_declarator
+| nonglobal_ptr_operator abstract_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
@@ -2218,26 +2433,61 @@ nonglobal_abstract_declarator : nonglobal_ptr_operator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-// GNU extension
-| attributes ptr_operator
+| attribute_specifier_seq ptr_operator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator abstract_declarator
+| attribute_specifier_seq ptr_operator abstract_main_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| attributes abstract_direct_declarator
+| attribute_specifier_seq abstract_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
-abstract_declarator : ptr_operator
+nonglobal_abstract_declarator_not_ellipsis : nonglobal_ptr_operator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
 }
-| ptr_operator abstract_declarator
+| nonglobal_ptr_operator abstract_main_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq ptr_operator
+{
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq ptr_operator abstract_main_declarator_not_ellipsis
+{
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+abstract_declarator : abstract_main_declarator
+{
+    $$ = $1;
+}
+| abstract_main_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+abstract_main_declarator : ptr_operator
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+}
+| ptr_operator abstract_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
@@ -2245,76 +2495,104 @@ abstract_declarator : ptr_operator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-// GNU extension
-| attributes ptr_operator
+| attribute_specifier_seq ptr_operator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator abstract_declarator
+| attribute_specifier_seq ptr_operator abstract_main_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| attributes abstract_direct_declarator
+| attribute_specifier_seq abstract_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
-abstract_direct_declarator : '(' abstract_declarator ')'
+abstract_declarator_not_ellipsis : abstract_main_declarator_not_ellipsis
+{
+    $$ = $1;
+}
+| abstract_main_declarator_not_ellipsis parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+
+abstract_main_declarator_not_ellipsis : ptr_operator
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+}
+| ptr_operator abstract_main_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq ptr_operator
+{
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, NULL, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq ptr_operator abstract_main_declarator_not_ellipsis
+{
+	$$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq abstract_direct_declarator_not_ellipsis
+{
+	$$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+abstract_direct_declarator : '(' abstract_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '(' parameter_declaration_clause ')'
+| parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, NULL, $1, ast_get_locus($1), NULL);
 }
-| '(' parameter_declaration_clause ')' cv_qualifier_seq
+| abstract_direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, $4, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
-| '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, NULL, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, $4, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| abstract_direct_declarator '(' parameter_declaration_clause ')'
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
-}
-| abstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
-}
-| abstract_direct_declarator '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| abstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
-}
-| '[' constant_expression ']'
+| '[' constant_expression_opt ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '[' ']'
-{
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| abstract_direct_declarator '[' constant_expression ']'
+| abstract_direct_declarator '[' constant_expression_opt ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| abstract_direct_declarator '[' ']'
+| ELLIPSIS
 {
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
+    $$ = ASTMake1(AST_DECLARATOR_ID_PACK, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-parameter_declaration_clause : parameter_declaration_clause_nonempty
+abstract_direct_declarator_not_ellipsis : '(' abstract_main_declarator_not_ellipsis ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| parameters_and_qualifiers
+{
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, NULL, $1, ast_get_locus($1), NULL);
+}
+| abstract_direct_declarator_not_ellipsis parameters_and_qualifiers
+{
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
+}
+| '[' constant_expression_opt ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| abstract_direct_declarator_not_ellipsis '[' constant_expression_opt ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
+}
+;
+
+parameter_declaration_clause : parameter_declaration_clause_nonempty %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
@@ -2323,7 +2601,7 @@ parameter_declaration_clause : parameter_declaration_clause_nonempty
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 	$$ = ASTList($1, variadic_tree);
 } 
-| parameter_declaration_clause_nonempty ELLIPSIS
+| parameter_declaration_clause_nonempty ELLIPSIS %merge<ambiguityHandler>
 {
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 	$$ = ASTList($1, variadic_tree);
@@ -2358,94 +2636,58 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq_0 nonabstract_declarator %merge<ambiguityHandler>
+parameter_declaration : std_attribute_specifier_seq_opt decl_specifier_seq_0_may_end_with_attribute %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ast_get_locus($1), NULL);
+   $$ = ASTMake3(AST_PARAMETER_DECL, $2, NULL, $1, ast_get_locus($2), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ast_get_locus($1), NULL);
-}
-// --
-| decl_specifier_seq_0 nonabstract_declarator '=' assignment_expression  %merge<ambiguityHandler>
-{
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ast_get_locus($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator '=' assignment_expression  %merge<ambiguityHandler>
-{
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ast_get_locus($1), NULL);
+   $$ = ASTMake3(AST_PARAMETER_DECL, $2, NULL, $1, ast_get_locus($2), NULL);
 }
 // --
-| decl_specifier_seq_0_may_end_with_attribute %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0_may_end_with_attribute '=' assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
+   $$ = ASTMake4(AST_PARAMETER_DECL, $2, NULL, $4, ast_list_concat($1, $5), ast_get_locus($2), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec '=' assignment_expression gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ast_get_locus($1), NULL);
-}
-// --
-| decl_specifier_seq_0 abstract_declarator  %merge<ambiguityHandler>
-{
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ast_get_locus($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator %merge<ambiguityHandler>
-{
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ast_get_locus($1), NULL);
+   $$ = ASTMake4(AST_PARAMETER_DECL, $2, NULL, $4, ast_list_concat($1, $5), ast_get_locus($2), NULL);
 }
 // --
-| decl_specifier_seq_0  '=' assignment_expression  %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 nonabstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec '=' assignment_expression %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, $3, ast_get_locus($1), NULL);
-}
-// --
-| decl_specifier_seq_0 abstract_declarator '=' assignment_expression  %merge<ambiguityHandler>
-{
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ast_get_locus($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator '=' assignment_expression %merge<ambiguityHandler>
-{
-	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ast_get_locus($1), NULL);
-}
-// GCC Extension
-| decl_specifier_seq_0 nonabstract_declarator attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
 // --
-| decl_specifier_seq_0 nonabstract_declarator attributes '=' assignment_expression  %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 nonabstract_declarator gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
 {
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator attributes '=' assignment_expression  %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
 {
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
-}
-// --
-| decl_specifier_seq_0 abstract_declarator attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator attributes %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
 // --
-| decl_specifier_seq_0 abstract_declarator attributes '=' assignment_expression %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 abstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator attributes '=' assignment_expression %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
 {
-	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
+}
+// --
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 abstract_declarator gcc_attributes_opt '=' assignment_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
+}
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_abstract_declarator gcc_attributes_opt '=' assignment_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
 ;
 
@@ -2453,70 +2695,69 @@ nonglobal_nonabstract_declarator : nonabstract_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| nonglobal_ptr_operator nonabstract_declarator
+| nonglobal_ptr_operator nonabstract_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-/* GNU Extension */
-| attributes nonabstract_direct_declarator
+| attribute_specifier_seq nonabstract_direct_declarator
 {
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator nonabstract_declarator
+| attribute_specifier_seq ptr_operator nonabstract_main_declarator
 {
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
 
-nonabstract_declarator : nonabstract_direct_declarator
+nonabstract_declarator : nonabstract_main_declarator
+{
+    $$ = $1;
+}
+| nonabstract_main_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+nonabstract_main_declarator : nonabstract_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
 }
-| ptr_operator nonabstract_declarator
+| ptr_operator nonabstract_main_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-/* GNU Extension */
-| attributes nonabstract_direct_declarator
+| attribute_specifier_seq nonabstract_direct_declarator
 {
-    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
 }
-| attributes ptr_operator nonabstract_declarator
+| attribute_specifier_seq ptr_operator nonabstract_main_declarator
 {
-    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+    $$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
 
-nonabstract_direct_declarator : IDENTIFIER
+nonabstract_direct_declarator : IDENTIFIER std_attribute_specifier_seq_opt
 {
 	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-    $$ = ASTMake1(AST_DECLARATOR_ID_EXPR, symbol, ast_get_locus(symbol), NULL);
+    $$ = ASTMake2(AST_DECLARATOR_ID_EXPR, symbol, $2, ast_get_locus(symbol), NULL);
 }
-| nonabstract_direct_declarator '(' parameter_declaration_clause ')'
+| ELLIPSIS IDENTIFIER std_attribute_specifier_seq_opt
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ast_get_locus($1), NULL);
+	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+    AST declarator_id_expr = ASTMake2(AST_DECLARATOR_ID_EXPR, symbol, $3, ast_get_locus(symbol), NULL);
+
+    $$ = ASTMake1(AST_DECLARATOR_ID_PACK, declarator_id_expr, ast_get_locus(declarator_id_expr), NULL);
 }
-| nonabstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
+| nonabstract_direct_declarator parameters_and_qualifiers
 {
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
-| nonabstract_direct_declarator '(' parameter_declaration_clause ')' exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ast_get_locus($1), NULL);
-}
-| nonabstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ast_get_locus($1), NULL);
-}
-| nonabstract_direct_declarator '[' constant_expression ']'
+| nonabstract_direct_declarator '[' constant_expression_opt ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| nonabstract_direct_declarator '[' ']'
-{
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
-}
-| '(' nonabstract_declarator ')'
+| '(' nonabstract_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -2600,15 +2841,15 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 {
 	$$ = ASTList($1, $3);
 }
-// C++0x pack expansion
+// C++2011 pack expansion
 | initializer_clause ELLIPSIS
 {
-    AST pack_expansion = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(pack_expansion);
 }
 | initializer_list ',' initializer_clause ELLIPSIS
 {
-    AST pack_expansion = ASTMake1(AST_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTList($1, pack_expansion);
 }
 // C99 extensions
@@ -2683,16 +2924,15 @@ function_definition_header : functional_declarator %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, NULL, ast_get_locus($1), NULL);
 }
-/* GCC */
-| functional_declarator attributes %merge<ambiguityHandler>
+| functional_declarator gcc_attributes %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, $2, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_0 functional_declarator attributes %merge<ambiguityHandler>
+| decl_specifier_seq_0 functional_declarator virt_specifier_seq %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator attributes %merge<ambiguityHandler>
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator virt_specifier_seq %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, $3, ast_get_locus($1), NULL);
 }
@@ -2745,47 +2985,73 @@ class_specifier : class_head '{' member_specification_seq '}'
 }
 | class_head '{' '}'
 {
-	// AST member_declaration = ASTLeaf(AST_EMPTY_DECL, make_locus($2.token_file, $2.token_line, 0), NULL);
-	// AST member_specification = 
-	// 	ASTMake3(AST_MEMBER_SPEC, NULL, member_declaration, 
-	// 			NULL, ast_get_locus(member_declaration), NULL);
-
 	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
 }
 ;
 
-class_head : class_key 
+class_head : class_key attribute_specifier_seq_opt class_head_name class_virt_specifier_seq_opt base_clause_opt
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, $2, $4, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, $3, $5, class_head_extra, ast_get_locus($1), NULL);
 }
-| class_key id_type_expr
+| class_key attribute_specifier_seq_opt base_clause_opt
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, $2, NULL, ast_get_locus($1), NULL);
+    AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, $2, NULL, NULL, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, $3, class_head_extra, ast_get_locus($1), NULL);
 }
-| class_key base_clause
+;
+
+base_clause_opt : /* empty */
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, NULL, $2, ast_get_locus($1), NULL);
+    $$ = NULL;
 }
-| class_key id_type_expr base_clause
+| base_clause
 {
-	$$ = ASTMake3(AST_CLASS_HEAD_SPEC, $1, $2, $3, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-// GNU Extensions
-| class_key attributes
+;
+
+class_head_name : id_type_expr
 {
-	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| class_key attributes id_type_expr
+;
+
+class_virt_specifier_seq_opt : /* empty */
 {
-	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, $3, NULL, $2, ast_get_locus($1), NULL);
+    $$ = NULL;
 }
-| class_key attributes base_clause
+| class_virt_specifier_seq
 {
-	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, NULL, $3, $2, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| class_key attributes id_type_expr base_clause
+;
+
+class_virt_specifier_seq : class_virt_specifier
 {
-	$$ = ASTMake4(AST_GCC_CLASS_HEAD_SPEC, $1, $3, $4, $2, ast_get_locus($1), NULL);
+    $$ = ASTListLeaf($1);
+}
+| class_virt_specifier_seq class_virt_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+class_virt_specifier : EXPLICIT
+{
+    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| IDENTIFIER
+{
+    // Only "final" is allowed
+    if (strcmp($1.token_text, "final") == 0)
+    {
+        $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
+    else
+    {
+        $$ = ASTLeaf(AST_INVALID_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
 }
 ;
 
@@ -2831,7 +3097,6 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, $2, ast_get_locus($1), NULL);
 }
-
 | decl_specifier_alone_seq ';' %merge<ambiguityHandler>  
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ast_get_locus($1), NULL);
@@ -2902,99 +3167,152 @@ member_declarator_list : member_declarator
 }
 ;
 
-member_declarator : declarator 
+attribute_specifier_seq_and_virt_specifier_seq_opt : /* empty */ 
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+    $$ = NULL;
 }
-| declarator equal_initializer
+| attribute_specifier_seq_and_virt_specifier_seq
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-| non_functional_declarator braced_init_list
-{
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
-}
-| ':' constant_expression
-{
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| IDENTIFIER ':' constant_expression
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
-
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, declarator_id_expr, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-// GNU Extensions
-| declarator attributes 
-{
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
-}
-| declarator attributes equal_initializer
-{
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
-}
-| non_functional_declarator attributes braced_init_list
-{
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
-}
-| IDENTIFIER attributes ':' constant_expression
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| attributes ':' constant_expression
-{
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $3, $1, ast_get_locus($1), NULL);
+    $$ = $1;
 }
 ;
 
-nonglobal_member_declarator : nonglobal_declarator 
+attribute_specifier_seq_and_virt_specifier_seq : attribute_specifier_seq
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| nonglobal_declarator equal_initializer
+| virt_specifier_seq
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| nonglobal_non_functional_declarator braced_init_list
+| attribute_specifier_seq virt_specifier_seq
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ast_list_concat($1, $2);
 }
-| ':' constant_expression
+;
+
+member_declarator : declarator gcc_attr_or_virt_specifier_seq_opt
 {
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
 }
-| IDENTIFIER ':' constant_expression
+| declarator gcc_attr_or_virt_specifier_seq_opt equal_initializer
+{
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+}
+| non_functional_declarator gcc_attr_or_virt_specifier_seq_opt braced_init_list
+{
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 1
+{
+	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
+        $1, make_locus($2.token_file, $2.token_line, 0), NULL);
+}
+| IDENTIFIER attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, declarator_id_expr, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_BITFIELD_DECLARATOR,
+        declarator_id_expr, $4,
+        $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-// GNU Extensions
-| nonglobal_declarator attributes 
+;
+
+// virt_specifier_seq_opt : /* empty */
+// {
+//     $$ = NULL;
+// }
+// | virt_specifier_seq
+// {
+//     $$ = $1;
+// }
+// ;
+
+virt_specifier_seq : virt_specifier
 {
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
+    $$ = ASTListLeaf($1);
 }
-| nonglobal_declarator attributes equal_initializer
+| virt_specifier_seq virt_specifier
 {
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+    $$ = ASTList($1, $2);
 }
-| nonglobal_non_functional_declarator attributes braced_init_list
+;
+
+virt_specifier : IDENTIFIER
 {
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+    // Only 'override' and 'final' are allowed
+    if (strcmp($1.token_text, "final") == 0
+        || strcmp($1.token_text, "override") == 0)
+    {
+        $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
+    else
+    {
+        $$ = ASTLeaf(AST_INVALID_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    }
 }
-| IDENTIFIER attributes ':' constant_expression
+| TOKEN_NEW
+{
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
+gcc_attr_or_virt_specifier_seq_opt : /* empty */
+{
+    $$ = NULL;
+}
+| gcc_attr_or_virt_specifier_seq
+{
+    $$ = $1;
+}
+;
+
+gcc_attr_or_virt_specifier_seq : gcc_attr_or_virt_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+| gcc_attr_or_virt_specifier_seq gcc_attr_or_virt_specifier
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+gcc_attr_or_virt_specifier : gcc_attribute
+{
+    $$ = $1;
+}
+| virt_specifier
+{
+    $$ = $1;
+}
+;
+
+nonglobal_member_declarator : nonglobal_declarator gcc_attr_or_virt_specifier_seq_opt
+{
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
+}
+| nonglobal_declarator gcc_attr_or_virt_specifier_seq_opt equal_initializer
+{
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+}
+| nonglobal_non_functional_declarator gcc_attr_or_virt_specifier_seq_opt braced_init_list
+{
+	$$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+}
+| attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 1
+{
+	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
+        $1, make_locus($2.token_file, $2.token_line, 0), NULL);
+}
+| IDENTIFIER attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
 
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| attributes ':' constant_expression
-{
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $3, $1, ast_get_locus($1), NULL);
+	$$ = ASTMake3(AST_BITFIELD_DECLARATOR,
+        declarator_id_expr, $4,
+        $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -3015,6 +3333,17 @@ base_specifier_list : base_specifier
 | base_specifier_list ',' base_specifier
 {
 	$$ = ASTList($1, $3);
+}
+// Pack
+| base_specifier ELLIPSIS
+{
+    AST base_pack = ASTMake1(AST_BASE_SPEC_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+	$$ = ASTListLeaf(base_pack);
+}
+| base_specifier_list ',' base_specifier ELLIPSIS
+{
+    AST base_pack = ASTMake1(AST_BASE_SPEC_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+	$$ = ASTList($1, base_pack);
 }
 ;
 
@@ -3197,58 +3526,45 @@ condition : expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ast_get_locus($1), NULL);
 }
-| type_specifier_seq_0 declarator equal_initializer %merge<ambiguityHandler>
+| type_specifier_seq_0 declarator gcc_extra_bits_init_declarator_opt equal_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CONDITION, $1, $2, $4, $3, ast_get_locus($1), NULL);
 }
-| type_specifier_seq_ended_with_identifier nonglobal_declarator equal_initializer %merge<ambiguityHandler>
+| type_specifier_seq_ended_with_identifier nonglobal_declarator gcc_extra_bits_init_declarator_opt equal_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CONDITION, $1, $2, $4, $3, ast_get_locus($1), NULL);
 }
-| type_specifier_seq_0 declarator braced_init_list %merge<ambiguityHandler>
+| type_specifier_seq_0 declarator gcc_extra_bits_init_declarator_opt braced_init_list %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CONDITION, $1, $2, $4, $3, ast_get_locus($1), NULL);
 }
-| type_specifier_seq_ended_with_identifier nonglobal_declarator braced_init_list %merge<ambiguityHandler>
+| type_specifier_seq_ended_with_identifier gcc_extra_bits_init_declarator_opt nonglobal_declarator braced_init_list %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ast_get_locus($1), NULL);
+	$$ = ASTMake4(AST_CONDITION, $1, $2, $4, $3, ast_get_locus($1), NULL);
 }
-// GNU Extension
-| type_specifier_seq_0 declarator asm_specification attributes equal_initializer %merge<ambiguityHandler>
+;
+
+gcc_extra_bits_init_declarator_opt : /* empty */
 {
-	$$ = ASTMake2(AST_GCC_CONDITION, $4,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ast_get_locus($1), NULL),
- ast_get_locus($1), NULL);
+    $$ = NULL;
 }
-| type_specifier_seq_ended_with_identifier nonglobal_declarator asm_specification attributes equal_initializer %merge<ambiguityHandler>
+| gcc_extra_bits_init_declarator
 {
-	$$ = ASTMake2(AST_GCC_CONDITION, $4,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ast_get_locus($1), NULL),
- ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| type_specifier_seq_0 declarator attributes equal_initializer %merge<ambiguityHandler>
+;
+
+gcc_extra_bits_init_declarator : asm_specification
 {
-	$$ = ASTMake2(AST_GCC_CONDITION, $3,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $4, ast_get_locus($1), NULL),
- ast_get_locus($1), NULL);
+    $$ = ASTListLeaf($1);
 }
-| type_specifier_seq_ended_with_identifier nonglobal_declarator attributes equal_initializer %merge<ambiguityHandler>
+| gcc_attributes
 {
-	$$ = ASTMake2(AST_GCC_CONDITION, $3,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $4, ast_get_locus($1), NULL),
- ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| type_specifier_seq_0 declarator asm_specification equal_initializer %merge<ambiguityHandler>
+| asm_specification gcc_attributes
 {
-	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $4, ast_get_locus($1), NULL),
- ast_get_locus($1), NULL);
-}
-| type_specifier_seq_ended_with_identifier nonglobal_declarator asm_specification equal_initializer %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $4, ast_get_locus($1), NULL),
- ast_get_locus($1), NULL);
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
 }
 ;
 
@@ -3265,7 +3581,23 @@ iteration_statement : WHILE '(' condition ')' statement
     AST loop_control = ASTMake3(AST_LOOP_CONTROL, $3, $4, $6, make_locus($1.token_file, $1.token_line, 0), NULL);
 	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+| FOR '(' for_range_declaration ':' expression ')' statement
+{
+    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
 ;
+
+for_range_declaration : type_specifier_seq_0 declarator %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_FOR_RANGE_DECLARATION, $1, $2, ast_get_locus($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier nonglobal_declarator %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_FOR_RANGE_DECLARATION, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
 expression_opt : expression
 {
     $$ = $1;
@@ -3392,6 +3724,16 @@ mem_initializer_list : mem_initializer
 {
 	$$ = ASTList($1, $3);
 }
+| mem_initializer ELLIPSIS
+{
+    AST mem_initializer_pack = ASTMake1(AST_MEM_INITIALIZER_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+	$$ = ASTListLeaf(mem_initializer_pack);
+}
+| mem_initializer_list ',' mem_initializer ELLIPSIS
+{
+    AST mem_initializer_pack = ASTMake1(AST_MEM_INITIALIZER_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+	$$ = ASTList($1, mem_initializer_pack);
+}
 ;
 
 mem_initializer : mem_initializer_id parent_initializer_ctor
@@ -3434,6 +3776,10 @@ primary_expression : literal
 | id_expression
 {
 	$$ = $1;
+}
+| lambda_expression
+{
+    $$ = $1;
 }
 // GNU Extensions
 /*
@@ -3982,6 +4328,12 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_SIZEOF_TYPEID, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+| SIZEOF ELLIPSIS '(' IDENTIFIER ')'
+{
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
+
+    $$ = ASTMake1(AST_SIZEOF_PACK, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
 | new_expression
 {
 	$$ = $1;
@@ -3990,16 +4342,24 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
+| TOKEN_ALIGNOF '(' type_id ')'
+{
+	$$ = ASTMake1(AST_ALIGNOF_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_NOEXCEPT '(' expression ')'
+{
+    $$ = ASTMake1(AST_NOEXCEPT_EXPRESSION, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 // GNU Extensions
 | EXTENSION cast_expression
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| ALIGNOF unary_expression %merge<ambiguityHandler>
+| TOKEN_GCC_ALIGNOF unary_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| ALIGNOF '(' type_id ')' %merge<ambiguityHandler>
+| TOKEN_GCC_ALIGNOF '(' type_id ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -4151,7 +4511,7 @@ new_type_id : type_specifier_seq_0_may_end_with_attribute
 }
 ;
 
-new_declarator : ptr_operator 
+new_declarator : ptr_operator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -4165,7 +4525,7 @@ new_declarator : ptr_operator
 }
 ;
 
-nonglobal_new_declarator : nonglobal_ptr_operator 
+nonglobal_new_declarator : nonglobal_ptr_operator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -4465,9 +4825,108 @@ assignment_operator : '='
 }
 ;
 
+constant_expression_opt : /* empty */
+{
+    $$ = NULL;
+}
+| constant_expression
+{
+    $$ = $1;
+}
+;
+
 constant_expression : conditional_expression
 {
 	$$ = ASTMake1(AST_CONSTANT_EXPRESSION, $1, ast_get_locus($1), NULL);
+}
+;
+
+lambda_expression : lambda_introducer lambda_declarator compound_statement
+{
+    $$ = ASTMake3(AST_LAMBDA_EXPRESSION, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+lambda_introducer : '[' lambda_capture ']'
+{
+    $$ = $2;
+}
+;
+
+lambda_capture : lambda_capture_default
+{
+    $$ = ASTMake2(AST_LAMBDA_CAPTURE, $1, NULL, ast_get_locus($1), NULL);
+}
+| lambda_capture_list
+{
+    $$ = ASTMake2(AST_LAMBDA_CAPTURE, NULL, $1, ast_get_locus($1), NULL);
+}
+| lambda_capture_default ',' lambda_capture_list
+{
+    $$ = ASTMake2(AST_LAMBDA_CAPTURE, $1, $3, ast_get_locus($1), NULL);
+}
+;
+
+lambda_capture_default : '&'
+{
+    $$ = ASTLeaf(AST_LAMBDA_CAPTURE_DEFAULT_ADDR, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| '='
+{
+    $$ = ASTLeaf(AST_LAMBDA_CAPTURE_DEFAULT_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
+lambda_capture_list : lambda_capture
+{
+    $$ = ASTListLeaf($1);
+}
+| lambda_capture_list ',' lambda_capture
+{
+    $$ = ASTList($1, $3);
+}
+| lambda_capture ELLIPSIS
+{
+    AST pack_exp = ASTMake1(AST_LAMBDA_CAPTURE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    $$ = ASTListLeaf(pack_exp);
+}
+| lambda_capture_list ',' lambda_capture ELLIPSIS
+{
+    AST pack_exp = ASTMake1(AST_LAMBDA_CAPTURE_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+    $$ = ASTList($1, pack_exp);
+}
+;
+
+lambda_capture : IDENTIFIER
+{
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| '&' IDENTIFIER
+{
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_ADDRESS, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_THIS
+{
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_THIS, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+lambda_declarator : '(' parameter_declaration_clause ')' attribute_specifier_opt mutable_opt exception_specification_opt trailing_return_type_opt
+{
+    const locus_t* l = make_locus($1.token_file, $1.token_line, 0);
+
+    AST lambda_specs = ASTMake4(AST_LAMBDA_DECLARATOR_SPECS, $4, $5, $6, $7, l, NULL);
+    $$ = ASTMake2(AST_LAMBDA_DECLARATOR, $2, lambda_specs, l, NULL);
+}
+;
+
+mutable_opt : MUTABLE
+{
+    $$ = ASTLeaf(AST_MUTABLE_SPEC, make_locus($1.token_file, $1.token_line, 0), 0);
+}
+| /* empty */
+{
+    $$ = NULL;
 }
 ;
 
@@ -4507,6 +4966,10 @@ literal : DECIMAL_LITERAL
 {
 	$$ = $1;
 }
+| TOKEN_NULLPTR
+{
+    $$ = ASTLeaf(AST_POINTER_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 ;
 
 // *********************************************************
@@ -4524,6 +4987,26 @@ operator_function_id : OPERATOR operator
 | OPERATOR operator '<' '>'
 {
 	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| OPERATOR_LITERAL IDENTIFIER
+{
+    $$ = ASTMake1(AST_LITERAL_OPERATOR_ID, 
+            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
+            make_locus($2.token_file, $2.token_line, 0), NULL);
+}
+| OPERATOR_LITERAL IDENTIFIER '<' '>'
+{
+    $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE, 
+            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
+            NULL,
+            make_locus($2.token_file, $2.token_line, 0), NULL);
+}
+| OPERATOR_LITERAL IDENTIFIER '<' template_argument_list '>'
+{
+    $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE, 
+            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
+            $4,
+            make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 ;
 
@@ -4723,23 +5206,28 @@ template_argument_list : template_argument %merge<ambiguityHandler>
 {
 	$$ = ASTList($1, $3);
 }
+| template_argument ELLIPSIS %merge<ambiguityHandler>
+{
+    AST template_argument_pack = ASTMake1(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+	$$ = ASTListLeaf(template_argument_pack);
+}
+| template_argument_list ',' template_argument ELLIPSIS %merge<ambiguityHandler>
+{
+    AST template_argument_pack = ASTMake1(AST_TEMPLATE_ARGUMENT_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
+	$$ = ASTList($1, template_argument_pack);
+}
 ;
 
 template_argument : template_assignment_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT, 
+	$$ = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT,
 			ASTMake1(AST_EXPRESSION, $1, ast_get_locus($1), NULL), 
- ast_get_locus($1), NULL);
+             ast_get_locus($1), NULL);
 }
-| type_id %merge<ambiguityHandler>
+| type_id_not_ellipsis %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_TEMPLATE_TYPE_ARGUMENT, $1, ast_get_locus($1), NULL);
 }
-// A template_assignment_expression can generate one of these
-// | id_expression 
-// {
-// 	$$ = $1;
-// }
 ;
 
 template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
@@ -4779,7 +5267,7 @@ type_parameter : CLASS
 | CLASS IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
-	
+
 	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | CLASS '=' type_id
@@ -4792,7 +5280,7 @@ type_parameter : CLASS
 
 	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, identifier, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TYPENAME 
+| TYPENAME
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -4831,6 +5319,37 @@ type_parameter : CLASS
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($6.token_file, $6.token_line, 0), $6.token_text);
 
 	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, identifier, $8, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+// Template pack syntax
+| CLASS ELLIPSIS
+{
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| CLASS ELLIPSIS IDENTIFIER
+{
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+
+	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| TYPENAME ELLIPSIS
+{
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| TYPENAME ELLIPSIS IDENTIFIER
+{
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
+
+	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS
+{
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS IDENTIFIER
+{
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($7.token_file, $7.token_line, 0), $7.token_text);
+
+	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -4947,6 +5466,10 @@ templated_declaration : decl_specifier_seq_0 init_declarator ';' %merge<ambiguit
 | template_declaration %merge<ambiguityHandler>
 {
 	$$ = $1;
+}
+| alias_declaration
+{
+    $$ = $1;
 }
 ;
 
@@ -5160,23 +5683,54 @@ exception_declaration : type_specifier_seq_0 nonabstract_declarator
 }
 ;
 
-exception_specification : THROW '(' ')' 
+exception_specification : dynamic_exception_specification
+{
+    $$ = $1;
+}
+| noexcept_specification
+{
+    $$ = $1;
+}
+;
+
+
+dynamic_exception_specification : THROW '(' ')' 
 {
 	$$ = ASTMake1(AST_EXCEPTION_SPECIFICATION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| THROW '(' type_id_list ')'
+| THROW '(' throw_type_id_list ')'
 {
 	$$ = ASTMake1(AST_EXCEPTION_SPECIFICATION, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
-type_id_list : type_id 
+exception_specification_opt : /* empty */
+{
+    $$ = NULL;
+}
+| exception_specification
+{
+    $$ = $1;
+}
+;
+
+throw_type_id_list : type_id
 {
 	$$ = ASTListLeaf($1);
 }
-| type_id_list ',' type_id
+| throw_type_id_list ',' type_id
 {
 	$$ = ASTList($1, $3);
+}
+;
+
+noexcept_specification : TOKEN_NOEXCEPT
+{
+    $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| TOKEN_NOEXCEPT '(' constant_expression ')'
+{
+    $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 

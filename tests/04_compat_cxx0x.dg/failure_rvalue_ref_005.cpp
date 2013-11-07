@@ -29,12 +29,14 @@
 /*
 <testinfo>
 test_generator=config/mercurium-extensions
+test_compile_fail=yes
 </testinfo>
 */
 
-int f(int &&a);
+void f(int&&);
 
-void g(int &&a)
+void g(int &a)
 {
+    // A rvalue-reference cannot be bound to an lvalue
     f(a);
 }

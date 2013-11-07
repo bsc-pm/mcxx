@@ -39,6 +39,8 @@ MCXX_BEGIN_DECLS
 MCXX_END_DECLS
 #endif
 
+#include "tl-nodecl-utils.hpp"
+
 #include "cxx-printscope.h"
 namespace Codegen {
 
@@ -973,7 +975,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxAlignof& node)
 {
-    if (IS_CXX1X_LANGUAGE)
+    if (IS_CXX11_LANGUAGE)
     {
         *(file) << "alignof(";
     }
@@ -988,6 +990,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxAlignof& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeof& node)
 {
     *(file) << "sizeof(";
+    walk(node.get_expr());
+    *(file) << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxSizeofPack& node)
+{
+    *(file) << "sizeof...(";
     walk(node.get_expr());
     *(file) << ")";
 }
@@ -1331,10 +1340,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            while (actual_arg.is<Nodecl::Conversion>())
-            {
-                actual_arg = actual_arg.as<Nodecl::Conversion>().get_nest();
-            }
+            actual_arg = Nodecl::Utils::advance_conversions(actual_arg);
 
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
@@ -1867,6 +1873,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ false);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxValuePack& node)
+{
+    walk(node.get_pack());
+    (*file) << " ...";
+}
+
 // Bug in GCC 4.4
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::FunctionCall>(const Nodecl::FunctionCall& node, bool is_virtual_call);
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node, bool is_virtual_call);
@@ -1972,6 +1984,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     if (symbol.is_inline())
     {
         decl_spec_seq += "inline ";
+    }
+
+    if (symbol.is_constexpr())
+    {
+        decl_spec_seq += "constexpr ";
     }
 
     if (symbol.is_virtual() && symbol.is_defined_inside_class())
@@ -2318,6 +2335,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         {
             decl_spec_seq += "inline ";
         }
+    }
+
+    if (symbol.is_constexpr())
+    {
+        decl_spec_seq += "constexpr ";
     }
 
     if (symbol.is_explicit_constructor()
@@ -2724,7 +2746,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     if (nodecl_calls_to_constructor(init_expr, type))
     {
         // Ignore top level constructor
-        walk_expression_list(init_expr.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>());
+        walk_expression_list(nodecl_calls_to_constructor_get_arguments(init_expr));
     }
     else if (init_expr.is<Nodecl::StructuredValue>())
     {
@@ -2789,7 +2811,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         // A a; we cannot emmit it as A a(); since this would declare a function () returning A
         if (nodecl_calls_to_constructor(initializer, init_real_type))
         {
-            Nodecl::List constructor_args = initializer.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+            Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(initializer);
 
             // Here we add extra parentheses lest the direct-initialization looked like
             // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
@@ -3091,7 +3113,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         // T(single-expression)
         CXX03_EXPLICIT,
         // T{expr-list}
-        CXX1X_EXPLICIT,
+        CXX11_EXPLICIT,
     } kind = INVALID;
 
     if (IS_C_LANGUAGE)
@@ -3114,7 +3136,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             kind = GCC_POSTFIX;
         }
     }
-    else if (IS_CXX1X_LANGUAGE)
+    else if (IS_CXX11_LANGUAGE)
     {
         if (type.is_vector())
         {
@@ -3123,7 +3145,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         }
         else if (type.is_named())
         {
-            kind = CXX1X_EXPLICIT;
+            kind = CXX11_EXPLICIT;
         }
         else
         {
@@ -3209,7 +3231,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
                 break;
             }
             // T{expr-list}
-        case CXX1X_EXPLICIT:
+        case CXX11_EXPLICIT:
             {
                 if (type.is_signed_short_int())
                 {
@@ -4159,6 +4181,9 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
                 }
 
                 *(file) << this->get_qualified_name(base, symbol.get_scope());
+
+                if (it->is_expansion)
+                    (*file) << " ...";
             }
         }
 
@@ -4967,6 +4992,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
         Nodecl::NodeclBase init = symbol.get_value();
+        init = Nodecl::Utils::advance_conversions(init);
 
         if (is_definition)
         {
@@ -5048,13 +5074,18 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     *(file) << " = ";
                     walk(init);
                 }
+                else if (nodecl_is_zero_args_call_to_constructor(init, symbol.get_type()))
+                {
+                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
+                    (*file) << " = ";
+                    walk(init);
+                }
                 else
                 {
                     *(file) << "(";
-                    // A a; we cannot emmit it as A a(); since this would declare a function () returning A
                     if (nodecl_calls_to_constructor(init, symbol.get_type()))
                     {
-                        Nodecl::List constructor_args = init.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+                        Nodecl::List constructor_args = nodecl_calls_to_constructor_get_arguments(init);
 
                         // Here we add extra parentheses lest the direct-initialization looked like
                         // as a function declarator (faced with this ambiguity, C++ chooses the latter!)
@@ -5217,6 +5248,10 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     {
         decl_specifiers += "__thread ";
     }
+    if (symbol.is_thread_local())
+    {
+        decl_specifiers += "thread_local ";
+    }
     if (symbol.is_mutable())
     {
         decl_specifiers += "mutable ";
@@ -5302,7 +5337,20 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         gcc_attributes += "__attribute__((unused)) ";
     }
 
-    *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << bit_field;
+    std::string virt_specifiers;
+    *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << virt_specifiers << bit_field;
+
+    if (symbol.is_member())
+    {
+        if (symbol.is_explicit_override())
+        {
+            virt_specifiers += " override";
+        }
+        if (symbol.is_final())
+        {
+            virt_specifiers += " final";
+        }
+    }
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
 
@@ -5424,8 +5472,20 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         }
         CXX_LANGUAGE()
         {
+
             indent();
-            *(file) << "enum " << symbol.get_name() << "\n";
+            *(file) << "enum " << symbol.get_name();
+            if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
+            {
+                *(file)
+                    << " : " 
+                    << print_type_str(symbol.get_type().get_enum_underlying_type().get_internal_type(),
+                            symbol.get_scope().get_decl_context(),
+                            /* we need to store the current codegen */ (void*) this)
+                    << " "
+                    ;
+            }
+            *(file) << "\n";
             indent();
             *(file) << "{\n";
         }
@@ -5885,8 +5945,23 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
         std::string exception_spec = exception_specifier_to_str(symbol);
 
+        std::string virt_specifiers;
+
+        if (symbol.is_member())
+        {
+            if (symbol.is_explicit_override())
+            {
+                virt_specifiers += " override";
+            }
+            if (symbol.is_final())
+            {
+                virt_specifiers += " final";
+            }
+        }
+
         indent();
-        *(file) << decl_spec_seq << declarator << exception_spec << pure_spec << asm_specification << gcc_attributes << ";\n";
+        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers 
+            << pure_spec << asm_specification << gcc_attributes << ";\n";
 
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
@@ -6747,31 +6822,26 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
     return -1000;
 }
 
-int CxxBase::get_rank(const Nodecl::NodeclBase &n)
+int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    if (n.is<Nodecl::Conversion>())
+    n = Nodecl::Utils::advance_conversions(n);
+
+    node_t kind;
+    if (n.is<Nodecl::FunctionCall>()
+            && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
     {
-        return get_rank(n.as<Nodecl::Conversion>().get_nest());
+        kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
+    }
+    else if (n.is<Nodecl::VirtualFunctionCall>()
+            && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
+    {
+        kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
     }
     else
     {
-        node_t kind;
-        if (n.is<Nodecl::FunctionCall>()
-                && is_operator_function_call(n.as<Nodecl::FunctionCall>()))
-        {
-            kind = get_kind_of_operator_function_call(n.as<Nodecl::FunctionCall>());
-        }
-        else if (n.is<Nodecl::VirtualFunctionCall>()
-                && is_operator_function_call(n.as<Nodecl::VirtualFunctionCall>()))
-        {
-            kind = get_kind_of_operator_function_call(n.as<Nodecl::VirtualFunctionCall>());
-        }
-        else
-        {
-            kind = n.get_kind();
-        }
-        return get_rank_kind(kind, n.get_text());
+        kind = n.get_kind();
     }
+    return get_rank_kind(kind, n.get_text());
 }
 
 
@@ -6803,14 +6873,8 @@ static char is_additive_bin_operator(node_t n)
 
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    if (current_operator.is<Nodecl::Conversion>())
-    {
-        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
-    }
-    if (operand.is<Nodecl::Conversion>())
-    {
-        operand = operand.as<Nodecl::Conversion>().get_nest();
-    }
+    current_operator = Nodecl::Utils::advance_conversions(current_operator);
+    operand = Nodecl::Utils::advance_conversions(operand);
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -6821,14 +6885,8 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    if (current_operator.is<Nodecl::Conversion>())
-    {
-        current_operator = current_operator.as<Nodecl::Conversion>().get_nest();
-    }
-    if (operand.is<Nodecl::Conversion>())
-    {
-        operand = operand.as<Nodecl::Conversion>().get_nest();
-    }
+    current_operator = Nodecl::Utils::advance_conversions(current_operator);
+    operand = Nodecl::Utils::advance_conversions(operand);
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -6951,37 +7009,45 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
     return result;
 }
 
-bool CxxBase::nodecl_calls_to_constructor(const Nodecl::NodeclBase& node, TL::Type t)
+Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
+    node = Nodecl::Utils::advance_conversions(node);
+
+    ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
+
+    return node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
+}
+
+bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
+{
+    node = Nodecl::Utils::advance_conversions(node);
+
     if (node.is<Nodecl::FunctionCall>())
     {
         TL::Symbol called_sym = node.as<Nodecl::FunctionCall>().get_called().get_symbol();
 
-        if (called_sym.is_valid()
-                && called_sym.is_constructor())
-        {
-            return (!t.is_valid())
-                || (t.no_ref()
-                        .get_unqualified_type()
-                        .is_same_type(called_sym.get_class_type().get_unqualified_type()));
-        }
+        return (called_sym.is_valid()
+                && called_sym.is_constructor());
     }
     return 0;
 }
 
-bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node)
+bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    return (nodecl_calls_to_constructor(node, TL::Type(NULL))
-            && node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>().empty());
+    node = Nodecl::Utils::advance_conversions(node);
+
+    return (nodecl_calls_to_constructor(node, t)
+            && nodecl_calls_to_constructor_get_arguments(node).empty());
 }
 
 bool CxxBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
 {
+    node = Nodecl::Utils::advance_conversions(node);
+
     return (node.is<Nodecl::StructuredValue>()
             && (node.as<Nodecl::StructuredValue>().get_items().is_null()
                 || node.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>().empty()));
 }
-
 
 std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)
 {
@@ -7071,11 +7137,26 @@ void CxxBase::codegen_template_header(
                     *(file) << "typename " << symbol.get_name();
                     break;
                 }
+            case TPK_TYPE_PACK:
+                {
+                    *(file) << "typename ..." << symbol.get_name();
+                    break;
+                }
             case TPK_NONTYPE:
                 {
                     std::string declaration = this->get_declaration(symbol.get_type(),
                             symbol.get_scope(),
                             symbol.get_name());
+
+                    *(file) << declaration;
+                    break;
+                }
+            case TPK_NONTYPE_PACK:
+                {
+                    std::string declaration = this->get_declaration(symbol.get_type(),
+                            symbol.get_scope(),
+                            // this is a bit puny but will do
+                            "... " + symbol.get_name());
 
                     *(file) << declaration;
                     break;
@@ -7088,6 +7169,16 @@ void CxxBase::codegen_template_header(
                             show_default_values,
                             /* endline */ false);
                     *(file) << " class " << symbol.get_name();
+                    break;
+                }
+            case TPK_TEMPLATE_PACK:
+                {
+                    TL::Type template_type = symbol.get_type();
+                    codegen_template_header(
+                            symbol.get_type().template_type_get_template_parameters(),
+                            show_default_values,
+                            /* endline */ false);
+                    *(file) << " class ..." << symbol.get_name();
                     break;
                 }
             default:
@@ -7243,7 +7334,14 @@ std::string CxxBase::exception_specifier_to_str(TL::Symbol symbol)
     std::string exception_spec;
     CXX_LANGUAGE()
     {
-        if (!symbol.function_throws_any_exception())
+        if (!symbol.function_noexcept().is_null())
+        {
+            exception_spec += " noexcept(";
+            exception_spec += this->codegen_to_str(symbol.function_noexcept(),
+                    symbol.get_scope());
+            exception_spec += ")";
+        }
+        else if (!symbol.function_throws_any_exception())
         {
             exception_spec += " throw(";
 
