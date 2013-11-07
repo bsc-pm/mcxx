@@ -26,7 +26,7 @@
 
 END=
 
-SUBDIRS = . codegen optimizations analysis vectorizer omp vector-lowering hlt @TL_EXTRAS@
+SUBDIRS = . codegen @TL_EXTRAS_PRE_OMP@ omp @TL_EXTRAS@
 
 DIST_SUBDIRS= analysis \
               vectorizer \

@@ -32,6 +32,7 @@
 #include "tl-predicateutils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-counters.hpp"
+#include "config.h"
 
 namespace TL { namespace OpenMP {
 
@@ -2595,7 +2596,7 @@ namespace TL { namespace OpenMP {
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
-
+#ifndef VECTORIZATION_DISABLED
         if (_simd_enabled)
         {
             // SIMD Clauses
@@ -2666,12 +2667,16 @@ namespace TL { namespace OpenMP {
             pragma_line.diagnostic_unused_clauses();
             stmt.replace(Nodecl::List::make(omp_simd_node));
         }
+#else
+    warn_printf("%s: warning: ignoring #pragma omp simd", stmt.get_locus_str().c_str());
+#endif
     }
 
     // SIMD Functions
     void Base::simd_handler_pre(TL::PragmaCustomDeclaration decl) { }
     void Base::simd_handler_post(TL::PragmaCustomDeclaration decl)
     {
+#ifndef VECTORIZATION_DISABLED
         if (_simd_enabled)
         {
             // SIMD Clauses
@@ -2727,12 +2732,15 @@ namespace TL { namespace OpenMP {
             // Remove #pragma
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
+#else
+    warn_printf("%s: warning: ignoring #pragma omp simd", decl.get_locus_str().c_str());
+#endif
     }
 
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
-
+#ifndef VECTORIZATION_DISABLED
         if (_simd_enabled)
         {
             // SIMD Clauses
@@ -2810,15 +2818,22 @@ namespace TL { namespace OpenMP {
             //stmt.replace(code);
             stmt.replace(omp_simd_for_node);
         }
+#else
+    warn_printf("%s: warning: ignoring #pragma omp simd", stmt.get_locus_str().c_str());
+#endif
     }
 
     void Base::parallel_simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::parallel_simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
+#ifndef VECTORIZATION_DISABLED
         TL::PragmaCustomLine pragma_line = stmt.get_pragma_line();
         pragma_line.diagnostic_unused_clauses();
         // FIXME - What is supposed to happen here?
         // It is still not supported
+#else
+    warn_printf("%s: warning: ignoring #pragma omp simd", stmt.get_locus_str().c_str());
+#endif
     }
 
     void Base::sections_handler_pre(TL::PragmaCustomStatement) { }

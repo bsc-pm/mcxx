@@ -146,8 +146,8 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
 
     if (valid_option < 0)
     {
-        // There are not a valid option. We choose one of them and we check its
-        // tree again (this check should fail)
+        // There is not any valid option.
+        // We choose the first and then the code should diagnose it
         valid_option = 0;
 
         DEBUG_CODE()
@@ -2147,14 +2147,22 @@ static char solve_ambiguous_parameter_clause_check_interpretation(
         void *info UNUSED_PARAMETER)
 {
     char result = 0;
-    if (ASTType(parameter_clause) == AST_KR_PARAMETER_LIST)
+    C_LANGUAGE()
     {
-        return check_kr_parameter_list(parameter_clause, decl_context);
+        // K&R parameter lists
+        if (ASTType(parameter_clause) == AST_KR_PARAMETER_LIST)
+        {
+            return check_kr_parameter_list(parameter_clause, decl_context);
+        }
+        else
+        {
+            return check_function_declarator_parameters(parameter_clause, decl_context);
+        }
     }
-    else
+
+    CXX_LANGUAGE()
     {
         ERROR_CONDITION(ASTType(parameter_clause) != AST_NODE_LIST, "Invalid node", 0);
-
 
         AST last = ASTSon1(parameter_clause);
 

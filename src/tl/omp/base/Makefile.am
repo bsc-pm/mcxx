@@ -47,8 +47,12 @@ libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                           $(END)
 
 libtlomp_base_la_LDFLAGS = $(phases_ldflags)
-libtlomp_base_la_LIBADD = $(phases_libadd) ../core/libtlomp-core.la ../../vectorizer/libtlvectorizer.la
 
+libtlomp_base_la_LIBADD = $(phases_libadd) ../core/libtlomp-core.la
+
+if !VECTORIZATION_DISABLED
+	libtlomp_base_la_LIBADD += ../../vectorizer/libtlvectorizer.la
+endif
 
 libtlomp_base_la_SOURCES = \
    tl-omp-base.hpp \
