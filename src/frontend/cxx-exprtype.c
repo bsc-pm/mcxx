@@ -219,14 +219,15 @@ type_t* compute_type_for_type_id_tree(AST type_id,
 
     AST type_specifier = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
-    
+
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
     nodecl_t dummy_nodecl_output = nodecl_null();
 
     type_t* simple_type_info = NULL;
-    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context, abstract_declarator, &dummy_nodecl_output);
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context,
+            &dummy_nodecl_output);
 
     type_t* declarator_type = simple_type_info;
 
@@ -8048,7 +8049,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
 
     nodecl_t dummy_nodecl_output = nodecl_null();
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type,
-            decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (is_error_type(dummy_type))
     {
@@ -8474,7 +8475,7 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
 
     nodecl_t dummy_nodecl_output = nodecl_null();
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-            decl_context, /* first declarator */ NULL,  &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (is_error_type(type_info))
     {
@@ -10091,7 +10092,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
     type_t* simple_type_info = NULL;
     build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info,
-            decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (is_error_type(simple_type_info))
     {

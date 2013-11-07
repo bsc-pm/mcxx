@@ -523,7 +523,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> gnu_type_traits
 %type<ast> braced_init_list
 
-%type<ast> abstract_declarator_opt
 %type<ast> exception_specification_opt
 %type<ast> identifier_opt
 %type<ast> mutable_opt
@@ -545,8 +544,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 %type<ast> trailing_return_type
 %type<ast> trailing_return_type_opt
-%type<ast> trailing_type_specifier_seq
-%type<ast> trailing_type_specifier
 
 %type<ast> lambda_capture
 %type<ast> lambda_capture_default
@@ -1325,7 +1322,7 @@ nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-
+;
 
 nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL
 {
@@ -2131,9 +2128,9 @@ nonglobal_functional_final_declarator_id : nonglobal_declarator_id
 }
 ;
 
-trailing_return_type : PTR_OP trailing_type_specifier_seq abstract_declarator_opt
+trailing_return_type : PTR_OP type_id_not_ellipsis
 {
-    $$ = ASTMake2(AST_TRAILING_RETURN, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+    $$ = ASTMake1(AST_TRAILING_RETURN, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -2142,36 +2139,6 @@ trailing_return_type_opt : /* empty */
     $$ = NULL;
 }
 | trailing_return_type
-{
-    $$ = $1;
-}
-;
-
-abstract_declarator_opt : /* empty */
-{
-    $$ = NULL;
-}
-| abstract_declarator
-{
-    $$ = $1;
-}
-;
-
-trailing_type_specifier_seq : trailing_type_specifier
-{
-    $$ = ASTListLeaf($1);
-}
-| trailing_type_specifier_seq trailing_type_specifier
-{
-    $$ = ASTList($1, $2);
-}
-;
-
-trailing_type_specifier : type_specifier_alone
-{
-    $$ = $1;
-}
-| cv_qualifier
 {
     $$ = $1;
 }
@@ -2482,6 +2449,10 @@ abstract_declarator : abstract_main_declarator
 {
     $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
 }
+| parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, NULL, $1, $2, ast_get_locus($1), NULL);
+}
 ;
 
 abstract_main_declarator : ptr_operator
@@ -2518,6 +2489,11 @@ abstract_declarator_not_ellipsis : abstract_main_declarator_not_ellipsis
 {
     $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
 }
+| parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, NULL, $1, $2, ast_get_locus($1), NULL);
+}
+;
 
 abstract_main_declarator_not_ellipsis : ptr_operator
 {

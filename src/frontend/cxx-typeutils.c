@@ -4337,6 +4337,35 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->is_ellipsis;
 }
 
+type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
+{
+    ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
+
+    int num_parameters = function_type_get_num_parameters(t);
+
+    parameter_info_t param_info[num_parameters+1];
+    memset(param_info, 0, sizeof(param_info));
+
+    char has_ellipsis = function_type_get_has_ellipsis(t);
+
+    int real_parameters = num_parameters;
+    if (has_ellipsis)
+        real_parameters--;
+
+    int i;
+    for (i = 0; i < real_parameters; i++)
+    {
+        param_info[i].nonadjusted_type_info = function_type_get_nonadjusted_parameter_type_num(t, i);
+        param_info[i].type_info = function_type_get_parameter_type_num(t, i);
+    }
+
+    if (has_ellipsis)
+        param_info[num_parameters - 1].is_ellipsis = 1;
+
+    return get_new_function_type(new_return, param_info, num_parameters);
+
+}
+
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
         char is_virtual, char is_dependent, char is_expansion,
         access_specifier_t access_specifier)
@@ -8926,12 +8955,18 @@ const char* print_declarator(type_t* printed_declarator)
                     printed_declarator = NULL;
                     break;
                 }
+            case TK_AUTO:
+                {
+                    tmp_result = strappend(tmp_result, "auto");
+                    printed_declarator = NULL;
+                    break;
+                }
             default :
                 {
                     const char* c = NULL;
                     uniquestr_sprintf(&c, "<unknown type kind %d>", printed_declarator->kind);
                     printed_declarator = NULL;
-                    tmp_result = uniquestr(c);
+                    tmp_result = strappend(tmp_result, uniquestr(c));
                     break;
                 }
         }

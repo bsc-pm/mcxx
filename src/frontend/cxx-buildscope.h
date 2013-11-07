@@ -50,7 +50,6 @@ LIBMCXX_EXTERN void build_scope_template_parameters(
 LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info, 
         struct type_tag** type_info, 
         decl_context_t decl_context,
-        AST first_declarator,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a, gather_decl_spec_t* gather_info,

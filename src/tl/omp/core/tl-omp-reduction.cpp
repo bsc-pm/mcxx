@@ -417,7 +417,7 @@ namespace TL { namespace OpenMP {
                 build_scope_decl_specifier_seq(current_type,
                         &gather_info,
                         &reduction_type, decl_context,
-                        NULL, &nodecl_out_type);
+                        &nodecl_out_type);
             }
             else if (IS_FORTRAN_LANGUAGE)
             {

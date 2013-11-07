@@ -3598,7 +3598,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 nodecl_t dummy_nodecl_output = nodecl_null();
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        template_parameters_context, /* first declarator */ NULL, &dummy_nodecl_output);
+                        template_parameters_context, &dummy_nodecl_output);
 
                 if (is_error_type(type_info))
                 {
