@@ -76,6 +76,10 @@
 static void gather_extra_attributes(AST a, gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
+static void apply_attributes_to_type(type_t** type,
+        AST attribute_seq,
+        decl_context_t decl_context);
+
 static void gather_virt_specifiers(AST a,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
@@ -106,7 +110,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
-        decl_context_t decl_context, decl_context_t *prototype_context, AST first_declarator,
+        decl_context_t decl_context, decl_context_t *prototype_context,
         nodecl_t* nodecl_output);
 
 static void build_scope_member_specification(decl_context_t inner_decl_context, AST member_specification_tree, 
@@ -1022,7 +1026,7 @@ static void build_scope_explicit_instantiation(AST a,
 
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, simple_type_info,
-            &declarator_type, decl_context, declarator, nodecl_output);
+            &declarator_type, decl_context, nodecl_output);
     // FIXME - We should instantiate here if no 'extern' is given
 
     nodecl_t declarator_name_opt = nodecl_null();
@@ -1568,10 +1572,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     if (simple_type_info != NULL
             && declarator_list != NULL)
     {
-        // Get the first declarator of the declarator_list
-        AST first_init_declarator = ASTSon1(ast_list_head(declarator_list));
-        AST first_declarator = ASTSon0(first_init_declarator);
-
         // For every declarator create its full type based on the type
         // specified in the decl_specifier_seq
         AST iter;
@@ -1606,7 +1606,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             // This will create the symbol if it is unqualified
             nodecl_t nodecl_declarator = nodecl_null();
             compute_declarator_type(declarator, &current_gather_info,
-                    simple_type_info, &declarator_type, decl_context, first_declarator, &nodecl_declarator);
+                    simple_type_info, &declarator_type, decl_context, &nodecl_declarator);
 
             scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type,
                     &current_gather_info, decl_context);
@@ -2645,7 +2645,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 type_t* declarator_type = type_info;
                 compute_declarator_type(abstract_decl,
                         &typeof_gather_info, type_info, &declarator_type,
-                        decl_context, abstract_decl, nodecl_output);
+                        decl_context, nodecl_output);
 
                 *simple_type_info = declarator_type;
                 break;
@@ -3169,6 +3169,41 @@ static void gather_extra_attributes(AST a,
                     gather_ms_declspec(item, gather_info, decl_context);
                     break;
                 }
+            default:
+                {
+                    internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(item)));
+                    break;
+                }
+        }
+    }
+}
+
+static void apply_attributes_to_type(type_t** type,
+        AST a,
+        decl_context_t decl_context)
+{
+    if (a == NULL)
+        return;
+
+    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Invalid node", 0);
+
+    AST it;
+    for_each_element(a, it)
+    {
+        AST item = ASTSon1(it);
+        switch (ASTType(item))
+        {
+            case AST_GCC_ATTRIBUTE:
+                {
+                    apply_gcc_attribute_to_type(item, type, decl_context);
+                    break;
+                }
+            case AST_MS_DECLSPEC:
+                {
+                    apply_ms_attribute_to_type(item, type, decl_context);
+                    break;
+                }
+                // FIXME - Standard attributes
             default:
                 {
                     internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(item)));
@@ -8281,12 +8316,11 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
 void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
         type_t* type_info, type_t** declarator_type, 
         decl_context_t decl_context,
-        AST first_declarator,
         nodecl_t* nodecl_output)
 {
     build_scope_declarator_with_parameter_context(a,
             gather_info, type_info, declarator_type, decl_context,
-            /* prototype_context */ NULL, first_declarator, nodecl_output);
+            /* prototype_context */ NULL, nodecl_output);
 }
 
 /*
@@ -8294,36 +8328,15 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
  */
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* type_info, type_t** declarator_type,
-        decl_context_t decl_context, decl_context_t *prototype_context, AST first_declarator,
+        decl_context_t decl_context, decl_context_t *prototype_context,
         nodecl_t* nodecl_output)
 {
     *declarator_type = type_info;
-    
-    // The management of gcc attributes is a bit fuzzy at this point!
-    //
-    // TYPE [gcc_attributes] DECL_LIST
-    //
-    // The gcc_attributes are applied to every element of declarator list if
-    // the type is not a class specifier (i. e. class definition). Our tree
-    // representation stores these attributes in the first declarator. For this
-    // reason we have an extra parameter called 'first_declarator' in this function
-    //
-    if (first_declarator != NULL
-            && ASTType(first_declarator) == AST_DECLARATOR
-            && first_declarator != a)
-    {
-        AST common_gcc_attribute_list = ASTSon1(first_declarator);
-        gather_extra_attributes(common_gcc_attribute_list, gather_info, decl_context);
-    }
 
     if (a != NULL)
     {
-        // First traversal along the declarator
-        // just to get all attributes
         gather_extra_attributes_in_declarator(a, gather_info, decl_context);
     }
-
-
 
     // Now we can update the base type because of attributes if needed
     if (gather_info->is_vector)
@@ -8931,7 +8944,7 @@ static void set_function_parameter_clause(type_t** function_type,
             function_declarator_nesting_level++;
 
             compute_declarator_type(parameter_declarator, &param_decl_gather_info,
-                    simple_type_info, &type_info, param_decl_context, parameter_declarator, nodecl_output);
+                    simple_type_info, &type_info, param_decl_context, nodecl_output);
 
             function_declarator_nesting_level--;
 
@@ -9152,6 +9165,8 @@ static void set_function_type(type_t** declarator_type,
 // places
 static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gather_info, decl_context_t declarator_context)
 {
+    // FIXME - This function is a no-op currently
+
     if (a == NULL)
         return;
 
@@ -9164,16 +9179,16 @@ static void gather_extra_attributes_in_declarator(AST a, gather_decl_spec_t* gat
             }
         case AST_DECLARATOR :
             {
-                AST attribute_list = ASTSon1(a);
-                gather_extra_attributes(attribute_list, gather_info, declarator_context);
+                // AST attribute_list = ASTSon1(a);
+                // gather_extra_attributes(attribute_list, gather_info, declarator_context);
 
                 gather_extra_attributes_in_declarator(ASTSon0(a), gather_info, declarator_context);
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
-                AST attribute_list = ASTSon2(a);
-                gather_extra_attributes(attribute_list, gather_info, declarator_context);
+                // AST attribute_list = ASTSon2(a);
+                // gather_extra_attributes(attribute_list, gather_info, declarator_context);
 
                 gather_extra_attributes_in_declarator(ASTSon1(a), gather_info, declarator_context);
                 break;
@@ -9237,17 +9252,25 @@ static void build_scope_declarator_rec(
     if (a == NULL)
         return;
 
+    // In our grammar attributes appear before the ptr-op and before the declarator, so we first handle
+
     switch(ASTType(a))
     {
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
+                AST attributes = ASTSon1(a);
+                apply_attributes_to_type(declarator_type, attributes, declarator_context);
+
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context, nodecl_output); 
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
+                AST attributes = ASTSon2(a);
+                apply_attributes_to_type(declarator_type, attributes, declarator_context);
+
                 set_pointer_type(declarator_type, ASTSon0(a), declarator_context);
                 if (is_error_type(*declarator_type))
                 {
@@ -9288,10 +9311,22 @@ static void build_scope_declarator_rec(
             }
         case AST_DECLARATOR_FUNC_TRAIL:
             {
-                if (!gather_info->is_auto_type)
+                CXX03_LANGUAGE()
                 {
-                    error_printf("%s: error: a trailing return requires an 'auto' type-specifier\n",
-                            ast_location(a));
+                    // Try to be helpful
+                    if (gather_info->is_auto_storage)
+                    {
+                        warn_printf("%s: warning: a trailing return using an 'auto' type-specifier is only valid in C++11\n",
+                                ast_location(a));
+                    }
+                }
+                CXX11_LANGUAGE()
+                {
+                    if (!gather_info->is_auto_type)
+                    {
+                        error_printf("%s: error: a trailing return requires an 'auto' type-specifier\n",
+                                ast_location(a));
+                    }
                 }
 
                 // This auto has already been used
@@ -9315,8 +9350,8 @@ static void build_scope_declarator_rec(
                 gather_decl_spec_t new_gather_info;
                 memset(&new_gather_info, 0, sizeof(new_gather_info));
 
-                type_t* return_type = NULL;
-                compute_type_for_type_id_tree(type_id, out_prototype_context, &return_type, &new_gather_info);
+                type_t* return_type = compute_type_for_type_id_tree(type_id, out_prototype_context,
+                        NULL, &new_gather_info);
 
                 if (is_error_type(return_type))
                 {
@@ -11665,7 +11700,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
         compute_declarator_type(declarator,
                 &gather_info, simple_type_info, &declarator_type,
-                new_decl_context, declarator, nodecl_output);
+                new_decl_context, nodecl_output);
         scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
                 &gather_info, new_decl_context);
 
@@ -12072,7 +12107,7 @@ static void build_scope_type_template_parameter(AST a,
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl,
                 &gather_info, type_info, &declarator_type,
-                template_context, abstract_decl,nodecl_output);
+                template_context, nodecl_output);
 
         default_argument = counted_xcalloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
         default_argument->type = declarator_type;
@@ -12134,7 +12169,7 @@ static void build_scope_nontype_template_parameter(AST a,
     type_t* declarator_type = type_info;
     compute_declarator_type(parameter_declarator,
             &gather_info, type_info, &declarator_type,
-            template_context, parameter_declarator, nodecl_output);
+            template_context, nodecl_output);
 
     const char* template_parameter_name = NULL;
     AST declarator_name = get_declarator_name(parameter_declarator, template_context);
@@ -12466,13 +12501,6 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
             gather_decl_spec_t gather_info;
             memset(&gather_info, 0, sizeof(gather_info));
 
-            AST first_declarator = NULL;
-            if (init_declarator_list != NULL)
-            {
-                AST first_init_declarator = ASTSon1(ast_list_head(init_declarator_list));
-                first_declarator = ASTSon0(first_init_declarator);
-            }
-
             type_t* simple_type_info = NULL;
             nodecl_t nodecl_decl_spec = nodecl_null();
 
@@ -12498,7 +12526,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
                 type_t* declarator_type = NULL;
                 compute_declarator_type(declarator, &current_gather_info,
                         simple_type_info, &declarator_type, decl_context,
-                        first_declarator, &nodecl_declarator);
+                        &nodecl_declarator);
 
                 scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
                         &current_gather_info, decl_context);
@@ -12636,7 +12664,8 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         new_decl_context.decl_flags |= DF_CONSTRUCTOR;
     }
 
-    compute_declarator_type(function_declarator, &gather_info, type_info, &declarator_type, new_decl_context, function_declarator, nodecl_output);
+    compute_declarator_type(function_declarator, &gather_info, type_info,
+            &declarator_type, new_decl_context, nodecl_output);
     entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context);
 
     if (check)
@@ -12939,7 +12968,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
 
     if (decl_spec_seq != NULL)
     {
-        build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
+        build_scope_decl_specifier_seq(decl_spec_seq, gather_info,
                 &type_info, decl_context, nodecl_output);
     }
 
@@ -13015,13 +13044,12 @@ static scope_entry_t* build_scope_function_definition_declarator(
     }
 
     *block_context = new_block_context(decl_context);
-
     // This does not modify block_context.current_scope, it simply adds a function_scope to the context
     *block_context = new_function_context(*block_context);
 
     // block-context will be updated for qualified-id to reflect the exact context
     build_scope_declarator_with_parameter_context(function_declarator, gather_info, type_info, &declarator_type,
-            new_decl_context, block_context, function_declarator, nodecl_output);
+            new_decl_context, block_context, nodecl_output);
     entry = build_scope_declarator_name(function_declarator, declarator_type, gather_info, new_decl_context);
 
     if (entry == NULL)
@@ -13974,6 +14002,9 @@ static scope_entry_t* build_scope_member_function_definition(
     AST function_declarator = ASTSon1(function_header);
     AST declarator_name = get_declarator_name(function_declarator, decl_context);
 
+    // Propagate 'do_not_print' attribute to the current member
+    entry->do_not_print = named_type_get_symbol(class_info)->do_not_print;
+
     entry->entity_specs.access = current_access;
     entry->entity_specs.is_defined_inside_class_specifier = 1;
     entry->entity_specs.is_inline = 1;
@@ -14072,7 +14103,7 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
 
     compute_declarator_type(declarator, &gather_info,
             member_type, &declarator_type,
-            new_decl_context, declarator, nodecl_output);
+            new_decl_context, nodecl_output);
     scope_entry_t *entry =
         build_scope_declarator_name(declarator,
                 declarator_type, &gather_info,
@@ -14130,7 +14161,7 @@ void build_scope_friend_declarator(decl_context_t decl_context,
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, gather_info, 
             member_type, &declarator_type, 
-            decl_context, declarator, &nodecl_output);
+            decl_context, &nodecl_output);
 
     scope_entry_t *entry =
         build_scope_declarator_name(declarator,
@@ -14379,7 +14410,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         scope_entry_t* bitfield_symbol = NULL;
                         compute_declarator_type(identifier, &current_gather_info, 
                                 member_type, &declarator_type,
-                                decl_context, identifier, nodecl_output);
+                                decl_context, nodecl_output);
 
                         if (identifier != NULL)
                         {
@@ -14530,7 +14561,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         compute_declarator_type(ASTSon0(declarator), &current_gather_info,
                                 member_type, &declarator_type,
-                                new_decl_context, ASTSon0(declarator), nodecl_output);
+                                new_decl_context, nodecl_output);
                         scope_entry_t *entry =
                             build_scope_declarator_name(ASTSon0(declarator),
                                     declarator_type, &current_gather_info,
@@ -14807,7 +14838,7 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
 
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &inner_gather_info, type_info, &declarator_type,
-                decl_context, abstract_decl, nodecl_output);
+                decl_context, nodecl_output);
 
         if (is_error_type(declarator_type))
             continue;
@@ -15241,7 +15272,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         type_t* declarator_type = NULL;
 
         compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
-                decl_context, declarator, nodecl_output);
+                decl_context, nodecl_output);
         scope_entry_t* entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
 
         // FIXME: Handle VLAs here
@@ -15909,7 +15940,7 @@ static void build_scope_try_block(AST a,
             {
                 dummy = nodecl_null();
                 compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
-                        block_context, declarator, &dummy);
+                        block_context, &dummy);
 
                 scope_entry_t* entry = build_scope_declarator_name(declarator,
                         declarator_type, &gather_info, block_context);
@@ -16745,7 +16776,7 @@ char* get_conversion_function_name(decl_context_t decl_context,
 
     type_t* type_info = NULL;
     compute_declarator_type(conversion_declarator, &gather_info, simple_type_info, &type_info,
-            decl_context, conversion_declarator, &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (result_conversion_type != NULL)
     {

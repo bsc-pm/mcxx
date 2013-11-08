@@ -42,6 +42,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-tltype.h"
 #include "cxx-entrylist.h"
+#include "cxx-diagnostic.h"
 
 /*
  * Very specific bits of gcc support should be in this file
@@ -260,24 +261,28 @@ void gather_one_gcc_attribute(const char* attribute_name,
             && (strcmp(attribute_name, "aligned") == 0
                 || strcmp(attribute_name, "__aligned__") == 0))
     {
+        // Normalize the name
+        attribute_name = "aligned";
+
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'aligned' only allows one argument",
+            error_printf("%s: error: attribute 'aligned' only allows one argument",
                     ast_location(expression_list));
         }
-
-        // Evaluate the expression
-        nodecl_t nodecl_dummy;
-        AST argument = ASTSon1(expression_list);
-        if (!check_expression(argument, decl_context, &nodecl_dummy))
+        else
         {
-            running_error("%s: Invalid expression '%s'\n",
-                    ast_location(expression_list),
-                    prettyprint_in_buffer(argument));
+            // Evaluate the expression
+            AST argument = ASTSon1(expression_list);
+            check_expression(argument, decl_context, &nodecl_expression_list);
+            if (nodecl_is_err_expr(nodecl_expression_list))
+            {
+                do_not_keep_attribute = 1;
+            }
+            else
+            {
+                nodecl_expression_list = nodecl_make_list_1(nodecl_expression_list);
+            }
         }
-
-        nodecl_expression_list =
-            nodecl_make_list_1(nodecl_make_text(prettyprint_in_buffer(argument), ast_get_locus(argument)));
     }
     else if (expression_list != NULL
             && (strcmp(attribute_name, "mode") == 0
@@ -575,7 +580,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
             running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
         }
 
-        gather_gcc_attribute_t current_gcc_attribute;
+        gcc_attribute_t current_gcc_attribute;
 
         current_gcc_attribute.attribute_name = uniquestr(attribute_name);
         current_gcc_attribute.expression_list = nodecl_expression_list;
@@ -600,7 +605,7 @@ void gather_gcc_attribute(AST attribute,
             AST gcc_attribute_expr = ASTSon1(iter);
 
             AST identif = ASTSon0(gcc_attribute_expr);
-            AST expression_list = ASTSon2(gcc_attribute_expr);
+            AST expression_list = ASTSon1(gcc_attribute_expr);
 
             const char *attribute_name = ASTText(identif);
 
@@ -643,6 +648,53 @@ void keep_gcc_attributes_in_symbol(
     }
 }
 
+
+void apply_gcc_attribute_to_type(AST a,
+        type_t** type,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    ERROR_CONDITION(ASTType(a) != AST_GCC_ATTRIBUTE, "Invalid node", 0);
+
+    AST gcc_attribute_list = ASTSon0(a);
+    AST it;
+
+    for_each_element(gcc_attribute_list, it)
+    {
+        AST gcc_attribute_expr = ASTSon1(it);
+
+        AST identif = ASTSon0(gcc_attribute_expr);
+        AST expr_list = ASTSon1(gcc_attribute_expr);
+        const char *attribute_name = ASTText(identif);
+
+        if (attribute_name == NULL)
+            return;
+
+        // Normalize this name as the FE uses it elsewhere
+        if (strcasecmp(attribute_name, "__aligned__") == 0
+                || strcasecmp(attribute_name, "aligned") == 0)
+        {
+            attribute_name = "aligned";
+        }
+
+        gcc_attribute_t gcc_attr;
+        gcc_attr.attribute_name = attribute_name;
+        gcc_attr.expression_list = nodecl_null();
+
+        if (expr_list != NULL)
+        {
+            AST it2;
+            for_each_element(expr_list, it2)
+            {
+                AST expr = ASTSon1(it2);
+
+                gcc_attr.expression_list = nodecl_append_to_list(gcc_attr.expression_list,
+                        nodecl_make_text(prettyprint_in_buffer(expr), ast_get_locus(expr)));
+            }
+        }
+
+        *type = get_variant_type_add_gcc_attribute(*type, gcc_attr);
+    }
+}
 
 /*
  * Type traits of g++
@@ -1299,4 +1351,3 @@ void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
             ast_get_locus(expression),
             nodecl_output);
 }
-

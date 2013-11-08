@@ -62,6 +62,9 @@ LIBMCXX_EXTERN void keep_gcc_attributes_in_symbol(
         scope_entry_t* entry,
         gather_decl_spec_t* gather_info);
 
+LIBMCXX_EXTERN void apply_gcc_attribute_to_type(AST a, type_t** type,
+        decl_context_t decl_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCSUPPORT_H

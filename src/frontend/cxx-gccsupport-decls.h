@@ -35,11 +35,11 @@
 
 MCXX_BEGIN_DECLS
 
-typedef struct gather_gcc_attribute_tag
+typedef struct gcc_attribute_tag
 {
     const char *attribute_name;
     nodecl_t expression_list;
-} gather_gcc_attribute_t;
+} gcc_attribute_t;
 
 MCXX_END_DECLS
 

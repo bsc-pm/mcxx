@@ -150,8 +150,8 @@ LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_bool_false_type(void);
 
 // This is a zero type based on any integer/boolean type
-LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_zero_type_variant
-LIBMCXX_EXTERN type_t* get_zero_type_variant(type_t* t);
+LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_variant_type_zero
+LIBMCXX_EXTERN type_t* get_variant_type_zero(type_t* t);
 
 // nullptr_t
 LIBMCXX_EXTERN type_t* get_nullptr_type(void);
@@ -387,7 +387,8 @@ LIBMCXX_EXTERN char is_complex_type(type_t* t);
 
 LIBMCXX_EXTERN char is_unresolved_overloaded_type(type_t* t);
 
-LIBMCXX_EXTERN char is_zero_type(type_t* t);
+LIBMCXX_EXTERN char is_zero_type(type_t* t); // Alias of variant_type_is_zero
+LIBMCXX_EXTERN char variant_type_is_zero(type_t* t);
 
 LIBMCXX_EXTERN char is_zero_type_or_nullptr_type(type_t* t);
 
@@ -758,8 +759,14 @@ LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
         decl_context_t new_decl_context,
         symbol_map_t* symbol_map);
 
-LIBMCXX_EXTERN type_t* get_interoperable_variant_type(type_t* t);
-LIBMCXX_EXTERN char is_interoperable_variant_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_variant_type_interoperable(type_t* t);
+LIBMCXX_EXTERN char variant_type_is_interoperable(type_t* t);
+
+LIBMCXX_EXTERN type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr);
+LIBMCXX_EXTERN type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr);
+
+LIBMCXX_EXTERN void variant_type_get_gcc_attributes(type_t* t, int* num_attrs, gcc_attribute_t** attrs);
+LIBMCXX_EXTERN void variant_type_get_ms_attributes(type_t* t, int* num_attrs, gcc_attribute_t** attrs);
 
 // Vector flavor (NULL-ended array of vector flavors)
 LIBMCXX_EXTERN const char* vector_flavors[];

@@ -2878,6 +2878,13 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // Close file parsed
                 close_scanned_file();
 
+                if (CURRENT_CONFIGURATION->debug_options.print_parse_tree)
+                {
+                    fprintf(stderr, "Printing parse tree in graphviz format\n");
+
+                    ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                }
+
                 // * Prepare DTO
                 initialize_dto(translation_unit);
 
@@ -2912,15 +2919,15 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // * print ast if requested
-                if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
+                if (CURRENT_CONFIGURATION->debug_options.print_nodecl_graphviz)
                 {
-                    fprintf(stderr, "Printing AST in graphviz format\n");
+                    fprintf(stderr, "Printing nodecl tree in graphviz format\n");
 
                     ast_dump_graphviz(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
-                else if (CURRENT_CONFIGURATION->debug_options.print_ast_html)
+                else if (CURRENT_CONFIGURATION->debug_options.print_nodecl_html)
                 {
-                    fprintf(stderr, "Printing AST in HTML format\n");
+                    fprintf(stderr, "Printing nodecl tree in HTML format\n");
                     ast_dump_html(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
 

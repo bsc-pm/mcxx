@@ -142,7 +142,7 @@ static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const
 static void insert_extra_function_parameter_info(sqlite3* handle, scope_entry_t* symbol, 
         const char *name, function_parameter_info_t* parameter_info);
 static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, 
-        gather_gcc_attribute_t* gcc_attr);
+        gcc_attribute_t* gcc_attr);
 static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const char* name, void* data,
         sqlite3_uint64 (*fun)(sqlite3* handle, void* data));
 static sqlite3_uint64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
@@ -1447,7 +1447,7 @@ static void insert_extra_function_parameter_info(sqlite3* handle, scope_entry_t*
     sqlite3_reset(_insert_extra_attr_stmt);
 }
 
-static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr)
+static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gcc_attribute_t* gcc_attr)
 {
     insert_ast(handle, nodecl_get_ast(gcc_attr->expression_list));
     char *name_and_tree = sqlite3_mprintf("%s|%llu", 

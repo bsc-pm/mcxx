@@ -783,7 +783,7 @@ namespace TL
 
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &gather_info, type_info,
-                &declarator_type, decl_context, abstract_decl, &nodecl_out_type);
+                &declarator_type, decl_context, &nodecl_out_type);
 
         *nodecl_output = nodecl_make_type(declarator_type, ast_get_locus(type_id));
     }

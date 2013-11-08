@@ -239,7 +239,6 @@ type_t* compute_type_for_type_id_tree(AST type_id,
         compute_declarator_type(abstract_declarator,
                 &gather_info, simple_type_info,
                 &declarator_type, decl_context,
-                abstract_declarator,
                 &dummy_nodecl_output);
     }
 
@@ -6421,7 +6420,7 @@ char is_cxx_special_identifier(nodecl_t nodecl_name, nodecl_t* nodecl_output)
         // __null is a special item in g++
         if (strcmp(text, "__null") == 0)
         {
-            type_t* t = get_zero_type_variant((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
+            type_t* t = get_variant_type_zero((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
 
             *nodecl_output = nodecl_make_integer_literal(
                     t,
@@ -8058,7 +8057,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     }
 
     type_t* declarator_type = NULL;
-    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, new_declarator, &dummy_nodecl_output);
+    compute_declarator_type(new_declarator, &gather_info, dummy_type,
+            &declarator_type, decl_context, &dummy_nodecl_output);
 
     nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
@@ -10102,7 +10102,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
     type_t* declarator_type = simple_type_info;
     compute_declarator_type(abstract_declarator, &gather_info, simple_type_info,
-            &declarator_type, decl_context, abstract_declarator, &dummy_nodecl_output);
+            &declarator_type, decl_context, &dummy_nodecl_output);
 
     int i;
     for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
