@@ -345,6 +345,9 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
 
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
+   COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
+
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
 
@@ -661,11 +664,6 @@ fi
 AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
-if test x$is_enabled_tl_omp_nanox = xyes;
-then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
-   COMPILER_NAMES="${COMPILER_NAMES} smpcc smpcxx"
-fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
