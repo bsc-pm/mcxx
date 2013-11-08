@@ -71,20 +71,20 @@ int main(int argc, char* argv[])
     tool_initialization(argc, (const char**)argv);
     initialize_default_values();
 
-	parse_parameters(argc, argv);
+    parse_parameters(argc, argv);
     
     if (!prescanner.quiet)
     {
         fprintf(stderr, PACKAGE " Prescanner - Version " VERSION "\n");
     }
 
-	fortran_prescanner_run(&prescanner);
-	return 0;
+    fortran_prescanner_run(&prescanner);
+    return 0;
 }
 
 static void show_help(void)
 {
-	fprintf(stderr, HELP_STRING);
+    fprintf(stderr, HELP_STRING);
 }
 
 static compilation_configuration_t minimal_default_configuration;
@@ -139,15 +139,15 @@ static void tool_initialization(int argc, const char* argv[])
     // Define alternate stack
     stack_t alternate_stack;
 
-	// Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
-	// bigger than that (this is unlikely)
-	int allocated_size = 1024 * 1024;
-	if (MINSIGSTKSZ > 1024*1024)
-	{
-		allocated_size = MINSIGSTKSZ;
-	}
+    // Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
+    // bigger than that (this is unlikely)
+    int allocated_size = 1024 * 1024;
+    if (MINSIGSTKSZ > 1024*1024)
+    {
+        allocated_size = MINSIGSTKSZ;
+    }
 
-	_alternate_signal_stack = xmalloc(allocated_size);
+    _alternate_signal_stack = xmalloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -157,7 +157,7 @@ static void tool_initialization(int argc, const char* argv[])
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
         running_error("Setting alternate signal stack failed (%s)\n",
-				strerror(errno));
+                strerror(errno));
     }
 
     // Program signals
@@ -195,93 +195,93 @@ static void tool_initialization(int argc, const char* argv[])
 static void parse_parameters(int argc, char* argv[])
 {
     memset(&prescanner, 0, sizeof(prescanner));
-	// By default
-	prescanner.width = 72;
-	prescanner.append = 1;
-	prescanner.openmp_processing = 0;
-	prescanner.pad_strings = 1;
-	prescanner.output_filename = NULL;
-	prescanner.num_include_directories = 1;
-	prescanner.include_directories = xcalloc(1, sizeof(*prescanner.include_directories));
-	prescanner.include_directories[0] = xstrdup(".");
-	prescanner.output_include_directory = NULL;
+    // By default
+    prescanner.width = 72;
+    prescanner.append = 1;
+    prescanner.openmp_processing = 0;
+    prescanner.pad_strings = 1;
+    prescanner.output_filename = NULL;
+    prescanner.num_include_directories = 1;
+    prescanner.include_directories = xcalloc(1, sizeof(*prescanner.include_directories));
+    prescanner.include_directories[0] = xstrdup(".");
+    prescanner.output_include_directory = NULL;
 
-	char c;
-	char error = 0;
-	while ((c = getopt(argc, argv, GETOPT_STRING)) != (char) -1)
-	{
-		switch (c)
-		{
-			case 'o' :
-				{
-					prescanner.output_filename = xstrdup(optarg);
-					break;
-				}
-			case 'w' :
-				{
-					prescanner.width = atoi(optarg);
-					if (prescanner.width == 0)
-					{
-						fprintf(stderr, "Column width cannot be 0\n");
-						error = 1;
-					}
-					break;
-				}
-			case 'd' :
-				{
+    char c;
+    char error = 0;
+    while ((c = getopt(argc, argv, GETOPT_STRING)) != (char) -1)
+    {
+        switch (c)
+        {
+            case 'o' :
+                {
+                    prescanner.output_filename = xstrdup(optarg);
+                    break;
+                }
+            case 'w' :
+                {
+                    prescanner.width = atoi(optarg);
+                    if (prescanner.width == 0)
+                    {
+                        fprintf(stderr, "Column width cannot be 0\n");
+                        error = 1;
+                    }
+                    break;
+                }
+            case 'd' :
+                {
                     CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
-					break;
-				}
-			case 'a' :
-				{
-					prescanner.pad_strings = 0;
-					break;
-				}
-			case 'm' :
-				{
-					prescanner.append = 0;
-					break;
-				}
-			case 'p' :
-				{
-					prescanner.openmp_processing = 1;
-					break;
-				}
-			case 'h' :
-				{
-					show_help();
-					exit(EXIT_SUCCESS);
-					break;
-				}
-			case 'I' :
-				{
-					char* directory = xstrdup(optarg);
-					prescanner.num_include_directories++;
-					prescanner.include_directories = xrealloc(prescanner.include_directories, 
-							prescanner.num_include_directories * sizeof(*prescanner.include_directories));
-					prescanner.include_directories[prescanner.num_include_directories-1] = directory;
+                    break;
+                }
+            case 'a' :
+                {
+                    prescanner.pad_strings = 0;
+                    break;
+                }
+            case 'm' :
+                {
+                    prescanner.append = 0;
+                    break;
+                }
+            case 'p' :
+                {
+                    prescanner.openmp_processing = 1;
+                    break;
+                }
+            case 'h' :
+                {
+                    show_help();
+                    exit(EXIT_SUCCESS);
+                    break;
+                }
+            case 'I' :
+                {
+                    char* directory = xstrdup(optarg);
+                    prescanner.num_include_directories++;
+                    prescanner.include_directories = xrealloc(prescanner.include_directories, 
+                            prescanner.num_include_directories * sizeof(*prescanner.include_directories));
+                    prescanner.include_directories[prescanner.num_include_directories-1] = directory;
 
-					break;
-				}
-			case 'r' :
-				{
-					if (prescanner.output_include_directory != NULL)
-					{
-						fprintf(stderr, "Do not specify -r more than once\n");
-						show_help();
-						exit(EXIT_FAILURE);
-						break;
-					}
+                    break;
+                }
+            case 'r' :
+                {
+                    if (prescanner.output_include_directory != NULL)
+                    {
+                        fprintf(stderr, "Do not specify -r more than once\n");
+                        show_help();
+                        exit(EXIT_FAILURE);
+                        break;
+                    }
 
-					char* directory = xstrdup(optarg);
-					prescanner.output_include_directory = directory;
+                    char* directory = xstrdup(optarg);
+                    prescanner.output_include_directory = directory;
 
-					prescanner.num_include_directories++;
-					prescanner.include_directories = xrealloc(prescanner.include_directories, 
-							prescanner.num_include_directories * sizeof(*prescanner.include_directories));
-					prescanner.include_directories[prescanner.num_include_directories-1] = directory;
-					break;
-				}
+                    prescanner.num_include_directories++;
+                    prescanner.include_directories = xrealloc(prescanner.include_directories, 
+                            prescanner.num_include_directories * sizeof(*prescanner.include_directories));
+                    prescanner.include_directories[prescanner.num_include_directories-1] = directory;
+                    break;
+                }
             case 'q':
                 {
                     prescanner.quiet = 1;
@@ -292,40 +292,40 @@ static void parse_parameters(int argc, char* argv[])
                     prescanner.line_marks = 1;
                     break;
                 }
-			case '?' :
-				{
-					error = 1;
-					break;
-				}
-			default :
-				error = 1;
-				break;
-		}
-	}
+            case '?' :
+                {
+                    error = 1;
+                    break;
+                }
+            default :
+                error = 1;
+                break;
+        }
+    }
 
-	if (prescanner.output_filename == NULL)
-	{
-		fprintf(stderr, "You must specify an output file\n");
-		error = 1;
-	}
+    if (prescanner.output_filename == NULL)
+    {
+        fprintf(stderr, "You must specify an output file\n");
+        error = 1;
+    }
 
-	if (argc == optind)
-	{
-		fprintf(stderr, "You must specify an input file.\n");
-		error = 1;
-	}
+    if (argc == optind)
+    {
+        fprintf(stderr, "You must specify an input file.\n");
+        error = 1;
+    }
 
-	if ((argc - optind) > 1)
-	{
-		fprintf(stderr, "Too many parameters.");
-		error = 1;
-	}
+    if ((argc - optind) > 1)
+    {
+        fprintf(stderr, "Too many parameters.");
+        error = 1;
+    }
 
-	if (error == 1)
-	{
-		show_help();
-		exit(EXIT_FAILURE);
-	}
+    if (error == 1)
+    {
+        show_help();
+        exit(EXIT_FAILURE);
+    }
 
-	prescanner.input_filename = xstrdup(argv[optind]);
+    prescanner.input_filename = xstrdup(argv[optind]);
 }
