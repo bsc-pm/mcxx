@@ -146,10 +146,14 @@ namespace TL
                 VectorizerEnvironment& environment)
         {
             // Applying strenth reduction
-            TL::Optimizations::strength_reduce(for_statement);
+            TL::Optimizations::canonicalize_and_fold(for_statement);
 
             VectorizerVisitorFor visitor_for(environment);
-            return visitor_for.walk(for_statement);
+            bool needs_epilog = visitor_for.walk(for_statement);
+
+            // Applying strenth reduction
+            TL::Optimizations::canonicalize_and_fold(for_statement);
+            return needs_epilog;
         }
 
         void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
@@ -157,10 +161,13 @@ namespace TL
                 const bool masked_version)
         {
             // Applying strenth reduction
-            TL::Optimizations::strength_reduce(func_code);
+            TL::Optimizations::canonicalize_and_fold(func_code);
 
             VectorizerVisitorFunction visitor_function(environment, masked_version);
             visitor_function.walk(func_code);
+
+            // Applying strenth reduction
+            TL::Optimizations::canonicalize_and_fold(func_code);
         }
 
         void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement, 
@@ -168,10 +175,14 @@ namespace TL
                 Nodecl::NodeclBase& net_epilog_node)
         {
             // Applying strenth reduction
-            TL::Optimizations::strength_reduce(for_statement);
+            TL::Optimizations::canonicalize_and_fold(for_statement);
 
             VectorizerVisitorForEpilog visitor_epilog(environment);
             visitor_epilog.visit(for_statement, net_epilog_node);
+
+            // Applying strenth reduction
+            TL::Optimizations::canonicalize_and_fold(for_statement);
+            TL::Optimizations::canonicalize_and_fold(net_epilog_node);
         }
 
         bool Vectorizer::is_supported_reduction(bool is_builtin,

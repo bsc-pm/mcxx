@@ -50,6 +50,11 @@ namespace TL
         };
 
         void strength_reduce(Nodecl::NodeclBase& node);
+        
+        
+        
+        
+        void canonicalize_and_fold(Nodecl::NodeclBase& node);
     }
 }
 

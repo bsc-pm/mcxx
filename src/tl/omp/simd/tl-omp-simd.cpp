@@ -27,7 +27,6 @@
 #include "tl-omp-simd.hpp"
 #include "tl-omp.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-constants-folding.hpp"
 
 using namespace TL::Vectorization;
 
@@ -191,9 +190,6 @@ namespace TL {
                     reductions, new_external_vector_symbol_map,
                     for_statement);
 
-            // CONSTANT FOLDING
-            for_statement.replace(TL::Analysis::fold_constants(for_statement));
-
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
                     simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
@@ -267,10 +263,6 @@ namespace TL {
                     }
                 }
 
-                // CONSTANT FOLDING after vectorization
-                pre_for_nodecls.replace(TL::Analysis::fold_constants(pre_for_nodecls));
-                post_for_nodecls.replace(TL::Analysis::fold_constants(post_for_nodecls));
- 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
                 simd_node_epilog.append_sibling(post_for_nodecls);
@@ -288,9 +280,6 @@ namespace TL {
                         for_environment,
                         net_epilog_node);
  
-                // CONSTANT FOLDING after vectorization
-                simd_node_epilog.replace(TL::Analysis::fold_constants(simd_node_epilog));
-               
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
 
@@ -299,9 +288,6 @@ namespace TL {
             {
                 Nodecl::Utils::remove_from_enclosing_list(simd_node_epilog);
             }
-
-            // CONSTANT FOLDING after vectorization
-            for_statement.replace(TL::Analysis::fold_constants(for_statement));
 
             // Remove Simd node from for_statement
             simd_node.replace(for_statement);
@@ -321,9 +307,6 @@ namespace TL {
                     ast_print_node_type(loop.get_kind()));
 
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
-
-            // CONSTANT FOLDING
-            for_statement.replace(TL::Analysis::fold_constants(for_statement));
 
             // Suitable clause
             Nodecl::List suitable_expressions;
@@ -422,9 +405,6 @@ namespace TL {
                     }
                 }
 
-                // CONSTANT FOLDING after vectorization
-                pre_for_nodecls.replace(TL::Analysis::fold_constants(pre_for_nodecls));
- 
                 simd_node.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
                 //single_epilog.append_sibling(post_for_nodecls);
@@ -485,9 +465,6 @@ namespace TL {
             if (!flush.is_null())
                 Nodecl::Utils::remove_from_enclosing_list(flush);
 
-            // CONSTANT FOLDING after vectorization
-            for_epilog.replace(TL::Analysis::fold_constants(for_epilog));
-
             // Remove Simd nodes
             simd_node.replace(for_epilog);
         }
@@ -498,9 +475,6 @@ namespace TL {
                 .as<Nodecl::FunctionCode>();
 
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
-
-            // CONSTANT FOLDING
-            function_code.replace(TL::Analysis::fold_constants(function_code));
 
             // Remove SimdFunction node
             simd_node.replace(function_code);
@@ -602,9 +576,6 @@ namespace TL {
                     NULL);
 
             _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
-
-            // CONSTANT FOLDING after vectorization
-            vector_func_code.replace(TL::Analysis::fold_constants(vector_func_code));
         }
 
 

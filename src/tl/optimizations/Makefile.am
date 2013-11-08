@@ -32,9 +32,11 @@ END=
 
 
 libtloptimizations_la_CFLAGS = $(phases_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl \
                                $(END)
 
 libtloptimizations_la_CXXFLAGS = $(phases_cflags) -Wall \
+                               -I $(top_srcdir)/src/tl \
                               $(END)
 
 libtloptimizations_la_LDFLAGS = $(phases_ldflags) \

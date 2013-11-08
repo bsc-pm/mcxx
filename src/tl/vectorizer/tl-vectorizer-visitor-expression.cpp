@@ -1339,6 +1339,8 @@ namespace TL
             Nodecl::ParenthesizedExpression parent = n.shallow_copy().as<Nodecl::ParenthesizedExpression>();
 
             parent.set_type(n.get_nest().get_type());
+            if(n.is_constant())
+                parent.set_constant(get_vector_const_value(n));
 
             n.replace(parent);
         }
