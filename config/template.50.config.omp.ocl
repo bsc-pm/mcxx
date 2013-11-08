@@ -13,7 +13,7 @@ options = --opencl
 {openmp} compiler_phase = libtlnanox-opencl.so
 {openmp} linker_options = -lnanox-opencl-api
 
-[oclmfc : mfc]
+[oclmfc : smpfc]
 language = Fortran
 options = --opencl
 {openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
