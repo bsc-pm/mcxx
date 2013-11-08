@@ -42,7 +42,7 @@
 #include "tl-nodecl-utils-c.hpp"
 #include <errno.h>
 #include "cxx-driver-utils.h"
-#include "mpi-aux.hpp"
+#include "nanox-mpi-aux.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
