@@ -9,6 +9,8 @@ EOF
 
 exit
 
+fi
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
@@ -32,6 +34,6 @@ then
 unset test_nolink
 else
     test_nolink=yes
-    fi
+fi
     
 EOF
