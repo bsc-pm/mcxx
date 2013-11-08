@@ -241,7 +241,9 @@ namespace TL
                                 _environment._unroll_factor),
                             n.get_locus());
 
-                vector_prom.set_constant(get_vector_const_value(n));
+                vector_prom.set_constant(const_value_make_vector_from_scalar(
+                            _environment._unroll_factor,
+                            n.get_constant()));
 
                 n.replace(vector_prom);
             }
@@ -258,7 +260,9 @@ namespace TL
                             n.get_locus());
 
                 if(n.is_constant())
-                    vector_neg.set_constant(get_vector_const_value(n));
+                    vector_neg.set_constant(const_value_make_vector_from_scalar(
+                                _environment._unroll_factor,
+                                n.get_constant()));
 
                 n.replace(vector_neg);
             }
@@ -1274,7 +1278,9 @@ namespace TL
                                 n.get_locus());
 
                     if(n.is_constant())
-                        vector_prom.set_constant(get_vector_const_value(n));
+                        vector_prom.set_constant(const_value_make_vector_from_scalar(
+                                    _environment._unroll_factor,
+                                    n.get_constant()));
 
                     n.replace(vector_prom);
                 }
@@ -1312,7 +1318,10 @@ namespace TL
                             _environment._unroll_factor),
                         n.get_locus());
 
-            vector_prom.set_constant(get_vector_const_value(n));
+            vector_prom.set_constant(const_value_make_vector_from_scalar(
+                        _environment._unroll_factor,
+                        n.get_constant()));
+
 
             n.replace(vector_prom);
         }
@@ -1327,7 +1336,9 @@ namespace TL
                             _environment._unroll_factor),
                         n.get_locus());
 
-            vector_prom.set_constant(get_vector_const_value(n));
+            vector_prom.set_constant(const_value_make_vector_from_scalar(
+                        _environment._unroll_factor,
+                        n.get_constant()));
 
             n.replace(vector_prom);
         }
@@ -1340,7 +1351,9 @@ namespace TL
 
             parent.set_type(n.get_nest().get_type());
             if(n.is_constant())
-                parent.set_constant(get_vector_const_value(n));
+                parent.set_constant(const_value_make_vector_from_scalar(
+                            _environment._unroll_factor,
+                            n.get_constant()));
 
             n.replace(parent);
         }
@@ -1460,24 +1473,6 @@ namespace TL
             return result;
         }
 
-        const_value_t * VectorizerVisitorExpression::get_vector_const_value(const Nodecl::NodeclBase& n)
-        {
-            const_value_t** value_set = new const_value_t*[_environment._unroll_factor];
-
-            for (unsigned int i = 0; i < _environment._unroll_factor; i++)
-            {
-                value_set[i] = n.get_constant();
-                ERROR_CONDITION(value_set[i] == NULL, "Invalid constant", 0);
-            }
-
-            const_value_t* result = const_value_make_vector(_environment._unroll_factor, value_set);
-
-            delete[] value_set;
-
-            return result;
-        }
- 
- 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(
                 const Nodecl::NodeclBase& n)
         {

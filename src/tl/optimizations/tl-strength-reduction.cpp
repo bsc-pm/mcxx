@@ -71,11 +71,11 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
     TL::Type lhs_type = lhs.get_type();
     TL::Type rhs_type = rhs.get_type();
 
-    if(rhs.is_constant() && rhs_type.is_integral_type() && (!lhs.is_constant()))
+    if(lhs.is_constant() && lhs_type.is_integral_type())
     {
 #warning const_value_cast_to_cvalue
 
-        const_value_t * cv = rhs.get_constant(); 
+        const_value_t * cv = lhs.get_constant(); 
         int integer_value = const_value_cast_to_signed_int(cv);
 
         // V * C, C == Pow2
@@ -86,7 +86,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
             // lhs << (cv>>ctz)
             Nodecl::BitwiseShl shl = 
                 Nodecl::BitwiseShl::make(
-                        lhs.shallow_copy(),
+                        rhs.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(ctz)),
                         node.get_type(),
                         node.get_locus());
@@ -107,11 +107,11 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
     TL::Type lhs_type = lhs.get_type();
     TL::Type rhs_type = rhs.get_type();
 
-    if(rhs.is_constant() && rhs_type.is_integral_type())
+    if(lhs.is_constant() && lhs_type.is_integral_type())
     {
 #warning const_value_cast_to_cvalue
 
-        const_value_t * cv = rhs.get_constant(); 
+        const_value_t * cv = lhs.get_constant(); 
         int integer_value = const_value_cast_to_signed_int(cv);
 
         if (__builtin_popcount(integer_value) == 1) //Pow2
@@ -121,7 +121,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
             // lhs << (cv>>ctz)
             Nodecl::BitwiseShr shr = 
                 Nodecl::BitwiseShr::make(
-                        lhs.shallow_copy(),
+                        rhs.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(ctz)),
                         node.get_type(),
                         node.get_locus());

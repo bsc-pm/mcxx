@@ -88,8 +88,6 @@ namespace TL
 
                 void vectorize_basic_induction_variable(const Nodecl::Symbol& n);
                 const_value_t * get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list);
-                const_value_t * get_vector_const_value(const Nodecl::NodeclBase& n);
-
         };
     }
 }
