@@ -49,6 +49,8 @@ namespace TL { namespace Nanox {
             bool final_clause_transformation_disabled() const;
 
         private:
+            void load_headers(DTO& dto);
+
             Nodecl::List _extra_c_code;
 
             FILE* _ancillary_file;
