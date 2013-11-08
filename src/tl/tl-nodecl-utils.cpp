@@ -850,7 +850,7 @@ namespace Nodecl
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::VectorAdd& n )
     {
-        std::cerr << "\nCANONICAL VECTOR ADD: " << n.prettyprint() << std::endl;
+        //std::cerr << "\nCANONICAL VECTOR ADD: " << n.prettyprint() << std::endl;
 
         NodeclBase lhs = n.get_lhs( );
         NodeclBase rhs = n.get_rhs( );
@@ -896,7 +896,7 @@ namespace Nodecl
             }
         }
 
-        std::cerr << "--> " << n.prettyprint() << std::endl;
+        //std::cerr << "--> " << n.prettyprint() << std::endl;
     }
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::VectorDiv& n )
@@ -906,8 +906,9 @@ namespace Nodecl
         if( lhs.is_constant( ) && rhs.is_constant( ) &&
             const_value_is_zero( lhs.get_constant( ) ) && !const_value_is_zero( rhs.get_constant( ) ) )
         {
-#warning get_vector_zero
-            replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
+            replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
+                            n.get_type().vector_num_elements(),
+                            const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
         }
     }
 
@@ -956,8 +957,9 @@ namespace Nodecl
         }
         else if( equal_nodecls( lhs, rhs ) )
         {
-#warning get_vector_zero
-            //replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
+            replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
+                            n.get_type().vector_num_elements(),
+                            const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
         }
     }
 
@@ -968,8 +970,9 @@ namespace Nodecl
         if( ( rhs.is_constant() && lhs.is_constant() && const_value_is_one( lhs.get_constant( ) ) )
             || equal_nodecls( lhs, rhs ) )
         {   // R11
-#warning get_vector_zero
-//            replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
+            replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
+                            n.get_type().vector_num_elements(),
+                            const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
         }
     }
 
@@ -980,8 +983,9 @@ namespace Nodecl
         if( ( lhs.is_constant( ) && const_value_is_zero( lhs.get_constant( ) ) )
             || ( rhs.is_constant( ) && const_value_is_zero( rhs.get_constant( ) ) ) )
         {   // 0 * t = t , t * 0 = t
-#warning get_vector_zero
-//            replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
+            replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
+                            n.get_type().vector_num_elements(),
+                            const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
         }
         else if( lhs.is_constant( ) && rhs.is_constant( ) )
         {   // R7
@@ -992,8 +996,9 @@ namespace Nodecl
         {
             if( const_value_is_zero( rhs.get_constant( ) ) )
             {
-#warning get_vector_zero
-//                replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
+                replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
+                                n.get_type().vector_num_elements(),
+                                const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
             }
             else
             {
@@ -1006,8 +1011,9 @@ namespace Nodecl
                     {
                         if( const_value_is_zero( lhs_lhs.get_constant( ) ) )
                         {
-#warning get_vector_zero
-//                            replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
+                            replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
+                                            n.get_type().vector_num_elements(),
+                                            const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
                         }
                         else
                         {
