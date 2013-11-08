@@ -511,6 +511,19 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
 
 char const_value_is_nonzero(const_value_t* v)
 {
+    if (IS_MULTIVALUE(v->kind))
+    {
+        int num_elements = v->value.m->num_elements;
+        int i;
+        for (i=0; i<num_elements; i++)
+        {
+            if (const_value_is_nonzero(v->value.m->elements[i]))
+                return 1;
+        }
+
+        return 0;
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:

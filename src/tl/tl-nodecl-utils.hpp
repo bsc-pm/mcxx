@@ -133,6 +133,13 @@ namespace Nodecl
             Ret visit_post( const Nodecl::Minus& n );
             Ret visit_post( const Nodecl::Mod& n );
             Ret visit_post( const Nodecl::Mul& n );
+            Ret visit_post( const Nodecl::ObjectInit& n );
+            Ret visit_post( const Nodecl::VectorAdd& n );
+            Ret visit_post( const Nodecl::VectorDiv& n );
+            Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
+            Ret visit_post( const Nodecl::VectorMinus& n );
+            Ret visit_post( const Nodecl::VectorMod& n );
+            Ret visit_post( const Nodecl::VectorMul& n );
         };
 
         // Basic replacement
