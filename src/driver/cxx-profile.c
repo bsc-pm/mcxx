@@ -51,8 +51,9 @@ compilation_configuration_t* new_compilation_configuration(
     result->target_objdump = TARGET_OBJDUMP;
     result->target_ar = TARGET_AR;
 
-    // Fortran default width of 132 columns
-    result->column_width = 132;
+    // Fortran default column widths
+    result->input_column_width = 72;
+    result->output_column_width = 132;
 
     return result;
 }

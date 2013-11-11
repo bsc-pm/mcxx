@@ -43,4 +43,5 @@ libtlnanox_mpi_la_LDFLAGS = $(phases_ldflags)
 libtlnanox_mpi_la_SOURCES = \
        nanox-mpi.hpp \
        nanox-mpi.cpp \
+       nanox-mpi-aux.hpp \
        $(END)

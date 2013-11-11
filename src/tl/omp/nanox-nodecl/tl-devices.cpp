@@ -280,6 +280,7 @@ namespace TL { namespace Nanox {
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_PRIVATE:
+                case OutlineDataItem::SHARING_ALLOCA:
                     {
                         break;
                     }

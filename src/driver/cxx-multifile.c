@@ -498,7 +498,7 @@ void multifile_embed_bfd_collective(void **data, const char* output_filename)
 
     if (execute_program(CURRENT_CONFIGURATION->target_objcopy, objcopy_args) != 0)
     {
-        running_error("When creating multifile archive, 'objcopy' failed\n");
+        running_error("When creating multifile archive, 'objcopy' failed, if compiling for MIC, set MIC_TOOLS configure flag correctly\n");
     }
 
     if (CURRENT_CONFIGURATION->verbose)
