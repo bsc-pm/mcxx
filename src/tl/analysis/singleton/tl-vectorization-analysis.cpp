@@ -351,6 +351,59 @@ namespace Analysis {
         }
     }
     
+    int SuitableAlignmentVisitor::visit( const Nodecl::BitwiseShl& n )
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+        
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        // Something suitable multiplied by anything is suitable
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+            return 0;
+        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            return lhs_mod << rhs_mod;
+        
+        return -1;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::BitwiseShr& n )
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+        
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        // Something suitable multiplied by anything is suitable
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+            return 0;
+        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            return lhs_mod >> rhs_mod;
+        
+        return -1;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::Conversion& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+        
+        return walk(n.get_nest());
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+    }
+    
     int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
     {
         if (is_suitable_expression(n))
@@ -384,21 +437,6 @@ namespace Analysis {
             return lhs_mod * rhs_mod;
 
         return -1;
-    }
-
-    int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
-    {
-        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
-    }
-    
-    int SuitableAlignmentVisitor::visit( const Nodecl::Conversion& n ) 
-    {
-        if (is_suitable_expression(n))
-        {
-            return 0;
-        }
-
-        return walk(n.get_nest());
     }
 
     int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n ) 
@@ -451,12 +489,9 @@ namespace Analysis {
 
     int SuitableAlignmentVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
-        std::cerr << "Suitable Alignment Visitor: Unknown node "
-            << ast_print_node_type(n.get_kind())
-            << " at " << n.get_locus_str()
-            << std::endl;
-
-        return Ret();
+        WARNING_MESSAGE( "Suitable Alignment Visitor: Unknown node '%s' at '%s'\n", 
+                         ast_print_node_type( n.get_kind( ) ), n.get_locus_str( ).c_str( ) );
+        return -1;
     }
 
 
