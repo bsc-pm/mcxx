@@ -524,6 +524,8 @@ namespace Codegen
             std::string start_inline_comment();
             std::string end_inline_comment();
 
+            bool is_assignment_operator(const std::string& operator_name);
+
         protected:
 
             void walk_list(const Nodecl::List&,
