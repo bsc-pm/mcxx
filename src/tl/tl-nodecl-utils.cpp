@@ -667,7 +667,7 @@ namespace Nodecl
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::Add& n )
     {
-        std::cerr << "\nCANONICAL ADD: " << n.prettyprint() << std::endl;
+        //std::cerr << "\nCANONICAL ADD: " << n.prettyprint() << std::endl;
 
         NodeclBase lhs = n.get_lhs( );
         NodeclBase rhs = n.get_rhs( );
@@ -711,9 +711,37 @@ namespace Nodecl
             {   // R2
                 replace( n, Add::make( rhs, lhs, lhs.get_type( ), n.get_locus( ) ) );
             }
+        }
+        else if( lhs.is_constant( ) )
+        {
+            if( rhs.is<Add>( ) )
+            {   // R6
+                Add rhs_add = rhs.as<Add>( );
+                NodeclBase rhs_lhs = rhs_add.get_lhs( );
+                NodeclBase rhs_rhs = rhs_add.get_rhs( );
+                if( rhs_lhs.is_constant( ) )
+                {
+                    NodeclBase c = Add::make( lhs, rhs_lhs, lhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    if( !const_value_is_zero( c_value ))
+                    {
+                        replace( n, Add::make( const_value_to_nodecl(c_value), rhs_rhs,
+                                               lhs.get_type( ), n.get_locus( ) ) );
+                    }
+                    else
+                    {
+                        replace( n, rhs_rhs );
+                    }
+                }
             }
+            else
+            {   // R2
+                replace( n, Add::make( rhs, lhs, lhs.get_type( ), n.get_locus( ) ) );
+            }
+        }
 
-        std::cerr << "--> " << n.prettyprint() << std::endl;
+
+        //std::cerr << "--> " << n.prettyprint() << std::endl;
     }
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::Div& n )
@@ -850,7 +878,7 @@ namespace Nodecl
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::VectorAdd& n )
     {
-        //std::cerr << "\nCANONICAL VECTOR ADD: " << n.prettyprint() << std::endl;
+        std::cerr << "\nCANONICAL VECTOR ADD: " << n.prettyprint() << std::endl;
 
         NodeclBase lhs = n.get_lhs( );
         NodeclBase rhs = n.get_rhs( );
@@ -895,8 +923,35 @@ namespace Nodecl
                 replace( n, VectorAdd::make( rhs, lhs, n.get_mask(), lhs.get_type( ), n.get_locus( ) ) );
             }
         }
+        else if( lhs.is_constant( ) )
+        {
+            if( rhs.is<VectorAdd>( ) )
+            {   // R6
+                VectorAdd rhs_add = rhs.as<VectorAdd>( );
+                NodeclBase rhs_lhs = rhs_add.get_lhs( );
+                NodeclBase rhs_rhs = rhs_add.get_rhs( );
+                if( rhs_lhs.is_constant( ) )
+                {
+                    NodeclBase c = VectorAdd::make( lhs, rhs_lhs, n.get_mask(), lhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    if( !const_value_is_zero( c_value ))
+                    {
+                        replace( n, VectorAdd::make( const_value_to_nodecl(c_value), rhs_rhs, 
+                                    n.get_mask(), lhs.get_type( ), n.get_locus( ) ) );
+                    }
+                    else
+                    {
+                        replace( n, rhs_rhs );
+                    }
+                }
+            }
+            else
+            {   // R2
+                replace( n, VectorAdd::make( rhs, lhs, n.get_mask(), lhs.get_type( ), n.get_locus( ) ) );
+            }
+        } 
 
-        //std::cerr << "--> " << n.prettyprint() << std::endl;
+        std::cerr << "--> " << n.prettyprint() << std::endl;
     }
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::VectorDiv& n )

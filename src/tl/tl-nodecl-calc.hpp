@@ -81,6 +81,9 @@ namespace Nodecl
         Ret visit(const Nodecl::ConditionalExpression& n);
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::Sizeof& n);
+        Ret visit(const Nodecl::VectorAdd& n);
+        Ret visit(const Nodecl::VectorLiteral& n);
+        Ret visit(const Nodecl::VectorPromotion& n);
         
     public:
         // *** Constructors *** //
