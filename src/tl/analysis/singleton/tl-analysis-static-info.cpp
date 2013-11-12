@@ -70,9 +70,10 @@ namespace Analysis {
     // **************** Class to retrieve analysis info about one specific nodecl ****************** //
 
     NodeclStaticInfo::NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
+                                        ObjectList<Symbol> reductions,
                                         Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
                                         Node* autoscoped_task )
-            : _induction_variables( induction_variables ), _killed( killed ),
+            : _induction_variables( induction_variables ), _reductions( reductions ) ,_killed( killed ),
               _pcfgs( pcfgs ), _autoscoped_task( autoscoped_task )
     {}
 
@@ -210,21 +211,46 @@ namespace Analysis {
         return result;
     }
 
-    const_value_t* NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
+    bool NodeclStaticInfo::is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& n ) const
     {
-        const_value_t* result = NULL;
+        bool result = false;
+        
+        ObjectList<Analysis::Utils::InductionVariableData*> non_reduction_induction_variables;
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
+             it != _induction_variables.end( ); ++it )
+        {
+            if( !_reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
+                non_reduction_induction_variables.insert( *it );
+        }
+            
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = non_reduction_induction_variables.begin( );
+             it != non_reduction_induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            {
+                result = ( *it )->is_basic( );
+                break;
+            }
+        }
+            
+        return result;
+    }
+    
+    Nodecl::NodeclBase NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
+    {
+        Nodecl::NodeclBase result;
 
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                result = ( *it )->get_increment( ).get_constant( );
+                result = ( *it )->get_increment( );
                 break;
             }
         }
 
-        if( result == NULL )
+        if( result.is_null( ) )
         {
             WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
                              "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
@@ -233,20 +259,16 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<const_value_t*> NodeclStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const
+    ObjectList<Nodecl::NodeclBase> NodeclStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const
     {
-        ObjectList<const_value_t*> result;
+        ObjectList<Nodecl::NodeclBase> result;
         
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
-                ObjectList<Nodecl::NodeclBase> incr_nodecls = ( *it )->get_increment_list( );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it2 = incr_nodecls.begin( ); it2 != incr_nodecls.end( ); ++it2 )
-                {
-                    result.insert( it2->get_constant( ) );
-                }
+                result = ( *it )->get_increment_list( );
                 break;
             }
         }
@@ -294,11 +316,12 @@ namespace Analysis {
         return iv;
     }
 
-    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::get_induction_variables( const Nodecl::NodeclBase& n ) const
+    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::get_induction_variables( 
+            const Nodecl::NodeclBase& n ) const
     {
         return _induction_variables;
     }
-
+    
     void NodeclStaticInfo::print_auto_scoping_results( ) const
     {
         if( _autoscoped_task != NULL )
@@ -450,7 +473,7 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether '%s' is an induction variable.'",
+                             "Cannot resolve whether '%s' is a basic induction variable.'",
                              scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
         }
         else
@@ -462,10 +485,31 @@ namespace Analysis {
         return result;
     }
 
-    const_value_t* AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
-                                                                         const Nodecl::NodeclBase& n ) const
+    bool AnalysisStaticInfo::is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, 
+                                                                        const Nodecl::NodeclBase& n ) const
     {
-        const_value_t* result = NULL;
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether '%s' is a non-reduction basic induction variable.'",
+                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result =  current_info.is_non_reduction_basic_induction_variable( n );
+        }
+
+        return result;
+    }
+    
+    Nodecl::NodeclBase AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
+                                                                             const Nodecl::NodeclBase& n ) const
+    {
+        Nodecl::NodeclBase result;
 
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
@@ -483,10 +527,10 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<const_value_t*> AnalysisStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
-                                                                                          const Nodecl::NodeclBase& n ) const
+    ObjectList<Nodecl::NodeclBase> AnalysisStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
+                                                                                              const Nodecl::NodeclBase& n ) const
     {
-        ObjectList<const_value_t*> result;
+        ObjectList<Nodecl::NodeclBase> result;
 
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
@@ -534,7 +578,7 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot get the increment of the induction variable '%s'.'",
+                             "Cannot get the induction variable list in '%s'.'",
                              scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
         }
         else
@@ -544,8 +588,8 @@ namespace Analysis {
         }
 
         return result;
-    }
-
+    }                                                                          
+    
     bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -621,7 +665,17 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
+
+            // An access will be aligned only if it is an adjacent access
+            if(this->is_adjacent_access(scope, n))
+            {
+                result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
+            }
+            else
+            {
+                internal_error( "Using 'is_simd_aligned_access' in access '%s' which is not adjacent",
+                        n.prettyprint( ).c_str( ) );
+            }
         }
         
         return result;
@@ -694,12 +748,14 @@ namespace Analysis {
     {
         // The queries to the analysis info depend on the mask
         ObjectList<Analysis::Utils::InductionVariableData*> induction_variables;
+        ObjectList<Symbol> reductions;
         Utils::ext_sym_set killed;
         ObjectList<ExtensibleGraph*> pcfgs;
         Node* autoscoped_task;
         if( _analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
             induction_variables = _state.get_induction_variables( n );
+            reductions = _state.get_reductions( n );
         }
         if( _analysis_mask._which_analysis & WhichAnalysis::CONSTANTS_ANALYSIS )
         {
@@ -712,7 +768,7 @@ namespace Analysis {
             autoscoped_task = _state.get_autoscoped_task( n );
         }
 
-        NodeclStaticInfo static_info( induction_variables, killed, pcfgs, autoscoped_task );
+        NodeclStaticInfo static_info( induction_variables, reductions, killed, pcfgs, autoscoped_task );
         _analysis_info.insert( static_info_pair_t( n, static_info ) );
     }
 

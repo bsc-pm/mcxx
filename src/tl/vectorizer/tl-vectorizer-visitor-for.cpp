@@ -244,10 +244,9 @@ namespace TL
                             _environment._analysis_scopes.back(),
                             lhs))
                 {
-                    step = const_value_to_nodecl(
-                        Vectorizer::_analysis_info->get_induction_variable_increment(
+                    step = Vectorizer::_analysis_info->get_induction_variable_increment(
                             _environment._analysis_scopes.back(),
-                            lhs));
+                            lhs);
 
                     new_step = Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
@@ -307,10 +306,9 @@ namespace TL
                             _environment._analysis_scopes.back(),
                             rhs))
                 {
-                    step = const_value_to_nodecl(
-                        Vectorizer::_analysis_info->get_induction_variable_increment(
+                    step = Vectorizer::_analysis_info->get_induction_variable_increment(
                             _environment._analysis_scopes.back(),
-                            rhs));
+                            rhs);
 
                     new_step = Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
@@ -411,39 +409,43 @@ namespace TL
                         _environment._analysis_scopes.back(),
                         lhs))
             {
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            lhs.shallow_copy(),
-                            const_value_to_nodecl(
-                                const_value_mul(const_value_get_signed_int(_environment._unroll_factor), 
-                                    Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        _environment._analysis_scopes.back(),
-                                        lhs))),
-                            node.get_type(),
-                            node.get_locus());
-
+#warning Diego, change ind_var_increment usage from const_value_t to Nodecl::NodeclBase
+                Nodecl::NodeclBase step = Vectorizer::_analysis_info->get_induction_variable_increment(
+                        _environment._analysis_scopes.back(),
+                        lhs);
+                if (step.is_constant())
+                {
+                    const Nodecl::AddAssignment new_node =
+                        Nodecl::AddAssignment::make(
+                                lhs.shallow_copy(),
+                                const_value_to_nodecl(
+                                    const_value_mul(const_value_get_signed_int(_environment._unroll_factor), 
+                                        step.get_constant())),
+                                node.get_type(),
+                                node.get_locus());
 
 /*
-                const Nodecl::AddAssignment new_node =
-                    Nodecl::AddAssignment::make(
-                            lhs.shallow_copy(),
-                            Nodecl::Mul::make(
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(_environment._unroll_factor),
-                                    node.get_locus()),
-                                Nodecl::IntegerLiteral::make(
+                    const Nodecl::AddAssignment new_node =
+                        Nodecl::AddAssignment::make(
+                                lhs.shallow_copy(),
+                                Nodecl::Mul::make(
+                                    Nodecl::IntegerLiteral::make(
+                                        TL::Type::get_int_type(),
+                                        const_value_get_signed_int(_environment._unroll_factor),
+                                        node.get_locus()),
+                                    Nodecl::IntegerLiteral::make(
+                                        node.get_type(),
+                                        Vectorizer::_analysis_info->get_induction_variable_increment(
+                                            _environment._analysis_scopes.back(),
+                                            lhs),
+                                        node.get_locus()),
                                     node.get_type(),
-                                    Vectorizer::_analysis_info->get_induction_variable_increment(
-                                        _environment._analysis_scopes.back(),
-                                        lhs),
                                     node.get_locus()),
                                 node.get_type(),
-                                node.get_locus()),
-                            node.get_type(),
-                            node.get_locus());
+                                node.get_locus());
 */
-                node.replace(new_node);
+                    node.replace(new_node);
+                }
             }
         }
 

@@ -1147,15 +1147,18 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-disable_vectorization="no"
+dnl DISABLED BY DEFAULT IN MASTER
+dnl It should be no
+disable_vectorization="yes"
 AC_MSG_CHECKING([if disabled Vectorization build and install])
 AC_ARG_ENABLE([vectorization],
   AS_HELP_STRING([--disable-vectorization], [Disables build and install Vectorization]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_vectorization="no"
-      AC_MSG_RESULT([no])
+    dnl It should be no (both)
+      disable_vectorization="yes"
+      AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
       then
         AC_MSG_RESULT([yes])
@@ -1166,8 +1169,9 @@ AC_ARG_ENABLE([vectorization],
     fi
   ],
   [
-    disable_vectorization="no"
-    AC_MSG_RESULT([no])
+    dnl It should be no (both)
+    disable_vectorization="yes"
+    AC_MSG_RESULT([yes])
   ]
 )
 

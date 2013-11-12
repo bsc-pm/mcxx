@@ -6865,8 +6865,6 @@ const char* print_intel_sse_avx_vector_type(
                 }
             }
       case 64:
-            // Larrabee
-            // http://software.intel.com/en-us/articles/prototype-primitives-guide/
             {
                 if (is_float_type(element_type))
                 {
@@ -6881,6 +6879,22 @@ const char* print_intel_sse_avx_vector_type(
                     return "__m512i";
                 }
             }
+      case 128:
+            {
+                if (is_float_type(element_type))
+                {
+                    return "__m1024";
+                }
+                else if (is_double_type(element_type))
+                {
+                    return "__m1024d";
+                }
+                else if (is_integer_type(element_type))
+                {
+                    return "__m1024i";
+                }
+            }
+
     }
 
     const char* typename = get_simple_type_name_string_internal_impl(decl_context,

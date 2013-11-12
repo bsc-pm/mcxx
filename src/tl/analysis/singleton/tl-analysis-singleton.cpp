@@ -199,8 +199,7 @@ namespace Analysis {
             else if( !current->is_entry_node( ) )
             {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
-                     it != stmts.end( ); ++it )
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
                     if( Nodecl::Utils::equal_nodecls( *it, n ) )
                     {
@@ -213,8 +212,7 @@ namespace Analysis {
             if( result == NULL )
             {
                 ObjectList<Node*> children = current->get_children( );
-                for( ObjectList<Node*>::iterator it = children.begin( );
-                     it != children.end( ); ++it )
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
                     result = node_enclosing_nodecl_rec( *it, n );
                     if( result != NULL )
@@ -264,8 +262,29 @@ namespace Analysis {
         {
             Node* pcfg_node = node_enclosing_nodecl( n );
             if( ( pcfg_node != NULL ) && pcfg_node->is_loop_node( ) )
-            {
                 result =  pcfg_node->get_induction_variables( );
+        }
+        return result;
+    }
+    
+    ObjectList<Symbol> PCFGAnalysis_memento::get_reductions( const Nodecl::NodeclBase& n )
+    {
+        ObjectList<Symbol> result;
+        if( _induction_variables )
+        {
+            Node* pcfg_node = node_enclosing_nodecl( n );
+            if( pcfg_node != NULL )
+            {
+                Node* pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_node );
+                while( pcfg_omp_node != NULL && 
+                       !pcfg_omp_node->is_omp_parallel_node( ) && !pcfg_omp_node->is_omp_loop_node( ) && 
+                       !pcfg_omp_node->is_omp_sections_node( ) && !pcfg_omp_node->is_omp_simd_node( ) )
+                {
+                    pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_omp_node );
+                }
+                
+                if( pcfg_omp_node != NULL )
+                    result = pcfg_omp_node->get_reductions( );
             }
         }
         return result;

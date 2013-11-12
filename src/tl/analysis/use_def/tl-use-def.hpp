@@ -136,7 +136,12 @@ namespace Analysis {
         //! List of arguments passed by reference or with pointer type
         Utils::nodecl_set _ipa_arguments;
 
-
+        /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
+         * When a function call appears in a split statement we calculate the first time (the func_call node)
+         * but for the other nodes, we just propagate the information
+         */
+        bool _avoid_func_calls;
+        
         // *********************** Private methods *********************** //
 
         
@@ -197,7 +202,6 @@ namespace Analysis {
         Ret visit( const Nodecl::ModAssignment& n );
         Ret visit( const Nodecl::MulAssignment& n );
         Ret visit( const Nodecl::ObjectInit& n );
-        Ret visit( const Nodecl::PointerToMember& n );
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Predecrement& n );
@@ -214,6 +218,28 @@ namespace Analysis {
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };
 
+    
+    class LIBTL_CLASS ReferenceUsageVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+        Nodecl::NodeclBase _current_nodecl;
+        bool _store_symbol;
+        Utils::ext_sym_set _used_ext_syms;
+        
+    public:
+        // Constructor
+        ReferenceUsageVisitor( );
+        
+        // Consultants
+        Utils::ext_sym_set get_ue_vars( );
+        
+        // Visitors
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::ClassMemberAccess& n );
+        Ret visit( const Nodecl::Reference& n );
+        Ret visit( const Nodecl::Symbol& n );
+    };
+    
     // *************************** End class implementing use-definition visitor ************************** //
     // **************************************************************************************************** //
 }

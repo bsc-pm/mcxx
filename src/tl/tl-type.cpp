@@ -249,7 +249,7 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_vector_to(unsigned int vector_size)
+    Type Type::get_vector_to(unsigned int vector_size) const
     {
         type_t* work_type = this->_type_info;
 
@@ -258,7 +258,7 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_vector_of_elements(unsigned int num_elements)
+    Type Type::get_vector_of_elements(unsigned int num_elements) const
     {
         type_t* work_type = this->_type_info;
 

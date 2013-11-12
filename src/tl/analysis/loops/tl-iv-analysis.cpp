@@ -187,9 +187,7 @@ namespace {
 
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
                 compute_induction_variables_rec( *it );
-            }
         }
     }
 
@@ -220,9 +218,7 @@ namespace {
             // Look for IVs in current's children
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
                 detect_basic_induction_variables( *it, loop );
-            }
         }
     }
 
@@ -242,16 +238,12 @@ namespace {
             std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
                     _induction_vars.equal_range( loop->get_id( ) );
             for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
-            {
                 ivs.append( it->second );
-            }
 
             if( !Utils::induction_variable_list_contains_variable( ivs, iv ) )
             {
                 if( !check_potential_induction_variable( iv, incr, incr_list, st, loop ) )
-                {
                     iv = Nodecl::NodeclBase::null( );
-                }
             }
             else
             {
@@ -274,7 +266,8 @@ namespace {
             {
                 Nodecl::NodeclBase iv_family;
                 Nodecl::NodeclBase n = is_derived_induction_variable( *it, current, loop, iv_family );
-                if( !n.is_null( ) ){
+                if( !n.is_null( ) )
+                {
                     Utils::InductionVariableData* iv = new Utils::InductionVariableData( Utils::ExtendedSymbol( n ),
                                                                                          Utils::DERIVED_IV, n );
                     loop->set_induction_variable( iv );
@@ -360,23 +353,24 @@ namespace {
         return res;
     }
 
-    bool InductionVariableAnalysis::check_potential_induction_variable( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+    bool InductionVariableAnalysis::check_potential_induction_variable( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                                                         ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                        Nodecl::NodeclBase stmt, Node* loop )
+                                                                        const Nodecl::NodeclBase& stmt, Node* loop )
     {
         // Check whether the variable is modified in other places inside the loop
         bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        if( !res )
-        {   // Check whether the variable is private in case it is in a parallel or simd region
-            res = check_private_status( iv, loop );
-        }
-        return !res;
+        
+        // Check whether the variable is always the same memory location (avoid things like a[b[0]]++)
+        res = !res && check_constant_memory_access( iv, loop );
+        ExtensibleGraph::clear_visits_aux( loop );
+        
+        return res;
     }
-
-    bool InductionVariableAnalysis::check_undesired_modifications( Nodecl::NodeclBase iv, Nodecl::NodeclBase& incr,
+    
+    bool InductionVariableAnalysis::check_undesired_modifications( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                                                    ObjectList<Nodecl::NodeclBase>& incr_list,
-                                                                   Nodecl::NodeclBase stmt, Node* node, Node* loop )
+                                                                   const Nodecl::NodeclBase& stmt, Node* node, Node* loop )
     {
         bool result = false;
 
@@ -418,61 +412,33 @@ namespace {
 
         return result;
     }
-
     
-    
-    bool InductionVariableAnalysis::check_private_status( Nodecl::NodeclBase iv, Node* loop )
+    bool InductionVariableAnalysis::check_constant_memory_access( const Nodecl::NodeclBase& iv, Node* loop )
     {
-        bool result = false;
-        Node* outer_node = loop->get_outer_node( );
-        while( outer_node != NULL )
+        bool res = true;
+        
+        if( iv.is<Nodecl::Symbol>( ) || iv.is<Nodecl::ClassMemberAccess>( ) )
+        {}      // Nothing to be done: this will always be the same memory location
+        else if( iv.is<Nodecl::ArraySubscript>( ) )
         {
-            if( outer_node->is_omp_parallel_node( ) || outer_node->is_omp_simd_node( ) 
-                || outer_node->is_omp_sections_node( ) || outer_node->is_omp_loop_node( )
-                || outer_node->is_omp_task_node( ) )
+            Nodecl::ArraySubscript iv_as = iv.as<Nodecl::ArraySubscript>( );
+            Nodecl::List subscripts = iv_as.get_subscripts( ).as<Nodecl::List>( );
+            for( Nodecl::List::iterator it = subscripts.begin( ); it != subscripts.end( ) && res; ++it )
             {
-                // We are a bit tricky here. Just cast to Parallel for convenience, 
-                // because we know all these nodes have a get_environment method
-                Nodecl::List environ = 
-                    outer_node->get_graph_label( ).as<Nodecl::OpenMP::Parallel>( ).get_environment( ).as<Nodecl::List>( );
-                for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ) && !result; ++it )
-                {
-                    if( it->is<Nodecl::OpenMP::Firstprivate>( ) || it->is<Nodecl::OpenMP::Private>( ) )
-                    {
-                        Nodecl::List syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
-                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
-                        {
-                            result = true;
-                            break;
-                        }
-                    }
-                    else if( it->is<Nodecl::OpenMP::Reduction>( ) )
-                    {
-                        Nodecl::List reds = it->as<Nodecl::OpenMP::Reduction>( ).get_reductions( ).as<Nodecl::List>( );
-                        for( Nodecl::List::iterator itr = reds.begin( ); itr != reds.end( ); ++itr )
-                        {
-                            Nodecl::NodeclBase sym = itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( );
-                            if( Nodecl::Utils::equal_nodecls( iv, sym ) )
-                            {
-                                result = true;
-                                break;
-                            }
-                        }
-                    }
-                    else if( it->is<Nodecl::OpenMP::Shared>( ) )
-                    {
-                        Nodecl::List syms = it->as<Nodecl::OpenMP::Shared>( ).get_symbols( ).as<Nodecl::List>( );
-                        if( Nodecl::Utils::nodecl_is_in_nodecl_list( iv, syms ) )
-                        {
-                            break;
-                        }
-                    }
-                }
+                if( !ExtensibleGraph::is_constant_in_context( loop, *it ) )
+                    res = false;
             }
-            
-            outer_node = outer_node->get_outer_node( );
         }
-        return result;
+        else if( iv.is<Nodecl::Dereference>( ) )
+        {
+            WARNING_MESSAGE( "Dereference as Induction Variables analysis is not yet supported\n", 0 );
+        }
+        else
+        {
+            WARNING_MESSAGE( "Unexpected type of node '%s' as Induction Variable\n", ast_print_node_type( iv.get_kind( ) ) );
+        }
+        
+        return res;
     }
     
     Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const

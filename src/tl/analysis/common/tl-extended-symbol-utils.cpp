@@ -35,15 +35,57 @@ namespace Analysis {
 namespace Utils {
 
     // **************************************************************************************** //
-    // ***************************** Extended Symbol comparisons ****************************** //
-
+    // ******************* Class representing the usage of Extended Symbols ******************* //
+    
+    UseDefVariant::UseDefVariant( Usage_tag a )
+        : _usage_variants( a )
+    {}
+    
+    UseDefVariant::UseDefVariant( int a )
+        : _usage_variants( Usage_tag( a ) )
+    {}
+    
+    UseDefVariant UseDefVariant::operator|( UseDefVariant a )
+    {
+        return UseDefVariant( int( this->_usage_variants ) | int( a._usage_variants ) );
+    }
+    
+    ExtendedSymbolUsage::ExtendedSymbolUsage( ExtendedSymbol es, UseDefVariant usage )
+        : _es( es ), _usage( usage )
+    {}
+    
+    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
+    {
+        return _es;
+    }
+    
+    Nodecl::NodeclBase ExtendedSymbolUsage::get_nodecl( ) const
+    {
+        return _es.get_nodecl();
+    }
+    
+    UseDefVariant ExtendedSymbolUsage::get_usage( ) const
+    {
+        return _usage;
+    }
+    
+    void ExtendedSymbolUsage::set_usage( UseDefVariant usage )
+    {
+        _usage = usage;
+    }
+    
+    bool ExtendedSymbolUsage::operator==( const ExtendedSymbolUsage& esu ) const
+    {
+        return ( Nodecl::Utils::equal_nodecls( this->get_nodecl( ), esu.get_nodecl( ) ) );
+    }
+    
     bool extended_symbol_contains_extended_symbol( ExtendedSymbol container, ExtendedSymbol contained )
     {
         return Nodecl::Utils::nodecl_contains_nodecl( container.get_nodecl( ), contained.get_nodecl( ) );
     }
-
+    
+    // ***************** END class representing the usage of Extended Symbols ***************** //
     // **************************************************************************************** //
-    // *************************** END extended Symbol comparisons **************************** //
 
 
 
@@ -214,15 +256,10 @@ namespace Utils {
         {
             Nodecl::NodeclBase current = it->get_nodecl( );
             if( current.is<Nodecl::Conversion>( ) )
-            {
-                Nodecl::Conversion aux = current.as<Nodecl::Conversion>( );
-                current = aux.get_nest( );
-            }
+                current = current.as<Nodecl::Conversion>( ).get_nest( );
 
             if( Nodecl::Utils::equal_nodecls( nodecl, current ) )
-            {
                 return true;
-            }
         }
 
         return false;
@@ -235,13 +272,13 @@ namespace Utils {
         {
             Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>( );
             return ( ext_sym_set_contains_nodecl(nodecl, sym_set )
-                    || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
+                     || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
         }
         else if( nodecl.is<Nodecl::ClassMemberAccess>( ) )
         {
             Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>( );
             return ( ext_sym_set_contains_nodecl( nodecl, sym_set )
-            || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
+                     || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
         }
         else if( nodecl.is<Nodecl::Conversion>( ) )
         {
@@ -265,12 +302,14 @@ namespace Utils {
         }
         return false;
     }
-
-    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set sym_set )
+    
+    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it)
         {
-            if( ext_sym_set_contains_englobing_nodecl( *it, sym_set ) )
+            ext_sym_set fake_set;
+            fake_set.insert( *it );
+            if( ext_sym_set_contains_englobing_nodecl( ei, fake_set ) )
             {
                 sym_set.erase( it );
                 return;
@@ -278,11 +317,13 @@ namespace Utils {
         }
     }
 
-    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set sym_set )
+    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
-            if( ext_sym_set_contains_englobed_nodecl( *it, sym_set ) )
+            ext_sym_set fake_set;
+            fake_set.insert( *it );
+            if( ext_sym_set_contains_englobed_nodecl( ei, fake_set ) )
             {
                 sym_set.erase( it );
                 return;
@@ -290,6 +331,11 @@ namespace Utils {
         }
     }
 
+    bool usage_list_contains_extsym( ExtendedSymbol ei, ObjectList<ExtendedSymbolUsage> list )
+    {
+        return usage_list_contains_nodecl( ei.get_nodecl( ), list );
+    }
+    
     bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
     {
         for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
@@ -350,7 +396,7 @@ namespace Utils {
 
     bool usage_list_contains_englobed_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
     {
-        ExtendedSymbolUsage fake_usage( n, undefined_usage );
+        ExtendedSymbolUsage fake_usage( n, UseDefVariant::UNDEFINED );
         ObjectList<ExtendedSymbolUsage> fake_list( 1, fake_usage );
         for(ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -404,7 +450,7 @@ namespace Utils {
 
     void delete_englobed_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
     {
-        ExtendedSymbolUsage fake_usage( n, undefined_usage );
+        ExtendedSymbolUsage fake_usage( n, UseDefVariant::UNDEFINED );
         ObjectList<ExtendedSymbolUsage> fake_list( 1, fake_usage );
         for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -447,44 +493,6 @@ namespace Utils {
     }
 
     // ************* END methods for dealing with containers of Extended Symbols ************** //
-    // **************************************************************************************** //
-
-
-
-    // **************************************************************************************** //
-    // ******************* Class representing the usage of Extended Symbols ******************* //
-
-    ExtendedSymbolUsage::ExtendedSymbolUsage( ExtendedSymbol es, UsageValue usage )
-        : _es( es ), _usage( usage )
-    {}
-
-    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
-    {
-        return _es;
-    }
-
-    Nodecl::NodeclBase ExtendedSymbolUsage::get_nodecl( ) const
-    {
-        return _es.get_nodecl();
-    }
-
-    UsageValue ExtendedSymbolUsage::get_usage( ) const
-    {
-        return _usage;
-    }
-
-    void ExtendedSymbolUsage::set_usage( UsageValue usage )
-    {
-        _usage = usage;
-    }
-
-
-    bool ExtendedSymbolUsage::operator==( const ExtendedSymbolUsage& esu ) const
-    {
-        return ( Nodecl::Utils::equal_nodecls( this->get_nodecl( ), esu.get_nodecl( ) ) );
-    }
-
-    // ***************** END class representing the usage of Extended Symbols ***************** //
     // **************************************************************************************** //
 }
 }

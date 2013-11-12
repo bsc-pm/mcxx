@@ -38,6 +38,22 @@ namespace TL { namespace Intel {
 
         void LoweringVisitor::visit(const Nodecl::OpenMP::For& construct)
         {
+            lower_for(construct, Nodecl::NodeclBase::null());
+        }
+
+        void LoweringVisitor::visit(const Nodecl::OpenMP::ForAppendix& construct)
+        {
+            Nodecl::NodeclBase appendix = construct.get_appendix();
+            if (!appendix.is_null())
+                walk(appendix);
+
+            // We cheat a bit in the first parameter
+            lower_for(construct.as<Nodecl::OpenMP::For>(), appendix);
+        }
+
+        void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
+                const Nodecl::NodeclBase &appendix)
+        {
             TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
             ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
@@ -228,7 +244,7 @@ namespace TL { namespace Intel {
 
             TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
-            Nodecl::NodeclBase loop_body, reduction_code;
+            Nodecl::NodeclBase loop_body, reduction_code, appendix_code, barrier_code;
 
             TL::Source lastprivate_code;
 
@@ -284,7 +300,9 @@ namespace TL { namespace Intel {
                     << lastprivate_code
                     << "__kmpc_for_static_fini(&" << as_symbol(ident_symbol) << ", __kmpc_global_thread_num("
                     <<                  "&" << as_symbol(ident_symbol) << "));"
+                    << statement_placeholder(appendix_code)
                     << statement_placeholder(reduction_code)
+                    << statement_placeholder(barrier_code)
                     ;
 
                 Nodecl::NodeclBase static_loop_tree = static_loop.parse_statement(stmt_placeholder);
@@ -359,13 +377,22 @@ namespace TL { namespace Intel {
                     .reduction(functor(&TL::append_two_lists<Nodecl::NodeclBase>))
                     .map(functor(&Nodecl::NodeclBase::as<Nodecl::OpenMP::ReductionItem>));
 
-                Source nowait;
 
-                Source reduction_src;
                 for (TL::ObjectList<Nodecl::OpenMP::ReductionItem>::iterator it = reduction_items.begin();
                         it != reduction_items.end();
                         it++)
                 {
+                    Source nowait;
+
+                    // If this is the last reduction computed and we need a
+                    // barrier, piggyback it in the reduction itself, otherwise
+                    // always do reductions without barrier
+                    if (barrier_at_end.is_null()
+                            || ((it + 1) != reduction_items.end()))
+                    {
+                        nowait << "_nowait";
+                    }
+
                     Nodecl::OpenMP::ReductionItem &current(*it);
 
                     TL::Symbol reductor = current.get_reductor().get_symbol();
@@ -392,6 +419,7 @@ namespace TL { namespace Intel {
                                 Nodecl::Utils::deep_copy(omp_reduction->get_combiner(), construct, combiner_map)
                                 ) << ";";
 
+                    Source reduction_src;
                     reduction_src
                         << "switch (__kmpc_reduce" << nowait << "(&" << as_symbol(ident_symbol)
                         <<               ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << ")"
@@ -417,6 +445,21 @@ namespace TL { namespace Intel {
                     Nodecl::NodeclBase reduction_tree = reduction_src.parse_statement(stmt_placeholder);
                     reduction_code.prepend_sibling(reduction_tree);
                 }
+            }
+
+            if (!appendix.is_null())
+            {
+                appendix_code.prepend_sibling(
+                        Nodecl::Utils::deep_copy(appendix, appendix_code, symbol_map));
+            }
+
+            // If we have to do a barrier, do it only if the reduction list is empty
+            // otherwise we piggybacked the barrier in the reductions themselves
+            if (!barrier_at_end.is_null() && reduction_list.empty())
+            {
+                barrier_code.prepend_sibling(
+                        emit_barrier(construct)
+                        );
             }
 
             Nodecl::NodeclBase new_statements = Nodecl::Utils::deep_copy(statements,

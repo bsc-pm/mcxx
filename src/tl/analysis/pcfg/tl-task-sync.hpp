@@ -108,6 +108,7 @@ namespace TaskAnalysis {
         // *** Private methods *** /
         
         void find_last_synchronization_point_in_parents( Node* current );
+        void find_last_synchronization_point_in_children( Node* current, Node* loop );
         
         //! This method calculates the next and last synchronization points of a task
         void define_concurrent_regions_limits( Node* task );
@@ -118,9 +119,12 @@ namespace TaskAnalysis {
         void compute_concurrent_tasks( Node* task );
         
     public:
+        // *** Constructor *** //
         TaskConcurrency( ExtensibleGraph* graph );
         
-        void compute_task_concurrency( );
+        // *** Modifiers *** //
+        void compute_tasks_concurrency( );
+        void compute_task_concurrency( Node* task );
     };
     
     // ************************* END class implementing task concurrency analysis ************************* //

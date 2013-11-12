@@ -29,8 +29,9 @@
 
 #include <climits>
 
-#include "tl-extended-symbol.hpp"
+#include "tl-extended-symbol-utils.hpp"
 #include "tl-extensible-graph.hpp"
+#include "tl-task-sync.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -42,23 +43,12 @@ namespace Analysis {
         // *********************** Private members *********************** //
 
         ExtensibleGraph* _graph;
-
+        
         ObjectList<Node*> _simultaneous_tasks;
-        
-        // There can be more that one _last_sync node when a task is inside a loop and
-        // there is taskwait / barrier after the task scheduling point inside the loop
-        // In that case, the first iteration _last_sync will be previous to the loop, 
-        // but for the next iterations, the _last_sync will be the one inside the loop
-        ObjectList<Node*> _last_sync;
-        
-        Node* _next_sync;
         
         bool _check_only_local;
 
         // *********************** Private methods *********************** //
-        
-        void find_last_synchronization_point_in_parents( Node* current );
-        void find_last_synchronization_point_in_children( Node* current, Node* loop );
         
         bool task_and_simultaneous_only_read( Node* task, Utils::ExtendedSymbol ei );
 
@@ -69,10 +59,10 @@ namespace Analysis {
         ObjectList<Node*> var_uses_out_task( Node* task, Utils::ExtendedSymbol ei );
 
         bool scope_ie_in_iterated_task( Node* task, Node* current, Node* ei_node, char usage, Utils::ExtendedSymbol ei );
-        void scope_variable( Node* task, Node* ei_node, char usage, Utils::ExtendedSymbol ei,
-                             bool is_in_loop, Utils::ext_sym_set& scoped_vars );
+        void scope_variable( Node* task, Node* ei_node, Utils::UseDefVariant usage, 
+                             Utils::ExtendedSymbol ei, Utils::ext_sym_set& scoped_vars );
 
-        void compute_task_auto_scoping_rec( Node* task, Node* current, bool is_in_loop, Utils::ext_sym_set& scoped_vars );
+        void compute_task_auto_scoping_rec( Node* task, Node* current, Utils::ext_sym_set& scoped_vars );
         void compute_task_auto_scoping( Node* task );
 
     public:
@@ -149,14 +139,6 @@ namespace Analysis {
          * (omp_init_lock / omp_destroy_lock, omp_set_lock / omp_unset_lock), can trigger a data race situation.
          */
         void compute_auto_scoping( );
-
-        //! This method calculates the next and last synchronization points of a task
-        void define_concurrent_regions_limits( Node* task );
-        
-        /*!Computes the tasks that are concurrent with a given task
-         * Also computes the last synchronization point in the encountering thread of the task
-         */
-        void compute_simultaneous_tasks( Node* task );
     };
 
 }

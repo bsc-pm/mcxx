@@ -88,6 +88,7 @@ namespace Analysis {
     {
         private:
             ObjectList<Utils::InductionVariableData*> _induction_variables;
+            ObjectList<Symbol> _reductions;
             Utils::ext_sym_set _killed;
             ObjectList<ExtensibleGraph*> _pcfgs;
             Node* _autoscoped_task;
@@ -96,6 +97,7 @@ namespace Analysis {
             
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
+                              ObjectList<Symbol> reductions,
                               Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
                               Node* autoscoped_task );
 
@@ -114,9 +116,11 @@ namespace Analysis {
 
             bool is_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
 
-            const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
+            bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
+            
+            Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
 
-            ObjectList<const_value_t*> get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const;
+            ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const;
             
             bool is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const;
 
@@ -125,7 +129,6 @@ namespace Analysis {
             Utils::InductionVariableData* get_induction_variable( const Nodecl::NodeclBase& n ) const;
 
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
-
             
             // *** Queries for Vectorization *** //
             
@@ -193,13 +196,15 @@ namespace Analysis {
             //! Returns true when an object is an induction variable in a given scope
             bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
+            bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+            
             //! Returns the const_value corresponding to the increment of an induction variable in a given scope
-            const_value_t* get_induction_variable_increment( const Nodecl::NodeclBase& scope,
+            Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;
 
             //! Returns the list of const_values containing the increments of an induction variable in a given scope
-            ObjectList<const_value_t*> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
-                                                                              const Nodecl::NodeclBase& n ) const;
+            ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
+                                                                                  const Nodecl::NodeclBase& n ) const;
                                                              
             //! Returns true when the increment of a given induction variable is constant and equal to 1
             bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
@@ -281,6 +286,50 @@ namespace Analysis {
     // ******************* END Visitor retrieving the analysis of a given Nodecl ******************* //
     // ********************************************************************************************* //
 
+
+    
+    // ********************************************************************************************* //
+    // ************************ Visitor retrieving suitable simd alignment ************************* //
+    
+    class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
+    {
+    private:
+        const ObjectList<Utils::InductionVariableData*> _induction_variables;
+        const Nodecl::List* _suitable_expressions;
+        const int _unroll_factor;
+        const int _type_size;
+        const int _alignment;
+        int _nesting_level;
+        
+        bool is_suitable_expression( Nodecl::NodeclBase n );
+        bool is_suitable_constant( int n );
+        
+    public:
+        // *** Constructor *** //
+        SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
+                                  const Nodecl::List* suitable_expressions, 
+                                  int unroll_factor, int type_size, int alignment );
+        
+        // *** Visiting methods *** //
+        Ret join_list( ObjectList<int>& list );
+        
+        Ret visit( const Nodecl::Add& n );
+        Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::BitwiseShl& n );
+        Ret visit( const Nodecl::BitwiseShr& n );
+        Ret visit( const Nodecl::Conversion& n );
+        Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::Minus& n );
+        Ret visit( const Nodecl::Mul& n );
+        Ret visit( const Nodecl::ParenthesizedExpression& n );
+        Ret visit( const Nodecl::Symbol& n );
+        
+        Ret unhandled_node(const Nodecl::NodeclBase& n);
+    };
+    
+    // ********************** END visitor retrieving suitable simd alignment *********************** //
+    // ********************************************************************************************* //
+    
     
     
     // ********************************************************************************************* //
@@ -314,6 +363,8 @@ namespace Analysis {
         
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::BitwiseShl& n );
+        Ret visit( const Nodecl::BitwiseShr& n );
         Ret visit( const Nodecl::BooleanLiteral& n );
         Ret visit( const Nodecl::Cast& n );
         Ret visit( const Nodecl::ComplexLiteral& n );
@@ -338,49 +389,6 @@ namespace Analysis {
     };
     
     // *************** END visitor retrieving adjacent array accesses within a loop **************** //
-    // ********************************************************************************************* //
-    
-    
-    
-    // ********************************************************************************************* //
-    // ************************ Visitor retrieving suitable simd alignment ************************* //
-    
-    class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
-    {
-    private:
-        const Nodecl::NodeclBase _subscripted;
-        const ObjectList<Utils::InductionVariableData*> _induction_variables;
-        const Nodecl::List* _suitable_expressions;
-        const int _unroll_factor;
-        const int _type_size;
-        const int _alignment;
-        int _nesting_level;
-        
-        bool is_suitable_expression( Nodecl::NodeclBase n );
-        bool is_suitable_constant( int n );
-
-    public:
-        // *** Constructor *** //
-        SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  const Nodecl::List* suitable_expressions, 
-                                  int unroll_factor, int type_size, int alignment );
-        
-        // *** Visiting methods *** //
-        Ret join_list( ObjectList<int>& list );
-
-        Ret visit( const Nodecl::Add& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Minus& n );
-        Ret visit( const Nodecl::Mul& n );
-        Ret visit( const Nodecl::IntegerLiteral& n );
-        Ret visit( const Nodecl::Conversion& n );
-        Ret visit( const Nodecl::ParenthesizedExpression& n );
-        Ret visit( const Nodecl::Symbol& n );
-
-        Ret unhandled_node(const Nodecl::NodeclBase& n);
-    };
-    
-    // ********************** END visitor retrieving suitable simd alignment *********************** //
     // ********************************************************************************************* //
 }
 }

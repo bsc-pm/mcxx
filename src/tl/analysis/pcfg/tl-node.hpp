@@ -34,11 +34,8 @@
 #include "tl-builtin.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
-#include "tl-nodecl.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-pcfg-utils.hpp"
-#include "tl-objectlist.hpp"
-#include "tl-structures.hpp"
 
 namespace TL  {
 namespace Analysis {
@@ -263,6 +260,9 @@ namespace Analysis {
             //! Returns true when the node is a LABELED node
             bool is_labeled_node( );
 
+            //! Returns true when the node is a FUNC_CALL graph node
+            bool is_function_call_graph_node( );
+            
             //! Returns true when the node is a FUNCTION_CALL node
             bool is_function_call_node( );
 
@@ -280,6 +280,9 @@ namespace Analysis {
 
             //! Returns true when the node is an OpenMP BARRIER node
             bool is_omp_barrier_node( );
+            
+            //! Returns true when the node contains an OpenMP BARRIER node with its implicit flushes
+            bool is_omp_barrier_graph_node( );
 
             //! Returns true when the node is an OpenMP CRITICAL node
             bool is_omp_critical_node( );
@@ -701,6 +704,16 @@ namespace Analysis {
             void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
 
             // ************ END getters and setters for task dependence analysis ************ //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // **************** Getters and setters for vectorization analysis ************** //
+            
+            ObjectList<Symbol> get_reductions( );
+            
+            // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //
 
 

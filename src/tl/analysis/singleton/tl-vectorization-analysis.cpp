@@ -117,7 +117,16 @@ namespace Analysis {
         
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
-            Nodecl::List subscript = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+            Nodecl::ArraySubscript array = n.as<Nodecl::ArraySubscript>( );
+
+            //Check subscripted
+            if ( !is_constant( array.get_subscripted( ) ))
+            {
+                return false;
+            }
+
+            // Check subscrips
+            Nodecl::List subscript = array.get_subscripts( ).as<Nodecl::List>( );
             Nodecl::List::iterator it = subscript.begin( );
             for( ; it != subscript.end( ); ++it )
             {   // All dimensions must be constant
@@ -133,7 +142,7 @@ namespace Analysis {
     }
         
     bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List* suitable_expressions, 
-                                                   int unroll_factor, int alignment ) const
+            int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
         {
@@ -142,23 +151,13 @@ namespace Analysis {
             return false;
         }
         
-        Nodecl::List subscripts = n.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
-        if( subscripts.size( ) != 1 )
-        {
-            std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
-                      << n.prettyprint( ) << "', which is multidimensional. Only one dimension arrays are analyzed" << std::endl;
-            return false;
-        }
-        
         bool result = false;
         
         Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>( ).get_subscripted( );
-        Nodecl::NodeclBase subscript = *( subscripts.begin( ) );
-
         int type_size = subscripted.get_type().basic_type().get_size();
 
         SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
-        int subscript_alignment = sa_v.walk( subscript );
+        int subscript_alignment = sa_v.walk( n );
         
         if( (subscript_alignment % alignment) == 0 )
             result = true;
@@ -175,11 +174,13 @@ namespace Analysis {
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const Nodecl::List* suitable_expressions, 
-                                                        int unroll_factor, int type_size, int alignment )
+                                                        const Nodecl::List* suitable_expressions, int unroll_factor, 
+                                                        int type_size, int alignment )
         : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
           _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
-    {}
+    {
+        _nesting_level = 0;
+    }
     
     int SuitableAlignmentVisitor::join_list( ObjectList<int>& list ) 
     {
@@ -202,7 +203,7 @@ namespace Analysis {
 
         return true;
     }
-    
+
     bool SuitableAlignmentVisitor::is_suitable_constant( int n )
     {
         if ( (n % _alignment) == 0 )
@@ -210,7 +211,7 @@ namespace Analysis {
         else
             return false;
     }
-    
+ 
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
         if (is_suitable_expression(n))
@@ -350,6 +351,59 @@ namespace Analysis {
         }
     }
     
+    int SuitableAlignmentVisitor::visit( const Nodecl::BitwiseShl& n )
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+        
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        // Something suitable multiplied by anything is suitable
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+            return 0;
+        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            return lhs_mod << rhs_mod;
+        
+        return -1;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::BitwiseShr& n )
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+        
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        // Something suitable multiplied by anything is suitable
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+            return 0;
+        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            return lhs_mod >> rhs_mod;
+        
+        return -1;
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::Conversion& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return 0;
+        }
+        
+        return walk(n.get_nest());
+    }
+    
+    int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+    }
+    
     int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
     {
         if (is_suitable_expression(n))
@@ -376,25 +430,13 @@ namespace Analysis {
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
 
-        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+       // Something suitable multiplied by anything is suitable
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+            return 0;
+        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
             return lhs_mod * rhs_mod;
 
         return -1;
-    }
-
-    int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
-    {
-        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
-    }
-    
-    int SuitableAlignmentVisitor::visit( const Nodecl::Conversion& n ) 
-    {
-        if (is_suitable_expression(n))
-        {
-            return 0;
-        }
-
-        return walk(n.get_nest());
     }
 
     int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n ) 
@@ -415,7 +457,12 @@ namespace Analysis {
         }
         else if( n.is_constant( ) )
         {
-            return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+            int value = const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+
+            if(is_suitable_constant(value))
+                return 0;
+            else
+                return value;
         }
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
@@ -436,18 +483,15 @@ namespace Analysis {
                 }
             }
         }
-        
+
         return -1;
     }
 
     int SuitableAlignmentVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
-        std::cerr << "Suitable Alignment Visitor: Unknown node "
-            << ast_print_node_type(n.get_kind())
-            << " at " << n.get_locus_str()
-            << std::endl;
-
-        return Ret();
+        WARNING_MESSAGE( "Suitable Alignment Visitor: Unknown node '%s' at '%s'\n", 
+                         ast_print_node_type( n.get_kind( ) ), n.get_locus_str( ).c_str( ) );
+        return -1;
     }
 
 
@@ -560,10 +604,50 @@ namespace Analysis {
         bool n_is_iv = variable_is_iv( n );
         walk( n.get_subscripted( ) );
         walk( n.get_subscripts( ) );
-        
+       
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
-        
+       
         return !Utils::ext_sym_set_contains_nodecl( n, _killed );
+    }
+    
+    bool ArrayAccessInfoVisitor::visit( const Nodecl::BitwiseShl& n )
+    {
+        // Gather LHS info
+        Nodecl::NodeclBase lhs = n.get_lhs( );
+        bool lhs_is_const = walk( lhs );
+        bool lhs_is_adjacent_access = _is_adjacent_access;
+
+        // Gather RHS info
+        Nodecl::NodeclBase rhs = n.get_rhs( );
+        bool rhs_is_const = walk( rhs );
+        bool rhs_is_zero = false;
+        if( rhs_is_const )
+            rhs_is_zero = nodecl_is_zero( rhs );
+
+        // Compute adjacency info
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
+
+        return ( lhs_is_const && rhs_is_const );
+    }
+    
+    bool ArrayAccessInfoVisitor::visit( const Nodecl::BitwiseShr& n )
+    {
+        // Gather LHS info
+        Nodecl::NodeclBase lhs = n.get_lhs( );
+        bool lhs_is_const = walk( lhs );
+        bool lhs_is_adjacent_access = _is_adjacent_access;
+        
+        // Gather RHS info
+        Nodecl::NodeclBase rhs = n.get_rhs( );
+        bool rhs_is_const = walk( rhs );
+        bool rhs_is_zero = false;
+        if( rhs_is_const )
+            rhs_is_zero = nodecl_is_zero( rhs );
+        
+        // Compute adjacency info
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
+        
+        return ( lhs_is_const && rhs_is_const );
     }
     
     bool ArrayAccessInfoVisitor::visit( const Nodecl::BooleanLiteral& n )
@@ -601,8 +685,9 @@ namespace Analysis {
             rhs_is_one = nodecl_is_one( rhs );
         
         // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_const && rhs_is_const )
-                           || ( lhs_is_adjacent_access && rhs_is_one );
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_one;
+//         _is_adjacent_access = ( lhs_is_const && rhs_is_const )
+//                            || ( lhs_is_adjacent_access && rhs_is_one );
  
         return ( lhs_is_const && rhs_is_const );
     }
@@ -651,11 +736,11 @@ namespace Analysis {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
-        bool lhs_is_zero = false;
+//         bool lhs_is_zero = false;
         bool lhs_is_one = false;
         if( lhs_is_const )
         {
-            lhs_is_zero = nodecl_is_zero( lhs );
+//             lhs_is_zero = nodecl_is_zero( lhs );
             lhs_is_one = nodecl_is_one( lhs );
         }
         bool lhs_is_adjacent_access = _is_adjacent_access;
@@ -663,19 +748,21 @@ namespace Analysis {
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
-        bool rhs_is_zero = false;
+//         bool rhs_is_zero = false;
         bool rhs_is_one = false;
         if( rhs_is_const )
         {
-            rhs_is_zero = nodecl_is_zero( rhs );
+//             rhs_is_zero = nodecl_is_zero( rhs );
             rhs_is_one = nodecl_is_one( rhs );
         }
         bool rhs_is_adjacent_access = _is_adjacent_access;
         
         // Compute adjacency info
-        _is_adjacent_access = (lhs_is_const && rhs_is_const) 
-                           || (lhs_is_adjacent_access && (rhs_is_zero || rhs_is_one) ) 
-                           || (rhs_is_adjacent_access && (lhs_is_zero || lhs_is_one) );
+        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_one ) 
+                           || ( rhs_is_adjacent_access && lhs_is_one );
+//         _is_adjacent_access = (lhs_is_const && rhs_is_const) 
+//                            || (lhs_is_adjacent_access && (rhs_is_zero || rhs_is_one) ) 
+//                            || (rhs_is_adjacent_access && (lhs_is_zero || lhs_is_one) );
         
         return ( lhs_is_const && rhs_is_const );
     }

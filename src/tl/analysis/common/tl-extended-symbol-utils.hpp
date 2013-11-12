@@ -40,23 +40,32 @@ namespace Utils {
     // **************************************************************************************** //
     // ******************* Class representing the usage of Extended Symbols ******************* //
 
-    enum UsageValue {
-        upper_exposed,
-        killed,
-        undetermined_usage,     //! Can't be determined
-        undefined_usage         //! Not yet computed
+    struct UseDefVariant
+    {
+        // Macros defining the analysis to be computed
+        enum Usage_tag
+        {
+            NONE        = 1u << 0,
+            USED        = 1u << 1,
+            DEFINED     = 1u << 2,
+            UNDEFINED   = 1u << 3
+        } _usage_variants;
+        
+        UseDefVariant( Usage_tag a );
+        UseDefVariant( int a );
+        UseDefVariant operator|( UseDefVariant a );
     };
 
     class LIBTL_CLASS ExtendedSymbolUsage
     {
     private:
         ExtendedSymbol _es;
-        UsageValue _usage;
+        UseDefVariant _usage;
 
     public:
         // ************* Constructor ************* //
 
-        ExtendedSymbolUsage( ExtendedSymbol es, UsageValue usage );
+        ExtendedSymbolUsage( ExtendedSymbol es, UseDefVariant usage );
 
 
         // ********* Getters and setters ********* //
@@ -68,10 +77,10 @@ namespace Utils {
         Nodecl::NodeclBase get_nodecl( ) const;
 
         //! Returns the usage associated with the Extended Symbol
-        UsageValue get_usage( ) const;
+        UseDefVariant get_usage( ) const;
 
         //! Sets the usage of the Extended Sybmbol
-        void set_usage( UsageValue usage );
+        void set_usage( UseDefVariant usage );
 
 
         // ************* Comparators ************* //
@@ -136,19 +145,20 @@ namespace Utils {
 
     bool ext_sym_set_equivalence( ext_sym_set c1, ext_sym_set c2 );
     bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
-
-    bool ext_sym_set_contains_sym(ExtendedSymbol s, ext_sym_set sym_set);
-    bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
-
-    bool ext_sym_set_contains_englobing_nodecl(ExtendedSymbol ei, ext_sym_set sym_set);
-    bool ext_sym_set_contains_englobed_nodecl(ExtendedSymbol ei, ext_sym_set sym_set);
-
-    void delete_englobing_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
-    void delete_englobed_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
+    
+    bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set );
+    bool ext_sym_set_contains_nodecl( Nodecl::NodeclBase nodecl, ext_sym_set sym_set );
+    
+    bool ext_sym_set_contains_englobing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    bool ext_sym_set_contains_englobed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    
+    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
+    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
 
 
     // ******* Extended Symbol Usage list ******* //
 
+    bool usage_list_contains_extsym( ExtendedSymbol ei, ObjectList<ExtendedSymbolUsage> list );
     bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
     bool usage_list_contains_sym( Symbol n, ObjectList<ExtendedSymbolUsage> list );
 

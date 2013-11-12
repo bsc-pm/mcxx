@@ -50,5 +50,4 @@ libpcfg_la_SOURCES= tl-pcfg-utils.hpp \
                     tl-task-sync.hpp \
                     tl-task-sync.cpp \
                     tl-dot-graph.cpp \
-                    tl-structures.hpp \
                     $(END)

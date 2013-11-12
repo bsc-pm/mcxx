@@ -45,8 +45,12 @@ namespace Nodecl
     Calculator::Ret Calculator::unhandled_node(const Nodecl::NodeclBase& n)
     {
         Nodecl::NodeclBase unhandled_n = n;
-        std::cerr << "Unhandled node type '" << ast_print_node_type(n.get_kind()) << "'"
-                  << " while calculating constant value of expression '" << unhandled_n.prettyprint() << "'" << std::endl;
+        internal_error("Unhandled node type '%s' while calculating constant value of expression '%s'\n",
+                ast_print_node_type(n.get_kind()),
+                unhandled_n.prettyprint().c_str());
+ 
+        //std::cerr << "Unhandled node type '" << ast_print_node_type(n.get_kind()) << "'"
+        //          << " while calculating constant value of expression '" << unhandled_n.prettyprint() << "'" << std::endl;
         return Ret();
     }
     
@@ -651,5 +655,90 @@ namespace Nodecl
     Calculator::Ret Calculator::visit(const Nodecl::Sizeof& n)
     {
         return TL::ObjectList<const_value_t*>();
+    }
+
+    Calculator::Ret Calculator::visit(const Nodecl::VectorAdd& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (lhs.empty() || rhs.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, const_value_add(lhs[0], rhs[0]));
+        }
+    }
+
+    Calculator::Ret Calculator::visit(const Nodecl::VectorMinus& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (lhs.empty() || rhs.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, const_value_sub(lhs[0], rhs[0]));
+        }
+    }
+
+    Calculator::Ret Calculator::visit(const Nodecl::VectorMul& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (lhs.empty() || rhs.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, const_value_mul(lhs[0], rhs[0]));
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::VectorDiv& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (lhs.empty() || rhs.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, const_value_div(lhs[0], rhs[0]));
+        }
+    }
+    
+    Calculator::Ret Calculator::visit(const Nodecl::VectorMod& n)
+    {
+        TL::ObjectList<const_value_t*> lhs = walk(n.get_lhs());
+        TL::ObjectList<const_value_t*> rhs = walk(n.get_rhs());
+        
+        if (lhs.empty() || rhs.empty())
+        {
+            return TL::ObjectList<const_value_t*>();
+        }
+        else
+        {
+            return TL::ObjectList<const_value_t*>(1, const_value_mod(lhs[0], rhs[0]));
+        }
+    }
+ 
+    Calculator::Ret Calculator::visit(const Nodecl::VectorLiteral& n)
+    {
+        return TL::ObjectList<const_value_t*>(1, n.get_constant());
+    }
+
+    Calculator::Ret Calculator::visit(const Nodecl::VectorPromotion& n)
+    {
+        return TL::ObjectList<const_value_t*>(1, n.get_constant());
     }
 }

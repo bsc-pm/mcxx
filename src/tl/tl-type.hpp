@@ -245,13 +245,13 @@ namespace TL
             /*!
              * \param vector_size The size of the vector in bytes.
              */
-            Type get_vector_to(unsigned int vector_size);
+            Type get_vector_to(unsigned int vector_size) const;
 
             //! Returns a vector to the current type
             /*!
              * \param num_elements The number of scalar elements of the vector
              */
-            Type get_vector_of_elements(unsigned int num_elements);
+            Type get_vector_of_elements(unsigned int num_elements) const;
        
             //! Returns a generic vector to the current type
             Type get_generic_vector_to();

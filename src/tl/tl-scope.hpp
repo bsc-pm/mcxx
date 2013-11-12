@@ -206,7 +206,10 @@ namespace TL
 
             //! Convenience function where only one symbol is expected
             Symbol get_symbol_from_name(const std::string& str) const;
-            
+           
+            //! Returns the global scope of the current compiled file 
+            static Scope get_global_scope();
+
             //! Builds a fake temporal scope not related to any real code
             Scope temporal_scope() const;
 
