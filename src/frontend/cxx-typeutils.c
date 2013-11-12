@@ -6603,9 +6603,29 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     return 0;
 }
 
+char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived)
+{
+    possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
+    possible_derived = get_unqualified_type(advance_over_typedefs(possible_derived));
+
+    ERROR_CONDITION(!is_class_type(possible_base)
+            || !is_class_type(possible_derived), 
+            "This function expects class types", 0);
+
+    if (equivalent_types(possible_base, possible_derived))
+        return 0;
+
+    return class_type_is_base(possible_base, possible_derived);
+}
+
 char class_type_is_derived(type_t* possible_derived, type_t* possible_base)
 {
     return class_type_is_base(possible_base, possible_derived);
+}
+
+char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base)
+{
+    return class_type_is_base_strict(possible_base, possible_derived);
 }
 
 char is_pointer_to_void_type(type_t* t)
@@ -6627,10 +6647,29 @@ char pointer_to_class_type_is_base(type_t* possible_pclass_base,
     return class_type_is_base(possible_base, possible_derived);
 }
 
+char pointer_to_class_type_is_base_strict(type_t* possible_pclass_base,
+        type_t* possible_pclass_derived)
+{
+    ERROR_CONDITION(!is_pointer_to_class_type(possible_pclass_base)
+            || !is_pointer_to_class_type(possible_pclass_derived),
+            "Both thypes must be pointer to class", 0);
+
+    type_t* possible_base = pointer_type_get_pointee_type(possible_pclass_base);
+    type_t* possible_derived = pointer_type_get_pointee_type(possible_pclass_derived);
+
+    return class_type_is_base_strict(possible_base, possible_derived);
+}
+
 char pointer_to_class_type_is_derived(type_t* possible_pclass_derived,
         type_t* possible_pclass_base)
 {
     return pointer_to_class_type_is_base(possible_pclass_base, possible_pclass_derived);
+}
+
+char pointer_to_class_type_is_derived_strict(type_t* possible_pclass_derived,
+        type_t* possible_pclass_base)
+{
+    return pointer_to_class_type_is_base_strict(possible_pclass_base, possible_pclass_derived);
 }
 
 cv_qualifier_t get_cv_qualifier(type_t* type_info)
@@ -9676,7 +9715,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_pointer_to_class_type(orig)
                 && is_pointer_to_class_type(dest)
-                && pointer_to_class_type_is_base(dest, orig))
+                && pointer_to_class_type_is_base_strict(dest, orig))
         {
             DEBUG_CODE()
             {
@@ -9695,7 +9734,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 && is_pointer_to_member_type(dest)
                 // Note: we will check that they are valid pointer-to-members later, in qualification conversion
                 // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
-                && class_type_is_base(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest)))
+                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest)))
         {
             DEBUG_CODE()
             {
