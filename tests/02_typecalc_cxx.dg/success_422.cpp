@@ -31,14 +31,11 @@
 test_generator=config/mercurium
 </testinfo>
 */
-namespace
-{
-    template < class T >
-    struct Converter {};
-}
 
-template < class T >
-void bar()
+bool f()
 {
-    Converter<T>();
+    int * a3;
+    const int b3[1] = { 1 };
+
+    a3 == b3;
 }
