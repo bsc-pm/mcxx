@@ -868,14 +868,19 @@ namespace TL
 
             walk(n.get_nest());
 
-            const Nodecl::VectorConversion vector_conv =
-                Nodecl::VectorConversion::make(
-                        n.get_nest().shallow_copy(),
-                        mask,
-                        Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
-                        n.get_locus());
+            // If false, someone (TL::Symbol) moves/replaces my tree.
+            // Therefore do nothing, I'm no longer a Conversion!!
+            if (n.is<Nodecl::Conversion>())
+            {
+                const Nodecl::VectorConversion vector_conv =
+                    Nodecl::VectorConversion::make(
+                            n.get_nest().shallow_copy(),
+                            mask,
+                            Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
+                            n.get_locus());
 
-            n.replace(vector_conv);
+                n.replace(vector_conv);
+            }
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Cast& n)
@@ -1419,6 +1424,11 @@ namespace TL
 
                 TL::Type offset_type = ind_var_type;
 
+                // Get outter conversion node
+                Nodecl::NodeclBase iv_with_conversion = n;
+                while(iv_with_conversion.get_parent().is<Nodecl::Conversion>())
+                    iv_with_conversion = iv_with_conversion.get_parent();
+
                 // VectorLiteral offset
                 Nodecl::VectorLiteral offset_vector_literal =
                     Nodecl::VectorLiteral::make(
@@ -1432,7 +1442,7 @@ namespace TL
                 Nodecl::VectorAdd vector_induction_var =
                     Nodecl::VectorAdd::make(
                             Nodecl::VectorPromotion::make(
-                                n.shallow_copy(),
+                                iv_with_conversion.shallow_copy(),
                                 Utils::get_null_mask(),
                                 ind_var_type,
                                 n.get_locus()),
@@ -1442,7 +1452,7 @@ namespace TL
                                 _environment._unroll_factor),
                             n.get_locus());
 
-                n.replace(vector_induction_var);
+                iv_with_conversion.replace(vector_induction_var);
             }
             else
             {
