@@ -1598,6 +1598,21 @@ template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
     return n.get_alternate_name();
 }
 
+bool CxxBase::is_assignment_operator(const std::string& operator_name)
+{
+    return (operator_name == "=")
+        || (operator_name == "*=")
+        || (operator_name == "/=")
+        || (operator_name == "%=")
+        || (operator_name == "+=")
+        || (operator_name == "-=")
+        || (operator_name == "<<=")
+        || (operator_name == ">>=")
+        || (operator_name == "&=")
+        || (operator_name == "|=")
+        || (operator_name == "^=");
+}
+
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
@@ -1822,7 +1837,14 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 state.visiting_called_entity_of_function_call =
                     old_visiting_called_entity_of_function_call;
 
+                bool assignment_operator = is_assignment_operator(called_operator);
+
                 bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
+                if (assignment_operator)
+                    needs_parentheses = needs_parentheses || (same_operation(node, arguments[0])
+                            // Extra check for function calls
+                            && (arguments[0].get_kind() != node.get_kind()));
+
                 if (needs_parentheses)
                     *(file) << "(";
                 walk(arguments[0]);
@@ -1832,6 +1854,12 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 *(file) << " " << called_operator << " ";
 
                 needs_parentheses = operand_has_lower_priority(node, arguments[1]);
+                if (!assignment_operator)
+                    needs_parentheses = needs_parentheses
+                        || (same_operation(node, arguments[1])
+                                // Extra check for function calls
+                                && (arguments[1].get_kind() != node.get_kind()));
+
                 if (needs_parentheses)
                     *(file) << "(";
                 walk(arguments[1]);
@@ -6662,9 +6690,9 @@ node_t CxxBase::get_kind_of_operator_function_call(const Node & node)
         else if (operator_name == "-=")  return NODECL_MINUS_ASSIGNMENT;
         else if (operator_name == "<<=") return NODECL_BITWISE_SHL_ASSIGNMENT;
         else if (operator_name == ">>=") return NODECL_BITWISE_SHR_ASSIGNMENT;
-        else if (operator_name == "&=")  return NODECL_BITWISE_AND;
-        else if (operator_name == "|=")  return NODECL_BITWISE_OR;
-        else if (operator_name == "^=")  return NODECL_BITWISE_XOR;
+        else if (operator_name == "&=")  return NODECL_BITWISE_AND_ASSIGNMENT;
+        else if (operator_name == "|=")  return NODECL_BITWISE_OR_ASSIGNMENT;
+        else if (operator_name == "^=")  return NODECL_BITWISE_XOR_ASSIGNMENT;
         else if (operator_name == ",")   return NODECL_COMMA;
     }
     else
