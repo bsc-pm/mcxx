@@ -11,7 +11,6 @@ options = --openmp
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {fast-math} options = --variable=fast_math_enabled:1
-{fast-math} compiler_options = -ffast-math
 {analysis} compiler_phase = libtest_analysis.so
 {pcfg} options = --variable=pcfg_enabled:1
 {use-def} options = --variable=use_def_enabled:1
@@ -37,8 +36,7 @@ options = --openmp
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
-{ffast-math} options = --variable=ffast_math_enabled:1
-{ffast-math} compiler_options = -ffast-math
+{fast-math} options = --variable=fast_math_enabled:1
 {analysis} compiler_phase = libtest_analysis.so
 {pcfg} options = --variable=pcfg_enabled:1
 {use-def} options = --variable=use_def_enabled:1
@@ -69,7 +67,6 @@ preprocessor_options = -E
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {fast-math} options = --variable=fast_math_enabled:1
-{fast-math} compiler_options = -ffast-math
 {analysis} compiler_phase = libtest_analysis.so
 {pcfg} options = --variable=pcfg_enabled:1
 {use-def} options = --variable=use_def_enabled:1

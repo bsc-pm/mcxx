@@ -27,7 +27,7 @@
 #ifndef TL_OPTIMIZATIONS_HPP
 #define TL_OPTIMIZATIONS_HPP
 
-#include <tl-strength-reduction.hpp>
+#include "tl-strength-reduction.hpp"
 
 
 #endif // TL_OPTIMIZATIONS_HPP

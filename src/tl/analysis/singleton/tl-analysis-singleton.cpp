@@ -280,7 +280,7 @@ namespace Analysis {
                        !pcfg_omp_node->is_omp_parallel_node( ) && !pcfg_omp_node->is_omp_loop_node( ) && 
                        !pcfg_omp_node->is_omp_sections_node( ) && !pcfg_omp_node->is_omp_simd_node( ) )
                 {
-                    pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_node );
+                    pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_omp_node );
                 }
                 
                 if( pcfg_omp_node != NULL )

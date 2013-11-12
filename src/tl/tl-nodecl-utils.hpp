@@ -45,6 +45,8 @@ namespace Nodecl
         TL::ObjectList<TL::Symbol> get_local_symbols(Nodecl::NodeclBase);
 
         TL::ObjectList<Nodecl::Symbol> get_all_symbols_occurrences(Nodecl::NodeclBase);
+        TL::ObjectList<Nodecl::NodeclBase> get_all_nodecl_occurrences(Nodecl::NodeclBase target_occurrence, 
+                Nodecl::NodeclBase container);
         TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_occurrences(Nodecl::NodeclBase);
         TL::ObjectList<Nodecl::Symbol> get_local_symbols_occurrences(Nodecl::NodeclBase);
 
@@ -131,6 +133,13 @@ namespace Nodecl
             Ret visit_post( const Nodecl::Minus& n );
             Ret visit_post( const Nodecl::Mod& n );
             Ret visit_post( const Nodecl::Mul& n );
+            Ret visit_post( const Nodecl::ObjectInit& n );
+            Ret visit_post( const Nodecl::VectorAdd& n );
+            Ret visit_post( const Nodecl::VectorDiv& n );
+            Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
+            Ret visit_post( const Nodecl::VectorMinus& n );
+            Ret visit_post( const Nodecl::VectorMod& n );
+            Ret visit_post( const Nodecl::VectorMul& n );
         };
 
         // Basic replacement
@@ -285,6 +294,9 @@ namespace Nodecl
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
+
+        // Returns a single subscript linearized (not the whole ArraySubscript)
+        Nodecl::NodeclBase linearize_array_subscript(const Nodecl::ArraySubscript& n);
     }
 }
 

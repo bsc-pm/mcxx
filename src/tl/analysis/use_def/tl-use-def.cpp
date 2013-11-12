@@ -390,7 +390,9 @@ namespace Analysis {
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
-        for( ; itp != parameters.end( ); ++itp, ++ita )
+#warning paramns & args
+        //TODO: parameters.size() must be == to arguments.size()
+        for( ; ( ita != arguments.end( ) ) && ( itp != parameters.end( ) ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
             if( ( param_type.is_any_reference( ) || param_type.is_pointer( ) ) )
@@ -407,7 +409,9 @@ namespace Analysis {
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
-        for( ; itp != parameters.end( ); ++itp, ++ita )
+#warning
+        //TODO: parameters.size() must be == to arguments.size()
+        for( ; ( ita != arguments.end( ) ) && ( itp != parameters.end( ) ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
             if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) )
@@ -788,32 +792,50 @@ namespace Analysis {
                         }
                         else
                         {
-                            // Set all reference parameters to undefined
-                            sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
-                            for( sym_to_nodecl_map::iterator it = ref_params.begin( );
-                                it != ref_params.end( ); ++it )
+                            if( func_sym.get_type( ).lacks_prototype( ) )
+                            {   // All parameters are passed by value
+                                for( Nodecl::List::iterator it = args.begin( ); it != args.end( ); ++it )
+                                {
+                                    if( !it->is_constant( ) )
+                                    {
+                                        _node->set_ue_var( Utils::ExtendedSymbol( *it ) );
+                                        if( it->get_type( ).is_pointer( ) )
+                                        {
+                                            Nodecl::Dereference pointed_var = 
+                                                Nodecl::Dereference::make( *it, it->get_type( ) );
+                                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                        }
+                                    }
+                                }
+                            }
+                            else
                             {
-                                if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                                // Set all reference parameters to undefined
+                                sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
+                                for( sym_to_nodecl_map::iterator it = ref_params.begin( );
+                                        it != ref_params.end( ); ++it )
+                                {
+                                    if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                                        _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                                Utils::ExtendedSymbol( it->second ) );
+                                }
+                                // Set the value passed parameters as upper exposed
+                                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                                        it != non_ref_params.end( ); ++it )
+                                {
+                                    ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                                    for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+                                        _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                                }
+
+                                // Set all global variables to undefined
+                                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
+                                        _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
+                                {
                                     _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                                            Utils::ExtendedSymbol( it->second ) );
-                            }
-
-                            // Set the value passed parameters as upper exposed
-                            sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
-                            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
-                                it != non_ref_params.end( ); ++it )
-                            {
-                                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
-                                for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
-                                    _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
-                            }
-
-                            // Set all global variables to undefined
-                            for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
-                                _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
-                            {
-                                _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                                        it->get_extended_symbol() );
+                                            it->get_extended_symbol() );
+                                }
                             }
                         }
                     }

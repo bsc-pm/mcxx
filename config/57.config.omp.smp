@@ -1,11 +1,11 @@
 [smpfc : omp-base]
 language = Fortran
-options = -I @PKGDATADIR@/fortran/openmp
-fortran_preprocessor_name = @GFORTRAN@
+options = -I /home/Computational/dcaballe/local/share/mcxx/fortran/openmp
+fortran_preprocessor_name = gfortran
 fortran_preprocessor_options = -cpp -E
-compiler_name = @GFORTRAN@
+compiler_name = gfortran
 compiler_options = -frecursive
-linker_name = @GFORTRAN@
+linker_name = gfortran
 linker_options =
 
 [smpcc : omp-base]
@@ -19,6 +19,6 @@ language = C++
 {openmp} preprocessor_options = -include new 
 options = --vector-flavor=gnu 
 {simd} compiler_options = -flax-vector-conversions
-preprocessor_name = @G++@
-compiler_name = @G++@
-linker_name = @G++@
+preprocessor_name = g++
+compiler_name = g++
+linker_name = g++

@@ -1,5 +1,5 @@
 ##########################################################################
-#  (C) Copyright 2006-2013 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2012 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
@@ -24,29 +24,23 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include $(top_srcdir)/src/tl/Makefile.phases
+include ../../../Makefile.phases
 
-phases_LTLIBRARIES = libtloptimizations.la
+phases_LTLIBRARIES = libtlvector-legalization-knc.la
 
 END=
 
+libtlvector_legalization_knc_la_CFLAGS = $(tl_cflags) \
+    $(END)
 
-libtloptimizations_la_CFLAGS = $(phases_cflags) -Wall \
-                               -I $(top_srcdir)/src/tl \
-                               $(END)
+libtlvector_legalization_knc_la_CXXFLAGS = $(tl_cflags) \
+    $(END)
 
-libtloptimizations_la_CXXFLAGS = $(phases_cflags) -Wall \
-                               -I $(top_srcdir)/src/tl \
-                              $(END)
+libtlvector_legalization_knc_la_LDFLAGS = $(tl_ldflags)
+libtlvector_legalization_knc_la_LIBADD = \
+$(END)
 
-libtloptimizations_la_LDFLAGS = $(phases_ldflags) \
-                                $(END)
-libtloptimizations_la_LIBADD = $(phases_libadd) \
-                               $(END)
-
-libtloptimizations_la_SOURCES = \
-                           tl-optimizations.hpp \
-                           tl-strength-reduction.hpp \
-                           tl-strength-reduction.cpp \
-                           $(END)
-
+libtlvector_legalization_knc_la_SOURCES = \
+     tl-vector-legalization-knc.hpp \
+     tl-vector-legalization-knc.cpp \
+     $(END)

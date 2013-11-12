@@ -94,6 +94,7 @@ namespace Analysis {
     GRAPH_TYPE(OmpAtomic) \
     GRAPH_TYPE(OmpBarrierGraph) \
     GRAPH_TYPE(OmpCritical) \
+    GRAPH_TYPE(OmpForAppendix) \
     GRAPH_TYPE(OmpLoop) \
     GRAPH_TYPE(OmpMaster) \
     GRAPH_TYPE(OmpParallel) \
