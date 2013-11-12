@@ -56,6 +56,7 @@ doc/doxygen_tl
 doc/html/
 lib/tpp
 libtool
+src/driver/.dirstamp
 src/driver/cxx-configfile-lexer.c
 src/driver/cxx-configfile-parser-internal.h
 src/driver/cxx-configfile-parser.c
@@ -67,6 +68,7 @@ src/driver/cxx-target-tools.h
 src/driver/fortran/mf03-prescanner
 src/driver/mcxx
 src/driver/mcxx-embedder
+src/driver/plaincxx
 src/frontend/c99-parser-internal.h
 src/frontend/c99-parser.c
 src/frontend/c99-parser.output
