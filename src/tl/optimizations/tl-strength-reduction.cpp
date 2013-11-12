@@ -73,8 +73,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
 
     if(lhs.is_constant() && lhs_type.is_integral_type())
     {
-#warning const_value_cast_to_cvalue
-
+        //TODO: It could be a different type than int
         const_value_t * cv = lhs.get_constant(); 
         int integer_value = const_value_cast_to_signed_int(cv);
 
@@ -109,8 +108,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
 
     if(lhs.is_constant() && lhs_type.is_integral_type())
     {
-#warning const_value_cast_to_cvalue
-
+        //TODO: It could be a different type than int
         const_value_t * cv = lhs.get_constant(); 
         int integer_value = const_value_cast_to_signed_int(cv);
 

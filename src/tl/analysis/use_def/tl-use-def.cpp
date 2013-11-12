@@ -390,7 +390,7 @@ namespace Analysis {
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
-#warning paramns & args
+
         //TODO: parameters.size() must be == to arguments.size()
         for( ; ( ita != arguments.end( ) ) && ( itp != parameters.end( ) ); ++itp, ++ita )
         {
@@ -409,7 +409,7 @@ namespace Analysis {
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
-#warning
+
         //TODO: parameters.size() must be == to arguments.size()
         for( ; ( ita != arguments.end( ) ) && ( itp != parameters.end( ) ); ++itp, ++ita )
         {
