@@ -4425,11 +4425,44 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     // }
 
     // Do not qualify symbol names if they appear inside an anonymous namespace
+    const char* result = "";
+    char current_has_template_parameters = 0;
     if (entry->decl_context.namespace_scope->related_entry->symbol_name != NULL
             && strcmp(entry->decl_context.namespace_scope->related_entry->symbol_name, "(unnamed)") == 0)
     {
-        return entry->symbol_name;
+        result = uniquestr(unmangle_symbol_name(entry));
+
+        if (!no_templates
+                && entry->type_information != NULL
+                && is_template_specialized_type(entry->type_information)
+                && template_specialized_type_get_template_arguments(entry->type_information) != NULL
+                && !entry->entity_specs.is_conversion)
+        {
+            current_has_template_parameters = 1;
+
+            template_parameter_list_t* template_parameter_list = template_specialized_type_get_template_arguments(entry->type_information);
+            const char* template_parameters =  template_arguments_to_str_ex(template_parameter_list,
+                    /* first_argument_to_be_printed */ 0,
+                    /* first_level_brackets */ 1,
+                    decl_context,
+                    print_type_fun,
+                    print_type_data);
+
+            result = strappend(result, template_parameters);
+
+            (*is_dependent) |= is_dependent_type(entry->type_information);
+
+            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+            scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
+            if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            {
+                // This is dependent
+                (*is_dependent) = 1;
+            }
+        }
+        return result;
     }
+
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->entity_specs.is_injected_class_name)
     {
@@ -4437,7 +4470,6 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         entry = named_type_get_symbol(entry->entity_specs.class_type);
     }
 
-    const char* result = ""; 
     // Do not print anonymous unions or variables of anonymous unions
     if (!entry->entity_specs.is_anonymous_union
             && !(is_named_class_type(entry->type_information)
@@ -4446,7 +4478,6 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         result = uniquestr(unmangle_symbol_name(entry));
     }
 
-    char current_has_template_parameters = 0;
 
     if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
