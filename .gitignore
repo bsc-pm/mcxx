@@ -147,9 +147,10 @@ tests/test.log
 tests/test.log.xml
 test.log
 test.log.xml
-config/50.config.omp.fpga
 config/10.config.intel-omp-base
 config/50.config.omp.intel-rtl
+config/50.config.omp.fpga
+config/50.config.omp.ocl
 config/57.config.omp.all
 config/55.config.omp.intel.fortran
 src/frontend/cxx-asttype-str-internal.h
