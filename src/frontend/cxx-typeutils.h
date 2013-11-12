@@ -596,7 +596,9 @@ LIBMCXX_EXTERN char class_type_is_trivially_copiable(type_t* t);
 LIBMCXX_EXTERN char class_type_is_standard_layout(type_t* t);
 
 LIBMCXX_EXTERN char class_type_is_base(type_t* possible_base, type_t* possible_derived);
+LIBMCXX_EXTERN char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(type_t* possible_derived, type_t* possible_base);
+LIBMCXX_EXTERN char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base);
 
 LIBMCXX_EXTERN char is_pointer_to_void_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);
@@ -604,6 +606,10 @@ LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);
 LIBMCXX_EXTERN char pointer_to_class_type_is_base(type_t* possible_pclass_base,
         type_t* possible_pclass_derived);
 LIBMCXX_EXTERN char pointer_to_class_type_is_derived(type_t* possible_pclass_derived,
+        type_t* possible_pclass_base);
+LIBMCXX_EXTERN char pointer_to_class_type_is_base_strict(type_t* possible_pclass_base,
+        type_t* possible_pclass_derived);
+LIBMCXX_EXTERN char pointer_to_class_type_is_derived_strict(type_t* possible_pclass_derived,
         type_t* possible_pclass_base);
 
 LIBMCXX_EXTERN char class_type_is_empty(type_t* t);
