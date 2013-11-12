@@ -3697,6 +3697,16 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
     else if ((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*lhs)))
             && (is_pointer_type(no_ref(*rhs)) || is_array_type(no_ref(*rhs))))
     {
+        if (is_array_type(no_ref(*lhs)))
+        {
+            *lhs = get_pointer_type(array_type_get_element_type(no_ref(*lhs)));
+        }
+
+        if (is_array_type(no_ref(*rhs)))
+        {
+            *rhs = get_pointer_type(array_type_get_element_type(no_ref(*rhs)));
+        }
+
         if (equivalent_types(get_unqualified_type(no_ref(*lhs)), get_unqualified_type(no_ref(*rhs))))
         {
             *lhs = get_unqualified_type(no_ref(*lhs));
@@ -3707,18 +3717,8 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         {
             cv_qualifier_t cv_qualif_mixed = CV_NONE;
 
-            if (is_array_type(no_ref(*lhs)))
-            {
-                *lhs = get_pointer_type(array_type_get_element_type(no_ref(*lhs)));
-            }
-
             if (is_pointer_type(no_ref(*lhs)))
                 cv_qualif_mixed |= get_cv_qualifier(pointer_type_get_pointee_type(no_ref(*lhs)));
-
-            if (is_array_type(no_ref(*rhs)))
-            {
-                *rhs = get_pointer_type(array_type_get_element_type(no_ref(*rhs)));
-            }
 
             if (is_pointer_type(no_ref(*rhs)))
                 cv_qualif_mixed |= get_cv_qualifier(pointer_type_get_pointee_type(no_ref(*rhs)));
@@ -3744,16 +3744,6 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         {
             // Should not happen
             return get_error_type();
-        }
-
-        if (is_array_type(no_ref(*lhs)))
-        {
-            *lhs = get_pointer_type(array_type_get_element_type(no_ref(*lhs)));
-        }
-
-        if (is_array_type(no_ref(*rhs)))
-        {
-            *rhs = get_pointer_type(array_type_get_element_type(no_ref(*rhs)));
         }
 
         *lhs = get_unqualified_type(no_ref(*lhs));
