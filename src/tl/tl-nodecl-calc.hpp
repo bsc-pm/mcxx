@@ -82,8 +82,11 @@ namespace Nodecl
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::Sizeof& n);
         Ret visit(const Nodecl::VectorAdd& n);
-        Ret visit(const Nodecl::VectorLiteral& n);
         Ret visit(const Nodecl::VectorMinus& n);
+        Ret visit(const Nodecl::VectorMul& n);
+        Ret visit(const Nodecl::VectorDiv& n);
+        Ret visit(const Nodecl::VectorMod& n);
+        Ret visit(const Nodecl::VectorLiteral& n);
         Ret visit(const Nodecl::VectorPromotion& n);
         
     public:
