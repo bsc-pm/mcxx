@@ -3173,6 +3173,10 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
         result->type->vector_element = element_type;
         result->type->vector_size = vector_size;
 
+        result->info->valid_size = 1;
+        result->info->size = vector_size;
+        result->info->alignment = vector_size;
+
         result->info->is_dependent = is_dependent_type(element_type);
 
         rb_tree_insert(_vector_hash, element_type, result);

@@ -1,3 +1,13 @@
+[smpfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @GFORTRAN@
+fortran_preprocessor_options = -cpp -E
+compiler_name = @GFORTRAN@
+compiler_options = -frecursive
+linker_name = @GFORTRAN@
+linker_options =
+
 [smpcc : omp-base]
 language = C
 options = -std=gnu99 

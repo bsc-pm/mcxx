@@ -253,6 +253,7 @@ NANOX_INCLUDES=""
 NANOX_LIBS=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
+MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin"
 
 
 if test x$is_enabled_openmpt = xyes;
@@ -323,14 +324,12 @@ then
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
 
-   AC_ARG_WITH([nanox-mic-lib],
-           AS_HELP_STRING([--with-nanox-mic-lib=dir], [Directory of Nanos++ MIC libraries]),
+   AC_ARG_WITH([mic-tools],
+           AS_HELP_STRING([--with-mic-tools=dir], [Directory where MIC (k1om arch) tools are located (objcopy,objdump & ar)]),
            [
-            nanox_mic_lib="${withval}"
+             MIC_TOOLS="${withval}"
            ]
    )
-   NANOX_MIC_INCLUDES="${nanox_mic_include}"
-   NANOX_MIC_LIBS="${nanox_mic_lib}"
 
    if test x$nanox_include = x -o x$nanox_lib = x;
    then
@@ -345,6 +344,9 @@ then
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
+
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
+   COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
@@ -376,6 +378,7 @@ AC_SUBST([NANOX_INSTRUMENTATION])
 AC_SUBST([NANOX_MIC_INCLUDES])
 AC_SUBST([NANOX_MIC_LIBS])
 AC_SUBST([NANOX_MIC_INSTRUMENTATION])
+AC_SUBST([MIC_TOOLS])
 
 
 dnl SIMD Support
@@ -577,7 +580,7 @@ then
 
    AC_DEFINE_UNQUOTED([CUDA_DIR], ["$CUDADIR"], [CUDA installation path])
 else
-   DISABLE_CUDA="\#do not uncomment"
+   DISABLE_CUDA="\#CUDA support disabled"
 fi
 AC_SUBST([DISABLE_CUDA])
 
@@ -660,16 +663,11 @@ if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
-   DISABLE_OPENCL="\#do not uncomment"
+   DISABLE_OPENCL="\#OpenCL support disabled"
 fi 
 AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
-if test x$is_enabled_tl_omp_nanox = xyes;
-then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
-   COMPILER_NAMES="${COMPILER_NAMES} smpcc smpcxx"
-fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
@@ -677,6 +675,17 @@ dnl --------------------- Start MPI support in Mercurium -----------------------
 
 mpi_found=no
 MPIMODULE=""
+MIC_LIBS=""
+
+AC_ARG_WITH([mic-libs],
+AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
+	[
+		MIC_LIBS="${withval}"
+	],
+	[
+		MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
+	])
+
 #check the directory and get the right compiler path and name
 AC_ARG_WITH([mpi],
 AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
@@ -778,6 +787,7 @@ fi
 AC_SUBST([DISABLEMPI_ICC])
 AC_SUBST([DISABLEMPI_GCC])
 AC_SUBST([MPICC])
+AC_SUBST([MIC_LIBS])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])
 AC_SUBST([MPIMODULE])

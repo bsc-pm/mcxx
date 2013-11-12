@@ -363,7 +363,8 @@ typedef struct compilation_configuration_tag
     // Fortran prescanner
     const char* prescanner_name;
     const char** prescanner_options;
-    int column_width;
+    int input_column_width;
+    int output_column_width;
 
     // Disable Fortran intrinsics
     char disable_intrinsics;

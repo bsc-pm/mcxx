@@ -9,6 +9,7 @@ compiler_name = @MPICC@
 compiler_options=  -mt_mpi
 linker_name = @MPICC@
 linker_options = -mt_mpi
+{mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
 
 
@@ -23,6 +24,7 @@ compiler_name = @MPICXX@
 compiler_options=  -mt_mpi
 linker_name = @MPICXX@
 linker_options = -mt_mpi 
+{mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
 
 @DISABLEMPI_ICC@[mpimfc : imfc]
@@ -39,4 +41,8 @@ compiler_name = @MPIFORT@
 compiler_options= -mt_mpi
 linker_name = @MPIFORT@
 linker_options = -mt_mpi
+{mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
+target_objcopy=@MIC_TOOLS@/objcopy
+target_objdump=@MIC_TOOLS@/objdump
+target_ar=@MIC_TOOLS@/ar

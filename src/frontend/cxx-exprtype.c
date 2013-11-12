@@ -15199,6 +15199,11 @@ static void check_gcc_alignof_type(type_t* t,
             return;
         }
 
+        if (IS_C_LANGUAGE)
+        {
+            t = no_ref(t);
+        }
+
         *nodecl_output = nodecl_make_alignof(nodecl_make_type(t, locus), get_size_t_type(), locus);
 
         if (!CURRENT_CONFIGURATION->disable_sizeof)

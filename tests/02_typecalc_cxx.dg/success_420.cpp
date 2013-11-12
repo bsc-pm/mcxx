@@ -26,34 +26,25 @@
 
 
 
-#ifndef PRESCANNER_PROCESS_DECLS_H
-#define PRESCANNER_PROCESS_DECLS_H
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#include <stdio.h>
+struct Position
+{
+};
 
-#include "cxx-macros.h"
+Position operator+(const Position&, const Position&);
+Position operator-(const Position&, const Position&);
+Position operator*(const Position&, float);
 
-MCXX_BEGIN_DECLS
+float d, e;
 
-typedef
-struct prescanner_tag {
-    FILE* output_file;
-    FILE* input_file;
-    const char* output_filename;
-    const char* input_filename;
-    int width;
-    char append;
-    char pad_strings;
-    char openmp_processing;
-    char quiet;
-    char line_marks;
+Position f()
+{
+    Position a, b, c;
 
-    int num_include_directories;
-    const char** include_directories;
-
-    const char* output_include_directory;
-} prescanner_t;
-
-MCXX_END_DECLS
-
-#endif // PRESCANNER_PROCESS_DECLS_H
+    return (b - c) * (d / e);
+}
