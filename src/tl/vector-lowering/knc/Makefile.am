@@ -26,5 +26,5 @@
 
 include ../../Makefile.phases
 
-SUBDIRS = legalization lowering
+SUBDIRS = legalization backend
 
