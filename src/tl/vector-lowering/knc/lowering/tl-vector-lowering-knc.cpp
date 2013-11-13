@@ -669,6 +669,142 @@ namespace TL
             bitwise_binary_op_lowering(node, "xor");
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseShl& node) 
+        { 
+            const Nodecl::NodeclBase lhs = node.get_lhs();
+            const Nodecl::NodeclBase rhs = node.get_rhs();
+            const Nodecl::NodeclBase mask = node.get_mask();
+
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, casting_args, args, mask_args, rhs_expression;
+
+            intrin_src << casting_intrin
+                << "("
+                << intrin_name
+                << "("
+                << args
+                << "))"
+                ;
+
+            intrin_name << KNC_INTRIN_PREFIX
+                << mask_prefix
+                << "_"
+                << intrin_op_name
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            process_mask_component(mask, mask_prefix, mask_args, type);
+
+            if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_type_suffix << "epi32"; 
+            } 
+            else
+            {
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(lhs);
+
+            //RHS
+            if (rhs.is<Nodecl::VectorPromotion>())
+            {
+                intrin_op_name << "slli";
+                rhs_expression << as_expression(rhs.as<Nodecl::VectorPromotion>().get_rhs());
+            }
+            else
+            {
+                intrin_op_name << "sllv";
+                walk(rhs);
+                rhs_expression << as_expression(rhs);
+            }
+ 
+            args << mask_args
+                << casting_args << "(" << as_expression(lhs) << ")"
+                << ", "
+                << casting_args << "(" << rhs_expression << ")"
+                ;
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
+        void KNCVectorLowering::visit(const Nodecl::VectorBitwiseShr& node) 
+        { 
+            const Nodecl::NodeclBase lhs = node.get_lhs();
+            const Nodecl::NodeclBase rhs = node.get_rhs();
+            const Nodecl::NodeclBase mask = node.get_mask();
+
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, casting_args, args, mask_args, rhs_expression;
+
+            intrin_src << casting_intrin
+                << "("
+                << intrin_name
+                << "("
+                << args
+                << "))"
+                ;
+
+            intrin_name << KNC_INTRIN_PREFIX
+                << mask_prefix
+                << "_"
+                << intrin_op_name
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            process_mask_component(mask, mask_prefix, mask_args, type);
+
+            if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_type_suffix << "epi32"; 
+            } 
+            else
+            {
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }      
+
+            walk(lhs);
+
+            //RHS
+            if (rhs.is<Nodecl::VectorPromotion>())
+            {
+                intrin_op_name << "srli";
+                rhs_expression << as_expression(rhs.as<Nodecl::VectorPromotion>().get_rhs());
+            }
+            else
+            {
+                intrin_op_name << "srlv";
+                walk(rhs);
+                rhs_expression << as_expression(rhs);
+            }
+ 
+            args << mask_args
+                << casting_args << "(" << as_expression(lhs) << ")"
+                << ", "
+                << casting_args << "(" << rhs_expression << ")"
+                ;
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void KNCVectorLowering::visit(const Nodecl::VectorLogicalOr& node) 
         { 
             running_error("KNC Lowering %s: 'logical or' operation (i.e., operator '||') is not "\
@@ -1034,9 +1170,10 @@ namespace TL
             } 
             else
             {
-                internal_error("KNC Lowering: Node %s at %s has an unsupported scalar_type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported scalar_type (%s).", 
                         ast_print_node_type(node.get_kind()),
-                        locus_to_str(node.get_locus()));
+                        locus_to_str(node.get_locus()),
+                        scalar_type.get_simple_declaration(node.retrieve_context(), "").c_str());
             }      
 
             Nodecl::List scalar_values =

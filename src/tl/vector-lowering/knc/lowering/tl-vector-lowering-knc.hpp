@@ -111,6 +111,8 @@ namespace TL
                 virtual void visit(const Nodecl::VectorBitwiseOr& node);
                 virtual void visit(const Nodecl::VectorBitwiseXor& node);
                 virtual void visit(const Nodecl::VectorLogicalOr& node);
+                virtual void visit(const Nodecl::VectorBitwiseShl& node);
+                virtual void visit(const Nodecl::VectorBitwiseShr& node);
 
                 virtual void visit(const Nodecl::VectorConversion& node);
                 virtual void visit(const Nodecl::VectorCast& node);
