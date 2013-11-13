@@ -77,7 +77,35 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
         const_value_t * cv = lhs.get_constant(); 
         int integer_value = const_value_cast_to_signed_int(cv);
 
-        // V * C, C == Pow2
+        // 3 * V
+        /*
+        if (integer_value == 3)
+        {
+            Nodecl::Add add3 = 
+                Nodecl::Add::make(
+                        
+                        Nodecl::BitwiseShl::make(
+                            rhs.shallow_copy(),
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
+                            node.get_type(),
+                            node.get_locus()),
+                        
+                        
+                        Nodecl::Add::make(
+                            rhs.shallow_copy(),
+                            rhs.shallow_copy(),
+                            node.get_type(),
+                            node.get_locus()),
+                        
+                        rhs.shallow_copy(),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(add3);
+        }
+        */
+
+        // C * V, C == Pow2
         if (__builtin_popcount(integer_value) == 1) //Pow2
         {
             int ctz = __builtin_ctz(integer_value);
