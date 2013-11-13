@@ -1902,20 +1902,6 @@ echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
 
 
-if test x$flex_good = xno;
-then
-  AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
-fi
-if test x$bison_good = xno;
-then
-  AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
-fi
-if test x$gperf_good = xno;
-then
-   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
-fi
-
-echo ""
 echo " * Optional phases :"
 echo ""
 
@@ -1931,4 +1917,18 @@ then
   echo "   Analysis build and install disabled"
 else
   echo "   Analysis build and install enabled"
+fi
+
+
+if test x$flex_good = xno;
+then
+  AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
+fi
+if test x$bison_good = xno;
+then
+  AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
+fi
+if test x$gperf_good = xno;
+then
+   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
 fi
