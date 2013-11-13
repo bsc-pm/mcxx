@@ -667,8 +667,6 @@ namespace Nodecl
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::Add& n )
     {
-        //std::cerr << "\nCANONICAL ADD: " << n.prettyprint() << std::endl;
-
         NodeclBase lhs = n.get_lhs( );
         NodeclBase rhs = n.get_rhs( );
         if( lhs.is_constant( ) && const_value_is_zero( lhs.get_constant( ) ) )
@@ -739,9 +737,6 @@ namespace Nodecl
                 replace( n, Add::make( rhs, lhs, lhs.get_type( ), n.get_locus( ) ) );
             }
         }
-
-
-        //std::cerr << "--> " << n.prettyprint() << std::endl;
     }
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::Div& n )
@@ -878,8 +873,6 @@ namespace Nodecl
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::VectorAdd& n )
     {
-        std::cerr << "\nCANONICAL VECTOR ADD: " << n.prettyprint() << std::endl;
-
         NodeclBase lhs = n.get_lhs( );
         NodeclBase rhs = n.get_rhs( );
         if( lhs.is_constant( ) && const_value_is_zero( lhs.get_constant( ) ) )
@@ -950,8 +943,6 @@ namespace Nodecl
                 replace( n, VectorAdd::make( rhs, lhs, n.get_mask(), lhs.get_type( ), n.get_locus( ) ) );
             }
         } 
-
-        std::cerr << "--> " << n.prettyprint() << std::endl;
     }
 
     void Utils::ReduceExpressionVisitor::visit_post( const Nodecl::VectorDiv& n )
