@@ -27,7 +27,7 @@
 #include "tl-vector-lowering.hpp"
 #include "tl-vector-lowering-sse.hpp"
 #include "tl-vector-legalization-knc.hpp"
-#include "tl-vector-lowering-knc.hpp"
+#include "tl-vector-backend-knc.hpp"
 
 namespace TL
 {
