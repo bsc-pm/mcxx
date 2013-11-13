@@ -36,7 +36,7 @@ END=
 libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/lowering \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
                                -I $(top_srcdir)/src/tl/vectorizer/ \
                                -I $(top_srcdir)/src/tl/analysis/singleton/ \
                                -I $(top_srcdir)/src/tl/analysis/common/ \
@@ -46,7 +46,7 @@ libtlvector_lowering_la_CFLAGS=$(tl_cflags) -Wall \
 libtlvector_lowering_la_CXXFLAGS=$(tl_cflags) -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/lowering \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
                                -I $(top_srcdir)/src/tl/vectorizer/ \
                                -I $(top_srcdir)/src/tl/analysis/singleton/ \
                                -I $(top_srcdir)/src/tl/analysis/common/ \
@@ -63,5 +63,5 @@ libtlvector_lowering_la_SOURCES = \
 libtlvector_lowering_la_LIBADD = \
     $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
     $(top_builddir)/src/tl/vector-lowering/knc/legalization/libtlvector-legalization-knc.la \
-    $(top_builddir)/src/tl/vector-lowering/knc/lowering/libtlvector-lowering-knc.la \
+    $(top_builddir)/src/tl/vector-lowering/knc/backend/libtlvector-backend-knc.la \
     $(END)
