@@ -97,70 +97,11 @@ char is_better_function_flags(overload_entry_list_t* f,
         decl_context_t decl_context,
         const locus_t* locus);
 
-static type_t* start_type_before_conversion(scope_entry_t* conversor)
-{
-    type_t* result = NULL;
-
-    ERROR_CONDITION(conversor->kind != SK_FUNCTION,
-            "This must be a function", 0);
-
-    if (conversor->entity_specs.is_constructor)
-    {
-        ERROR_CONDITION(!conversor->entity_specs.is_conversor_constructor,
-                "This is not a conversor constructor", 0);
-
-        result = function_type_get_parameter_type_num(conversor->type_information, 0);
-    }
-    else if (conversor->entity_specs.is_conversion)
-    {
-        result = conversor->entity_specs.class_type;
-        if (is_const_qualified_type(conversor->type_information))
-        {
-            result = get_cv_qualified_type(result, CV_CONST);
-        }
-        result = get_lvalue_reference_type(result);
-    }
-    else
-    {
-        internal_error("Invalid conversor function %s at '%s'\n", conversor->symbol_name,
-                locus_to_str(conversor->locus));
-    }
-
-    return result;
-}
-
-static type_t* result_type_after_conversion(scope_entry_t* conversor)
-{
-    type_t* result = NULL;
-
-    ERROR_CONDITION(conversor->kind != SK_FUNCTION,
-            "This must be a function", 0);
-
-    if (conversor->entity_specs.is_constructor)
-    {
-        ERROR_CONDITION(!conversor->entity_specs.is_conversor_constructor,
-                "This is not a conversor constructor", 0);
-
-        result = conversor->entity_specs.class_type;
-    }
-    else if (conversor->entity_specs.is_conversion)
-    {
-        result = function_type_get_return_type(conversor->type_information);
-    }
-    else
-    {
-        internal_error("Invalid conversor function %s at '%s'\n", conversor->symbol_name,
-                locus_to_str(conversor->locus));
-    }
-
-    return result;
-}
-
 static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_1,
         implicit_conversion_sequence_t ics_2,
-        type_t* orig,
-        type_t* dest,
+        type_t* orig UNUSED_PARAMETER,
+        type_t* dest UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus UNUSED_PARAMETER)
 {
@@ -178,19 +119,9 @@ static char is_better_initialization_ics(
     // Check the first SCS
     {
         // Get the converted type before the conversion
-        type_t* converted_type_1 = start_type_before_conversion(ics_1.conversor);
-        type_t* converted_type_2 = start_type_before_conversion(ics_2.conversor);
 
-        standard_conversion_t scs_1;
-        if (!standard_conversion_between_types(&scs_1, orig, converted_type_1))
-        {
-            internal_error("A SCS should exist!", 0);
-        }
-        standard_conversion_t scs_2;
-        if (!standard_conversion_between_types(&scs_2, orig, converted_type_2))
-        {
-            internal_error("A SCS should exist!", 0);
-        }
+        standard_conversion_t scs_1 = ics_1.first_sc;
+        standard_conversion_t scs_2 = ics_2.first_sc;
 
         if (standard_conversion_is_better(scs_1, scs_2))
         {
@@ -239,20 +170,8 @@ static char is_better_initialization_ics(
     //
     // Check the second SCS
     {
-        // Get the converted type after the conversion
-        type_t* converted_type_1 = result_type_after_conversion(ics_1.conversor);
-        type_t* converted_type_2 = result_type_after_conversion(ics_2.conversor);
-
-        standard_conversion_t scs_1;
-        if (!standard_conversion_between_types(&scs_1, converted_type_1, dest))
-        {
-            internal_error("A SCS should exist!", 0);
-        }
-        standard_conversion_t scs_2;
-        if (!standard_conversion_between_types(&scs_2, converted_type_2, dest))
-        {
-            internal_error("A SCS should exist!", 0);
-        }
+        standard_conversion_t scs_1 = ics_1.second_sc;
+        standard_conversion_t scs_2 = ics_2.second_sc;
 
         if (standard_conversion_is_better(scs_1, scs_2))
         {
