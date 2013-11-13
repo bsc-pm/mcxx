@@ -422,6 +422,45 @@ namespace TL
             n.replace(vector_bo);
         }
 
+        void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShl& n)
+        {
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
+                    _environment._mask_list.back());
+
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorBitwiseShl vector_bshl =
+                Nodecl::VectorBitwiseShl::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        mask,
+                        Utils::get_qualified_vector_to(n.get_type(), 
+                            _environment._unroll_factor),
+                        n.get_locus());
+
+            n.replace(vector_bshl);
+        }
+
+        void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShr& n)
+        {
+            Nodecl::NodeclBase mask = Utils::get_proper_mask(
+                    _environment._mask_list.back());
+
+            walk(n.get_lhs());
+            walk(n.get_rhs());
+
+            const Nodecl::VectorBitwiseShr vector_bshr =
+                Nodecl::VectorBitwiseShr::make(
+                        n.get_lhs().shallow_copy(),
+                        n.get_rhs().shallow_copy(),
+                        mask,
+                        Utils::get_qualified_vector_to(n.get_type(), 
+                            _environment._unroll_factor),
+                        n.get_locus());
+
+            n.replace(vector_bshr);
+        }
 
         void VectorizerVisitorExpression::visit(const Nodecl::LogicalAnd& n)
         {
@@ -1427,7 +1466,10 @@ namespace TL
                 // Get outter conversion node
                 Nodecl::NodeclBase iv_with_conversion = n;
                 while(iv_with_conversion.get_parent().is<Nodecl::Conversion>())
+                {
+                    std::cerr << "HOLA\n"; 
                     iv_with_conversion = iv_with_conversion.get_parent();
+                }
 
                 // VectorLiteral offset
                 Nodecl::VectorLiteral offset_vector_literal =
