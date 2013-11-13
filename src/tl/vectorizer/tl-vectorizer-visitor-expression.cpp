@@ -1457,44 +1457,112 @@ namespace TL
 
                 Nodecl::List offset = Nodecl::List::make(literal_list);
 
-                // IV cannot be a reference
-                TL::Type ind_var_type = Utils::get_qualified_vector_to(
-                        n.get_type(), _environment._unroll_factor).no_ref();
+                Nodecl::NodeclBase vector_induction_var;
 
-                TL::Type offset_type = ind_var_type;
+                TL::Type ind_var_type;
 
-                // Get outter conversion node
-                Nodecl::NodeclBase iv_with_conversion = n;
-                while(iv_with_conversion.get_parent().is<Nodecl::Conversion>())
+                // If Conversion node
+                if(n.get_parent().is<Nodecl::Conversion>())
                 {
-                    std::cerr << "HOLA\n"; 
-                    iv_with_conversion = iv_with_conversion.get_parent();
+                    Nodecl::Conversion conversion = n.get_parent().as<Nodecl::Conversion>();
+                   
+                    TL::Type dest_type = conversion.get_type();
+                    TL::Type source_type = conversion.get_nest().get_type();
+
+                    // No conversion of values is needed
+                    if (dest_type.is_same_type(source_type.no_ref().get_unqualified_type()))
+                    {
+                        ind_var_type = Utils::get_qualified_vector_to(
+                                conversion.get_type().no_ref(), _environment._unroll_factor);
+                        
+                        // VectorLiteral offset
+                        Nodecl::VectorLiteral offset_vector_literal =
+                            Nodecl::VectorLiteral::make(
+                                    offset,
+                                    Utils::get_null_mask(),
+                                    ind_var_type,
+                                    n.get_locus());
+
+                        offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+
+                        vector_induction_var =
+                            Nodecl::VectorAdd::make(
+                                    Nodecl::VectorPromotion::make(
+                                        conversion.shallow_copy(),
+                                        Utils::get_null_mask(),
+                                        ind_var_type,
+                                        n.get_locus()),
+                                    offset_vector_literal,
+                                    Utils::get_null_mask(),
+                                    Utils::get_qualified_vector_to(ind_var_type, 
+                                        _environment._unroll_factor),
+                                    n.get_locus());
+                    }
+                    else // Conversion of values
+                    {
+                        // IV cannot be a reference
+                        ind_var_type = Utils::get_qualified_vector_to(
+                                n.get_type(), _environment._unroll_factor).no_ref();
+
+                        // VectorLiteral offset
+                        Nodecl::VectorLiteral offset_vector_literal =
+                            Nodecl::VectorLiteral::make(
+                                    offset,
+                                    Utils::get_null_mask(),
+                                    ind_var_type,
+                                    n.get_locus());
+
+                        offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+
+                        vector_induction_var =
+                            Nodecl::VectorConversion::make(
+                                    Nodecl::VectorAdd::make(
+                                        Nodecl::VectorPromotion::make(
+                                            conversion.get_nest().shallow_copy(),
+                                            Utils::get_null_mask(),
+                                            ind_var_type,
+                                            n.get_locus()),
+                                        offset_vector_literal,
+                                        Utils::get_null_mask(),
+                                        ind_var_type,
+                                        n.get_locus()),
+                                    Utils::get_null_mask(),
+                                    Utils::get_qualified_vector_to(dest_type,
+                                        _environment._unroll_factor),
+                                    n.get_locus());
+                    }
+                    
+                    conversion.replace(vector_induction_var);
                 }
+                else // There is no conversion
+                {
+                    ind_var_type = Utils::get_qualified_vector_to(
+                            n.get_type(), _environment._unroll_factor).no_ref();
 
-                // VectorLiteral offset
-                Nodecl::VectorLiteral offset_vector_literal =
-                    Nodecl::VectorLiteral::make(
-                            offset,
-                            Utils::get_null_mask(),
-                            offset_type,
-                            n.get_locus());
+                    // VectorLiteral offset
+                    Nodecl::VectorLiteral offset_vector_literal =
+                        Nodecl::VectorLiteral::make(
+                                offset,
+                                Utils::get_null_mask(),
+                                ind_var_type,
+                                n.get_locus());
 
-                offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+                    offset_vector_literal.set_constant(get_vector_const_value(literal_list));
 
-                Nodecl::VectorAdd vector_induction_var =
-                    Nodecl::VectorAdd::make(
-                            Nodecl::VectorPromotion::make(
-                                iv_with_conversion.shallow_copy(),
+                    vector_induction_var =
+                        Nodecl::VectorAdd::make(
+                                Nodecl::VectorPromotion::make(
+                                    n.shallow_copy(),
+                                    Utils::get_null_mask(),
+                                    ind_var_type,
+                                    n.get_locus()),
+                                offset_vector_literal,
                                 Utils::get_null_mask(),
                                 ind_var_type,
                                 n.get_locus()),
-                            offset_vector_literal,
-                            Utils::get_null_mask(),
-                            Utils::get_qualified_vector_to(n.get_type(), 
-                                _environment._unroll_factor),
-                            n.get_locus());
 
-                iv_with_conversion.replace(vector_induction_var);
+                    n.replace(vector_induction_var);
+                }
             }
             else
             {
