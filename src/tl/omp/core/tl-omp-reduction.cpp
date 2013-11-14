@@ -273,8 +273,9 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        type_name = var_type.get_declaration(var_sym.get_scope(), "").c_str();
+                        type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
                     }
+
                     error_printf("%s: error: no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
                             construct.get_locus_str().c_str(),
                             reductor_name.c_str(),
