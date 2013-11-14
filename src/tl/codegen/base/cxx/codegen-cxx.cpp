@@ -3107,8 +3107,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
 {
     TL::Type t = node.get_align_type().get_type();
-
-    *(file) << "__alignof__(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
+    *(file) << "__alignof__(";
+    walk(node.get_align_type());
+    *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)

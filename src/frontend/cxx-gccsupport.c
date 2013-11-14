@@ -268,6 +268,7 @@ void gather_one_gcc_attribute(const char* attribute_name,
         {
             error_printf("%s: error: attribute 'aligned' only allows one argument",
                     ast_location(expression_list));
+            do_not_keep_attribute = 1;
         }
         else
         {
@@ -280,7 +281,17 @@ void gather_one_gcc_attribute(const char* attribute_name,
             }
             else
             {
-                nodecl_expression_list = nodecl_make_list_1(nodecl_expression_list);
+                if (!nodecl_expr_is_value_dependent(nodecl_expression_list)
+                        && !nodecl_is_constant(nodecl_expression_list))
+                {
+                    error_printf("%s: error: attribute 'aligned' is not constant",
+                            ast_location(expression_list));
+                    do_not_keep_attribute = 1;
+                }
+                else
+                {
+                    nodecl_expression_list = nodecl_make_list_1(nodecl_expression_list);
+                }
             }
         }
     }
@@ -669,26 +680,52 @@ void apply_gcc_attribute_to_type(AST a,
         if (attribute_name == NULL)
             return;
 
-        // Normalize this name as the FE uses it elsewhere
-        if (strcasecmp(attribute_name, "__aligned__") == 0
-                || strcasecmp(attribute_name, "aligned") == 0)
-        {
-            attribute_name = "aligned";
-        }
-
         gcc_attribute_t gcc_attr;
         gcc_attr.attribute_name = attribute_name;
         gcc_attr.expression_list = nodecl_null();
 
-        if (expr_list != NULL)
+        // Normalize this name as the FE uses it elsewhere
+        if (expr_list != NULL
+                && (strcmp(attribute_name, "aligned") == 0
+                    || strcmp(attribute_name, "__aligned__") == 0))
         {
-            AST it2;
-            for_each_element(expr_list, it2)
-            {
-                AST expr = ASTSon1(it2);
+            attribute_name = "aligned";
 
-                gcc_attr.expression_list = nodecl_append_to_list(gcc_attr.expression_list,
-                        nodecl_make_text(prettyprint_in_buffer(expr), ast_get_locus(expr)));
+            if (ASTSon0(expr_list) != NULL)
+            {
+                error_printf("%s: error: attribute 'aligned' only allows one argument",
+                        ast_location(expr_list));
+            }
+
+            AST expr = ASTSon1(expr_list);
+
+            nodecl_t nodecl_expr = nodecl_null();
+            check_expression(expr, decl_context, &nodecl_expr);
+
+            if (nodecl_is_err_expr(nodecl_expr))
+                continue;
+
+            if (!nodecl_expr_is_value_dependent(nodecl_expr)
+                    && !nodecl_is_constant(nodecl_expr))
+            {
+                error_printf("%s: error: attribute 'aligned' is not constant",
+                        ast_location(expr_list));
+            }
+
+            gcc_attr.expression_list = nodecl_make_list_1(nodecl_expr);
+        }
+        else
+        {
+            if (expr_list != NULL)
+            {
+                AST it2;
+                for_each_element(expr_list, it2)
+                {
+                    AST expr = ASTSon1(it2);
+
+                    gcc_attr.expression_list = nodecl_append_to_list(gcc_attr.expression_list,
+                            nodecl_make_text(prettyprint_in_buffer(expr), ast_get_locus(expr)));
+                }
             }
         }
 

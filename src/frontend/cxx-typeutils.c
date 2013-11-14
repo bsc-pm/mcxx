@@ -11503,18 +11503,43 @@ _size_t type_get_size(type_t* t)
     {
         if (is_named_type(t))
         {
-            type_t* alias_type = named_type_get_symbol(t)->type_information;
+            scope_entry_t* named_type = named_type_get_symbol(t);
+            type_t* alias_type = named_type->type_information;
 
             type_set_size(t, type_get_size(alias_type));
-            type_set_alignment(t, type_get_alignment(alias_type));
+
+            // Do not override explicit alignments
+            nodecl_t explicit_aligned = symbol_get_aligned_attribute(named_type);
+            if (nodecl_is_null(explicit_aligned))
+            {
+                type_set_alignment(t, type_get_alignment(alias_type));
+            }
+            else if (nodecl_is_constant(explicit_aligned))
+            {
+                type_set_alignment(t,
+                        const_value_cast_to_8(nodecl_get_constant(explicit_aligned)));
+            }
+            else
+            {
+                internal_error("'aligned' attribute of '%s' is not a constant when computing the size of a type",
+                    get_qualified_symbol_name(named_type, named_type->decl_context));
+            }
 
             CXX_LANGUAGE()
             {
                 type_set_data_size(t, type_get_data_size(alias_type));
                 class_type_set_non_virtual_size(t, 
                         class_type_get_non_virtual_size(alias_type));
-                class_type_set_non_virtual_align(t, 
-                        class_type_get_non_virtual_align(alias_type));
+                if (nodecl_is_null(explicit_aligned))
+                {
+                    class_type_set_non_virtual_align(t, 
+                            class_type_get_non_virtual_align(alias_type));
+                }
+                else if (nodecl_is_constant(explicit_aligned))
+                {
+                    type_set_alignment(t,
+                            const_value_cast_to_8(nodecl_get_constant(explicit_aligned)));
+                }
             }
 
             // State it valid
@@ -12564,6 +12589,9 @@ parameter_info_t get_parameter_info_for_type(type_t* t)
 type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr)
 {
     type_t* result = copy_type_for_variant(t);
+
+    ERROR_CONDITION(!nodecl_is_null(attr.expression_list) && !nodecl_is_list(attr.expression_list),
+            "Attribute value if not empty must be a list", 0);
 
     int i;
     char found = 0;
