@@ -911,14 +911,19 @@ namespace TL
             // Therefore do nothing, I'm no longer a Conversion!!
             if (n.is<Nodecl::Conversion>())
             {
-                const Nodecl::VectorConversion vector_conv =
-                    Nodecl::VectorConversion::make(
-                            n.get_nest().shallow_copy(),
-                            mask,
-                            Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
-                            n.get_locus());
+                TL::Type nest_type = n.get_nest().get_type().no_ref();
 
-                n.replace(vector_conv);
+                if (nest_type.is_vector())
+                {
+                    const Nodecl::VectorConversion vector_conv =
+                        Nodecl::VectorConversion::make(
+                                n.get_nest().shallow_copy(),
+                                mask,
+                                Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor),
+                                n.get_locus());
+
+                    n.replace(vector_conv);
+                }
             }
         }
 
@@ -1149,7 +1154,8 @@ namespace TL
                             sin_p.shallow_copy(),
                             cos_p.shallow_copy(),
                             mask,
-                            Utils::get_qualified_vector_to(call_type, _environment._unroll_factor),
+                            Utils::get_qualified_vector_to(TL::Type::get_float_type(), 
+                                _environment._unroll_factor),
                             n.get_locus());
 
                 n.replace(vector_sincos_call);
@@ -1414,22 +1420,21 @@ namespace TL
 
             n.replace(reference);
         } 
-/*
+
         void VectorizerVisitorExpression::visit(const Nodecl::Dereference& n)
         {
-            std::cerr << "Hola, soy una Dereference: " << n.prettyprint() << std::endl;
             walk(n.get_rhs());
 
-            const Nodecl::Reference reference =
-                Nodecl::Reference::make(
+            const Nodecl::Dereference dereference =
+                Nodecl::Dereference::make(
                         n.get_rhs().shallow_copy(),
                         Utils::get_qualified_vector_to(n.get_type(),
                             _environment._unroll_factor),
                         n.get_locus());
 
-            n.replace(reference);
+            n.replace(dereference);
         } 
-*/
+
         void VectorizerVisitorExpression::vectorize_basic_induction_variable(const Nodecl::Symbol& n)
         {
             DEBUG_CODE()

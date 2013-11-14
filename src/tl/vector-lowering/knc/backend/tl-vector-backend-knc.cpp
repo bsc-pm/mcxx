@@ -1987,34 +1987,52 @@ namespace TL
             const Nodecl::NodeclBase sin_pointer = node.get_sin_pointer();
             const Nodecl::NodeclBase cos_pointer = node.get_cos_pointer();
 
-            TL::Type type = source.get_type().basic_type();
+            TL::Type type = node.get_type().basic_type();
             
             TL::Source intrin_src, mask_prefix, mask_args;
 
-            process_mask_component(mask, mask_prefix, mask_args, TL::Type::get_int_type(),
-                    ConfigMaskProcessing::ONLY_MASK);
+            process_mask_component(mask, mask_prefix, mask_args, type);
 
             walk(source);
+            walk(sin_pointer);
+            walk(cos_pointer);
 
-            // Handcoded implementations for float and double
+            internal_error("KNC Lowering: Sincos is unsupported.", 0);
+
             if (type.is_float()) 
-            { 
-                intrin_src << "(*" << as_expression(sin_pointer) << ")"
-                    << " = __svml_sincosf16_ha" << mask_prefix
-                    << "("
-                    << as_expression(cos_pointer)
-                    << " ,"
-                    << mask_args  
-                    << as_expression(source)
-                    << ")"; 
+            {
+                if(mask.is_null())
+                {
+                    intrin_src << "(*" << as_expression(sin_pointer) << ")"
+                        << " = _mm512_mask_sincos_ps"
+                        << "("
+                        << as_expression(sin_pointer.children().front())
+                        << ", 0xFFFF, "
+                        << as_expression(cos_pointer)
+                        << ", "
+                        << as_expression(source)
+                        << ")"; 
+                }
+                else
+                {
+                    intrin_src << "(*" << as_expression(sin_pointer) << ")"
+                        << " = _mm512_mask_sincos_ps"
+                        << "("
+                        << mask_args  
+                        << as_expression(cos_pointer)
+                        << ", "
+                        << as_expression(source)
+                        << ")"; 
+                }
             } 
             else
             {
-                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type: %s.", 
                         ast_print_node_type(node.get_kind()),
-                        locus_to_str(node.get_locus()));
+                        locus_to_str(node.get_locus()),
+                        type.get_simple_declaration(node.retrieve_context(), "").c_str());
             }
-           
+         
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
             

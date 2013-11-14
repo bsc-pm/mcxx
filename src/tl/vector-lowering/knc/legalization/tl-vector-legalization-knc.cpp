@@ -118,13 +118,13 @@ namespace TL
             {
                 TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
                         index_vector_type.vector_num_elements());
-
+/*
                 printf("Gather indexes conversion from %s(%s) to %s(%s)\n",
                     index_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     index_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.basic_type().get_simple_declaration(node.retrieve_context(), "").c_str());
-
+*/
                 Nodecl::VectorGather new_gather = node.shallow_copy().as<Nodecl::VectorGather>();
                 KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
                 stride_visitor.walk(new_gather.get_strides());
@@ -151,13 +151,13 @@ namespace TL
             {
                 TL::Type dst_vector_type = TL::Type::get_int_type().get_vector_of_elements(
                         node.get_strides().get_type().vector_num_elements());
-
+/*
                 printf("Scatter indexes conversion from %s(%s) to %s(%s)\n",
                     index_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     index_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.basic_type().get_simple_declaration(node.retrieve_context(), "").c_str());
-
+*/
                 Nodecl::VectorScatter new_scatter = node.shallow_copy().as<Nodecl::VectorScatter>();
                 KNCStrideVisitorConv stride_visitor(index_vector_type.vector_num_elements());
                 stride_visitor.walk(new_scatter.get_strides());
