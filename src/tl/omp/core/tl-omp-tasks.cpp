@@ -906,7 +906,7 @@ namespace TL
 
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            Nodecl::NodeclBase param_ref_tree = construct.get_context_of_parameters();
+            TL::Scope param_ref_tree = construct.get_context_of_parameters().retrieve_context();
 
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
@@ -916,27 +916,32 @@ namespace TL
 
             Symbol function_sym = construct.get_symbol();
 
-            // In some special cases we need to add the symbol 'this' to the
-            // current class scope. This is needed because in the pragma of a
-            // non-static member function may appear a member of this class.
-            // Example:
-            //
-            //  struct X
-            //  {
-            //      char var[10];
-            //
-            //      #pragma omp task inout(var[i])
-            //      void foo(int i) {}
-            //  };
-            //
             if (function_sym.is_member()
                     && !function_sym.is_static())
             {
-                TL::Scope class_scope = function_sym.get_scope();
-                TL::Symbol this_symbol = class_scope.get_symbol_from_name("this");
+                TL::Symbol this_symbol = param_ref_tree.get_symbol_from_name("this");
                 if (!this_symbol.is_valid())
                 {
-                    this_symbol = class_scope.new_symbol("this");
+                    // In some cases the symbol 'this is not available. This happens
+                    // if the function had not been defined
+                    //
+                    // Example:
+                    //
+                    //  struct X
+                    //  {
+                    //      char var[10];
+                    //
+                    //      #pragma omp task inout(var[i])
+                    //      void foo(int i);
+                    //  };
+                    //  void X::foo(int j) { var[j]++; }
+                    //
+                    // We create a new prototype scope to register "this" this
+                    // way we do not pollute the class scope (prototypes can be
+                    // nested)
+                    param_ref_tree = TL::Scope(new_prototype_context(param_ref_tree.get_decl_context()));
+                    this_symbol = param_ref_tree.new_symbol("this");
+
                     Type pointed_this = function_sym.get_class_type();
                     Type this_type = pointed_this.get_pointer_to().get_const_type();
 
