@@ -372,6 +372,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> function_body
 %type<ast> function_definition_header
 %type<ast> function_definition
+%type<ast> non_extension_function_definition
 %type<ast> function_specifier
 %type<ast> handler
 %type<ast> handler_seq
@@ -2947,7 +2948,7 @@ ctor_initializer_opt : /* empty */
     $$ = $1;
 };
 
-function_definition : function_definition_header ctor_initializer_opt function_body 
+non_extension_function_definition : function_definition_header ctor_initializer_opt function_body 
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION, $1, $2, $3, ast_get_locus($1), NULL);
 }
@@ -2958,6 +2959,12 @@ function_definition : function_definition_header ctor_initializer_opt function_b
 | function_definition_header '=' DEFAULT ';'
 {
     $$ = ASTMake1(AST_DEFAULTED_FUNCTION_DEFINITION, $1, ast_get_locus($1), $3.token_text);
+}
+;
+
+function_definition : non_extension_function_definition
+{
+    $$ = $1;
 }
 | EXTENSION function_definition
 {
@@ -3105,7 +3112,7 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, NULL, $1, ast_get_locus($1), NULL);
 }
-| function_definition 
+| non_extension_function_definition
 {
 	$$ = $1;
 }
