@@ -1447,7 +1447,7 @@ namespace TL
             if (ind_var_increment.is_constant())
             {
                 const_value_t *ind_var_increment_const = ind_var_increment.get_constant();
-                const_value_t *i = const_value_get_zero(4, 0);
+                const_value_t *i = const_value_get_zero(4, /*signed*/ 1);
                 for(unsigned int j = 0;
                         j < _environment._unroll_factor;
                         i = const_value_add(i, ind_var_increment_const), j++)

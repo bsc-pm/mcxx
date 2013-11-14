@@ -379,15 +379,13 @@ namespace TL
             node.replace(function_call);
         }
 
-
-
         void KNCVectorLowering::visit(const Nodecl::VectorLowerThan& node) 
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();
 
             TL::Source intrin_src;
             TL::Source cmp_flavor;
-
+            
             // Intrinsic name
             intrin_src << "_mm512_cmp";
 
@@ -432,6 +430,8 @@ namespace TL
 
             TL::Source intrin_src;
             TL::Source cmp_flavor;
+
+            std::cerr << "KNC:::> " << node.prettyprint() << std::endl;
 
             // Intrinsic name
             intrin_src << "_mm512_cmp";
