@@ -91,14 +91,6 @@ LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output_list);
 
-LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol,
-        decl_context_t decl_context,
-        char is_template,
-        char is_explicit_specialization,
-        nodecl_t* nodecl_output,
-        scope_entry_list_t** declared_symbols,
-        gather_decl_spec_list_t* gather_decl_spec_list);
-
 LIBMCXX_EXTERN void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared);
 
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
