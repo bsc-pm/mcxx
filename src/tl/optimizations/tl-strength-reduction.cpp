@@ -160,14 +160,12 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
 
 void TL::Optimizations::strength_reduce(Nodecl::NodeclBase& node)
 {
-    std::cerr << "StrengthReduciton!" << std::endl;
     StrengthReduction strength_reduction;
     strength_reduction.walk(node);
 }
 
 void TL::Optimizations::canonicalize_and_fold(Nodecl::NodeclBase& node)
 {
-    std::cerr << "Canonizalize & Fold!" << std::endl;
     Nodecl::Utils::ReduceExpressionVisitor exp_reducer;
 
     exp_reducer.walk(node);
