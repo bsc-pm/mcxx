@@ -65,13 +65,13 @@ namespace TL
             const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
 //            const int src_type_size = src_type.get_size();
 //            const int dst_type_size = dst_type.get_size();
-
+/*
             printf("Conversion from %s(%s) to %s(%s)\n",
                     src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
                     dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
-
+*/
             const unsigned int src_num_elements = src_vector_type.vector_num_elements();
             const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
