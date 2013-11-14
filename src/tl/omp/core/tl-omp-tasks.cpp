@@ -1201,41 +1201,6 @@ namespace TL
 
             TL::Scope scope = construct.retrieve_context();
 
-            Symbol enclosing_function = scope.get_related_symbol();
-            // In some special cases we need to add the symbol 'this' to the
-            // current class scope. This is needed because in the pragma of a
-            // non-static member function may appear a member of this class.
-            // Example:
-            //
-            //  struct X
-            //  {
-            //      char var[10];
-            //
-            //      void foo(int i)
-            //      {
-            //          #pragma omp task inout(var[i])
-            //          {
-            //          }
-            //      }
-            //  };
-            //
-            if (enclosing_function.is_member()
-                    && !enclosing_function.is_static())
-            {
-                TL::Symbol this_symbol = scope.get_symbol_from_name("this");
-                if (!this_symbol.is_valid())
-                {
-                    this_symbol = scope.new_symbol("this");
-                    Type pointed_this = enclosing_function.get_class_type();
-                    Type this_type = pointed_this.get_pointer_to().get_const_type();
-
-                    this_symbol.get_internal_symbol()->type_information = this_type.get_internal_type();
-                    this_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                    this_symbol.get_internal_symbol()->defined = 1;
-                    this_symbol.get_internal_symbol()->do_not_print = 1;
-                }
-            }
-
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
 
