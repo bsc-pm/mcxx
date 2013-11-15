@@ -296,6 +296,54 @@ class UpdateKernelConfigsVisitor : public Nodecl::ExhaustiveVisitor<void>
         }
 };
 
+class NanosGetCublasHandleVisitor : public Nodecl::ExhaustiveVisitor<void>
+{
+    private:
+        bool _found;
+    public:
+        NanosGetCublasHandleVisitor() : _found(false) { }
+
+        void visit(const Nodecl::ObjectInit& node)
+        {
+            if (_found)
+                return;
+
+            TL::Symbol sym = node.get_symbol();
+            if (sym.get_value().is_null())
+                return;
+
+            walk(sym.get_value());
+        }
+
+        void visit(const Nodecl::FunctionCall& node)
+        {
+            if (_found)
+                return;
+
+            TL::Symbol called_symbol = node.get_called().get_symbol();
+            if (called_symbol.is_valid()
+                    && called_symbol.get_name() == "nanos_get_cublas_handle")
+            {
+                _found = true;
+            }
+        }
+
+        bool get_is_nanos_get_cublas_handle()
+        {
+            return _found;
+        }
+};
+
+void DeviceCUDA::is_nanos_get_cublas_handle_present(Nodecl::NodeclBase task_code)
+{
+    if (_is_nanos_get_cublas_handle)
+        return;
+
+    NanosGetCublasHandleVisitor visitor;
+    visitor.walk(task_code);
+    _is_nanos_get_cublas_handle = visitor.get_is_nanos_get_cublas_handle();
+}
+
 void DeviceCUDA::update_all_kernel_configurations(Nodecl::NodeclBase task_code)
 {
     UpdateKernelConfigsVisitor update_kernel_visitor;
@@ -336,8 +384,10 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     // Update the kernel configurations of every cuda function call of the current task
     Nodecl::NodeclBase task_code =
         (is_function_task) ? called_task.get_function_code() : output_statements;
+
     if (!task_code.is_null())
     {
+        is_nanos_get_cublas_handle_present(task_code);
         update_all_kernel_configurations(task_code);
     }
 
@@ -704,7 +754,7 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
 }
 
 DeviceCUDA::DeviceCUDA()
-    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions()
+    : DeviceProvider(/* device_name */ std::string("cuda")), _copied_cuda_functions(), _is_nanos_get_cublas_handle(false)
 {
     set_phase_name("Nanox CUDA support");
     set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -841,13 +891,14 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
     if (_cuda_tasks_processed)
     {
+        Nodecl::NodeclBase root = data_flow["nodecl"];
         Source nanox_device_enable_section;
         nanox_device_enable_section << "__attribute__((weak)) char ompss_uses_cuda = 1;";
 
         if (IS_FORTRAN_LANGUAGE)
             Source::source_language = SourceLanguage::C;
 
-        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(_root);
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
 
         if (IS_FORTRAN_LANGUAGE)
             Source::source_language = SourceLanguage::Current;
@@ -861,6 +912,30 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
             Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
         }
         _cuda_tasks_processed = false;
+    }
+
+    if (_is_nanos_get_cublas_handle)
+    {
+        Nodecl::NodeclBase root = data_flow["nodecl"];
+        Source nanox_device_enable_section;
+        nanox_device_enable_section << "__attribute__((weak)) char gpu_cublas_init = 1;";
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::C;
+
+        Nodecl::NodeclBase functions_section_tree = nanox_device_enable_section.parse_global(root);
+
+        if (IS_FORTRAN_LANGUAGE)
+            Source::source_language = SourceLanguage::Current;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            _extra_c_code.prepend(functions_section_tree);
+        }
+        else
+        {
+            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree);
+        }
     }
 
     if (!_cuda_file_code.is_null())
@@ -955,7 +1030,6 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
 void DeviceCUDA::pre_run(DTO& dto)
 {
-    _root = dto["nodecl"];
     _cuda_tasks_processed = false;
 }
 
