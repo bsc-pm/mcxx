@@ -42,7 +42,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         ~LoweringVisitor();
 
         virtual void visit(const Nodecl::FunctionCode& function_code);
-        virtual void visit(const Nodecl::FunctionCall& function_call);
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
         virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
         virtual void visit(const Nodecl::OpenMP::Critical& construct);
@@ -64,8 +63,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Lowering* _lowering;
         RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
-        // Used to initialize CUBLAS automatically on runtime
-        bool _is_nanos_get_cublas_handle;
 
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'

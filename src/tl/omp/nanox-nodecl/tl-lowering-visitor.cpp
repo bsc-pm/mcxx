@@ -29,7 +29,7 @@
 namespace TL { namespace Nanox {
 
     LoweringVisitor::LoweringVisitor(Lowering* lowering,RefPtr<OpenMP::FunctionTaskSet> function_task_set)
-        : _lowering(lowering), _function_task_set(function_task_set), _is_nanos_get_cublas_handle(false)
+        : _lowering(lowering), _function_task_set(function_task_set)
     {
         ERROR_CONDITION(_lowering == NULL, "Invalid lowering class\n", 0);
     }
@@ -61,34 +61,6 @@ namespace TL { namespace Nanox {
             {
                 walk(*it);
             }
-        }
-    }
-
-    // We need to check if there is a function call to the 'nanos_get_cublas_handle'
-    // function because we want to initialize CUBLAS automatically
-    void LoweringVisitor::visit(const Nodecl::FunctionCall& function_call)
-    {
-        if (_is_nanos_get_cublas_handle)
-            return;
-
-        TL::Symbol called_symbol = function_call.get_called().get_symbol();
-        if (called_symbol.is_valid()
-                && called_symbol.get_name() == "nanos_get_cublas_handle")
-        {
-            _is_nanos_get_cublas_handle = true;
-
-            Source src;
-            src << "__attribute__((weak)) char gpu_cublas_init = 1;";
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::C;
-
-            Nodecl::NodeclBase tree = src.parse_global(function_call);
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::Current;
-
-            Nodecl::Utils::append_to_top_level_nodecl(tree);
         }
     }
 } }
