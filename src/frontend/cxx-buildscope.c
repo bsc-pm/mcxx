@@ -13980,6 +13980,7 @@ static scope_entry_t* build_scope_member_function_definition(
     decl_context_t block_context;
 
     gather_decl_spec_t *gather_info = xcalloc(1, sizeof(*gather_info));
+    gather_info->inside_class_specifier = 1;
 
     char is_constructor = 0;
     scope_entry_t* entry = build_scope_function_definition_declarator(
@@ -14057,9 +14058,9 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
         nodecl_t* nodecl_output)
 {
     gather_decl_spec_t gather_info;
-    gather_info.inside_class_specifier = 1;
-
     memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_info.inside_class_specifier = 1;
 
     type_t* class_type = get_actual_class_type(class_info);
     const char* class_name = named_type_get_symbol(class_info)->symbol_name;
