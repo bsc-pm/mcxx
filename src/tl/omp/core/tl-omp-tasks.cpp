@@ -375,11 +375,23 @@ namespace TL
 
            _task_label = Nodecl::Utils::deep_copy(
                    task_info._task_label, task_info._sym.get_scope(), translation_map);
+
+           _parsing_scope = task_info._parsing_scope;
         }
 
         Symbol FunctionTaskInfo::get_symbol() const
         {
             return _sym;
+        }
+
+        void FunctionTaskInfo::set_parsing_scope(TL::Scope sc)
+        {
+            _parsing_scope = sc;
+        }
+
+        TL::Scope FunctionTaskInfo::get_parsing_scope() const
+        {
+            return _parsing_scope;
         }
 
         FunctionTaskInfo::implementation_table_t FunctionTaskInfo::get_implementation_table() const
@@ -562,6 +574,7 @@ namespace TL
             mw.write(_final_clause_cond_expr);
             mw.write(_untied);
             mw.write(_task_label);
+            mw.write(_parsing_scope);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -575,6 +588,7 @@ namespace TL
             mr.read(_final_clause_cond_expr);
             mr.read(_untied);
             mr.read(_task_label);
+            mr.read(_parsing_scope);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -906,7 +920,7 @@ namespace TL
 
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            TL::Scope param_ref_tree = construct.get_context_of_parameters().retrieve_context();
+            TL::Scope parsing_scope = construct.get_context_of_parameters().retrieve_context();
 
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
@@ -919,7 +933,7 @@ namespace TL
             if (function_sym.is_member()
                     && !function_sym.is_static())
             {
-                TL::Symbol this_symbol = param_ref_tree.get_symbol_from_name("this");
+                TL::Symbol this_symbol = parsing_scope.get_symbol_from_name("this");
                 if (!this_symbol.is_valid())
                 {
                     // In some cases the symbol 'this is not available. This happens
@@ -939,8 +953,8 @@ namespace TL
                     // We create a new prototype scope to register "this" this
                     // way we do not pollute the class scope (prototypes can be
                     // nested)
-                    param_ref_tree = TL::Scope(new_prototype_context(param_ref_tree.get_decl_context()));
-                    this_symbol = param_ref_tree.new_symbol("this");
+                    parsing_scope = TL::Scope(new_prototype_context(parsing_scope.get_decl_context()));
+                    this_symbol = parsing_scope.new_symbol("this");
 
                     Type pointed_this = function_sym.get_class_type();
                     Type this_type = pointed_this.get_pointer_to().get_const_type();
@@ -959,7 +973,7 @@ namespace TL
             if (input_clause.is_defined())
             {
                 ObjectList<Nodecl::NodeclBase> all_input_arguments;
-                all_input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
+                all_input_arguments = input_clause.get_arguments_as_expressions(parsing_scope);
                 all_input_arguments = update_clauses(all_input_arguments, function_sym);
 
                separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
@@ -970,7 +984,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
-                output_arguments = output_clause.get_arguments_as_expressions(param_ref_tree);
+                output_arguments = output_clause.get_arguments_as_expressions(parsing_scope);
                 output_arguments = update_clauses(output_arguments, function_sym);
             }
 
@@ -978,7 +992,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> inout_arguments;
             if (inout_clause.is_defined())
             {
-                inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
+                inout_arguments = inout_clause.get_arguments_as_expressions(parsing_scope);
                 inout_arguments = update_clauses(inout_arguments, function_sym);
             }
 
@@ -986,7 +1000,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> concurrent_arguments;
             if (concurrent_clause.is_defined())
             {
-                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(param_ref_tree);
+                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(parsing_scope);
                 concurrent_arguments = update_clauses(concurrent_arguments, function_sym);
             }
 
@@ -994,7 +1008,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> commutative_arguments;
             if (commutative_clause.is_defined())
             {
-                commutative_arguments = commutative_clause.get_arguments_as_expressions(param_ref_tree);
+                commutative_arguments = commutative_clause.get_arguments_as_expressions(parsing_scope);
                 commutative_arguments = update_clauses(commutative_arguments, function_sym);
             }
 
@@ -1109,7 +1123,7 @@ namespace TL
             PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(param_ref_tree);
+                ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(parsing_scope);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
@@ -1122,7 +1136,7 @@ namespace TL
             PragmaCustomClause final_clause = pragma_line.get_clause("final");
             if (final_clause.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(param_ref_tree);
+                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(parsing_scope);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'final' requires just one argument\n",
@@ -1135,7 +1149,7 @@ namespace TL
             PragmaCustomClause priority_clause = pragma_line.get_clause("priority");
             if (priority_clause.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(param_ref_tree);
+                ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(parsing_scope);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
@@ -1164,6 +1178,8 @@ namespace TL
                                 str_list[0]));
                 }
             }
+
+            task_info.set_parsing_scope(parsing_scope);
 
             std::cerr << construct.get_locus_str()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;

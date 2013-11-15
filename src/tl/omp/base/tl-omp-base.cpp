@@ -595,6 +595,11 @@ namespace TL { namespace OpenMP {
                                 function_task_info.get_task_label().get_text()));
                 }
 
+                result_list.append(
+                        Nodecl::OpenMP::FunctionTaskParsingContext::make(
+                            Nodecl::PragmaContext::make(function_task_info.get_parsing_scope())
+                            ));
+
                 return Nodecl::List::make(result_list);
             }
 
@@ -1214,7 +1219,11 @@ namespace TL { namespace OpenMP {
                     if (function_called.is_member()
                             && !function_called.is_static())
                     {
-                        Scope sc = function_called.get_scope();
+                        // Make sure we use the scope we used to parse the dependences
+                        FunctionTaskInfo function_called_task_info =
+                            _function_task_set->get_function_task(function_called);
+
+                        Scope sc = function_called_task_info.get_parsing_scope();
                         TL::Symbol this_ = sc.get_symbol_from_name("this");
                         ERROR_CONDITION(this_.is_invalid(), "Unreachable code", 0);
                         parameter_names.append("this__");
