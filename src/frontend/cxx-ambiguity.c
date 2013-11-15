@@ -755,7 +755,6 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                         &dummy_gather_info,
                         &bitfield_type,
                         decl_context,
-                        /* first_declarator */ NULL,
                         &dummy_nodecl_output);
 
                 if (!(is_enum_type(bitfield_type)
@@ -1661,7 +1660,7 @@ static char solve_ambiguous_parameter_declaration_check_interpretation(AST param
 
         nodecl_t dummy_nodecl_output = nodecl_null();
         build_scope_decl_specifier_seq(decl_specifier_seq,
-                &gather_info, &t, decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
+                &gather_info, &t, decl_context, &dummy_nodecl_output);
 
         current_valid = current_valid && (t != NULL);
     }

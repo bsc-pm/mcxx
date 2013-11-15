@@ -51,6 +51,7 @@ namespace TL
             void builtin_write(TL::Symbol);
             void builtin_write(TL::Type);
             void builtin_write(Nodecl::NodeclBase);
+            void builtin_write(TL::Scope);
 
             template <typename T>
                 void write(const T& t)
@@ -122,6 +123,9 @@ namespace TL
     template <>
     struct ModuleWriterTrait<Nodecl::NodeclBase> : public BuiltinModuleWriterTrait<Nodecl::NodeclBase> { };
 
+    template <>
+    struct ModuleWriterTrait<TL::Scope> : public BuiltinModuleWriterTrait<TL::Scope> { };
+
     template <typename T, typename Q>
         struct ModuleWriterTrait<std::map<T, Q> >
         {
@@ -179,6 +183,7 @@ namespace TL
             void builtin_read(std::string& str);
             void builtin_read(bool&);
             void builtin_read(Nodecl::NodeclBase&);
+            void builtin_read(TL::Scope&);
 
             template <typename T>
                 void read(T& t)
@@ -300,6 +305,8 @@ namespace TL
     template <>
     struct ModuleReaderTrait<Nodecl::NodeclBase> : public BuiltinModuleReaderTrait<Nodecl::NodeclBase> { };
 
+    template <>
+    struct ModuleReaderTrait<TL::Scope> : public BuiltinModuleReaderTrait<TL::Scope> { };
 }
 
 #endif // TL_MODULES_HPP

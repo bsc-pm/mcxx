@@ -895,7 +895,6 @@ void LoweringVisitor::visit_task_call_c(
     // Fill arguments outline info using parameters
     OutlineInfo arguments_outline_info;
 
-
     Scope sc = construct.retrieve_context();
     Scope new_block_context_sc = new_block_context(sc.get_decl_context());
 
@@ -908,8 +907,6 @@ void LoweringVisitor::visit_task_call_c(
     param_sym_to_arg_sym_t param_sym_to_arg_sym;
     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
     fill_map_parameters_to_arguments(called_sym, arguments, param_to_arg_expr);
-
-
 
     // Make sure we allocate the argument size
     TL::ObjectList<Nodecl::NodeclBase> new_arguments(arguments.size());
@@ -926,7 +923,15 @@ void LoweringVisitor::visit_task_call_c(
             && called_sym.is_member())
     {
         Nodecl::NodeclBase class_object = *(arguments.begin());
-        TL::Symbol this_symbol = called_sym.get_scope().get_symbol_from_name("this");
+
+        Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+            = parameters_environment.as<Nodecl::List>()
+            .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+        ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
+        TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
+
+        TL::Symbol this_symbol = parse_scope.get_symbol_from_name("this");
         ERROR_CONDITION(!this_symbol.is_valid(), "Invalid symbol", 0);
 
         seen_parameters.insert(this_symbol);

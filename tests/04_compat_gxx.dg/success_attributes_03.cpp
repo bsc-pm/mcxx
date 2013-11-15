@@ -26,21 +26,33 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#ifndef CXX_GCCSUPPORT_DECLS_H
-#define CXX_GCCSUPPORT_DECLS_H
-
-#include "cxx-macros.h"
-#include "cxx-nodecl-decls.h"
-
-MCXX_BEGIN_DECLS
-
-typedef struct gcc_attribute_tag
+template <int N>
+struct A
 {
-    const char *attribute_name;
-    nodecl_t expression_list;
-} gcc_attribute_t;
+    static int x __attribute__((aligned(N)));
+    static int __attribute__((aligned(64))) (__attribute__((aligned(16))) y), z;
+};
 
-MCXX_END_DECLS
+template <int N, int M>
+struct EqualTest { };
 
-#endif // CXX_GCCSUPPORT_DECLS_H
+template <int N>
+struct EqualTest<N, N> { typedef int Test; };
+
+void foo()
+{
+    /* 1 */ EqualTest<32, __alignof__(A<32>::x)>::Test t1;
+    /* 2 */ EqualTest<4, __alignof__(__typeof__(A<32>::x))>::Test t2;
+
+    /* 3 */ EqualTest<16, __alignof__(__typeof__(A<32>::y))>::Test t3;
+    /* 4 */ EqualTest<4, __alignof__(__typeof__(A<32>::z))>::Test t4;
+
+    /* 5 */ EqualTest<64, __alignof__(A<32>::y)>::Test t5;
+    /* 6 */ EqualTest<64, __alignof__(A<32>::z)>::Test t6;
+}

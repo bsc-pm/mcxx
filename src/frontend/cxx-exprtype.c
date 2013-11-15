@@ -219,14 +219,15 @@ type_t* compute_type_for_type_id_tree(AST type_id,
 
     AST type_specifier = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
-    
+
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
     nodecl_t dummy_nodecl_output = nodecl_null();
 
     type_t* simple_type_info = NULL;
-    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context, abstract_declarator, &dummy_nodecl_output);
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context,
+            &dummy_nodecl_output);
 
     type_t* declarator_type = simple_type_info;
 
@@ -238,7 +239,6 @@ type_t* compute_type_for_type_id_tree(AST type_id,
         compute_declarator_type(abstract_declarator,
                 &gather_info, simple_type_info,
                 &declarator_type, decl_context,
-                abstract_declarator,
                 &dummy_nodecl_output);
     }
 
@@ -6420,7 +6420,7 @@ char is_cxx_special_identifier(nodecl_t nodecl_name, nodecl_t* nodecl_output)
         // __null is a special item in g++
         if (strcmp(text, "__null") == 0)
         {
-            type_t* t = get_zero_type_variant((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
+            type_t* t = get_variant_type_zero((CURRENT_CONFIGURATION->type_environment->type_of_ptrdiff_t)());
 
             *nodecl_output = nodecl_make_integer_literal(
                     t,
@@ -8048,7 +8048,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
 
     nodecl_t dummy_nodecl_output = nodecl_null();
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type,
-            decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (is_error_type(dummy_type))
     {
@@ -8057,7 +8057,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     }
 
     type_t* declarator_type = NULL;
-    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, new_declarator, &dummy_nodecl_output);
+    compute_declarator_type(new_declarator, &gather_info, dummy_type,
+            &declarator_type, decl_context, &dummy_nodecl_output);
 
     nodecl_t nodecl_initializer = nodecl_null();
     if (new_initializer != NULL)
@@ -8474,7 +8475,7 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
 
     nodecl_t dummy_nodecl_output = nodecl_null();
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-            decl_context, /* first declarator */ NULL,  &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (is_error_type(type_info))
     {
@@ -10091,7 +10092,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
     type_t* simple_type_info = NULL;
     build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info,
-            decl_context, /* first_declarator */ NULL, &dummy_nodecl_output);
+            decl_context, &dummy_nodecl_output);
 
     if (is_error_type(simple_type_info))
     {
@@ -10101,7 +10102,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
     type_t* declarator_type = simple_type_info;
     compute_declarator_type(abstract_declarator, &gather_info, simple_type_info,
-            &declarator_type, decl_context, abstract_declarator, &dummy_nodecl_output);
+            &declarator_type, decl_context, &dummy_nodecl_output);
 
     int i;
     for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
@@ -15157,59 +15158,98 @@ static void check_gcc_real_or_imag_part(AST expression,
             nodecl_output);
 }
 
+
 static void check_gcc_alignof_type(type_t* t,
+        nodecl_t nodecl_expr,
         decl_context_t decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    scope_entry_t* symbol = NULL;
+    if (!nodecl_is_null(nodecl_expr))
+        symbol = nodecl_get_symbol(nodecl_expr);
+    nodecl_t symbol_alignment_attr = nodecl_null();
+    if (symbol != NULL)
+        symbol_alignment_attr = symbol_get_aligned_attribute(symbol);
+
+    const_value_t* alignment_value = NULL;
+
+    if (!nodecl_is_null(symbol_alignment_attr))
+    {
+        if (nodecl_expr_is_value_dependent(symbol_alignment_attr))
+        {
+            *nodecl_output = nodecl_make_cxx_alignof(nodecl_expr, get_size_t_type(), locus);
+            return;
+        }
+        else if (!nodecl_is_constant(symbol_alignment_attr))
+        {
+            ERROR_CONDITION("'aligned' attribute of entity '%s' is not a constant when computing __alignof__\n",
+                    nodecl_locus_to_str(nodecl_expr),
+                    get_qualified_symbol_name(symbol, symbol->decl_context));
+        }
+        else
+        {
+            alignment_value = nodecl_get_constant(symbol_alignment_attr);
+        }
+    }
+
     if (is_dependent_type(t))
+    {
+        *nodecl_output = nodecl_make_alignof(nodecl_make_type(t, locus), get_size_t_type(), locus);
+        return;
+    }
+
+    CXX_LANGUAGE()
+    {
+        if (is_named_class_type(t))
+        {
+            scope_entry_t* named_type = named_type_get_symbol(t);
+            instantiate_template_class_if_needed(named_type, decl_context, locus);
+        }
+    }
+
+    if (is_incomplete_type(t))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: alignof of incomplete type '%s'\n", 
+                    locus_to_str(locus),
+                    print_type_str(t, decl_context));
+        }
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    if (IS_C_LANGUAGE)
+    {
+        t = no_ref(t);
+    }
+
+    if (nodecl_is_null(nodecl_expr))
     {
         *nodecl_output = nodecl_make_alignof(nodecl_make_type(t, locus), get_size_t_type(), locus);
     }
     else
     {
-        CXX_LANGUAGE()
-        {
-            if (is_named_class_type(t))
-            {
-                scope_entry_t* symbol = named_type_get_symbol(t);
-                instantiate_template_class_if_needed(symbol, decl_context, locus);
-            }
-        }
-
-        if (is_incomplete_type(t))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: alignof of incomplete type '%s'\n", 
-                        locus_to_str(locus),
-                        print_type_str(t, decl_context));
-            }
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
-        if (IS_C_LANGUAGE)
-        {
-            t = no_ref(t);
-        }
-
-        *nodecl_output = nodecl_make_alignof(nodecl_make_type(t, locus), get_size_t_type(), locus);
-
-        if (!CURRENT_CONFIGURATION->disable_sizeof)
-        {
-            _size_t type_alignment = type_get_alignment(t);
-
-            DEBUG_SIZEOF_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: %s: alignof yields a value of %zu\n",
-                        locus_to_str(locus), type_alignment);
-            }
-
-            nodecl_set_constant(*nodecl_output,
-                    const_value_get_integer(type_alignment, type_get_size(get_size_t_type()), 0));
-        }
+        *nodecl_output = nodecl_make_alignof(nodecl_expr, get_size_t_type(), locus);
     }
+
+    // Compute the alignment using the type if we have not come with any alignment yet
+    if (alignment_value == NULL
+            && !CURRENT_CONFIGURATION->disable_sizeof)
+    {
+        _size_t type_alignment = type_get_alignment(t);
+
+        DEBUG_SIZEOF_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: %s: alignof yields a value of %zu\n",
+                    locus_to_str(locus), type_alignment);
+        }
+
+        alignment_value  = const_value_get_integer(type_alignment, type_get_size(get_size_t_type()), 0);
+    }
+
+    nodecl_set_constant(*nodecl_output, alignment_value);
 }
 
 static void check_nodecl_gcc_alignof_expr(
@@ -15226,7 +15266,7 @@ static void check_nodecl_gcc_alignof_expr(
 
     type_t* t = nodecl_get_type(nodecl_expr);
 
-    check_gcc_alignof_type(t, decl_context, locus, nodecl_output);
+    check_gcc_alignof_type(t, nodecl_expr, decl_context, locus, nodecl_output);
 }
 
 static void check_gcc_alignof_expr(AST expression, 
@@ -15263,7 +15303,7 @@ static void check_gcc_alignof_typeid(AST expression,
         return;
     }
 
-    check_gcc_alignof_type(t, decl_context, ast_get_locus(type_id), nodecl_output);
+    check_gcc_alignof_type(t, nodecl_null(), decl_context, ast_get_locus(type_id), nodecl_output);
 }
 
 static void check_gcc_postfix_expression(AST expression, 
@@ -17512,6 +17552,7 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
     nodecl_t result = nodecl_null();
 
     check_gcc_alignof_type(t,
+            nodecl_null(),
             v->decl_context,
             nodecl_get_locus(node),
             &result);

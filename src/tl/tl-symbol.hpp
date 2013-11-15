@@ -747,9 +747,9 @@ namespace TL
     class LIBTL_CLASS GCCAttribute
     {
         private:
-            gather_gcc_attribute_t _attr;
+            gcc_attribute_t _attr;
         public:
-            GCCAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
+            GCCAttribute(gcc_attribute_t attr) : _attr(attr) { }
 
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;
@@ -758,9 +758,9 @@ namespace TL
     class LIBTL_CLASS MSAttribute
     {
         private:
-            gather_gcc_attribute_t _attr;
+            gcc_attribute_t _attr;
         public:
-            MSAttribute(gather_gcc_attribute_t attr) : _attr(attr) { }
+            MSAttribute(gcc_attribute_t attr) : _attr(attr) { }
 
             std::string get_attribute_name() const;
             Nodecl::List get_expression_list() const;

@@ -779,11 +779,11 @@ namespace TL
         AST abstract_decl = ASTSon1(type_id);
 
         build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                decl_context, /* first_declarator */ NULL, &nodecl_out_type);
+                decl_context, &nodecl_out_type);
 
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &gather_info, type_info,
-                &declarator_type, decl_context, abstract_decl, &nodecl_out_type);
+                &declarator_type, decl_context, &nodecl_out_type);
 
         *nodecl_output = nodecl_make_type(declarator_type, ast_get_locus(type_id));
     }

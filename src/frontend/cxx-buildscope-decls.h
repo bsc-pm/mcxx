@@ -138,11 +138,11 @@ struct gather_decl_spec_tag {
 
     // Attribute info
     int num_gcc_attributes;
-    gather_gcc_attribute_t* gcc_attributes;
+    gcc_attribute_t* gcc_attributes;
 
     // __declspec info
     int num_ms_attributes;
-    gather_gcc_attribute_t* ms_attributes;
+    gcc_attribute_t* ms_attributes;
 
     // UPC info
     struct

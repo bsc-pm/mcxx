@@ -273,8 +273,9 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        type_name = var_type.get_declaration(var_sym.get_scope(), "").c_str();
+                        type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
                     }
+
                     error_printf("%s: error: no suitable reduction '%s' was found for reduced variable '%s' of type '%s'\n",
                             construct.get_locus_str().c_str(),
                             reductor_name.c_str(),
@@ -416,7 +417,7 @@ namespace TL { namespace OpenMP {
                 build_scope_decl_specifier_seq(current_type,
                         &gather_info,
                         &reduction_type, decl_context,
-                        NULL, &nodecl_out_type);
+                        &nodecl_out_type);
             }
             else if (IS_FORTRAN_LANGUAGE)
             {

@@ -266,7 +266,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PREDECREMENT([rhs]expression) type const-value-opt
                   | NODECL_POSTDECREMENT([rhs]expression) type const-value-opt
                   | NODECL_SIZEOF([size_type]type, [expr]expression-opt) type const-value-opt
-                  | NODECL_ALIGNOF([align_type]type) type const-value-opt
+                  | NODECL_ALIGNOF([align_type]type-or-expr) type const-value-opt
                   | NODECL_OFFSET([base]expression, [offset]expression) type const-value-opt
                   | NODECL_TYPEID([arg]type-or-expr) type const-value-opt
                   | NODECL_NEW([init]expression-opt, [init_real_type] type-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text const-value-opt
@@ -531,7 +531,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*MASK()
                  | NODECL_OPEN_M_P*NO_MASK()
-#                 | NODECL_OPEN_M_P*VECTOR_DEVICE([device] text)
+                 | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)

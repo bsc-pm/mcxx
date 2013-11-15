@@ -26,21 +26,18 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#ifndef CXX_GCCSUPPORT_DECLS_H
-#define CXX_GCCSUPPORT_DECLS_H
-
-#include "cxx-macros.h"
-#include "cxx-nodecl-decls.h"
-
-MCXX_BEGIN_DECLS
-
-typedef struct gcc_attribute_tag
+struct A
 {
-    const char *attribute_name;
-    nodecl_t expression_list;
-} gcc_attribute_t;
+    void f(class C* b)
+    {
+        d = b;
+    }
 
-MCXX_END_DECLS
-
-#endif // CXX_GCCSUPPORT_DECLS_H
+    class C * d;
+};

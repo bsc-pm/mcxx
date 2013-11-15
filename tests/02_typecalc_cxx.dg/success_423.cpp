@@ -26,45 +26,24 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#ifndef CXX_GCCSUPPORT_H
-#define CXX_GCCSUPPORT_H
+struct A
+{
+    float x, y;
+    A(float, float);
+    A(const float a[]);
 
-#include "libmcxx-common.h"
-#include "cxx-ast-decls.h"
-#include "cxx-buildscope-decls.h"
+    operator float* ();
+    operator const float* () const;
 
-MCXX_BEGIN_DECLS
+    A g()
+    {
+        return A(-x, -y);
+    }
+};
 
-LIBMCXX_EXTERN char gcc_attribute_is_type_attribute(const char* identifier);
-
-LIBMCXX_EXTERN void gather_gcc_attribute(AST attribute,
-        gather_decl_spec_t* gather_info,
-        decl_context_t decl_context);
-
-LIBMCXX_EXTERN void gather_one_gcc_attribute(const char* attribute_name,
-        AST expression_list,
-        gather_decl_spec_t* gather_info,
-        decl_context_t decl_context);
-
-LIBMCXX_EXTERN void check_gxx_type_traits(AST expression,
-        decl_context_t decl_context, nodecl_t* nodecl_output);
-
-LIBMCXX_EXTERN void common_check_gxx_type_traits(type_t* lhs_type,
-        type_t* rhs_type,
-        type_t* gxx_trait_type,
-        const char* trait_name,
-        decl_context_t decl_context,
-        const locus_t* locus,
-        nodecl_t* nodecl_output);
-
-LIBMCXX_EXTERN void keep_gcc_attributes_in_symbol(
-        scope_entry_t* entry,
-        gather_decl_spec_t* gather_info);
-
-LIBMCXX_EXTERN void apply_gcc_attribute_to_type(AST a, type_t** type,
-        decl_context_t decl_context);
-
-MCXX_END_DECLS
-
-#endif // CXX_GCCSUPPORT_H
