@@ -3088,6 +3088,12 @@ static int get_module_extra_data(void *data,
                 *(p->current_item) = tl_nodecl(node);
                 break;
             }
+        case TL_DECL_CONTEXT:
+            {
+                decl_context_t decl_context = load_decl_context(p->handle, safe_atoull(values[1]));
+                *(p->current_item) = tl_decl_context(decl_context);
+                break;
+            }
         default:
             {
                 internal_error("Invalid data type %d when loading extra module information", kind);
@@ -3260,6 +3266,15 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
                     query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
                             "VALUES (%llu, %d, %d, %llu);", 
                             domain_oid, i, kind, nodecl_oid);
+                    break;
+                }
+            case TL_DECL_CONTEXT:
+                {
+                    sqlite3_uint64 decl_context_oid = insert_decl_context(handle, info[i].data._decl_context);
+
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %llu);",
+                            domain_oid, i, kind, decl_context_oid);
                     break;
                 }
             default:
