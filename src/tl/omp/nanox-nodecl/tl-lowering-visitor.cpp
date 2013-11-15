@@ -72,7 +72,8 @@ namespace TL { namespace Nanox {
             return;
 
         TL::Symbol called_symbol = function_call.get_called().get_symbol();
-        if (called_symbol.get_name() == "nanos_get_cublas_handle")
+        if (called_symbol.is_valid()
+                && called_symbol.get_name() == "nanos_get_cublas_handle")
         {
             _is_nanos_get_cublas_handle = true;
 
