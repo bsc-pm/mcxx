@@ -296,11 +296,19 @@ namespace {
         if( VERBOSE )
         {
             std::cerr << " Task concurrent regions limits: \n";
-            std::cerr << "    - Last sync:  ";
-            for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
-                std::cerr << (*it)->get_id( ) << ", ";
-            std::cerr << std::endl;
-            std::cerr << "    - Next sync:  " << next_sync->get_id( ) << std::endl;
+            if( last_sync.empty( ) )
+                std::cerr << "    - Last sync not fund" << std::endl;
+            else
+            {
+                std::cerr << "    - Last sync:  ";
+                for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
+                    std::cerr << (*it)->get_id( ) << ", ";
+                std::cerr << std::endl;
+            }
+            if( next_sync == NULL )
+                std::cerr << "    - Next sync not found" << std::endl;
+            else
+                std::cerr << "    - Next sync: " << next_sync->get_id( ) << std::endl;
         }
         if( last_sync.empty( ) || ( next_sync == NULL ) )
             _check_only_local = true;
