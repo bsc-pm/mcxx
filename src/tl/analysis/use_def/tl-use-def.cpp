@@ -657,208 +657,214 @@ namespace Analysis {
         
         // The function called must be analyzed only in case it has not been analyzed previously
         TL::Symbol func_sym = called_sym.get_symbol( );
-        if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
-        {
-            Nodecl::FunctionCode called_func =
-                func_sym.get_function_code( ).as<Nodecl::FunctionCode>( );
+        if( func_sym.is_valid( ) )
+        {   // The called function is not a pointer to function
+            if( _visited_functions.find( func_sym ) == _visited_functions.end( ) )
+            {
+                Nodecl::FunctionCode called_func = func_sym.get_function_code( ).as<Nodecl::FunctionCode>( );
 
-            ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
-            Nodecl::List args = arguments.as<Nodecl::List>( );
-            if( !called_func.is_null( ) )
-            {   // The code of the function we have to analyze is accessible
-                Nodecl::FunctionCode copied_func =
-                        called_func.shallow_copy( ).as<Nodecl::FunctionCode>( );
+                ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
+                Nodecl::List args = arguments.as<Nodecl::List>( );
+                if( !called_func.is_null( ) )
+                {   // The code of the function we have to analyze is accessible
+                    Nodecl::FunctionCode copied_func = called_func.shallow_copy( ).as<Nodecl::FunctionCode>( );
 
-                // Create renaming map
-                sym_to_nodecl_map renaming_map =
-                        map_reference_params_to_args( params, args );
+                    // Create renaming map
+                    sym_to_nodecl_map renaming_map = map_reference_params_to_args( params, args );
 
-                // Rename the parameters with the arguments
-                RenameVisitor rv( renaming_map );
-                rv.rename_expressions( copied_func );
+                    // Rename the parameters with the arguments
+                    RenameVisitor rv( renaming_map );
+                    rv.rename_expressions( copied_func );
 
-                // Create the PCFG for the renamed code
-                PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), copied_func );
-                ExtensibleGraph* pcfg = pcfgv.parallel_control_flow_graph( copied_func );
+                    // Create the PCFG for the renamed code
+                    PCFGVisitor pcfgv( Utils::generate_hashed_name( copied_func ), copied_func );
+                    ExtensibleGraph* pcfg = pcfgv.parallel_control_flow_graph( copied_func );
 
-                _visited_global_vars.insert( pcfg->get_global_variables( ) );
+                    _visited_global_vars.insert( pcfg->get_global_variables( ) );
 
-                // Compute the Use-Def variables of the code
-                _visited_functions.insert( func_sym );
-                UseDef ue( pcfg );
-                ue.compute_usage( _visited_functions, _visited_global_vars,
-                                    /* ipa */ true, get_arguments_list( renaming_map ) );
-                _visited_functions.erase( func_sym );
+                    // Compute the Use-Def variables of the code
+                    _visited_functions.insert( func_sym );
+                    UseDef ue( pcfg );
+                    ue.compute_usage( _visited_functions, _visited_global_vars,
+                                      /* ipa */ true, get_arguments_list( renaming_map ) );
+                    _visited_functions.erase( func_sym );
 
-                // Set the node usage
-                Node* pcfg_node = pcfg->get_graph( );
-                    // reference parameters and global variables
-                Utils::ext_sym_set ue_vars = pcfg_node->get_ue_vars( );
-                for( Utils::ext_sym_set::iterator it = ue_vars.begin( ); it != ue_vars.end( ); ++it )
-                    std::cerr << "  - " << it->get_nodecl().prettyprint( ) << std::endl;
-                Utils::ext_sym_set killed_vars = pcfg_node->get_killed_vars( );
-                Utils::ext_sym_set undef_vars = pcfg_node->get_undefined_behaviour_vars( );
+                    // Set the node usage
+                    Node* pcfg_node = pcfg->get_graph( );
+                    Utils::ext_sym_set ue_vars = pcfg_node->get_ue_vars( );
+                    Utils::ext_sym_set killed_vars = pcfg_node->get_killed_vars( );
+                    Utils::ext_sym_set undef_vars = pcfg_node->get_undefined_behaviour_vars( );
                     // value parameters
-                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
-                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
-                    it != non_ref_params.end( ); ++it )
-                {
-                    ObjectList<Nodecl::NodeclBase> syms = Nodecl::Utils::get_all_memory_accesses( it->second );
-                    for( ObjectList<Nodecl::NodeclBase>::iterator it_s = syms.begin( ); it_s != syms.end( ); ++it_s )
-                        ue_vars.insert( Utils::ExtendedSymbol( *it_s ) );
-                }
-                    // set the values
-                _node->set_ue_var( ue_vars );
-                _node->set_killed_var( killed_vars );
-                _node->set_undefined_behaviour_var( undef_vars );
-            }
-            else
-            {   // We do not have access to the called code
-                // Check whether we have enough attributes in the function symbol
-                // to determine the function side effects
-                bool side_effects = true;
-
-                if( func_sym.has_gcc_attributes( ) )
-                {   // Check for information synthesized by gcc
-                    ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes( );
-                    for( ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin( );
-                        it != gcc_attrs.end( ); ++it )
+                    sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                    for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                         it != non_ref_params.end( ); ++it )
                     {
-                        std::string attr_name = it->get_attribute_name( );
-                        if( attr_name == "const" || attr_name == "pure" )
-                        {   // No side effects except the return value.
-                            // Only examine the arguments ( and global variables in 'pure' case)
-                            side_effects = false;
+                        ObjectList<Nodecl::NodeclBase> syms = Nodecl::Utils::get_all_memory_accesses( it->second );
+                        for( ObjectList<Nodecl::NodeclBase>::iterator it_s = syms.begin( ); it_s != syms.end( ); ++it_s )
+                            ue_vars.insert( Utils::ExtendedSymbol( *it_s ) );
+                    }
+                    _node->set_ue_var( ue_vars );
+                    _node->set_killed_var( killed_vars );
+                    _node->set_undefined_behaviour_var( undef_vars );
+                }
+                else
+                {   // We do not have access to the called code
+                    // Check whether we have enough attributes in the function symbol
+                    // to determine the function side effects
+                    bool side_effects = true;
 
-                            Utils::ext_sym_set ue_vars;
-                            // Set all parameters as used ( if not previously killed or undefined )
-                            for( Nodecl::List::iterator it_arg = args.begin( ); it_arg != args.end( ); ++it_arg )
-                            {
-                                Utils::ExtendedSymbol es( *it_arg );
-                                if( _node->get_killed_vars( ).find( es ) == _node->get_killed_vars( ).end( )
-                                    && _node->get_undefined_behaviour_vars( ).find( es ) == _node->get_undefined_behaviour_vars( ).end( ) )
-                                {
-                                    ue_vars.insert( es );
-                                }
-                            }
+                    if( func_sym.has_gcc_attributes( ) )
+                    {   // Check for information synthesized by gcc
+                        ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes( );
+                        for( ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin( );
+                             it != gcc_attrs.end( ); ++it )
+                        {
+                            std::string attr_name = it->get_attribute_name( );
+                            if( attr_name == "const" || attr_name == "pure" )
+                            {   // No side effects except the return value.
+                                // Only examine the arguments ( and global variables in 'pure' case)
+                                side_effects = false;
 
-                            if( attr_name == "pure" )
-                            {   // Set all global variables as upper exposed ( if not previously killed or undefined )
-                                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it_g =
-                                    _visited_global_vars.begin( ); it_g != _visited_global_vars.end( ); ++it_g )
+                                Utils::ext_sym_set ue_vars;
+                                // Set all parameters as used ( if not previously killed or undefined )
+                                for( Nodecl::List::iterator it_arg = args.begin( ); it_arg != args.end( ); ++it_arg )
                                 {
-                                    Utils::ExtendedSymbol es( it_g->get_extended_symbol() );
+                                    Utils::ExtendedSymbol es( *it_arg );
                                     if( _node->get_killed_vars( ).find( es ) == _node->get_killed_vars( ).end( )
                                         && _node->get_undefined_behaviour_vars( ).find( es ) == _node->get_undefined_behaviour_vars( ).end( ) )
                                     {
                                         ue_vars.insert( es );
                                     }
                                 }
-                            }
-                            _node->set_ue_var( ue_vars );
-                            if( attr_name == "pure" )
-                                break;
-                        }
-                    }
-                }
 
-                if( side_effects )
-                {
-                    // Check in Mercurium function attributes data-base
-                    side_effects = parse_c_functions_file( func_sym, args );
-
-                    // Still cannot determine which are the side effects of the function...
-                    if( side_effects )
-                    {
-                        if( func_sym.get_type( ).lacks_prototype( ) )
-                        {   // All parameters are passed by value
-                            for( Nodecl::List::iterator it = args.begin( ); it != args.end( ); ++it )
-                            {
-                                if( !it->is_constant( ) )
-                                {
-                                    ObjectList<Nodecl::NodeclBase> mem_access = Nodecl::Utils::get_all_memory_accesses( *it );
-                                    for( ObjectList<Nodecl::NodeclBase>::iterator ita = mem_access.begin( ); 
-                                         ita != mem_access.end( ); ++ita )
+                                if( attr_name == "pure" )
+                                {   // Set all global variables as upper exposed ( if not previously killed or undefined )
+                                    for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it_g =
+                                         _visited_global_vars.begin( ); it_g != _visited_global_vars.end( ); ++it_g )
                                     {
-                                        _node->set_ue_var( Utils::ExtendedSymbol( *ita ) );
-                                        if( ita->get_type( ).is_pointer( ) )
+                                        Utils::ExtendedSymbol es( it_g->get_extended_symbol() );
+                                        if( _node->get_killed_vars( ).find( es ) == _node->get_killed_vars( ).end( )
+                                            && _node->get_undefined_behaviour_vars( ).find( es ) == _node->get_undefined_behaviour_vars( ).end( ) )
                                         {
-                                            Nodecl::Dereference pointed_var = Nodecl::Dereference::make( *ita, ita->get_type( ) );
-                                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                            ue_vars.insert( es );
                                         }
                                     }
                                 }
+                                _node->set_ue_var( ue_vars );
+                                if( attr_name == "pure" )
+                                    break;
                             }
                         }
-                        else
+                    }
+
+                    if( side_effects )
+                    {
+                        // Check in Mercurium function attributes data-base
+                        side_effects = parse_c_functions_file( func_sym, args );
+
+                        // Still cannot determine which are the side effects of the function...
+                        if( side_effects )
                         {
                             if( func_sym.get_type( ).lacks_prototype( ) )
                             {   // All parameters are passed by value
                                 for( Nodecl::List::iterator it = args.begin( ); it != args.end( ); ++it )
-                                {
                                     if( !it->is_constant( ) )
                                     {
-                                        _node->set_ue_var( Utils::ExtendedSymbol( *it ) );
-                                        if( it->get_type( ).is_pointer( ) )
+                                        ObjectList<Nodecl::NodeclBase> mem_access = Nodecl::Utils::get_all_memory_accesses( *it );
+                                        for( ObjectList<Nodecl::NodeclBase>::iterator ita = mem_access.begin( ); 
+                                            ita != mem_access.end( ); ++ita )
                                         {
-                                            Nodecl::Dereference pointed_var = 
-                                                Nodecl::Dereference::make( *it, it->get_type( ) );
-                                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                            _node->set_ue_var( Utils::ExtendedSymbol( *ita ) );
+                                            if( ita->get_type( ).is_pointer( ) )
+                                            {
+                                                Nodecl::Dereference pointed_var = Nodecl::Dereference::make( *ita, ita->get_type( ) );
+                                                _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                            }
                                         }
                                     }
-                                }
                             }
                             else
                             {
-                                // Set all reference parameters to undefined
-                                sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
-                                for( sym_to_nodecl_map::iterator it = ref_params.begin( );
+                                if( func_sym.get_type( ).lacks_prototype( ) )
+                                {   // All parameters are passed by value
+                                    for( Nodecl::List::iterator it = args.begin( ); it != args.end( ); ++it )
+                                        if( !it->is_constant( ) )
+                                        {
+                                            _node->set_ue_var( Utils::ExtendedSymbol( *it ) );
+                                            if( it->get_type( ).is_pointer( ) )
+                                                {
+                                                Nodecl::Dereference pointed_var = 
+                                                    Nodecl::Dereference::make( *it, it->get_type( ) );
+                                                _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                            }
+                                        }
+                                }
+                                else
+                                {
+                                    // Set all reference parameters to undefined
+                                    sym_to_nodecl_map ref_params = map_reference_params_to_args( params, args );
+                                    for( sym_to_nodecl_map::iterator it = ref_params.begin( );
                                         it != ref_params.end( ); ++it )
-                                {
-                                    if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
-                                        _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                    {
+                                        if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) )
+                                            _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
                                                 Utils::ExtendedSymbol( it->second ) );
-                                }
-                                // Set the value passed parameters as upper exposed
-                                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
-                                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
+                                    }
+                                    // Set the value passed parameters as upper exposed
+                                    sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                                    for( sym_to_nodecl_map::iterator it = non_ref_params.begin( );
                                         it != non_ref_params.end( ); ++it )
-                                {
-                                    ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
-                                    for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
-                                        _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
-                                }
+                                    {
+                                        ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                                        for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+                                            _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                                    }
 
-                                // Set all global variables to undefined
-                                for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
+                                    // Set all global variables to undefined
+                                    for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
                                         _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
-                                {
-                                    _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+                                    {
+                                        _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
                                             it->get_extended_symbol() );
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+            else
+            {
+                // We are in a recursive call
+                // Set the value passed parameters as upper exposed
+                ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
+                Nodecl::List args = arguments.as<Nodecl::List>( );
+                sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
+                for( sym_to_nodecl_map::iterator it = non_ref_params.begin( ); it != non_ref_params.end( ); ++it )
+                {
+                    ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+                        _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                }
+
+                // Check for the usage in the graph of the function to propagate Usage (Global variables and reference parameters)
+                // until the point we are currently
+                // TODO
+            }
         }
         else
-        {
-            // We are in a recursive call
-            // Set the value passed parameters as upper exposed
-            ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
+        {   // We are calling a pointer to function
+            // Since we don't have access to the prototype, assume:
+            // - all parameters as undefined behavior, we do not know whether they are passed by value or by reference
+            // - all global variables as undefined behavior
             Nodecl::List args = arguments.as<Nodecl::List>( );
-            sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, args );
-            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( ); it != non_ref_params.end( ); ++it )
+            for( Nodecl::List::iterator it = args.begin( ); it != args.end( ); ++it )
+                _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( *it ) );
+            for( ObjectList<Utils::ExtendedSymbolUsage>::iterator it =
+                 _visited_global_vars.begin( ); it != _visited_global_vars.end( ); ++it )
             {
-                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
-                    _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets( it->get_extended_symbol() );
             }
-
-            // Check for the usage in the graph of the function to propagate Usage (Global variables and reference parameters)
-            // until the point we are currently
-            // TODO
         }
     }
 
