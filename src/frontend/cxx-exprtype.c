@@ -6953,52 +6953,119 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
 static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         char *is_ambiguous_conversion,
+        type_t** converted_type,
         decl_context_t decl_context,
         const locus_t* locus)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Trying to convert in conditional expression from '%s' to '%s'\n",
+                print_declarator(from_t1),
+                print_declarator(to_t2));
+    }
     *is_ambiguous_conversion = 0;
 
-    if (is_lvalue_reference_type(to_t2))
+    if (is_lvalue_reference_type(to_t2)
+            // This enforces that the conversion is a direct binding
+            && is_lvalue_reference_type(from_t1))
     {
-    /*
-     * If E2 is a lvalue, E1 can be converted to match E2 if E1 can be implicitly
-     * converted to the type 'reference of T2'
-     */
+        /*
+         * If E2 is a lvalue, E1 can be converted to match E2 if E1 can be implicitly
+         * converted to the type 'reference of T2'
+         */
         standard_conversion_t result;
         if (standard_conversion_between_types(&result, from_t1, to_t2))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: In conditional expression conversion, "
+                        "direct binding to lvalue reference from '%s' to '%s'\n",
+                        print_declarator(from_t1),
+                        print_declarator(to_t2));
+            }
+            *converted_type = to_t2;
             return 1;
         }
-        return 0;
     }
-    else
+
+    if (is_rvalue_reference_type(to_t2)
+            // This enforces that the conversion is a direct binding
+            && is_rvalue_reference_type(from_t1))
     {
-        /* If E2 is an rvalue or if the conversion above cannot be done
-         *
-         * - If E1 and E2 have class type, and the underlying class types are the same
-         *   or one is base class of the other E1 can be converted to match E2
+        /*
+         * If E2 is a lvalue, E1 can be converted to match E2 if E1 can be implicitly
+         * converted to the type 'reference of T2'
          */
+        standard_conversion_t result;
+        if (standard_conversion_between_types(&result, from_t1, to_t2))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: In conditional expression conversion, "
+                        "direct binding to rvalue reference from '%s' to '%s'\n",
+                        print_declarator(from_t1),
+                        print_declarator(to_t2));
+            }
+            *converted_type = to_t2;
+            return 1;
+        }
+    }
+
+    if (!is_lvalue_reference_type(to_t2)
+            || is_class_type(no_ref(from_t1))
+            || is_class_type(no_ref(to_t2)))
+    {
+        // Try a conversion between derived-to-base values
         if (is_class_type(no_ref(from_t1))
                 && is_class_type(no_ref(to_t2))
                 && class_type_is_base(no_ref(to_t2), no_ref(from_t1))
-                && is_more_or_equal_cv_qualified_type(to_t2, from_t1))
+                && is_more_or_equal_cv_qualified_type(no_ref(to_t2), no_ref(from_t1)))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: In conditional expression conversion, "
+                        "conversion from derived (or same) class '%s' to '%s'\n",
+                        print_declarator(from_t1),
+                        print_declarator(to_t2));
+            }
+            // If the conversion is applied, E1 is changed to an
+            // rvalue of type T2
+            *converted_type = no_ref(to_t2);
             return 1;
         }
-        else if (is_class_type(no_ref(from_t1))
-                || is_class_type(no_ref(to_t2)))
+
+        // Try an implicit conversion
+        if (!is_class_type(no_ref(from_t1))
+                || !is_class_type(no_ref(to_t2))
+                || !class_type_is_base(no_ref(to_t2), no_ref(from_t1)))
         {
-            return type_can_be_implicitly_converted_to(from_t1,
-                    to_t2,
-                    decl_context,
-                    is_ambiguous_conversion, /* conversor */ NULL,
-                    locus);
-        }
-        else
-        {
-            return 0;
+            if (type_can_be_implicitly_converted_to(from_t1,
+                        get_unqualified_type(no_ref(to_t2)),
+                        decl_context,
+                        is_ambiguous_conversion, /* conversor */ NULL,
+                        locus))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: In conditional expression conversion, "
+                            "implicit conversion from '%s' to a rvalue of '%s'\n",
+                            print_declarator(from_t1),
+                            print_declarator(no_ref(to_t2)));
+                }
+                *converted_type = no_ref(to_t2);
+                return 1;
+            }
         }
     }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: In conditional expression conversion, "
+                "no conversion is possible from '%s' to '%s'\n",
+                print_declarator(from_t1),
+                print_declarator(to_t2));
+    }
+    return 0;
 }
 
 static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
@@ -7104,6 +7171,9 @@ static type_t* composite_pointer_to_member(type_t* p1, type_t* p2)
 
 static type_t* composite_pointer(type_t* p1, type_t* p2)
 {
+    p1 = get_unqualified_type(p1);
+    p2 = get_unqualified_type(p2);
+
     if (equivalent_types(p1, p2))
         return p1;
 
@@ -7148,9 +7218,161 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
     return result;
 }
 
-static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op, 
-        nodecl_t second_op, 
-        nodecl_t third_op, 
+static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
+        nodecl_t second_op,
+        nodecl_t third_op,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_t* nodecl_output)
+{
+    const locus_t* locus = nodecl_get_locus(first_op);
+
+    if (nodecl_is_err_expr(first_op)
+            || nodecl_is_err_expr(second_op)
+            || nodecl_is_err_expr(third_op))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    type_t* first_type = nodecl_get_type(first_op);
+    type_t* second_type = nodecl_get_type(second_op);
+    type_t* third_type = nodecl_get_type(third_op);
+
+    type_t* converted_type = NULL;
+    if (!is_vector_type(no_ref(first_type)))
+    {
+        converted_type = get_signed_int_type();
+    }
+    else
+    {
+        converted_type = get_vector_type(get_signed_int_type(), vector_type_get_vector_size(no_ref(first_type)));
+    }
+
+    if (is_void_type(no_ref(second_type))
+            || is_void_type(no_ref(third_type)))
+    {
+        /*
+         * If either the the second or the third operand is a void type
+         */
+        /*
+         * All lvalue-conversions are applied here
+         */
+        type_t* operand_types[] = { second_type, third_type };
+
+        int i;
+        for (i = 0; i < 2; i++)
+        {
+            operand_types[i] = no_ref(operand_types[i]);
+
+            if (is_array_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(array_type_get_element_type(operand_types[i]));
+            }
+            if (is_function_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(operand_types[i]);
+            }
+        }
+
+        unary_record_conversion_to_result(operand_types[0], &second_op);
+        unary_record_conversion_to_result(operand_types[1], &third_op);
+
+        type_t* final_type = get_void_type();
+
+        *nodecl_output = nodecl_make_conditional_expression(
+                first_op,
+                second_op,
+                third_op,
+                final_type, locus);
+
+        // Nothing else has to be done for 'void' types
+        return;
+    }
+
+    standard_conversion_t sc;
+    if (!standard_conversion_between_types(&sc, no_ref(first_type), no_ref(converted_type)))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    if (!standard_conversion_between_types(&sc, no_ref(second_type), no_ref(converted_type)))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
+    type_t* final_type = NULL;
+    if (equivalent_types(second_type, third_type)
+            && is_lvalue_reference_type(second_type)
+            && is_lvalue_reference_type(third_type))
+    {
+        final_type = second_type;
+    }
+    else
+    {
+        /*
+         * Now apply lvalue conversions to both types
+         */
+        type_t* operand_types[] = { second_type, third_type };
+
+        int i;
+        for (i = 0; i < 2; i++)
+        {
+            operand_types[i] = no_ref(operand_types[i]);
+
+            if (is_array_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(array_type_get_element_type(operand_types[i]));
+            }
+            else if (is_function_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(operand_types[i]);
+            }
+        }
+
+        char is_pointer_and_zero =
+            (is_pointer_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
+            || (is_pointer_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
+
+        if (equivalent_types(operand_types[0], operand_types[1]))
+        {
+            final_type = operand_types[0];
+        }
+        else if (both_operands_are_arithmetic(operand_types[0], operand_types[1]))
+        {
+            final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1]);
+        }
+        else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
+        {
+            final_type = operand_types[0];
+        }
+        else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
+                || is_pointer_and_zero)
+        {
+            final_type = composite_pointer(operand_types[0], operand_types[1]);
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
+        unary_record_conversion_to_result(operand_types[0], &second_op);
+        unary_record_conversion_to_result(operand_types[1], &third_op);
+    }
+
+
+    *nodecl_output = nodecl_make_conditional_expression(
+            first_op,
+            second_op,
+            third_op,
+            final_type, locus);
+}
+
+static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
+        nodecl_t second_op,
+        nodecl_t third_op,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -7172,180 +7394,182 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                 first_op,
                 second_op,
                 third_op,
-                get_unknown_dependent_type(), 
+                get_unknown_dependent_type(),
                 locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
 
-    type_t* first_type = nodecl_get_type(first_op);
-
+    // type_t* first_type = nodecl_get_type(first_op);
     type_t* second_type = nodecl_get_type(second_op);
-
     type_t* third_type = nodecl_get_type(third_op);
 
-    nodecl_t nodecl_conditional[3] = { 
-        first_op, 
-        second_op, 
-        third_op 
+    nodecl_t nodecl_conditional[3] = {
+        first_op,
+        second_op,
+        third_op
     };
 
-    type_t* converted_type = NULL;
-    C_LANGUAGE()
+    /*
+     * C++ standard is a mess here but we will try to make it clear
+     */
+    if (is_void_type(no_ref(second_type))
+            || is_void_type(no_ref(third_type)))
     {
-        if (!is_vector_type(no_ref(first_type)))
-        {
-            converted_type = get_signed_int_type();
-        }
-        else
-        {
-            converted_type = get_vector_type(get_signed_int_type(), vector_type_get_vector_size(no_ref(first_type)));
-        }
-
-        standard_conversion_t sc;
-        if (!standard_conversion_between_types(&sc, no_ref(first_type), no_ref(converted_type)))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-    }
-
-    CXX_LANGUAGE()
-    {
-        converted_type = get_bool_type();
-
         /*
-         * C++ standard is a mess here but we will try to make it clear
+         * If either the the second or the third operand is a void type
          */
-        if (is_void_type(no_ref(second_type)) 
-                || is_void_type(no_ref(third_type)))
+        /*
+         * All lvalue-conversions are applied here
+         */
+        type_t* operand_types[] = { second_type, third_type };
+
+        int i;
+        for (i = 0; i < 2; i++)
+        {
+            operand_types[i] = no_ref(operand_types[i]);
+
+            if (is_array_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(array_type_get_element_type(operand_types[i]));
+            }
+            if (is_function_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(operand_types[i]);
+            }
+        }
+
+        type_t* final_type = NULL;
+        if ((is_throw_expr_type(operand_types[0])
+                    || is_throw_expr_type(operand_types[1]))
+                && !(is_throw_expr_type(operand_types[0])
+                    && is_throw_expr_type(operand_types[1])))
         {
             /*
-             * If either the the second or the third operand is a void type
+             *  a) If any (but not both) is a throw expression (throw expressions
+             *     yield a type of void, a special one) the result is the type of the
+             *     other and is a rvalue
              */
-            /*
-             * All lvalue-conversions are applied here
-             */
-            type_t* operand_types[] = { second_type, third_type };
-
-            int i;
-            for (i = 0; i < 2; i++)
+            if (is_throw_expr_type(operand_types[0]))
             {
-                operand_types[i] = no_ref(operand_types[i]);
-
-                if (is_array_type(operand_types[i]))
-                {
-                    operand_types[i] = get_pointer_type(array_type_get_element_type(operand_types[i]));
-                }
-                if (is_function_type(operand_types[i]))
-                {
-                    operand_types[i] = get_pointer_type(operand_types[i]);
-                }
-            }
-
-            type_t* final_type = NULL;
-            if ((is_throw_expr_type(operand_types[0]) 
-                        || is_throw_expr_type(operand_types[1])) 
-                    && !(is_throw_expr_type(operand_types[0]) 
-                        && is_throw_expr_type(operand_types[1])))
-            {
-                /*
-                 *  a) If any (but not both) is a throw expression (throw expressions
-                 *     yield a type of void, a special one) the result is the type of the
-                 *     other and is a rvalue
-                 */
-                if (is_throw_expr_type(operand_types[0]))
-                {
-                    final_type = operand_types[1];
-                }
-                else
-                {
-                    final_type = operand_types[0];
-                }
+                final_type = operand_types[1];
             }
             else
             {
-                /*
-                 * b) Both the second and third operands have type void the result is of type void
-                 * and is a rvalue
-                 */
-                final_type = get_void_type();
+                final_type = operand_types[0];
             }
+        }
+        else
+        {
+            /*
+             * b) Both the second and third operands have type void the result is of type void
+             * and is a rvalue
+             */
+            final_type = get_void_type();
+        }
 
-            *nodecl_output = nodecl_make_conditional_expression(
-                    nodecl_conditional[0],
-                    nodecl_conditional[1],
-                    nodecl_conditional[2],
-                    final_type, locus);
-            
-            // Nothing else has to be done for 'void' types
+        *nodecl_output = nodecl_make_conditional_expression(
+                nodecl_conditional[0],
+                nodecl_conditional[1],
+                nodecl_conditional[2],
+                final_type, locus);
+
+        // Nothing else has to be done for 'void' types
+        return;
+    }
+
+    if (!equivalent_types(no_ref(second_type), no_ref(third_type))
+            && (is_class_type(no_ref(second_type))
+                || is_class_type(no_ref(third_type))))
+    {
+        /*
+         * otherwise, if the second or the third are different types and either is a class type
+         * an attempt to convert one to the other is performed.
+         */
+        char second_to_third_is_ambig = 0;
+        type_t* second_to_third_type = NULL;
+        char second_to_third =
+            convert_in_conditional_expr(second_type,
+                    third_type,
+                    &second_to_third_is_ambig,
+                    &second_to_third_type,
+                    decl_context,
+                    locus);
+
+        char third_to_second_is_ambig = 0;
+        type_t* third_to_second_type = NULL;
+        char third_to_second =
+            convert_in_conditional_expr(third_type,
+                    second_type,
+                    &third_to_second_is_ambig,
+                    &third_to_second_type,
+                    decl_context,
+                    locus);
+
+        if (second_to_third
+                && third_to_second)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: In conditional expression, two-sided conversions are possible"
+                        " when agreeing second and third types\n");
+            }
+            *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
 
-        if (!equivalent_types(
-                    get_unqualified_type(no_ref(second_type)),
-                    get_unqualified_type(no_ref(third_type)))
-                && (is_class_type(no_ref(second_type))
-                    || is_class_type(no_ref(third_type))))
+        if (second_to_third)
         {
-            /*
-             * otherwise, if the second or the third are different types and either is a class type
-             * an attempt to convert one to the other is performed.
-             */
-            char second_to_third_is_ambig = 0;
-            char second_to_third = 
-                convert_in_conditional_expr(second_type, 
-                        third_type, 
-                        &second_to_third_is_ambig,
-                        decl_context,
-                        locus);
-
-            char third_to_second_is_ambig = 0;
-            char third_to_second = 
-                convert_in_conditional_expr(third_type, 
-                        second_type, 
-                        &third_to_second_is_ambig,
-                        decl_context,
-                        locus);
-
-            if (second_to_third 
-                    && third_to_second)
+            if (second_to_third_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
 
-            if (second_to_third)
+            DEBUG_CODE()
             {
-                if (second_to_third_is_ambig)
-                {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    return;
-                }
-
-                third_type = second_type;
+                fprintf(stderr, "EXPRTYPE: In conditional expression, converting second type '%s' to '%s'",
+                        print_declarator(second_type),
+                        print_declarator(second_to_third_type));
             }
-
-            if (third_to_second)
-            {
-                if (third_to_second_is_ambig)
-                {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    return;
-                }
-
-                second_type = third_type;
-            }
+            second_type = second_to_third_type;
         }
 
+        if (third_to_second)
+        {
+            if (third_to_second_is_ambig)
+            {
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
 
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: In conditional expression, converting third type '%s' to '%s'",
+                        print_declarator(third_type),
+                        print_declarator(third_to_second_type));
+            }
+            third_type = third_to_second_type;
+        }
+    }
+
+    type_t* final_type = NULL;
+    if (is_lvalue_reference_type(second_type)
+            && is_lvalue_reference_type(third_type)
+            && equivalent_types(
+                get_unqualified_type(no_ref(second_type)),
+                get_unqualified_type(no_ref(third_type))))
+    {
+        final_type = second_type;
+    }
+    else
+    {
         /*
-         * If the second and third operand do not have the same type 
+         * If the second and third operand do not have the same type
          * we rely in overload mechanism
          *
          * Note that 'operator?' cannot be overloaded, overloading mechanism
          * is used there to force a conversion
-
          */
         if (!equivalent_types(
                     get_unqualified_type(no_ref(second_type)),
@@ -7365,7 +7589,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
                     ternary_operator_result
                     );
 
-            scope_entry_list_t* builtins = 
+            scope_entry_list_t* builtins =
                 get_entry_list_from_builtin_operator_set(&builtin_set);
 
             int num_arguments = 3;
@@ -7399,7 +7623,7 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(candidate_set, 
+                    error_message_overload_failed(candidate_set,
                             "operator ?",
                             decl_context,
                             num_arguments,
@@ -7444,77 +7668,64 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             second_type = function_type_get_parameter_type_num(overloaded_call->type_information, 1);
             third_type = function_type_get_parameter_type_num(overloaded_call->type_information, 2);
         }
-    }
 
-    /*
-     * Now apply lvalue conversions to both types
-     */
-    type_t* operand_types[] = { second_type, third_type };
+        /*
+         * Now apply lvalue conversions to both types
+         */
+        type_t* operand_types[] = { second_type, third_type };
 
-    int i;
-    for (i = 0; i < 2; i++)
-    {
-        operand_types[i] = no_ref(operand_types[i]);
-
-        if (is_array_type(operand_types[i]))
+        int i;
+        for (i = 0; i < 2; i++)
         {
-            operand_types[i] = get_pointer_type(array_type_get_element_type(operand_types[i]));
+            operand_types[i] = no_ref(operand_types[i]);
+
+            if (is_array_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(array_type_get_element_type(operand_types[i]));
+            }
+            else if (is_function_type(operand_types[i]))
+            {
+                operand_types[i] = get_pointer_type(operand_types[i]);
+            }
         }
-        else if (is_function_type(operand_types[i]))
+
+        char is_pointer_and_zero =
+            (is_pointer_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
+            || (is_pointer_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
+
+        char is_pointer_to_member_and_zero =
+            (is_pointer_to_member_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
+            || (is_pointer_to_member_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
+
+        if (equivalent_types(operand_types[0], operand_types[1]))
         {
-            operand_types[i] = get_pointer_type(operand_types[i]);
+            final_type = operand_types[1];
+        }
+        else if (both_operands_are_arithmetic(operand_types[0], operand_types[1]))
+        {
+            final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1]);
+        }
+        else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
+        {
+            final_type = operand_types[0];
+        }
+        else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
+                || is_pointer_and_zero)
+        {
+            final_type = composite_pointer(operand_types[0], operand_types[1]);
+        }
+        else if ((is_pointer_to_member_type(operand_types[0])
+                    && is_pointer_to_member_type(operand_types[1]))
+                || is_pointer_to_member_and_zero)
+        {
+            final_type = composite_pointer_to_member(operand_types[0], operand_types[1]);
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
         }
 
-        // Drop top level qualifiers since they do not play any role now
-        operand_types[i] = get_unqualified_type(operand_types[i]);
-    }
-
-    char is_pointer_and_zero = 
-        (is_pointer_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
-        || (is_pointer_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
-
-    char is_pointer_to_member_and_zero = 
-        (is_pointer_to_member_type(operand_types[0]) && is_zero_type_or_nullptr_type(operand_types[1]))
-        || (is_pointer_to_member_type(operand_types[1]) && is_zero_type_or_nullptr_type(operand_types[0]));
-
-    type_t* final_type = NULL;
-
-    if (equivalent_types(operand_types[0], operand_types[1]))
-    {
-        final_type = operand_types[1];
-    }
-    else if (both_operands_are_arithmetic(operand_types[0], operand_types[1]))
-    {
-        final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1]);
-    }
-    else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
-    {
-        final_type = operand_types[0];
-    }
-    else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
-            || is_pointer_and_zero)
-    {
-        final_type = composite_pointer(operand_types[0], operand_types[1]);
-    }
-    else if ((is_pointer_to_member_type(operand_types[0])
-            && is_pointer_to_member_type(operand_types[1]))
-            || is_pointer_to_member_and_zero)
-    {
-        final_type = composite_pointer_to_member(operand_types[0], operand_types[1]);
-    }
-    else
-    {
-        *nodecl_output = nodecl_make_err_expr(locus);
-        return;
-    }
-
-    if (is_lvalue_reference_type(second_type)
-            && is_lvalue_reference_type(third_type)
-            && equivalent_types(
-                get_unqualified_type(no_ref(second_type)),
-                get_unqualified_type(no_ref(third_type))))
-    {
-        final_type = lvalue_ref(final_type);
     }
 
     *nodecl_output = nodecl_make_conditional_expression(
@@ -7530,11 +7741,22 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    check_conditional_expression_impl_nodecl_aux(first_op, 
-            second_op,
-            third_op,
-            decl_context,
-            nodecl_output);
+    C_LANGUAGE()
+    {
+        check_conditional_expression_impl_nodecl_c(first_op, 
+                second_op,
+                third_op,
+                decl_context,
+                nodecl_output);
+    }
+    CXX_LANGUAGE()
+    {
+        check_conditional_expression_impl_nodecl_cxx(first_op, 
+                second_op,
+                third_op,
+                decl_context,
+                nodecl_output);
+    }
 
     if (nodecl_is_err_expr(*nodecl_output))
     {
