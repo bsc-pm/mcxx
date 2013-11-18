@@ -272,7 +272,16 @@ namespace Analysis {
                 
                 // Compute dimension alignment 
                 Nodecl::NodeclBase dimension_size_node = element_type.array_get_size( );
-                
+
+                // If VLA, get the actual size
+                if(dimension_size_node.is<Nodecl::Symbol>() &&
+                        dimension_size_node.get_symbol().is_saved_expression())
+                {
+                    dimension_size_node = dimension_size_node.get_symbol().get_value();
+                }
+               
+                std::cerr << dimension_size_node.prettyprint() << std::endl;
+
                 int dimension_size = -1;
                 if( dimension_size_node.is_constant( ) )
                 {
@@ -286,7 +295,7 @@ namespace Analysis {
                 {
                     dimension_size = 0;
                 }
-                if( VERBOSE )
+                //if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
                 
                 dimension_sizes[i] = dimension_size;
