@@ -38,62 +38,6 @@ namespace Analysis {
 namespace Utils {
 
     // **************************************************************************************** //
-    // ******************* Class representing the usage of Extended Symbols ******************* //
-
-    struct UseDefVariant
-    {
-        // Macros defining the analysis to be computed
-        enum Usage_tag
-        {
-            NONE        = 1u << 0,
-            USED        = 1u << 1,
-            DEFINED     = 1u << 2,
-            UNDEFINED   = 1u << 3
-        } _usage_variants;
-        
-        UseDefVariant( Usage_tag a );
-        UseDefVariant( int a );
-        UseDefVariant operator|( UseDefVariant a );
-    };
-
-    class LIBTL_CLASS ExtendedSymbolUsage
-    {
-    private:
-        ExtendedSymbol _es;
-        UseDefVariant _usage;
-
-    public:
-        // ************* Constructor ************* //
-
-        ExtendedSymbolUsage( ExtendedSymbol es, UseDefVariant usage );
-
-
-        // ********* Getters and setters ********* //
-
-        //! Returns the Extended Symbol
-        ExtendedSymbol get_extended_symbol( ) const;
-
-        //! Returns de Nodecl contained in the Extended Symbol
-        Nodecl::NodeclBase get_nodecl( ) const;
-
-        //! Returns the usage associated with the Extended Symbol
-        UseDefVariant get_usage( ) const;
-
-        //! Sets the usage of the Extended Sybmbol
-        void set_usage( UseDefVariant usage );
-
-
-        // ************* Comparators ************* //
-
-        bool operator==( const ExtendedSymbolUsage& esu ) const;
-    };
-
-    // ***************** END class representing the usage of Extended Symbols ***************** //
-    // **************************************************************************************** //
-
-
-
-    // **************************************************************************************** //
     // **************************** Class for Auto-Scoping purposes *************************** //
 
     class LIBTL_CLASS AutoScopedVariables
@@ -154,25 +98,6 @@ namespace Utils {
     
     void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
     void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
-
-
-    // ******* Extended Symbol Usage list ******* //
-
-    bool usage_list_contains_extsym( ExtendedSymbol ei, ObjectList<ExtendedSymbolUsage> list );
-    bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    bool usage_list_contains_sym( Symbol n, ObjectList<ExtendedSymbolUsage> list );
-
-    bool usage_list_contains_englobing_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    bool usage_list_contains_englobed_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-
-    ExtendedSymbolUsage get_var_in_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list );
-
-    void delete_englobing_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    void delete_englobed_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-
-    ExtendedSymbolUsage get_var_in_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list );
 
     // ******************** END methods for dealing with Extended Symbols ********************* //
     // **************************************************************************************** //

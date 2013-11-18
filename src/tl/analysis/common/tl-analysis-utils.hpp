@@ -131,6 +131,40 @@ namespace Utils {
     
     // ********************************** END printing methods *********************************** //
     // ******************************************************************************************* //
+    
+    
+    
+    // ******************************************************************************************* //
+    // **************************** Class defining the types of usage **************************** //
+    
+    struct UsageKind {
+        enum Usage_tag {
+            NONE        = 1u << 1,
+            USED        = 1u << 2,
+            DEFINED     = 1u << 3,
+            UNDEFINED   = 1u << 4
+        } _usage_type;
+        
+        UsageKind( )
+            : _usage_type( NONE )
+        {}
+        
+        UsageKind( Usage_tag u )
+            : _usage_type( u )
+        {}
+        
+        UsageKind( int u )
+            : _usage_type( Usage_tag( u ) )
+        {}
+        
+        UsageKind operator|( UsageKind u )
+        {
+            return UsageKind( int(this->_usage_type) | int( u._usage_type ) );
+        }
+    };
+    
+    // ************************** END class defining the types of usage ************************** //
+    // ******************************************************************************************* //
 }
 }
 }
