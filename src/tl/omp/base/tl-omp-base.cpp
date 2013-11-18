@@ -786,7 +786,7 @@ namespace TL { namespace OpenMP {
                 const locus_t* locus = enclosing_stmt.get_locus();
 
                 TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
-                    in_alloca_deps, inout_deps, out_deps, assumed_firstprivates, alloca_exprs;
+                    in_alloca_deps, concurrent_deps, out_deps, assumed_firstprivates, alloca_exprs;
 
                 Nodecl::NodeclBase expr, lhs_expr, rhs_expr;
                 expr = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest();
@@ -826,7 +826,7 @@ namespace TL { namespace OpenMP {
                     }
                     else
                     {
-                        inout_deps.append(lhs_expr.shallow_copy());
+                        concurrent_deps.append(lhs_expr.shallow_copy());
                         copy_inout.append(lhs_expr.shallow_copy());
                     }
                 }
@@ -916,11 +916,11 @@ namespace TL { namespace OpenMP {
                                 locus));
                 }
 
-                if (!inout_deps.empty())
+                if (!concurrent_deps.empty())
                 {
                     exec_environment.append(
-                            Nodecl::OpenMP::DepOut::make(
-                                Nodecl::List::make(inout_deps),
+                            Nodecl::OpenMP::Concurrent::make(
+                                Nodecl::List::make(concurrent_deps),
                                 locus));
                 }
 
@@ -963,9 +963,30 @@ namespace TL { namespace OpenMP {
                             Nodecl::List::make(target_items),
                             locus));
 
+                Nodecl::NodeclBase join_task_stmt;
+                if (!lhs_expr.is_null()
+                        && !expr.is<Nodecl::Assignment>())
+                {
+                    Nodecl::List atomic_exec_env = Nodecl::List::make(
+                            Nodecl::OpenMP::FlushAtEntry::make(locus),
+                            Nodecl::OpenMP::FlushAtExit::make(locus));
+
+                    Nodecl::OpenMP::Atomic atomic =
+                        Nodecl::OpenMP::Atomic::make(
+                                atomic_exec_env,
+                                Nodecl::List::make(enclosing_stmt.shallow_copy()),
+                                locus);
+
+                    join_task_stmt = atomic;
+                }
+                else
+                {
+                    join_task_stmt = enclosing_stmt.shallow_copy();
+                }
+
                 Nodecl::OpenMP::Task join_task = Nodecl::OpenMP::Task::make(
                         exec_environment,
-                        Nodecl::List::make(enclosing_stmt.shallow_copy()),
+                        Nodecl::List::make(join_task_stmt),
                         locus);
 
                 return join_task;
@@ -1046,6 +1067,13 @@ namespace TL { namespace OpenMP {
                     {
                         Nodecl::NodeclBase stmt = task.get_call();
                         task.replace(stmt);
+                    }
+
+                    void visit(const Nodecl::OpenMP::Atomic& node)
+                    {
+                        Nodecl::NodeclBase stmt = node.get_statements();
+                        walk(stmt);
+                        node.replace(stmt);
                     }
                 };
 
@@ -1366,10 +1394,12 @@ namespace TL { namespace OpenMP {
 
                 // Replace the original function call by the variable
                 Nodecl::NodeclBase dereference_return =
-                    Nodecl::Dereference::make(
-                            return_arg_nodecl,
-                            return_arg_sym.get_type().points_to().get_lvalue_reference_to(),
-                            func_call.get_locus());
+                    Nodecl::Conversion::make(
+                            Nodecl::Dereference::make(
+                                return_arg_nodecl,
+                                return_arg_sym.get_type().points_to().get_lvalue_reference_to(),
+                                func_call.get_locus()),
+                            return_arg_sym.get_type().points_to());
 
                 func_call.replace(dereference_return);
 
