@@ -31,6 +31,7 @@
 #include "tl-object.hpp"
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
+#include "tl-scope.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -81,6 +82,11 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
         case TL_TYPE:
             {
                 result = RefPtr<Type>(new Type(tl_value->data._type));
+                return result;
+            }
+        case TL_DECL_CONTEXT:
+            {
+                result = RefPtr<TL::Scope>(new TL::Scope(tl_value->data._decl_context));
                 return result;
             }
         case TL_OTHER :

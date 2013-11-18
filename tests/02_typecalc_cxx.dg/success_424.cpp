@@ -26,85 +26,48 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#include <string.h>
-#include "cxx-utils.h"
-#include "cxx-tltype.h"
-
-tl_type_t tl_bool(char c)
+struct A
 {
-    tl_type_t result;
+    struct C
+    {
+        C(int);
+    };
+};
 
-    result.kind = TL_BOOL;
-    result.data._boolean = c;
+struct B : A
+{
+    C* f()
+    {
+        return new A::C(3);
+    }
 
-    return result;
+    C* f1();
+
+    struct C
+    {
+        C(int, int);
+    };
+
+    C* f2()
+    {
+        return new B::C(3, 4);
+    }
+
+    C* f3();
+};
+
+A::C* B::f1()
+{
+    return this->f();
 }
 
-tl_type_t tl_integer(int i)
+B::C* B::f3()
 {
-    tl_type_t result;
-
-    result.kind = TL_INTEGER;
-    result.data._integer = i;
-
-    return result;
-}
-
-tl_type_t tl_type(type_t* t)
-{
-    tl_type_t result;
-    
-    result.kind = TL_TYPE;
-    result.data._type = t;
-
-    return result;
-}
-
-tl_type_t tl_string(const char* str)
-{
-    tl_type_t result;
-    
-    result.kind = TL_STRING;
-    result.data._string = uniquestr(str);
-
-    return result;
-}
-
-tl_type_t tl_symbol(scope_entry_t* entry)
-{
-    tl_type_t result;
-    
-    result.kind = TL_SYMBOL;
-    result.data._entry = entry;
-
-    return result;
-}
-
-tl_type_t tl_object(void *data)
-{
-    tl_type_t result;
-    
-    result.kind = TL_OTHER;
-    result.data._data = data;
-
-    return result;
-}
-
-tl_type_t tl_nodecl(nodecl_t n)
-{
-    tl_type_t result;
-    result.kind = TL_NODECL;
-    result.data._nodecl = n;
-
-    return result;
-}
-
-tl_type_t tl_decl_context(decl_context_t decl_context)
-{
-    tl_type_t result;
-    result.kind = TL_DECL_CONTEXT;
-    result.data._decl_context = decl_context;
-
-    return result;
+    return this->f2();
 }

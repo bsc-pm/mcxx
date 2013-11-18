@@ -2153,18 +2153,10 @@ static void gcc_attribute_value_handler(FILE* f, AST a, prettyprint_context_t* p
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 
-    if (ASTSon1(a) != NULL || ASTSon2(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, "(");
-        if (ASTSon1(a) != NULL)
-        {
-            prettyprint_level(f, ASTSon1(a), pt_ctx);
-            if (ASTSon2(a) != NULL)
-            {
-                token_fprintf(f, a, pt_ctx, ", ");
-            }
-        }
-        list_handler(f, ASTSon2(a), pt_ctx);
+        list_handler(f, ASTSon1(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, ")");
     }
 }

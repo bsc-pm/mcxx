@@ -49,7 +49,8 @@
 
 AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
 
-static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_being_instantiated,
+static scope_entry_t* add_duplicate_member_to_class(
+        decl_context_t context_of_being_instantiated,
         type_t* being_instantiated,
         scope_entry_t* member_of_template)
 {
@@ -86,6 +87,26 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     COPY_ARRAY(default_argument_info, num_parameters);
     COPY_ARRAY(gcc_attributes, num_gcc_attributes);
     COPY_ARRAY(ms_attributes, num_ms_attributes);
+
+    // aligned attribute requires special treatment
+    int i;
+    for (i = 0; i < new_member->entity_specs.num_gcc_attributes; i++)
+    {
+        if (strcmp(new_member->entity_specs.gcc_attributes[i].attribute_name, "aligned") == 0)
+        {
+            nodecl_t aligned_value = instantiate_expression(
+                    nodecl_list_head(new_member->entity_specs.gcc_attributes[i].expression_list),
+                    context_of_being_instantiated);
+            if (!nodecl_is_constant(aligned_value))
+            {
+                error_printf("%s: error: after instantiation, 'aligned' attribute of member '%s' is not constant\n",
+                        nodecl_locus_to_str(aligned_value),
+                        get_qualified_symbol_name(new_member, new_member->decl_context));
+            }
+
+            new_member->entity_specs.gcc_attributes[i].expression_list = nodecl_make_list_1(aligned_value);
+        }
+    }
 
 #undef COPY_ARRAY
 

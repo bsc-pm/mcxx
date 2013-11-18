@@ -1329,7 +1329,7 @@ namespace TL
 
     bool TL::Type::is_interoperable() const
     {
-        return ::is_interoperable_variant_type(_type_info);
+        return ::variant_type_is_interoperable(_type_info);
     }
 
     bool Type::is_base_class(Type t) const

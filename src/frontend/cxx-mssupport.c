@@ -79,7 +79,7 @@ static void gather_ms_declspec_item(AST a,
             ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
                     "Too many __declspecs in this symbol", 0);
 
-            gather_gcc_attribute_t new_ms_attribute;
+            gcc_attribute_t new_ms_attribute;
             new_ms_attribute.attribute_name = declspec_name;
             new_ms_attribute.expression_list =
                 nodecl_make_list_1(nodecl_align_expr);
@@ -100,7 +100,7 @@ static void gather_ms_declspec_item(AST a,
             ERROR_CONDITION(gather_info->num_ms_attributes >= MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
                     "Too many __declspecs in this symbol", 0);
 
-            gather_gcc_attribute_t new_ms_attribute;
+            gcc_attribute_t new_ms_attribute;
             new_ms_attribute.attribute_name = declspec_name;
             new_ms_attribute.expression_list = nodecl_null();
 
@@ -171,4 +171,10 @@ void keep_ms_declspecs_in_symbol(
                 gather_info->ms_attributes[i];
         }
     }
+}
+
+void apply_ms_attribute_to_type(AST a UNUSED_PARAMETER,
+        type_t** type UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
 }

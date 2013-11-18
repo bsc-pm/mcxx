@@ -50,14 +50,13 @@ LIBMCXX_EXTERN void build_scope_template_parameters(
 LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info, 
         struct type_tag** type_info, 
         decl_context_t decl_context,
-        AST first_declarator,
         nodecl_t* nodecl_output);
 
-LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a, gather_decl_spec_t* gather_info,
+LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a,
+        gather_decl_spec_t* gather_info,
         struct type_tag* type_info,
         struct type_tag** declarator_type,
         decl_context_t dctx,
-        struct AST_tag* first_declarator,
         nodecl_t* nodecl_output);
 
 
@@ -90,14 +89,6 @@ LIBMCXX_EXTERN nodecl_t build_scope_translation_unit(translation_unit_t* transla
 LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output_list);
-
-LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol,
-        decl_context_t decl_context,
-        char is_template,
-        char is_explicit_specialization,
-        nodecl_t* nodecl_output,
-        scope_entry_list_t** declared_symbols,
-        gather_decl_spec_list_t* gather_decl_spec_list);
 
 LIBMCXX_EXTERN void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared);
 

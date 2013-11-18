@@ -72,6 +72,11 @@ namespace TL
         _tl_values.append( tl_nodecl(node.get_internal_nodecl()) );
     }
 
+    void ModuleWriter::builtin_write(TL::Scope sc)
+    {
+        _tl_values.append( tl_decl_context(sc.get_decl_context()) );
+    }
+
     void ModuleWriter::commit()
     {
         tl_type_t* tl_type_arr = new tl_type_t[_tl_values.size()];
@@ -162,6 +167,13 @@ namespace TL
 
         ERROR_CONDITION(t.kind != TL_NODECL, "Invalid read of nodecl", 0);
         n = Nodecl::NodeclBase(t.data._nodecl);
+    }
+
+    void ModuleReader::builtin_read(TL::Scope &sc)
+    {
+        tl_type_t &t = read_item_from_module();
+        ERROR_CONDITION(t.kind != TL_DECL_CONTEXT, "Invalid read of decl_context_t", 0);
+        sc = TL::Scope(t.data._decl_context);
     }
 
     tl_type_t& ModuleReader::read_item_from_module()
