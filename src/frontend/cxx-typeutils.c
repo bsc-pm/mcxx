@@ -314,6 +314,8 @@ struct function_tag
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
     _Bool lacks_prototype:1;
+    // This is only meaningful in C++2011
+    _Bool is_trailing:1;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -3356,7 +3358,8 @@ int vector_type_get_num_elements(type_t* t)
     return t->type->vector_size / type_get_size(t->type->vector_element);
 }
 
-static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
+static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters,
+        char is_trailing)
 {
     _function_type_counter++;
 
@@ -3365,6 +3368,7 @@ static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_inf
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
     result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function->is_trailing = is_trailing;
     result->function->return_type = t;
 
     result->function->parameter_list = counted_xcalloc(num_parameters, sizeof(*( result->function->parameter_list )), &_bytes_due_to_type_system);
@@ -3420,6 +3424,7 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
 
     int num_parameters = function_type->function->num_parameters;
     parameter_info_t parameter_list[num_parameters];
+    char is_trailing = function_type->function->is_trailing;
     
     int i;
     for (i = 0; i < num_parameters; i++)
@@ -3430,7 +3435,8 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
     type_t* result = _get_new_function_type(
             function_type->function->return_type,
             parameter_list,
-            num_parameters);
+            num_parameters,
+            is_trailing);
 
     // Preserve the cv qualifier
     result = get_cv_qualified_type(result, get_cv_qualifier(function_type));
@@ -3506,7 +3512,7 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
 
     if (function_type == NULL)
     {
-        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters);
+        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, /* is_trailing */ 0);
         insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
         function_type = new_funct_type;
 
@@ -3516,7 +3522,99 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
     {
         _function_type_reused++;
     }
-    
+
+    return function_type;
+}
+
+char function_type_get_has_trailing_return(type_t *t)
+{
+    ERROR_CONDITION(!is_function_type(t), "Invalid type", 0);
+
+    t = advance_over_typedefs(t);
+
+    return t->function->is_trailing;
+}
+
+type_t* get_new_function_type_trailing_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters)
+{
+    static type_trie_t *_no_type_functions = NULL;
+    static type_trie_t *_functions = NULL;
+
+    type_trie_t* used_trie = NULL;
+
+    if (t == NULL)
+    {
+        if (_no_type_functions == NULL)
+        {
+            _no_type_functions = allocate_type_trie();
+        }
+
+        used_trie = _no_type_functions;
+    }
+    else
+    {
+        if (_functions == NULL)
+        {
+            _functions = allocate_type_trie();
+        }
+
+        used_trie = _functions;
+    }
+
+    const type_t* type_seq[num_parameters + 1];
+    //  Don't worry, this 'void' is just for the trie
+    type_seq[0] = (t != NULL ? t : get_void_type());
+
+    char fun_type_is_dependent = 0;
+
+    if (t != NULL)
+    {
+        fun_type_is_dependent = is_dependent_type(t);
+    }
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        if (!parameter_info[i].is_ellipsis)
+        {
+            if (parameter_info[i].nonadjusted_type_info != NULL)
+            {
+                type_seq[i + 1] = parameter_info[i].nonadjusted_type_info;
+            }
+            else
+            {
+                type_seq[i + 1] = parameter_info[i].type_info;
+            }
+
+            fun_type_is_dependent = 
+                fun_type_is_dependent || 
+                is_dependent_type(parameter_info[i].type_info);
+        }
+        else
+        {
+            // This type is just for the trie 
+            type_seq[i + 1] = get_ellipsis_type();
+        }
+    }
+
+    // Cast to drop 'const'
+    type_t* function_type = (type_t*)lookup_type_trie(used_trie, 
+            type_seq, num_parameters + 1);
+
+    if (function_type == NULL)
+    {
+        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, /* is_trailing */ 1);
+        insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
+        function_type = new_funct_type;
+
+        set_is_dependent_type(function_type, fun_type_is_dependent);
+    }
+    else
+    {
+        _function_type_reused++;
+    }
+
     return function_type;
 }
 
@@ -4468,7 +4566,8 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->is_ellipsis;
 }
 
-type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
+static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
+        type_t* (new_function_type)(type_t*, parameter_info_t*, int))
 {
     ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
 
@@ -4493,8 +4592,17 @@ type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
     if (has_ellipsis)
         param_info[num_parameters - 1].is_ellipsis = 1;
 
-    return get_new_function_type(new_return, param_info, num_parameters);
+    return new_function_type(new_return, param_info, num_parameters);
+}
 
+type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
+{
+    return function_type_replace_return_type_(t, new_return, get_new_function_type);
+}
+
+type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return)
+{
+    return function_type_replace_return_type_(t, new_return, get_new_function_type_trailing_type);
 }
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
@@ -7850,6 +7958,8 @@ const char* get_declarator_name_string_ex(decl_context_t decl_context,
             print_symbol_data);
 }
 
+static type_t* get_foundation_type(type_t* t);
+
 const char* get_declaration_string_ex(type_t* type_info,
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer,
@@ -8301,7 +8411,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             }
         case TK_FUNCTION :
             {
-                if (type_info->function->return_type != NULL)
+                if (!type_info->function->is_trailing
+                        && type_info->function->return_type != NULL)
                 {
                     get_type_name_string_internal_impl(decl_context, type_info->function->return_type, left, right,
                             0, NULL, NULL, 0, print_symbol_fun, print_symbol_data);
@@ -8415,6 +8526,21 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     prototype = strappend(prototype, get_cv_qualifier_string(type_info));
                 }
 
+                if (type_info->function->is_trailing
+                        && type_info->function->return_type != NULL)
+                {
+                    prototype = strappend(prototype, " -> ");
+
+                    const char *trailing_type = get_declaration_string_ex(
+                            type_info->function->return_type,
+                            decl_context,
+                            "", "", 0,
+                            0, NULL, NULL,
+                            0,
+                            print_symbol_fun, print_symbol_data);
+
+                    prototype = strappend(prototype, trailing_type);
+                }
                 (*right) = strappend(prototype, (*right));
                 break;
             }
@@ -12041,7 +12167,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
 //     const T& f(int)   returns 'const T' 
 //
 // so the type-specifier part of a type-id plus cv-qualifiers, if any
-type_t* get_foundation_type(type_t* t)
+static type_t* get_foundation_type(type_t* t)
 {
     if (t == NULL)
     {
@@ -12060,7 +12186,10 @@ type_t* get_foundation_type(type_t* t)
     }
     else if (is_function_type(t))
     {
-        return get_foundation_type(function_type_get_return_type(t));
+        if (function_type_get_has_trailing_return(t))
+            return get_auto_type();
+        else
+            return get_foundation_type(function_type_get_return_type(t));
     }
     else if (is_pointer_type(t))
     {

@@ -455,6 +455,7 @@ LIBMCXX_EXTERN type_t* function_type_get_parameter_type_num(type_t* function_typ
 LIBMCXX_EXTERN type_t* function_type_get_nonadjusted_parameter_type_num(type_t* function_type, int num_param);
 LIBMCXX_EXTERN char function_type_get_lacking_prototype(type_t* function_type);
 LIBMCXX_EXTERN char function_type_get_has_ellipsis(type_t* function_type);
+LIBMCXX_EXTERN char function_type_get_has_trailing_return(type_t *t);
 LIBMCXX_EXTERN type_t* function_type_get_return_type(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
@@ -462,6 +463,7 @@ LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type
 LIBMCXX_EXTERN char function_type_same_parameter_types(type_t* t1, type_t* t2);
 
 LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_return);
+LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
 
 LIBMCXX_EXTERN type_t* pointer_type_get_pointee_type(type_t *t);
 LIBMCXX_EXTERN scope_entry_t* pointer_to_member_type_get_class(type_t *t);
@@ -656,8 +658,6 @@ LIBMCXX_EXTERN char pointer_types_can_be_converted(type_t* orig, type_t* dest);
 LIBMCXX_EXTERN void set_as_template_specialized_type(type_t* type_to_specialize,
         template_parameter_list_t * template_parameters,
         type_t* template_type);
-
-LIBMCXX_EXTERN type_t* get_foundation_type(type_t* t);
 
 /* Naming types functions */
 LIBMCXX_EXTERN const char* get_declaration_string(type_t* type_info,

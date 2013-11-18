@@ -9405,9 +9405,16 @@ static void build_scope_declarator_rec(
                     // Try to be helpful
                     if (gather_info->is_auto_storage)
                     {
-                        warn_printf("%s: warning: a trailing return using an 'auto' type-specifier is only valid in C++11\n",
+                        error_printf("%s: error: a trailing return using an 'auto' type-specifier is only valid in C++11\n",
                                 ast_location(a));
                     }
+                    else
+                    {
+                        error_printf("%s: error: a trailing return is only valid in C++11\n",
+                                ast_location(a));
+                    }
+
+                    *declarator_type = get_error_type();
                 }
                 CXX11_LANGUAGE()
                 {
@@ -9448,7 +9455,7 @@ static void build_scope_declarator_rec(
                 }
 
                 // Now we have to replace the return type
-                *declarator_type = function_type_replace_return_type(*declarator_type, return_type);
+                *declarator_type = function_type_replace_return_type_with_trailing_return(*declarator_type, return_type);
 
                 // Proceed with the remaining declarator
                 build_scope_declarator_rec(declarator, declarator_type,
