@@ -101,7 +101,8 @@ namespace TL { namespace OpenMP {
 
     static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
             DataSharingEnvironment& data_sharing, 
-            DependencyDirection dep_attr)
+            DependencyDirection dep_attr, 
+            DataSharingAttribute default_data_attr)
     {
         DataRefVisitorDep data_ref_visitor_dep(data_sharing);
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
@@ -135,7 +136,11 @@ namespace TL { namespace OpenMP {
             //
             // Note, though, that if the base symbol 'x' is an array, it will always be shared.
             //
-            if (expr.is<Nodecl::Symbol>()
+            if((default_data_attr & DS_AUTO) == DS_AUTO) 
+            {
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO));
+            }
+            else if (expr.is<Nodecl::Symbol>()
                     || sym.get_type().is_array()
                     || (sym.get_type().is_any_reference()
                         && sym.get_type().references_to().is_array()))
@@ -149,30 +154,31 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
+    void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing, 
+        DataSharingAttribute default_data_attr)
     {
         PragmaCustomClause input_clause = construct.get_clause("in",
                 /* deprecated */ "input");
-        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN);
-
+        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN, default_data_attr);
+        
         PragmaCustomClause output_clause = construct.get_clause("out",
                 /* deprecated */ "output");
-        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT);
-
+        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT, default_data_attr);
+        
         PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
+        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT, default_data_attr);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
         get_dependences_info_clause(concurrent_clause, data_sharing,
-                DEP_CONCURRENT);
+                DEP_CONCURRENT, default_data_attr);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
         get_dependences_info_clause(commutative_clause, data_sharing,
-                DEP_COMMUTATIVE);
+                DEP_COMMUTATIVE, default_data_attr);
 
         // OpenMP standard proposal
         PragmaCustomClause depends = construct.get_clause("depend");
-        get_dependences_info_std_clause(construct, depends, data_sharing);
+        get_dependences_info_std_clause(construct, depends, data_sharing, default_data_attr);
     }
 
     static decl_context_t decl_context_map_id(decl_context_t d)
@@ -183,7 +189,8 @@ namespace TL { namespace OpenMP {
     void Core::get_dependences_info_std_clause(
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
-            DataSharingEnvironment& data_sharing)
+            DataSharingEnvironment& data_sharing, 
+            DataSharingAttribute default_data_attr)
     {
         if (!clause.is_defined())
             return;
@@ -292,7 +299,7 @@ namespace TL { namespace OpenMP {
             // Singleton
             ObjectList<Nodecl::NodeclBase> expr_list;
             expr_list.append(expr);
-            add_data_sharings(expr_list, data_sharing, dep_attr);
+            add_data_sharings(expr_list, data_sharing, dep_attr, default_data_attr);
         }
 
         regfree(&preg);
@@ -300,12 +307,13 @@ namespace TL { namespace OpenMP {
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
            DataSharingEnvironment& data_sharing,
-           DependencyDirection dep_attr)
+           DependencyDirection dep_attr, 
+           DataSharingAttribute default_data_attr)
     {
         if (clause.is_defined())
         {
             ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
-            add_data_sharings(expr_list, data_sharing, dep_attr);
+            add_data_sharings(expr_list, data_sharing, dep_attr, default_data_attr);
         }
     }
 

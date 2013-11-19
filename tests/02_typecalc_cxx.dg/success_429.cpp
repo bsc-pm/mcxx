@@ -28,38 +28,18 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-// This test might hang
-int f(void)
+typedef const char* const T;
+typedef char * S;
+
+S foo();
+T bar();
+
+void f(bool b)
 {
-    static unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
-    {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
-
-        // Make all threads busy wait here
-        while (gate == 0);
-    }
-
-    return 0;
-}
-
-int main(int argc, char* argv[])
-{
- f();
+    const char* c = 0;
+    c = (b ? foo() : bar());
 }

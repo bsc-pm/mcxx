@@ -28,38 +28,25 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-// This test might hang
-int f(void)
+struct mini_string
 {
-    static unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
-    {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
+    mini_string();
+    mini_string(const char*);
+    mini_string(const mini_string&);
 
-        // Make all threads busy wait here
-        while (gate == 0);
-    }
+    mini_string& operator=(const mini_string&);
+};
 
-    return 0;
-}
+mini_string operator+(const mini_string&, const mini_string&);
 
-int main(int argc, char* argv[])
+void f()
 {
- f();
+    mini_string str;
+
+    str = "a" + (mini_string)"b";
+    str = "a" + mini_string("b");
 }

@@ -1226,10 +1226,12 @@ namespace TL
             data_sharing.set_real_time_info(rt_info);
 
             get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
+            
+            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED, 
+                    /*allow_default_auto*/ true);
 
-            get_dependences_info(pragma_line, data_sharing);
+            get_dependences_info(pragma_line, data_sharing, default_data_attr);
 
-            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED);
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
             // Target info applies after

@@ -28,38 +28,37 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator="config/mercurium run"
 </testinfo>
 */
 
-// This test might hang
-int f(void)
+template <typename T>
+struct A
 {
-    static unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
-    {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
+    T t;
+};
 
-        // Make all threads busy wait here
-        while (gate == 0);
-    }
+template <typename T>
+struct B
+{
+    static A<T*> a;
+};
 
-    return 0;
+template <typename T>
+A<T*> B<T>::a;
+
+template A<int*> B<int>::a;
+
+extern "C"
+{
+    // This is the mangling of B<int>::a
+    // just to ensure B<int>::a has been emitted
+    extern int _ZN1BIiE1aE;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char **argv)
 {
- f();
+    _ZN1BIiE1aE = 3;
+
+    return 0;
 }

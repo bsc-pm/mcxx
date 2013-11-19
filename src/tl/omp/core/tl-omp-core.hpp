@@ -124,18 +124,22 @@ namespace TL
                 void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info(PragmaCustomLine construct, 
-                        DataSharingEnvironment& data_sharing);
+                        DataSharingEnvironment& data_sharing, 
+                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
                 void get_dependences_info_clause(PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
-                        DependencyDirection dep_attr);
+                        DependencyDirection dep_attr,
+                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
 
                 void get_dependences_info_std_clause(
                         TL::PragmaCustomLine construct,
                         TL::PragmaCustomClause clause,
-                        DataSharingEnvironment& data_sharing);
+                        DataSharingEnvironment& data_sharing,
+                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
 
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
-                        DataSharingAttribute fallback_data_sharing);
+                        DataSharingAttribute fallback_data_sharing, 
+                        bool allow_default_auto=false);
 
                 void common_parallel_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
                 void common_for_handler(Nodecl::NodeclBase outer_statement,

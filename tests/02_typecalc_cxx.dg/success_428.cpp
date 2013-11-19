@@ -28,38 +28,44 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-// This test might hang
-int f(void)
+struct mini_string
 {
-    static unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
-    {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
+    mini_string();
+    mini_string(const char* c);
+};
 
-        // Make all threads busy wait here
-        while (gate == 0);
-    }
+mini_string g();
+const mini_string g_c();
 
-    return 0;
-}
+mini_string& g_r();
+const mini_string& g_c_r();
 
-int main(int argc, char* argv[])
+struct TestLvalue {};
+void operator+(const mini_string&, TestLvalue);
+
+struct TestNonConstLvalue {};
+void operator+(mini_string&, TestNonConstLvalue);
+
+void f()
 {
- f();
+    true ? "NULL" : g();
+    true ? g() : "NULL";
+
+    true ? "NULL" : g_r();
+    true ? g_r() : "NULL";
+
+    true ? "NULL" : g_c_r();
+    true ? g_c_r() : "NULL";
+
+    true ? g_c_r() : g_r();
+    true ? g_r() : g_c_r();
+
+    (true ? g_c_r() : g_c_r()) + TestLvalue();
+    (true ? g_r() : g_r()) + TestLvalue();
+
+    (true ? g_r() : g_r()) + TestNonConstLvalue();
 }
