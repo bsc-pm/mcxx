@@ -220,7 +220,12 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
 
 LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
 
-LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters);
+LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier);
+type_t* get_new_function_type_trailing_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier);
 LIBMCXX_EXTERN type_t* get_nonproto_function_type(type_t* t, int num_parameters);
 
 LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector_size);
@@ -457,6 +462,8 @@ LIBMCXX_EXTERN char function_type_get_lacking_prototype(type_t* function_type);
 LIBMCXX_EXTERN char function_type_get_has_ellipsis(type_t* function_type);
 LIBMCXX_EXTERN char function_type_get_has_trailing_return(type_t *t);
 LIBMCXX_EXTERN type_t* function_type_get_return_type(type_t* t);
+
+LIBMCXX_EXTERN ref_qualifier_t function_type_get_ref_qualifier(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 

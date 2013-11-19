@@ -128,8 +128,8 @@ namespace TL { namespace Nanox {
         // Type of the function
         type_t *function_type = get_new_function_type(
                 return_type.get_internal_type(),
-                p_types,
-                parameter_types.size());
+                p_types, parameter_types.size(),
+                REF_QUALIFIER_NONE);
 
         entry->type_information = function_type;
 

@@ -2060,7 +2060,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
             || symbol.is_destructor())
     {
         // FIXME - Use TL::Type to build this type
-        real_type = ::get_new_function_type(NULL, NULL, 0);
+        real_type = ::get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
         if (symbol.is_conversion_function())
         {
             if (symbol.get_type().is_const())
@@ -2419,7 +2419,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
             || symbol.is_destructor())
     {
         // FIXME - Use TL::Type to build this type
-        real_type = ::get_new_function_type(NULL, NULL, 0);
+        real_type = ::get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
         if (symbol.is_conversion_function())
         {
@@ -3639,13 +3639,13 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         move_to_namespace(decl_context.namespace_scope->related_entry);
         if (is_extern)
             *(file) << "extern ";
-        
+
         TL::Type real_type = sym.get_type();
         if (sym.is_conversion_function()
                 || sym.is_destructor())
         {
             // FIXME
-            real_type = get_new_function_type(NULL, NULL, 0);
+            real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
             if (sym.is_conversion_function())
             {
@@ -4766,7 +4766,7 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         TL::Type real_type = friend_type;
         if (class_symbol.is_conversion_function())
         {
-            real_type = get_new_function_type(NULL, NULL, 0);
+            real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
         }
 
         std::string function_name;
@@ -4806,7 +4806,7 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         TL::Type real_type = friend_type;
         if (class_symbol.is_conversion_function())
         {
-            real_type = get_new_function_type(NULL, NULL, 0);
+            real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
         }
 
         std::string function_name;
@@ -5942,7 +5942,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 || symbol.is_destructor())
         {
             // FIXME
-            real_type = get_new_function_type(NULL, NULL, 0);
+            real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
             if (symbol.is_conversion_function())
             {

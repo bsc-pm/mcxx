@@ -59,6 +59,15 @@ struct parameter_info_tag
     struct type_tag* nonadjusted_type_info;
 };
 
+typedef
+enum ref_qualifier_tag
+{
+    REF_QUALIFIER_NONE = 0,
+    // These are only meaningful in C++2011
+    REF_QUALIFIER_LVALUE = 1, // &
+    REF_QUALIFIER_RVALUE = 2  // &&
+} ref_qualifier_t;
+
 // Standard conversions info
 typedef
 enum standard_conversion_item_tag

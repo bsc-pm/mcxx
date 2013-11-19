@@ -456,7 +456,7 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
         num_params = function_type_get_num_parameters(funct_type);
     }
 
-    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1);
+    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1, REF_QUALIFIER_NONE);
 
     if (is_template_specialized_type(funct_type))
     {

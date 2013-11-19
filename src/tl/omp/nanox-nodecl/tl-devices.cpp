@@ -375,8 +375,8 @@ namespace TL { namespace Nanox {
 
         type_t *function_type = get_new_function_type(
                 get_void_type(),
-                p_types,
-                parameter_symbols.size());
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
 
         new_function_sym->type_information = function_type;
 
@@ -802,7 +802,9 @@ namespace TL { namespace Nanox {
             it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
         }
 
-        type_t *function_type = get_new_function_type(get_void_type(), p_types, parameter_symbols.size());
+        type_t *function_type = get_new_function_type(get_void_type(),
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
         delete[] p_types;
 
         // Now everything is set to register the function

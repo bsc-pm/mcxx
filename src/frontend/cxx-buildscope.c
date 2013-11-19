@@ -490,7 +490,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                 { .is_ellipsis = 0, .type_info = get_size_t_type() } 
             };
 
-            global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1, REF_QUALIFIER_NONE);
             global_operator_new->entity_specs.num_parameters = 1;
             global_operator_new->entity_specs.default_argument_info 
                 = empty_default_argument_info( /* num_parameters */ 1);
@@ -510,7 +510,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                 { .is_ellipsis = 0, .type_info = get_size_t_type() } 
             };
 
-            global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1, REF_QUALIFIER_NONE);
             global_operator_new->entity_specs.num_parameters = 1;
             global_operator_new->entity_specs.default_argument_info 
                 = empty_default_argument_info(/* num_parameters */ 1);
@@ -530,7 +530,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                 { .is_ellipsis = 0, .type_info = get_pointer_type(get_void_type()) } 
             };
 
-            global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1, REF_QUALIFIER_NONE);
             global_operator_delete->entity_specs.num_parameters = 1;
             global_operator_delete->entity_specs.default_argument_info
                 = empty_default_argument_info(/* num_parameters */ 1);
@@ -549,7 +549,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
                 { .is_ellipsis = 0, .type_info = get_pointer_type(get_void_type()) } 
             };
 
-            global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1, REF_QUALIFIER_NONE);
             global_operator_delete->entity_specs.num_parameters = 1;
             global_operator_delete->entity_specs.default_argument_info
                 = empty_default_argument_info(/* num_parameters */ 1);
@@ -6046,7 +6046,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         type_t* default_constructor_type = get_new_function_type(
                 NULL, // Constructors do not return anything
                 NULL, // Default constructor does not receive anything
-                0);
+                0, REF_QUALIFIER_NONE);
 
         const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
@@ -6424,7 +6424,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         type_t* copy_constructor_type = get_new_function_type(
                 NULL, // Constructors do not return anything
                 parameter_info,
-                1);
+                1, REF_QUALIFIER_NONE);
 
         const char* constructor_name = NULL;
         if (is_named_class_type(type_info))
@@ -6572,7 +6572,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         type_t* move_constructor_type = get_new_function_type(
                 NULL, // Constructors do not return anything
                 parameter_info,
-                1);
+                1, REF_QUALIFIER_NONE);
 
         implicit_move_constructor->kind = SK_FUNCTION;
         implicit_move_constructor->locus = locus;
@@ -6810,7 +6810,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         type_t* copy_assignment_type = get_new_function_type(
                 /* returns T& */ get_lvalue_reference_type(type_info), 
                 parameter_info,
-                1);
+                1, REF_QUALIFIER_NONE);
 
         scope_entry_t* implicit_copy_assignment_function = new_symbol(class_type_get_inner_context(class_type),
                 class_scope,
@@ -7000,7 +7000,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         type_t* move_assignment_type = get_new_function_type(
                 /* returns T& */ get_lvalue_reference_type(type_info), 
                 parameter_info,
-                1);
+                1, REF_QUALIFIER_NONE);
 
         scope_entry_t* implicit_move_assignment_function = new_symbol(class_type_get_inner_context(class_type),
                 class_scope,
@@ -7231,8 +7231,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         type_t* destructor_type = get_const_qualified_type(
                 get_new_function_type(
                     /* returns void */ get_void_type(), 
-                    NULL, 0)
-                );
+                    NULL, 0, REF_QUALIFIER_NONE));
 
         implicit_destructor->kind = SK_FUNCTION;
         implicit_destructor->locus = locus;
@@ -8576,7 +8575,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                         type_t* conversion_function_type;
                         get_conversion_function_name(entity_context, conversion_function_id, &conversion_function_type);
                         *declarator_type = get_new_function_type(conversion_function_type, 
-                                /*parameter_info*/ NULL, /*num_parameters=*/0);
+                                /*parameter_info*/ NULL, /*num_parameters=*/0, REF_QUALIFIER_NONE);
 
                         // Keep the const-qualification in the crafted type
                         if ((cv_qualif & CV_CONST) == CV_CONST)
@@ -8805,7 +8804,8 @@ static void set_array_type(type_t** declarator_type,
  * parameter_declaration_clause of a functional declarator
  */
 static void set_function_parameter_clause(type_t** function_type, 
-        AST parameters, decl_context_t decl_context,
+        AST parameters, AST ref_qualifier_opt,
+        decl_context_t decl_context,
         gather_decl_spec_t* gather_info,
         nodecl_t* nodecl_output)
 {
@@ -8829,7 +8829,7 @@ static void set_function_parameter_clause(type_t** function_type,
         CXX_LANGUAGE()
         {
             // In C++ this is a function with 0 parameters
-            *function_type = get_new_function_type(*function_type, parameter_info, /*num_parameters=*/0);
+            *function_type = get_new_function_type(*function_type, parameter_info, /*num_parameters=*/0, REF_QUALIFIER_NONE);
         }
         return;
     }
@@ -9189,8 +9189,28 @@ static void set_function_parameter_clause(type_t** function_type,
         }
     }
 
+    ref_qualifier_t ref_qualifier = REF_QUALIFIER_NONE;
+    if (ref_qualifier_opt != NULL)
+    {
+        CXX03_LANGUAGE()
+        {
+            error_printf("%s: error: ref-qualifier is only valid in C++2011\n", ast_location(ref_qualifier_opt));
+        }
+        switch (ASTType(ref_qualifier_opt))
+        {
+            case AST_REFERENCE_SPEC:
+                ref_qualifier = REF_QUALIFIER_LVALUE;
+                break;
+            case AST_RVALUE_REFERENCE_SPEC:
+                ref_qualifier = REF_QUALIFIER_RVALUE;
+                break;
+            default:
+                internal_error("Invalid ref-qualifier '%s'\n", ast_print_node_type(ASTType(ref_qualifier_opt)));
+        }
+    }
+
     // Now create the type
-    *function_type = get_new_function_type(*function_type, parameter_info, num_parameters);
+    *function_type = get_new_function_type(*function_type, parameter_info, num_parameters, ref_qualifier);
 }
 
 /*
@@ -9210,13 +9230,13 @@ static void set_function_type(type_t** declarator_type,
 
     // AST attribute_specifiers = NULL;
     AST cv_qualif_opt = NULL;
-    // AST ref_qualifier_opt = NULL;
+    AST ref_qualifier_opt = NULL;
     AST except_spec = NULL;
     if (extra_stuff != NULL)
     {
         // attribute_specifiers = ASTSon0(extra_stuff);
         cv_qualif_opt = ASTSon1(extra_stuff);
-        // ref_qualifier_opt = ASTSon2(extra_stuff);
+        ref_qualifier_opt = ASTSon2(extra_stuff);
         except_spec = ASTSon3(extra_stuff);
     }
 
@@ -9236,11 +9256,8 @@ static void set_function_type(type_t** declarator_type,
         *out_prototype_context = prototype_context;
     }
 
-    /*
-     * FIXME - Many things saved in the type actually belong to the symbol thus
-     * hindering type information sharing accross symbols
-     */
-    set_function_parameter_clause(declarator_type, parameters, prototype_context, gather_info, nodecl_output);
+    set_function_parameter_clause(declarator_type, parameters, ref_qualifier_opt,
+            prototype_context, gather_info, nodecl_output);
 
     cv_qualifier_t cv_qualif = compute_cv_qualifier(cv_qualif_opt);
 
@@ -9729,7 +9746,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
                 // Adjust to 'function () returning void'
-                declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
+                declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
                 return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
                 break;
             }
@@ -9873,7 +9890,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                             || ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
                     {
                         // Adjust the type to 'const function () returning void'
-                        declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
+                        declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
                     }
 
                     char ok = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context, &entry);
@@ -12711,7 +12728,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
     function_entry->type_information = get_new_function_type(
             function_type_get_return_type(function_entry->type_information),
             parameter_info,
-            real_num_parameters);
+            real_num_parameters, REF_QUALIFIER_NONE);
 }
 
 static void common_defaulted_or_deleted(AST a, decl_context_t decl_context, 

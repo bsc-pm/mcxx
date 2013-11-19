@@ -202,7 +202,7 @@ struct generate_type<R()>
         ss 
             << "({"
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
-            << "get_new_function_type(return_type, 0, 0);\n"
+            << "get_new_function_type(return_type, 0, 0, REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
 
@@ -225,7 +225,7 @@ struct generate_type<R(T1)>
             << "type_t* return_type = " << generate_type<return_type>::g() << ";\n"
             << "parameter_info_t p[1]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -249,7 +249,7 @@ struct generate_type<R(T1, T2)>
             << "parameter_info_t p[2]; memset(p, 0, sizeof(p));"
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -274,7 +274,7 @@ struct generate_type<R(T1, T2, T3)>
             << "p[0].type_info = " << generate_type<param1_type>::g() << ";\n"
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -301,7 +301,7 @@ struct generate_type<R(T1, T2, T3, T4)>
             << "p[1].type_info = " << generate_type<param2_type>::g() << ";\n"
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
             << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -330,7 +330,7 @@ struct generate_type<R(T1, T2, T3, T4, T5)>
             << "p[2].type_info = " << generate_type<param3_type>::g() << ";\n"
             << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
             << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -361,7 +361,7 @@ struct generate_type<R(T1, T2, T3, T4, T5, T6)>
             << "p[3].type_info = " << generate_type<param4_type>::g() << ";\n"
             << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
             << "p[5].type_info = " << generate_type<param6_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -394,7 +394,7 @@ struct generate_type<R(T1, T2, T3, T4, T5, T6, T7)>
             << "p[4].type_info = " << generate_type<param5_type>::g() << ";\n"
             << "p[5].type_info = " << generate_type<param6_type>::g() << ";\n"
             << "p[6].type_info = " << generate_type<param7_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();
@@ -429,7 +429,7 @@ struct generate_type<R(T1, T2, T3, T4, T5, T6, T7, T8)>
             << "p[5].type_info = " << generate_type<param6_type>::g() << ";\n"
             << "p[6].type_info = " << generate_type<param7_type>::g() << ";\n"
             << "p[7].type_info = " << generate_type<param8_type>::g() << ";\n"
-            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]));\n"
+            << "get_new_function_type(return_type, p, sizeof(p)/sizeof(p[0]), REF_QUALIFIER_NONE);\n"
             << "})\n"
             ;
         return ss.str();

@@ -2551,7 +2551,7 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
         }
 
         type_t* updated_function_type = get_new_function_type(return_type,
-                parameter_types, num_parameter_types);
+                parameter_types, num_parameter_types, REF_QUALIFIER_NONE);
 
         return get_cv_qualified_type(updated_function_type,
                 get_cv_qualifier(t));
@@ -3276,7 +3276,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* updated_function_type = get_new_function_type(return_type,
-                unpacked_parameter_types, num_unpacked_parameter_types);
+                unpacked_parameter_types, num_unpacked_parameter_types, REF_QUALIFIER_NONE);
 
         xfree(unpacked_parameter_types);
 

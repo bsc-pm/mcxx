@@ -4484,7 +4484,7 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
         }
     };
 
-    type_t* function_type = get_new_function_type(lhs_type, parameters, 2);
+    type_t* function_type = get_new_function_type(lhs_type, parameters, 2, REF_QUALIFIER_NONE);
 
     // Fill the minimum needed for this 'faked' function symbol
     (*result).entry[(*result).num_builtins].kind = SK_FUNCTION;
@@ -9846,7 +9846,7 @@ static void check_nodecl_function_call_cxx(
 
                     // Get the type
                     type_t* surrogate_function_type = get_new_function_type(conversion_functional_return_type, 
-                            parameter_info, surrogate_num_parameters);
+                            parameter_info, surrogate_num_parameters, REF_QUALIFIER_NONE);
 
                     // Set it as the type of function
                     surrogate_symbol->type_information = surrogate_function_type;
@@ -14656,7 +14656,8 @@ void build_unary_builtin_operators(type_t* t1,
                 },
             };
 
-            type_t* function_type = get_new_function_type(function_result_type, parameters, num_parameters);
+            type_t* function_type = get_new_function_type(function_result_type,
+                    parameters, num_parameters, REF_QUALIFIER_NONE);
 
             // If this type is already in the type set, do not add it
             char found = 0;
@@ -14752,7 +14753,8 @@ void build_binary_builtin_operators(type_t* t1,
                     }
                 };
 
-                type_t* function_type = get_new_function_type(function_result_type, parameters, num_parameters);
+                type_t* function_type = get_new_function_type(function_result_type,
+                        parameters, num_parameters, REF_QUALIFIER_NONE);
 
                 // If this type is already in the type set, do not add it
                 char found = 0;
@@ -14881,7 +14883,9 @@ void build_ternary_builtin_operators(type_t* t1,
                         }
                     };
 
-                    type_t* function_type = get_new_function_type(function_result_type, parameters, num_parameters);
+                    type_t* function_type = get_new_function_type(function_result_type,
+                            parameters, num_parameters,
+                            REF_QUALIFIER_NONE);
 
                     // If this type is already in the type set, do not add it
                     char found = 0;

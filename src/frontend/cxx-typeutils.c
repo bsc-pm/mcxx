@@ -310,6 +310,9 @@ struct function_tag
     int num_parameters;
     parameter_info_t** parameter_list;
 
+    // Reference qualifier, only meaningful in C++2011
+    ref_qualifier_t ref_qualifier:2;
+
     // States if this function has been declared or defined without prototype.
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
@@ -3358,8 +3361,10 @@ int vector_type_get_num_elements(type_t* t)
     return t->type->vector_size / type_get_size(t->type->vector_element);
 }
 
-static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters,
-        char is_trailing)
+static type_t* _get_new_function_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        char is_trailing,
+        ref_qualifier_t ref_qualifier)
 {
     _function_type_counter++;
 
@@ -3368,6 +3373,7 @@ static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_inf
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
     result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function->ref_qualifier = ref_qualifier;
     result->function->is_trailing = is_trailing;
     result->function->return_type = t;
 
@@ -3424,8 +3430,9 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
 
     int num_parameters = function_type->function->num_parameters;
     parameter_info_t parameter_list[num_parameters];
+    ref_qualifier_t ref_qualifier = function_type->function->ref_qualifier;
     char is_trailing = function_type->function->is_trailing;
-    
+
     int i;
     for (i = 0; i < num_parameters; i++)
     {
@@ -3436,7 +3443,8 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
             function_type->function->return_type,
             parameter_list,
             num_parameters,
-            is_trailing);
+            is_trailing,
+            ref_qualifier);
 
     // Preserve the cv qualifier
     result = get_cv_qualified_type(result, get_cv_qualifier(function_type));
@@ -3444,31 +3452,26 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
     return result;
 }
 
-type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
+static
+type_t* get_new_function_type_common(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        char is_trailing,
+        ref_qualifier_t ref_qualifier)
 {
-    static type_trie_t *_no_type_functions = NULL;
-    static type_trie_t *_functions = NULL;
+#define MY_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MAX_REF_QUALIFIER MY_MAX(REF_QUALIFIER_NONE, MY_MAX(REF_QUALIFIER_RVALUE, REF_QUALIFIER_LVALUE))
+    static type_trie_t* _function_tries[2][2][MAX_REF_QUALIFIER + 1] = { };
+#undef MAX_REF_QUALIFIER
+#undef MY_MAX
 
     type_trie_t* used_trie = NULL;
 
-    if (t == NULL)
+    if (_function_tries[!!is_trailing][!!t][ref_qualifier] == NULL)
     {
-        if (_no_type_functions == NULL)
-        {
-            _no_type_functions = allocate_type_trie();
-        }
-
-        used_trie = _no_type_functions;
+        _function_tries[!!is_trailing][!!t][ref_qualifier] = allocate_type_trie();
     }
-    else
-    {
-        if (_functions == NULL)
-        {
-            _functions = allocate_type_trie();
-        }
 
-        used_trie = _functions;
-    }
+    used_trie = _function_tries[!!is_trailing][!!t][ref_qualifier];
 
     const type_t* type_seq[num_parameters + 1];
     //  Don't worry, this 'void' is just for the trie
@@ -3512,7 +3515,7 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
 
     if (function_type == NULL)
     {
-        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, /* is_trailing */ 0);
+        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, is_trailing, ref_qualifier);
         insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
         function_type = new_funct_type;
 
@@ -3524,6 +3527,20 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
     }
 
     return function_type;
+}
+
+type_t* get_new_function_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier)
+{
+    return get_new_function_type_common(t, parameter_info, num_parameters, /* is_trailing */ 0, ref_qualifier);
+}
+
+type_t* get_new_function_type_trailing_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier)
+{
+    return get_new_function_type_common(t, parameter_info, num_parameters, /* is_trailing */ 1, ref_qualifier);
 }
 
 char function_type_get_has_trailing_return(type_t *t)
@@ -3535,88 +3552,15 @@ char function_type_get_has_trailing_return(type_t *t)
     return t->function->is_trailing;
 }
 
-type_t* get_new_function_type_trailing_type(type_t* t,
-        parameter_info_t* parameter_info, int num_parameters)
+ref_qualifier_t function_type_get_ref_qualifier(type_t* t)
 {
-    static type_trie_t *_no_type_functions = NULL;
-    static type_trie_t *_functions = NULL;
+    ERROR_CONDITION(!is_function_type(t), "Invalid type", 0);
 
-    type_trie_t* used_trie = NULL;
+    t = advance_over_typedefs(t);
 
-    if (t == NULL)
-    {
-        if (_no_type_functions == NULL)
-        {
-            _no_type_functions = allocate_type_trie();
-        }
-
-        used_trie = _no_type_functions;
-    }
-    else
-    {
-        if (_functions == NULL)
-        {
-            _functions = allocate_type_trie();
-        }
-
-        used_trie = _functions;
-    }
-
-    const type_t* type_seq[num_parameters + 1];
-    //  Don't worry, this 'void' is just for the trie
-    type_seq[0] = (t != NULL ? t : get_void_type());
-
-    char fun_type_is_dependent = 0;
-
-    if (t != NULL)
-    {
-        fun_type_is_dependent = is_dependent_type(t);
-    }
-
-    int i;
-    for (i = 0; i < num_parameters; i++)
-    {
-        if (!parameter_info[i].is_ellipsis)
-        {
-            if (parameter_info[i].nonadjusted_type_info != NULL)
-            {
-                type_seq[i + 1] = parameter_info[i].nonadjusted_type_info;
-            }
-            else
-            {
-                type_seq[i + 1] = parameter_info[i].type_info;
-            }
-
-            fun_type_is_dependent = 
-                fun_type_is_dependent || 
-                is_dependent_type(parameter_info[i].type_info);
-        }
-        else
-        {
-            // This type is just for the trie 
-            type_seq[i + 1] = get_ellipsis_type();
-        }
-    }
-
-    // Cast to drop 'const'
-    type_t* function_type = (type_t*)lookup_type_trie(used_trie, 
-            type_seq, num_parameters + 1);
-
-    if (function_type == NULL)
-    {
-        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, /* is_trailing */ 1);
-        insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
-        function_type = new_funct_type;
-
-        set_is_dependent_type(function_type, fun_type_is_dependent);
-    }
-    else
-    {
-        _function_type_reused++;
-    }
-
-    return function_type;
+    return t->function->ref_qualifier;
 }
+
 
 type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 {
@@ -4567,7 +4511,7 @@ char function_type_get_has_ellipsis(type_t* function_type)
 }
 
 static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
-        type_t* (new_function_type)(type_t*, parameter_info_t*, int))
+        type_t* (new_function_type)(type_t*, parameter_info_t*, int, ref_qualifier_t))
 {
     ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
 
@@ -4577,6 +4521,7 @@ static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
     memset(param_info, 0, sizeof(param_info));
 
     char has_ellipsis = function_type_get_has_ellipsis(t);
+    ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(t);
 
     int real_parameters = num_parameters;
     if (has_ellipsis)
@@ -4592,7 +4537,7 @@ static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
     if (has_ellipsis)
         param_info[num_parameters - 1].is_ellipsis = 1;
 
-    return new_function_type(new_return, param_info, num_parameters);
+    return new_function_type(new_return, param_info, num_parameters, ref_qualifier);
 }
 
 type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
@@ -5157,6 +5102,9 @@ static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t de
     }
 
     if (!compatible_parameters(t1, t2, decl_context))
+        return 0;
+
+    if (t1->ref_qualifier != t2->ref_qualifier)
         return 0;
 
     if (!equivalent_cv_qualification(ft1->cv_qualifier, ft2->cv_qualifier))
@@ -8520,6 +8468,22 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     }
                 }
                 prototype = strappend(prototype, ")");
+
+                ref_qualifier_t ref_qualif = function_type_get_ref_qualifier(type_info);
+                switch (ref_qualif)
+                {
+                    case REF_QUALIFIER_NONE:
+                        break;
+                    case REF_QUALIFIER_LVALUE:
+                        prototype = strappend(prototype, " &");
+                        break;
+                    case REF_QUALIFIER_RVALUE:
+                        prototype = strappend(prototype, " &&");
+                        break;
+                    default:
+                        internal_error("Invalid value %d ref-qualifier\n", ref_qualif);
+                }
+
                 if (get_cv_qualifier(type_info) != CV_NONE)
                 {
                     prototype = strappend(prototype, " ");
@@ -10774,7 +10738,7 @@ type_t* get_pseudo_destructor_call_type(void)
     if (_pseudo_destructor_call_type == NULL)
     {
         _pseudo_destructor_call_type = 
-            get_pointer_type(get_new_function_type(get_void_type(), NULL, 0));
+            get_pointer_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
     }
 
     return _pseudo_destructor_call_type;
@@ -12444,7 +12408,7 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
                 param_info[i].type_info = type_deep_copy(function_type_get_parameter_type_num(orig, i), new_decl_context, symbol_map);
             }
 
-            result = get_new_function_type(return_type, param_info, N);
+            result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
         }
     }
     else if (is_vector_type(orig))

@@ -319,18 +319,23 @@ namespace TL
             /*!
              * \param type_list List of parameter types of the function.
              * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \param reference_qualifier Sets the ref-qualifier of the function. This is for C++2011
              */
-            Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
+            Type get_function_returning(const ObjectList<Type>& type_list,
+                    bool has_ellipsis = false,
+                    ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
 
             //! Returns a function to the current list of parameter types
             /*!
              * \param type_list List of parameter types of the function.
              * \param nonadjusted_type_list List of nonadjusted parameter types of the function
              * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \param reference_qualifier Sets the ref-qualifier of the function. This is for C++2011
              */
             Type get_function_returning(const ObjectList<Type>& type_list,
                     const ObjectList<Type>& nonadjusted_type_list,
-                    bool has_ellipsis = false);
+                    bool has_ellipsis = false,
+                    ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
 
             //! If the type is a reference, it returns the referenced tye
             /*!

@@ -115,6 +115,7 @@ namespace TL
                 return (*this);
 
             cv_qualifier_t cv_qualif = get_cv_qualifier(this->get_internal_type());
+            ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(this->get_internal_type());
             TL::Type fixed_result = this->returns().fix_references_();
             bool has_ellipsis = 0;
 
@@ -137,7 +138,8 @@ namespace TL
             TL::Type fixed_function = fixed_result.get_function_returning(
                     fixed_parameters,
                     nonadjusted_fixed_parameters,
-                    has_ellipsis);
+                    has_ellipsis,
+                    ref_qualifier);
 
             fixed_function = TL::Type(get_cv_qualified_type(fixed_function.get_internal_type(), cv_qualif));
 
@@ -366,7 +368,8 @@ namespace TL
 
     Type Type::get_function_returning(const ObjectList<Type>& type_list,
             const ObjectList<Type>& nonadjusted_type_list,
-            bool has_ellipsis)
+            bool has_ellipsis,
+            ref_qualifier_t reference_qualifier)
     {
         int i;
         parameter_info_t *parameters_list;
@@ -389,14 +392,15 @@ namespace TL
             parameters_list[i].nonadjusted_type_info = NULL;
         }
 
-        return (Type(get_new_function_type(_type_info, parameters_list, num_parameters)));
+        return (Type(get_new_function_type(_type_info, parameters_list, num_parameters, reference_qualifier)));
     }
 
-    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis)
+    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis,
+            ref_qualifier_t reference_qualifier)
     {
         ObjectList<Type> nonadjusted_type_list(type_list.size());
 
-        return get_function_returning(type_list, nonadjusted_type_list, has_ellipsis);
+        return get_function_returning(type_list, nonadjusted_type_list, has_ellipsis, reference_qualifier);
     }
 
     bool Type::is_error_type() const

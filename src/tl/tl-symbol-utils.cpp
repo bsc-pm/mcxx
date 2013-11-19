@@ -117,7 +117,7 @@ namespace SymbolUtils
         type_t *function_type = get_new_function_type(
                 return_type.get_internal_type(),
                 p_types,
-                parameter_types.size());
+                parameter_types.size(), REF_QUALIFIER_NONE);
 
         delete[] p_types;
 

@@ -1514,8 +1514,8 @@ static TL::Symbol new_function_symbol_adapter(
 
     type_t *function_type = get_new_function_type(
             get_void_type(),
-            p_types,
-            parameters_of_new_function.size());
+            p_types, parameters_of_new_function.size(),
+            REF_QUALIFIER_NONE);
 
     new_function_sym->type_information = function_type;
 

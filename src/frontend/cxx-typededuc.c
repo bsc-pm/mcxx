@@ -1760,7 +1760,7 @@ char deduce_arguments_of_auto_initialization(
     parameter_types[0].type_info = fake_parameter_type;
 
     type_t* fake_function_type = get_new_function_type(get_void_type(),
-            parameter_types, 1);
+            parameter_types, 1, REF_QUALIFIER_NONE);
 
     // Fake template type
     type_t* fake_template_type = get_new_template_type(fake_template_parameter_list,

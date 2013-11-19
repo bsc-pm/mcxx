@@ -1183,7 +1183,7 @@ static scope_entry_t* get_intrinsic_symbol_(
             ERROR_CONDITION((types[i] == NULL), "Invalid description of builtin", 0);
             param_info[i].type_info = types[i];
         }
-        type_t* function_type = get_new_function_type(result_type, param_info, num_types);
+        type_t* function_type = get_new_function_type(result_type, param_info, num_types, REF_QUALIFIER_NONE);
 
         // We do not want it be signed in the scope
         scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
@@ -7000,7 +7000,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq_class_type->type_information =
             get_new_function_type(
                     fortran_get_default_logical_type(),
-                    eq_class_type_parameter_info, 2);
+                    eq_class_type_parameter_info, 2, REF_QUALIFIER_NONE);
         new_operator_eq_class_type->entity_specs.in_module = ieee_arithmetic;
         new_operator_eq_class_type->entity_specs.access = AS_PRIVATE;
 
@@ -7018,7 +7018,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq_round_type->type_information =
             get_new_function_type(
                     fortran_get_default_logical_type(),
-                    eq_round_type_parameter_info, 2);
+                    eq_round_type_parameter_info, 2, REF_QUALIFIER_NONE);
         new_operator_eq_round_type->entity_specs.in_module = ieee_arithmetic;
         new_operator_eq_round_type->entity_specs.access = AS_PRIVATE;
 

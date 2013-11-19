@@ -247,7 +247,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        static type_t* result = NULL; \
        if(result == NULL) \
        { \
-          result = get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), NULL, 0); \
+          result = get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), NULL, 0, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -263,7 +263,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
           _param_info[0].is_ellipsis = 0; \
           _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
           _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 1); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 1, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -282,7 +282,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
          _param_info[1].is_ellipsis = 0; \
          _param_info[1].type_info =(__mcxx_builtin_type__##PARAM_TYPE2)(); \
          _param_info[1].type_info = adjust_type_for_parameter_type(_param_info[1].type_info); \
-         result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 2); \
+         result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 2, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -304,7 +304,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
          _param_info[2].is_ellipsis = 0; \
          _param_info[2].type_info =(__mcxx_builtin_type__##PARAM_TYPE3)(); \
          _param_info[2].type_info = adjust_type_for_parameter_type(_param_info[2].type_info); \
-         result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 3); \
+         result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 3, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -329,7 +329,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
           _param_info[3].is_ellipsis = 0; \
           _param_info[3].type_info =(__mcxx_builtin_type__##PARAM_TYPE4)(); \
           _param_info[3].type_info = adjust_type_for_parameter_type(_param_info[3].type_info); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 4); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 4, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -357,7 +357,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
           _param_info[4].is_ellipsis = 0; \
           _param_info[4].type_info =(__mcxx_builtin_type__##PARAM_TYPE5)(); \
           _param_info[4].type_info = adjust_type_for_parameter_type(_param_info[4].type_info); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 5); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 5, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -388,7 +388,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[5].is_ellipsis = 0; \
            _param_info[5].type_info =(__mcxx_builtin_type__##PARAM_TYPE6)(); \
            _param_info[5].type_info = adjust_type_for_parameter_type(_param_info[5].type_info); \
-           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 6); \
+           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 6, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -422,7 +422,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[6].is_ellipsis = 0; \
            _param_info[6].type_info =(__mcxx_builtin_type__##PARAM_TYPE7)(); \
            _param_info[6].type_info = adjust_type_for_parameter_type(_param_info[6].type_info); \
-           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 7); \
+           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 7, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -437,7 +437,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 1; \
            _param_info[0].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 1); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 1, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -455,7 +455,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
            _param_info[1].is_ellipsis = 1; \
            _param_info[1].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 2); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 2, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -476,7 +476,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[1].type_info = adjust_type_for_parameter_type(_param_info[1].type_info); \
            _param_info[2].is_ellipsis = 1; \
            _param_info[2].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 3); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 3, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -500,7 +500,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[2].type_info = adjust_type_for_parameter_type(_param_info[2].type_info); \
            _param_info[3].is_ellipsis = 1; \
            _param_info[3].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 4); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 4, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -527,7 +527,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[3].type_info = adjust_type_for_parameter_type(_param_info[3].type_info); \
            _param_info[4].is_ellipsis = 1; \
            _param_info[4].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 5); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 5, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -557,7 +557,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[4].type_info = adjust_type_for_parameter_type(_param_info[4].type_info); \
            _param_info[5].is_ellipsis = 1; \
            _param_info[5].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 6); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 6, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -590,7 +590,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[5].type_info = adjust_type_for_parameter_type(_param_info[5].type_info); \
            _param_info[6].is_ellipsis = 1; \
            _param_info[6].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 7); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 7, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -626,7 +626,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[6].type_info = adjust_type_for_parameter_type(_param_info[5].type_info); \
            _param_info[7].is_ellipsis = 1; \
            _param_info[7].type_info = get_ellipsis_type(); \
-          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 8); \
+          result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 8, REF_QUALIFIER_NONE); \
        } \
        return result; \
    } 
@@ -2503,7 +2503,7 @@ static type_t* replace_generic_0_with_type(type_t* t, type_t* replacement)
                         replacement);
         }
 
-        updated_type = get_new_function_type(result, param_info, N);
+        updated_type = get_new_function_type(result, param_info, N, REF_QUALIFIER_NONE);
     }
     else
     {

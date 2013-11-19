@@ -2661,7 +2661,7 @@ static int get_type(void *datum,
             type_t* new_function_type = NULL;
             if (kind == TKT_FUNCTION)
             {
-                new_function_type = get_new_function_type(result, parameter_info, num_parameters);
+                new_function_type = get_new_function_type(result, parameter_info, num_parameters, REF_QUALIFIER_NONE);
             }
             else if (kind == TKT_NONPROTOTYPE_FUNCTION)
             {
