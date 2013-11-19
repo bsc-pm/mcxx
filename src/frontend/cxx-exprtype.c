@@ -8471,7 +8471,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
                 decl_context, 
                 declarator_type, 
-                /* is_explicit */ 0,
+                /* is_explicit */ 1,
                 &nodecl_cast_output);
         leave_test_expression();
 
