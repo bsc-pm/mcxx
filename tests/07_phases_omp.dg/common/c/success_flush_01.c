@@ -32,8 +32,8 @@ test_generator=config/mercurium-omp
 </testinfo>
 */
 
-// This test might hang
-int f(void)
+// This test might hang if gate is optimized into a register
+int main(int argc, char** argv)
 {
     static unsigned char gate = 0;
    
@@ -57,9 +57,4 @@ int f(void)
     }
 
     return 0;
-}
-
-int main(int argc, char* argv[])
-{
- f();
 }
