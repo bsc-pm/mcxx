@@ -142,6 +142,9 @@ namespace Analysis {
                     const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
                     int unroll_factor, int alignment ) const;
 
+            bool is_suitable_expression( const Nodecl::NodeclBase& n, 
+                    const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+                    int unroll_factor, int alignment ) const;
             
             // *** Queries about Auto-Scoping *** //
 
@@ -228,6 +231,11 @@ namespace Analysis {
                                          const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
                                          int unroll_factor, int alignment ) const;
             
+            //! Returns true if the given nodecl is suitable
+            bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                         const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                                         int unroll_factor, int alignment ) const;
+ 
             // *** Queries about Auto-Scoping *** //
 
             void print_auto_scoping_results( const Nodecl::NodeclBase& scope );
