@@ -42,13 +42,15 @@ namespace TL
                 const bool fast_math,
                 const bool is_parallel_loop,
                 const bool prefer_gather_scatter,
+                const bool prefer_mask_gather_scatter,
                 const TL::Type& target_type,
-                const Nodecl::List * suitable_expr_list,
+                const TL::ObjectList<Nodecl::NodeclBase> * suitable_expr_list,
                 const TL::ObjectList<TL::Symbol> * reduction_list,
                 std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
            _support_masking(support_masking), _mask_size(mask_size), _fast_math(fast_math), _is_parallel_loop(is_parallel_loop), 
-           _prefer_gather_scatter(prefer_gather_scatter), _target_type(target_type), _suitable_expr_list(suitable_expr_list),
+           _prefer_gather_scatter(prefer_gather_scatter), _prefer_mask_gather_scatter(prefer_mask_gather_scatter),
+           _target_type(target_type), _suitable_expr_list(suitable_expr_list),
            _reduction_list(reduction_list), _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
             std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
@@ -142,18 +144,18 @@ namespace TL
         {
         }
 
-        bool Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
+        int Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(for_statement);
 
             VectorizerVisitorFor visitor_for(environment);
-            bool needs_epilog = visitor_for.walk(for_statement);
+            int epilog_iterations = visitor_for.walk(for_statement);
 
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(for_statement);
-            return needs_epilog;
+            return epilog_iterations;
         }
 
         void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
@@ -172,12 +174,13 @@ namespace TL
 
         void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement, 
                 VectorizerEnvironment& environment,
-                Nodecl::NodeclBase& net_epilog_node)
+                Nodecl::NodeclBase& net_epilog_node,
+                int epilog_iterations)
         {
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(for_statement);
 
-            VectorizerVisitorForEpilog visitor_epilog(environment);
+            VectorizerVisitorForEpilog visitor_epilog(environment, epilog_iterations);
             visitor_epilog.visit(for_statement, net_epilog_node);
 
             // Applying strenth reduction

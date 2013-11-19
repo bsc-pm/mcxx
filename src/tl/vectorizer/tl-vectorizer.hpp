@@ -49,8 +49,9 @@ namespace TL
                 const bool _fast_math;
                 const bool _is_parallel_loop;
                 const bool _prefer_gather_scatter;
+                const bool _prefer_mask_gather_scatter;
                 const TL::Type& _target_type;
-                const Nodecl::List* _suitable_expr_list;
+                const TL::ObjectList<Nodecl::NodeclBase>* _suitable_expr_list;
 
                 const TL::ObjectList<TL::Symbol>* _reduction_list;
                 std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
@@ -74,8 +75,9 @@ namespace TL
                         const bool fast_math,
                         const bool is_parallel_loop,
                         const bool prefer_gather_scatter,
+                        const bool prefer_mask_gather_scatter,
                         const TL::Type& target_type,
-                        const Nodecl::List* suitable_expr_list,
+                        const TL::ObjectList<Nodecl::NodeclBase>* suitable_expr_list,
                         const TL::ObjectList<TL::Symbol>* reduction_list,
                         std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
@@ -84,6 +86,7 @@ namespace TL
                 friend class Vectorizer;
                 friend class VectorizerVisitorFor;
                 friend class VectorizerVisitorForEpilog;
+                friend class VectorizerVisitorLoopHeader;
                 friend class VectorizerVisitorLoopCond;
                 friend class VectorizerVisitorLoopNext;
                 friend class VectorizerVisitorFunction;
@@ -120,7 +123,7 @@ namespace TL
 
                 ~Vectorizer();
 
-                bool vectorize(Nodecl::ForStatement& for_statement, 
+                int vectorize(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
                 void vectorize(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
@@ -128,7 +131,8 @@ namespace TL
  
                 void process_epilog(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment,
-                        Nodecl::NodeclBase& net_epilog_node);
+                        Nodecl::NodeclBase& net_epilog_node,
+                        int epilog_iterations);
 
                 bool is_supported_reduction(bool is_builtin,
                         const std::string& reduction_name,

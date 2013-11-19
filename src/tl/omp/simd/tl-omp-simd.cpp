@@ -36,7 +36,7 @@ namespace TL {
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),  
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), _mic_enabled(false),
-            _prefer_gather_scatter(false)
+            _prefer_gather_scatter(false), _prefer_mask_gather_scatter(false)
         {        
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -66,6 +66,11 @@ namespace TL {
                     "If set to '1' enables generation of gather/scatter instructions instead of unaligned memory instructions",
                     _prefer_gather_scatter_str,
                     "0").connect(functor(&Simd::set_prefer_gather_scatter, *this));
+
+            register_parameter("prefer_mask_gather_scatter",
+                    "If set to '1' enables generation of gather/scatter instructions instead of unaligned memory instructions with masks",
+                    _prefer_mask_gather_scatter_str,
+                    "0").connect(functor(&Simd::set_prefer_mask_gather_scatter, *this));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -108,6 +113,14 @@ namespace TL {
             }
         }
 
+        void Simd::set_prefer_mask_gather_scatter(const std::string prefer_mask_gather_scatter_str)
+        {
+            if (prefer_mask_gather_scatter_str == "1")
+            {
+                _prefer_mask_gather_scatter = true;
+            }
+        }
+
         void Simd::pre_run(TL::DTO& dto)
         {
             this->PragmaCustomCompilerPhase::pre_run(dto);
@@ -124,16 +137,17 @@ namespace TL {
             if (_simd_enabled)
             {
                 SimdVisitor simd_visitor(_fast_math_enabled, _svml_enabled,
-                        _mic_enabled, _prefer_gather_scatter);
+                        _mic_enabled, _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 simd_visitor.walk(translation_unit);
             }
         }
 
         SimdVisitor::SimdVisitor(bool fast_math_enabled, bool svml_enabled, 
-                bool mic_enabled, bool prefer_gather_scatter)
+                bool mic_enabled, bool prefer_gather_scatter, bool prefer_mask_gather_scatter)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
             _prefer_gather_scatter = prefer_gather_scatter;
+            _prefer_mask_gather_scatter = prefer_mask_gather_scatter;
 
             if (fast_math_enabled)
             {
@@ -173,7 +187,7 @@ namespace TL {
             Nodecl::List simd_environment = simd_node.get_environment().as<Nodecl::List>();
 
             // Suitable clause
-            Nodecl::List suitable_expressions;
+            TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(simd_environment, suitable_expressions);
 
             // Vectorlengthfor clause
@@ -205,12 +219,13 @@ namespace TL {
                     _fast_math_enabled,
                     false, // Parallel Loop
                     _prefer_gather_scatter,
+                    _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
                     &new_external_vector_symbol_map);
 
-            bool needs_epilog = 
+            int epilog_iterations = 
                 _vectorizer.vectorize(for_statement, for_environment); 
 
             // Add new vector symbols
@@ -272,13 +287,14 @@ namespace TL {
             }
 
             // Process epilog
-            if (needs_epilog)
+            if (epilog_iterations != 0)
             {
                 Nodecl::NodeclBase net_epilog_node;
                 Nodecl::ForStatement for_stmt_epilog = simd_node_epilog.get_statement().as<Nodecl::ForStatement>();
                 _vectorizer.process_epilog(for_stmt_epilog,
                         for_environment,
-                        net_epilog_node);
+                        net_epilog_node,
+                        epilog_iterations);
  
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
@@ -291,7 +307,6 @@ namespace TL {
 
             // Remove Simd node from for_statement
             simd_node.replace(for_statement);
-
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
@@ -309,7 +324,7 @@ namespace TL {
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
             // Suitable clause
-            Nodecl::List suitable_expressions;
+            TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
             // Vectorlengthfor clause
@@ -346,12 +361,13 @@ namespace TL {
                     _fast_math_enabled,
                     true, // Parallel Loop
                     _prefer_gather_scatter,
+                    _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
                     &new_external_vector_symbol_map);
 
-            bool needs_epilog = 
+            int epilog_iterations = 
                 _vectorizer.vectorize(for_statement, for_environment); 
 
             // Add new vector symbols
@@ -412,7 +428,7 @@ namespace TL {
 
             Nodecl::List appendix_list;
             // Process epilog
-            if (needs_epilog)
+            if (epilog_iterations != 0)
             {
                 Nodecl::NodeclBase net_epilog_node;
 
@@ -421,7 +437,8 @@ namespace TL {
 
                 _vectorizer.process_epilog(epilog_for_statement,
                         for_environment,
-                        net_epilog_node);
+                        net_epilog_node,
+                        epilog_iterations);
 
                 // SINGLE
                 // Mark the induction variable a private entity in Single construct
@@ -480,7 +497,7 @@ namespace TL {
             simd_node.replace(function_code);
 
             // Suitable clause
-            Nodecl::List suitable_expressions;
+            TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
 
             // Vectorlengthfor clause
@@ -515,7 +532,7 @@ namespace TL {
 
         void SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
                 const Nodecl::FunctionCode& function_code,
-                const Nodecl::List& suitable_expressions,
+                const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                 const TL::Type& vectorlengthfor_type,
                 const bool masked_version)
         {
@@ -569,6 +586,7 @@ namespace TL {
                     _mask_size,
                     false, // Parallel loop (Not applicable)
                     _prefer_gather_scatter,
+                    _prefer_mask_gather_scatter,
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     &suitable_expressions,
@@ -580,14 +598,15 @@ namespace TL {
 
 
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,
-                Nodecl::List& suitable_expressions)
+                TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions)
         {
             Nodecl::OpenMP::Suitable omp_suitable = 
                 environment.find_first<Nodecl::OpenMP::Suitable>();
 
             if(!omp_suitable.is_null())
             {
-                suitable_expressions = omp_suitable.get_suitable_expressions().as<Nodecl::List>();
+                suitable_expressions = omp_suitable.get_suitable_expressions().
+                    as<Nodecl::List>().to_object_list();
             }
         }
 

@@ -721,7 +721,8 @@ namespace TL
                                     lhs.prettyprint().c_str());
                         }
 
-                        if (_environment._prefer_gather_scatter) // Unaligned Load or Scatter
+                        if (_environment._prefer_gather_scatter ||
+                                (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
                         {
                             const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
 
@@ -1043,7 +1044,8 @@ namespace TL
                             n.prettyprint().c_str());
                     }
 
-                    if(_environment._prefer_gather_scatter) // Unaligned Load or Gather
+                    if(_environment._prefer_gather_scatter ||
+                            (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
                     {
                         const Nodecl::NodeclBase base = n.get_subscripted();
                         const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();

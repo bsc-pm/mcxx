@@ -119,6 +119,8 @@ namespace TL
  
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then);
+
+            Nodecl::MaskLiteral get_contiguous_mask_literal(const int size, const int num_active_lanes);
         }
     }
 }

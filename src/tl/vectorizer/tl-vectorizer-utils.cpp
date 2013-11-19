@@ -414,6 +414,48 @@ namespace TL
                     return result;
                 }
             }
+
+            Nodecl::MaskLiteral get_contiguous_mask_literal(const int size, const int num_active_lanes)
+            {
+                if (num_active_lanes == 0)
+                {
+                    return Nodecl::MaskLiteral::make(
+                            TL::Type::get_mask_type(size),
+                            const_value_get_zero(size, 1));
+                }
+
+                if ( size == num_active_lanes)
+                {
+                    return Nodecl::MaskLiteral::make(
+                            TL::Type::get_mask_type(size),
+                            const_value_get_minus_one(size, 1));
+                }
+
+                const_value_t* mask_value;
+
+                if (size == 16)
+                {
+                    unsigned short int value = 
+                        ~(((signed short int)0x8000) >> (15 - ((unsigned short int) num_active_lanes)));
+
+                    mask_value = const_value_get_integer(value, 2, 0); 
+                }
+                else if (size == 8)
+                {
+                    unsigned char value = 
+                        ~(((signed char)0x80) >> (7 - ((unsigned char) num_active_lanes)));
+
+                    mask_value = const_value_get_integer(value, 1, 0); 
+                }
+                else
+                {
+                    internal_error("Vectorization Utils: Unsupported mask size", 0);
+                }
+
+                return Nodecl::MaskLiteral::make(
+                            TL::Type::get_mask_type(size),
+                            mask_value);
+            }
         }
     }
 }
