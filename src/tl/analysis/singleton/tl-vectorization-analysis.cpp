@@ -141,7 +141,8 @@ namespace Analysis {
         return result;
     }
         
-    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List* suitable_expressions, 
+    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, 
+            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
             int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -174,7 +175,7 @@ namespace Analysis {
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const Nodecl::List* suitable_expressions, int unroll_factor, 
+                                                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions, int unroll_factor, 
                                                         int type_size, int alignment )
         : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
           _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
@@ -280,8 +281,6 @@ namespace Analysis {
                     dimension_size_node = dimension_size_node.get_symbol().get_value();
                 }
                
-                std::cerr << dimension_size_node.prettyprint() << std::endl;
-
                 int dimension_size = -1;
                 if( dimension_size_node.is_constant( ) )
                 {
@@ -295,7 +294,7 @@ namespace Analysis {
                 {
                     dimension_size = 0;
                 }
-                //if( VERBOSE )
+                if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
                 
                 dimension_sizes[i] = dimension_size;
