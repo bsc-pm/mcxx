@@ -1074,11 +1074,11 @@ namespace TL { namespace OpenMP {
     //          }
     //
 
-    TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set)
+    TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set)
         :
             _counter(0),
             _enclosing_stmt(nodecl_null()),
-            _function_task_set(function_task_Set),
+            _function_task_set(function_task_set),
             _transformed_task_map(),
             _ignore_these_function_calls(),
             _funct_call_to_enclosing_stmt_map(),

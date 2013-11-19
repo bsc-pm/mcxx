@@ -101,7 +101,7 @@ namespace TL { namespace OpenMP {
 
         public:
 
-            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set);
+            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set);
 
             virtual void visit(const Nodecl::ObjectInit& object_init);
             virtual void visit(const Nodecl::ReturnStatement& return_stmt);
