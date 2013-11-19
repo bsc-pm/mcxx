@@ -1491,22 +1491,26 @@ namespace TL { namespace OpenMP {
             OpenMP::DataSharingEnvironment &data_sharing_env,
             OpenMP::DataSharingAttribute data_attr,
             const locus_t* locus,
-            ObjectList<Nodecl::NodeclBase>& result_list)
+            ObjectList<Nodecl::NodeclBase>& result_list,
+            bool avoid_dependency_clause_symbols=false )
     {
         TL::ObjectList<Symbol> symbols;
         data_sharing_env.get_all_symbols(data_attr, symbols);
 
-        // Get the symbols in dependences
-        TL::ObjectList<DependencyItem> all_dependences;
-        data_sharing_env.get_all_dependences(all_dependences);
-        TL::ObjectList<DataReference> dependences_in_symbols
-            = all_dependences.map(functor(&DependencyItem::get_dependency_expression));
-        TL::ObjectList<Symbol> symbols_in_dependences
-            = dependences_in_symbols.map(functor(&DataReference::get_base_symbol));
+        if (!avoid_dependency_clause_symbols)
+        {
+            // Get the symbols in dependences
+            TL::ObjectList<DependencyItem> all_dependences;
+            data_sharing_env.get_all_dependences(all_dependences);
+            TL::ObjectList<DataReference> dependences_in_symbols
+                = all_dependences.map(functor(&DependencyItem::get_dependency_expression));
+            TL::ObjectList<Symbol> symbols_in_dependences
+                = dependences_in_symbols.map(functor(&DataReference::get_base_symbol));
 
-        // Remove all symbols appearing in dependences
-        symbols = symbols.filter(not_in_set(symbols_in_dependences));
-
+            // Remove all symbols appearing in dependences
+            symbols = symbols.filter(not_in_set(symbols_in_dependences));
+        }
+        
         if (!symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(locus));
@@ -1540,10 +1544,6 @@ namespace TL { namespace OpenMP {
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
-                locus,
-                result_list);
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
-                data_sharing_env, OpenMP::DS_AUTO,
                 locus,
                 result_list);
 
@@ -1683,7 +1683,8 @@ namespace TL { namespace OpenMP {
         make_data_sharing_list<Nodecl::OpenMP::Auto>(
                 data_sharing_env, OpenMP::DS_AUTO,
                 locus,
-                result_list);
+                result_list, 
+                /*avoid dependency clause symbols*/ true);
 
         TL::ObjectList<ReductionSymbol> reductions;
         data_sharing_env.get_all_reduction_symbols(reductions);
