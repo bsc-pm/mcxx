@@ -3642,9 +3642,17 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
         *(file) << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
     }
+    else if (sym.is_variable())
+    {
+        // This should be a nonstatic member
+        if (is_extern)
+            *(file) << "extern ";
+        std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
+        *(file) << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+    }
     else
     {
-        internal_error("Invalid symbol", 0);
+        internal_error("Invalid symbol %s", sym.get_name().c_str());
     }
 }
 
