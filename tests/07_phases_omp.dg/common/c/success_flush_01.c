@@ -33,9 +33,10 @@ test_generator=config/mercurium-omp
 */
 
 // This test might hang
-int main(int argc, char *argv[])
+int f(void)
 {
-    unsigned char gate = 0;
+    static unsigned char gate = 0;
+   
 #pragma omp parallel shared(gate)
     {
 #pragma omp master
@@ -56,4 +57,9 @@ int main(int argc, char *argv[])
     }
 
     return 0;
+}
+
+int main(int argc, char* argv[])
+{
+ f();
 }
