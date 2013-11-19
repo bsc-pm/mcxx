@@ -751,7 +751,7 @@ namespace Analysis {
         ObjectList<Symbol> reductions;
         Utils::ext_sym_set killed;
         ObjectList<ExtensibleGraph*> pcfgs;
-        Node* autoscoped_task;
+        Node* autoscoped_task = NULL;
         if( _analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
             induction_variables = _state.get_induction_variables( n );

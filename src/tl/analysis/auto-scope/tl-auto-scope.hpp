@@ -59,7 +59,7 @@ namespace Analysis {
         ObjectList<Node*> var_uses_out_task( Node* task, Utils::ExtendedSymbol ei );
 
         bool scope_ie_in_iterated_task( Node* task, Node* current, Node* ei_node, char usage, Utils::ExtendedSymbol ei );
-        void scope_variable( Node* task, Node* ei_node, Utils::UseDefVariant usage, 
+        void scope_variable( Node* task, Node* ei_node, Utils::UsageKind usage, 
                              Utils::ExtendedSymbol ei, Utils::ext_sym_set& scoped_vars );
 
         void compute_task_auto_scoping_rec( Node* task, Node* current, Utils::ext_sym_set& scoped_vars );

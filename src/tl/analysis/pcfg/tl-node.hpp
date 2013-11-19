@@ -478,6 +478,9 @@ namespace Analysis {
             // ****************************************************************************** //
             // *************** Getters and setters for use-definition analysis ************** //
 
+            //! Returns true when some usage information has been computed for the node
+            bool usage_is_computed( );
+            
             //! Returns the list of upper exposed variables of the node
             Utils::ext_sym_set get_ue_vars( );
 

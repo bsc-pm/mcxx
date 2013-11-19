@@ -45,15 +45,20 @@ namespace Analysis {
         //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
 
+        //!Graphs containing those functions which code is reachable
+        ObjectList<ExtensibleGraph*>* _pcfgs;
+        
+        //!Usage of Global Variables and Reference parameters, necessary to propage usage information in recursive calls
+        std::map<Symbol, Utils::UsageKind> _global_vars;
+        std::map<Symbol, Utils::UsageKind> _reference_params;
+        
         /*!Method that computes recursively the Use-Definition information from a node
          * \param current Node from which the method begins the computation
          * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
          * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          */
-        void compute_usage_rec( Node* current, std::set<TL::Symbol>& visited_functions,
-                                ObjectList<Utils::ExtendedSymbolUsage>& visited_global_vars,
-                                bool ipa, Utils::nodecl_set ipa_arguments );
-
+        void compute_usage_rec( Node* current );
+        
         /*!Recursive method that returns a list with three elements:
          * - The first is the list of upper exposed variables of the graph node;
          * - The second is the list of killed variables of the graph node
@@ -69,16 +74,14 @@ namespace Analysis {
 
     public:
         //! Constructor
-        UseDef( ExtensibleGraph* graph );
+        UseDef( ExtensibleGraph* graph, ObjectList<ExtensibleGraph*>* pcfgs );
 
         /*! Method computing the Use-Definition information on the member #graph
          * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
          * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          *                      Only necessary when \ipa is true
          */
-        void compute_usage( std::set<TL::Symbol> visited_functions,
-                            ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
-                            bool ipa = false, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ) );
+        void compute_usage( );
     };
 
     // ************************** End class implementing use-definition analysis ************************** //
@@ -120,30 +123,26 @@ namespace Analysis {
         //!List of functions visited
         std::set<Symbol> _visited_functions;
 
-        //! List of global variables appeared until certain point of the analysis
-        ObjectList<Utils::ExtendedSymbolUsage> _visited_global_vars;
-
-        // *** Members for the IPA analysis *** //
-
-        /*!Boolean indicating whether the Use-Def analysis must be IPA or not
-         * IPA means that we only care about global variables and referenced parameters
-         */
-        bool _ipa;
-
-        //! Scope used while IPA to know whether a variable is global or local
-        Scope _sc;
-
-        //! List of arguments passed by reference or with pointer type
-        Utils::nodecl_set _ipa_arguments;
+        //! List of global variables and reference parameters appeared until a given point of the analysis
+        std::map<Symbol, Utils::UsageKind>* _global_vars;
+        std::map<Symbol, Utils::UsageKind>* _reference_params;
 
         /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
-         * When a function call appears in a split statement we calculate the first time (the func_call node)
-         * but for the other nodes, we just propagate the information
+         *  When a function call appears in a split statement we calculate the first time (the func_call node)
+         *  but for the other nodes, we just propagate the information
          */
         bool _avoid_func_calls;
         
+        // Current pcfg being analyzed
+        // We want this here because when running IPa analysis, we need to propagate the Global Variables
+        // used in called functions to the current graph, otherwise,
+        // we can lose global variables usage over the nested function calls
+        ExtensibleGraph* _pcfg;
+        
+        //! Graphs containing those functions which code is reachable
+        ObjectList<ExtensibleGraph*>* _pcfgs;
+        
         // *********************** Private methods *********************** //
-
         
         template<typename T>
         void visit_assignment( const T& n );
@@ -152,7 +151,7 @@ namespace Analysis {
         template<typename T>
         void visit_binary_assignment( const T& n );
 
-        void function_visit( Nodecl::NodeclBase called_sym, Nodecl::NodeclBase arguments );
+        void function_visit( const Nodecl::NodeclBase& called_sym, const Nodecl::List& arguments );
 
         template<typename T>
         Ret visit_increment( const T& n );
@@ -161,25 +160,20 @@ namespace Analysis {
         UsageVisitor( const UsageVisitor& v );
 
         // Methods to parse the file containing C function definitions useful for Use-Def analysis
-        void parse_parameter( std::string current_param, Nodecl::NodeclBase arg );
-        bool parse_c_functions_file( Symbol func_sym, Nodecl::List args );
+        void parse_parameter( std::string current_param, const Nodecl::NodeclBase& arg );
+        bool parse_c_functions_file( Symbol func_sym, const Nodecl::List& args );
+        
+        Utils::ext_sym_set get_ipa_usage( Utils::UsageKind usage_kind, const Utils::ext_sym_set& list,
+                                          const Nodecl::List& arguments, const TL::Symbol& func_sym );
 
     public:
         // *** Constructors *** //
         UsageVisitor( Node* fake_node );
         
-        UsageVisitor( Node* n,
-                      std::set<Symbol> visited_functions,
-                      ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars,
-                      bool ipa, Scope sc, Utils::nodecl_set ipa_arguments = Utils::nodecl_set( ) );
-
-        // *** Getters and Setters *** //
-        std::set<Symbol> get_visited_functions( ) const;
-        ObjectList<Utils::ExtendedSymbolUsage> get_visited_global_variables( ) const;
-
-        // *** Utils *** //
-        bool variable_is_in_context( Nodecl::NodeclBase var );
-
+        UsageVisitor( Node* n, ExtensibleGraph* pcfg, ObjectList<ExtensibleGraph*>* pcfgs,
+                      std::map<Symbol, Utils::UsageKind>* global_vars,
+                      std::map<Symbol, Utils::UsageKind>* reference_params );
+        
         // *** Modifiers *** //
         void compute_statement_usage( Nodecl::NodeclBase st );
 
