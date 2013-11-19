@@ -165,7 +165,23 @@ namespace Analysis {
         
         return result;
     }
-    
+
+    bool NodeclStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& n, 
+            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            int unroll_factor, int alignment ) const
+    {
+        bool result = false;
+        int type_size = n.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
+        int subscript_alignment = sa_v.walk( n );
+
+        if( (subscript_alignment % alignment) == 0 )
+            result = true;
+
+        return result;
+    }
+
     // ************ END class to retrieve SIMD analysis info about one specific nodecl ************* //
     // ********************************************************************************************* //
     

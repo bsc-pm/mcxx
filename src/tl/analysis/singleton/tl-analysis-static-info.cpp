@@ -681,6 +681,28 @@ namespace Analysis {
         
         return result;
     }
+
+    bool AnalysisStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            int unroll_factor, int alignment ) const 
+    {
+        bool result = false;
+        
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether the memory access '%s' aligned.'",
+            scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.is_suitable_expression( n, suitable_expressions, unroll_factor, alignment );
+        }
+        
+        return result;
+    }
     
     void AnalysisStaticInfo::print_auto_scoping_results( const Nodecl::NodeclBase& scope )
     {
