@@ -736,6 +736,11 @@ namespace Analysis {
         return true;
     }
     
+    bool ArrayAccessInfoVisitor::visit( const Nodecl::MaskLiteral& n )
+    {
+        return true;
+    }
+    
     bool ArrayAccessInfoVisitor::visit( const Nodecl::Minus& n )
     {
         // Gather LHS info

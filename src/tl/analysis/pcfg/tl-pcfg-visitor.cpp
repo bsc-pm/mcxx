@@ -1642,7 +1642,12 @@ namespace Analysis {
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
-  
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskLiteral& n )
+    {
+        return visit_literal_node( n );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Minus& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );

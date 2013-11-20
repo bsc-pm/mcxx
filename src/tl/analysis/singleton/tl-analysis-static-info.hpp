@@ -383,6 +383,7 @@ namespace Analysis {
         Ret visit( const Nodecl::FloatingLiteral& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::MaskLiteral& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::Mul& n );
         Ret visit( const Nodecl::Neg& n );
