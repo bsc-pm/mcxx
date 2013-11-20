@@ -286,6 +286,8 @@ LIBMCXX_EXTERN int get_length_of_pack_expansion_from_type(type_t* pack_type,
 
 LIBMCXX_EXTERN nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry);
 
+LIBMCXX_EXTERN scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

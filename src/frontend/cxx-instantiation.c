@@ -623,7 +623,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         }
 
                         // Now ask a new specialization
-                        type_t* new_template_specialized_type = template_type_get_specialized_type_after_type(new_template_type,
+                        type_t* new_template_specialized_type =
+                            template_type_get_specialized_type_for_instantiation(new_template_type,
                                 template_args,
                                 member_of_template->type_information,
                                 context_of_being_instantiated,

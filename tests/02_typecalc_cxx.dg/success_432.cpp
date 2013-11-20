@@ -31,29 +31,36 @@
 test_generator=config/mercurium
 </testinfo>
 */
- 
-template<typename _Tp>
-struct D
+
+template <typename T>
+struct A
 {
-    const static bool __value = true;
 };
 
-template <typename _Key>
-class A
+template <typename T>
+struct B
 {
-    template< typename _T, bool _B = D<_T>::__value >
-        struct B
-        {
-        };
-
-    template< typename _T>
-        struct B<_T, true>
-        {
-            typedef _T T;
-        };
-
-    typename B<_Key>::T var;
-
+    bool operator==(B&) const;
 };
 
-A<int> var;
+struct C
+{
+    private:
+        typedef A<int> D;
+        typedef B<D> E;
+    public:
+        typedef A<int> M;
+};
+
+B<A<int> > e1;
+B<C::M > e2;
+
+B<A<int> > *p_e1;
+B<C::M > *p_e2;
+
+void f()
+{
+    e1 == e2;
+
+    p_e1 == p_e2;
+}
