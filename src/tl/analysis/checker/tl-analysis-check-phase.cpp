@@ -539,6 +539,8 @@ namespace {
         
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
+            if( VERBOSE )
+                printf( "Check PCFG '%s' consistency\n", ( *it )->get_name( ).c_str( ) );
             check_pcfg_consistency( *it );
         }
             

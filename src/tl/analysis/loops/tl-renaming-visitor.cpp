@@ -1183,7 +1183,12 @@ namespace Analysis {
     {
         return visit_binary(n);
     }
-
+    
+    RenamingVisitor::Ret RenamingVisitor::visit( const Nodecl::MaskLiteral& n )
+    {
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Minus& n)
     {
         return visit_binary(n);

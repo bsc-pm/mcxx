@@ -133,7 +133,7 @@ namespace Analysis {
         /*!
          * The nodes wrapped in this visitor method are:
          *   BooleanLiteral, ComplexLiteral, EmptyStatement, FloatingLiteral,
-         *   IntegerLiteral, StringLiteral, Symbol, Type
+         *   IntegerLiteral, StringLiteral, MaskLiteral, Symbol, Type
          * \param n The nodecl
          */
         Ret visit_literal_node( const Nodecl::NodeclBase& n );
@@ -313,6 +313,7 @@ namespace Analysis {
         Ret visit( const Nodecl::RangeLoopControl& n );
         Ret visit( const Nodecl::LowerOrEqualThan& n );
         Ret visit( const Nodecl::LowerThan& n );
+        Ret visit( const Nodecl::MaskLiteral& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::MinusAssignment& n );
         Ret visit( const Nodecl::Mod& n );

@@ -28,33 +28,23 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-analysis
+test_nolink=yes
 </testinfo>
 */
 
-// This test might hang if gate is optimized into a register
-int main(int argc, char** argv)
+void f(void)
 {
-    static unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
+    #pragma omp task
     {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
-
-        // Make all threads busy wait here
-        while (gate == 0);
+        printf("1");
+        #pragma omp task
+        printf("2");
     }
 
-    return 0;
+    #pragma omp task
+    printf("3");
+
+    #pragma omp taskwait
 }
+
