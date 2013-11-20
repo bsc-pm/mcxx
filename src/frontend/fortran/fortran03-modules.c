@@ -142,7 +142,7 @@ static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const
 static void insert_extra_function_parameter_info(sqlite3* handle, scope_entry_t* symbol, 
         const char *name, function_parameter_info_t* parameter_info);
 static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, 
-        gather_gcc_attribute_t* gcc_attr);
+        gcc_attribute_t* gcc_attr);
 static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const char* name, void* data,
         sqlite3_uint64 (*fun)(sqlite3* handle, void* data));
 static sqlite3_uint64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
@@ -1447,7 +1447,7 @@ static void insert_extra_function_parameter_info(sqlite3* handle, scope_entry_t*
     sqlite3_reset(_insert_extra_attr_stmt);
 }
 
-static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr)
+static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gcc_attribute_t* gcc_attr)
 {
     insert_ast(handle, nodecl_get_ast(gcc_attr->expression_list));
     char *name_and_tree = sqlite3_mprintf("%s|%llu", 
@@ -3088,6 +3088,12 @@ static int get_module_extra_data(void *data,
                 *(p->current_item) = tl_nodecl(node);
                 break;
             }
+        case TL_DECL_CONTEXT:
+            {
+                decl_context_t decl_context = load_decl_context(p->handle, safe_atoull(values[1]));
+                *(p->current_item) = tl_decl_context(decl_context);
+                break;
+            }
         default:
             {
                 internal_error("Invalid data type %d when loading extra module information", kind);
@@ -3260,6 +3266,15 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
                     query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
                             "VALUES (%llu, %d, %d, %llu);", 
                             domain_oid, i, kind, nodecl_oid);
+                    break;
+                }
+            case TL_DECL_CONTEXT:
+                {
+                    sqlite3_uint64 decl_context_oid = insert_decl_context(handle, info[i].data._decl_context);
+
+                    query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %llu);",
+                            domain_oid, i, kind, decl_context_oid);
                     break;
                 }
             default:

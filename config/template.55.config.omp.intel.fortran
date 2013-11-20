@@ -22,14 +22,14 @@ linker_options = -reentrancy threaded
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
-@DISABLE_CUDA@{openmp,!mmic}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
-@DISABLE_CUDA@{!mmic}options = --cuda
-@DISABLE_CUDA@{openmp,!mmic}linker_options = -lnanox-gpu-api
-@DISABLE_CUDA@{openmp,!mmic}compiler_phase = libtlnanox-cuda.so
-@DISABLE_OPENCL@{!mmic}options = --opencl
-@DISABLE_OPENCL@{openmp,!mmic}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
-@DISABLE_OPENCL@{openmp,!mmic}compiler_phase = libtlnanox-opencl.so
-@DISABLE_OPENCL@{openmp,!mmic}linker_options = -lnanox-opencl-api
+@DISABLE_CUDA@{!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+@DISABLE_CUDA@{!mmic,openmp}options = --cuda
+@DISABLE_CUDA@{!mmic,openmp}linker_options = -lnanox-gpu-api
+@DISABLE_CUDA@{!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+@DISABLE_OPENCL@{!mmic,openmp}options = --opencl
+@DISABLE_OPENCL@{!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+@DISABLE_OPENCL@{!mmic,openmp}compiler_phase = libtlnanox-opencl.so
+@DISABLE_OPENCL@{!mmic,openmp}linker_options = -lnanox-opencl-api
 
 [imf95 : imfc]
 [ifort-mfc : imfc]

@@ -59,10 +59,6 @@ namespace Analysis {
         bool _induction_vars_enabled;
         void set_induction_vars( const std::string& induction_vars_enabled_str );
 
-        std::string _auto_scope_enabled_str;
-        bool _auto_scope_enabled;
-        void set_auto_scope( const std::string& auto_scope_enabled_str );
-
     public:
         //! Constructor of this phase
         TestAnalysisPhase();

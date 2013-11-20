@@ -193,7 +193,7 @@ def insert_extra_attr_code(_type, name, suffix):
         _insert_code.append("} }");
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
-        if type_name == "gather_gcc_attribute_t" :
+        if type_name == "gcc_attribute_t" :
             _insert_code.append("insert_extra_gcc_attr(handle, sym, \"" + name + "\", &(sym->entity_specs." + name + suffix + "));")
         elif type_name == "default_argument_info_t*" :
             _insert_code.append("insert_extra_attr_data(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ", "\
@@ -246,7 +246,7 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("}")
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
-        if type_name == "gather_gcc_attribute_t" :
+        if type_name == "gcc_attribute_t" :
             result.append("{")
             result.append("extra_gcc_attrs_t extra_gcc_attrs;");
             result.append("memset(&extra_gcc_attrs, 0, sizeof(extra_gcc_attrs));");
@@ -576,9 +576,9 @@ def print_deep_copy_entity_specs(lines):
                   print "  copied->context = decl_context;"
                   print "}"
                   print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
-          elif type_name == "gather_gcc_attribute_t":
-              print "gather_gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
-              print "gather_gcc_attribute_t copied;"
+          elif type_name == "gcc_attribute_t":
+              print "gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
+              print "gcc_attribute_t copied;"
               print "copied.attribute_name = source_gcc_attr.attribute_name;"
               print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, symbol_map);"
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)

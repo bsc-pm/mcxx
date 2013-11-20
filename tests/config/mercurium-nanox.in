@@ -35,7 +35,7 @@ source @abs_builddir@/mercurium-libraries
 cat <<EOF
 MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
-MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config --verbose"
+MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 EOF
 
 COMMON_NANOX_CFLAGS=-DNANOX

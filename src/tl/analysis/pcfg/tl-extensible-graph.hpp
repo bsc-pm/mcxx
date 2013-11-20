@@ -35,6 +35,7 @@
 
 #include "cxx-codegen.h"
 #include "cxx-utils.h"
+#include "tl-analysis-utils.hpp"
 #include "tl-edge.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-node.hpp"
@@ -61,16 +62,13 @@ namespace Analysis {
          */
         Scope _sc;
 
+        //! Set of global variables appearing in the graph or, eventually (when use-def analysis is performed),
+        //* also global variables appearing in functions called in this graph ( any level of function nesting )
+        std::set<Symbol> _global_vars;
 
-        /*!While building the CFG, this list keeps information about which variables appear in the graph
-         * But no information about their usage is stored
-         * When IPA is performed, then the proper information about the usage is stored
+        /*! Symbol of the function contained in the graph.
+         *  This symbol is empty when the code contained in the graph do not correspond to a function
          */
-        ObjectList<Utils::ExtendedSymbolUsage> _global_vars;
-
-        //! Symbol of the function contained in the graph.
-        /*! This symbol is empty when the code contained in the graph do not correspond to a function
-        */
         Symbol _function_sym;
 
         //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
@@ -89,6 +87,10 @@ namespace Analysis {
 
         //! Map that relates each task in the graph with the tasks that are concurrent with it
         std::map<Node*, ObjectList<Node*> > _concurrent_tasks;
+        //! Map that relates each task in the graph with the immediately previous nodes where it is synchronized
+        std::map<Node*, ObjectList<Node*> > _last_sync;
+        //! Map that relates each task in the graph with the immediately next nodes where it is synchronized
+        std::map<Node*, Node* > _next_sync;
         
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
@@ -148,11 +150,8 @@ namespace Analysis {
          * \param subgraph_id Identifier for the actual cluster.
          */
         void get_nodes_dot_data( Node* actual_node, std::string& dot_graph, std::string& dot_analysis_info,
-                                 std::vector<std::string>& outer_edges,
-                                 std::vector<Node*>& outer_nodes,
-                                 std::string indent, int& subgraph_id,
-                                 bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                 bool auto_scoping, bool auto_deps );
+                                 std::vector<std::vector< std::string> >& outer_edges, 
+                                 std::vector<std::vector<Node*> >& outer_nodes, std::string indent );
         
         //! Prints both nodes and edges within a pcfg subgraph
         //! Prints nodes and relations between them in a string in a recursive way.
@@ -165,21 +164,15 @@ namespace Analysis {
          * \param subgraph_id Identifier for the actual cluster.
          */
         void get_dot_subgraph( Node* actual_node, std::string& graph_data, std::string& graph_analysis_info,
-                               std::vector<std::string>& outer_edges,
-                               std::vector<Node*>& outer_nodes,
-                               std::string indent, int& subgraph_id,
-                               bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                               bool auto_scoping, bool auto_deps );
+                               std::vector<std::vector< std::string> >& outer_edges, 
+                               std::vector<std::vector<Node*> >& outer_nodes, std::string indent );
         
         //! Prints the data of an only node.
-        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent,
-                                bool usage, bool liveness, bool reaching_defs );
+        void get_node_dot_data( Node* node, std::string& graph_data, std::string& graph_analysis_info, std::string indent );
         
         //! Method printing the nodes containing analysis info into the DOT file
         void print_node_analysis_info( Node* current, std::string& dot_analysis_info,
-                                       std::string cluster_name,
-                                       bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                       bool auto_scoping, bool auto_deps );
+                                       std::string cluster_name );
         
         //! Prints OpenMP clauses information only for OpenMP nodes
         std::string print_pragma_node_clauses( Node* current, std::string indent, std::string cluster_name );
@@ -215,17 +208,17 @@ namespace Analysis {
         * \return The new node created
         */
         Node* append_new_node_to_parent( ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS);
+                                         Node_type ntype = __Normal, Edge_type etype = __Always);
 
 
         Node* append_new_node_to_parent( Node* parent, Nodecl::NodeclBase nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
+                                         Node_type ntype = __Normal, Edge_type etype = __Always );
 
         Node* append_new_node_to_parent( Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
+                                         Node_type ntype = __Normal, Edge_type etype = __Always );
 
         Node* append_new_node_to_parent( ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
-                                         Node_type ntype = NORMAL, Edge_type etype = ALWAYS );
+                                         Node_type ntype = __Normal, Edge_type etype = __Always );
 
         //! Connects two nodes by creating a new edge between them.
         /*!
@@ -238,7 +231,7 @@ namespace Analysis {
         *                     Thus, the edge will have special type _TASK_EDGE
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = ALWAYS, std::string label = "",
+        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, std::string label = "",
                              bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
@@ -261,7 +254,7 @@ namespace Analysis {
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
-        void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = ALWAYS,
+        void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = __Always,
                             std::string label = "" );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
@@ -296,16 +289,6 @@ namespace Analysis {
 
         //! Builds a Flush node and connects it with the existent graph
         Node* create_flush_node( Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null( ) );
-
-        //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
-        /*!
-        * As defined in OpenMP standard, a flush occurs while a barrier point. To describe this behaviour
-        * with the graph, we add a Flush node before and after a Barrier node.
-        * The method modifies the attribute #_last_nodes to the last Flush node created.
-        * \param outer_node Node to which the new nodes will belong to.
-        *                   It must be a Graph node.
-        */
-        Node* create_barrier_node( Node* outer_node );
 
         //! Builds a basic normal node (BASIC_NORMAL_NODE)
         /*!
@@ -351,6 +334,7 @@ namespace Analysis {
         static void clear_visits_extgraph( Node* node );
         static void clear_visits_extgraph_aux( Node* node );
         static void clear_visits_in_level( Node* node, Node* outer_node );
+        static void clear_visits_aux_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
         static void clear_visits_aux_backwards( Node* current );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
@@ -375,7 +359,8 @@ namespace Analysis {
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope( ) const;
 
-        ObjectList<Utils::ExtendedSymbolUsage> get_global_variables( ) const;
+        std::set<Symbol> get_global_variables( ) const;
+        void set_global_vars( const std::set<Symbol>& global_vars );
 
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code
@@ -392,19 +377,29 @@ namespace Analysis {
         void add_func_call_symbol( Symbol s );
 
         ObjectList<Symbol> get_function_calls( ) const;
-
-        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
         
+        // Task synchronization analysis
+        // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
+        ObjectList<Node*> get_task_concurrent_tasks( Node* task );
         void add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks );
+        ObjectList<Node*> get_task_last_synchronization( Node* task );
+        void add_last_synchronization( Node* task, ObjectList<Node*> last_sync );
+        Node* get_task_next_synchronization( Node* task );
+        void add_next_synchronization( Node* task, Node* next_sync );
+        
         
         // *** Consultants *** //
         static Node* is_for_loop_increment( Node* node );
         static bool node_is_in_loop( Node* current );
         static bool node_is_in_conditional_branch( Node* current, Node* max_outer = NULL );
+        static bool node_is_in_synchronous_construct( Node* current );
         static bool is_backward_parent( Node* son, Node* parent );
         static bool node_contains_node( Node* container, Node* contained );
         static Node* get_extensible_graph_from_node( Node* node );
         static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
+        static Node* get_omp_enclosing_node( Node* current );
+        static Edge* get_edge_between_nodes( Node* source, Node* target );
+        
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
@@ -414,10 +409,7 @@ namespace Analysis {
         
         Node* find_nodecl( const Nodecl::NodeclBase& n );
         
-        
-        // *** Printing methods *** //
-        void print_global_vars( ) const;
-
+        bool usage_is_computed( );
 
     friend class PCFGVisitor;
     };

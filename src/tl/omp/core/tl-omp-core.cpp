@@ -401,7 +401,7 @@ namespace TL
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
-                DataSharingAttribute fallback_data_sharing)
+                DataSharingAttribute fallback_data_sharing, bool allow_default_auto)
         {
             PragmaCustomClause default_clause = construct.get_clause("default");
 
@@ -413,6 +413,9 @@ namespace TL
             {
                 ObjectList<std::string> args = default_clause.get_tokenized_arguments();
 
+                if(!allow_default_auto && args[0] == std::string("auto"))
+                    error_printf("directives other than tasks do not allow the clause default(auto)");
+                
                 struct pairs_t
                 {
                     const char* name;
@@ -1587,33 +1590,99 @@ namespace TL
         }
 
         void Core::simd_handler_pre(TL::PragmaCustomStatement construct)
-        { 
-            for_handler_pre(construct);
+        {
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                for_handler_pre(construct);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                do_handler_pre(construct);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
         void Core::simd_handler_post(TL::PragmaCustomStatement construct)
         { 
-            for_handler_post(construct);
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                for_handler_post(construct);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                do_handler_post(construct);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
         void Core::simd_handler_pre(TL::PragmaCustomDeclaration construct) { }
         void Core::simd_handler_post(TL::PragmaCustomDeclaration construct) { }
 
         void Core::simd_for_handler_pre(TL::PragmaCustomStatement construct)
         {
-            for_handler_pre(construct);
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                for_handler_pre(construct);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                do_handler_pre(construct);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
         void Core::simd_for_handler_post(TL::PragmaCustomStatement construct)
         {
-            for_handler_post(construct);
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                for_handler_post(construct);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                do_handler_post(construct);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
         void Core::parallel_simd_for_handler_pre(TL::PragmaCustomStatement construct)
         {
-            parallel_for_handler_pre(construct);
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                parallel_for_handler_pre(construct);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                parallel_do_handler_pre(construct);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
         void Core::parallel_simd_for_handler_post(TL::PragmaCustomStatement construct)
         {
-            parallel_for_handler_post(construct);
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                parallel_for_handler_post(construct);
+            }
+            else if (IS_FORTRAN_LANGUAGE)
+            {
+                parallel_do_handler_post(construct);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)

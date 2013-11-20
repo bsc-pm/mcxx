@@ -43,7 +43,7 @@ namespace Analysis {
         : _id( INT_MAX ), _entry_edges( ), _exit_edges( ), _has_assertion( false ),
         _visited( false ), _visited_aux( false ), _visited_extgraph( false ), _visited_extgraph_aux( false )
     {
-        set_data( _NODE_TYPE, UNCLASSIFIED_NODE );
+        set_data( _NODE_TYPE, __UnclassifiedNode );
     }
 
     Node::Node( unsigned int& id, Node_type ntype, Node* outer_node )
@@ -53,11 +53,11 @@ namespace Analysis {
         set_data( _NODE_TYPE, ntype );
         set_data( _OUTER_NODE, outer_node );
 
-        if( ntype == GRAPH )
+        if( ntype == __Graph )
         {
-            set_data( _ENTRY_NODE, new Node( id, ENTRY, NULL ) );
+            set_data( _ENTRY_NODE, new Node( id, __Entry, NULL ) );
             unsigned int exit_id = INT_MAX - 1;
-            set_data( _EXIT_NODE, new Node( exit_id, EXIT, NULL ) );
+            set_data( _EXIT_NODE, new Node( exit_id, __Exit, NULL ) );
         }
     }
 
@@ -312,62 +312,62 @@ namespace Analysis {
 
     bool Node::is_basic_node( )
     {
-        return ( get_type( ) != GRAPH );
+        return ( get_type( ) != __Graph );
     }
 
     bool Node::is_graph_node( )
     {
-        return ( get_type( ) == GRAPH );
+        return ( get_type( ) == __Graph );
     }
 
     bool Node::is_extended_graph_node( )
     {
-        return ( ( get_type( ) == GRAPH ) && ( get_graph_type( ) == EXTENSIBLE_GRAPH ) );
+        return ( ( get_type( ) == __Graph ) && ( get_graph_type( ) == __ExtensibleGraph ) );
     }
 
     bool Node::is_entry_node( )
     {
-        return ( get_type( ) == ENTRY );
+        return ( get_type( ) == __Entry );
     }
 
     bool Node::is_exit_node( )
     {
-        return ( get_type( ) == EXIT );
+        return ( get_type( ) == __Exit );
     }
 
     bool Node::is_break_node( )
     {
-        return ( get_type( ) == BREAK );
+        return ( get_type( ) == __Break );
     }
 
     bool Node::is_continue_node( )
     {
-        return ( get_type( ) == CONTINUE );
+        return ( get_type( ) == __Continue );
     }
 
     bool Node::is_ifelse_statement( )
     {
-        return ( ( get_type( ) == GRAPH ) && get_graph_type( ) == IF_ELSE );
+        return ( ( get_type( ) == __Graph ) && get_graph_type( ) == __IfElse );
     }
 
     bool Node::is_switch_statement( )
     {
-        return ( ( get_type( ) == GRAPH ) && get_graph_type( ) == SWITCH );
+        return ( ( get_type( ) == __Graph ) && get_graph_type( ) == __Switch );
     }
 
     bool Node::is_goto_node( )
     {
-        return ( get_type( ) == GOTO );
+        return ( get_type( ) == __Goto );
     }
 
     bool Node::is_split_statement( )
     {
-        return ( is_graph_node( ) && get_graph_type( ) ==  SPLIT_STMT );
+        return ( is_graph_node( ) && get_graph_type( ) == __SplitStmt );
     }
 
     bool Node::is_unclassified_node( )
     {
-        return ( get_type( ) == UNCLASSIFIED_NODE );
+        return ( get_type( ) == __UnclassifiedNode );
     }
 
     bool Node::is_graph_entry_node( Node* graph )
@@ -382,28 +382,25 @@ namespace Analysis {
 
     bool Node::is_loop_node( )
     {
-        return ( ( get_type( ) == GRAPH )
-                 && ( ( get_graph_type( ) == LOOP_DOWHILE )
-                        || ( get_graph_type( ) == LOOP_FOR )
-                        || ( get_graph_type( ) == LOOP_WHILE ) ) );
+        return ( ( get_type( ) == __Graph )
+                 && ( ( get_graph_type( ) == __LoopDoWhile )
+                        || ( get_graph_type( ) == __LoopFor )
+                        || ( get_graph_type( ) == __LoopWhile ) ) );
     }
 
     bool Node::is_for_loop( )
     {
-        return ( ( get_type( ) == GRAPH )
-                 && ( get_graph_type( ) == LOOP_FOR ) );
+        return ( ( get_type( ) == __Graph ) && ( get_graph_type( ) == __LoopFor ) );
     }
 
     bool Node::is_while_loop( )
     {
-        return ( ( get_type( ) == GRAPH )
-                 && ( get_graph_type( ) == LOOP_WHILE ) );
+        return ( ( get_type( ) == __Graph ) && ( get_graph_type( ) == __LoopWhile ) );
     }
 
     bool Node::is_do_loop( )
     {
-        return ( ( get_type( ) == GRAPH )
-                 && ( get_graph_type( ) == LOOP_DOWHILE ) );
+        return ( ( get_type( ) == __Graph ) && ( get_graph_type( ) == __LoopDoWhile ) );
     }
 
     bool Node::is_loop_stride( Node* loop )
@@ -413,129 +410,139 @@ namespace Analysis {
 
     bool Node::is_normal_node( )
     {
-        return ( get_type( ) == NORMAL );
+        return ( get_type( ) == __Normal );
     }
 
     bool Node::is_labeled_node( )
     {
-        return ( get_type( ) == LABELED );
+        return ( get_type( ) == __Labeled );
     }
 
+    bool Node::is_function_call_graph_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == __FunctionCallGraph ) );
+    }
+    
     bool Node::is_function_call_node( )
     {
-        return ( get_type( ) == FUNCTION_CALL );
+        return ( get_type( ) == __FunctionCall );
     }
-
+    
     bool Node::is_asm_def_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == ASM_DEF ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __AsmDef ) );
     }
 
     bool Node::is_asm_op_node( )
     {
-        return ( get_type( ) == ASM_OP );
+        return ( get_type( ) == __AsmOp );
     }
 
     bool Node::is_omp_node( )
     {
-        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_critical_node( ) || is_omp_flush_node( ) ||
-                 is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || is_omp_section_node( ) || 
-                 is_omp_sections_node( ) || is_omp_simd_node( ) || is_omp_single_node( ) || is_omp_task_creation_node( ) || 
-                 is_omp_task_node( ) || is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
+        return ( is_omp_atomic_node( ) || is_omp_barrier_node( ) || is_omp_barrier_graph_node( ) || is_omp_critical_node( ) || 
+                 is_omp_flush_node( ) || is_omp_loop_node( ) || is_omp_master_node( ) || is_omp_parallel_node( ) || 
+                 is_omp_section_node( ) || is_omp_sections_node( ) || is_omp_simd_node( ) || is_omp_single_node( ) || 
+                 is_omp_task_creation_node( ) || is_omp_task_node( ) || is_omp_taskwait_node( ) || is_omp_taskyield_node( ) );
     }
     
     bool Node::is_omp_atomic_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_ATOMIC ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpAtomic ) );
     }
 
+    bool Node::is_omp_barrier_graph_node( )
+    {
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpBarrierGraph ) );
+    }
+    
     bool Node::is_omp_barrier_node( )
     {
-        return ( get_type( ) == OMP_BARRIER );
+        return ( get_type( ) == __OmpBarrier );
     }
 
     bool Node::is_omp_critical_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_CRITICAL ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpCritical ) );
     }
 
     bool Node::is_omp_flush_node( )
     {
-        return ( get_type( ) == OMP_FLUSH );
+        return ( get_type( ) == __OmpFlush );
     }
 
     bool Node::is_omp_loop_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_LOOP ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpLoop ) );
     }
 
     bool Node::is_omp_master_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_MASTER ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpMaster ) );
     }
 
     bool Node::is_omp_parallel_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_PARALLEL ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpParallel ) );
     }
 
     bool Node::is_omp_section_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTION ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpSection ) );
     }
 
     bool Node::is_omp_sections_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SECTIONS ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpSections ) );
     }
 
     bool Node::is_omp_simd_node( )
     {
         Graph_type gt = get_graph_type( );
         return ( is_graph_node( ) 
-                 && ( ( gt == OMP_SIMD ) || ( gt == OMP_SIMD_FOR ) 
-                        || ( gt == OMP_SIMD_FUNCTION ) || ( gt == OMP_SIMD_PARALLEL_FOR ) ) );
+                 && ( ( gt == __OmpSimd ) || ( gt == __OmpSimdFor ) 
+                        || ( gt == __OmpSimdFunction ) || ( gt == __OmpSimdParallelFor ) ) );
     }
     
     bool Node::is_omp_single_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_SINGLE ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpSingle ) );
     }
 
     // Fortran only
     bool Node::is_omp_workshare_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_WORKSHARE ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpWorkshare ) );
     }
 
     bool Node::is_omp_task_node( )
     {
-        return ( is_graph_node( ) && ( get_graph_type( ) == OMP_TASK ) );
+        return ( is_graph_node( ) && ( get_graph_type( ) == __OmpTask ) );
     }
 
     bool Node::is_omp_task_creation_node( )
     {
-        return ( get_type ( ) == OMP_TASK_CREATION );
+        return ( get_type ( ) == __OmpTaskCreation );
     }
 
     bool Node::is_omp_taskwait_node( )
     {
-        return ( get_type( ) == OMP_TASKWAIT );
+        return ( get_type( ) == __OmpTaskwait );
     }
 
     bool Node::is_ompss_taskwait_on_node( )
     {
-        return ( get_type( ) == OMP_WAITON_DEPS );
+        return ( get_type( ) == __OmpWaitonDeps );
     }
 
     bool Node::is_omp_taskyield_node( )
     {
-        return ( get_type( ) == OMP_TASKYIELD );
+        return ( get_type( ) == __OmpTaskyield );
     }
 
     bool Node::is_omp_virtual_tasksync( )
     {
-        return ( get_type( ) == OMP_VIRTUAL_TASKSYNC );
+        return ( get_type( ) == __OmpVirtualTaskSync );
     }
     
     bool Node::is_vector_node( )
@@ -544,7 +551,7 @@ namespace Analysis {
         if( is_graph_node( ) )
         {
             Graph_type gt = get_graph_type( );
-            if( ( gt == VECTOR_COND_EXPR ) || ( gt == VECTOR_FUNC_CALL ) )
+            if( ( gt == __VectorCondExpr ) || ( gt == __VectorFunctionCallGraph ) )
             {    
                 result = true;
             }
@@ -552,9 +559,9 @@ namespace Analysis {
         else
         {
             Node_type nt = get_type( );
-            if( ( nt == VECTOR_FUNCTION_CALL ) || ( nt == VECTOR_GATHER ) || ( nt == VECTOR_LOAD ) || 
-                ( nt == VECTOR_NORMAL ) || ( nt == VECTOR_REDUCTION ) || ( nt == VECTOR_SCATTER ) || 
-                ( nt == VECTOR_STORE ) )
+            if( ( nt == __VectorFunctionCall ) || ( nt == __VectorGather ) || ( nt == __VectorLoad ) || 
+                ( nt == __VectorNormal ) || ( nt == __VectorReduction ) || ( nt == __VectorScatter ) || 
+                ( nt == __VectorStore ) )
             {
                 result = true;
             }
@@ -564,7 +571,7 @@ namespace Analysis {
     
     bool Node::is_connected( )
     {
-        return (!_entry_edges.empty( ) || !_exit_edges.empty( ));
+        return ( !_entry_edges.empty( ) || !_exit_edges.empty( ) );
     }
 
     bool Node::has_child(Node* n)
@@ -640,7 +647,7 @@ namespace Analysis {
         if( has_key( _NODE_TYPE ) )
             return get_data<Node_type>( _NODE_TYPE );
         else
-            return UNCLASSIFIED_NODE;
+            return __UnclassifiedNode;
     }
 
     void Node::set_type( Node_type t )
@@ -648,41 +655,27 @@ namespace Analysis {
         set_data( _NODE_TYPE, t );
     }
 
+    //! Returns a string with the node type of the node.
+    inline std::string node_type_to_str( Node_type nt )
+    {
+        switch( nt )
+        {
+            #undef NODE_TYPE
+            #define NODE_TYPE(X) case __##X : return #X;
+            NODE_TYPE_LIST
+            #undef NODE_TYPE
+            default: WARNING_MESSAGE( "Unexpected type of node '%d'", nt );
+        }
+        return "";
+    }
+    
     std::string Node::get_type_as_string( )
     {
         std::string type = "";
         if( has_key( _NODE_TYPE ) )
         {
             Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-            switch( ntype )
-            {
-                case ASM_OP:                type = "ASM_OP";                break;
-                case BREAK:                 type = "BREAK";                 break;
-                case CONTINUE:              type = "CONTINUE";              break;
-                case ENTRY:                 type = "ENTRY";                 break;
-                case EXIT:                  type = "EXIT";                  break;
-                case FUNCTION_CALL:         type = "FUNCTION_CALL";         break;
-                case GOTO:                  type = "GOTO";                  break;
-                case LABELED:               type = "LABELED";               break;
-                case NORMAL:                type = "NORMAL";                break;
-                case OMP_BARRIER:           type = "OMP_BARRIER";           break;
-                case OMP_FLUSH:             type = "OMP_FLUSH";             break;
-                case OMP_TASKWAIT:          type = "OMP_TASKWAIT";          break;
-                case OMP_WAITON_DEPS:       type = "OMP_WAITON_DEPS";       break;
-                case OMP_TASKYIELD:         type = "OMP_TASKYIELD";         break;
-                case OMP_TASK_CREATION:     type = "OMP_TASK_CREATION";     break;
-                case VECTOR_FUNCTION_CALL:  type = "VECTOR_FUNCTION_CALL";  break;
-                case VECTOR_GATHER:         type = "VECTOR_GATHER";         break;
-                case VECTOR_LOAD:           type = "VECTOR_LOAD";           break;
-                case VECTOR_NORMAL:         type = "VECTOR_NORMAL";         break;
-                case VECTOR_REDUCTION:      type = "VECTOR_REDUCTION";      break;
-                case VECTOR_SCATTER:        type = "VECTOR_SCATTER";        break;
-                case VECTOR_STORE:          type = "VECTOR_STORE";          break;
-                case OMP_VIRTUAL_TASKSYNC:  type = "OMP_VIRTUAL_TASKSYNC";  break;
-                case GRAPH:                 type = "GRAPH";                 break;
-                case UNCLASSIFIED_NODE:     type = "UNCLASSIFIED";          break;
-                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
-            };
+            type = node_type_to_str( ntype );
         }
         else
         {
@@ -692,42 +685,27 @@ namespace Analysis {
         return type;
     }
 
+    //! Returns a string with the graph type of the node.
+    inline std::string graph_node_type_to_str( Graph_type gt )
+    {
+        switch( gt )
+        {
+            #undef GRAPH_TYPE
+            #define GRAPH_TYPE(X) case __##X : return #X;
+            GRAPH_NODE_TYPE_LIST
+            #undef GRAPH_TYPE
+            default: WARNING_MESSAGE( "Unexpected type of graph node '%d'", gt );
+        }
+        return "";
+    }
+    
     std::string Node::get_graph_type_as_string( )
     {
         std::string graph_type = "";
         if( has_key( _GRAPH_TYPE ) )
         {
             Graph_type ntype = get_data<Graph_type>( _GRAPH_TYPE );
-            switch( ntype )
-            {
-                case ASM_DEF:               graph_type = "ASM_DEF";                 break;
-                case COND_EXPR:             graph_type = "COND_EXPR";               break;
-                case EXTENSIBLE_GRAPH:      graph_type = "EXTENSIBLE_GRAPH";        break;
-                case FUNC_CALL:             graph_type = "FUNC_CALL";               break;
-                case IF_ELSE:               graph_type = "IF_ELSE";                 break;
-                case LOOP_DOWHILE:          graph_type = "LOOP_DOWHILE";            break;
-                case LOOP_FOR:              graph_type = "LOOP_FOR";                break;
-                case LOOP_WHILE:            graph_type = "LOOP_WHILE";              break;
-                case OMP_ATOMIC:            graph_type = "OMP_ATOMIC";              break;
-                case OMP_CRITICAL:          graph_type = "OMP_CRITICAL";            break;
-                case OMP_LOOP:              graph_type = "OMP_LOOP";                break;
-                case OMP_PARALLEL:          graph_type = "OMP_PARALLEL";            break;
-                case OMP_MASTER:            graph_type = "OMP_MASTER";              break;
-                case OMP_SECTION:           graph_type = "OMP_SECTION";             break;
-                case OMP_SECTIONS:          graph_type = "OMP_SECTIONS";            break;
-                case OMP_SIMD:              graph_type = "OMP_SIMD";                break;
-                case OMP_SIMD_FOR:          graph_type = "OMP_SIMD_FOR";            break;
-                case OMP_SIMD_FUNCTION:     graph_type = "OMP_SIMD_FUNCTION";       break;
-                case OMP_SIMD_PARALLEL_FOR: graph_type = "OMP_SIMD_PARALLEL_FOR";   break;
-                case OMP_SINGLE:            graph_type = "OMP_SINGLE";              break;
-                case OMP_WORKSHARE:         graph_type = "OMP_WORKSHARE";           break;
-                case OMP_TASK:              graph_type = "OMP_TASK";                break;
-                case SPLIT_STMT:            graph_type = "SPLIT_STMT";              break;
-                case SWITCH:                graph_type = "SWITCH";                  break;
-                case VECTOR_COND_EXPR:      graph_type = "VECTOR_COND_EXPR";        break;
-                case VECTOR_FUNC_CALL:      graph_type = "VECTOR_FUNC_CALL";        break;
-                default:                    WARNING_MESSAGE( "Unexpected type of node '%d'", ntype );
-            };
+            graph_type = graph_node_type_to_str( ntype );
         }
         else
         {
@@ -805,7 +783,7 @@ namespace Analysis {
 
     Nodecl::NodeclBase Node::get_graph_label( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Nodecl::NodeclBase res = Nodecl::NodeclBase::null( );
             if( has_key( _NODE_LABEL ) )
@@ -823,7 +801,7 @@ namespace Analysis {
 
     void Node::set_graph_label( Nodecl::NodeclBase n )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             set_data( _NODE_LABEL, n );
         }
@@ -836,7 +814,7 @@ namespace Analysis {
 
     Graph_type Node::get_graph_type( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             return get_data<Graph_type>( _GRAPH_TYPE );
         }
@@ -849,7 +827,7 @@ namespace Analysis {
 
     void Node::set_graph_type( Graph_type graph_type )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             set_data( _GRAPH_TYPE, graph_type );
         }
@@ -862,16 +840,16 @@ namespace Analysis {
 
     static bool node_is_claused_graph_omp( Graph_type type )
     {
-        return ( type == OMP_ATOMIC || OMP_CRITICAL
-        || type == OMP_LOOP || type == OMP_PARALLEL  || OMP_SECTIONS
-        || type == OMP_SINGLE || type == OMP_TASK );
+        return ( type == __OmpAtomic || __OmpCritical
+                 || type == __OmpLoop || type == __OmpParallel  || type == __OmpSections
+                 || type == __OmpSingle || type == __OmpTask );
     }
 
     PCFGPragmaInfo Node::get_pragma_node_info( )
     {
-        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-            && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
-            || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
+        if( ( ( get_data<Node_type>( _NODE_TYPE ) == __Graph )
+               && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
+            || get_data<Node_type>( _NODE_TYPE ) == __OmpFlush )
         {
             if( has_key( _OMP_INFO ) )
                 return get_data<PCFGPragmaInfo>( _OMP_INFO );
@@ -890,9 +868,9 @@ namespace Analysis {
 
     void Node::set_pragma_node_info( PCFGPragmaInfo pragma )
     {
-        if( ( ( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
-            && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
-            || get_data<Node_type>( _NODE_TYPE ) == OMP_FLUSH )
+        if( ( ( get_data<Node_type>( _NODE_TYPE ) == __Graph )
+               && node_is_claused_graph_omp( get_data<Graph_type>( _GRAPH_TYPE ) ) )
+            || get_data<Node_type>( _NODE_TYPE ) == __OmpFlush )
         {
             set_data<PCFGPragmaInfo>( _OMP_INFO, pragma );
         }
@@ -907,23 +885,13 @@ namespace Analysis {
     {
         Node* outer_node = NULL;
         if( has_key( _OUTER_NODE ) )
-        {
             outer_node = get_data<Node*>( _OUTER_NODE );
-        }
         return outer_node;
     }
 
     void Node::set_outer_node( Node* node )
     {
-        if( node->is_graph_node( ) )
-        {
-            set_data( _OUTER_NODE, node );
-        }
-        else
-        {
-            internal_error( "Unexpected node type '%s' while setting the exit node to node '%d'. GRAPH expected.",
-                            node->get_type_as_string( ).c_str( ), _id );
-        }
+        set_data( _OUTER_NODE, node );
     }
 
     Scope Node::get_node_scope( )
@@ -988,7 +956,7 @@ namespace Analysis {
     Symbol Node::get_label( )
     {
         Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-        if( ntype == GOTO || ntype == LABELED )
+        if( ntype == __Goto || ntype == __Labeled )
         {
             return get_data<Symbol>( _NODE_LABEL );
         }
@@ -1002,7 +970,7 @@ namespace Analysis {
     void Node::set_label( Symbol s )
     {
         Node_type ntype = get_data<Node_type>( _NODE_TYPE );
-        if( ntype == GOTO || ntype == LABELED )
+        if( ntype == __Goto || ntype == __Labeled )
         {
             set_data( _NODE_LABEL, s );
         }
@@ -1016,8 +984,8 @@ namespace Analysis {
     ASM_node_info Node::get_asm_info( )
     {
         Node* outer_node = get_outer_node( );
-        if( get_type( ) == ASM_OP
-            || ( outer_node != NULL && outer_node->get_graph_type( ) == ASM_DEF ) )
+        if( get_type( ) == __AsmOp
+            || ( outer_node != NULL && outer_node->get_graph_type( ) == __AsmDef ) )
         {
             return get_data<ASM_node_info>( _ASM_INFO );
         }
@@ -1031,8 +999,8 @@ namespace Analysis {
     void Node::set_asm_info( ASM_node_info inf )
     {
         Node* outer_node = get_outer_node( );
-        if( get_type( ) == ASM_OP
-            || ( outer_node != NULL && outer_node->get_graph_type( ) == ASM_DEF ) )
+        if( get_type( ) == __AsmOp
+            || ( outer_node != NULL && outer_node->get_graph_type( ) == __AsmDef ) )
         {
             set_data( _ASM_INFO, inf );
         }
@@ -1125,6 +1093,11 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for use-definition analysis ************** //
 
+    bool Node::usage_is_computed( )
+    {
+        return has_key( _UPPER_EXPOSED ) || has_key( _KILLED ) || has_key( _UNDEF );
+    }
+    
     Utils::ext_sym_set Node::get_ue_vars( )
     {
         Utils::ext_sym_set ue_vars;
@@ -1137,7 +1110,7 @@ namespace Analysis {
         return ue_vars;
     }
 
-    void Node::set_ue_var(Utils::ExtendedSymbol new_ue_var)
+    void Node::set_ue_var( Utils::ExtendedSymbol new_ue_var )
     {
         Utils::ext_sym_set ue_vars;
 
@@ -1147,34 +1120,38 @@ namespace Analysis {
         }
         if(!Utils::ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
         {
+            if( Utils::ext_sym_set_contains_englobed_nodecl( new_ue_var, ue_vars ) )
+                delete_englobed_var_from_list( new_ue_var, ue_vars );
+            
             ue_vars.insert(new_ue_var);
             set_data(_UPPER_EXPOSED, ue_vars);
         }
     }
 
-    void Node::set_ue_var(Utils::ext_sym_set new_ue_vars)
+    void Node::set_ue_var( Utils::ext_sym_set new_ue_vars )
     {
         Utils::ext_sym_set ue_vars;
 
-        if(this->has_key(_UPPER_EXPOSED))
+        if( this->has_key( _UPPER_EXPOSED ) )
         {
-            ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            ue_vars = get_data<Utils::ext_sym_set>( _UPPER_EXPOSED );
         }
 
         Utils::ext_sym_set purged_ue_vars;
         Utils::ext_sym_set::iterator it = new_ue_vars.begin( );
-        for (; it != new_ue_vars.end( ); ++it)
+        for( ; it != new_ue_vars.end( ); ++it )
         {
-            if(!Utils::ext_sym_set_contains_englobing_nodecl(*it, ue_vars))
+            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, ue_vars ) )
             {
-                purged_ue_vars.insert(*it);
+                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, ue_vars ) )
+                    delete_englobed_var_from_list( *it, ue_vars );
+                
+                purged_ue_vars.insert( *it );
             }
         }
-        if(it == new_ue_vars.end( ))
-        {
-            ue_vars.insert( purged_ue_vars.begin( ), purged_ue_vars.end( ) );
-            set_data(_UPPER_EXPOSED, ue_vars);
-        }
+
+        ue_vars.insert( purged_ue_vars.begin( ), purged_ue_vars.end( ) );
+        set_data( _UPPER_EXPOSED, ue_vars );
     }
 
     void Node::unset_ue_var( Utils::ExtendedSymbol old_ue_var )
@@ -1207,12 +1184,13 @@ namespace Analysis {
         Utils::ext_sym_set killed_vars;
 
         if( has_key( _KILLED ) )
-        {
             killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-        }
 
         if( !Utils::ext_sym_set_contains_englobing_nodecl( new_killed_var, killed_vars ) )
         {
+            if( Utils::ext_sym_set_contains_englobed_nodecl( new_killed_var, killed_vars ) )
+                delete_englobed_var_from_list( new_killed_var, killed_vars );
+            
             killed_vars.insert( new_killed_var );
             set_data( _KILLED, killed_vars );
         }
@@ -1223,9 +1201,7 @@ namespace Analysis {
         Utils::ext_sym_set killed_vars;
 
         if( has_key( _KILLED ) )
-        {
             killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
-        }
 
         Utils::ext_sym_set purged_killed_vars;
         Utils::ext_sym_set::iterator it = new_killed_vars.begin( );
@@ -1233,14 +1209,14 @@ namespace Analysis {
         {
             if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, killed_vars ) )
             {
+                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, killed_vars ) )
+                    delete_englobed_var_from_list( *it, killed_vars );
                 purged_killed_vars.insert( *it );
             }
         }
-        if( it == new_killed_vars.end( ) )
-        {
-            killed_vars.insert( purged_killed_vars.begin( ), purged_killed_vars.end( ) );
-            set_data( _KILLED, killed_vars );
-        }
+
+        killed_vars.insert( purged_killed_vars.begin( ), purged_killed_vars.end( ) );
+        set_data( _KILLED, killed_vars );
     }
 
     void Node::unset_killed_var( Utils::ExtendedSymbol old_killed_var )
@@ -1279,6 +1255,8 @@ namespace Analysis {
 
         if( !Utils::ext_sym_set_contains_englobing_nodecl( new_undef_var, undef_vars ) )
         {
+            if( Utils::ext_sym_set_contains_englobed_nodecl( new_undef_var, undef_vars ) )
+                delete_englobed_var_from_list( new_undef_var, undef_vars );
             undef_vars.insert( new_undef_var );
             set_data( _UNDEF, undef_vars );
         }
@@ -1299,14 +1277,14 @@ namespace Analysis {
         {
             if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, undef_vars ) )
             {
+                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, undef_vars ) )
+                    delete_englobed_var_from_list( *it, undef_vars );
                 purged_undef_vars.insert( *it );
             }
         }
-        if( it == new_undef_vars.end( ) )
-        {
-            undef_vars.insert( purged_undef_vars.begin( ), purged_undef_vars.end( ) );
-            set_data( _UNDEF, undef_vars );
-        }
+
+        undef_vars.insert( purged_undef_vars.begin( ), purged_undef_vars.end( ) );
+        set_data( _UNDEF, undef_vars );
     }
 
     void Node::set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
@@ -1319,7 +1297,7 @@ namespace Analysis {
             unset_killed_var( new_undef_var );
 
         // Add the global variable to the UNDEF list
-            set_undefined_behaviour_var( new_undef_var );
+        set_undefined_behaviour_var( new_undef_var );
     }
 
     void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
@@ -1538,10 +1516,10 @@ namespace Analysis {
     // FIXME Other loop nodes can have a stride
     Node* Node::get_stride_node( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == LOOP_FOR )
+            if( graph_type == __LoopFor )
             {
                 return get_data<Node*>( _STRIDE_NODE );
             }
@@ -1561,10 +1539,10 @@ namespace Analysis {
     // FIXME Other loop nodes can have a stride
     void Node::set_stride_node( Node* stride )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == LOOP_FOR )
+            if( graph_type == __LoopFor )
             {
                 set_data( _STRIDE_NODE, stride );
             }
@@ -1586,7 +1564,7 @@ namespace Analysis {
     {
         bool res = false;
         Node* outer_node = get_outer_node( );
-        while( outer_node != NULL && outer_node->get_graph_type( ) != LOOP_FOR)
+        while( outer_node != NULL && outer_node->get_graph_type( ) != __LoopFor )
         {
             outer_node = outer_node->get_outer_node( );
         }
@@ -1615,10 +1593,10 @@ namespace Analysis {
 
     Nodecl::NodeclBase Node::get_task_context( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
+            if( graph_type == __OmpTask )
             {
                 return get_data<Nodecl::Context>( _TASK_CONTEXT );
             }
@@ -1637,10 +1615,10 @@ namespace Analysis {
 
     void Node::set_task_context( Nodecl::NodeclBase c )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
+            if( graph_type == __OmpTask )
             {
                 return set_data( _TASK_CONTEXT, c );
             }
@@ -1659,10 +1637,10 @@ namespace Analysis {
 
     Symbol Node::get_task_function( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
+            if( graph_type == __OmpTask )
             {
                 return get_data<Symbol>( _TASK_FUNCTION );
             }
@@ -1682,10 +1660,10 @@ namespace Analysis {
 
     void Node::set_task_function( Symbol func_sym )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == GRAPH )
+        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
             Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == OMP_TASK )
+            if( graph_type == __OmpTask )
             {
                 return set_data( _TASK_FUNCTION, func_sym );
             }
@@ -1994,6 +1972,36 @@ namespace Analysis {
     // ************ END getters and setters for task dependence analysis ************ //
     // ****************************************************************************** //
 
+
+    
+    // ****************************************************************************** //
+    // **************** Getters and setters for vectorization analysis ************** //
+    
+    ObjectList<Symbol> Node::get_reductions( )
+    {
+        ObjectList<Symbol> result;
+        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info( ).get_clauses( );
+        for( ObjectList<PCFGClause>::const_iterator it = clauses.begin( ); it != clauses.end( ); ++it )
+        {
+            if( it->get_clause( ) == __reduction )
+            {
+                ObjectList<Nodecl::NodeclBase> reductions = it->get_args( );
+                for( ObjectList<Nodecl::NodeclBase>::iterator itr = reductions.begin( ); itr != reductions.end( ); ++itr )
+                {
+                    Symbol reduc( itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( ).get_symbol( ) );
+                    ERROR_CONDITION( !reduc.is_valid( ), "Invalid symbol stored for Reduction argument '%s'", 
+                                     itr->prettyprint( ).c_str( ) );
+                    result.insert( reduc );
+                }
+                break;
+            }
+        }
+        return result;
+    }
+    
+    // ************** END getters and setters for vectorization analysis ************ //
+    // ****************************************************************************** //
+    
     
     
     // ****************************************************************************** //

@@ -24,9 +24,153 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <tl-strength-reduction.hpp>
+#include "tl-strength-reduction.hpp"
+#include "cxx-cexpr.h"
+#include "tl-nodecl-utils.hpp"
+
+TL::Optimizations::StrengthReduction::StrengthReduction(){}
+
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::ObjectInit& n)
+{
+    TL::Symbol sym = n.get_symbol();
+
+    // Visit initialization
+    Nodecl::NodeclBase init = sym.get_value();
+    if(!init.is_null())
+    {
+        walk(init);
+    }
+}
+
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::Add& node)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    walk(lhs);
+    walk(rhs);
+}
+
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::Minus& node)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    walk(lhs);
+    walk(rhs);
+}
+
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    walk(lhs);
+    walk(rhs);
+
+    TL::Type lhs_type = lhs.get_type();
+    TL::Type rhs_type = rhs.get_type();
+
+    if(lhs.is_constant() && lhs_type.is_integral_type())
+    {
+        //TODO: It could be a different type than int
+        const_value_t * cv = lhs.get_constant(); 
+        int integer_value = const_value_cast_to_signed_int(cv);
+
+        // 3 * V
+        /*
+        if (integer_value == 3)
+        {
+            Nodecl::Add add3 = 
+                Nodecl::Add::make(
+                        
+                        Nodecl::BitwiseShl::make(
+                            rhs.shallow_copy(),
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
+                            node.get_type(),
+                            node.get_locus()),
+                        
+                        
+                        Nodecl::Add::make(
+                            rhs.shallow_copy(),
+                            rhs.shallow_copy(),
+                            node.get_type(),
+                            node.get_locus()),
+                        
+                        rhs.shallow_copy(),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(add3);
+        }
+        */
+
+        // C * V, C == Pow2
+        if (__builtin_popcount(integer_value) == 1) //Pow2
+        {
+            int ctz = __builtin_ctz(integer_value);
+
+            // lhs << (cv>>ctz)
+            Nodecl::BitwiseShl shl = 
+                Nodecl::BitwiseShl::make(
+                        rhs.shallow_copy(),
+                        const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(shl);
+        }
+    }
+}
+
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    walk(lhs);
+    walk(rhs);
+
+    TL::Type lhs_type = lhs.get_type();
+    TL::Type rhs_type = rhs.get_type();
+
+    if(lhs.is_constant() && lhs_type.is_integral_type())
+    {
+        //TODO: It could be a different type than int
+        const_value_t * cv = lhs.get_constant(); 
+        int integer_value = const_value_cast_to_signed_int(cv);
+
+        if (__builtin_popcount(integer_value) == 1) //Pow2
+        {
+            int ctz = __builtin_ctz(integer_value);
+
+            // lhs << (cv>>ctz)
+            Nodecl::BitwiseShr shr = 
+                Nodecl::BitwiseShr::make(
+                        rhs.shallow_copy(),
+                        const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(shr);
+        }
+    }
+}
+
 
 void TL::Optimizations::strength_reduce(Nodecl::NodeclBase& node)
 {
-
+    StrengthReduction strength_reduction;
+    strength_reduction.walk(node);
 }
+
+void TL::Optimizations::canonicalize_and_fold(Nodecl::NodeclBase& node)
+{
+    Nodecl::Utils::ReduceExpressionVisitor exp_reducer;
+
+    exp_reducer.walk(node);
+    strength_reduce(node);
+    exp_reducer.walk(node);
+}
+
+

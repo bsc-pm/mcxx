@@ -103,7 +103,7 @@ namespace TL { namespace OpenMP {
                     "-",
                     arithmetic_types,
                     "omp_priv = 0",
-                    "omp_out -= omp_in");
+                    "omp_out += omp_in");
             parse_declare_reduction(sc,
                     "&",
                     integer_types,

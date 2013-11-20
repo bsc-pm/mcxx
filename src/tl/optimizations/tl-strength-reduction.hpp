@@ -28,12 +28,33 @@
 #define TL_STRENGTH_REDUCE_HPP
 
 #include<tl-nodecl.hpp>
+#include<tl-nodecl-visitor.hpp>
 
 namespace TL
 {
     namespace Optimizations
     {
+        class StrengthReduction : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+
+            public:
+                StrengthReduction();
+
+                virtual void visit(const Nodecl::ObjectInit& n);
+
+                virtual void visit(const Nodecl::Add& n);
+                virtual void visit(const Nodecl::Minus& n);
+                virtual void visit(const Nodecl::Mul& n);
+                virtual void visit(const Nodecl::Div& n);
+        };
+
         void strength_reduce(Nodecl::NodeclBase& node);
+        
+        
+        
+        
+        void canonicalize_and_fold(Nodecl::NodeclBase& node);
     }
 }
 

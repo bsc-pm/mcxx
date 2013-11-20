@@ -38,53 +38,6 @@ namespace Analysis {
 namespace Utils {
 
     // **************************************************************************************** //
-    // ******************* Class representing the usage of Extended Symbols ******************* //
-
-    enum UsageValue {
-        upper_exposed,
-        killed,
-        undetermined_usage,     //! Can't be determined
-        undefined_usage         //! Not yet computed
-    };
-
-    class LIBTL_CLASS ExtendedSymbolUsage
-    {
-    private:
-        ExtendedSymbol _es;
-        UsageValue _usage;
-
-    public:
-        // ************* Constructor ************* //
-
-        ExtendedSymbolUsage( ExtendedSymbol es, UsageValue usage );
-
-
-        // ********* Getters and setters ********* //
-
-        //! Returns the Extended Symbol
-        ExtendedSymbol get_extended_symbol( ) const;
-
-        //! Returns de Nodecl contained in the Extended Symbol
-        Nodecl::NodeclBase get_nodecl( ) const;
-
-        //! Returns the usage associated with the Extended Symbol
-        UsageValue get_usage( ) const;
-
-        //! Sets the usage of the Extended Sybmbol
-        void set_usage( UsageValue usage );
-
-
-        // ************* Comparators ************* //
-
-        bool operator==( const ExtendedSymbolUsage& esu ) const;
-    };
-
-    // ***************** END class representing the usage of Extended Symbols ***************** //
-    // **************************************************************************************** //
-
-
-
-    // **************************************************************************************** //
     // **************************** Class for Auto-Scoping purposes *************************** //
 
     class LIBTL_CLASS AutoScopedVariables
@@ -136,33 +89,15 @@ namespace Utils {
 
     bool ext_sym_set_equivalence( ext_sym_set c1, ext_sym_set c2 );
     bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
-
-    bool ext_sym_set_contains_sym(ExtendedSymbol s, ext_sym_set sym_set);
-    bool ext_sym_set_contains_nodecl(Nodecl::NodeclBase nodecl, ext_sym_set sym_set);
-
-    bool ext_sym_set_contains_englobing_nodecl(ExtendedSymbol ei, ext_sym_set sym_set);
-    bool ext_sym_set_contains_englobed_nodecl(ExtendedSymbol ei, ext_sym_set sym_set);
-
-    void delete_englobing_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
-    void delete_englobed_var_from_list(ExtendedSymbol ei, ext_sym_set sym_set);
-
-
-    // ******* Extended Symbol Usage list ******* //
-
-    bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    bool usage_list_contains_sym( Symbol n, ObjectList<ExtendedSymbolUsage> list );
-
-    bool usage_list_contains_englobing_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    bool usage_list_contains_englobed_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-
-    ExtendedSymbolUsage get_var_in_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list );
-
-    void delete_englobing_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    void delete_englobed_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-
-    ExtendedSymbolUsage get_var_in_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list );
-    ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list );
+    
+    bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set );
+    bool ext_sym_set_contains_nodecl( Nodecl::NodeclBase nodecl, ext_sym_set sym_set );
+    
+    bool ext_sym_set_contains_englobing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    bool ext_sym_set_contains_englobed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    
+    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
+    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
 
     // ******************** END methods for dealing with Extended Symbols ********************* //
     // **************************************************************************************** //

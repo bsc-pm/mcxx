@@ -99,7 +99,7 @@ namespace OpenMP {
         // Automatically set the scope of the variables involved in the task, if possible
         AutoScopeVisitor::_analysis_info
                 = new Analysis::AnalysisStaticInfo( n, Analysis::WhichAnalysis::AUTO_SCOPING,
-                                                    Analysis::WhereAnalysis::NESTED_OPENMP_TASK_STATIC_INFO, INT_MAX );
+                                                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, INT_MAX );
 
         // Print the results for each task with a default(AUTO) clause
         std::cerr << "***********************************************************" << std::endl;
@@ -119,30 +119,33 @@ namespace OpenMP {
                                      shared_ext_syms, undef_ext_syms;
         Nodecl::NodeclBase user_private_vars, user_firstprivate_vars, user_shared_vars;
 
-                // Get actual environment
+        // Get actual environment
         Nodecl::List environ = n.get_environment().as<Nodecl::List>();
-        for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
+        for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); )
         {
-            if( it->is<Nodecl::OpenMP::Private>( ) )
-            {
-                user_private_vars = it->as<Nodecl::OpenMP::Private>( );
-            }
-            if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
-            {
-                user_firstprivate_vars = it->as<Nodecl::OpenMP::Firstprivate>( );
-            }
-            if( it->is<Nodecl::OpenMP::Shared>( ) )
-            {
-                user_shared_vars = it->as<Nodecl::OpenMP::Shared>( );
-            }
             if( it->is<Nodecl::OpenMP::Auto>( ) )
             {
-                environ.erase( it );
-                it--;
+                it = environ.erase( it );
+            }
+            else
+            {
+                if( it->is<Nodecl::OpenMP::Private>( ) )
+                {
+                    user_private_vars = it->as<Nodecl::OpenMP::Private>( );
+                }
+                if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
+                {
+                    user_firstprivate_vars = it->as<Nodecl::OpenMP::Firstprivate>( );
+                }
+                if( it->is<Nodecl::OpenMP::Shared>( ) )
+                {
+                    user_shared_vars = it->as<Nodecl::OpenMP::Shared>( );
+                }
+                ++it;
             }
         }
 
-                // Remove user-scoped variables from auto-scoped variables and reset environment
+        // Remove user-scoped variables from auto-scoped variables and reset environment
         private_ext_syms = autosc_vars.get_private_vars( );
         if( !private_ext_syms.empty( ) )
         {

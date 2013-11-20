@@ -824,6 +824,7 @@ static char allow_all_statements(AST a UNUSED_PARAMETER,
 static void build_scope_program_unit_body(
         AST program_unit_stmts,
         AST internal_subprograms,
+        AST end_statement,
         decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t),
         nodecl_t* nodecl_output,
@@ -863,6 +864,7 @@ static void build_scope_main_program_unit(AST program_unit,
     *program_unit_symbol = program_sym;
 
     AST program_body = ASTSon1(program_unit);
+    AST end_statement = ASTSon2(program_unit);
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
@@ -873,7 +875,9 @@ static void build_scope_main_program_unit(AST program_unit,
         AST internal_subprograms = ASTSon1(program_body);
 
         build_scope_program_unit_body(
-                statement_seq, internal_subprograms,
+                statement_seq,
+                internal_subprograms,
+                end_statement,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
@@ -963,6 +967,7 @@ static void build_scope_function_program_unit(AST program_unit,
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     AST program_body = ASTSon1(program_unit);
+    AST end_statement = ASTSon2(program_unit);
     if (program_body != NULL)
     {
         AST top_level = ASTSon0(program_body);
@@ -970,7 +975,9 @@ static void build_scope_function_program_unit(AST program_unit,
         AST internal_subprograms = ASTSon1(program_body);
 
         build_scope_program_unit_body(
-                statement_seq, internal_subprograms,
+                statement_seq,
+                internal_subprograms,
+                end_statement,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
@@ -1073,6 +1080,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     AST program_body = ASTSon1(program_unit);
+    AST end_statement = ASTSon2(program_unit);
     if (program_body != NULL)
     {
         AST top_level = ASTSon0(program_body);
@@ -1080,7 +1088,9 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         AST internal_subprograms = ASTSon1(program_body);
 
         build_scope_program_unit_body(
-                statement_seq, internal_subprograms,
+                statement_seq,
+                internal_subprograms,
+                end_statement,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
@@ -1181,7 +1191,9 @@ static void build_scope_module_program_unit(AST program_unit,
         AST internal_subprograms = ASTSon1(module_body);
 
         build_scope_program_unit_body(
-                statement_seq, internal_subprograms,
+                statement_seq,
+                internal_subprograms,
+                NULL,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
@@ -1284,7 +1296,9 @@ static void build_scope_block_data_program_unit(AST program_unit,
         AST internal_subprograms = NULL;
 
         build_scope_program_unit_body(
-                statement_seq, internal_subprograms,
+                statement_seq,
+                internal_subprograms,
+                NULL,
                 program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
     }
 
@@ -1305,7 +1319,9 @@ static void build_global_program_unit(AST program_unit)
     nodecl_t nodecl_internal_subprograms = nodecl_null();
 
     build_scope_program_unit_body(
-            statement_seq, NULL,
+            statement_seq,
+            NULL,
+            NULL,
             program_unit_context, 
             allow_all_statements, 
             &nodecl_body, 
@@ -2101,6 +2117,7 @@ static void build_scope_program_unit_body_declarations(
 static void build_scope_program_unit_body_executable(
         char (*allowed_statement)(AST, decl_context_t),
         AST program_unit_stmts,
+        AST end_statement,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -2135,6 +2152,23 @@ static void build_scope_program_unit_body_executable(
             }
         }
     }
+
+    // Add a labeled CONTINUE for GOTO's to END
+    if (end_statement != NULL
+            && (ASTType(end_statement) == AST_LABELED_STATEMENT))
+    {
+        AST label = ASTSon0(end_statement);
+
+        // Sign in the label
+        scope_entry_t* label_sym = fortran_query_label(label, decl_context, /* is_definition */ 1);
+
+        *nodecl_output = nodecl_append_to_list(
+                *nodecl_output,
+                nodecl_make_labeled_statement(
+                    nodecl_make_list_1(nodecl_make_empty_statement(ast_get_locus(end_statement))),
+                    label_sym,
+                    ast_get_locus(end_statement)));
+    }
 }
 
 typedef
@@ -2145,6 +2179,7 @@ struct internal_subprograms_info_tag
     nodecl_t nodecl_output;
     nodecl_t nodecl_pragma;
     AST program_unit_stmts;
+    AST end_statement;
     AST internal_subprograms;
     const locus_t* locus;
 } internal_subprograms_info_t;
@@ -2229,14 +2264,17 @@ static scope_entry_t* build_scope_internal_subprogram(
             && (new_entry != NULL))
     {
         AST program_body = ASTSon1(subprogram);
+        AST end_statement = ASTSon2(subprogram);
 
         AST program_part = ASTSon0(program_body);
-        AST program_unit_stmts = ASTSon0(program_part);
         AST n_internal_subprograms = ASTSon1(program_body);
+
+        AST program_unit_stmts = ASTSon0(program_part);
 
         internal_subprograms_info->symbol = new_entry;
         internal_subprograms_info->decl_context = subprogram_unit_context;
         internal_subprograms_info->program_unit_stmts = program_unit_stmts;
+        internal_subprograms_info->end_statement = end_statement;
         internal_subprograms_info->internal_subprograms = n_internal_subprograms;
         internal_subprograms_info->locus = ast_get_locus(program_body);
 
@@ -2289,7 +2327,7 @@ static void build_scope_program_unit_body_internal_subprograms_declarations(
 }
 
 static void build_scope_program_unit_body_internal_subprograms_executable(
-        AST internal_subprograms, 
+        AST internal_subprograms,
         int num_internal_program_units,
         internal_subprograms_info_t *internal_subprograms_info,
         decl_context_t decl_context UNUSED_PARAMETER)
@@ -2324,6 +2362,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
             build_scope_program_unit_body_executable(
                     allow_all_statements,
                     internal_subprograms_info[i].program_unit_stmts,
+                    internal_subprograms_info[i].end_statement,
                     internal_subprograms_info[i].decl_context,
                     &(internal_subprograms_info[i].nodecl_output));
 
@@ -2355,7 +2394,6 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
                                 n_internal_subprograms_info[j].nodecl_pragma);
                 }
             }
-
 
             scope_entry_t* function_symbol = internal_subprograms_info[i].symbol;
             int num_params = function_symbol->entity_specs.num_related_symbols;
@@ -2404,6 +2442,7 @@ static void build_scope_program_unit_body_internal_subprograms_executable(
 static void build_scope_program_unit_body(
         AST program_unit_stmts,
         AST internal_subprograms,
+        AST end_statement,
         decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t),
         nodecl_t* nodecl_output,
@@ -2432,6 +2471,7 @@ static void build_scope_program_unit_body(
     build_scope_program_unit_body_executable(
             allowed_statement,
             program_unit_stmts, 
+            end_statement,
             decl_context,
             nodecl_output);
     
@@ -2811,7 +2851,7 @@ static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type
     type_t* result = fun(nodecl_output, kind_size);
     if (is_interoperable)
     {
-        result = get_interoperable_variant_type(result);
+        result = get_variant_type_interoperable(result);
     }
     return result;
 }

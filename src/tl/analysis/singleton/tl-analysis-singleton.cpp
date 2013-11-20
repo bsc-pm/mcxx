@@ -199,8 +199,7 @@ namespace Analysis {
             else if( !current->is_entry_node( ) )
             {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
-                     it != stmts.end( ); ++it )
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
                     if( Nodecl::Utils::equal_nodecls( *it, n ) )
                     {
@@ -213,8 +212,7 @@ namespace Analysis {
             if( result == NULL )
             {
                 ObjectList<Node*> children = current->get_children( );
-                for( ObjectList<Node*>::iterator it = children.begin( );
-                     it != children.end( ); ++it )
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
                     result = node_enclosing_nodecl_rec( *it, n );
                     if( result != NULL )
@@ -230,7 +228,7 @@ namespace Analysis {
 
     Node* PCFGAnalysis_memento::node_enclosing_nodecl( const Nodecl::NodeclBase& n )
     {
-        Node* result;
+        Node* result = NULL;
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
             Node* current = it->second->get_graph( );
@@ -264,8 +262,29 @@ namespace Analysis {
         {
             Node* pcfg_node = node_enclosing_nodecl( n );
             if( ( pcfg_node != NULL ) && pcfg_node->is_loop_node( ) )
-            {
                 result =  pcfg_node->get_induction_variables( );
+        }
+        return result;
+    }
+    
+    ObjectList<Symbol> PCFGAnalysis_memento::get_reductions( const Nodecl::NodeclBase& n )
+    {
+        ObjectList<Symbol> result;
+        if( _induction_variables )
+        {
+            Node* pcfg_node = node_enclosing_nodecl( n );
+            if( pcfg_node != NULL )
+            {
+                Node* pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_node );
+                while( pcfg_omp_node != NULL && 
+                       !pcfg_omp_node->is_omp_parallel_node( ) && !pcfg_omp_node->is_omp_loop_node( ) && 
+                       !pcfg_omp_node->is_omp_sections_node( ) && !pcfg_omp_node->is_omp_simd_node( ) )
+                {
+                    pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_omp_node );
+                }
+                
+                if( pcfg_omp_node != NULL )
+                    result = pcfg_omp_node->get_reductions( );
             }
         }
         return result;
@@ -411,6 +430,37 @@ namespace Analysis {
 
     }
 
+    static void use_def_rec( Symbol func_sym, std::set<Symbol>& visited_funcs, ObjectList<ExtensibleGraph*>* pcfgs )
+    {
+        // Nothing to do if the we are analysing something that:
+        // - is not a function 
+        // - has already been analyzed
+        if( !func_sym.is_valid( ) || ( visited_funcs.find( func_sym ) != visited_funcs.end( ) ) )
+            return;
+        
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin( ); it != pcfgs->end( ); ++it )
+        {
+            Symbol it_func_sym( ( *it )->get_function_symbol( ) );
+            if( it_func_sym.is_valid( ) && it_func_sym == func_sym )
+            {
+                visited_funcs.insert( func_sym );
+                if( !( *it )->usage_is_computed( ) )
+                {
+                    // Recursively analyse the functions called from the current graph
+                    ObjectList<Symbol> called_funcs = ( *it )->get_function_calls( );
+                    for( ObjectList<Symbol>::iterator itf = called_funcs.begin( ); itf != called_funcs.end( ); ++itf )
+                        use_def_rec( *itf, visited_funcs, pcfgs );
+                    
+                    // Analyse the current graph
+                    if( VERBOSE )
+                        printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                    UseDef ud( *it, pcfgs );
+                    ud.compute_usage( );
+                }
+            }
+        }
+    }
+    
     ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
@@ -419,19 +469,10 @@ namespace Analysis {
         {
             memento.set_usage_computed( );
 
+            std::set<Symbol> visited_funcs;
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
-            {
-                if( VERBOSE )
-                    printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                UseDef ud( *it );
-
-                std::set<TL::Symbol> visited_functions;
-                if( (*it)->get_function_symbol( ).is_valid( ) )
-                    visited_functions.insert( (*it)->get_function_symbol( ) );
-                ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars =
-                    ObjectList<Utils::ExtendedSymbolUsage>( ( *it )->get_global_variables( ) );
-                ud.compute_usage( visited_functions, visited_global_vars );
-            }
+                if( !( *it )->usage_is_computed( ) )
+                    use_def_rec( ( *it )->get_function_symbol( ), visited_funcs, &pcfgs );
         }
 
         return pcfgs;

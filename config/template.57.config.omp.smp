@@ -1,9 +1,18 @@
+[smpfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @GFORTRAN@
+fortran_preprocessor_options = -cpp -E
+compiler_name = @GFORTRAN@
+compiler_options = -frecursive
+linker_name = @GFORTRAN@
+linker_options =
+
 [smpcc : omp-base]
 language = C
 options = -std=gnu99 
 options = --vector-flavor=gnu 
 {simd} compiler_options = -flax-vector-conversions
-{ffast-math} compiler_options = -ffast-math
 
 [smpcxx : omp-base]
 language = C++
@@ -13,4 +22,3 @@ options = --vector-flavor=gnu
 preprocessor_name = @G++@
 compiler_name = @G++@
 linker_name = @G++@
-{ffast-math} compiler_options = -ffast-math

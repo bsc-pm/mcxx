@@ -206,17 +206,20 @@
 "                           C/C++: .i, .ii\n"\
 "                           Fortran: .f, .f77, .f90, .f95\n"\
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
+"  --fpp                    An alias for --pp=on\n"\
 "  --width=<width>          Fortran column width used in the output\n" \
-"                           By default 132\n" \
-"  --free                   Force Fortran free form regardless of\n" \
-"                           extension.\n"\
+"                           By default 132.\n" \
+"  --free                   Assume Fortran free-form input regardless\n" \
+"                           of extension.\n"\
 "                           This is the default for files ending with\n"\
 "                           .f90, .F90, .f95, .F95, .f03 or .F03\n"\
-"  --fixed                  Force Fortran fixed form regardless of\n" \
-"                           extension\n"\
+"  --fixed                  Assume Fortran fixed-form input regardless\n" \
+"                           of extension\n"\
 "                           This is the default for files ending with\n"\
 "                           .f, .F, .f77, .F77\n"\
-"  --fpp                    An alias for --pp=on\n"\
+"  --fixed-form-length=<width>\n"\
+"                           Fortran column width used in\n" \
+"                           fixed-form input. By default 72\n" \
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
@@ -357,6 +360,7 @@ typedef enum
     OPTION_ALWAYS_PREPROCESS,
     OPTION_FORTRAN_COLUMN_WIDTH,
     OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FIXED_FORM_LENGTH,
     OPTION_FORTRAN_FREE,
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
@@ -432,6 +436,7 @@ struct command_line_long_options command_line_long_options[] =
     {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
     {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
+    {"fixed-form-length", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_FIXED_FORM_LENGTH},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
@@ -1401,7 +1406,12 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
                     {
-                        CURRENT_CONFIGURATION->column_width = atoi(parameter_info.argument);
+                        CURRENT_CONFIGURATION->output_column_width = atoi(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_FIXED_FORM_LENGTH:
+                    {
+                        CURRENT_CONFIGURATION->input_column_width = atoi(parameter_info.argument);
                         break;
                     }
                 case OPTION_FORTRAN_FIXED:
@@ -2372,7 +2382,8 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->linker_name = uniquestr("c++");
     CURRENT_CONFIGURATION->linker_options = NULL;
 
-    CURRENT_CONFIGURATION->column_width = 132;
+    CURRENT_CONFIGURATION->input_column_width = 72;
+    CURRENT_CONFIGURATION->output_column_width = 132;
 
     // Add openmp as an implicitly enabled
     struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
@@ -2867,6 +2878,13 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // Close file parsed
                 close_scanned_file();
 
+                if (CURRENT_CONFIGURATION->debug_options.print_parse_tree)
+                {
+                    fprintf(stderr, "Printing parse tree in graphviz format\n");
+
+                    ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                }
+
                 // * Prepare DTO
                 initialize_dto(translation_unit);
 
@@ -2901,15 +2919,15 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // * print ast if requested
-                if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
+                if (CURRENT_CONFIGURATION->debug_options.print_nodecl_graphviz)
                 {
-                    fprintf(stderr, "Printing AST in graphviz format\n");
+                    fprintf(stderr, "Printing nodecl tree in graphviz format\n");
 
                     ast_dump_graphviz(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
-                else if (CURRENT_CONFIGURATION->debug_options.print_ast_html)
+                else if (CURRENT_CONFIGURATION->debug_options.print_nodecl_html)
                 {
-                    fprintf(stderr, "Printing AST in HTML format\n");
+                    fprintf(stderr, "Printing nodecl tree in HTML format\n");
                     ast_dump_html(nodecl_get_ast(translation_unit->nodecl), stdout);
                 }
 
@@ -3293,7 +3311,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-        if (CURRENT_CONFIGURATION->column_width != 0)
+        if (CURRENT_CONFIGURATION->output_column_width != 0)
         {
             temporal_file_t raw_prettyprint = new_temporal_file();
             FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w");
@@ -3309,7 +3327,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot reopen temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
+            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->output_column_width);
             fclose(raw_prettyprint_file);
         }
         else
@@ -3656,8 +3674,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     int num_arguments = prescanner_args;
     // -l [optional]
     num_arguments += 1;
-    // -r dir -q input -o output
-    num_arguments += 6;
+    // -r dir -q -w width input -o output
+    num_arguments += 8;
     // NULL
     num_arguments += 1;
 
@@ -3708,16 +3726,25 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = uniquestr("-l");
         i++;
     }
+
     prescanner_options[i] = uniquestr("-r");
     i++;
     prescanner_options[i] = uniquestr(prescanner_include_output->name);
     i++;
+
     prescanner_options[i] = uniquestr("-q");
     i++;
+
+    prescanner_options[i] = uniquestr("-w");
+    i++;
+    uniquestr_sprintf(&prescanner_options[i], "%d", CURRENT_CONFIGURATION->input_column_width);
+    i++;
+
     prescanner_options[i] = uniquestr("-o");
     i++;
     prescanner_options[i] = prescanned_filename;
     i++;
+
     prescanner_options[i] = parsed_filename;
 
     int result_prescan = execute_program(full_path, prescanner_options);

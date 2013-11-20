@@ -42,7 +42,10 @@ namespace TL { namespace Nanox {
 void Lowering::pre_run(DTO& dto)
 {
     std::cerr << "Nanos++ prerun" << std::endl;
+}
 
+void Lowering::load_headers(DTO& dto)
+{
     if (!IS_FORTRAN_LANGUAGE)
         return;
 

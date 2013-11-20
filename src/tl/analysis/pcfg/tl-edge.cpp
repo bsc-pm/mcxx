@@ -57,10 +57,24 @@ namespace Analysis {
         }
         else
         {
-            return UNCLASSIFIED_EDGE;
+            return __UnclassifiedEdge;
         }
     }
 
+    //! Returns a string with the edge type
+    inline std::string edge_type_to_str( Edge_type et )
+    {
+        switch( et )
+        {
+            #undef EDGE_TYPE
+            #define EDGE_TYPE(X) case __##X : return #X;
+            EDGE_TYPE_LIST
+            #undef EDGE_TYPE
+            default: WARNING_MESSAGE( "Unexpected type of edge '%d'", et );
+        }
+        return "";
+    }
+    
     std::string Edge::get_type_as_string( )
     {
         std::string result = "";
@@ -68,25 +82,7 @@ namespace Analysis {
         if ( has_key( _EDGE_TYPE ) )
         {
             Edge_type etype = get_data<Edge_type>( _EDGE_TYPE );
-
-            switch( etype )
-            {
-                case ALWAYS:            result = "ALWAYS";
-                break;
-                case CASE:              result = "CASE";
-                break;
-                case CATCH:             result = "CATCH";
-                break;
-                case FALSE_EDGE:        result = "FALSE";
-                break;
-                case GOTO_EDGE:         result = "GOTO";
-                break;
-                case TRUE_EDGE:         result = "TRUE";
-                break;
-                case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED";
-                break;
-                default:                WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
-            }
+            result = edge_type_to_str( etype );
         }
 
         return result;
@@ -110,21 +106,21 @@ namespace Analysis {
         std::string label = "";
 
         if ( has_key( _EDGE_TYPE) &&
-             get_data<Edge_type>( _EDGE_TYPE ) != UNCLASSIFIED_EDGE )
+             get_data<Edge_type>( _EDGE_TYPE ) != __UnclassifiedEdge )
         {
             Edge_type etype = get_data<Edge_type>( _EDGE_TYPE );
             switch ( etype )
             {
-                case ALWAYS:
-                case CASE:
-                case CATCH:         label = get_data<std::string>( _EDGE_LABEL );
-                break;
-                case FALSE_EDGE:    label = "FALSE";
-                break;
-                case GOTO_EDGE:     label = get_data<std::string>( _EDGE_LABEL );
-                break;
-                case TRUE_EDGE:     label = "TRUE";
-                break;
+                case __Always:
+                case __Case:
+                case __Catch:       label = get_data<std::string>( _EDGE_LABEL );
+                                    break;
+                case __FalseEdge:   label = "FALSE";
+                                    break;
+                case __GotoEdge:    label = get_data<std::string>( _EDGE_LABEL );
+                                    break;
+                case __TrueEdge:    label = "TRUE";
+                                    break;
                 default:            WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
             };
         }
@@ -145,47 +141,47 @@ namespace Analysis {
 
     void Edge::set_true_edge( )
     {
-        set_data( _EDGE_TYPE, TRUE_EDGE );
+        set_data( _EDGE_TYPE, __TrueEdge );
     }
 
     void Edge::set_false_edge( )
     {
-        set_data( _EDGE_TYPE, FALSE_EDGE );
+        set_data( _EDGE_TYPE, __FalseEdge );
     }
 
     void Edge::set_catch_edge( )
     {
-        set_data( _EDGE_TYPE, CATCH );
+        set_data( _EDGE_TYPE, __Catch );
     }
 
     bool Edge::is_always_edge( )
     {
-        return ( get_data<Edge_type>(_EDGE_TYPE) == ALWAYS );
+        return ( get_data<Edge_type>(_EDGE_TYPE) == __Always );
     }
 
     bool Edge::is_case_edge( )
     {
-        return ( get_data<Edge_type>(_EDGE_TYPE) == CASE );
+        return ( get_data<Edge_type>(_EDGE_TYPE) == __Case );
     }
 
     bool Edge::is_catch_edge( )
     {
-        return ( get_data<Edge_type>(_EDGE_TYPE) == CATCH );
+        return ( get_data<Edge_type>(_EDGE_TYPE) == __Catch );
     }
 
     bool Edge::is_false_edge( )
     {
-        return ( get_data<Edge_type>(_EDGE_TYPE) == FALSE_EDGE );
+        return ( get_data<Edge_type>(_EDGE_TYPE) == __FalseEdge );
     }
 
     bool Edge::is_goto_edge( )
     {
-        return ( get_data<Edge_type>(_EDGE_TYPE) == GOTO_EDGE );
+        return ( get_data<Edge_type>(_EDGE_TYPE) == __GotoEdge );
     }
 
     bool Edge::is_true_edge( )
     {
-        return ( get_data<Edge_type>(_EDGE_TYPE) == TRUE_EDGE );
+        return ( get_data<Edge_type>(_EDGE_TYPE) == __TrueEdge );
     }
 
 

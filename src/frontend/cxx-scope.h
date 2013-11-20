@@ -258,7 +258,7 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_contex
         const locus_t* locus);
 
 // Utils
-LIBMCXX_EXTERN char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing);
+LIBMCXX_EXTERN char scope_is_enclosed_by(const scope_t *const scope, const scope_t *const potential_enclosing);
 LIBMCXX_EXTERN char class_is_in_lexical_scope(decl_context_t decl_context, 
         scope_entry_t* class_symbol);
 LIBMCXX_EXTERN char symbol_is_member_of_dependent_class(scope_entry_t* entry);
@@ -283,6 +283,8 @@ LIBMCXX_EXTERN int get_length_of_pack_expansion_from_expression(nodecl_t expr,
 LIBMCXX_EXTERN int get_length_of_pack_expansion_from_type(type_t* pack_type,
         decl_context_t decl_context,
         const locus_t* locus);
+
+LIBMCXX_EXTERN nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry);
 
 MCXX_END_DECLS
 

@@ -35,19 +35,6 @@ namespace Analysis {
 namespace Utils {
 
     // **************************************************************************************** //
-    // ***************************** Extended Symbol comparisons ****************************** //
-
-    bool extended_symbol_contains_extended_symbol( ExtendedSymbol container, ExtendedSymbol contained )
-    {
-        return Nodecl::Utils::nodecl_contains_nodecl( container.get_nodecl( ), contained.get_nodecl( ) );
-    }
-
-    // **************************************************************************************** //
-    // *************************** END extended Symbol comparisons **************************** //
-
-
-
-    // **************************************************************************************** //
     // **************************** Class for Auto-Scoping purposes *************************** //
 
     AutoScopedVariables::AutoScopedVariables( )
@@ -214,15 +201,10 @@ namespace Utils {
         {
             Nodecl::NodeclBase current = it->get_nodecl( );
             if( current.is<Nodecl::Conversion>( ) )
-            {
-                Nodecl::Conversion aux = current.as<Nodecl::Conversion>( );
-                current = aux.get_nest( );
-            }
+                current = current.as<Nodecl::Conversion>( ).get_nest( );
 
             if( Nodecl::Utils::equal_nodecls( nodecl, current ) )
-            {
                 return true;
-            }
         }
 
         return false;
@@ -235,13 +217,13 @@ namespace Utils {
         {
             Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>( );
             return ( ext_sym_set_contains_nodecl(nodecl, sym_set )
-                    || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
+                     || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
         }
         else if( nodecl.is<Nodecl::ClassMemberAccess>( ) )
         {
             Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>( );
             return ( ext_sym_set_contains_nodecl( nodecl, sym_set )
-            || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
+                     || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
         }
         else if( nodecl.is<Nodecl::Conversion>( ) )
         {
@@ -265,12 +247,14 @@ namespace Utils {
         }
         return false;
     }
-
-    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set sym_set )
+    
+    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it)
         {
-            if( ext_sym_set_contains_englobing_nodecl( *it, sym_set ) )
+            ext_sym_set fake_set;
+            fake_set.insert( *it );
+            if( ext_sym_set_contains_englobing_nodecl( ei, fake_set ) )
             {
                 sym_set.erase( it );
                 return;
@@ -278,11 +262,13 @@ namespace Utils {
         }
     }
 
-    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set sym_set )
+    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
-            if( ext_sym_set_contains_englobed_nodecl( *it, sym_set ) )
+            ext_sym_set fake_set;
+            fake_set.insert( *it );
+            if( ext_sym_set_contains_englobed_nodecl( ei, fake_set ) )
             {
                 sym_set.erase( it );
                 return;
@@ -290,201 +276,7 @@ namespace Utils {
         }
     }
 
-    bool usage_list_contains_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            if( Nodecl::Utils::equal_nodecls( it->get_nodecl( ), n ) )
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool usage_list_contains_sym( Symbol n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            Nodecl::NodeclBase current_n = it->get_nodecl( );
-            if( current_n.is<Nodecl::Symbol>( ) )
-            {
-                if( current_n.get_symbol( ) == n )
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    bool usage_list_contains_englobing_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it)
-        {
-            Nodecl::NodeclBase nodecl = it->get_nodecl( );
-
-            if( Nodecl::Utils::equal_nodecls( nodecl, n ) )
-            {
-                return true;
-            }
-
-            if( n.is<Nodecl::ArraySubscript>( ) )
-            {
-                Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>( );
-                return ( usage_list_contains_englobing_nodecl( arr.get_subscripted( ), list) );
-            }
-            else if( n.is<Nodecl::ClassMemberAccess>( ) )
-            {
-                Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>( );
-                return ( usage_list_contains_englobing_nodecl( memb_access.get_member( ), list ) );
-            }
-            else if( n.is<Nodecl::Conversion>( ) )
-            {
-                Nodecl::Conversion conv = n.as<Nodecl::Conversion>( );
-                return usage_list_contains_englobing_nodecl( conv.get_nest( ), list );
-            }
-        }
-        return false;
-    }
-
-    bool usage_list_contains_englobed_nodecl( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        ExtendedSymbolUsage fake_usage( n, undefined_usage );
-        ObjectList<ExtendedSymbolUsage> fake_list( 1, fake_usage );
-        for(ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            if( usage_list_contains_englobing_nodecl( it->get_nodecl( ), fake_list ) )
-                return true;
-        }
-        return false;
-    }
-
-    void delete_englobing_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            Nodecl::NodeclBase nodecl = it->get_nodecl( );
-
-            if( Nodecl::Utils::equal_nodecls( nodecl, n ) )
-            {
-                list.erase( it );
-                break;
-            }
-
-            if( n.is<Nodecl::ArraySubscript>( ) )
-            {
-                Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>( );
-                if( usage_list_contains_englobing_nodecl( arr.get_subscripted( ), list ) )
-                {
-                    list.erase( it );
-                    break;
-                }
-            }
-            else if( n.is<Nodecl::ClassMemberAccess>( ) )
-            {
-                Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>( );
-                if( usage_list_contains_englobing_nodecl( memb_access.get_member( ), list ) )
-                {
-                    list.erase( it );
-                    break;
-                }
-            }
-            else if( n.is<Nodecl::Conversion>( ) )
-            {
-                Nodecl::Conversion conv = n.as<Nodecl::Conversion>( );
-                if( usage_list_contains_englobing_nodecl( conv.get_nest( ), list ) )
-                {
-                    list.erase( it );
-                    break;
-                }
-            }
-        }
-    }
-
-    void delete_englobed_var_in_usage_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        ExtendedSymbolUsage fake_usage( n, undefined_usage );
-        ObjectList<ExtendedSymbolUsage> fake_list( 1, fake_usage );
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            if( usage_list_contains_englobing_nodecl( it->get_nodecl( ), fake_list ) )
-            {
-                list.erase( it );
-                break;
-            }
-        }
-    }
-
-    ExtendedSymbolUsage get_var_in_list( Nodecl::NodeclBase n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            if ( Nodecl::Utils::equal_nodecls( it->get_nodecl(), n ) )
-            {
-                return *it;
-            }
-        }
-
-        internal_error( "No nodecl '%s' found in usage list", n.prettyprint( ).c_str( ) );
-    }
-
-    ExtendedSymbolUsage get_var_in_list( Symbol n, ObjectList<ExtendedSymbolUsage> list )
-    {
-        for( ObjectList<ExtendedSymbolUsage>::iterator it = list.begin( ); it != list.end( ); ++it )
-        {
-            Nodecl::NodeclBase current_n = it->get_nodecl( );
-            if( current_n.is<Nodecl::Symbol>( ) )
-            {
-                if ( current_n.get_symbol( ) == n )
-                {
-                    return *it;
-                }
-            }
-        }
-
-        internal_error( "No symbol '%s' found in usage list", n.get_name( ).c_str( ) );
-    }
-
     // ************* END methods for dealing with containers of Extended Symbols ************** //
-    // **************************************************************************************** //
-
-
-
-    // **************************************************************************************** //
-    // ******************* Class representing the usage of Extended Symbols ******************* //
-
-    ExtendedSymbolUsage::ExtendedSymbolUsage( ExtendedSymbol es, UsageValue usage )
-        : _es( es ), _usage( usage )
-    {}
-
-    ExtendedSymbol ExtendedSymbolUsage::get_extended_symbol( ) const
-    {
-        return _es;
-    }
-
-    Nodecl::NodeclBase ExtendedSymbolUsage::get_nodecl( ) const
-    {
-        return _es.get_nodecl();
-    }
-
-    UsageValue ExtendedSymbolUsage::get_usage( ) const
-    {
-        return _usage;
-    }
-
-    void ExtendedSymbolUsage::set_usage( UsageValue usage )
-    {
-        _usage = usage;
-    }
-
-
-    bool ExtendedSymbolUsage::operator==( const ExtendedSymbolUsage& esu ) const
-    {
-        return ( Nodecl::Utils::equal_nodecls( this->get_nodecl( ), esu.get_nodecl( ) ) );
-    }
-
-    // ***************** END class representing the usage of Extended Symbols ***************** //
     // **************************************************************************************** //
 }
 }

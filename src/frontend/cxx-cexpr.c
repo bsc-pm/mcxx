@@ -511,6 +511,19 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
 
 char const_value_is_nonzero(const_value_t* v)
 {
+    if (IS_MULTIVALUE(v->kind))
+    {
+        int num_elements = v->value.m->num_elements;
+        int i;
+        for (i=0; i<num_elements; i++)
+        {
+            if (const_value_is_nonzero(v->value.m->elements[i]))
+                return 1;
+        }
+
+        return 0;
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:
@@ -1152,6 +1165,62 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 return result;
                 break;
             }
+        case CVK_VECTOR:
+            {
+                ERROR_CONDITION(v->value.m->num_elements == 0, "Zero length vector constant", 0);
+
+                char promote_from_scalar = 1;
+
+                // Check if all values are the same so we can use a vector promotion instead
+                int i;
+                for (i = 1; i < v->value.m->num_elements && promote_from_scalar; i++)
+                {
+                    promote_from_scalar =
+                        const_value_is_nonzero(
+                                const_value_eq(
+                                    v->value.m->elements[i-1],
+                                    v->value.m->elements[i]));
+                }
+
+                nodecl_t result = nodecl_null();
+                if (promote_from_scalar)
+                {
+                    nodecl_t scalar_node = const_value_to_nodecl_with_basic_type(
+                            v->value.m->elements[0], basic_type);
+                    type_t* vector_type = get_vector_type_by_elements(
+                            nodecl_get_type(scalar_node),
+                            v->value.m->num_elements);
+
+                    result = nodecl_make_vector_promotion(
+                            scalar_node,
+                            /* mask */ nodecl_null(),
+                            vector_type,
+                            make_locus("", 0, 0));
+                }
+                else
+                {
+                    nodecl_t list = nodecl_null();
+                    for (i = 0; i < v->value.m->num_elements; i++)
+                    {
+                        list = nodecl_append_to_list(list,
+                                const_value_to_nodecl_with_basic_type(v->value.m->elements[i], basic_type));
+                    }
+
+                    type_t* vector_type = get_vector_type_by_elements(
+                            nodecl_get_type(nodecl_list_head(list)),
+                            v->value.m->num_elements);
+
+                    result = nodecl_make_vector_literal(list,
+                            /* mask */ nodecl_null(),
+                            vector_type,
+                            make_locus("", 0, 0));
+                }
+
+                nodecl_set_constant(result, v);
+
+                return result;
+                break;
+            }
         default:
             {
                 // The caller should check this case
@@ -1577,6 +1646,39 @@ const_value_t* const_value_make_vector(int num_elements, const_value_t **element
     const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_VECTOR;
     return result;
+}
+
+static const_value_t* const_value_make_multival_from_scalar(
+        int num_elements, 
+        const_value_t* value,
+        const_value_t* (*const_value_make)(int num_elements, const_value_t** elements)
+        )
+{
+    ERROR_CONDITION(value == NULL, "Invalid constant", 0);
+    const_value_t** value_set = xcalloc(num_elements, sizeof(*value_set));
+
+    for (int i = 0; i < num_elements; i++)
+    {
+        value_set[i] = value;
+    }
+
+    const_value_t* result = const_value_make(num_elements, value_set);
+
+    xfree(value_set);
+
+    return result;
+}
+
+const_value_t* const_value_make_vector_from_scalar(int num_elements, const_value_t* value)
+{
+    return const_value_make_multival_from_scalar(num_elements, value,
+            const_value_make_vector);
+}
+
+const_value_t* const_value_make_array_from_scalar(int num_elements, const_value_t* value)
+{
+    return const_value_make_multival_from_scalar(num_elements, value,
+            const_value_make_array);
 }
 
 const_value_t* const_value_make_struct(int num_elements, const_value_t **elements, type_t* struct_type)

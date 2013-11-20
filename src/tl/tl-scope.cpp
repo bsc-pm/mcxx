@@ -96,6 +96,11 @@ namespace TL
         return result;
     }
 
+    Scope Scope::get_global_scope() 
+    {
+        return CURRENT_COMPILED_FILE->global_decl_context;
+    }
+
     Scope Scope::temporal_scope() const
     {
         decl_context_t block_context = new_block_context(_decl_context);

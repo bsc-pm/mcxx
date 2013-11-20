@@ -157,8 +157,9 @@ typedef struct debug_options_tag
     char enable_debug_code;
     char debug_lexer;
     char debug_parser;
-    char print_ast_graphviz;
-    char print_ast_html;
+    char print_nodecl_graphviz;
+    char print_nodecl_html;
+    char print_parse_tree;
     char print_memory_report;
     char print_memory_report_in_bytes;
     char debug_sizeof;
@@ -363,7 +364,8 @@ typedef struct compilation_configuration_tag
     // Fortran prescanner
     const char* prescanner_name;
     const char** prescanner_options;
-    int column_width;
+    int input_column_width;
+    int output_column_width;
 
     // Disable Fortran intrinsics
     char disable_intrinsics;

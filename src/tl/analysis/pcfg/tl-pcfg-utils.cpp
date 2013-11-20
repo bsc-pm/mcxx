@@ -78,7 +78,7 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     PCFGClause::PCFGClause( )
-        : _clause( UNDEFINED_CLAUSE ), _args( ObjectList<Nodecl::NodeclBase> ( 1, Nodecl::NodeclBase::null( ) ) )
+        : _clause( __undefined_clause ), _args( ObjectList<Nodecl::NodeclBase> ( 1, Nodecl::NodeclBase::null( ) ) )
     {}
 
     PCFGClause::PCFGClause( Clause c )
@@ -92,9 +92,7 @@ namespace Analysis {
         {
             Nodecl::List arg_list = arg.as<Nodecl::List>( );
             for( Nodecl::List::iterator it = arg_list.begin( ); it != arg_list.end( ); ++it )
-            {
                 _args.append( *it );
-            }
         }
         else
         {
@@ -113,53 +111,23 @@ namespace Analysis {
         return _clause;
     }
     
+    //! Returns a string with the graph type of the node.
+    inline std::string clause_to_str( Clause c )
+    {
+        switch( c )
+        {
+            #undef CLAUSE
+            #define CLAUSE(X) case __##X : return #X;
+            CLAUSE_LIST
+            #undef CLAUSE
+            default: WARNING_MESSAGE( "Unexpected clause type '%d'", c );
+        }
+        return "";
+    }
+    
     std::string PCFGClause::get_clause_as_string( ) const
     {
-        std::string clause;
-        switch( _clause )
-        {
-            case ASSERT_DEAD:           clause = "dead";                break;
-            case ASSERT_DEFINED:        clause = "defined";             break;
-            case ASSERT_INDUCTION_VAR:  clause = "induction_var";       break;
-            case ASSERT_LIVE_IN:        clause = "live_in";             break;
-            case ASSERT_LIVE_OUT:       clause = "live_out";            break;
-            case ASSERT_REACH_IN:       clause = "reach_in";            break;
-            case ASSERT_REACH_OUT:      clause = "reach_out";           break;
-            case ASSERT_UPPER_EXPOSED:  clause = "upper_exposed";       break;
-            case AUTO:                  clause = "auto";                break;
-            case DEP_IN:                clause = "in";                  break;
-            case DEP_IN_VALUE:          clause = "in_value";            break;
-            case DEP_OUT:               clause = "out";                 break;
-            case DEP_INOUT:             clause = "inout";               break;
-            case DEP_CONCURRENT:        clause = "concurrent";          break;
-            case DEP_COMMUTATIVE:       clause = "commutative";         break;
-            case COPY_IN:               clause = "copy_in";             break;
-            case COPY_OUT:              clause = "copy_out";            break;
-            case COPY_INOUT:            clause = "copy_inout";          break;
-            case FIRSTPRIVATE:          clause = "firstprivate";        break;
-            case FIRSTLASTPRIVATE:      clause = "firstlastprivate";    break;
-            case LASTPRIVATE:           clause = "lastprivate";         break;
-            case FLUSHED_VARS:          clause = "flush";               break;
-            case IF:                    clause = "if";                  break;
-            case FINAL_TASK:            clause = "final";               break;
-            case NAME:                  clause = "name";                break;
-            case NOWAIT:                clause = "nowait";              break;
-            case PRIORITY:              clause = "priority";            break;
-            case PRIVATE:               clause = "private";             break;
-            case REDUCTION:             clause = "reduction";           break;
-            case SCHEDULE:              clause = "schedule";            break;
-            case SHARED:                clause = "shared";              break;
-            case TARGET:                clause = "target";              break;
-            case UNDEFINED_CLAUSE:      clause = "UNDEFINED";           break;
-            case UNTIED:                clause = "untied";              break;
-            case VECTOR_DEVICE:         clause = "vector_device";       break;
-            case VECTOR_LENGTH_FOR:     clause = "vector_length_for";   break;
-            case VECTOR_MASK:           clause = "vector_mask";         break;
-            case VECTOR_NO_MASK:        clause = "vector_no_mask";      break;
-            case VECTOR_SUITABLE:       clause = "vector_suitable";     break;
-            case WAITON:                clause = "waiton";              break;
-        }
-        return clause;
+        return clause_to_str( _clause );
     }
     
     ObjectList<Nodecl::NodeclBase> PCFGClause::get_args( ) const

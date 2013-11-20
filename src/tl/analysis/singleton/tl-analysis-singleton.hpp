@@ -112,6 +112,9 @@ namespace Analysis {
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
 
+        //! Returns the list of reduction symbols found in #n
+        ObjectList<Symbol> get_reductions( const Nodecl::NodeclBase& n );
+        
         //! Returns a list of objects that are killed in #n
         Utils::ext_sym_set get_killed( const Nodecl::NodeclBase& n );
 

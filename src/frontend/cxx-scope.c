@@ -1517,15 +1517,17 @@ struct associated_namespace_tag
 
 typedef struct associated_namespace_tag associated_namespace_t;
 
-char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing)
+char scope_is_enclosed_by(const scope_t *const scope, const scope_t *const potential_enclosing)
 {
-    while (scope != NULL)
+    const scope_t* it = scope;
+
+    while (it != NULL)
     {
-        if (scope == potential_enclosing)
+        if (it == potential_enclosing)
         {
             return 1;
         }
-        scope = scope->contained_in;
+        it = it->contained_in;
     }
     return 0;
 }
@@ -3505,6 +3507,54 @@ type_t* update_type(type_t* orig_type,
     return result;
 }
 
+static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
+        decl_context_t context_of_being_instantiated,
+        const locus_t* locus,
+        int pack_index UNUSED_PARAMETER)
+{
+    int num_gcc_attributes = 0;
+    gcc_attribute_t *gcc_attributes = NULL;
+    variant_type_get_gcc_attributes(orig_type, &num_gcc_attributes, &gcc_attributes);
+
+    int i;
+    for (i = 0; i < num_gcc_attributes; i++)
+    {
+        gcc_attribute_t new_gcc_attr;
+        new_gcc_attr.attribute_name = gcc_attributes[i].attribute_name;
+        new_gcc_attr.expression_list = gcc_attributes[i].expression_list;
+
+        if (strcmp(gcc_attributes[i].attribute_name, "aligned") == 0)
+        {
+            nodecl_t aligned_attribute = instantiate_expression(
+                    nodecl_list_head(new_gcc_attr.expression_list),
+                    context_of_being_instantiated);
+            if (nodecl_is_err_expr(aligned_attribute))
+            {
+                result = NULL;
+            }
+            else if (!nodecl_expr_is_value_dependent(aligned_attribute)
+                    && !nodecl_is_constant(aligned_attribute))
+            {
+                error_printf("%s: error: 'aligned' attribute of type '%s' after instantiation is not constant\n",
+                        locus_to_str(locus),
+                        print_type_str(orig_type, context_of_being_instantiated));
+                result = NULL;
+            }
+            else
+            {
+                new_gcc_attr.expression_list = nodecl_make_list_1(aligned_attribute);
+            }
+        }
+
+        if (result == NULL)
+            return NULL;
+
+        result = get_variant_type_add_gcc_attribute(result, new_gcc_attr);
+    }
+
+    return result;
+}
+
 type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
         const locus_t* locus,
@@ -3518,6 +3568,8 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     type_t* result = update_type_aux_(orig_type,
             context_of_being_instantiated,
             locus, pack_index);
+
+    result = update_gcc_type_attributes(orig_type, result, context_of_being_instantiated, locus, pack_index);
 
     if (result == NULL)
     {
@@ -3596,7 +3648,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 nodecl_t dummy_nodecl_output = nodecl_null();
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        template_parameters_context, /* first declarator */ NULL, &dummy_nodecl_output);
+                        template_parameters_context, &dummy_nodecl_output);
 
                 if (is_error_type(type_info))
                 {
@@ -3611,7 +3663,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 type_t* declarator_type;
                 compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                        template_parameters_context, abstract_decl, &dummy_nodecl_output);
+                        template_parameters_context, &dummy_nodecl_output);
 
                 if (is_error_type(declarator_type))
                 {
@@ -4425,11 +4477,44 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     // }
 
     // Do not qualify symbol names if they appear inside an anonymous namespace
+    const char* result = "";
+    char current_has_template_parameters = 0;
     if (entry->decl_context.namespace_scope->related_entry->symbol_name != NULL
             && strcmp(entry->decl_context.namespace_scope->related_entry->symbol_name, "(unnamed)") == 0)
     {
-        return entry->symbol_name;
+        result = uniquestr(unmangle_symbol_name(entry));
+
+        if (!no_templates
+                && entry->type_information != NULL
+                && is_template_specialized_type(entry->type_information)
+                && template_specialized_type_get_template_arguments(entry->type_information) != NULL
+                && !entry->entity_specs.is_conversion)
+        {
+            current_has_template_parameters = 1;
+
+            template_parameter_list_t* template_parameter_list = template_specialized_type_get_template_arguments(entry->type_information);
+            const char* template_parameters =  template_arguments_to_str_ex(template_parameter_list,
+                    /* first_argument_to_be_printed */ 0,
+                    /* first_level_brackets */ 1,
+                    decl_context,
+                    print_type_fun,
+                    print_type_data);
+
+            result = strappend(result, template_parameters);
+
+            (*is_dependent) |= is_dependent_type(entry->type_information);
+
+            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+            scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
+            if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            {
+                // This is dependent
+                (*is_dependent) = 1;
+            }
+        }
+        return result;
     }
+
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->entity_specs.is_injected_class_name)
     {
@@ -4437,7 +4522,6 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         entry = named_type_get_symbol(entry->entity_specs.class_type);
     }
 
-    const char* result = ""; 
     // Do not print anonymous unions or variables of anonymous unions
     if (!entry->entity_specs.is_anonymous_union
             && !(is_named_class_type(entry->type_information)
@@ -4446,7 +4530,6 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         result = uniquestr(unmangle_symbol_name(entry));
     }
 
-    char current_has_template_parameters = 0;
 
     if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
@@ -6644,4 +6727,18 @@ char is_dependent_function(scope_entry_t* entry)
         || (entry->kind == SK_DEPENDENT_FRIEND_FUNCTION)
         || (entry->entity_specs.is_member
                 && is_dependent_type(entry->entity_specs.class_type));
+}
+
+nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
+{
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+    int i;
+    for (i = 0; i < entry->entity_specs.num_gcc_attributes; i++)
+    {
+        if (strcmp(entry->entity_specs.gcc_attributes[i].attribute_name, "aligned") == 0)
+        {
+            return nodecl_list_head(entry->entity_specs.gcc_attributes[i].expression_list);
+        }
+    }
+    return nodecl_null();
 }

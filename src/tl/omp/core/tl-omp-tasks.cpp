@@ -375,11 +375,23 @@ namespace TL
 
            _task_label = Nodecl::Utils::deep_copy(
                    task_info._task_label, task_info._sym.get_scope(), translation_map);
+
+           _parsing_scope = task_info._parsing_scope;
         }
 
         Symbol FunctionTaskInfo::get_symbol() const
         {
             return _sym;
+        }
+
+        void FunctionTaskInfo::set_parsing_scope(TL::Scope sc)
+        {
+            _parsing_scope = sc;
+        }
+
+        TL::Scope FunctionTaskInfo::get_parsing_scope() const
+        {
+            return _parsing_scope;
         }
 
         FunctionTaskInfo::implementation_table_t FunctionTaskInfo::get_implementation_table() const
@@ -562,6 +574,7 @@ namespace TL
             mw.write(_final_clause_cond_expr);
             mw.write(_untied);
             mw.write(_task_label);
+            mw.write(_parsing_scope);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -575,6 +588,7 @@ namespace TL
             mr.read(_final_clause_cond_expr);
             mr.read(_untied);
             mr.read(_task_label);
+            mr.read(_parsing_scope);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -906,7 +920,7 @@ namespace TL
 
         void Core::task_function_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            Nodecl::NodeclBase param_ref_tree = construct.get_context_of_parameters();
+            TL::Scope parsing_scope = construct.get_context_of_parameters().retrieve_context();
 
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
@@ -916,27 +930,32 @@ namespace TL
 
             Symbol function_sym = construct.get_symbol();
 
-            // In some special cases we need to add the symbol 'this' to the
-            // current class scope. This is needed because in the pragma of a
-            // non-static member function may appear a member of this class.
-            // Example:
-            //
-            //  struct X
-            //  {
-            //      char var[10];
-            //
-            //      #pragma omp task inout(var[i])
-            //      void foo(int i) {}
-            //  };
-            //
             if (function_sym.is_member()
                     && !function_sym.is_static())
             {
-                TL::Scope class_scope = function_sym.get_scope();
-                TL::Symbol this_symbol = class_scope.get_symbol_from_name("this");
+                TL::Symbol this_symbol = parsing_scope.get_symbol_from_name("this");
                 if (!this_symbol.is_valid())
                 {
-                    this_symbol = class_scope.new_symbol("this");
+                    // In some cases the symbol 'this is not available. This happens
+                    // if the function had not been defined
+                    //
+                    // Example:
+                    //
+                    //  struct X
+                    //  {
+                    //      char var[10];
+                    //
+                    //      #pragma omp task inout(var[i])
+                    //      void foo(int i);
+                    //  };
+                    //  void X::foo(int j) { var[j]++; }
+                    //
+                    // We create a new prototype scope to register "this" this
+                    // way we do not pollute the class scope (prototypes can be
+                    // nested)
+                    parsing_scope = TL::Scope(new_prototype_context(parsing_scope.get_decl_context()));
+                    this_symbol = parsing_scope.new_symbol("this");
+
                     Type pointed_this = function_sym.get_class_type();
                     Type this_type = pointed_this.get_pointer_to().get_const_type();
 
@@ -954,7 +973,7 @@ namespace TL
             if (input_clause.is_defined())
             {
                 ObjectList<Nodecl::NodeclBase> all_input_arguments;
-                all_input_arguments = input_clause.get_arguments_as_expressions(param_ref_tree);
+                all_input_arguments = input_clause.get_arguments_as_expressions(parsing_scope);
                 all_input_arguments = update_clauses(all_input_arguments, function_sym);
 
                separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
@@ -965,7 +984,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> output_arguments;
             if (output_clause.is_defined())
             {
-                output_arguments = output_clause.get_arguments_as_expressions(param_ref_tree);
+                output_arguments = output_clause.get_arguments_as_expressions(parsing_scope);
                 output_arguments = update_clauses(output_arguments, function_sym);
             }
 
@@ -973,7 +992,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> inout_arguments;
             if (inout_clause.is_defined())
             {
-                inout_arguments = inout_clause.get_arguments_as_expressions(param_ref_tree);
+                inout_arguments = inout_clause.get_arguments_as_expressions(parsing_scope);
                 inout_arguments = update_clauses(inout_arguments, function_sym);
             }
 
@@ -981,7 +1000,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> concurrent_arguments;
             if (concurrent_clause.is_defined())
             {
-                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(param_ref_tree);
+                concurrent_arguments = concurrent_clause.get_arguments_as_expressions(parsing_scope);
                 concurrent_arguments = update_clauses(concurrent_arguments, function_sym);
             }
 
@@ -989,7 +1008,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> commutative_arguments;
             if (commutative_clause.is_defined())
             {
-                commutative_arguments = commutative_clause.get_arguments_as_expressions(param_ref_tree);
+                commutative_arguments = commutative_clause.get_arguments_as_expressions(parsing_scope);
                 commutative_arguments = update_clauses(commutative_arguments, function_sym);
             }
 
@@ -1104,7 +1123,7 @@ namespace TL
             PragmaCustomClause if_clause = pragma_line.get_clause("if");
             if (if_clause.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(param_ref_tree);
+                ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(parsing_scope);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
@@ -1117,7 +1136,7 @@ namespace TL
             PragmaCustomClause final_clause = pragma_line.get_clause("final");
             if (final_clause.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(param_ref_tree);
+                ObjectList<Nodecl::NodeclBase> expr_list = final_clause.get_arguments_as_expressions(parsing_scope);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'final' requires just one argument\n",
@@ -1130,7 +1149,7 @@ namespace TL
             PragmaCustomClause priority_clause = pragma_line.get_clause("priority");
             if (priority_clause.is_defined())
             {
-                ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(param_ref_tree);
+                ObjectList<Nodecl::NodeclBase> expr_list = priority_clause.get_arguments_as_expressions(parsing_scope);
                 if (expr_list.size() != 1)
                 {
                     running_error("%s: error: clause 'if' requires just one argument\n",
@@ -1159,6 +1178,8 @@ namespace TL
                                 str_list[0]));
                 }
             }
+
+            task_info.set_parsing_scope(parsing_scope);
 
             std::cerr << construct.get_locus_str()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
@@ -1201,49 +1222,16 @@ namespace TL
 
             TL::Scope scope = construct.retrieve_context();
 
-            Symbol enclosing_function = scope.get_related_symbol();
-            // In some special cases we need to add the symbol 'this' to the
-            // current class scope. This is needed because in the pragma of a
-            // non-static member function may appear a member of this class.
-            // Example:
-            //
-            //  struct X
-            //  {
-            //      char var[10];
-            //
-            //      void foo(int i)
-            //      {
-            //          #pragma omp task inout(var[i])
-            //          {
-            //          }
-            //      }
-            //  };
-            //
-            if (enclosing_function.is_member()
-                    && !enclosing_function.is_static())
-            {
-                TL::Symbol this_symbol = scope.get_symbol_from_name("this");
-                if (!this_symbol.is_valid())
-                {
-                    this_symbol = scope.new_symbol("this");
-                    Type pointed_this = enclosing_function.get_class_type();
-                    Type this_type = pointed_this.get_pointer_to().get_const_type();
-
-                    this_symbol.get_internal_symbol()->type_information = this_type.get_internal_type();
-                    this_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                    this_symbol.get_internal_symbol()->defined = 1;
-                    this_symbol.get_internal_symbol()->do_not_print = 1;
-                }
-            }
-
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
 
             get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
+            
+            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED, 
+                    /*allow_default_auto*/ true);
 
-            get_dependences_info(pragma_line, data_sharing);
+            get_dependences_info(pragma_line, data_sharing, default_data_attr);
 
-            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED);
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
             // Target info applies after

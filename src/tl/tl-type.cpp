@@ -249,7 +249,7 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_vector_to(unsigned int vector_size)
+    Type Type::get_vector_to(unsigned int vector_size) const
     {
         type_t* work_type = this->_type_info;
 
@@ -258,7 +258,7 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_vector_of_elements(unsigned int num_elements)
+    Type Type::get_vector_of_elements(unsigned int num_elements) const
     {
         type_t* work_type = this->_type_info;
 
@@ -1329,7 +1329,7 @@ namespace TL
 
     bool TL::Type::is_interoperable() const
     {
-        return ::is_interoperable_variant_type(_type_info);
+        return ::variant_type_is_interoperable(_type_info);
     }
 
     bool Type::is_base_class(Type t) const

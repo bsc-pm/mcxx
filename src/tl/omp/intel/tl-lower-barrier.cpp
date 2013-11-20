@@ -29,7 +29,7 @@
 
 namespace TL { namespace Intel {
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::BarrierFull& construct)
+Nodecl::NodeclBase LoweringVisitor::emit_barrier(const Nodecl::NodeclBase &construct)
 {
     TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
@@ -38,7 +38,12 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::BarrierFull& construct)
         << ", __kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "));";
 
     Nodecl::NodeclBase barrier_code = src.parse_statement(construct);
-    construct.replace(barrier_code);
+    return barrier_code;
+}
+
+void LoweringVisitor::visit(const Nodecl::OpenMP::BarrierFull& construct)
+{
+    construct.replace(emit_barrier(construct));
 }
 
 

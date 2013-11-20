@@ -178,6 +178,9 @@ LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_va
 LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
 LIBMCXX_EXTERN const_value_t* const_value_make_range(const_value_t* lower, const_value_t* upper, const_value_t* stride);
 
+LIBMCXX_EXTERN const_value_t* const_value_make_vector_from_scalar(int num_elements, const_value_t* value);
+LIBMCXX_EXTERN const_value_t* const_value_make_array_from_scalar(int num_elements, const_value_t* value);
+
 LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
 LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
 LIBMCXX_EXTERN const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements);

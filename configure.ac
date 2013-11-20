@@ -59,12 +59,12 @@ AC_PROG_LN_S
 dnl Check fortran compiler
 AC_PROG_FC
 
+
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
 dnl Check python 2.4
 AM_PATH_PYTHON([2.4],, [:])
-
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.
@@ -73,6 +73,10 @@ if test x$BASH = x; then
 fi
 
 dnl --------------------- Basic toolchain setup -----------------
+if test x$FC = x; then
+   AC_MSG_ERROR([Fortran compiler not found])
+fi
+
 CC_FOR_BUILD=$CC
 dnl If we are cross compiling ensure that we are using
 dnl the proper build cc
@@ -344,6 +348,9 @@ then
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
    COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
+
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
+   COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
@@ -661,11 +668,6 @@ fi
 AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
-if test x$is_enabled_tl_omp_nanox = xyes;
-then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
-   COMPILER_NAMES="${COMPILER_NAMES} smpcc smpcxx"
-fi
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
@@ -1149,15 +1151,18 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-disable_vectorization="no"
+dnl DISABLED BY DEFAULT IN MASTER
+dnl It should be no
+disable_vectorization="yes"
 AC_MSG_CHECKING([if disabled Vectorization build and install])
 AC_ARG_ENABLE([vectorization],
   AS_HELP_STRING([--disable-vectorization], [Disables build and install Vectorization]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-      disable_vectorization="no"
-      AC_MSG_RESULT([no])
+    dnl It should be no (both)
+      disable_vectorization="yes"
+      AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
       then
         AC_MSG_RESULT([yes])
@@ -1168,8 +1173,9 @@ AC_ARG_ENABLE([vectorization],
     fi
   ],
   [
-    disable_vectorization="no"
-    AC_MSG_RESULT([no])
+    dnl It should be no (both)
+    disable_vectorization="yes"
+    AC_MSG_RESULT([yes])
   ]
 )
 
@@ -1214,7 +1220,6 @@ AC_ARG_ENABLE([analysis],
 
 if test x$disable_analysis = xno;
 then
-  echo "**************** Analysis is going to be compiled!!!!"
   TL_EXTRAS_PRE_OMP="analysis optimizations ${TL_EXTRAS_PRE_OMP}"
   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} auto-scope lint"
   TL_EXTRAS="${TL_EXTRAS} hlt"
@@ -1901,20 +1906,6 @@ echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
 
 
-if test x$flex_good = xno;
-then
-  AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
-fi
-if test x$bison_good = xno;
-then
-  AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
-fi
-if test x$gperf_good = xno;
-then
-   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
-fi
-
-echo ""
 echo " * Optional phases :"
 echo ""
 
@@ -1930,4 +1921,18 @@ then
   echo "   Analysis build and install disabled"
 else
   echo "   Analysis build and install enabled"
+fi
+
+
+if test x$flex_good = xno;
+then
+  AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
+fi
+if test x$bison_good = xno;
+then
+  AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
+fi
+if test x$gperf_good = xno;
+then
+   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
 fi
