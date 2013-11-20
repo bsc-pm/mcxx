@@ -8182,6 +8182,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     linkage_pop();
 
     class_entry->defined = 1;
+    class_symbol_get_canonical_symbol(class_entry)->defined = 1;
 
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
