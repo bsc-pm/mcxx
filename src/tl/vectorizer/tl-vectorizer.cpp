@@ -40,7 +40,6 @@ namespace TL
                 const bool support_masking,
                 const unsigned int mask_size,
                 const bool fast_math,
-                const bool is_parallel_loop,
                 const bool prefer_gather_scatter,
                 const bool prefer_mask_gather_scatter,
                 const TL::Type& target_type,
@@ -48,7 +47,7 @@ namespace TL
                 const TL::ObjectList<TL::Symbol> * reduction_list,
                 std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
-           _support_masking(support_masking), _mask_size(mask_size), _fast_math(fast_math), _is_parallel_loop(is_parallel_loop), 
+           _support_masking(support_masking), _mask_size(mask_size), _fast_math(fast_math),  
            _prefer_gather_scatter(prefer_gather_scatter), _prefer_mask_gather_scatter(prefer_mask_gather_scatter),
            _target_type(target_type), _suitable_expr_list(suitable_expr_list),
            _reduction_list(reduction_list), _new_external_vector_symbol_map(new_external_vector_symbol_map)
@@ -92,39 +91,6 @@ namespace TL
                     Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
         }
 
-#if 0
-        void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
-        {
-            if ((Vectorizer::_analysis_info == 0) || 
-                    (Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function))
-            {
-                std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
-               
-                /* 
-                if (Vectorizer::_analysis_info != 0 && Vectorizer::_analysis_info->get_nodecl_origin() != enclosing_function)
-                {
-                    std::cerr << _analysis_info->get_nodecl_origin().prettyprint()
-                        << std::endl
-                        << std::endl
-                        << enclosing_function.prettyprint();
-                }
-                */
-
-                if(Vectorizer::_analysis_info != 0)
-                    delete Vectorizer::_analysis_info;
-
-                Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
-                        enclosing_function,
-                        Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                        Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                        Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
-            }
-            else
-            {
-                std::cerr << "VECTORIZER: Reusing previous analysis" << std::endl;
-            }
-        }
-#endif
         void Vectorizer::finalize_analysis()
         {
             std::cerr << "VECTORIZER: Finalizing analysis" << std::endl;
@@ -144,18 +110,17 @@ namespace TL
         {
         }
 
-        int Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
+        void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(for_statement);
 
             VectorizerVisitorFor visitor_for(environment);
-            int epilog_iterations = visitor_for.walk(for_statement);
+            visitor_for.walk(for_statement);
 
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(for_statement);
-            return epilog_iterations;
         }
 
         void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
@@ -175,12 +140,15 @@ namespace TL
         void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement, 
                 VectorizerEnvironment& environment,
                 Nodecl::NodeclBase& net_epilog_node,
-                int epilog_iterations)
+                int epilog_iterations,
+                bool only_epilog,
+                bool is_parallel_loop)
         {
             // Applying strenth reduction
             TL::Optimizations::canonicalize_and_fold(for_statement);
 
-            VectorizerVisitorForEpilog visitor_epilog(environment, epilog_iterations);
+            VectorizerVisitorForEpilog visitor_epilog(environment, 
+                    epilog_iterations, only_epilog, is_parallel_loop);
             visitor_epilog.visit(for_statement, net_epilog_node);
 
             // Applying strenth reduction
@@ -197,6 +165,68 @@ namespace TL
 
             return vector_reduction.is_supported_reduction(is_builtin,
                     reduction_name, reduction_type);
+        }
+
+        int Vectorizer::get_epilog_info(const Nodecl::ForStatement& for_statement,
+                VectorizerEnvironment& environment,
+                bool& only_epilog)
+        {
+            int remain_its = -1;
+            only_epilog = false;
+
+            TL::ForStatement tl_for(for_statement);
+
+            Nodecl::NodeclBase lb = tl_for.get_lower_bound();
+            Nodecl::NodeclBase ub = tl_for.get_upper_bound();
+            Nodecl::NodeclBase step = tl_for.get_step();
+
+            if(lb.is_constant() && step.is_constant())
+            {
+                long long int const_lb = const_value_cast_to_8(lb.get_constant());
+                long long int const_step = const_value_cast_to_8(step.get_constant());
+                long long int const_ub;
+
+                if (ub.is_constant())
+                {
+                    const_ub = const_value_cast_to_8(ub.get_constant()) + 1;
+                }
+                else
+                {
+                    // Push ForStatement as scope for analysis
+                    environment._analysis_simd_scope = for_statement;
+                    environment._analysis_scopes.push_back(for_statement);
+                    
+                    bool is_suitable = _analysis_info->is_suitable_expression(for_statement, ub,
+                            environment._suitable_expr_list, environment._unroll_factor,
+                            environment._vector_length);
+
+                    environment._analysis_scopes.pop_back();
+ 
+                    if (is_suitable)
+                    {
+                        const_ub = environment._unroll_factor;
+                    }
+                    else // We cannot say anything about the number of iterations of the epilog
+                    {
+                        return remain_its; // -1
+                    }
+                }
+ 
+                long long int num_its = (((const_ub - const_lb)%const_step) == 0) ? 
+                    ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
+                
+                if (num_its < environment._unroll_factor)
+                    only_epilog = true;
+
+                remain_its = num_its % environment._unroll_factor;
+            }
+
+            if (remain_its < -1)
+            {
+                internal_error("Vectorizer: Remain iterations %d < -1", remain_its);
+            }
+
+            return remain_its;
         }
 
         void Vectorizer::vectorize_reduction(const TL::Symbol& scalar_symbol,

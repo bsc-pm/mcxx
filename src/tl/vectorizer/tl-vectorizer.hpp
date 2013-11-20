@@ -47,7 +47,6 @@ namespace TL
                 const bool _support_masking;
                 const unsigned int _mask_size;
                 const bool _fast_math;
-                const bool _is_parallel_loop;
                 const bool _prefer_gather_scatter;
                 const bool _prefer_mask_gather_scatter;
                 const TL::Type& _target_type;
@@ -73,7 +72,6 @@ namespace TL
                         const bool support_masking,
                         const unsigned int mask_size,
                         const bool fast_math,
-                        const bool is_parallel_loop,
                         const bool prefer_gather_scatter,
                         const bool prefer_mask_gather_scatter,
                         const TL::Type& target_type,
@@ -123,7 +121,7 @@ namespace TL
 
                 ~Vectorizer();
 
-                int vectorize(Nodecl::ForStatement& for_statement, 
+                void vectorize(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
                 void vectorize(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
@@ -132,7 +130,12 @@ namespace TL
                 void process_epilog(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment,
                         Nodecl::NodeclBase& net_epilog_node,
-                        int epilog_iterations);
+                        int epilog_iterations,
+                        bool only_epilog,
+                        bool is_parallel_loop);
+                int get_epilog_info(const Nodecl::ForStatement& for_statement,
+                        VectorizerEnvironment& environment,
+                        bool& only_epilog);
 
                 bool is_supported_reduction(bool is_builtin,
                         const std::string& reduction_name,
@@ -169,6 +172,7 @@ namespace TL
                 friend class VectorizerVisitorFunction;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
+                friend class VectorizerVisitorLoopHeader;
 
                 friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
                         const VectorizerEnvironment& environment,

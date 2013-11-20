@@ -49,9 +49,6 @@ namespace TL
             _environment._local_scope_list.push_back(
                     function_code.get_statements().retrieve_context());
 
-            // Get analysis info
-            Vectorizer::initialize_analysis(function_code);
-
             // Push FunctionCode as scope for analysis
             _environment._analysis_simd_scope = function_code;
             _environment._analysis_scopes.push_back(function_code);
@@ -78,7 +75,6 @@ namespace TL
 
                 parameters_vector_type.append(sym_type);
             }
-
 
             if(_masked_version)
             {
@@ -160,12 +156,8 @@ namespace TL
             
             _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
-
-            // Analysis in functions won't be reused anywhere so it must be freed
-            Vectorizer::finalize_analysis();
         }
  
-
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 
         { 
             std::cerr << "Function Visitor: Unknown node " 

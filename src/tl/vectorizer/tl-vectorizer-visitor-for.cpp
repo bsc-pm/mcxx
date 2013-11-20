@@ -40,21 +40,7 @@ namespace TL
         {
         }
 
-        int VectorizerVisitorFor::join_list(ObjectList<int>& list)
-        {
-            /*
-            for(ObjectList<bool>::iterator it = list.begin( ); 
-                    it != list.end( );  
-                    ++it)
-            {
-                running_error("VectorizerVisitorFor: Error join_list");
-            }
-            */
-
-            running_error("VectorizerVisitorFor: Error join_list");
-        }
-
-        int VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
+        void VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
             // Set up enviroment
             _environment._external_scope =
@@ -62,24 +48,13 @@ namespace TL
             _environment._local_scope_list.push_back(
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
 
-            // Get analysis info
-            Nodecl::NodeclBase enclosing_func = 
-                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
-
-            Vectorizer::initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
-
             // Push ForStatement as scope for analysis
             _environment._analysis_simd_scope = for_statement;
             _environment._analysis_scopes.push_back(for_statement);
 
             // Vectorize Loop Header
             VectorizerVisitorLoopHeader visitor_loop_header(_environment);
-            int remain_iterations = visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
-
-            if (remain_iterations < -2)
-            {
-                internal_error("Vectorizer: Remain iterations %d < -2", remain_iterations);
-            }
+            visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
             // Vectorize Loop Body
 
@@ -96,16 +71,9 @@ namespace TL
             _environment._mask_list.pop_back();
             _environment._analysis_scopes.pop_back();
             _environment._local_scope_list.pop_back();
-
-            // If epilog is not necessary, analysis won't be reused
-            // and must be freed
-            if(remain_iterations == 0)
-                Vectorizer::finalize_analysis();
-
-            return remain_iterations;
         }
 
-        Nodecl::NodeclVisitor<int>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "For Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -115,73 +83,27 @@ namespace TL
             return Ret();
         }
 
-        VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment) :
-            _environment(environment)
+        VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment)
+            : _environment(environment)
         {
         }
 
-        int VectorizerVisitorLoopHeader::join_list(TL::ObjectList<int> & node)
+        void VectorizerVisitorLoopHeader::visit(const Nodecl::LoopControl& loop_control)
         {
-            internal_error("VectorizerVisitorLoopHeader: Joint list",0);
-        }
-
-        int VectorizerVisitorLoopHeader::visit(const Nodecl::LoopControl& loop_control)
-        {
-            int remain_its = -1;
-
             // Init
             VectorizerVisitorLoopInit visitor_loop_init;
-            Nodecl::NodeclBase lower_bound = 
-                visitor_loop_init.walk(loop_control.get_init());
+            visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
             VectorizerVisitorLoopCond visitor_loop_cond(_environment);
-            Nodecl::NodeclBase upper_bound = 
-                visitor_loop_cond.walk(loop_control.get_cond());
+            visitor_loop_cond.walk(loop_control.get_cond());
 
             // Next
             VectorizerVisitorLoopNext visitor_loop_next(_environment);
-            Nodecl::NodeclBase step =
-                visitor_loop_next.walk(loop_control.get_next());
-
-            if(step.is_constant() && 
-                    lower_bound.is_constant() && 
-                    upper_bound.is_constant())
-            {
-                long long int s = const_value_cast_to_signed_int(step.get_constant());
-                long long int lb = const_value_cast_to_signed_int(lower_bound.get_constant());
-                long long int ub = const_value_cast_to_signed_int(upper_bound.get_constant());
-
-                long long int num_its = (((ub - lb)%s)==0) ? (ub - lb)/s : ((ub - lb)/s) + 1;
-
-                if (num_its < _environment._unroll_factor)
-                {
-                    remain_its = -2; // Only epilog
-                }
-                else
-                {
-                    remain_its = num_its % _environment._unroll_factor;
-                }
-            }
-            else if (step.is_constant() && 
-                    lower_bound.is_constant())
-            {
-                long long int s = const_value_cast_to_signed_int(step.get_constant());
-                long long int lb = const_value_cast_to_signed_int(lower_bound.get_constant());
-
-                if (Nodecl::Utils::containsNodecl(*_environment._suitable_expr_list, upper_bound))
-                { 
-                    long long int num_its = (((_environment._unroll_factor - lb)%s)==0) ? 
-                        (_environment._unroll_factor - lb)/s : ((_environment._unroll_factor - lb)/s) + 1;
-
-                    remain_its = num_its % _environment._unroll_factor;
-                }
-            }
-
-            return remain_its;
+            visitor_loop_next.walk(loop_control.get_next());
         }
 
-        Nodecl::NodeclVisitor<int>::Ret VectorizerVisitorLoopHeader::unhandled_node(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopHeader::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Header Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -195,35 +117,25 @@ namespace TL
         {
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopInit::join_list(TL::ObjectList<Nodecl::NodeclBase> & node)
-        {
-            return node.front();
-        }
-
-        Nodecl::NodeclBase VectorizerVisitorLoopInit::visit(const Nodecl::ObjectInit& node)
+        void VectorizerVisitorLoopInit::visit(const Nodecl::ObjectInit& node)
         {
             running_error("Vectorizer (%s): Declaration of new variables is not supported yet "\
                           "in LoopControl. Please, declare them outside of the loop.",
                           node.get_locus_str().c_str());
-
-            return Nodecl::NodeclBase::null();
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopInit::visit(const Nodecl::Assignment& node)
+        void VectorizerVisitorLoopInit::visit(const Nodecl::Assignment& node)
         {
-            Nodecl::NodeclBase rhs = node.get_rhs();
-
-            return rhs;
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopInit::visit(const Nodecl::Comma& node)
+        void VectorizerVisitorLoopInit::visit(const Nodecl::Comma& node)
         {
             // TODO
             walk(node.get_lhs());
-            return walk(node.get_rhs());
+            walk(node.get_rhs());
         }
 
-        Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorLoopInit::unhandled_node(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopInit::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Init Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
@@ -238,32 +150,32 @@ namespace TL
         {
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopCond::visit(const Nodecl::Equal& node)
+        void VectorizerVisitorLoopCond::visit(const Nodecl::Equal& node)
         {
-            return visit_condition(node);
+            visit_condition(node);
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopCond::visit(const Nodecl::LowerThan& node)
+        void VectorizerVisitorLoopCond::visit(const Nodecl::LowerThan& node)
         {
-            return visit_condition(node);
+            visit_condition(node);
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopCond::visit(const Nodecl::LowerOrEqualThan& node)
+        void VectorizerVisitorLoopCond::visit(const Nodecl::LowerOrEqualThan& node)
         {
-            return visit_condition(node);
+            visit_condition(node);
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopCond::visit(const Nodecl::GreaterThan& node)
+        void VectorizerVisitorLoopCond::visit(const Nodecl::GreaterThan& node)
         {
-            return visit_condition(node);
+            visit_condition(node);
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopCond::visit(const Nodecl::GreaterOrEqualThan& node)
+        void VectorizerVisitorLoopCond::visit(const Nodecl::GreaterOrEqualThan& node)
         {
-            return visit_condition(node);
+            visit_condition(node);
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopCond::visit_condition(const Nodecl::NodeclBase& node)
+        void VectorizerVisitorLoopCond::visit_condition(const Nodecl::NodeclBase& node)
         {
             Nodecl::Equal condition = node.as<Nodecl::Equal>();
             Nodecl::NodeclBase lhs = condition.get_lhs();
@@ -388,18 +300,14 @@ namespace TL
                 running_error("Vectorizer (%s): Loop is not vectorizable because of the loop "
                         "condition. BOTH expressions are NOT CONSTANT.", locus_to_str(node.get_locus()));
             }
-
-            return result;
         }
 
-        Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorLoopCond::unhandled_node(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopCond::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Cond Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus_str()
                 << std::endl;
-
-            return Ret();
         }
 
         VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(const VectorizerEnvironment& environment) :
@@ -407,29 +315,29 @@ namespace TL
         {
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopNext::visit(const Nodecl::Preincrement& node)
+        void VectorizerVisitorLoopNext::visit(const Nodecl::Preincrement& node)
         {
-            return visit_increment(node, node.get_rhs());
+            visit_increment(node, node.get_rhs());
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
+        void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
         {
-            return visit_increment(node, node.get_rhs());
+            visit_increment(node, node.get_rhs());
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
+        void VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
         {
-            return visit_increment(node, node.get_lhs());
+            visit_increment(node, node.get_lhs());
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopNext::visit(const Nodecl::Comma& node)
+        void VectorizerVisitorLoopNext::visit(const Nodecl::Comma& node)
         {
             // TODO
             walk(node.get_lhs());
-            return walk(node.get_rhs());
+            walk(node.get_rhs());
         }
 
-        Nodecl::NodeclBase VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
+        void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
         {
             Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
 
@@ -477,23 +385,21 @@ namespace TL
 
                 node.replace(new_node);
             }
-
-            return result;
         }
 
-        Nodecl::NodeclVisitor<Nodecl::NodeclBase>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
         {
             std::cerr << "Loop Next Visitor: Unknown node "
                 << ast_print_node_type(n.get_kind())
                 << " at " << n.get_locus_str()
                 << std::endl;
-
-            return Ret();
         }
 
 
-        VectorizerVisitorForEpilog::VectorizerVisitorForEpilog(VectorizerEnvironment& environment, int epilog_iterations) :
-            _environment(environment), _epilog_iterations(epilog_iterations)
+        VectorizerVisitorForEpilog::VectorizerVisitorForEpilog(VectorizerEnvironment& environment, 
+                int epilog_iterations, bool only_epilog, bool is_parallel_loop) :
+            _environment(environment), _epilog_iterations(epilog_iterations), 
+            _only_epilog(only_epilog), _is_parallel_loop(is_parallel_loop)
         {
             if (_epilog_iterations == 0)
                 internal_error("Vectorizer: Epilog with 0 iterations", 0);
@@ -511,9 +417,6 @@ namespace TL
                 visit_scalar_epilog(for_statement, net_epilog_node);
             }
 
-            // Epilog reused the analysis from the original ForStatement
-            // Now it must be freed
-            Vectorizer::finalize_analysis();
         }
 
         void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement,
@@ -525,10 +428,6 @@ namespace TL
             _environment._local_scope_list.push_back(
                     for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
 
-            // Get analysis info
-            Nodecl::NodeclBase enclosing_func = 
-                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
-
             Nodecl::CompoundStatement comp_statement = for_statement.get_statement().as<Nodecl::List>().
                 front().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().
                 as<Nodecl::CompoundStatement>();
@@ -539,55 +438,60 @@ namespace TL
 
             // Get mask for epilog instructions
             Nodecl::NodeclBase mask_value;
-            if (_epilog_iterations < 0) // Unknown number of iterations
-            {
-                mask_value = for_statement.get_loop_header().
-                    as<Nodecl::LoopControl>().get_cond().shallow_copy();
-
-                // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
-                Nodecl::MaskLiteral all_one_mask =
-                    Vectorization::Utils::get_contiguous_mask_literal(
-                        _environment._unroll_factor,
-                        _environment._unroll_factor);
-                _environment._mask_list.push_back(all_one_mask);
-
-                VectorizerVisitorExpression visitor_mask(_environment);
-                visitor_mask.walk(mask_value);
-
-                _environment._mask_list.pop_back();
-            }
-            else // Constant value
+            if (_epilog_iterations > 0 || _only_epilog) // Constant value
             {
                 mask_value = Vectorization::Utils::get_contiguous_mask_literal(
                         _environment._unroll_factor,
                         _epilog_iterations);
             }
-           
+            else // Unknown number of iterations
+            {
+                    mask_value = for_statement.get_loop_header().
+                        as<Nodecl::LoopControl>().get_cond().shallow_copy();
+
+                    // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
+                    Nodecl::MaskLiteral all_one_mask =
+                        Vectorization::Utils::get_contiguous_mask_literal(
+                                _environment._unroll_factor,
+                                _environment._unroll_factor);
+                    _environment._mask_list.push_back(all_one_mask);
+
+                    VectorizerVisitorExpression visitor_mask(_environment);
+                    visitor_mask.walk(mask_value);
+
+                    _environment._mask_list.pop_back();
+            }
+
+
             Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                     for_statement.retrieve_context(),
                     _environment._unroll_factor, true);
 
             
-            // Vectorize Loop Body
-            _environment._mask_list.push_back(mask_nodecl_sym);
+            // Vectorize Loop Body if iterations > 1
+            if (_epilog_iterations != 1)
+            {
+                _environment._mask_list.push_back(mask_nodecl_sym);
 
-            VectorizerVisitorStatement visitor_stmt(_environment);
-            visitor_stmt.walk(comp_statement);
+                VectorizerVisitorStatement visitor_stmt(_environment);
+                visitor_stmt.walk(comp_statement);
 
-            _environment._mask_list.pop_back();
+                _environment._mask_list.pop_back();
+            }
 
-            Nodecl::NodeclBase for_inner_statement = for_statement.get_statement().shallow_copy();
+            Nodecl::NodeclBase for_inner_statement = for_statement.get_statement().
+                as<Nodecl::List>().front().shallow_copy();
             Nodecl::List result_stmt_list;
 
+            // Set new IV init
+            Nodecl::ExpressionStatement new_iv_init;
             Nodecl::NodeclBase iv;
             Nodecl::NodeclBase iv_init;
-
-            get_parallel_iv_init_for_epilog(for_statement, iv, iv_init);
- 
-            // Set new IV init
-            if (_environment._is_parallel_loop)
+            if (_is_parallel_loop || _only_epilog)
             {
-                Nodecl::ExpressionStatement new_iv_init = 
+                get_updated_iv_init_for_epilog(for_statement, iv, iv_init);
+
+                new_iv_init = 
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 iv.shallow_copy(),
@@ -600,40 +504,52 @@ namespace TL
 
             // Compute epilog mask expression and add it after vectorization
             Nodecl::ExpressionStatement mask_exp;
-            if (mask_nodecl_sym.get_type().no_ref().is_same_type(mask_value.get_type().no_ref()))
+            if (_epilog_iterations != 1)
             {
-            //    std::cerr << "Masks have the same type" << std::endl;
+                if (mask_nodecl_sym.get_type().no_ref().is_same_type(mask_value.get_type().no_ref()))
+                {
+                    //    std::cerr << "Masks have the same type" << std::endl;
+                    mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                                    mask_value.shallow_copy(),
+                                    mask_nodecl_sym.get_type(),
+                                    for_statement.get_locus()));
+                }
+                else
+                {
+                    //    std::cerr << "Masks don't have the same type" << std::endl;
 
-                mask_exp =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
-                                mask_value.shallow_copy(),
-                                mask_nodecl_sym.get_type(),
-                                for_statement.get_locus()));
+                    mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                                    Nodecl::VectorMaskConversion::make(
+                                        mask_value.shallow_copy(),
+                                        mask_nodecl_sym.get_type(),
+                                        for_statement.get_locus()),
+                                    mask_nodecl_sym.get_type(),
+                                    for_statement.get_locus()));
+                }
+
+                result_stmt_list.append(mask_exp); 
+            }
+
+            // Add IF check to skip epilog if mask is not zero
+
+            Nodecl::NodeclBase if_mask_is_not_zero;
+            if (_epilog_iterations == -1)
+            {
+                if_mask_is_not_zero = 
+                    Vectorization::Utils::get_if_mask_is_not_zero_nodecl(
+                            mask_nodecl_sym.shallow_copy(),
+                            for_inner_statement);
+
+                result_stmt_list.append(if_mask_is_not_zero);
             }
             else
             {
-            //    std::cerr << "Masks don't have the same type" << std::endl;
-
-                mask_exp =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
-                                Nodecl::VectorMaskConversion::make(
-                                    mask_value.shallow_copy(),
-                                    mask_nodecl_sym.get_type(),
-                                    for_statement.get_locus()),
-                                mask_nodecl_sym.get_type(),
-                                for_statement.get_locus()));
+                result_stmt_list.append(for_inner_statement);
             }
-
-            result_stmt_list.append(mask_exp); 
-
-            // Add IF check ito skip epilog if mask is not zero
-            Nodecl::NodeclBase if_mask_is_not_zero = 
-                Vectorization::Utils::get_if_mask_is_not_zero_nodecl(mask_nodecl_sym.shallow_copy(),
-                        for_inner_statement);
-
-            result_stmt_list.append(if_mask_is_not_zero);
 
             // Replace for by list of statements
             Nodecl::CompoundStatement result_compound_statement =
@@ -659,12 +575,11 @@ namespace TL
 
             // Set new IV init
             Nodecl::NodeclBase new_iv_init;
-           if (_environment._is_parallel_loop)
+            Nodecl::NodeclBase iv;
+            Nodecl::NodeclBase iv_init;
+            if (_is_parallel_loop || _only_epilog)
             {
-                Nodecl::NodeclBase iv;
-                Nodecl::NodeclBase iv_init;
-
-                get_parallel_iv_init_for_epilog(for_statement, iv, iv_init);
+                get_updated_iv_init_for_epilog(for_statement, iv, iv_init);
 
                 new_iv_init = Nodecl::Assignment::make(
                         iv.shallow_copy(),
@@ -687,8 +602,7 @@ namespace TL
             _environment._local_scope_list.pop_back();
         }
 
-
-        void VectorizerVisitorForEpilog::get_parallel_iv_init_for_epilog(
+        void VectorizerVisitorForEpilog::get_updated_iv_init_for_epilog(
                 const Nodecl::ForStatement& for_statement, 
                 Nodecl::NodeclBase &induction_variable,
                 Nodecl::NodeclBase &iv_init)
