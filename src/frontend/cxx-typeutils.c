@@ -540,9 +540,15 @@ static type_t* copy_type_for_variant(type_t* t)
     return result;
 }
 
-static type_t* new_empty_type(void)
+static type_t* new_empty_type_without_info(void)
 {
     type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    return result;
+}
+
+static type_t* new_empty_type(void)
+{
+    type_t* result = new_empty_type_without_info();
     result->info = new_common_type_info();
     return result;
 }
@@ -1627,7 +1633,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
 {
     _template_type_counter++;
 
-    // Remove all typedefs from default template arguments
+    // Simplify nontype template-arguments
     template_parameter_list = simplify_template_arguments(template_parameter_list);
 
     type_t* type_info = get_simple_type();
@@ -1917,67 +1923,158 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
     return NULL;
 }
 
-static type_t* template_type_get_specialized_type_after_type_aux(type_t* t, 
+static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
+{
+    if (nodecl_is_null(n1) && nodecl_is_null(n2))
+        return 1;
+
+    if (nodecl_is_null(n1) != nodecl_is_null(n2))
+        return 0;
+
+    if (nodecl_get_kind(n1) != nodecl_get_kind(n2))
+        return 0;
+
+    if (nodecl_get_symbol(n1) != nodecl_get_symbol(n2))
+        return 0;
+
+    if (nodecl_get_type(n1) != nodecl_get_type(n2))
+        return 0;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (!nodecl_trees_are_identical(
+                    nodecl_get_child(n1, i),
+                    nodecl_get_child(n2, i)))
+            return 0;
+    }
+
+    return 1;
+}
+
+// This function compares types by pointers
+static char template_arguments_are_identical(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2)
+{
+    if (template_parameter_list_1->num_parameters !=
+            template_parameter_list_2->num_parameters)
+        return 0;
+
+    int i;
+    for (i = 0; i < template_parameter_list_1->num_parameters; i++)
+    {
+        template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
+        template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
+
+        ERROR_CONDITION(targ_1 == NULL || targ_2 == NULL, "Invalid parameter value", 0);
+
+        if (targ_1->kind != targ_2->kind)
+            return 0;
+
+        switch (targ_1->kind)
+        {
+            case TPK_TYPE:
+            case TPK_TEMPLATE:
+                {
+                    if (targ_1->type != targ_2->type)
+                        return 0;
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    if (!nodecl_trees_are_identical(targ_1->value, targ_2->value)
+                            || (targ_1->type != targ_2->type))
+                        return 0;
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid template argument kind", 0);
+                }
+        }
+    }
+
+    return 1;
+}
+
+static type_t* template_type_get_specialized_type_(
+        type_t* t, 
         template_parameter_list_t *template_arguments, 
-        type_t* after_type,
-        char reuse_existing, 
+        type_t* type_used_as_template,
         decl_context_t decl_context, 
         const locus_t* locus)
 {
-    type_t* existing_spec = NULL;
-    if (reuse_existing)
-    {   
-        existing_spec = template_type_get_matching_specialized_type(t, 
-                template_arguments, 
-                decl_context);
-    }
-    
-    if (existing_spec != NULL)
+    type_t* existing_spec = template_type_get_matching_specialized_type(t, 
+            template_arguments,
+            decl_context);
+
+    scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
+
+    if (existing_spec != NULL
+            && template_arguments_are_identical(
+                template_arguments,
+                template_specialized_type_get_template_arguments(
+                    named_type_get_symbol(existing_spec)->type_information)))
     {
         return existing_spec;
     }
 
-    // Remove all typedefs from template arguments
+    // Simplify nontype template-arguments
     template_arguments = simplify_template_arguments(template_arguments);
 
     char has_dependent_temp_args = has_dependent_template_parameters(template_arguments);
-
-    type_t* specialized_type = after_type;
-
-    scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
-
+    //
+    // Note that if existing_spec != NULL and type_used_as_template != NULL
+    // we will keep using existing_spec
+    type_t* specialized_type = NULL;
     if (primary_symbol->kind == SK_CLASS)
     {
-        if (specialized_type == NULL)
+        if (existing_spec == NULL)
         {
-            specialized_type = get_new_class_type(primary_symbol->decl_context,
-                    class_type_get_class_kind(
-                        get_actual_class_type(primary_symbol->type_information)));
+            if (type_used_as_template == NULL)
+            {
+                specialized_type = get_new_class_type(primary_symbol->decl_context,
+                        class_type_get_class_kind(
+                            get_actual_class_type(primary_symbol->type_information)));
+
+                class_type_set_enclosing_class_type(specialized_type,
+                        class_type_get_enclosing_class_type(primary_symbol->type_information));
+            }
+            else
+            {
+                specialized_type = _get_duplicated_class_type(type_used_as_template);
+            }
         }
         else
         {
-            specialized_type = _get_duplicated_class_type(specialized_type);
-        }
+            type_t* actual_class_type = get_actual_class_type(existing_spec);
 
-        class_type_set_enclosing_class_type(specialized_type,
-                class_type_get_enclosing_class_type(primary_symbol->type_information));
+            // We share the same type but the template arguments
+            specialized_type = new_empty_type_without_info();
+            specialized_type->unqualified_type = specialized_type;
+            specialized_type->kind = TK_DIRECT;
+            specialized_type->type = actual_class_type->type;
+            specialized_type->info = actual_class_type->info;
+        }
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
+        // We will ignore nonidentical matches of existing specializations
+        // for functions
+        existing_spec = NULL;
+
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, locus);
 
-        // If we cannot update the type, give up, as probably this is SFINAE 
+        // If we cannot update the type, give up, as probably this is SFINAE
         if (updated_function_type == NULL)
             return NULL;
 
         // This will give us a new function type
-        if (specialized_type == NULL)
-        {
-            specialized_type = _get_duplicated_function_type(updated_function_type);
-        }
+        specialized_type = _get_duplicated_function_type(updated_function_type);
     }
     else
     {
@@ -1985,37 +2082,43 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     }
 
     // State that this is a template specialized type
-    specialized_type->info->is_template_specialized_type = 1;
     specialized_type->template_parameters = template_arguments;
     specialized_type->template_arguments = template_arguments;
     specialized_type->related_template_type = t;
 
-    // State the class type nature
-    if (primary_symbol->kind == SK_CLASS)
+    // If there was not an existing specialization set up
+    // bits for this new specialization
+    if (existing_spec == NULL)
     {
-        type_t* enclosing_class_type = class_type_get_enclosing_class_type(specialized_type);
-        if (has_dependent_temp_args
-                || (t->type->related_template_symbol != NULL
-                    && t->type->related_template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-                || (enclosing_class_type != NULL
-                    && is_dependent_type(enclosing_class_type)))
+        specialized_type->info->is_template_specialized_type = 1;
+
+        // State the class type nature
+        if (primary_symbol->kind == SK_CLASS)
         {
-            set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+            type_t* enclosing_class_type = class_type_get_enclosing_class_type(specialized_type);
+            if (has_dependent_temp_args
+                    || (t->type->related_template_symbol != NULL
+                        && t->type->related_template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+                    || (enclosing_class_type != NULL
+                        && is_dependent_type(enclosing_class_type)))
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+            }
+            else
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+            }
         }
         else
         {
-            set_is_dependent_type(specialized_type, /* is_dependent */ 0);
-        }
-    }
-    else
-    {
-        if (has_dependent_temp_args)
-        {
-            set_is_dependent_type(specialized_type, /* is_dependent */ 1);
-        }
-        else
-        {
-            set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+            if (has_dependent_temp_args)
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+            }
+            else
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+            }
         }
     }
 
@@ -2040,6 +2143,11 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     // Let this be filled later
     specialized_symbol->entity_specs.num_related_symbols = 0;
     specialized_symbol->entity_specs.related_symbols = NULL;
+
+    if (existing_spec != NULL)
+    {
+        specialized_symbol->entity_specs.alias_to = named_type_get_symbol(existing_spec);
+    }
 
     // Copy exception stuff
     if (specialized_symbol->kind == SK_FUNCTION)
@@ -2068,8 +2176,11 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
     // specialized_symbol->decl_context.template_scope = 
     //     specialized_symbol->decl_context.template_scope->contained_in;
 
-    P_LIST_ADD(t->type->specialized_types, t->type->num_specialized_types, 
-            get_user_defined_type(specialized_symbol));
+    type_t* result = get_user_defined_type(specialized_symbol);
+
+    P_LIST_ADD(t->type->specialized_types,
+            t->type->num_specialized_types, 
+            result);
 
     DEBUG_CODE()
     {
@@ -2079,42 +2190,31 @@ static type_t* template_type_get_specialized_type_after_type_aux(type_t* t,
                 specialized_symbol->type_information);
     }
 
-    return get_user_defined_type(specialized_symbol);
+    return result;
 }
 
-type_t* template_type_get_specialized_type_after_type(type_t* t, 
-        template_parameter_list_t *template_arguments, 
-        type_t* after_type,
-        decl_context_t decl_context, 
-        const locus_t* locus)
-{
-    return template_type_get_specialized_type_after_type_aux(t, template_arguments, after_type,
-            /* reuse_existing */ 1, decl_context, locus);
-}
-
-
-type_t* template_type_get_specialized_type_noreuse(type_t* t, 
-        template_parameter_list_t* template_parameters,
-        decl_context_t decl_context, 
-        const locus_t* locus)
-{
-    return template_type_get_specialized_type_after_type_aux(t,
-            template_parameters,
-            /* after_type */ NULL /* It will create an empty one */,
-            /* reuse_existing */ 0,
-            decl_context,
-            locus);
-}
 
 type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context, 
         const locus_t* locus)
 {
-    return template_type_get_specialized_type_after_type_aux(t,
+    return template_type_get_specialized_type_(t,
             template_parameters,
-            /* after_type */ NULL /* It will create an empty one */,
-            /* reuse_existing */ 1,
+            /* type_used_as_template */ NULL,
+            decl_context,
+            locus);
+}
+
+type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
+        template_parameter_list_t* template_parameters,
+        type_t* type_used_as_template,
+        decl_context_t decl_context, 
+        const locus_t* locus)
+{
+    return template_type_get_specialized_type_(t,
+            template_parameters,
+            type_used_as_template,
             decl_context,
             locus);
 }
@@ -5485,52 +5585,79 @@ static type_t* advance_dependent_typename_aux(
 
 static type_t* advance_dependent_typename_if_in_context(type_t* t, decl_context_t decl_context)
 {
-     // A dependent typename is a dependent entity followed by a sequence of
-     // syntactic bits Advancing them means examining uninstantiated types,
-     // which is always a dangerous thing to do
-     DEBUG_CODE()
-     {
-         fprintf(stderr, "TYPEUTILS: Advancing dependent typename '%s'\n", print_declarator(t));
-     }
- 
-     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
- 
-     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
- 
-     scope_entry_t* dependent_entry = NULL;
-     nodecl_t nodecl_dependent_parts = nodecl_null();
- 
-     dependent_typename_get_components(t, &dependent_entry, &nodecl_dependent_parts);
+    // A dependent typename is a dependent entity followed by a sequence of
+    // syntactic bits Advancing them means examining uninstantiated types,
+    // which is always a dangerous thing to do
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Advancing dependent typename '%s'\n", print_declarator(t));
+    }
 
-     // Only advance if the entry symbol is a class in the current lexical scope
-     if (dependent_entry->kind != SK_CLASS
-             || !class_is_in_lexical_scope(decl_context, dependent_entry))
-         return t;
- 
-     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
- 
-     type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, nodecl_dependent_parts);
-     result = get_qualified_type(result, cv_qualif);
- 
-     DEBUG_CODE()
-     {
-         fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
-                 print_declarator(result));
-     }
- 
-     if (is_dependent_typename_type(result))
-     {
-         scope_entry_t* new_dependent_entry = NULL;
-         dependent_typename_get_components(result, &new_dependent_entry, &nodecl_dependent_parts);
- 
-         // Sanity check
-         if (new_dependent_entry != dependent_entry)
-         {
-             return advance_dependent_typename_if_in_context(result, decl_context);
-         }
-     }
- 
-     return result;
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
+    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
+
+    scope_entry_t* dependent_entry = NULL;
+    nodecl_t nodecl_dependent_parts = nodecl_null();
+
+    dependent_typename_get_components(t, &dependent_entry, &nodecl_dependent_parts);
+
+    // Only advance if the entry symbol is a class in the current lexical scope
+    if (dependent_entry->kind != SK_CLASS
+            || !class_is_in_lexical_scope(decl_context, dependent_entry))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Refusing to advance the dependent typename because this is not a class "
+                    "or not in lexical scope\n");
+        }
+
+        return t;
+    }
+
+    type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
+
+    type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, nodecl_dependent_parts);
+    result = get_qualified_type(result, cv_qualif);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
+                print_declarator(result));
+    }
+
+    if (is_dependent_typename_type(result))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Type is a dependent typename, "
+                    "we may have to advance it again\n");
+        }
+
+        scope_entry_t* new_dependent_entry = NULL;
+        dependent_typename_get_components(result, &new_dependent_entry, &nodecl_dependent_parts);
+
+        // Sanity check
+        if (dependent_entry->kind == SK_CLASS)
+            dependent_entry = class_symbol_get_canonical_symbol(dependent_entry);
+        if (new_dependent_entry->kind == SK_CLASS)
+            new_dependent_entry = class_symbol_get_canonical_symbol(new_dependent_entry);
+
+        if (new_dependent_entry != dependent_entry)
+        {
+            return advance_dependent_typename_if_in_context(result, decl_context);
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: But the new dependent typename shares the dependent entry symbol, "
+                        "refusing to advance it again\n");
+            }
+        }
+    }
+
+    return result;
 }
 
 static char syntactic_comparison_of_one_dependent_part(
@@ -6600,6 +6727,9 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     ERROR_CONDITION(!is_class_type(possible_base)
             || !is_class_type(possible_derived), 
             "This function expects class types", 0);
+
+    possible_base = get_actual_class_type(possible_base);
+    possible_derived = get_actual_class_type(possible_derived);
 
     if (equivalent_types(possible_base, possible_derived))
         return 1;

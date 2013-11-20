@@ -7812,14 +7812,16 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         locus_to_str(class_entry->locus));
             }
 
-            if (class_entry->defined)
+            if (class_entry->defined
+                    || (class_entry->entity_specs.alias_to != NULL
+                        && class_entry->entity_specs.alias_to->defined))
             {
                 if (!checking_ambiguity())
                 {
                     error_printf("%s: class '%s' already defined in %s\n",
                             ast_location(class_id_expression),
                             get_qualified_symbol_name(class_entry, class_entry->decl_context),
-                            locus_to_str(class_entry->locus));
+                            locus_to_str(class_symbol_get_canonical_symbol(class_entry)->locus));
                 }
                 *type_info = get_error_type();
                 return;
@@ -7929,8 +7931,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         prettyprint_in_buffer(class_id_expression), class_entry, decl_context.current_scope);
             }
 
-            class_entry->locus = ast_get_locus(class_id_expression);
-
             // Create the class type for this newly created class
             if (!gather_info->is_template)
             {
@@ -7972,8 +7972,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     class_entry = named_type_get_symbol(
                             template_type_get_primary_type(class_entry->type_information)
                             );
-                    // Update some fields
-                    class_entry->locus = ast_get_locus(class_id_expression);
 
                     class_type = class_entry->type_information;
                 }
@@ -7989,6 +7987,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     return;
                 }
             }
+
+            class_entry->locus = ast_get_locus(class_id_expression);
+            class_symbol_get_canonical_symbol(class_entry)->locus = ast_get_locus(class_id_expression);
 
             inner_decl_context = new_class_context(decl_context, class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
@@ -12986,8 +12987,10 @@ static scope_entry_t* build_scope_function_definition_declarator(
                         && ASTType(declarator_name) == AST_TEMPLATE_ID)
                 {
                     scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
-                    if (entry_list == NULL ||
-                            entry_list_head(entry_list) != decl_context.current_scope->related_entry)
+                    if (entry_list == NULL
+                            || entry_list_head(entry_list)->kind != SK_CLASS
+                            || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
+                                != decl_context.current_scope->related_entry))
                     {
                         if(!checking_ambiguity())
                         {
@@ -13114,7 +13117,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
         }
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: function '%s' already defined (look at '%s')\n",
+            error_printf("%s: error: function '%s' already defined in '%s'\n",
                     ast_location(function_definition),
                     funct_name,
                     locus_to_str(entry->locus));
@@ -14523,8 +14526,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 if (ASTType(declarator_name) == AST_TEMPLATE_ID)
                                 {
                                     scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
-                                    if (entry_list == NULL ||
-                                            entry_list_head(entry_list) != decl_context.current_scope->related_entry)
+                                    if (entry_list == NULL
+                                            || entry_list_head(entry_list)->kind != SK_CLASS
+                                            || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
+                                                != decl_context.current_scope->related_entry))
                                     {
                                         if(!checking_ambiguity())
                                         {

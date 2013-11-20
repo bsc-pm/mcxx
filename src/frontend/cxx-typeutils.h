@@ -553,16 +553,12 @@ LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
         const locus_t* locus);
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
-        template_parameter_list_t * template_parameters,
-        decl_context_t decl_context,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
-        template_parameter_list_t *template_parameters, 
-        type_t* after_type,
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
+        template_parameter_list_t* template_parameters,
+        type_t* type_used_as_template,
         decl_context_t decl_context, 
         const locus_t* locus);
+
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(type_t* t);
