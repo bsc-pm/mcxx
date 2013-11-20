@@ -101,7 +101,7 @@ namespace Analysis {
 
         if( !parents.empty( ) )
         {
-            Node* new_node;
+            Node* new_node = NULL;
             if( !nodecls.empty( ) )
             {
                 new_node = new Node( _utils->_nid, ntype, _utils->_outer_nodes.top( ) );
@@ -142,7 +142,7 @@ namespace Analysis {
     Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, std::string label,
                                           bool is_task_edge )
     {
-        Edge* edge;
+        Edge* edge = NULL;
         if( parent != NULL && child != NULL )
         {
             if( !parent->has_child( child ) )
@@ -905,11 +905,16 @@ namespace Analysis {
         return _sc;
     }
 
-    ObjectList<Utils::ExtendedSymbolUsage> ExtensibleGraph::get_global_variables( ) const
+    std::set<Symbol> ExtensibleGraph::get_global_variables( ) const
     {
         return _global_vars;
     }
 
+    void ExtensibleGraph::set_global_vars( const std::set<Symbol>& global_vars )
+    {
+        _global_vars.insert( global_vars.begin( ), global_vars.end( ) );
+    }
+    
     Symbol ExtensibleGraph::get_function_symbol( ) const
     {
         return _function_sym;
@@ -1022,7 +1027,7 @@ namespace Analysis {
     
     Node* ExtensibleGraph::get_task_next_synchronization( Node* task )
     {
-        Node* result;
+        Node* result = NULL;
         if( !task->is_omp_task_node( ) )
         {
             WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
@@ -1230,7 +1235,7 @@ namespace Analysis {
     
     Edge* ExtensibleGraph::get_edge_between_nodes( Node* source, Node* target )
     {
-        Edge* result;
+        Edge* result = NULL;
         ObjectList<Edge*> exits = source->get_exit_edges( );
         for( ObjectList<Edge*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
         {
@@ -1295,12 +1300,12 @@ namespace Analysis {
         return result;
     }
     
-    void ExtensibleGraph::print_global_vars( ) const
+    bool ExtensibleGraph::usage_is_computed( )
     {
-        for( ObjectList<Utils::ExtendedSymbolUsage>::const_iterator it = _global_vars.begin( ); it != _global_vars.end( ); ++it )
-        {
-            std::cerr << "        - " << it->get_nodecl( ).prettyprint( ) << std::endl;
-        }
+        bool result = false;
+        if( _graph->usage_is_computed( ) )
+            result = true;
+        return result;
     }
     
 }

@@ -310,7 +310,7 @@ namespace Analysis {
                 {
                     dimension_size = 0;
                 }
-                if( VERBOSE )
+                //if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
                 
                 dimension_sizes[i] = dimension_size;

@@ -59,12 +59,12 @@ AC_PROG_LN_S
 dnl Check fortran compiler
 AC_PROG_FC
 
+
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
 dnl Check python 2.4
 AM_PATH_PYTHON([2.4],, [:])
-
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.
@@ -73,6 +73,10 @@ if test x$BASH = x; then
 fi
 
 dnl --------------------- Basic toolchain setup -----------------
+if test x$FC = x; then
+   AC_MSG_ERROR([Fortran compiler not found])
+fi
+
 CC_FOR_BUILD=$CC
 dnl If we are cross compiling ensure that we are using
 dnl the proper build cc

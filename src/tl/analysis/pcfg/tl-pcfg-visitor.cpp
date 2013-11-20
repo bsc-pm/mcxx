@@ -2607,18 +2607,8 @@ namespace Analysis {
         return visit_unary_node( n, n.get_rhs( ) );
     }
 
-    // FIXME This may not be correct
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PointerToMember& n )
     {
-        // Tag the symbol if it is a global variable
-        Scope s_sc = n.get_symbol( ).get_scope( );
-        if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
-        {
-            Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::UseDefVariant::UNDEFINED );
-            if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
-                _pcfg->_global_vars.insert( glob_var_usage );
-        }
-
         // Create the node
         Node* basic_node = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ), n );
         return ObjectList<Node*>( 1, basic_node );
@@ -2749,13 +2739,7 @@ namespace Analysis {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
-        {
-            Utils::ExtendedSymbolUsage glob_var_usage( n, Utils::UseDefVariant::UNDEFINED );
-            if( !Utils::usage_list_contains_sym( glob_var_usage.get_nodecl( ).get_symbol( ), _pcfg->_global_vars ) )
-            {
-                _pcfg->_global_vars.insert( glob_var_usage );
-            }
-        }
+            _pcfg->_global_vars.insert( n.get_symbol( ) );
 
         // Create the node
         return visit_literal_node( n );

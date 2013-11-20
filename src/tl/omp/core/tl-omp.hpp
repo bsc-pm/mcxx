@@ -490,6 +490,8 @@ namespace OpenMP
 
                 Nodecl::NodeclBase _task_label;
 
+                TL::Scope _parsing_scope;
+
             public:
                 FunctionTaskInfo() : _untied(false) { }
 
@@ -541,6 +543,10 @@ namespace OpenMP
                 void set_untied(bool b);
 
                 Symbol get_symbol() const;
+
+                // The scope we used to parse the clauses
+                void set_parsing_scope(TL::Scope sc);
+                TL::Scope get_parsing_scope() const;
 
                 void module_write(ModuleWriter& mw);
                 void module_read(ModuleReader& mr);

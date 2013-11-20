@@ -189,7 +189,7 @@ namespace Utils {
         while( ( pos=str.find( "\n", pos ) ) != -1 ) {
             str.replace ( pos, 1, "" );
         }
-        // Delete explicit line feeds
+        // Escape explicit line feeds
         pos = 0;
         while( ( pos=str.find( "\\n", pos ) ) != -1 ) {
             str.replace ( pos, 2, "\\\\n" );
@@ -235,15 +235,33 @@ namespace Utils {
             str.replace ( pos, 1, "\\?" );
             pos += 2;
         }
+        // Replace $$ intruced to break the line
+        // We don't use '\n' because it is replaced previously
+        pos = 0;
+        while( ( pos=str.find( "$$", pos ) ) != -1 ) {
+            str.replace ( pos, 2, "\\n" );
+            pos += 2;
+        }
+        
     }
     
     std::string prettyprint_ext_sym_set( ext_sym_set s, bool print_in_dot )
     {
-        std::string result;
-        
+        std::string result = "";
+        int line_size = 0;
         for( ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
         {
-            result += it->get_nodecl( ).prettyprint( ) + ", ";
+            std::string it_str = it->get_nodecl( ).prettyprint( );
+            if( line_size + it_str.size( ) > 100 )
+            {
+                result += "$$";
+                line_size = it_str.size( );
+            }
+            else
+                line_size += it_str.size( ) + 3;
+            result += it_str +  ", ";
+            if( line_size > 100 )
+                result += "$$";
         }
         
         if( !result.empty( ) )
@@ -258,22 +276,37 @@ namespace Utils {
     
     std::string prettyprint_ext_sym_map( ext_sym_map s, bool print_in_dot )
     {
-        std::string result;
-        
+        std::string result = "";
+        int line_size = 0;
         for( ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
         {
-            nodecl_t first = it->first.get_nodecl( ).get_internal_nodecl( );
-            nodecl_t second = it->second.get_internal_nodecl( );
-            
             if( it->second.is_null( ) )
             {
-                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) )
-                        + "=UNKNOWN VALUE; ";
+                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=UNKNOWN VALUE; ";
+                if( line_size + it_str.size( ) > 100 )
+                {
+                    result += "$$";
+                    line_size = it_str.size( );
+                }
+                else
+                    line_size += it_str.size( );
+                result += it_str;
+                if( line_size > 100 )
+                    result += "$$";
             }
             else
             {
-                result += std::string( codegen_to_str( first, nodecl_retrieve_context( first ) ) ) + "="
-                        + std::string( codegen_to_str( second, nodecl_retrieve_context( second ) ) ) + "; ";
+                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=" + it->second.prettyprint( ) + "; ";
+                if( line_size + it_str.size( ) > 100 )
+                {
+                    result += "$$";
+                    line_size = it_str.size( );
+                }
+                else
+                    line_size += it_str.size( );
+                result += it_str;
+                if( line_size > 100 )
+                    result += "$$";
             }
         }
         

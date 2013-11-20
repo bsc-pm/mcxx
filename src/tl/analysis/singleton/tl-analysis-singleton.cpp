@@ -228,7 +228,7 @@ namespace Analysis {
 
     Node* PCFGAnalysis_memento::node_enclosing_nodecl( const Nodecl::NodeclBase& n )
     {
-        Node* result;
+        Node* result = NULL;
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
             Node* current = it->second->get_graph( );
@@ -430,6 +430,37 @@ namespace Analysis {
 
     }
 
+    static void use_def_rec( Symbol func_sym, std::set<Symbol>& visited_funcs, ObjectList<ExtensibleGraph*>* pcfgs )
+    {
+        // Nothing to do if the we are analysing something that:
+        // - is not a function 
+        // - has already been analyzed
+        if( !func_sym.is_valid( ) || ( visited_funcs.find( func_sym ) != visited_funcs.end( ) ) )
+            return;
+        
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin( ); it != pcfgs->end( ); ++it )
+        {
+            Symbol it_func_sym( ( *it )->get_function_symbol( ) );
+            if( it_func_sym.is_valid( ) && it_func_sym == func_sym )
+            {
+                visited_funcs.insert( func_sym );
+                if( !( *it )->usage_is_computed( ) )
+                {
+                    // Recursively analyse the functions called from the current graph
+                    ObjectList<Symbol> called_funcs = ( *it )->get_function_calls( );
+                    for( ObjectList<Symbol>::iterator itf = called_funcs.begin( ); itf != called_funcs.end( ); ++itf )
+                        use_def_rec( *itf, visited_funcs, pcfgs );
+                    
+                    // Analyse the current graph
+                    if( VERBOSE )
+                        printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                    UseDef ud( *it, pcfgs );
+                    ud.compute_usage( );
+                }
+            }
+        }
+    }
+    
     ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
@@ -438,19 +469,10 @@ namespace Analysis {
         {
             memento.set_usage_computed( );
 
+            std::set<Symbol> visited_funcs;
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
-            {
-                if( VERBOSE )
-                    printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                UseDef ud( *it );
-
-                std::set<TL::Symbol> visited_functions;
-                if( (*it)->get_function_symbol( ).is_valid( ) )
-                    visited_functions.insert( (*it)->get_function_symbol( ) );
-                ObjectList<Utils::ExtendedSymbolUsage> visited_global_vars =
-                    ObjectList<Utils::ExtendedSymbolUsage>( ( *it )->get_global_variables( ) );
-                ud.compute_usage( visited_functions, visited_global_vars );
-            }
+                if( !( *it )->usage_is_computed( ) )
+                    use_def_rec( ( *it )->get_function_symbol( ), visited_funcs, &pcfgs );
         }
 
         return pcfgs;

@@ -1093,6 +1093,11 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for use-definition analysis ************** //
 
+    bool Node::usage_is_computed( )
+    {
+        return has_key( _UPPER_EXPOSED ) || has_key( _KILLED ) || has_key( _UNDEF );
+    }
+    
     Utils::ext_sym_set Node::get_ue_vars( )
     {
         Utils::ext_sym_set ue_vars;

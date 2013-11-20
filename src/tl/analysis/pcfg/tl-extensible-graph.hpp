@@ -35,6 +35,7 @@
 
 #include "cxx-codegen.h"
 #include "cxx-utils.h"
+#include "tl-analysis-utils.hpp"
 #include "tl-edge.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-node.hpp"
@@ -61,15 +62,13 @@ namespace Analysis {
          */
         Scope _sc;
 
-        /*!While building the CFG, this list keeps information about which variables appear in the graph
-         * But no information about their usage is stored
-         * When IPA is performed, then the proper information about the usage is stored
-         */
-        ObjectList<Utils::ExtendedSymbolUsage> _global_vars;
+        //! Set of global variables appearing in the graph or, eventually (when use-def analysis is performed),
+        //* also global variables appearing in functions called in this graph ( any level of function nesting )
+        std::set<Symbol> _global_vars;
 
-        //! Symbol of the function contained in the graph.
-        /*! This symbol is empty when the code contained in the graph do not correspond to a function
-        */
+        /*! Symbol of the function contained in the graph.
+         *  This symbol is empty when the code contained in the graph do not correspond to a function
+         */
         Symbol _function_sym;
 
         //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
@@ -360,7 +359,8 @@ namespace Analysis {
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope( ) const;
 
-        ObjectList<Utils::ExtendedSymbolUsage> get_global_variables( ) const;
+        std::set<Symbol> get_global_variables( ) const;
+        void set_global_vars( const std::set<Symbol>& global_vars );
 
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code
@@ -400,6 +400,7 @@ namespace Analysis {
         static Node* get_omp_enclosing_node( Node* current );
         static Edge* get_edge_between_nodes( Node* source, Node* target );
         
+        
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
         static bool is_constant_in_context( Node* context, Nodecl::NodeclBase c );
@@ -408,10 +409,7 @@ namespace Analysis {
         
         Node* find_nodecl( const Nodecl::NodeclBase& n );
         
-        
-        // *** Printing methods *** //
-        void print_global_vars( ) const;
-
+        bool usage_is_computed( );
 
     friend class PCFGVisitor;
     };

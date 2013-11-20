@@ -2602,6 +2602,6 @@ static nodecl_t simplify_mcc_null(scope_entry_t* entry UNUSED_PARAMETER,
 
     nodecl_t zero_pointer = const_value_to_nodecl(zero);
 
-    nodecl_set_type(zero_pointer, get_zero_type_variant(fortran_get_default_integer_type()));
+    nodecl_set_type(zero_pointer, get_variant_type_zero(fortran_get_default_integer_type()));
     return zero_pointer;
 }

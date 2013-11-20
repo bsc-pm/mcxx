@@ -128,7 +128,7 @@ struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
     scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
-    char underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
+    _Bool underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
 } enum_info_t;
 
 struct simple_type_tag;
@@ -148,11 +148,11 @@ struct base_class_info_tag
     access_specifier_t access_specifier;
 
     // A virtual base
-    unsigned char is_virtual:1;
+    _Bool is_virtual:1;
     // A dependent base
-    unsigned char is_dependent:1;
+    _Bool is_dependent:1;
     // An expansion base
-    unsigned char is_expansion:1;
+    _Bool is_expansion:1;
 
     // Used when laying classes out
     _size_t base_offset;
@@ -172,13 +172,13 @@ struct class_info_tag {
     enum type_tag_t class_kind:4;
 
     // Currently unused
-    unsigned char is_local_class:1;
+    _Bool is_local_class:1;
 
     // Is abstract class
-    unsigned char is_abstract:1;
+    _Bool is_abstract:1;
 
     // Is a packed class (SEQUENCE in Fortran or __attribute__((packed)) )
-    unsigned char is_packed:1;
+    _Bool is_packed:1;
 
     // Enclosing class type
     type_t* enclosing_class_type;
@@ -225,24 +225,19 @@ struct simple_type_tag {
     builtin_type_t builtin_type:4;
 
     // This can be 0, 1 (long), 2 (long long) or 3 (__int128)
-    unsigned char is_long:2;
+    unsigned int is_long:2;
     // short
-    unsigned char is_short:1;
+    _Bool is_short:1;
     // unsigned
-    unsigned char is_unsigned:1;
+    _Bool is_unsigned:1;
     // signed
-    unsigned char is_signed:1;
+    _Bool is_signed:1;
 
     // States that the STK_INDIRECT is a not the last indirect
-    unsigned char is_indirect:1;
+    _Bool is_indirect:1;
 
     // States that the type is a transparent union (GCC extension)
-    unsigned char is_transparent_union:1;
-
-#if 0
-    // States that this STK_TEMPLATE_DEPENDENT_TYPE does not come from user code
-    unsigned char is_artificial:1;
-#endif
+    _Bool is_transparent_union:1;
 
     // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
     floating_type_info_t* floating_info;
@@ -323,7 +318,7 @@ struct function_tag
     // States if this function has been declared or defined without prototype.
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
-    unsigned char lacks_prototype:1;
+    _Bool lacks_prototype:1;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -383,10 +378,10 @@ struct array_tag
     array_region_t* region;
     
     // Is a doped array (array with an in-memory descriptor)
-    unsigned char with_descriptor:1;
+    _Bool with_descriptor:1;
     // Is literal string type ?
-    unsigned char is_literal_string:1;
-    unsigned char is_vla:1;
+    _Bool is_literal_string:1;
+    _Bool is_vla:1;
 } array_info_t;
 
 typedef
@@ -400,18 +395,26 @@ typedef
 struct common_type_info_tag
 {
     // See below for more detailed descriptions
-    unsigned char is_template_specialized_type:1;
-    unsigned char valid_size:1;
+    _Bool is_template_specialized_type:1;
+    _Bool valid_size:1;
 
-    unsigned char is_dependent:1;
-    unsigned char is_incomplete:1;
-    unsigned char is_interoperable:1;
-    unsigned char is_zero_type:1;
+    _Bool is_dependent:1;
+    _Bool is_incomplete:1;
+    _Bool is_interoperable:1;
+    _Bool is_zero_type:1;
+
+    // Other attributes that do not have specific representation
+    int num_gcc_attributes;
+    gcc_attribute_t* gcc_attributes;
+
+    int num_ms_attributes;
+    gcc_attribute_t* ms_attributes;
 
     // The sizeof and alignment of the type
     // They are only valid once 'valid_size' is true
     // --> char valid_size;
     _size_t size;
+    // May be overriden by an 'aligned' attribute in gcc_attributes
     _size_t alignment;
     // This is here only for C++
     _size_t data_size;
@@ -446,7 +449,7 @@ struct type_tag
 
     // We use a pointer so we can safely copy in cv-qualified versions
     // (all types)
-    struct common_type_info_tag* info;
+    common_type_info_t* info;
 
     // Pointer
     // (kind == TK_POINTER)
@@ -511,6 +514,29 @@ struct type_tag
 static common_type_info_t* new_common_type_info(void)
 {
     common_type_info_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    return result;
+}
+
+static common_type_info_t* copy_common_type_info(common_type_info_t* t)
+{
+    common_type_info_t* result = new_common_type_info();
+    *result = *t;
+
+    result->gcc_attributes = xcalloc(result->num_gcc_attributes, sizeof(*result->gcc_attributes));
+    memcpy(result->gcc_attributes, t->gcc_attributes, result->num_gcc_attributes * sizeof(*result->gcc_attributes));
+
+    result->ms_attributes = xcalloc(result->num_ms_attributes, sizeof(*result->ms_attributes));
+    memcpy(result->ms_attributes, t->ms_attributes, result->num_ms_attributes * sizeof(*result->ms_attributes));
+
+    return result;
+}
+
+static type_t* copy_type_for_variant(type_t* t)
+{
+    type_t* result = xcalloc(1, sizeof(*result));
+    *result = *t;
+    result->info = copy_common_type_info(t->info);
+
     return result;
 }
 
@@ -4337,6 +4363,35 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->is_ellipsis;
 }
 
+type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
+{
+    ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
+
+    int num_parameters = function_type_get_num_parameters(t);
+
+    parameter_info_t param_info[num_parameters+1];
+    memset(param_info, 0, sizeof(param_info));
+
+    char has_ellipsis = function_type_get_has_ellipsis(t);
+
+    int real_parameters = num_parameters;
+    if (has_ellipsis)
+        real_parameters--;
+
+    int i;
+    for (i = 0; i < real_parameters; i++)
+    {
+        param_info[i].nonadjusted_type_info = function_type_get_nonadjusted_parameter_type_num(t, i);
+        param_info[i].type_info = function_type_get_parameter_type_num(t, i);
+    }
+
+    if (has_ellipsis)
+        param_info[num_parameters - 1].is_ellipsis = 1;
+
+    return get_new_function_type(new_return, param_info, num_parameters);
+
+}
+
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
         char is_virtual, char is_dependent, char is_expansion,
         access_specifier_t access_specifier)
@@ -6739,6 +6794,42 @@ static const char* get_cv_qualifier_string(type_t* type_info)
     return result;
 }
 
+static const char* get_gcc_attributes_string(type_t* type_info)
+{
+    const char* result = "";
+    int i;
+    for (i = 0; i < type_info->info->num_gcc_attributes; i++)
+    {
+        if (nodecl_is_null(type_info->info->gcc_attributes[i].expression_list))
+        {
+            uniquestr_sprintf(&result, "__attribute__((%s)) ",
+                    type_info->info->gcc_attributes[i].attribute_name);
+        }
+        else
+        {
+            const char* expr_list_str = "";
+            int num_items = 0;
+            nodecl_t* n = nodecl_unpack_list(type_info->info->gcc_attributes[i].expression_list,
+                    &num_items);
+            int j;
+            for (j = 0; j < num_items; j++)
+            {
+                if (j > 0)
+                    expr_list_str = strappend(expr_list_str, ", ");
+
+                // FIXME - We may need a better context
+                expr_list_str = strappend(expr_list_str, codegen_to_str(n[j], CURRENT_COMPILED_FILE->global_decl_context));
+            }
+            xfree(n);
+
+            uniquestr_sprintf(&result, "__attribute__((%s(%s))) ",
+                    type_info->info->gcc_attributes[i].attribute_name,
+                    expr_list_str);
+        }
+    }
+
+    return result;
+}
 
 // States if a declarator of this type will need parentheses
 static char declarator_needs_parentheses(type_t* type_info)
@@ -7891,6 +7982,23 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
+    char need_extra_parentheses = 0;
+    // These types have specific syntax for them
+    if (type_info->kind != TK_POINTER
+            && type_info->kind != TK_POINTER_TO_MEMBER)
+    {
+        int num_attrs = 0;
+        gcc_attribute_t *gcc_attrs = NULL;
+        variant_type_get_gcc_attributes(type_info, &num_attrs, &gcc_attrs);
+
+        if (num_attrs > 0)
+        {
+            need_extra_parentheses = 1;
+            (*left) = strappend((*left), "(");
+            (*left) = strappend((*left), get_gcc_attributes_string(type_info));
+        }
+    }
+
     switch (type_info->kind)
     {
         case TK_DIRECT :
@@ -7923,6 +8031,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 }
 
                 (*left) = strappend((*left), "*");
+                (*left) = strappend((*left), get_gcc_attributes_string(type_info));
                 (*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
                 if (declarator_needs_parentheses(type_info))
@@ -7952,6 +8061,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
+                (*left) = strappend((*left), get_gcc_attributes_string(type_info));
                 (*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
                 if (needs_parentheses)
@@ -8204,6 +8314,11 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->kind);
                 break;
             }
+    }
+
+    if (need_extra_parentheses)
+    {
+        (*right) = strappend(")", (*right));
     }
 }
 
@@ -8926,12 +9041,18 @@ const char* print_declarator(type_t* printed_declarator)
                     printed_declarator = NULL;
                     break;
                 }
+            case TK_AUTO:
+                {
+                    tmp_result = strappend(tmp_result, "auto");
+                    printed_declarator = NULL;
+                    break;
+                }
             default :
                 {
                     const char* c = NULL;
                     uniquestr_sprintf(&c, "<unknown type kind %d>", printed_declarator->kind);
                     printed_declarator = NULL;
-                    tmp_result = uniquestr(c);
+                    tmp_result = strappend(tmp_result, uniquestr(c));
                     break;
                 }
         }
@@ -10100,7 +10221,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 
 static rb_red_blk_tree *_zero_types_hash = NULL;
 
-type_t* get_zero_type_variant(type_t* t)
+type_t* get_variant_type_zero(type_t* t)
 {
     ERROR_CONDITION (!is_integral_type(t) && !is_bool_type(t), "Base type must be integral", 0);
     if (is_zero_type(t))
@@ -10139,22 +10260,27 @@ type_t* get_zero_type_variant(type_t* t)
 // Special variant type for '0' constants
 type_t* get_zero_type(type_t* t)
 {
-    return get_zero_type_variant(t);
+    return get_variant_type_zero(t);
 }
 
 // Special type for 'false'
 type_t* get_bool_false_type(void)
 {
-    return get_zero_type_variant(get_bool_type());
+    return get_variant_type_zero(get_bool_type());
 }
 
-char is_zero_type(type_t* t)
+char variant_type_is_zero(type_t* t)
 {
     if (t == NULL)
         return 0;
 
     t = advance_over_typedefs(t);
     return (t->info->is_zero_type);
+}
+
+char is_zero_type(type_t* t)
+{
+    return variant_type_is_zero(t);
 }
 
 static type_t* __nullptr_t = NULL;
@@ -11377,18 +11503,43 @@ _size_t type_get_size(type_t* t)
     {
         if (is_named_type(t))
         {
-            type_t* alias_type = named_type_get_symbol(t)->type_information;
+            scope_entry_t* named_type = named_type_get_symbol(t);
+            type_t* alias_type = named_type->type_information;
 
             type_set_size(t, type_get_size(alias_type));
-            type_set_alignment(t, type_get_alignment(alias_type));
+
+            // Do not override explicit alignments
+            nodecl_t explicit_aligned = symbol_get_aligned_attribute(named_type);
+            if (nodecl_is_null(explicit_aligned))
+            {
+                type_set_alignment(t, type_get_alignment(alias_type));
+            }
+            else if (nodecl_is_constant(explicit_aligned))
+            {
+                type_set_alignment(t,
+                        const_value_cast_to_8(nodecl_get_constant(explicit_aligned)));
+            }
+            else
+            {
+                internal_error("'aligned' attribute of '%s' is not a constant when computing the size of a type",
+                    get_qualified_symbol_name(named_type, named_type->decl_context));
+            }
 
             CXX_LANGUAGE()
             {
                 type_set_data_size(t, type_get_data_size(alias_type));
                 class_type_set_non_virtual_size(t, 
                         class_type_get_non_virtual_size(alias_type));
-                class_type_set_non_virtual_align(t, 
-                        class_type_get_non_virtual_align(alias_type));
+                if (nodecl_is_null(explicit_aligned))
+                {
+                    class_type_set_non_virtual_align(t, 
+                            class_type_get_non_virtual_align(alias_type));
+                }
+                else if (nodecl_is_constant(explicit_aligned))
+                {
+                    type_set_alignment(t,
+                            const_value_cast_to_8(nodecl_get_constant(explicit_aligned)));
+                }
             }
 
             // State it valid
@@ -11419,7 +11570,23 @@ _size_t type_get_alignment(type_t* t)
                 "Valid size has not been properly computed!", 0);
     }
 
-    return t->info->alignment;
+    _size_t result = t->info->alignment;
+
+    // It may happen that this alignment is being overridden by a type attribute
+    int i;
+    for (i = 0; i < t->info->num_gcc_attributes; i++)
+    {
+        if (strcmp(t->info->gcc_attributes[i].attribute_name, "aligned") == 0)
+        {
+            nodecl_t align_tree = nodecl_list_head(t->info->gcc_attributes[i].expression_list);
+            if (nodecl_is_constant(align_tree))
+            {
+                result = (_size_t)const_value_cast_to_8(nodecl_get_constant(align_tree));
+            }
+        }
+    }
+
+    return result;
 }
 
 void type_set_size(type_t* t, _size_t size)
@@ -12035,7 +12202,7 @@ static rb_red_blk_tree *_interoperable_hash = NULL;
 
 // This function constructs an interoperable variant
 // This is used only in Fortran
-type_t* get_interoperable_variant_type(type_t* t)
+type_t* get_variant_type_interoperable(type_t* t)
 {
     if (t == NULL)
         return NULL;
@@ -12069,7 +12236,7 @@ type_t* get_interoperable_variant_type(type_t* t)
     return result;
 }
 
-char is_interoperable_variant_type(type_t* t)
+char variant_type_is_interoperable(type_t* t)
 {
     return (t != NULL
             && t->info != NULL
@@ -12419,3 +12586,69 @@ parameter_info_t get_parameter_info_for_type(type_t* t)
     return parameter_info;
 }
 
+type_t* get_variant_type_add_gcc_attribute(type_t* t, gcc_attribute_t attr)
+{
+    type_t* result = copy_type_for_variant(t);
+
+    ERROR_CONDITION(!nodecl_is_null(attr.expression_list) && !nodecl_is_list(attr.expression_list),
+            "Attribute value if not empty must be a list", 0);
+
+    int i;
+    char found = 0;
+    for (i = 0; i < result->info->num_gcc_attributes; i++)
+    {
+        if (strcmp(result->info->gcc_attributes[i].attribute_name, attr.attribute_name) == 0)
+        {
+            found = 1;
+            // Update
+            result->info->gcc_attributes[i] = attr;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        // Add
+        P_LIST_ADD(result->info->gcc_attributes, result->info->num_gcc_attributes, attr);
+    }
+
+    return result;
+}
+
+type_t* get_variant_type_add_ms_attribute(type_t* t, gcc_attribute_t attr)
+{
+    type_t* result = copy_type_for_variant(t);
+
+    int i;
+    char found = 0;
+    for (i = 0; i < result->info->num_ms_attributes; i++)
+    {
+        if (strcmp(result->info->ms_attributes[i].attribute_name, attr.attribute_name) == 0)
+        {
+            found = 1;
+            // Update
+            result->info->ms_attributes[i] = attr;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        // Add
+        P_LIST_ADD(result->info->ms_attributes, result->info->num_ms_attributes, attr);
+    }
+
+    return result;
+}
+
+void variant_type_get_gcc_attributes(type_t* t, int* num_attrs, gcc_attribute_t** attrs)
+{
+    *num_attrs = t->info->num_gcc_attributes;
+    *attrs = t->info->gcc_attributes;
+}
+
+void variant_type_get_ms_attributes(type_t* t, int* num_attrs, gcc_attribute_t** attrs)
+{
+    *num_attrs = t->info->num_ms_attributes;
+    *attrs = t->info->ms_attributes;
+}

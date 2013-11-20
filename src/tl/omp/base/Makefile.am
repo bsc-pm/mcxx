@@ -55,7 +55,10 @@ if !VECTORIZATION_DISABLED
 endif
 
 libtlomp_base_la_SOURCES = \
+   tl-omp-base-utils.hpp \
    tl-omp-base.hpp \
    tl-omp-base.cpp \
+   tl-omp-base-task.hpp \
+   tl-omp-base-task.cpp \
    $(END)
 

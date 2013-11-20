@@ -2851,7 +2851,7 @@ static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type
     type_t* result = fun(nodecl_output, kind_size);
     if (is_interoperable)
     {
-        result = get_interoperable_variant_type(result);
+        result = get_variant_type_interoperable(result);
     }
     return result;
 }

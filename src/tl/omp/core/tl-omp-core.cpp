@@ -401,7 +401,7 @@ namespace TL
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
-                DataSharingAttribute fallback_data_sharing)
+                DataSharingAttribute fallback_data_sharing, bool allow_default_auto)
         {
             PragmaCustomClause default_clause = construct.get_clause("default");
 
@@ -413,6 +413,9 @@ namespace TL
             {
                 ObjectList<std::string> args = default_clause.get_tokenized_arguments();
 
+                if(!allow_default_auto && args[0] == std::string("auto"))
+                    error_printf("directives other than tasks do not allow the clause default(auto)");
+                
                 struct pairs_t
                 {
                     const char* name;

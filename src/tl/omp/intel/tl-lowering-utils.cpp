@@ -167,7 +167,7 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
         new_ident_sym->defined = new_ident_sym->entity_specs.is_user_declared = 1;
         new_ident_sym->locus = location.get_locus();
 
-        gather_gcc_attribute_t common_gcc_attr = { "common", nodecl_null() };
+        gcc_attribute_t common_gcc_attr = { "common", nodecl_null() };
 
         P_LIST_ADD(new_ident_sym->entity_specs.gcc_attributes,
                 new_ident_sym->entity_specs.num_gcc_attributes,

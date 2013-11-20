@@ -159,9 +159,9 @@ namespace {
         }
     }
     
-    Utils::UseDefVariant compute_usage_in_region_rec( Node* current, Nodecl::NodeclBase ei_nodecl, Node* region )
+    Utils::UsageKind compute_usage_in_region_rec( Node* current, Nodecl::NodeclBase ei_nodecl, Node* region )
     {
-        Utils::UseDefVariant result( Utils::UseDefVariant::NONE );
+        Utils::UsageKind result( Utils::UsageKind::NONE );
         
         if( !current->is_visited_aux( ) && ExtensibleGraph::node_contains_node( region, current ) )
         {
@@ -177,16 +177,16 @@ namespace {
                 {
                     Utils::ext_sym_set undef = current->get_undefined_behaviour_vars( );
                     if( Utils::ext_sym_set_contains_nodecl( ei_nodecl, undef ) )
-                        result = Utils::UseDefVariant::UNDEFINED;
+                        result = Utils::UsageKind::UNDEFINED;
                     Utils::ext_sym_set ue = current->get_ue_vars( );
                     if( Utils::ext_sym_set_contains_nodecl( ei_nodecl, ue ) )
-                        result = Utils::UseDefVariant::USED;
+                        result = Utils::UsageKind::USED;
                     Utils::ext_sym_set killed = current->get_killed_vars( );
                     if( Utils::ext_sym_set_contains_nodecl( ei_nodecl, killed ) )
-                        result = Utils::UseDefVariant::DEFINED;
+                        result = Utils::UsageKind::DEFINED;
                 }
                 
-                if( result._usage_variants & Utils::UseDefVariant::UNDEFINED )
+                if( result._usage_type & Utils::UsageKind::UNDEFINED )
                 {}   // Nothing else to be done because we will not be able to say anything about this variable
                 else
                 {
@@ -202,17 +202,17 @@ namespace {
         return result;
     }
     
-    Utils::UseDefVariant compute_usage_in_region( Utils::ExtendedSymbol ei, Node* region )
+    Utils::UsageKind compute_usage_in_region( Utils::ExtendedSymbol ei, Node* region )
     {
         Node* region_entry = region->get_graph_entry_node( );
-        Utils::UseDefVariant result = compute_usage_in_region_rec( region_entry, ei.get_nodecl( ), region );
+        Utils::UsageKind result = compute_usage_in_region_rec( region_entry, ei.get_nodecl( ), region );
         ExtensibleGraph::clear_visits_aux_in_level( region_entry, region );
         return result;
     }
     
-    Utils::UseDefVariant compute_usage_in_regions( Utils::ExtendedSymbol ei, ObjectList<Node*> regions )
+    Utils::UsageKind compute_usage_in_regions( Utils::ExtendedSymbol ei, ObjectList<Node*> regions )
     {
-        Utils::UseDefVariant result = Utils::UseDefVariant::NONE;
+        Utils::UsageKind result = Utils::UsageKind::NONE;
         
         for( ObjectList<Node*>::iterator it = regions.begin( ); it != regions.end( ); it++ )
             result = result | compute_usage_in_region( ei, *it );
@@ -296,11 +296,19 @@ namespace {
         if( VERBOSE )
         {
             std::cerr << " Task concurrent regions limits: \n";
-            std::cerr << "    - Last sync:  ";
-            for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
-                std::cerr << (*it)->get_id( ) << ", ";
-            std::cerr << std::endl;
-            std::cerr << "    - Next sync:  " << next_sync->get_id( ) << std::endl;
+            if( last_sync.empty( ) )
+                std::cerr << "    - Last sync not fund" << std::endl;
+            else
+            {
+                std::cerr << "    - Last sync:  ";
+                for( ObjectList<Node*>::iterator it = last_sync.begin( ); it != last_sync.end( ); ++it )
+                    std::cerr << (*it)->get_id( ) << ", ";
+                std::cerr << std::endl;
+            }
+            if( next_sync == NULL )
+                std::cerr << "    - Next sync not found" << std::endl;
+            else
+                std::cerr << "    - Next sync: " << next_sync->get_id( ) << std::endl;
         }
         if( last_sync.empty( ) || ( next_sync == NULL ) )
             _check_only_local = true;
@@ -332,7 +340,7 @@ namespace {
                 {
                     Symbol s( it->get_symbol( ) );
                     if( s.is_valid( ) && !s.get_scope( ).scope_is_enclosed_by( sc ) )
-                        scope_variable( task, current, Utils::UseDefVariant::USED, *it, scoped_vars );
+                        scope_variable( task, current, Utils::UsageKind::USED, *it, scoped_vars );
                 }
 
                 Utils::ext_sym_set killed = current->get_killed_vars( );
@@ -340,7 +348,7 @@ namespace {
                 {
                     Symbol s( it->get_symbol( ) );
                     if( s.is_valid( ) && !s.get_scope( ).scope_is_enclosed_by( sc ) )
-                        scope_variable( task, current, Utils::UseDefVariant::DEFINED, *it, scoped_vars );
+                        scope_variable( task, current, Utils::UsageKind::DEFINED, *it, scoped_vars );
                 }
             }
 
@@ -350,33 +358,38 @@ namespace {
         }
     }
     
-    void AutoScoping::scope_variable( Node* task, Node* ei_node, Utils::UseDefVariant usage, Utils::ExtendedSymbol ei,
+    void AutoScoping::scope_variable( Node* task, Node* ei_node, Utils::UsageKind usage, Utils::ExtendedSymbol ei,
                                       Utils::ext_sym_set& scoped_vars )
     {
         if( !Utils::ext_sym_set_contains_englobing_nodecl( ei, scoped_vars ) )
         {   // The expression is not a symbol local from the task
             scoped_vars.insert( ei );
 
-            Utils::UseDefVariant usage_in_concurrent_regions = compute_usage_in_regions( ei, _simultaneous_tasks );
-            Utils::UseDefVariant usage_in_task = compute_usage_in_region( ei, task );
+            Utils::UsageKind usage_in_concurrent_regions = compute_usage_in_regions( ei, _simultaneous_tasks );
+            Utils::UsageKind usage_in_task = compute_usage_in_region( ei, task );
             
-            if( ( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::UNDEFINED ) || 
-                ( usage_in_task._usage_variants & Utils::UseDefVariant::UNDEFINED ) )
+            if( ( usage_in_concurrent_regions._usage_type & Utils::UsageKind::UNDEFINED ) || 
+                ( usage_in_task._usage_type & Utils::UsageKind::UNDEFINED ) )
             {
                 task->set_sc_undef_var( ei );
             }
-            else if( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::NONE )
+            else if( usage_in_concurrent_regions._usage_type & Utils::UsageKind::NONE )
             {
-                if( usage_in_task._usage_variants & Utils::UseDefVariant::DEFINED )
+                if( usage_in_task._usage_type & Utils::UsageKind::DEFINED )
                 {
-                    if( usage_list_contains_extsym( ei, _graph->get_global_variables( ) ) || 
+                    std::set<Symbol> global_vars = _graph->get_global_variables( );
+                    Symbol sym( Utils::ExtendedSymbol::get_nodecl_base( ei.get_nodecl( ) ).get_symbol( ) );
+                    ERROR_CONDITION( !sym.is_valid( ), 
+                                     "An ExtendedSymbol must have a symbol associated to it base nodecl, but %s does not have one", 
+                                     ei.get_nodecl( ).prettyprint( ).c_str( ) );
+                    if( ( global_vars.find( sym ) != global_vars.end( ) ) || 
                         Utils::ext_sym_set_contains_nodecl( ei.get_nodecl( ), task->get_live_out_vars( ) ) )
                     {
                         task->set_sc_shared_var( ei );
                     }
                     else
                     {
-                        if( usage._usage_variants & Utils::UseDefVariant::DEFINED )
+                        if( usage._usage_type & Utils::UsageKind::DEFINED )
                             task->set_sc_private_var( ei );
                         else
                             task->set_sc_firstprivate_var( ei );
@@ -391,9 +404,9 @@ namespace {
                         task->set_sc_shared_var( ei );
                 }
             }
-            else if( ( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::DEFINED ) || 
-                     ( ( usage_in_concurrent_regions._usage_variants & Utils::UseDefVariant::USED ) && 
-                         usage._usage_variants & Utils::UseDefVariant::DEFINED ) )
+            else if( ( usage_in_concurrent_regions._usage_type & Utils::UsageKind::DEFINED ) || 
+                     ( ( usage_in_concurrent_regions._usage_type & Utils::UsageKind::USED ) && 
+                         usage._usage_type & Utils::UsageKind::DEFINED ) )
             {   // The variable is used in concurrent regions and at least one of the access is a write
                 // Check for data race conditions
                 if( access_are_synchronous( ei, _simultaneous_tasks ) && access_are_synchronous( ei, task ) )
