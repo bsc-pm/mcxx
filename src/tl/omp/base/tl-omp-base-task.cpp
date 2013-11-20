@@ -193,7 +193,6 @@ namespace TL { namespace OpenMP {
 
             if (_function_task_set->is_function_task(sym))
             {
-                // Nodecl::NodeclBase exec_env = compute_
                 FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
                 Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
@@ -201,7 +200,8 @@ namespace TL { namespace OpenMP {
 
                 Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
                         exec_env,
-                        // Do we need to copy this?
+                        // We need to copy the call because we need to preserve
+                        // the original place of the call
                         call.shallow_copy(),
                         // Site environment, do not use it
                         call_site_exec_env,
