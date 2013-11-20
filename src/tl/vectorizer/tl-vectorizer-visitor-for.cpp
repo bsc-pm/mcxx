@@ -627,17 +627,17 @@ namespace TL
 
             // Induction Variable Init
             iv_init = Nodecl::Minus::make(
-                    upper_bound.shallow_copy(),
-                    Nodecl::Add::make(
+                        upper_bound.shallow_copy(),
                         Nodecl::Mod::make(
-                            upper_bound.shallow_copy(),
+                            Nodecl::Minus::make(
+                                upper_bound.shallow_copy(),
+                                lower_bound.shallow_copy(),
+                                iv_type),
                             Nodecl::IntegerLiteral::make(
                                 TL::Type::get_int_type(),
                                 const_value_get_signed_int(_environment._unroll_factor)),
                             iv_type),
-                        lower_bound.shallow_copy(),
-                        iv_type),
-                    iv_type);
+                        iv_type);
         }
     }
 }
