@@ -530,8 +530,13 @@ namespace Analysis {
             {
                 // Set all arguments as upper exposed
                 Symbol s( it_o->get_symbol( ) );
-                ERROR_CONDITION( !s.is_valid( ), 
-                                 "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint( ).c_str( ) );
+                if( !s.is_valid( ) )
+                {   // ArraySubscript and ClassMemberAccess are memory accesses but do not have a symbol associated
+                    // In these cases, we need to get the nodecl base
+                    s = Utils::ExtendedSymbol::get_nodecl_base( *it_o ).get_symbol( );
+                    ERROR_CONDITION( !s.is_valid( ), 
+                                     "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint( ).c_str( ) );
+                }
                 _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
                 if( ( _global_vars->find( s ) != _global_vars->end( ) ) && 
                     (*_global_vars)[s]._usage_type & Utils::UsageKind::NONE )
