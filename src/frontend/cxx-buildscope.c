@@ -8184,8 +8184,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     class_entry->defined = 1;
     class_symbol_get_canonical_symbol(class_entry)->defined = 1;
 
-    class_type_set_instantiation_trees(class_type, member_specification, base_clause);
-
     nodecl_t nodecl_finish_class = nodecl_null();
     finish_class_type(class_type, *type_info, decl_context, ast_get_locus(a), &nodecl_finish_class);
     *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_finish_class);
