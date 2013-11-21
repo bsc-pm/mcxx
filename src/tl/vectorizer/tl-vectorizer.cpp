@@ -186,6 +186,8 @@ namespace TL
                 long long int const_step = const_value_cast_to_8(step.get_constant());
                 long long int const_ub;
 
+                bool is_suitablei = false;
+
                 if (ub.is_constant())
                 {
                     const_ub = const_value_cast_to_8(ub.get_constant()) + 1;
@@ -196,7 +198,7 @@ namespace TL
                     environment._analysis_simd_scope = for_statement;
                     environment._analysis_scopes.push_back(for_statement);
                     
-                    bool is_suitable = _analysis_info->is_suitable_expression(for_statement, ub,
+                    is_suitable = _analysis_info->is_suitable_expression(for_statement, ub,
                             environment._suitable_expr_list, environment._unroll_factor,
                             environment._vector_length);
 
@@ -204,10 +206,12 @@ namespace TL
  
                     if (is_suitable)
                     {
+                        printf("SUITABLE EPILOG\n");
                         const_ub = environment._unroll_factor;
                     }
                     else // We cannot say anything about the number of iterations of the epilog
                     {
+                        printf("DEFAULT EPILOG\n");
                         return remain_its; // -1
                     }
                 }
@@ -215,9 +219,13 @@ namespace TL
                 long long int num_its = (((const_ub - const_lb)%const_step) == 0) ? 
                     ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
                 
-                if (num_its < environment._unroll_factor)
+                if ((num_its < environment._unroll_factor) && (!is_suitable) )
+                {
+                    printf("ONLY EPILOG\n");
                     only_epilog = true;
+                }
 
+                printf("CONSTANT EPILOG\n");
                 remain_its = num_its % environment._unroll_factor;
             }
 
