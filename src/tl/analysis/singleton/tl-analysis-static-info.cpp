@@ -700,7 +700,9 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_suitable_expression( n, suitable_expressions, unroll_factor, alignment, vector_size_module );
         }
-        
+       
+        std::cerr << "EXP: " << n.prettyprint() << std::endl;
+
         return result;
     }
     
