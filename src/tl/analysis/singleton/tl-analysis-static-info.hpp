@@ -144,7 +144,7 @@ namespace Analysis {
 
             bool is_suitable_expression( const Nodecl::NodeclBase& n, 
                     const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
-                    int unroll_factor, int alignment ) const;
+                    int unroll_factor, int alignment, int& vector_size_module ) const;
             
             // *** Queries about Auto-Scoping *** //
 
@@ -234,7 +234,7 @@ namespace Analysis {
             //! Returns true if the given nodecl is suitable
             bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                                          const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
-                                         int unroll_factor, int alignment ) const;
+                                         int unroll_factor, int alignment, int& vector_size_module ) const;
  
             // *** Queries about Auto-Scoping *** //
 
