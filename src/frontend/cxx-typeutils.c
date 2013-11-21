@@ -262,11 +262,6 @@ struct simple_type_tag {
     // this includes struct/class/union
     class_info_t* class_info;
     
-    // Used when instantiating a template class
-    // (kind == STK_CLASS)
-    AST template_class_base_clause;
-    AST template_class_body;
-
     // Decl environment where this type was declared if not builtin The scope
     // where this type was declared since sometimes, types do not have any name
     // related to them
@@ -4280,24 +4275,6 @@ void class_type_add_member_before(type_t* class_type, scope_entry_t* position, s
     class_type = get_actual_class_type(class_type);
 
     class_type->type->class_info->members = entry_list_add_before(class_type->type->class_info->members, position, entry);
-}
-
-void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
-{
-    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
-    t = get_actual_class_type(t);
-
-    t->type->template_class_base_clause = base_clause;
-    t->type->template_class_body = body;
-}
-
-void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause)
-{
-    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
-    t = get_actual_class_type(t);
-
-    *body = t->type->template_class_body;
-    *base_clause = t->type->template_class_base_clause;
 }
 
 char is_enum_type(type_t* t)

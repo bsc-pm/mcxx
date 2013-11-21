@@ -238,6 +238,9 @@ namespace Analysis {
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::Alignof& n );
         Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::AutoScope::Firstprivate& n );
+        Ret visit( const Nodecl::Analysis::AutoScope::Private& n );
+        Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );
         Ret visit( const Nodecl::Analysis::InductionVarExpr& n );
