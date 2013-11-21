@@ -168,7 +168,7 @@ namespace Analysis {
 
     bool NodeclStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& n, 
             const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
-            int unroll_factor, int alignment ) const
+            int unroll_factor, int alignment, int& vector_size_module ) const
     {
         bool result = false;
         int type_size = n.get_type().basic_type().get_size();
@@ -176,7 +176,9 @@ namespace Analysis {
         SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( n );
 
-        if( (subscript_alignment % alignment) == 0 )
+        vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment : 
+                                                               subscript_alignment % alignment );
+        if( vector_size_module == 0 )
             result = true;
 
         return result;
@@ -209,16 +211,12 @@ namespace Analysis {
         return result;
     }
 
-    bool SuitableAlignmentVisitor::is_suitable_expression(Nodecl::NodeclBase n)
+    bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
-        if(_suitable_expressions == NULL)
-            return false;
-
-        if( _suitable_expressions->end() == std::find_if(_suitable_expressions->begin(), _suitable_expressions->end(), 
-                    std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
-            return false;
-
-        return true;
+        bool result = true;
+        if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
+            result = false;
+        return result;
     }
 
     bool SuitableAlignmentVisitor::is_suitable_constant( int n )
