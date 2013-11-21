@@ -325,6 +325,12 @@ namespace TL
                     bool has_ellipsis = false,
                     ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
 
+            //! Returns the reference qualifier
+            /*!
+             * This is only meaningful in C++2011
+             */
+            ref_qualifier_t get_reference_qualifier() const;
+
             //! Returns a function to the current list of parameter types
             /*!
              * \param type_list List of parameter types of the function.
@@ -616,6 +622,9 @@ namespace TL
             //! Returns the element type of a vector-type
             Type vector_element() const;
 
+            // ! States whether the current type is auto
+            bool is_auto() const;
+
             //! Returns the number of elements of a vector-type
             int vector_num_elements() const;
 
@@ -885,6 +894,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped vector mask
             static Type get_mask_type(unsigned int mask_size);
+
+            //! Concenience function that returns an 'auto' type specifier
+            static Type get_auto_type();
     };
 
     //! @}

@@ -403,6 +403,11 @@ namespace TL
         return get_function_returning(type_list, nonadjusted_type_list, has_ellipsis, reference_qualifier);
     }
 
+    ref_qualifier_t Type::get_reference_qualifier() const
+    {
+        return ::function_type_get_ref_qualifier(this->_type_info);
+    }
+
     bool Type::is_error_type() const
     {
         return ::is_error_type(_type_info);
@@ -470,6 +475,11 @@ namespace TL
     Type Type::vector_element() const
     {
         return vector_type_get_element_type(_type_info);
+    }
+    
+    bool Type::is_auto() const
+    {
+        return ::is_auto_type(_type_info);
     }
 
     int Type::vector_num_elements() const
@@ -819,6 +829,11 @@ namespace TL
     Type Type::get_mask_type(unsigned int mask_size)
     {
         return Type(::get_mask_type(mask_size));
+    }
+
+    Type Type::get_auto_type()
+    {
+        return Type(::get_auto_type());
     }
 
     bool Type::is_integral_type() const

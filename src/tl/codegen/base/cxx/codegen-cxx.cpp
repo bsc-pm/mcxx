@@ -2055,6 +2055,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         declarator_name = unmangle_symbol_name(symbol);
     }
 
+    std::string trailing_type_specifier;
+    if (symbol.get_type().is_trailing_return())
+    {
+        trailing_type_specifier = " -> ";
+        trailing_type_specifier += print_type_str(symbol.get_type().returns().get_internal_type(),
+                function_scope.get_decl_context(),
+                (void*) this);
+    }
+
     TL::Type real_type;
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
@@ -2071,6 +2080,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     }
     else
     {
+        // Transform 'f() -> T' into 'auto f()' and then we will add '-> T'
         real_type = coerce_parameter_types_of_function_type(symbol);
     }
 
@@ -2115,11 +2125,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec
+            << asm_specification << trailing_type_specifier << ";\n";
     }
 
     indent();
-    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << trailing_type_specifier << "\n";
 
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
@@ -2181,7 +2192,18 @@ TL::Type CxxBase::coerce_parameter_types_of_function_type(TL::Symbol sym)
     }
 
     // Now rebuild the type
-    TL::Type result_type = function_type.returns().get_function_returning(parameter_types, has_ellipsis);
+    TL::Type result_type;
+    if (function_type.is_trailing_return())
+    {
+        result_type = TL::Type::get_auto_type().get_function_returning(parameter_types, has_ellipsis,
+                function_type.get_reference_qualifier());
+    }
+    else
+    {
+        result_type = function_type.returns().get_function_returning(parameter_types, has_ellipsis,
+                function_type.get_reference_qualifier());
+    }
+
     result_type = result_type.get_as_qualified_as(function_type);
 
     return result_type;
@@ -2413,8 +2435,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         declarator_name += template_arguments_to_str(symbol);
     }
 
-    TL::Type real_type;
+    std::string trailing_type_specifier;
+    if (symbol.get_type().is_trailing_return())
+    {
+        trailing_type_specifier = " -> ";
+        trailing_type_specifier += print_type_str(
+                symbol.get_type().returns().get_internal_type(),
+                symbol_scope.get_decl_context(),
+                (void*) this);
+    }
 
+    TL::Type real_type;
     if (symbol.is_conversion_function()
             || symbol.is_destructor())
     {
@@ -2431,9 +2462,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
     else
     {
+        // Transform 'f() -> T' into 'auto f()' and then we will add '-> T'
         real_type = coerce_parameter_types_of_function_type(symbol);
     }
-
 
     std::string declarator = this->get_declaration_with_parameters(
             real_type, symbol_scope, declarator_name, parameter_names, parameter_attributes);
@@ -2463,11 +2494,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << asm_specification << ";\n";
+        *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
+            << exception_spec << asm_specification << trailing_type_specifier << ";\n";
     }
 
     indent();
-    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator << exception_spec << "\n";
+    *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
+        << exception_spec << trailing_type_specifier << "\n";
 
 
     if (!initializers.is_null())
@@ -5910,8 +5943,18 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
         std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
-
         TL::Type real_type = symbol.get_type();
+
+        std::string trailing_type_specifier;
+        if (symbol.get_type().is_trailing_return())
+        {
+            trailing_type_specifier = " -> ";
+            trailing_type_specifier += print_type_str(
+                    symbol.get_type().returns().get_internal_type(),
+                    symbol.get_scope().get_decl_context(),
+                    (void*) this);
+        }
+
         if (symbol.is_conversion_function()
                 || symbol.is_destructor())
         {
@@ -5925,6 +5968,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     real_type = real_type.get_const_type();
                 }
             }
+        }
+
+        if (real_type.is_trailing_return())
+        {
+            // Transform 'f() -> T' into 'auto f()' and then we will add '-> T'
+            real_type = function_type_replace_return_type(real_type.get_internal_type(), get_auto_type());
         }
 
         // We do not want typedefs in function declarations
@@ -5988,8 +6037,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         indent();
-        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers 
-            << pure_spec << asm_specification << gcc_attributes << ";\n";
+        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
+            << pure_spec << asm_specification << gcc_attributes << trailing_type_specifier << ";\n";
 
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
