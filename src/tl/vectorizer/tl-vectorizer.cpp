@@ -186,7 +186,8 @@ namespace TL
                 long long int const_step = const_value_cast_to_8(step.get_constant());
                 long long int const_ub;
 
-                bool is_suitablei = false;
+                bool is_suitable = false;
+                int vector_size_module = -1;
 
                 if (ub.is_constant())
                 {
@@ -198,15 +199,27 @@ namespace TL
                     environment._analysis_simd_scope = for_statement;
                     environment._analysis_scopes.push_back(for_statement);
                     
-                    is_suitable = _analysis_info->is_suitable_expression(for_statement, ub,
+                    Nodecl::NodeclBase ub_plus_one =
+                        Nodecl::Add::make(ub.shallow_copy(),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_one(4, 1)),
+                                ub.get_type());
+ 
+                    is_suitable = _analysis_info->is_suitable_expression(for_statement, ub_plus_one,
                             environment._suitable_expr_list, environment._unroll_factor,
-                            environment._vector_length);
+                            environment._vector_length, vector_size_module);
 
                     environment._analysis_scopes.pop_back();
  
                     if (is_suitable)
                     {
                         printf("SUITABLE EPILOG\n");
+                        const_ub = environment._unroll_factor;
+                    }
+                    else if (vector_size_module != -1) // Is not suitable but is constant in some way
+                    {
+                        printf("VECTOR MODULE EPILOG %d\n", vector_size_module);
                         const_ub = environment._unroll_factor;
                     }
                     else // We cannot say anything about the number of iterations of the epilog
@@ -219,7 +232,8 @@ namespace TL
                 long long int num_its = (((const_ub - const_lb)%const_step) == 0) ? 
                     ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
                 
-                if ((num_its < environment._unroll_factor) && (!is_suitable) )
+                if ((num_its < environment._unroll_factor) && 
+                        ((!is_suitable) && (vector_size_module == -1)))
                 {
                     printf("ONLY EPILOG\n");
                     only_epilog = true;
