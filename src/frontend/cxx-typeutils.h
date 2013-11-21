@@ -249,7 +249,6 @@ LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type,
 
 LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause);
 LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
 
@@ -534,7 +533,6 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_default_constructor(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* class_type_get_destructor(type_t* t);
 LIBMCXX_EXTERN decl_context_t class_type_get_context(type_t* t);
-LIBMCXX_EXTERN void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause);
 LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
@@ -553,16 +551,12 @@ LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
         const locus_t* locus);
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
-        template_parameter_list_t * template_parameters,
-        decl_context_t decl_context,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
-        template_parameter_list_t *template_parameters, 
-        type_t* after_type,
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
+        template_parameter_list_t* template_parameters,
+        type_t* type_used_as_template,
         decl_context_t decl_context, 
         const locus_t* locus);
+
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(type_t* t);

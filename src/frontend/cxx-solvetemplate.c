@@ -91,6 +91,20 @@ type_t* solve_class_template(type_t* template_type,
             continue;
         }
 
+        // We do not want aliases for instantiation purposes either
+        if (named_type_get_symbol(current_specialized_type)->entity_specs.alias_to != NULL)
+        {
+            DEBUG_CODE()
+            {
+                scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it is actually "
+                        "an alias to another specialized type\n",
+                        print_declarator(current_specialized_type),
+                        locus_to_str(entry->locus));
+            }
+            continue;
+        }
+
         if (equivalent_types(current_specialized_type, specialized_type))
         {
             // Ourselves is not an option
