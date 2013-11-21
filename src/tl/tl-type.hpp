@@ -517,11 +517,14 @@ namespace TL
              */
             ObjectList<Type> nonadjusted_parameters(bool &has_ellipsis) const;
 
-            //! For a function type it states whether it has been declared with prototype
+            //! For a function type in C99, it states whether it has been declared with prototype
             /*!
              * This is only meaningful in C because in C++ all functions have prototype
              */
             bool lacks_prototype() const;
+
+            //! For a function type in C++2011, it states whether it has been declared with a trailing return
+            bool is_trailing_return() const;
 
             //! States whether current type is a pointer type
             bool is_pointer() const;

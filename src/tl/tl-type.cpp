@@ -1146,6 +1146,11 @@ namespace TL
         return function_type_get_lacking_prototype(this->_type_info);
     }
 
+    bool Type::is_trailing_return() const
+    {
+        return function_type_get_has_trailing_return(this->_type_info);
+    }
+
     Type Type::basic_type() const
     {
         if (this->is_array())
