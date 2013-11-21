@@ -176,6 +176,8 @@ namespace Analysis {
         SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( n );
 
+        printf("SUBSCRIPT ALIGNMENT %d\n", subscript_alignment);
+
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment : 
                                                                subscript_alignment % alignment );
         if( vector_size_module == 0 )
@@ -343,8 +345,6 @@ namespace Analysis {
                 
                 if( it_alignment < 0 )
                 {
-                    if( VERBOSE )
-                        printf ("-1\n");
                     return -1;
                 }
                 
@@ -357,8 +357,6 @@ namespace Analysis {
             
             _nesting_level--;
             
-            if( VERBOSE )
-                printf("alignment %d\n", alignment);
             return alignment;
         }
         // Nested array subscript
@@ -437,7 +435,13 @@ namespace Analysis {
         int rhs_mod = walk( n.get_rhs( ) );
         
         if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
-            return lhs_mod - rhs_mod;
+        {
+            int result = lhs_mod - rhs_mod;
+            if (result < 0)
+                result = _alignment + result;
+
+            return result;
+        }
         
         return -1;
     }
