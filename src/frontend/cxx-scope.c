@@ -774,6 +774,16 @@ scope_entry_t* get_function_or_class_where_symbol_depends(scope_entry_t* entry)
     }
 }
 
+scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol)
+{
+    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+    if (class_symbol->entity_specs.alias_to != NULL)
+        return class_symbol->entity_specs.alias_to;
+
+    return class_symbol;
+}
+
 char class_is_in_lexical_scope(decl_context_t decl_context, 
         scope_entry_t* class_symbol)
 {
@@ -788,8 +798,8 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
 
     scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
 
-
-    if (class_symbol == class_in_scope)
+    if (class_symbol_get_canonical_symbol(class_symbol) 
+            == class_symbol_get_canonical_symbol(class_in_scope))
     {
         return 1;
     }
@@ -6076,8 +6086,9 @@ static char check_symbol_is_base_or_member(scope_entry_t* previous_symbol,
     {
         // If we are the last component we must be a member of class_symbol
         if (!(current_symbol->entity_specs.is_member
-                    && (class_type_is_base(current_symbol->entity_specs.class_type, class_symbol->type_information)
-                        || named_type_get_symbol(current_symbol->entity_specs.class_type) == class_symbol)))
+                    && class_type_is_base(
+                        current_symbol->entity_specs.class_type,
+                        get_user_defined_type(class_symbol))))
         {
             if (!checking_ambiguity())
             {
@@ -6100,7 +6111,9 @@ static char check_symbol_is_base_or_member(scope_entry_t* previous_symbol,
         }
         // If we are not the last component we must be a base class
         if (current_symbol->kind != SK_CLASS
-                || !class_type_is_base(current_symbol->type_information, class_symbol->type_information))
+                || !class_type_is_base(
+                    get_user_defined_type(current_symbol),
+                    get_user_defined_type(class_symbol)))
         {
             if (!checking_ambiguity())
             {

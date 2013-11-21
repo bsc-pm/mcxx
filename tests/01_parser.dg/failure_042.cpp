@@ -29,31 +29,22 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_compile_fail=yes
 </testinfo>
 */
- 
-template<typename _Tp>
-struct D
+
+template <typename T> struct A;
+
+template <> struct A<int>;
+
+template <> struct A<int>
 {
-    const static bool __value = true;
+    static int x;
 };
 
-template <typename _Key>
-class A
+typedef int Int;
+
+template <> struct A<Int>
 {
-    template< typename _T, bool _B = D<_T>::__value >
-        struct B
-        {
-        };
-
-    template< typename _T>
-        struct B<_T, true>
-        {
-            typedef _T T;
-        };
-
-    typename B<_Key>::T var;
-
+    static int x;
 };
-
-A<int> var;

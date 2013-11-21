@@ -609,5 +609,8 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*REACHING_DEFINITION_IN([reaching_definitions_in] reach_def_expression-seq)
                           | NODECL_ANALYSIS*REACHING_DEFINITION_OUT([reaching_definitions_out] reach_def_expression-seq)
                           | NODECL_ANALYSIS*INDUCTION_VARIABLE([induction_variables] induction_var_expression-seq)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
+                          | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)

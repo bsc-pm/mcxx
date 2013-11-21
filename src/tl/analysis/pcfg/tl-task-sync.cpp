@@ -911,8 +911,7 @@ namespace {
             }
         }
 
-        Node* post_sync = _graph->create_unconnected_node(Nodecl::NodeclBase::null());
-        post_sync->set_type(__OmpVirtualTaskSync);
+        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, Nodecl::NodeclBase::null());
 
         Node* exit = root->get_graph_exit_node();
         for (AliveTaskSet::iterator it = exit->get_live_in_tasks().begin();

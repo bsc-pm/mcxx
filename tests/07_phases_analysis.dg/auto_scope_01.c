@@ -28,32 +28,25 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium
+test_generator=config/mercurium-analysis
+test_nolink=yes
 </testinfo>
 */
- 
-template<typename _Tp>
-struct D
+
+int fibonacci(int n)
 {
-    const static bool __value = true;
-};
-
-template <typename _Key>
-class A
-{
-    template< typename _T, bool _B = D<_T>::__value >
-        struct B
-        {
-        };
-
-    template< typename _T>
-        struct B<_T, true>
-        {
-            typedef _T T;
-        };
-
-    typename B<_Key>::T var;
-
-};
-
-A<int> var;
+    long long x, y;
+    if (n < 2) return n;
+    
+    #pragma analysis_check assert auto_sc_firstprivate(n) assert auto_sc_shared(x)
+    #pragma omp task default(AUTO)
+    x = fibonacci(n - 1);
+    
+    #pragma analysis_check assert auto_sc_firstprivate(n) assert auto_sc_shared(y)
+    #pragma omp task default(AUTO) 
+    y = fibonacci(n - 2);
+    
+    #pragma omp taskwait
+    
+    return x + y;
+}
