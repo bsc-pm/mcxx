@@ -1992,7 +1992,7 @@ functional_declarator : functional_main_declarator_not_started_with_attributes
 {
     $$ = $1;
 }
-| functional_direct_declarator parameters_and_qualifiers trailing_return_type
+| functional_final_declarator_id parameters_and_qualifiers trailing_return_type
 {
     $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
 }
