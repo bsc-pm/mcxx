@@ -132,10 +132,11 @@ namespace Analysis {
             void set_id( unsigned int id );
 
             //! Returns true when the node has some assert clause associated
-            bool has_assertion( ) const;
-            
-            //! Sets to true the member indicating that the node has some assert clause associated
-            void set_assertion( );
+            bool has_usage_assertion( ) const;
+            bool has_liveness_assertion( ) const;
+            bool has_reach_defs_assertion( ) const;
+            bool has_induction_vars_assertion( ) const;
+            bool has_autoscope_assertion( ) const;
             
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
@@ -725,28 +726,37 @@ namespace Analysis {
             // ****************** Getters and setters for analysis checking ***************** //
             
             Utils::ext_sym_set get_assert_ue_vars( );
-            void set_assert_ue_var( ObjectList<Nodecl::NodeclBase> new_assert_ue_vars );
+            void set_assert_ue_var( const ObjectList<Nodecl::NodeclBase>& new_assert_ue_vars );
             
             Utils::ext_sym_set get_assert_killed_vars( );
-            void set_assert_killed_var( ObjectList<Nodecl::NodeclBase> new_assert_killed_vars );
+            void set_assert_killed_var( const ObjectList<Nodecl::NodeclBase>& new_assert_killed_vars );
             
             Utils::ext_sym_set get_assert_live_in_vars( );
-            void set_assert_live_in_var( ObjectList<Nodecl::NodeclBase> new_assert_live_in_vars );
+            void set_assert_live_in_var( const ObjectList<Nodecl::NodeclBase>& new_assert_live_in_vars );
             
             Utils::ext_sym_set get_assert_live_out_vars( );
-            void set_assert_live_out_var( ObjectList<Nodecl::NodeclBase> new_assert_live_out_vars );
+            void set_assert_live_out_var( const ObjectList<Nodecl::NodeclBase>& new_assert_live_out_vars );
             
             Utils::ext_sym_set get_assert_dead_vars( );
-            void set_assert_dead_var( ObjectList<Nodecl::NodeclBase> new_assert_dead_vars );
+            void set_assert_dead_var( const ObjectList<Nodecl::NodeclBase>& new_assert_dead_vars );
             
             Utils::ext_sym_map get_assert_reaching_definitions_in( );
-            void set_assert_reaching_definitions_in( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_in );
+            void set_assert_reaching_definitions_in( const ObjectList<Nodecl::NodeclBase>& new_assert_reach_defs_in );
             
             Utils::ext_sym_map get_assert_reaching_definitions_out( );
-            void set_assert_reaching_definitions_out( ObjectList<Nodecl::NodeclBase> new_assert_reach_defs_out );
+            void set_assert_reaching_definitions_out( const ObjectList<Nodecl::NodeclBase>& new_assert_reach_defs_out );
             
             ObjectList<Utils::InductionVariableData*> get_assert_induction_vars( );
-            void set_assert_induction_variables( ObjectList<Nodecl::NodeclBase> new_assert_induction_vars );
+            void set_assert_induction_variables( const ObjectList<Nodecl::NodeclBase>& new_assert_induction_vars );
+            
+            Utils::ext_sym_set get_assert_auto_sc_firstprivate_vars( );
+            void set_assert_auto_sc_firstprivate_var( const ObjectList<Nodecl::NodeclBase>& new_assert_auto_sc_fp );
+            
+            Utils::ext_sym_set get_assert_auto_sc_private_vars( );
+            void set_assert_auto_sc_private_var( const ObjectList<Nodecl::NodeclBase>& new_assert_auto_sc_p );
+            
+            Utils::ext_sym_set get_assert_auto_sc_shared_vars( );
+            void set_assert_auto_sc_shared_var( const ObjectList<Nodecl::NodeclBase>& new_assert_auto_sc_s );
             
             // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //

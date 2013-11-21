@@ -405,12 +405,6 @@ namespace Analysis {
      */
     #define _SC_FIRSTPRIVATE                "sc_firstprivate"
     
-    /*! \def _SHARED_OR_FIRSTPRIVATE
-     * Set of symbols with lastprivate auto-scoping in a task
-     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
-     */
-    #define _SC_SHARED_OR_FIRSTPRIVATE      "sc_shared_or_firstprivate"
-    
     /*! \def _UNDEF_SC
      * Set of symbols with non-computable auto-scoping in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
@@ -513,6 +507,21 @@ namespace Analysis {
      */
     #define _ASSERT_INDUCTION_VARS          "assert_induction_vars"
     
+    /*! \def _ASSERT_AUTOSC_FIRSTPRIVATE
+     * Set of variables autoscoped as firstprivate in a given point of the program
+     */
+    #define _ASSERT_AUTOSC_FIRSTPRIVATE     "assert_autosc_firstprivate"
+    
+    /*! \def _ASSERT_AUTOSC_PRIVATE
+     * Set of variables autoscoped as private in a given point of the program
+     */
+    #define _ASSERT_AUTOSC_PRIVATE          "assert_autosc_private"
+    
+    /*! \def _ASSERT_AUTOSC_SHARED
+     * Set of variables autoscoped as shared in a given point of the program
+     */
+    #define _ASSERT_AUTOSC_SHARED           "assert_autosc_shared"
+    
     // ************************** END PCFG enumerations and defines ************************* //
     // ************************************************************************************** //
     
@@ -600,6 +609,9 @@ namespace Analysis {
     CLAUSE(assert_reach_in) \
     CLAUSE(assert_reach_out) \
     CLAUSE(assert_upper_exposed) \
+    CLAUSE(assert_autosc_firstprivate) \
+    CLAUSE(assert_autosc_private) \
+    CLAUSE(assert_autosc_shared) \
     CLAUSE(auto) \
     CLAUSE(in) \
     CLAUSE(in_alloca) \
@@ -744,6 +756,9 @@ namespace Analysis {
         //! Container to store all SECTION nodes within a SECTIONS
         std::stack<ObjectList<Node*> > _section_nodes;
 
+        //! Stack to keep track of current nested assert pragmas
+        std::stack<Node*> _assert_nodes;
+        
         //! Container to store the ENTRY and EXIT nodes to be used when the ENVIRONMENT
         //! creates new nodes
         std::stack<std::pair<Node*, Node*> > _environ_entry_exit;

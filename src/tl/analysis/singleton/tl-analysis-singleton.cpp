@@ -245,7 +245,7 @@ namespace Analysis {
         {
             nodecl_t internal_n = n.get_internal_nodecl( );
             WARNING_MESSAGE( "Nodecl '%s' do not found in current analysis state. "\
-                             "You might have modified the code you used to compute the analyses and"\
+                             "You might have modified the code you used to compute the analyses and "\
                              "the nodecl you are asking for now did not exist before.",
                              codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ) );
         }
@@ -569,6 +569,25 @@ namespace Analysis {
         return pcfgs;
     }
 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis
+        ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
+        
+        // Now we apply auto-scope
+        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        {
+            if( VERBOSE )
+                printf( "Auto-Scoping of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+            
+            AutoScoping as( *it );
+            as.compute_auto_scoping( );
+        }
+        
+        return pcfgs;
+    }
+    
+    
     void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )
     {
         if( VERBOSE )
