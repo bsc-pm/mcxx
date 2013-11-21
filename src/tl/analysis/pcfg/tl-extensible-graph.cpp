@@ -340,10 +340,11 @@ namespace Analysis {
         return flush_node;
     }
 
-    Node* ExtensibleGraph::create_unconnected_node( Nodecl::NodeclBase nodecl )
+    Node* ExtensibleGraph::create_unconnected_node( Node_type type, Nodecl::NodeclBase nodecl )
     {
-        Node* result = new Node( _utils->_nid, __Normal, _utils->_outer_nodes.top( ) );
-        result->set_statements( ObjectList<Nodecl::NodeclBase>( 1, nodecl ) );
+        Node* result = new Node( _utils->_nid, type, _utils->_outer_nodes.top( ) );
+        if( !nodecl.is_null( ) )
+            result->set_statements( ObjectList<Nodecl::NodeclBase>( 1, nodecl ) );
         return result;
     }
 

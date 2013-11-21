@@ -294,7 +294,7 @@ namespace Analysis {
         /*!
         * \param nodecl Statement that will be added to the new node
         */
-        Node* create_unconnected_node( Nodecl::NodeclBase nodecl );
+        Node* create_unconnected_node( Node_type type, Nodecl::NodeclBase nodecl );
 
         //! Deletes a node from the graph
         /*!
