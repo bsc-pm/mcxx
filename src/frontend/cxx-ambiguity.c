@@ -1692,10 +1692,20 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
     if (previous_decl_speq_seq != NULL)
     {
         previous_type_spec = ASTSon1(previous_decl_speq_seq);
+
+        // Ignore any implicit int here
+        if (previous_type_spec != NULL
+                && ASTType(previous_type_spec) == AST_IMPLICIT_INT_TYPE)
+            previous_type_spec = NULL;
     }
     if (current_decl_speq_seq != NULL)
     {
         current_type_spec = ASTSon1(current_decl_speq_seq);
+
+        // Ignore any implicit int here
+        if (current_type_spec != NULL
+                && ASTType(current_type_spec) == AST_IMPLICIT_INT_TYPE)
+            current_type_spec = NULL;
     }
 
     AST previous_declarator = ASTSon1(previous_parameter_decl);

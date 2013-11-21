@@ -2017,7 +2017,7 @@ void build_scope_decl_specifier_seq(AST a,
                     || gather_info->is_mask_integer)
             {
                 // Manually add the int tree to make things easier
-                ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
+                ast_set_child(a, 1, ASTLeaf(AST_IMPLICIT_INT_TYPE, ast_get_locus(a), NULL));
                 type_spec = ASTSon1(a);
             }
             // This is a GCC extension
@@ -2195,7 +2195,7 @@ void build_scope_decl_specifier_seq(AST a,
             }
 
             // Manually add the int tree to make things easier
-            ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ast_get_locus(a), NULL));
+            ast_set_child(a, 1, ASTLeaf(AST_IMPLICIT_INT_TYPE, ast_get_locus(a), NULL));
             type_spec = ASTSon1(a);
 
             *type_info = get_signed_int_type();
@@ -2411,6 +2411,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             gather_info->is_short = 1;
             break;
         case AST_INT_TYPE :
+        case AST_IMPLICIT_INT_TYPE :
             *simple_type_info = get_signed_int_type();
             break;
         case AST_LONG_TYPE :
