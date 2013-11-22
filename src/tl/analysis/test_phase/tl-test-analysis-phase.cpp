@@ -34,7 +34,7 @@ namespace Analysis {
 
     TestAnalysisPhase::TestAnalysisPhase( )
         : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ),
-            _reaching_defs_enabled( false ), _induction_vars_enabled( false )
+          _reaching_defs_enabled( false ), _induction_vars_enabled( false ), _tdg_enabled( false )
     {
         set_phase_name("Experimental phase for testing compiler analysis");
         set_phase_description("This is a temporal phase called with code testing purposes.");
@@ -63,6 +63,10 @@ namespace Analysis {
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _induction_vars_enabled_str,
                             "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
+                            
+        register_parameter("tdg_enabled",
+                            "If set to '1' enables tdg,
+                            "0").connect(functor(&TestAnalysisPhase::set_tdg, *this));
     }
 
     void TestAnalysisPhase::run( TL::DTO& dto )
@@ -120,6 +124,15 @@ namespace Analysis {
                 std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
         }
         
+        if( _tdg_enabled )
+        {
+            if( VERBOSE )
+                std::cerr << "=========  Testing TDG creation =========" << std::endl;
+            pcfgs = analysis.task_dependency_graph( memento, ast );
+            if( VERBOSE )
+                std::cerr << "=========  Testing TDG creation done =========" << std::endl;
+        }
+        
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
         {
             if( VERBOSE )
@@ -162,7 +175,13 @@ namespace Analysis {
         if( induction_vars_enabled_str == "1" )
             _induction_vars_enabled = true;
     }
-
+    
+    void TestAnalysisPhase::set_tdg( const std::string& tdg_enabled_str )
+    {
+        if( tdg_enabled_str == "1" )
+            _tdg_enabled = true;
+    }
+    
 }
 }
 

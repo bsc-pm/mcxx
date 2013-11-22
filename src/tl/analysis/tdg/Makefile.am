@@ -26,40 +26,17 @@
 
 include $(top_srcdir)/src/tl/Makefile.tl
 
-lib_LTLIBRARIES= libanalysis_singleton.la
+lib_LTLIBRARIES = libtdg.la
+
+COMMON_FLAGS= $(tl_cflags) -I $(srcdir)/../../ -I $(srcdir)/../common -I $(srcdir)/../pcfg
+
+libtdg_la_CFLAGS = $(COMMON_FLAGS)
+libtdg_la_CXXFLAGS = $(COMMON_FLAGS)
+libtdg_la_LDFLAGS = $(tl_ldflags)
+libtdg_la_LIBADD = $(tl_libadd) ../common/libanalysis_utils.la ../pcfg/libpcfg.la
 
 END=
 
-libanalysis_singleton_la_CFLAGS= $(tl_cflags)
-libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
-				-I$(srcdir)/../.. \
-				-I$(srcdir)/../common \
-				-I$(srcdir)/../pcfg \
-				-I$(srcdir)/../use_def \
-				-I$(srcdir)/../liveness \
-				-I$(srcdir)/../reach_defs \
-				-I$(srcdir)/../loops \
-				-I$(srcdir)/../auto-scope \
-				-I$(srcdir)/../tdg \
-				$(END)
-
-libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
-libanalysis_singleton_la_LIBADD= \
-				$(tl_libadd) \
-				../../libtl.la \
-				../common/libanalysis_utils.la \
-				../pcfg/libpcfg.la \
-				../use_def/libuse_def.la \
-				../liveness/libliveness.la \
-				../reach_defs/libreaching_definitions.la \
-				../loops/libloops_analysis.la \
-				../auto-scope/libauto_scope.la \
-				../tdg/libtdg.la \
-				$(END)
-
-libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \
-                                  tl-analysis-static-info.hpp \
-                                  tl-vectorization-analysis.cpp \
-                                  tl-analysis-singleton.hpp \
-                                  tl-analysis-singleton.cpp \
-                                  $(END)
+libtdg_la_SOURCES = tl-task-dependency-graph.hpp \
+                    tl-task-dependency-graph.cpp \
+                    $(END)

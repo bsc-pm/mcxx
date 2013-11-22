@@ -58,6 +58,10 @@ namespace Analysis {
         std::string _induction_vars_enabled_str;
         bool _induction_vars_enabled;
         void set_induction_vars( const std::string& induction_vars_enabled_str );
+        
+        std::string _tdg_enabled_str;
+        bool _tdg_enabled;
+        void set_tdg( const std::string& tdg_enabled_str );
 
     public:
         //! Constructor of this phase

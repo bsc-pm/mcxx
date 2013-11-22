@@ -49,7 +49,7 @@ namespace Analysis {
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
         : _pcfgs( ), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
-          _auto_scoping( false ), _auto_deps( false )
+          _auto_scoping( false ), _auto_deps( false ), _tdg( false )
     {}
 
     ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
@@ -166,6 +166,16 @@ namespace Analysis {
     void PCFGAnalysis_memento::set_auto_deps_computed( )
     {
         _auto_deps = true;
+    }
+    
+    bool PCFGAnalysis_memento::is_tdg_computed( ) const
+    {
+        return _tdg;
+    }
+    
+    void PCFGAnalysis_memento::set_tdg_computed( )
+    {
+        _tdg = true;
     }
     
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
@@ -569,6 +579,30 @@ namespace Analysis {
         return pcfgs;
     }
 
+    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        ObjectList<TaskDependencyGraph*> tdgs;
+        
+        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
+        
+        if( !memento.is_tdg_computed( ) )
+        {
+            memento.set_tdg_computed( );
+            
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    printf( "Task Dependency Graph of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                
+                TaskDependencyGraph* tdg = new TaskDependencyGraph( *it );
+                tdg->print_tdg_to_dot( );
+                tdgs.insert( tdg );
+            }
+        }
+        
+        return tdgs;
+    }
+    
     ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
         // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis

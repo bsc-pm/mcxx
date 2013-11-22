@@ -32,6 +32,7 @@
 #include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-induction-variables-data.hpp"
+#include "tl-task-dependency-graph.hpp"
 
 // Set of classes implementing the Memento Pattern with Analysis purposes.
 // ----------------         -------------        ----------------
@@ -67,6 +68,7 @@ namespace Analysis {
         bool _induction_variables;  //!<True when induction variable analysis has been applied
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
+        bool _tdg;                  //!<True when PCFG's tasks dependency graphs have been created
 
         /*!Returns the PCFG node enclosed in a PCFG node containing th flow of a nodecl
          * @param current PCFG node where to search the nodecl
@@ -108,6 +110,8 @@ namespace Analysis {
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
+        bool is_tdg_computed( ) const;
+        void set_tdg_computed( );
         
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
@@ -200,6 +204,8 @@ namespace Analysis {
 
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        
         ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
         
         ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
