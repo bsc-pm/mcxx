@@ -37,9 +37,10 @@ namespace TL
         class StrengthReduction : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
+                bool _fast_math;
 
             public:
-                StrengthReduction();
+                StrengthReduction(bool fast_math);
 
                 virtual void visit(const Nodecl::ObjectInit& n);
 
@@ -47,14 +48,12 @@ namespace TL
                 virtual void visit(const Nodecl::Minus& n);
                 virtual void visit(const Nodecl::Mul& n);
                 virtual void visit(const Nodecl::Div& n);
+                virtual void visit(const Nodecl::VectorDiv& n);
+                virtual void visit(const Nodecl::VectorSqrt& n);
         };
 
-        void strength_reduce(Nodecl::NodeclBase& node);
-        
-        
-        
-        
-        void canonicalize_and_fold(Nodecl::NodeclBase& node);
+        void strength_reduce(Nodecl::NodeclBase& node, bool fast_math);
+        void canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math);
     }
 }
 
