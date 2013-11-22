@@ -31,7 +31,7 @@ noinst_LTLIBRARIES = libmf03-driver.la
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
 else
-mcxxexecdir = @bindir@
+mcxxexecdir = $(bindir)
 endif
 
 common_cflags= -fexceptions \

@@ -40,7 +40,7 @@ SUBDIRS += .
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
 else
-mcxxexecdir = @bindir@
+mcxxexecdir = $(bindir)
 endif
 
 EXTRA_DIST =
