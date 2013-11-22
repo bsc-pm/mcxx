@@ -535,6 +535,11 @@ namespace {
                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
             }
         }
+        // Check also for out->out dependences
+        if (!source_dep_out.is_null() && !target_dep_out.is_null())
+            may_have_dep = may_have_dep || may_have_dependence_list(
+                    source_dep_out.as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+                    target_dep_out.as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>());
 
         return may_have_dep;
     }
