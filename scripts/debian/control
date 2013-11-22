@@ -1,0 +1,12 @@
+Source: mcxx
+Maintainer: The Mercurium developers <pm-tools@bsc.es>
+Section: devel
+Priority: optional
+Standards-Version: 3.9.3
+Build-Depends: debhelper (>= 9), nanox, binutils, bison, flex, libsqlite3-dev (>= 3.6.16), gperf, texinfo, pkg-config, gfortran
+
+Package: mcxx
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, nanox, sqlite3 (>= 3.6.16), binutils, gfortran
+Provides: ompss
+Description: The Mercurium source to source compiler, with OmpSs support.

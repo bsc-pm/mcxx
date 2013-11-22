@@ -1555,6 +1555,12 @@ AM_CONDITIONAL(WINDOWS_BUILD, test x$windows_build = xyes)
 
 dnl ---------------------- End of test for Win32
 
+dnl --------------------- Debian release ----------------------
+AC_CHECK_PROG([DEB_RELEASE], [lsb_release], [$(lsb_release -sc)], [])
+AC_SUBST([DEB_RELEASE])
+dnl --------------------- End of Debian release ----------------------
+
+
 dnl C portability and compliance tests
 AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)

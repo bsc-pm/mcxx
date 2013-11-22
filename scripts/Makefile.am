@@ -47,7 +47,31 @@ rpm:
 	mkdir -p SOURCES BUILD RPMS SPECS SRPMS
 	cp $(top_build_prefix)*.tar.gz SOURCES
 
-	rpmbuild -v -bb --clean $(srcdir)/mcxx-rpm.spec --define '_topdir $(CURDIR)' --define 'version $(VERSION)' --define '_rpm_prefix $(RPM_PREFIX)' --with extrae
+	rpmbuild -v -bb --clean $(srcdir)/mcxx-rpm.spec --define '_topdir $(CURDIR)' --define 'version $(VERSION)' --define 'release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)'
 
 clean-rpm:
 	-rm -rf BUILDROOT SOURCES BUILD RPMS SPECS SRPMS
+
+deb:
+	cp $(top_build_prefix)*.tar.gz mcxx_$(VERSION).orig.tar.gz
+	tar -xf mcxx_$(VERSION).orig.tar.gz
+	-rm -rf upstream_dir
+	mv mcxx-$(VERSION) upstream_dir
+	cp -rf $(srcdir)/debian upstream_dir/
+	cp -rf upstream_dir/COPYING upstream_dir/debian/copyright
+	-rm -f upstream_dir/debian/changelog
+
+# Generate an empty changelog if git is not present
+	if test ! -d $(top_srcdir)/.git; \
+	then dch --create -c upstream_dir/debian/changelog --empty --package mcxx -v "$(VERSION)-$(shell date +%Y%m%d)$(DEB_RELEASE)"; \
+	else git --git-dir="$(top_srcdir)/.git" --work-tree="$(top_srcdir)/.git" log -1 --pretty=format:"mcxx ($(VERSION)-$(shell date +%Y%m%d)$(DEB_RELEASE)) unstable; urgency=low%x0A%x0A  * %h %s%x0A%x0A -- %an <%ae>  %aD" > upstream_dir/debian/changelog; \
+	fi
+
+	cd upstream_dir; DEB_BUILD_OPTIONS="nocheck parallel=4" debuild -us -uc
+	-rm -rf upstream_dir
+
+clean-deb:
+	-rm -f mcxx_$(VERSION).orig.tar.gz mcxx_$(VERSION)*.debian.tar.gz mcxx_$(VERSION)*.dsc mcxx_$(DEB_RELEASE)*.build mcxx_$(DEB_RELEASE)*.changes *.deb
+	-rm -rf upstream_dir
+
+clean-local: clean-rpm clean-deb

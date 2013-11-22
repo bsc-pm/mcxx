@@ -48,3 +48,6 @@ dist-hook:
 
 rpm: dist-gzip
 	$(MAKE) -C scripts rpm
+
+deb: dist-gzip
+	$(MAKE) -C scripts deb
