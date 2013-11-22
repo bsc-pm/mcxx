@@ -170,6 +170,8 @@ expression : literal
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_RSQRT([rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
