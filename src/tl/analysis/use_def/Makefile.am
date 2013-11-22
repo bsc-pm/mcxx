@@ -30,7 +30,7 @@ lib_LTLIBRARIES = libuse_def.la
 
 EXTRA_DIST=cLibraryFunctionList
 
-analysisdatadir = @datadir@/@PACKAGE@/analysisdata
+analysisdatadir = $(pkgdatadir)/analysisdata
 
 libuse_def_la_CFLAGS = $(tl_cflags)
 libuse_def_la_CXXFLAGS = $(tl_cflags) -DMCXX_ANALYSIS_DATA_PATH=\"$(analysisdatadir)\" \
