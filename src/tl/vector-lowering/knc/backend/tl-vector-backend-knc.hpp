@@ -75,6 +75,8 @@ namespace TL
 
                 void common_binary_op_lowering(const Nodecl::NodeclBase& node,
                         const std::string& intrin_op_name);
+                void common_unary_op_lowering(const Nodecl::NodeclBase& node,
+                        const std::string& intrin_op_name);
                 void bitwise_binary_op_lowering(const Nodecl::NodeclBase& node,
                         const std::string& intrin_op_name);
 
@@ -95,6 +97,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMul& node);
                 virtual void visit(const Nodecl::VectorDiv& node);
                 virtual void visit(const Nodecl::VectorMod& node);
+                virtual void visit(const Nodecl::VectorRsqrt& node);
 
                 virtual void visit(const Nodecl::VectorFmadd& node);
 

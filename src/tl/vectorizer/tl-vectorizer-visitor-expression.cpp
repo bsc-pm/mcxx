@@ -715,27 +715,30 @@ namespace TL
                     }
                     else // Unaligned
                     {
-                        //DEBUG_CODE()
-                        {
-                            fprintf(stderr, "VECTORIZER: Store access '%s' is UNALIGNED\n",
-                                    lhs.prettyprint().c_str());
-                        }
-
-                        if (_environment._prefer_gather_scatter ||
+                       if (_environment._prefer_gather_scatter ||
                                 (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
                         {
+                            //DEBUG_CODE()
+                            {
+                                fprintf(stderr, "VECTORIZER: Scatter access '%s' is UNALIGNED\n",
+                                        lhs.prettyprint().c_str());
+                            }
+
                             const Nodecl::ArraySubscript lhs_array = lhs.as<Nodecl::ArraySubscript>();
 
-                            const Nodecl::NodeclBase base = lhs_array.get_subscripted();
-                            const Nodecl::List subscripts = lhs_array.get_subscripts().as<Nodecl::List>();
+                            Nodecl::NodeclBase strides = Nodecl::VectorLiteral::make(
+                                    Vectorization::Utils::get_vector_offset_list(0 /*start value*/,
+                                        1 /*increment*/,
+                                        _environment._unroll_factor),
+                                    Utils::get_null_mask(),
+                                    TL::Type::get_int_type().get_vector_of_elements(_environment._unroll_factor));
 
-                            Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(lhs.as<Nodecl::ArraySubscript>());
-
-                            walk(strides);
 
                             const Nodecl::VectorScatter vector_scatter =
                                 Nodecl::VectorScatter::make(
-                                        base.shallow_copy(),
+                                        Nodecl::Reference::make(
+                                            lhs_array.shallow_copy(),
+                                            lhs.get_type().get_pointer_to()),
                                         strides,
                                         rhs.shallow_copy(),
                                         mask,
@@ -746,6 +749,13 @@ namespace TL
                         }
                         else
                         {
+                            //DEBUG_CODE()
+                            {
+                                fprintf(stderr, "VECTORIZER: Store access '%s' is UNALIGNED\n",
+                                        lhs.prettyprint().c_str());
+                            }
+
+
                             const Nodecl::UnalignedVectorStore vector_store =
                                 Nodecl::UnalignedVectorStore::make(
                                         Nodecl::Reference::make(
@@ -1038,25 +1048,28 @@ namespace TL
                 }
                 else // Unaligned
                 {
-                    //DEBUG_CODE()
-                    {
-                        fprintf(stderr, "VECTORIZER: Load access '%s' is UNALIGNED\n",
-                            n.prettyprint().c_str());
-                    }
-
                     if(_environment._prefer_gather_scatter ||
                             (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
                     {
-                        const Nodecl::NodeclBase base = n.get_subscripted();
-                        const Nodecl::List subscripts = n.get_subscripts().as<Nodecl::List>();
+                        //DEBUG_CODE()
+                        {
+                            fprintf(stderr, "VECTORIZER: Gather access '%s' is UNALIGNED\n",
+                                    n.prettyprint().c_str());
+                        }
 
-                        Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(n);
+                        Nodecl::NodeclBase strides = Nodecl::VectorLiteral::make(
+                                Utils::get_vector_offset_list(0 /*start value*/,
+                                    1 /*increment*/,
+                                    _environment._unroll_factor),
+                                Utils::get_null_mask(),
+                                TL::Type::get_int_type().get_vector_of_elements(_environment._unroll_factor));
 
-                        walk(strides);
 
                         Nodecl::VectorGather vector_gather =
                             Nodecl::VectorGather::make(
-                                    base.shallow_copy(),
+                                    Nodecl::Reference::make(
+                                        n.shallow_copy(),
+                                        n.get_type().get_pointer_to()),
                                     strides,
                                     mask,
                                     vector_type,
@@ -1068,6 +1081,12 @@ namespace TL
                     }
                     else
                     {
+                        //DEBUG_CODE()
+                        {
+                            fprintf(stderr, "VECTORIZER: Load access '%s' is UNALIGNED\n",
+                                    n.prettyprint().c_str());
+                        }
+
                         Nodecl::UnalignedVectorLoad vector_load =
                             Nodecl::UnalignedVectorLoad::make(
                                     Nodecl::Reference::make(
@@ -1138,6 +1157,18 @@ namespace TL
                             n.get_locus());
 
                 n.replace(vector_fabs_call);
+            }
+            else if (called_sym.get_symbol().get_name() == "sqrtf" ||
+                    called_sym.get_symbol().get_name() == "sqrt")
+            {
+                const Nodecl::VectorSqrt vector_sqrt_call =
+                    Nodecl::VectorSqrt::make(
+                            n.get_arguments().as<Nodecl::List>().front().shallow_copy(),
+                            mask,
+                            Utils::get_qualified_vector_to(call_type, _environment._unroll_factor),
+                            n.get_locus());
+
+                n.replace(vector_sqrt_call);
             }
             else if (called_sym.get_symbol().get_name() == "sincosf")
             {
@@ -1446,26 +1477,17 @@ namespace TL
             }
 
             // Computing IV offset {0, 1, 2, 3}
-            TL::ObjectList<Nodecl::NodeclBase> literal_list;
-
             Nodecl::NodeclBase ind_var_increment = Vectorizer::_analysis_info->get_induction_variable_increment(
                     _environment._analysis_simd_scope, n);
             
             if (ind_var_increment.is_constant())
             {
-                const_value_t *ind_var_increment_const = ind_var_increment.get_constant();
-                const_value_t *i = const_value_get_zero(4, /*signed*/ 1);
-                for(unsigned int j = 0;
-                        j < _environment._unroll_factor;
-                        i = const_value_add(i, ind_var_increment_const), j++)
-                {
-                    literal_list.prepend(const_value_to_nodecl(i));
-                }
-
-                Nodecl::List offset = Nodecl::List::make(literal_list);
+                int iv_increment = const_value_cast_to_4(ind_var_increment.get_constant());
+                // Offset list
+                Nodecl::List offset_list =
+                    Vectorization::Utils::get_vector_offset_list(0, iv_increment, _environment._unroll_factor);
 
                 Nodecl::NodeclBase vector_induction_var;
-
                 TL::Type ind_var_type;
 
                 // If Conversion node
@@ -1485,12 +1507,12 @@ namespace TL
                         // VectorLiteral offset
                         Nodecl::VectorLiteral offset_vector_literal =
                             Nodecl::VectorLiteral::make(
-                                    offset,
+                                    offset_list,
                                     Utils::get_null_mask(),
                                     ind_var_type,
                                     n.get_locus());
 
-                        offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+                        offset_vector_literal.set_constant(offset_list.get_constant());
 
                         vector_induction_var =
                             Nodecl::VectorAdd::make(
@@ -1514,12 +1536,12 @@ namespace TL
                         // VectorLiteral offset
                         Nodecl::VectorLiteral offset_vector_literal =
                             Nodecl::VectorLiteral::make(
-                                    offset,
+                                    offset_list,
                                     Utils::get_null_mask(),
                                     ind_var_type,
                                     n.get_locus());
 
-                        offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+                        offset_vector_literal.set_constant(offset_list.get_constant());
 
                         vector_induction_var =
                             Nodecl::VectorConversion::make(
@@ -1549,12 +1571,12 @@ namespace TL
                     // VectorLiteral offset
                     Nodecl::VectorLiteral offset_vector_literal =
                         Nodecl::VectorLiteral::make(
-                                offset,
+                                offset_list,
                                 Utils::get_null_mask(),
                                 ind_var_type,
                                 n.get_locus());
 
-                    offset_vector_literal.set_constant(get_vector_const_value(literal_list));
+                    offset_vector_literal.set_constant(offset_list.get_constant());
 
                     vector_induction_var =
                         Nodecl::VectorAdd::make(
@@ -1575,29 +1597,6 @@ namespace TL
             {
                 running_error("Vectorizer: IV increment is not constant.");
             }
-        }
-
-        const_value_t * VectorizerVisitorExpression::get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list)
-        {
-            int size = list.size();
-            ERROR_CONDITION(size == 0, "Invalid number of items in vector value", 0);
-
-            const_value_t** value_set = new const_value_t*[size];
-
-            int i = 0;
-            for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
-                    it != list.end();
-                    it++, i++)
-            {
-                value_set[i] = it->get_constant();
-                ERROR_CONDITION(value_set[i] == NULL, "Invalid constant", 0);
-            }
-
-            const_value_t* result = const_value_make_vector(size, value_set);
-
-            delete[] value_set;
-
-            return result;
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorExpression::unhandled_node(

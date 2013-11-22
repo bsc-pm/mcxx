@@ -207,6 +207,68 @@ namespace TL
             node.replace(function_call);
         }
 
+        void KNCVectorLowering::common_unary_op_lowering(const Nodecl::NodeclBase& node,
+                const std::string& intrin_op_name)
+        {
+            const Nodecl::VectorRsqrt& unary_node = node.as<Nodecl::VectorRsqrt>();
+
+            const Nodecl::NodeclBase rhs = unary_node.get_rhs();
+            const Nodecl::NodeclBase mask = unary_node.get_mask();
+
+            TL::Type type = unary_node.get_type().basic_type();
+
+            TL::Source intrin_src, intrin_name, intrin_type_suffix,
+                mask_prefix, args, mask_args;
+
+            intrin_src << intrin_name
+                << "("
+                << args
+                << ")"
+                ;
+
+            intrin_name << KNC_INTRIN_PREFIX
+                << mask_prefix
+                << "_"
+                << intrin_op_name
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            process_mask_component(mask, mask_prefix, mask_args, type);
+
+            if (type.is_float()) 
+            { 
+                intrin_type_suffix << "ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_type_suffix << "pd"; 
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+                intrin_type_suffix << "epi32"; 
+            } 
+            else
+            {
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type: %s.", 
+                        ast_print_node_type(unary_node.get_kind()),
+                        locus_to_str(unary_node.get_locus()),
+                        type.get_simple_declaration(node.retrieve_context(), "").c_str());
+            }      
+
+            walk(rhs);
+
+            args << mask_args
+                << as_expression(rhs)
+                ;
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void KNCVectorLowering::bitwise_binary_op_lowering(const Nodecl::NodeclBase& node,
                 const std::string& intrin_op_name)
         {
@@ -308,6 +370,11 @@ namespace TL
         void KNCVectorLowering::visit(const Nodecl::VectorMod& node) 
         { 
             common_binary_op_lowering(node, "rem");
+        }                                                 
+
+        void KNCVectorLowering::visit(const Nodecl::VectorRsqrt& node) 
+        { 
+            common_unary_op_lowering(node, "invsqrt");
         }                                                 
 
         void KNCVectorLowering::visit(const Nodecl::VectorFmadd& node)

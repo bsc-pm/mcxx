@@ -114,13 +114,13 @@ namespace TL
                 VectorizerEnvironment& environment)
         {
             // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement);
+            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
 
             VectorizerVisitorFor visitor_for(environment);
             visitor_for.walk(for_statement);
 
             // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement);
+            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
         }
 
         void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
@@ -128,13 +128,13 @@ namespace TL
                 const bool masked_version)
         {
             // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(func_code);
+            TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
 
             VectorizerVisitorFunction visitor_function(environment, masked_version);
             visitor_function.walk(func_code);
 
             // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(func_code);
+            TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
         }
 
         void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement, 
@@ -145,15 +145,15 @@ namespace TL
                 bool is_parallel_loop)
         {
             // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement);
+            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
 
             VectorizerVisitorForEpilog visitor_epilog(environment, 
                     epilog_iterations, only_epilog, is_parallel_loop);
             visitor_epilog.visit(for_statement, net_epilog_node);
 
             // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement);
-            TL::Optimizations::canonicalize_and_fold(net_epilog_node);
+            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
+            TL::Optimizations::canonicalize_and_fold(net_epilog_node, _fast_math_enabled);
         }
 
         bool Vectorizer::is_supported_reduction(bool is_builtin,
@@ -306,12 +306,7 @@ namespace TL
         {
             fprintf(stderr, "Enabling SVML SSE\n");
 
-            if (!_fast_math_enabled)
-            {
-                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
-            }
-
-            if (!_svml_sse_enabled && _fast_math_enabled)
+            if (!_svml_sse_enabled)
             {
                 _svml_sse_enabled = true;
 
@@ -356,12 +351,7 @@ namespace TL
         {
             fprintf(stderr, "Enabling SVML KNC\n");
 
-            if (!_fast_math_enabled)
-            {
-                fprintf(stderr, "SIMD Warning: SVML Math Library needs flag '--fast-math' also enabled. SVML disabled.\n");
-            }
-
-            if (!_svml_knc_enabled && _fast_math_enabled)
+            if (!_svml_knc_enabled)
             {
                 _svml_knc_enabled = true;
 

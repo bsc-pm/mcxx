@@ -26,6 +26,7 @@
 
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-utils.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL 
 { 
@@ -455,6 +456,49 @@ namespace TL
                 return Nodecl::MaskLiteral::make(
                             TL::Type::get_mask_type(size),
                             mask_value);
+            }
+
+            Nodecl::List get_vector_offset_list(const int start_value, const int increment, const int vector_size)
+            {
+                TL::ObjectList<Nodecl::NodeclBase> literal_list;
+
+                const_value_t* i = const_value_get_signed_int(start_value);
+                const_value_t* c_increment = const_value_get_signed_int(increment);
+                for(int j = 0;
+                        j < vector_size;
+                        i = const_value_add(i, c_increment), j++)
+                {
+                    literal_list.prepend(const_value_to_nodecl(i));
+                }
+
+                
+                Nodecl::List offset_list = Nodecl::List::make(literal_list);
+                offset_list.set_constant(get_vector_const_value(literal_list));
+
+                return offset_list;
+            }
+
+            const_value_t* get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list)
+            {
+                int size = list.size();
+                ERROR_CONDITION(size == 0, "Invalid number of items in vector value", 0);
+
+                const_value_t** value_set = new const_value_t*[size];
+
+                int i = 0;
+                for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
+                        it != list.end();
+                        it++, i++)
+                {
+                    value_set[i] = it->get_constant();
+                    ERROR_CONDITION(value_set[i] == NULL, "Invalid constant", 0);
+                }
+
+                const_value_t* result = const_value_make_vector(size, value_set);
+
+                delete[] value_set;
+
+                return result;
             }
         }
     }

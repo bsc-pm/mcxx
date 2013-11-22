@@ -121,6 +121,10 @@ namespace TL
                     const Nodecl::NodeclBase& then);
 
             Nodecl::MaskLiteral get_contiguous_mask_literal(const int size, const int num_active_lanes);
+            Nodecl::List get_vector_offset_list(const int start_value, const int increment,
+                    const int vector_size);
+            const_value_t * get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list);
+ 
         }
     }
 }
