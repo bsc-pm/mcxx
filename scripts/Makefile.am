@@ -47,7 +47,7 @@ rpm:
 	mkdir -p SOURCES BUILD RPMS SPECS SRPMS
 	cp $(top_build_prefix)*.tar.gz SOURCES
 
-	rpmbuild -v -bb --clean $(srcdir)/mcxx-rpm.spec --define '_topdir $(CURDIR)' --define 'version $(VERSION)' --define 'release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)'
+	THREADS=$$(getconf _NPROCESSORS_ONLN); THREADS=$${THREADS:-1}; rpmbuild -v -bb --clean $(srcdir)/mcxx-rpm.spec --define '_topdir $(CURDIR)' --define 'version $(VERSION)' --define 'release $(shell date +%Y%m%d)' --define '_rpm_prefix $(RPM_PREFIX)' --define "threads $${THREADS}"
 
 clean-rpm:
 	-rm -rf BUILDROOT SOURCES BUILD RPMS SPECS SRPMS
@@ -67,7 +67,7 @@ deb:
 	else git --git-dir="$(top_srcdir)/.git" --work-tree="$(top_srcdir)/.git" log -1 --pretty=format:"mcxx ($(VERSION)-$(shell date +%Y%m%d)$(DEB_RELEASE)) unstable; urgency=low%x0A%x0A  * %h %s%x0A%x0A -- %an <%ae>  %aD" > upstream_dir/debian/changelog; \
 	fi
 
-	cd upstream_dir; DEB_BUILD_OPTIONS="nocheck parallel=4" debuild -us -uc
+	THREADS=$$(getconf _NPROCESSORS_ONLN); THREADS=$${THREADS:-1}; cd upstream_dir; DEB_BUILD_OPTIONS="nocheck parallel=$${THREADS}" debuild -us -uc
 	-rm -rf upstream_dir
 
 clean-deb:

@@ -45,7 +45,7 @@ The Mercurium source to source compiler, with OmpSs support.
 
 %build
 %configure --enable-ompss --with-nanox=%{nanox_dir} --with-nanox-lib=%{nanox_lib}
-make -j4
+make -j%{threads}
 
 #%check
 #make check
