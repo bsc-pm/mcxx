@@ -6659,7 +6659,9 @@ static scope_entry_t* get_ultimate_symbol_from_module(scope_entry_t* entry)
     }
 }
 
-void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position)
+void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function,
+        int nesting,
+        int position)
 {
     ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
     ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
@@ -6682,15 +6684,17 @@ void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* fu
         memset(&function_parameter_info, 0, sizeof(function_parameter_info));
 
         function_parameter_info.function = function;
+        function_parameter_info.nesting = nesting;
         function_parameter_info.position = position;
 
-        P_LIST_ADD(entry->entity_specs.function_parameter_info, 
+        P_LIST_ADD(entry->entity_specs.function_parameter_info,
                 entry->entity_specs.num_function_parameter_info,
                 function_parameter_info);
     }
     else
     {
         entry->entity_specs.function_parameter_info[idx].function = function;
+        entry->entity_specs.function_parameter_info[idx].nesting = nesting;
         entry->entity_specs.function_parameter_info[idx].position = position;
     }
 }
@@ -6726,6 +6730,25 @@ int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_
         if (entry->entity_specs.function_parameter_info[i].function == function)
         {
             return entry->entity_specs.function_parameter_info[i].position;
+        }
+    }
+
+    internal_error("This symbol is not a parameter of the function", 0);
+}
+
+int symbol_get_parameter_nesting_in_function(scope_entry_t* entry, scope_entry_t* function)
+{
+    ERROR_CONDITION(entry == NULL, "The symbol is null", 0);
+    ERROR_CONDITION(function == NULL, "The function symbol should not be null", 0);
+
+    function = get_ultimate_symbol_from_module(function);
+
+    int i;
+    for (i = 0; (i < entry->entity_specs.num_function_parameter_info); i++)
+    {
+        if (entry->entity_specs.function_parameter_info[i].function == function)
+        {
+            return entry->entity_specs.function_parameter_info[i].nesting;
         }
     }
 

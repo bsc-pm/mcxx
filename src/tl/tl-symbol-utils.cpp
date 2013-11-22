@@ -162,7 +162,9 @@ namespace SymbolUtils
         for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
         {
             symbol_set_as_parameter_of_function(
-                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+                    new_function_sym->entity_specs.related_symbols[i], new_function_sym,
+                    /* parameter nesting */ 0,
+                    /* parameter position */ i);
         }
 
         // Make it static

@@ -449,7 +449,10 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
             new_keyword_sym->do_not_print = 1;
 
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(new_keyword_sym, 
+                    entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -468,7 +471,9 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
@@ -1389,7 +1394,9 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
         new_keyword_sym->decl_context = entry->decl_context;
         new_keyword_sym->type_information = dummy_arg->type_information;
 
-        symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+        symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                /* nesting */ 0,
+                /* position */ entry->entity_specs.num_related_symbols);
 
         new_keyword_sym->entity_specs.is_optional = dummy_arg->entity_specs.is_optional;
 
@@ -1500,7 +1507,8 @@ static scope_entry_t* register_specific_intrinsic_name(
             symbol_set_as_parameter_of_function(
                     specific_entry->entity_specs.related_symbols[i],
                     new_specific_entry,
-                    new_specific_entry->entity_specs.num_related_symbols);
+                    /* nesting */ 0,
+                    /* position */ new_specific_entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
                     new_specific_entry->entity_specs.num_related_symbols,

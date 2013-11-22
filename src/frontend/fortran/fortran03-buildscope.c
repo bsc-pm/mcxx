@@ -1660,7 +1660,9 @@ static scope_entry_t* new_procedure_symbol(
 
             dummy_arg->locus = ast_get_locus(dummy_arg_name);
 
-            symbol_set_as_parameter_of_function(dummy_arg, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(dummy_arg, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -1926,7 +1928,9 @@ static scope_entry_t* new_entry_symbol(decl_context_t decl_context,
 
             dummy_arg->locus = ast_get_locus(dummy_arg_name);
 
-            symbol_set_as_parameter_of_function(dummy_arg, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(dummy_arg, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -7465,7 +7469,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
                 remove_unknown_kind_symbol(decl_context, dummy_arg);
             }
 
-            symbol_set_as_parameter_of_function(dummy_arg, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(dummy_arg, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,

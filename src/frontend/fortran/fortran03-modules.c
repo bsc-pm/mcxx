@@ -1635,6 +1635,7 @@ static int get_extra_function_parameter_info(void *datum,
 
     function_parameter_info_t parameter_info;
     parameter_info.function = function_symbol;
+    parameter_info.nesting = 0;
     parameter_info.position = position;
 
     P_LIST_ADD(

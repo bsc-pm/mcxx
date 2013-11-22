@@ -12909,7 +12909,7 @@ static void set_parameters_as_related_symbols(scope_entry_t* entry,
             }
 
             // Remember this symbol as a parameter of entry
-            symbol_set_as_parameter_of_function(current_param, entry, i);
+            symbol_set_as_parameter_of_function(current_param, entry, /* nesting */ 0, /* position */ i);
         }
 
         // We keep the first parameter declaration or the definition (ignoring any other declaration)

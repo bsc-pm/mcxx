@@ -359,7 +359,9 @@ namespace TL { namespace Nanox {
         {
             scope_entry_t* param = it->get_internal_symbol();
 
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ new_function_sym->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
                     new_function_sym->entity_specs.num_related_symbols,
@@ -855,7 +857,9 @@ namespace TL { namespace Nanox {
                 it2++, it_ptypes++)
         {
             scope_entry_t* param = it2->get_internal_symbol();
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ new_function_sym->entity_specs.num_related_symbols);
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
         }
 

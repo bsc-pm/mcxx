@@ -279,6 +279,9 @@ struct function_parameter_info_tag
 {
     scope_entry_t* function;
 
+    // Nesting in a nested function declarator
+    // (Usually only relevant in C++)
+    int nesting;
     // Position of the parameter
     int position;
 };
