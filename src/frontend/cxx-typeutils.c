@@ -561,6 +561,7 @@ const standard_conversion_t no_scs_conversion = {
 
 
 static unsigned int _function_type_counter = 0;
+static unsigned int _function_type_requested = 0;
 static unsigned int _function_type_reused = 0;
 static unsigned int _class_type_counter = 0;
 static unsigned int _array_type_counter = 0;
@@ -582,6 +583,11 @@ unsigned int get_function_type_counter(void)
 unsigned int get_function_type_reused(void)
 {
     return _function_type_reused;
+}
+
+unsigned int get_function_type_requested(void)
+{
+    return _function_type_requested;
 }
 
 unsigned int get_class_type_counter(void)
@@ -3439,6 +3445,7 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
         parameter_list[i] = *(function_type->function->parameter_list[i]);
     }
 
+    _function_type_requested++;
     type_t* result = _get_new_function_type(
             function_type->function->return_type,
             parameter_list,
@@ -3513,6 +3520,7 @@ type_t* get_new_function_type_common(type_t* t,
     type_t* function_type = (type_t*)lookup_type_trie(used_trie, 
             type_seq, num_parameters + 1);
 
+    _function_type_requested++;
     if (function_type == NULL)
     {
         type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, is_trailing, ref_qualifier);

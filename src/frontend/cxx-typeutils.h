@@ -747,6 +747,7 @@ LIBMCXX_EXTERN unsigned int get_array_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_class_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_function_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_function_type_reused(void);
+LIBMCXX_EXTERN unsigned int get_function_type_requested(void);
 LIBMCXX_EXTERN unsigned int get_pointer_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_pointer_to_member_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_qualified_type_counter(void);
