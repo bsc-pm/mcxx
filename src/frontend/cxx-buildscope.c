@@ -1636,15 +1636,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             // Something is wrong
             if (entry == NULL)
-            {
-                error_printf("%s: error: invalid declaration '%s%s%s'\n",
-                        ast_location(a),
-
-                        prettyprint_in_buffer(decl_specifier_seq),
-                        decl_specifier_seq != NULL ? " " : "",
-                        prettyprint_in_buffer(init_declarator));
                 continue;
-            }
 
             if (entry->entity_specs.is_constructor)
             {
@@ -1731,12 +1723,29 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 }
             }
 
-            if (entry->kind == SK_FUNCTION
-                    && current_decl_context.current_scope->kind == BLOCK_SCOPE
-                    && !entry->entity_specs.is_nested_function)
+            if (entry->kind == SK_FUNCTION)
             {
-                // Ensure that the symbol is marked as extern
-                entry->entity_specs.is_extern = 1;
+                if (current_decl_context.current_scope->kind == BLOCK_SCOPE
+                        && !entry->entity_specs.is_nested_function)
+                {
+                    // Ensure that the symbol is marked as extern
+                    entry->entity_specs.is_extern = 1;
+                }
+
+                CXX11_LANGUAGE()
+                {
+                    if ((function_type_get_ref_qualifier(entry->type_information) != REF_QUALIFIER_NONE)
+                            && (!entry->entity_specs.is_member
+                                || entry->entity_specs.is_static))
+                    {
+                        // No member function can reach here, so this is wrong
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: only nonstatic member functions may have ref-qualifier\n",
+                                    ast_location(a));
+                        }
+                    }
+                }
             }
 
             if (entry->kind == SK_VARIABLE
@@ -11305,7 +11314,10 @@ static char find_function_declaration(AST declarator_id,
             else if (entry->kind == SK_FUNCTION)
             {
                 // Just attempt a match by type
-                function_matches = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
+                function_matches = equivalent_function_types_may_differ_ref_qualifier(
+                        function_type_being_declared,
+                        considered_type,
+                        entry->decl_context);
 
                 CXX11_LANGUAGE()
                 {
@@ -11321,6 +11333,7 @@ static char find_function_declaration(AST declarator_id,
                                         entry->decl_context,
                                         get_qualified_symbol_name(entry, entry->decl_context)));
                         }
+                        return 0;
                     }
                 }
             }
@@ -11336,7 +11349,6 @@ static char find_function_declaration(AST declarator_id,
                             considered_symbol->symbol_name,
                             locus_to_str(considered_symbol->locus));
                 }
-
             }
             else
             {
@@ -13379,6 +13391,17 @@ static void build_scope_function_definition_body(
         }
     }
 
+    CXX11_LANGUAGE()
+    {
+        if (function_type_get_ref_qualifier(entry->type_information) != REF_QUALIFIER_NONE
+                && (!entry->entity_specs.is_member
+                    || entry->entity_specs.is_static))
+        {
+            error_printf("%s: error: only nonstatic member functions may have ref-qualifier\n",
+                    ast_location(function_definition));
+        }
+    }
+
     nodecl_t nodecl_initializers = nodecl_null();
     CXX_LANGUAGE()
     {
@@ -14745,13 +14768,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     declarator_type, &current_gather_info,
                                     new_decl_context);
 
-                        ERROR_CONDITION(entry == NULL, "Member declaration '%s' at '%s' yielded an unresolved name",
-                                prettyprint_in_buffer(a), ast_location(a));
+                        if (entry == NULL)
+                            continue;
 
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "BUILDSCOPE: Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
-                                    class_name);
+                            fprintf(stderr, "BUILDSCOPE: Setting symbol '%s' as a member of class '%s'\n",
+                                    entry->symbol_name, class_name);
                         }
 
                         // Propagate 'do_not_print' attribute to the current member
@@ -14774,6 +14797,16 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                             // This function might be hiding using declarations, remove those
                             hide_using_declarations(class_type, entry);
+
+                            CXX11_LANGUAGE()
+                            {
+                                if (function_type_get_ref_qualifier(entry->type_information) != REF_QUALIFIER_NONE
+                                        && entry->entity_specs.is_static)
+                                {
+                                    error_printf("%s: error: only nonstatic member functions may have ref-qualifier\n",
+                                            ast_location(declarator_name));
+                                }
+                            }
                         }
                         else if (entry->kind == SK_VARIABLE)
                         {
@@ -14860,7 +14893,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     if (!checking_ambiguity())
                                     {
                                         error_printf("%s: error: function declaration '%s' has an invalid initializer '%s'"
-                                                " or has not been declared as a virtual function\n", 
+                                                " or has not been declared as a virtual function\n",
                                                 ast_location(declarator),
                                                 prettyprint_in_buffer(declarator),
                                                 prettyprint_in_buffer(initializer));

@@ -5098,7 +5098,8 @@ static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_c
         && (t1->type->vector_size == t2->type->vector_size);
 }
 
-static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t decl_context)
+static char equivalent_function_types_may_differ_ref_qualifier_(type_t* ft1, type_t* ft2,
+        decl_context_t decl_context)
 {
     function_info_t* t1 = ft1->function;
     function_info_t* t2 = ft2->function;
@@ -5130,6 +5131,32 @@ static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t de
 
     return 1;
 }
+
+static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t decl_context)
+{
+    if (!equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2, decl_context))
+        return 0;
+
+    function_info_t* t1 = ft1->function;
+    function_info_t* t2 = ft2->function;
+
+    if (t1->ref_qualifier != t2->ref_qualifier)
+        return 0;
+
+    return 1;
+}
+
+char equivalent_function_types_may_differ_ref_qualifier(type_t* ft1, type_t* ft2,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(!is_function_type(ft1) || !is_function_type(ft2), "Invalid types", 0);
+
+    ft1 = advance_over_typedefs(ft1);
+    ft2 = advance_over_typedefs(ft2);
+
+    return equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2, decl_context);
+}
+
 
 char equivalent_pack_types(type_t* t1, type_t *t2, decl_context_t decl_context)
 {
