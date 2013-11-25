@@ -4161,7 +4161,7 @@ scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t)
     return _class_type_get_members_pred(t, NULL, _member_is_copy_assignment_operator);
 }
 
-static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_t** result)
+static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_t** result, char canonical)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
@@ -4177,27 +4177,40 @@ static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_
         scope_entry_t* base = class_type_get_base_num(t, i,
                 &is_virtual, &is_dependent, &is_expansion, &access_spec);
 
-        class_type_get_virtual_base_classes_rec(base->type_information, result);
+        class_type_get_virtual_base_classes_rec(base->type_information, result, canonical);
 
         if (!is_virtual || is_dependent)
             continue;
+
+        if (canonical && base->kind == SK_CLASS)
+            base = class_symbol_get_canonical_symbol(base);
 
         *result = entry_list_add_once(*result, base);
     }
 }
 
-scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t)
+static scope_entry_list_t* class_type_get_virtual_base_classes_(type_t* t, char canonical)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
 
     scope_entry_list_t* result = NULL;
-    class_type_get_virtual_base_classes_rec(t, &result);
+    class_type_get_virtual_base_classes_rec(t, &result, canonical);
 
     return result;
 }
 
-scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
+scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t)
+{
+    return class_type_get_virtual_base_classes_(t, /* canonical */ 0);
+}
+
+scope_entry_list_t* class_type_get_virtual_base_classes_canonical(type_t* t)
+{
+    return class_type_get_virtual_base_classes_(t, /* canonical */ 1);
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes_(type_t* t, char canonical)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
@@ -4213,6 +4226,11 @@ scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
 
         scope_entry_t* base = class_type_get_base_num(t, i,
                 &is_virtual, &is_dependent, &is_expansion, &access_spec);
+
+        if (canonical && base->kind == SK_CLASS)
+        {
+                base = class_symbol_get_canonical_symbol(base);
+        }
 
         if (is_virtual || is_dependent)
             continue;
@@ -4221,6 +4239,16 @@ scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
     }
 
     return result;
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
+{
+    return class_type_get_direct_base_classes_(t, /* canonical */ 0);
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes_canonical(type_t* t)
+{
+    return class_type_get_direct_base_classes_(t, /* canonical */ 1);
 }
 
 static char _member_is_virtual_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)

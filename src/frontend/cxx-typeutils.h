@@ -517,6 +517,9 @@ LIBMCXX_EXTERN scope_entry_list_t* class_type_get_conversions(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_direct_base_classes(type_t* t);
 
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_base_classes_canonical(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_direct_base_classes_canonical(type_t* t);
+
 LIBMCXX_EXTERN type_t* class_type_get_enclosing_class_type(type_t* t);
 
 LIBMCXX_EXTERN computed_function_type_t computed_function_type_get_computing_function(type_t* t);

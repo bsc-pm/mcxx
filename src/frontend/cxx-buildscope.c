@@ -5183,9 +5183,9 @@ static void build_scope_ctor_initializer(
     if (!is_dependent_context)
     {
         virtual_bases =
-            class_type_get_virtual_base_classes(class_sym->type_information);
+            class_type_get_virtual_base_classes_canonical(class_sym->type_information);
         direct_base_classes =
-            class_type_get_direct_base_classes(class_sym->type_information);
+            class_type_get_direct_base_classes_canonical(class_sym->type_information);
         nonstatic_data_members =
             class_type_get_nonstatic_data_members(class_sym->type_information);
     }
@@ -5322,8 +5322,8 @@ static void build_scope_ctor_initializer(
             }
             else if (entry->kind == SK_CLASS)
             {
-                if (!entry_list_contains(direct_base_classes, entry)
-                        && !entry_list_contains(virtual_bases, entry))
+                if (!entry_list_contains(direct_base_classes, class_symbol_get_canonical_symbol(entry))
+                        && !entry_list_contains(virtual_bases, class_symbol_get_canonical_symbol(entry)))
                 {
                     error_printf("%s: error: class '%s' is not a direct base or virtual base of class '%s'\n",
                             ast_location(id_expression),
@@ -5338,7 +5338,7 @@ static void build_scope_ctor_initializer(
                         &nodecl_init,
                         /* is_auto_type */ 0);
 
-                already_initialized = entry_list_add(already_initialized, entry);
+                already_initialized = entry_list_add(already_initialized, class_symbol_get_canonical_symbol(entry));
             }
             else
             {
@@ -5370,6 +5370,10 @@ static void build_scope_ctor_initializer(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+
+        if (entry->kind == SK_CLASS)
+            entry = class_symbol_get_canonical_symbol(entry);
+
         if (entry_list_contains(already_initialized, entry))
             continue;
 
@@ -5383,6 +5387,10 @@ static void build_scope_ctor_initializer(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+
+        if (entry->kind == SK_CLASS)
+            entry = class_symbol_get_canonical_symbol(entry);
+
         if (entry_list_contains(already_initialized, entry))
             continue;
 
