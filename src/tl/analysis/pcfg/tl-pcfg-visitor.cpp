@@ -700,6 +700,14 @@ namespace Analysis {
         _utils->_assert_nodes.top( )->set_assert_reaching_definitions_out( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Undefined& n )
+    {
+        PCFGClause current_clause( __assert_undefined_behaviour, n.get_undefined_exprs( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_undefined_behaviour_var( current_clause.get_args( ) );
+        return ObjectList<Node*>( );
+    }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::UpperExposed& n )
     {

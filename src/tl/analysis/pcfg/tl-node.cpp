@@ -1849,6 +1849,29 @@ namespace Analysis {
         }
     }
     
+    Utils::ext_sym_set Node::get_assert_undefined_behaviour_vars( )
+    {
+        Utils::ext_sym_set assert_undefined_vars;
+        if( has_key( _ASSERT_UNDEFINED ) )
+            assert_undefined_vars = get_data<Utils::ext_sym_set>( _ASSERT_UNDEFINED );
+        return assert_undefined_vars;
+    }
+    
+    void Node::set_assert_undefined_behaviour_var( const ObjectList<Nodecl::NodeclBase>& new_assert_undefined_vars )
+    {
+        Utils::ext_sym_set assert_undefined_vars = get_assert_undefined_behaviour_vars( );
+        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_undefined_vars.begin( ); 
+            it != new_assert_undefined_vars.end( ); ++it )
+            {
+                Utils::ExtendedSymbol new_assert_undefined_var( *it );
+                if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_undefined_var, assert_undefined_vars ) )
+                {
+                    assert_undefined_vars.insert( new_assert_undefined_var );
+                    set_data( _ASSERT_UNDEFINED, assert_undefined_vars );
+                }
+            }
+    }
+    
     Utils::ext_sym_set Node::get_assert_live_in_vars( )
     {
         Utils::ext_sym_set assert_live_in_vars;
