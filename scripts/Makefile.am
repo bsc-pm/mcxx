@@ -27,7 +27,15 @@
 EXTRA_DIST= \
 			bison-2.3-rofi-patch \
 			mcxx-rpm.spec \
+			$(DEBIAN_EXTRA)
 			$(END)
+
+DEBIAN_EXTRA=\
+              debian/compat \
+              debian/source/format \
+              debian/rules \
+              debian/control \
+              $(END)
 
 LATEST_GXX=g++-4.8
 GXX_FLAGS=-fabi-version=6 -mavx -maes -mpclmul -mxop
