@@ -8849,6 +8849,26 @@ static void set_function_parameter_clause(type_t** function_type,
         solve_ambiguous_parameter_clause(parameters, decl_context);
     }
 
+    ref_qualifier_t ref_qualifier = REF_QUALIFIER_NONE;
+    if (ref_qualifier_opt != NULL)
+    {
+        CXX03_LANGUAGE()
+        {
+            error_printf("%s: error: ref-qualifier is only valid in C++2011\n", ast_location(ref_qualifier_opt));
+        }
+        switch (ASTType(ref_qualifier_opt))
+        {
+            case AST_REFERENCE_SPEC:
+                ref_qualifier = REF_QUALIFIER_LVALUE;
+                break;
+            case AST_RVALUE_REFERENCE_SPEC:
+                ref_qualifier = REF_QUALIFIER_RVALUE;
+                break;
+            default:
+                internal_error("Invalid ref-qualifier '%s'\n", ast_print_node_type(ASTType(ref_qualifier_opt)));
+        }
+    }
+
     if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
         C_LANGUAGE()
@@ -8860,7 +8880,7 @@ static void set_function_parameter_clause(type_t** function_type,
         CXX_LANGUAGE()
         {
             // In C++ this is a function with 0 parameters
-            *function_type = get_new_function_type(*function_type, parameter_info, /*num_parameters=*/0, REF_QUALIFIER_NONE);
+            *function_type = get_new_function_type(*function_type, parameter_info, /*num_parameters=*/0, ref_qualifier);
         }
         return;
     }
@@ -9230,26 +9250,6 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             // This list was really empty
             num_parameters = 0;
-        }
-    }
-
-    ref_qualifier_t ref_qualifier = REF_QUALIFIER_NONE;
-    if (ref_qualifier_opt != NULL)
-    {
-        CXX03_LANGUAGE()
-        {
-            error_printf("%s: error: ref-qualifier is only valid in C++2011\n", ast_location(ref_qualifier_opt));
-        }
-        switch (ASTType(ref_qualifier_opt))
-        {
-            case AST_REFERENCE_SPEC:
-                ref_qualifier = REF_QUALIFIER_LVALUE;
-                break;
-            case AST_RVALUE_REFERENCE_SPEC:
-                ref_qualifier = REF_QUALIFIER_RVALUE;
-                break;
-            default:
-                internal_error("Invalid ref-qualifier '%s'\n", ast_print_node_type(ASTType(ref_qualifier_opt)));
         }
     }
 
@@ -11306,6 +11306,23 @@ static char find_function_declaration(AST declarator_id,
             {
                 // Just attempt a match by type
                 function_matches = equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context);
+
+                CXX11_LANGUAGE()
+                {
+                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
+                            != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
+                    {
+                        function_matches = 0;
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: declaration cannot overload '%s'\n",
+                                    ast_location(declarator_id),
+                                    print_decl_type_str(considered_type,
+                                        entry->decl_context,
+                                        get_qualified_symbol_name(entry, entry->decl_context)));
+                        }
+                    }
+                }
             }
 
             if (function_matches)
@@ -11319,6 +11336,7 @@ static char find_function_declaration(AST declarator_id,
                             considered_symbol->symbol_name,
                             locus_to_str(considered_symbol->locus));
                 }
+
             }
             else
             {
