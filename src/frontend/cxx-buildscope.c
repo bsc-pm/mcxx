@@ -1024,25 +1024,38 @@ static void build_scope_explicit_instantiation(AST a,
                 nodecl_output);
     }
 
+    decl_context_t current_decl_context = decl_context;
+    if (simple_type_info == NULL
+            && is_constructor_declarator(declarator))
+    {
+        current_decl_context.decl_flags |= DF_CONSTRUCTOR;
+    }
+
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, simple_type_info,
-            &declarator_type, decl_context, nodecl_output);
+            &declarator_type, current_decl_context, nodecl_output);
     // FIXME - We should instantiate here if no 'extern' is given
 
     nodecl_t declarator_name_opt = nodecl_null();
     scope_entry_t* entry = NULL;
     if (declarator != NULL)
     {
-        entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
+        entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, current_decl_context);
 
-        AST id_expr = get_declarator_id_expression(declarator, decl_context);
-        compute_nodecl_name_from_id_expression(ASTSon0(id_expr), decl_context, &declarator_name_opt);
-        if (entry == NULL)
+        AST id_expr = get_declarator_id_expression(declarator, current_decl_context);
+        compute_nodecl_name_from_id_expression(ASTSon0(id_expr), current_decl_context, &declarator_name_opt);
+        // We do this to fix the declarator_name_opt
+        query_nodecl_name_flags(current_decl_context, declarator_name_opt, DF_DEPENDENT_TYPENAME);
+
+        if (entry == NULL
+                || (entry->kind != SK_FUNCTION
+                    && !(entry->kind == SK_VARIABLE
+                        && entry->entity_specs.is_member
+                        && entry->entity_specs.is_static)))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: invalid explicit instantiation\n", ast_location(a));
-            }
+            error_printf("%s: invalid explicit instantiation of '%s %s'\n", ast_location(a),
+                    prettyprint_in_buffer(decl_specifier_seq),
+                    prettyprint_in_buffer(declarator));
         }
     }
     else
@@ -1568,9 +1581,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     }
 
 
-    // A type has been specified and there are declarators ahead
-    if (simple_type_info != NULL
-            && declarator_list != NULL)
+    // There are declarators ahead
+    if (declarator_list != NULL)
     {
         // For every declarator create its full type based on the type
         // specified in the decl_specifier_seq
@@ -1588,6 +1600,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 solve_ambiguous_init_declarator(init_declarator, decl_context);
             }
 
+            decl_context_t current_decl_context = decl_context;
+
+            CXX_LANGUAGE()
+            {
+                if (simple_type_info == NULL
+                        && is_constructor_declarator(init_declarator))
+                {
+                    current_decl_context.decl_flags |= DF_CONSTRUCTOR;
+                }
+            }
+
             ERROR_CONDITION(ASTType(init_declarator) != AST_INIT_DECLARATOR,
                     "Invalid node", 0);
 
@@ -1595,7 +1618,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (asm_specification_or_gcc_attributes)
             {
                 gather_extra_attributes(asm_specification_or_gcc_attributes,
-                        &current_gather_info, decl_context);
+                        &current_gather_info, current_decl_context);
             }
 
             AST declarator = ASTSon0(init_declarator);
@@ -1606,14 +1629,70 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             // This will create the symbol if it is unqualified
             nodecl_t nodecl_declarator = nodecl_null();
             compute_declarator_type(declarator, &current_gather_info,
-                    simple_type_info, &declarator_type, decl_context, &nodecl_declarator);
+                    simple_type_info, &declarator_type, current_decl_context, &nodecl_declarator);
 
             scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type,
-                    &current_gather_info, decl_context);
+                    &current_gather_info, current_decl_context);
 
             // Something is wrong
             if (entry == NULL)
-                return;
+            {
+                error_printf("%s: error: invalid declaration '%s%s%s'\n",
+                        ast_location(a),
+
+                        prettyprint_in_buffer(decl_specifier_seq),
+                        decl_specifier_seq != NULL ? " " : "",
+                        prettyprint_in_buffer(init_declarator));
+                continue;
+            }
+
+            if (entry->entity_specs.is_constructor
+                    && !is_explicit_specialization)
+            {
+                error_printf("%s: error: declaration of a constructor not valid in this scope\n",
+                        ast_location(a));
+                continue;
+            }
+
+            if (entry->entity_specs.is_conversion
+                    && !is_explicit_specialization)
+            {
+                error_printf("%s: error: declaration of a conversion function not valid in this scope\n",
+                        ast_location(a));
+                continue;
+            }
+
+            if (entry->entity_specs.is_destructor)
+            {
+                error_printf("%s: error: declaration of a destructor not valid in this scope\n",
+                        ast_location(a));
+                continue;
+            }
+
+            // Note that in C99 we craft a signed int here internally so this
+            // can only happen in C++
+            if (simple_type_info == NULL
+                    && !entry->entity_specs.is_constructor
+                    && !entry->entity_specs.is_destructor
+                    && !entry->entity_specs.is_conversion)
+            {
+                error_printf("%s: error: declaration of '%s' lacks a type-specifier\n",
+                        ast_location(a),
+                        get_qualified_symbol_name(entry, current_decl_context));
+                continue;
+            }
+
+            if (entry->entity_specs.is_member)
+            {
+                if (entry->kind != SK_VARIABLE
+                        || !entry->entity_specs.is_static)
+                {
+                    error_printf("%s: error: declaration of member '%s' not valid in this scope\n",
+                            ast_location(a),
+                            get_qualified_symbol_name(entry, current_decl_context));
+                    continue;
+                }
+            }
 
             if (current_gather_info.is_transparent_union)
             {
@@ -1652,12 +1731,13 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: declaration with auto type-specifier requires an initializer\n", ast_location(a));
+                    error_printf("%s: error: declaration with auto type-specifier requires an initializer\n",
+                            ast_location(a));
                 }
             }
 
             if (entry->kind == SK_FUNCTION
-                    && decl_context.current_scope->kind == BLOCK_SCOPE
+                    && current_decl_context.current_scope->kind == BLOCK_SCOPE
                     && !entry->entity_specs.is_nested_function)
             {
                 // Ensure that the symbol is marked as extern
@@ -1667,7 +1747,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry->kind == SK_VARIABLE
                     || entry->kind == SK_TYPEDEF)
             {
-                if (decl_context.current_scope->kind == BLOCK_SCOPE)
+                if (current_decl_context.current_scope->kind == BLOCK_SCOPE)
                 {
                     int i;
                     for (i = 0; i < current_gather_info.num_vla_dimension_symbols; i++)
@@ -1691,7 +1771,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             if (entry->kind == SK_VARIABLE)
             {
                 if (entry->defined
-                        && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)
+                        && !BITMAP_TEST(current_decl_context.decl_flags, DF_ALLOW_REDEFINITION)
                         && !current_gather_info.is_extern
                         // In C, an entity may be redefined at file-scope
                         && !(IS_C_LANGUAGE
@@ -1702,7 +1782,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     {
                         error_printf("%s: error: redefined entity '%s', first declared in '%s'\n",
                                 ast_location(declarator),
-                                get_qualified_symbol_name(entry, decl_context),
+                                get_qualified_symbol_name(entry, current_decl_context),
                                 locus_to_str(entry->locus));
                     }
                 }
@@ -1800,7 +1880,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     {
                         if (!is_dependent_type(declarator_type))
                         {
-                            check_default_initialization_and_destruction_declarator(entry, decl_context, 
+                            check_default_initialization_and_destruction_declarator(entry, current_decl_context, 
                                     ast_get_locus(declarator));
                         }
                     }
@@ -1812,7 +1892,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     if (!entry->entity_specs.is_member // Not a member
                             || ( // Static member definition (outside of the class)
                                 entry->entity_specs.is_static  
-                                && decl_context.current_scope->kind == NAMESPACE_SCOPE))
+                                && current_decl_context.current_scope->kind == NAMESPACE_SCOPE))
                     {
                         // Define the symbol
                         entry->defined = 1;
@@ -1826,16 +1906,16 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // (some cases only for C99)
                         || (IS_C_LANGUAGE
                             // - variably modified types in block scopes must be declared here
-                            && decl_context.current_scope->kind == BLOCK_SCOPE
+                            && current_decl_context.current_scope->kind == BLOCK_SCOPE
                             && is_variably_modified_type(entry->type_information))
                         || (IS_CXX_LANGUAGE
                             // - class variables in block scope
-                            && decl_context.current_scope->kind == BLOCK_SCOPE
+                            && current_decl_context.current_scope->kind == BLOCK_SCOPE
                             && (is_class_type(entry->type_information)
                                 // - array of class type variables
                                 || (is_array_type(entry->type_information) 
                                     && is_class_type(array_type_get_element_type(entry->type_information)))))
-                        || (decl_context.current_scope->kind == NAMESPACE_SCOPE
+                        || (current_decl_context.current_scope->kind == NAMESPACE_SCOPE
                             // - namespace-scope declarations of non-member
                             // entities that are non-extern since they are
                             // definitions (global definitions are here)
@@ -1878,7 +1958,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         nodecl_make_list_1(
                             nodecl_make_cxx_decl(
                                 nodecl_make_context(nodecl_null(),
-                                    decl_context,
+                                    current_decl_context,
                                     ast_get_locus(init_declarator)),
                                 entry,
                                 ast_get_locus(init_declarator))));
@@ -1906,7 +1986,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
                 nodecl_t nodecl_context =
                     nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                            decl_context, ast_get_locus(init_declarator));
+                            current_decl_context, ast_get_locus(init_declarator));
 
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
@@ -1918,7 +1998,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             }
         }
     }
-    else if (simple_type_info != NULL)
+    else if (simple_type_info != NULL
+            && declarator_list == NULL)
     {
         // Anonymous union special treatment
         if (is_named_type(simple_type_info)
@@ -1928,6 +2009,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             scope_entry_t* named_type = named_type_get_symbol(simple_type_info);
             finish_anonymous_class(named_type, decl_context);
         }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 }
 
@@ -14327,8 +14412,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 &member_type, new_decl_context, nodecl_output);
 
         original_member_type = member_type;
-
-
 
         if (gather_info.defined_type != NULL
                 && declared_symbols != NULL)

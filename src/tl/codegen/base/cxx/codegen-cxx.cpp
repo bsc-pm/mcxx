@@ -3639,8 +3639,25 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         move_to_namespace(decl_context.namespace_scope->related_entry);
         if (is_extern)
             *(file) << "extern ";
+        
+        TL::Type real_type = sym.get_type();
+        if (sym.is_conversion_function()
+                || sym.is_destructor())
+        {
+            // FIXME
+            real_type = get_new_function_type(NULL, NULL, 0);
+
+            if (sym.is_conversion_function())
+            {
+                if (sym.get_type().is_const())
+                {
+                    real_type = real_type.get_const_type();
+                }
+            }
+        }
+
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
     }
     else if (sym.is_variable())
     {
