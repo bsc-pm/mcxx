@@ -4792,12 +4792,14 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
         case TK_SEQUENCE:
             result = equivalent_sequence_types(t1, t2, decl_context);
             break;
+        case TK_AUTO:
         case TK_ERROR:
             // This is always true
             result = 1;
             break;
         case TK_OVERLOAD:
             // These are always false
+            result = 0;
             break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -4926,8 +4928,16 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             result = compare_template_dependent_typename_types(p_t1, p_t2, decl_context);
             break;
         case STK_TYPEOF :
-            // Nobody compares these structurally, but using the "name" (e.g. the pointer)
-            result = (t1 == t2);
+            C_LANGUAGE()
+            {
+                result = (t1 == t2);
+            }
+            CXX_LANGUAGE()
+            {
+                result = same_functional_expression(t1->typeof_expr,
+                        t2->typeof_expr,
+                        deduction_flags_empty());
+            }
             break;
         case STK_VA_LIST :
             // If both are __builtin_va_list, this is trivially true

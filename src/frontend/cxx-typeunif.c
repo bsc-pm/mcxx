@@ -1219,17 +1219,19 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
     if (right_symbol != NULL)
     {
-        // Advance right value except for enumerators
+        // Advance right value except for enumerators or a function parameter name
         if (right_symbol->kind != SK_ENUMERATOR
+                && !symbol_is_parameter_of_function(right_symbol, get_function_declaration_proxy())
                 && !nodecl_is_null(right_symbol->value))
             return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set, flags);
     }
 
     if (left_symbol != NULL)
     {
-        // Advance left value only if it is not a nontype template parameter
+        // Advance left value only if it is not a nontype template parameter or a function parameter name
         if (left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER 
                 && left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                && !symbol_is_parameter_of_function(left_symbol, get_function_declaration_proxy())
                 && !nodecl_is_null(left_symbol->value))
             return equivalent_dependent_expressions(left_symbol->value, right_tree, unif_set, flags);
 
@@ -1305,6 +1307,24 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             }
 
             return equivalent;
+        }
+        // If both a parameters of a function, check if they might mean the same entity
+        else if (left_symbol->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(left_symbol, get_function_declaration_proxy())
+                && right_symbol->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(right_symbol, get_function_declaration_proxy()))
+        {
+            int left_nesting = symbol_get_parameter_nesting_in_function(left_symbol, get_function_declaration_proxy());
+            int left_position = symbol_get_parameter_position_in_function(left_symbol, get_function_declaration_proxy());
+
+            int right_nesting = symbol_get_parameter_nesting_in_function(right_symbol, get_function_declaration_proxy());
+            int right_position = symbol_get_parameter_position_in_function(right_symbol, get_function_declaration_proxy());
+
+            return (left_nesting == right_nesting
+                    && left_position == right_position
+                    // Check also type identity of the parameters themselves
+                    && equivalent_types(left_symbol->type_information,
+                        right_symbol->type_information));
         }
 
         DEBUG_CODE()

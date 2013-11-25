@@ -8799,6 +8799,37 @@ static void set_array_type(type_t** declarator_type,
     *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
 }
 
+// Returns a fake symbol used only to keep track of variables in declarators
+//
+// We need to remember that symbols appearing in function declarators are parameters
+// but they need a function to be parameters of, so we use this fake symbol
+//
+// Note that we only use this in C++, for C there is no need to keep track of
+// this stuff
+//
+// By using get_function_declaration_proxy() in
+//
+//    symbol_is_parameter_of_function(symbol, get_function_declaration_proxy())
+//    symbol_get_parameter_nesting_in_function(symbol, get_function_declaration_proxy())
+//    symbol_get_parameter_position_in_function(symbol, get_function_declaration_proxy())
+//
+// you can tell if "symbol" is a parameter of a given declarator and retrieve
+// its nesting and position in the declarator itself. Note that the nesting
+// counts only nested function declarators (not any sort of derived declarator)
+scope_entry_t* get_function_declaration_proxy(void)
+{
+    static scope_entry_t* _decl_proxy = NULL;
+
+    if (_decl_proxy == NULL)
+    {
+        _decl_proxy = xcalloc(1, sizeof(*_decl_proxy));
+        _decl_proxy->symbol_name = uniquestr("._function_declarator_");
+        _decl_proxy->kind = SK_FUNCTION;
+    }
+
+    return _decl_proxy;
+}
+
 /*
  * This function fetches information for every declarator in the
  * parameter_declaration_clause of a functional declarator
@@ -9076,6 +9107,19 @@ static void set_function_parameter_clause(type_t** function_type,
                 {
                     // We are done: this is of the form f(void)
                     break;
+                }
+            }
+
+            CXX_LANGUAGE()
+            {
+                // Keep track of this parameter name as we may have to compare it later
+                if (entry != NULL)
+                {
+                    symbol_set_as_parameter_of_function(
+                            entry,
+                            get_function_declaration_proxy(),
+                            function_declarator_nesting_level,
+                            num_parameters);
                 }
             }
 
