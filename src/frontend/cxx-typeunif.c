@@ -811,7 +811,7 @@ void unificate_two_types(type_t* t1,
                                     int n = targ_list_2->num_parameters - i;
                                     int num_t2_types = 0;
                                     int k;
-                                    for (k = 0; k < n; k++)
+                                    for (k = i; k < n; k++)
                                     {
                                         if (is_sequence_of_types(targ_list_2->arguments[k]->type))
                                         {
@@ -825,7 +825,7 @@ void unificate_two_types(type_t* t1,
 
                                     type_t* types[num_t2_types + 1];
                                     int type_idx = 0;
-                                    for (k = 0; k < n; k++)
+                                    for (k = i; k < n; k++)
                                     {
                                         if (is_sequence_of_types(targ_list_2->arguments[k]->type))
                                         {
