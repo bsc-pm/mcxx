@@ -605,6 +605,7 @@ induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variabl
 
 analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
                           | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)
+                          | NODECL_ANALYSIS*UNDEFINED([undefined_exprs] expression-seq)
                           | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq)
                           | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq)
                           | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq)

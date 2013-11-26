@@ -251,6 +251,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Analysis::ReachingDefinitionIn& n );
         Ret visit( const Nodecl::Analysis::ReachingDefinitionOut& n );
         Ret visit( const Nodecl::Analysis::UpperExposed& n );
+        Ret visit( const Nodecl::Analysis::Undefined& n );
         Ret visit( const Nodecl::ArithmeticShr& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );
         Ret visit( const Nodecl::ArraySubscript& n );

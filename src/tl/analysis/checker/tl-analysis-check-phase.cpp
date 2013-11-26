@@ -264,11 +264,14 @@ namespace {
             {
                 Utils::ext_sym_set assert_ue = current->get_assert_ue_vars( );
                 Utils::ext_sym_set assert_killed = current->get_assert_killed_vars( );
+                Utils::ext_sym_set assert_undef = current->get_assert_undefined_behaviour_vars( );
                 Utils::ext_sym_set ue = current->get_ue_vars( );
                 Utils::ext_sym_set killed = current->get_killed_vars( );
+                Utils::ext_sym_set undef = current->get_undefined_behaviour_vars( );
             
                 compare_assert_set_with_analysis_set( assert_ue, ue, locus_str, current->get_id( ), "upper_exposed", "Upper Exposed" );
                 compare_assert_set_with_analysis_set( assert_killed, killed, locus_str, current->get_id( ), "defined", "Killed" );
+                compare_assert_set_with_analysis_set( assert_undef, undef, locus_str, current->get_id( ), "undefined", "Undefined Behavior" );
             }
                 
             // Check Liveness analysis
@@ -462,9 +465,9 @@ namespace {
         
         // Use-Def analysis clauses
         // #pragma analysis_check assert upper_exposed(expr-list)
-        if( pragma_line.get_clause( "upper_expposed" ).is_defined( ) )
+        if( pragma_line.get_clause( "upper_exposed" ).is_defined( ) )
         {
-            PragmaCustomClause upper_exposed_clause = pragma_line.get_clause( "upper_expposed" );
+            PragmaCustomClause upper_exposed_clause = pragma_line.get_clause( "upper_exposed" );
             
             environment.append(
                 Nodecl::Analysis::UpperExposed::make(
@@ -477,6 +480,14 @@ namespace {
             environment.append(
                 Nodecl::Analysis::Defined::make(
                     Nodecl::List::make( defined_clause.get_arguments_as_expressions( ) ), loc ) );
+        }
+        if( pragma_line.get_clause( "undefined" ).is_defined( ) )
+        {
+            PragmaCustomClause undefined_clause = pragma_line.get_clause( "undefined" );
+            
+            environment.append(
+                Nodecl::Analysis::Undefined::make(
+                    Nodecl::List::make( undefined_clause.get_arguments_as_expressions( ) ), loc ) );
         }
         
         // Liveness analysis clauses

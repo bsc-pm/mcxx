@@ -476,6 +476,11 @@ namespace Analysis {
      * Set of expressions marked by the user as defined in a given point of the program
      */
     #define _ASSERT_KILLED                  "assert_killed"
+
+    /*! \def _ASSERT_UNDEFINED
+     * Set of expressions marked by the user as undefined behavior in a given point of the program
+     */
+    #define _ASSERT_UNDEFINED               "assert_undefined"
     
     /*! \def _ASSERT_LIVE_IN
      * Set of expressions marked by the user as live in in a given point of the program
@@ -601,6 +606,9 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     #define CLAUSE_LIST \
+    CLAUSE(assert_autosc_firstprivate) \
+    CLAUSE(assert_autosc_private) \
+    CLAUSE(assert_autosc_shared) \
     CLAUSE(assert_dead) \
     CLAUSE(assert_defined) \
     CLAUSE(assert_induction_var) \
@@ -609,9 +617,7 @@ namespace Analysis {
     CLAUSE(assert_reach_in) \
     CLAUSE(assert_reach_out) \
     CLAUSE(assert_upper_exposed) \
-    CLAUSE(assert_autosc_firstprivate) \
-    CLAUSE(assert_autosc_private) \
-    CLAUSE(assert_autosc_shared) \
+    CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
     CLAUSE(in) \
     CLAUSE(in_alloca) \
