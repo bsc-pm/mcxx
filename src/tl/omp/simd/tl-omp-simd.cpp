@@ -232,8 +232,8 @@ namespace TL {
 
             // Get epilog information
             bool only_epilog;
-            int epilog_iterations = _vectorizer.get_epilog_info(for_statement, for_environment,
-                    only_epilog);
+            int epilog_iterations = _vectorizer.get_epilog_info(for_statement, 
+                    for_environment, only_epilog);
 
             if (!only_epilog)
                 _vectorizer.vectorize(for_statement, for_environment); 

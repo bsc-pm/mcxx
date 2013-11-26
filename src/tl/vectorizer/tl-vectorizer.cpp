@@ -180,14 +180,53 @@ namespace TL
             Nodecl::NodeclBase ub = tl_for.get_upper_bound();
             Nodecl::NodeclBase step = tl_for.get_step();
 
-            if(lb.is_constant() && step.is_constant())
+            if(step.is_constant())
             {
-                long long int const_lb = const_value_cast_to_8(lb.get_constant());
-                long long int const_step = const_value_cast_to_8(step.get_constant());
+                long long int const_lb;
                 long long int const_ub;
+                long long int const_step = const_value_cast_to_8(step.get_constant());
 
-                bool is_suitable = false;
-                int vector_size_module = -1;
+
+                bool ub_is_suitable = false;
+                bool lb_is_suitable = false;
+                int lb_vector_size_module = -1;
+                int ub_vector_size_module = -1;
+
+
+                if (lb.is_constant())
+                {
+                    const_lb = const_value_cast_to_8(lb.get_constant());
+                }
+                else
+                {
+                    // Push ForStatement as scope for analysis
+                    environment._analysis_simd_scope = for_statement;
+                    environment._analysis_scopes.push_back(for_statement);
+
+                    // Suitable LB 
+                    lb_is_suitable = _analysis_info->is_suitable_expression(for_statement, lb,
+                            environment._suitable_expr_list, environment._unroll_factor,
+                            environment._vector_length, lb_vector_size_module);
+
+                    environment._analysis_scopes.pop_back();
+
+                    // LB 
+                    if (lb_is_suitable)
+                    {
+                        printf("SUITABLE LB\n");
+                        const_lb = 0; // Assuming 0 for suitable LB
+                    }
+                    else if (lb_vector_size_module != -1) // Is not suitable but is constant in some way
+                    {
+                        printf("VECTOR MODULE LB EPILOG %d\n", lb_vector_size_module);
+                        const_ub = lb_vector_size_module;
+                    }
+                    else // We cannot say anything about the number of iterations of the epilog
+                    {
+                        printf("DEFAULT EPILOG LB\n");
+                        return remain_its; // -1
+                    }
+                }
 
                 if (ub.is_constant())
                 {
@@ -198,29 +237,34 @@ namespace TL
                     // Push ForStatement as scope for analysis
                     environment._analysis_simd_scope = for_statement;
                     environment._analysis_scopes.push_back(for_statement);
-                    
+
+                    // Suitable UB
                     Nodecl::NodeclBase ub_plus_one =
                         Nodecl::Add::make(ub.shallow_copy(),
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_int_type(),
                                     const_value_get_one(4, 1)),
                                 ub.get_type());
- 
-                    is_suitable = _analysis_info->is_suitable_expression(for_statement, ub_plus_one,
+
+                    ub_is_suitable = _analysis_info->is_suitable_expression(for_statement, ub_plus_one,
                             environment._suitable_expr_list, environment._unroll_factor,
-                            environment._vector_length, vector_size_module);
+                            environment._vector_length, ub_vector_size_module);
 
                     environment._analysis_scopes.pop_back();
- 
-                    if (is_suitable)
+
+                    // UB
+                    if (ub_is_suitable)
                     {
                         printf("SUITABLE EPILOG\n");
                         const_ub = environment._unroll_factor;
                     }
-                    else if (vector_size_module != -1) // Is not suitable but is constant in some way
+                    else if (ub_vector_size_module != -1) // Is not suitable but is constant in some way
                     {
-                        printf("VECTOR MODULE EPILOG %d\n", vector_size_module);
-                        const_ub = environment._unroll_factor;
+                        printf("VECTOR MODULE EPILOG %d\n", ub_vector_size_module);
+                        const_ub = ub_vector_size_module;
+
+                        if (const_lb > const_ub) 
+                            const_ub += environment._unroll_factor;
                     }
                     else // We cannot say anything about the number of iterations of the epilog
                     {
@@ -228,19 +272,24 @@ namespace TL
                         return remain_its; // -1
                     }
                 }
- 
+
+
+                // Compute epilog its
                 long long int num_its = (((const_ub - const_lb)%const_step) == 0) ? 
                     ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
                 
                 if ((num_its < environment._unroll_factor) && 
-                        ((!is_suitable) && (vector_size_module == -1)))
+                        (!ub_is_suitable) && (!lb_is_suitable) && 
+                        (ub_vector_size_module == -1) &&
+                        (lb_vector_size_module == -1))
                 {
                     printf("ONLY EPILOG\n");
                     only_epilog = true;
                 }
 
-                printf("CONSTANT EPILOG\n");
                 remain_its = num_its % environment._unroll_factor;
+
+                printf("CONSTANT EPILOG %d\n", remain_its);
             }
 
             if (remain_its < -1)
