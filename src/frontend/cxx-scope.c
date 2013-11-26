@@ -4151,13 +4151,13 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
             // Empty argument for this variadic parameter
             // Create an empty one
             template_parameter_value_t* new_value = xcalloc(1, sizeof(*new_value));
-            new_value->kind = last->kind;
+            new_value->kind = template_parameter_kind_get_base_kind(last->kind);
+            new_value->type = get_sequence_of_types(0, NULL);
+            new_value->value = nodecl_null(); // Empty list
 
             int num_args = result->num_parameters;
             P_LIST_ADD(result->arguments, num_args, new_value);
             P_LIST_ADD(result->parameters, result->num_parameters, last);
-
-            internal_error("Not supported yet", 0);
         }
         else
         {
@@ -4231,12 +4231,17 @@ static const char* template_arguments_to_str_ex(
     char print_comma = 0;
     for (i = first_argument_to_be_printed; i < template_parameters->num_parameters; i++, print_comma = 1)
     {
+        template_parameter_value_t* argument = template_parameters->arguments[i];
+
         if (print_comma)
         {
-            result = strappend(result, ", ");
+            if (argument == NULL
+                    || !is_sequence_of_types(argument->type)
+                    || sequence_of_types_get_num_types(argument->type) > 0)
+            {
+                result = strappend(result, ", ");
+            }
         }
-
-        template_parameter_value_t* argument = template_parameters->arguments[i];
 
         if (argument == NULL)
         {
