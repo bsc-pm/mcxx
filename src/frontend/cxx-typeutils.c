@@ -13009,3 +13009,108 @@ void variant_type_get_ms_attributes(type_t* t, int* num_attrs, gcc_attribute_t**
     *num_attrs = t->info->num_ms_attributes;
     *attrs = t->info->ms_attributes;
 }
+
+void get_packs_in_type(type_t* pack_type,
+        scope_entry_t*** packs_to_expand,
+        int *num_packs_to_expand)
+{
+    if (is_named_type(pack_type))
+    {
+        scope_entry_t* sym = named_type_get_symbol(pack_type);
+        if (sym->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                || sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+        {
+            P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, sym);
+            return;
+        }
+
+        if (is_template_specialized_type(sym->type_information))
+        {
+            type_t* template_type =
+                template_specialized_type_get_related_template_type(sym->type_information);
+            template_parameter_list_t* template_parameters =
+                template_specialized_type_get_template_arguments(sym->type_information);
+            scope_entry_t* template_related_symbol =
+                template_type_get_related_symbol(template_type);
+
+
+            if (template_related_symbol != NULL
+                    && template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+            {
+                P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, template_related_symbol);
+            }
+
+            int i;
+            for (i = 0; i < template_parameters->num_parameters; i++)
+            {
+                template_parameter_value_t* v = template_parameters->arguments[i];
+
+                enum template_parameter_kind k = template_parameter_kind_get_base_kind(v->kind);
+
+                if (k == TPK_TYPE
+                        || k == TPK_TEMPLATE)
+                {
+                    get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                }
+            }
+        }
+    }
+    else if (is_pointer_type(pack_type))
+    {
+        get_packs_in_type(pointer_type_get_pointee_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_rvalue_reference_type(pack_type)
+            || is_lvalue_reference_type(pack_type))
+    {
+        get_packs_in_type(reference_type_get_referenced_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_array_type(pack_type))
+    {
+        get_packs_in_expression(array_type_get_array_size_expr(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+        get_packs_in_type(array_type_get_element_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_vector_type(pack_type))
+    {
+        get_packs_in_type(vector_type_get_element_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_function_type(pack_type))
+    {
+        get_packs_in_type(function_type_get_return_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+
+        int last = function_type_get_num_parameters(pack_type);
+
+        char has_ellipsis = function_type_get_has_ellipsis(pack_type);
+
+        if (has_ellipsis)
+            last--;
+
+        int i;
+        for (i = 0; i < last; i++)
+        {
+            type_t* param_type = function_type_get_parameter_type_num(pack_type, i);
+
+            get_packs_in_type(param_type, packs_to_expand, num_packs_to_expand);
+        }
+    }
+    else if (is_sequence_of_types(pack_type))
+    {
+        int i, num = sequence_of_types_get_num_types(pack_type);
+
+        for (i = 0; i < num; i++)
+        {
+            get_packs_in_type(sequence_of_types_get_type_num(pack_type, i), packs_to_expand, num_packs_to_expand);
+        }
+    }
+}

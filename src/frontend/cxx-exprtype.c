@@ -10464,28 +10464,77 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
             ast_get_locus(expression));
 }
 
-static char there_are_template_packs(nodecl_t n)
+void get_packs_in_expression(nodecl_t nodecl,
+        scope_entry_t*** packs_to_expand,
+        int *num_packs_to_expand)
 {
-    if (nodecl_is_null(n))
-        return 0;
+    if (nodecl_is_null(nodecl))
+        return;
 
-    char result = 0;
+    // These are in another context, not the current one
+    if (nodecl_get_kind(nodecl) == NODECL_CXX_VALUE_PACK)
+        return;
 
-    if (nodecl_get_kind(n) == NODECL_SYMBOL)
+    type_t* t = nodecl_get_type(nodecl);
+    if (t != NULL)
     {
-        scope_entry_t* entry = nodecl_get_symbol(n);
-        if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
-                || entry->kind == SK_VARIABLE_PACK)
-            return 1;
+        get_packs_in_type(t, packs_to_expand, num_packs_to_expand);
+    }
+
+    scope_entry_t* entry = nodecl_get_symbol(nodecl);
+    if (entry != NULL
+            && entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+    {
+        P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, entry);
+        return;
+    }
+
+    if (nodecl_get_kind(nodecl) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        template_parameter_list_t* template_arguments = nodecl_get_template_parameters(nodecl);
+
+        int i, N = template_arguments->num_parameters;
+        for (i = 0; i < N; i++)
+        {
+            switch (template_arguments->arguments[i]->kind)
+            {
+                case TPK_TYPE:
+                case TPK_TEMPLATE:
+                    {
+                        get_packs_in_type(template_arguments->arguments[i]->type,
+                                packs_to_expand, num_packs_to_expand);
+                        break;
+                    }
+                case TPK_NONTYPE:
+                    {
+                        get_packs_in_type(template_arguments->arguments[i]->type,
+                                packs_to_expand, num_packs_to_expand);
+                        get_packs_in_expression(template_arguments->arguments[i]->value,
+                                packs_to_expand, num_packs_to_expand);
+                        break;
+                    }
+                default:
+                    internal_error("Code unreachable", 0);
+            }
+        }
     }
 
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        result = result || there_are_template_packs(nodecl_get_child(n, i));
+        get_packs_in_expression(nodecl_get_child(nodecl, i), packs_to_expand, num_packs_to_expand);
     }
+}
 
-    return result;
+static char there_are_template_packs(nodecl_t n)
+{
+    scope_entry_t** packs_to_expand = NULL;
+    int num_packs_to_expand = 0;
+    get_packs_in_expression(n, &packs_to_expand, &num_packs_to_expand);
+
+    xfree(packs_to_expand);
+
+    return (num_packs_to_expand > 0);
 }
 
 static void check_nodecl_initializer_clause_expansion(nodecl_t pack,

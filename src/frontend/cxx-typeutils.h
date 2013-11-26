@@ -174,6 +174,10 @@ LIBMCXX_EXTERN type_t* get_pack_type(type_t* t);
 LIBMCXX_EXTERN char is_pack_type(type_t* t);
 LIBMCXX_EXTERN type_t* pack_type_get_packed_type(type_t* t);
 
+LIBMCXX_EXTERN void get_packs_in_type(type_t* pack_type,
+        scope_entry_t*** packs_to_expand,
+        int *num_packs_to_expand);
+
 // Used for parameter packs when they are expanded but cannot be flattened
 LIBMCXX_EXTERN type_t* get_sequence_of_types(int num_types, type_t** types);
 LIBMCXX_EXTERN int sequence_of_types_get_num_types(type_t* seq_type);
