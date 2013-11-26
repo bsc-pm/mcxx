@@ -1278,6 +1278,10 @@ nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = $1;
 }
+| TOKEN_CONSTEXPR
+{
+	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 // GNU Extension
 | COMPLEX
 {
@@ -1344,13 +1348,13 @@ nontype_specifier_without_attribute : storage_class_specifier
 {
 	$$ = $1;
 }
-| type_specifier_SUSL
-{
-    $$ = $1;
-}
 | TOKEN_CONSTEXPR
 {
 	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| type_specifier_SUSL
+{
+    $$ = $1;
 }
 // GNU Extension
 | COMPLEX
