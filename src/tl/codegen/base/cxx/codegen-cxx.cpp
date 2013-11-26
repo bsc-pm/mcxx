@@ -2014,14 +2014,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         decl_spec_seq += "inline ";
     }
 
-    if (symbol.is_constexpr())
-    {
-        decl_spec_seq += "constexpr ";
-    }
-
     if (symbol.is_virtual() && symbol.is_defined_inside_class())
     {
         decl_spec_seq += "virtual ";
+    }
+
+    if (symbol.is_constexpr())
+    {
+        decl_spec_seq += "constexpr ";
     }
 
     if (symbol.is_explicit_constructor()
@@ -5933,6 +5933,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && state.classes_being_defined.back() == symbol.get_class_type().get_symbol())
         {
             decl_spec_seq += "explicit ";
+        }
+
+        if (symbol.is_constexpr())
+        {
+            decl_spec_seq += "constexpr ";
         }
 
         if (symbol.is_nested_function())
