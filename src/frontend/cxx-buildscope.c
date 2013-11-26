@@ -6380,9 +6380,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             if (user_declared_copy_assignment_operators != NULL
                     || user_declared_destructor != NULL)
             {
-                warn_printf("%s: declaring an implicit copy constructor of a class with a user-provided "
-                        "destructor or copy assignment operator is deprecated in C++11\n",
-                        locus_to_str(locus));
+                /* Though deprecated seems to be common... */
+                // warn_printf("%s: declaring an implicit copy constructor of a class with a user-provided "
+                //         "destructor or copy assignment operator is deprecated in C++11\n",
+                //         locus_to_str(locus));
             }
         }
 
