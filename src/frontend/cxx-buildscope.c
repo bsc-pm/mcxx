@@ -1646,16 +1646,14 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 continue;
             }
 
-            if (entry->entity_specs.is_constructor
-                    && !is_explicit_specialization)
+            if (entry->entity_specs.is_constructor)
             {
                 error_printf("%s: error: declaration of a constructor not valid in this scope\n",
                         ast_location(a));
                 continue;
             }
 
-            if (entry->entity_specs.is_conversion
-                    && !is_explicit_specialization)
+            if (entry->entity_specs.is_conversion)
             {
                 error_printf("%s: error: declaration of a conversion function not valid in this scope\n",
                         ast_location(a));
@@ -1669,12 +1667,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 continue;
             }
 
-            // Note that in C99 we craft a signed int here internally so this
+            // Note that in C99 we craft a signed int here internally, so this
             // can only happen in C++
-            if (simple_type_info == NULL
-                    && !entry->entity_specs.is_constructor
-                    && !entry->entity_specs.is_destructor
-                    && !entry->entity_specs.is_conversion)
+            if (simple_type_info == NULL)
             {
                 error_printf("%s: error: declaration of '%s' lacks a type-specifier\n",
                         ast_location(a),
