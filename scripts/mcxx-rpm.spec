@@ -35,7 +35,7 @@ BuildRequires:		bison, flex, sqlite3-devel >= 3.6.16, gperf, nanox, texinfo, pkg
 Requires:		sqlite3 >= 3.6.16, gcc-fortran, binutils, nanox
 %else
 BuildRequires:		bison, flex, sqlite-devel >= 3.6.16, gperf, nanox, texinfo, pkgconfig
-Requires:		sqlite >= 3.6.16, gcc-fortran, binutils, nanox
+Requires:		sqlite >= 3.6.16, gcc-gfortran, binutils, nanox
 %endif
 %description
 The Mercurium source to source compiler, with OmpSs support.
