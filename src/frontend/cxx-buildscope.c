@@ -13117,7 +13117,9 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
     int i;
     for (i = 0; i < num_types; i++)
     {
-        if (!is_literal_type(no_ref(function_type_get_parameter_type_num(entry->type_information, i))))
+        type_t* param_type = no_ref(function_type_get_parameter_type_num(entry->type_information, i));
+        if (!is_dependent_type(param_type)
+                && !is_literal_type(param_type))
         {
             if (!checking_ambiguity())
             {
@@ -13133,7 +13135,8 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
     {
         type_t* return_type = function_type_get_return_type(entry->type_information);
 
-        if (!is_literal_type(no_ref(return_type)))
+        if (!is_dependent_type(return_type)
+                && !is_literal_type(no_ref(return_type)))
         {
             if (!checking_ambiguity())
             {
