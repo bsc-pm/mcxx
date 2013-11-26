@@ -7346,8 +7346,72 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     }
 }
 
-// Delayed member function declarations (due to default arguments)
+// Delayed member function declarators (due to nonstatic member initialization)
 
+struct delayed_member_initializer_tag
+{
+    scope_entry_t* entry;
+    AST initializer;
+};
+
+static int _next_delayed_member_initializer = 0;
+static struct delayed_member_initializer_tag _delayed_member_initializer[MCXX_MAX_FUNCTIONS_PER_CLASS];
+
+static void build_scope_add_delayed_member_declarator_initializer(scope_entry_t* entry, AST initializer)
+{
+    ERROR_CONDITION(_next_delayed_member_initializer == MCXX_MAX_FUNCTIONS_PER_CLASS, "Too many function declarations delayed\n", 0);
+
+    _delayed_member_initializer[_next_delayed_member_initializer].entry = entry;
+    _delayed_member_initializer[_next_delayed_member_initializer].initializer = initializer;
+    _next_delayed_member_initializer++;
+}
+
+static void build_scope_delayed_member_declarator_initializer_clear_pending(void)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Clearing pending member declarator initializer\n");
+    }
+    _next_delayed_member_initializer = 0;
+}
+
+static void build_scope_delayed_member_declarator_initializers(void)
+{
+    int i;
+    for (i = 0; i < _next_delayed_member_initializer; i++)
+    {
+        nodecl_t nodecl_init = nodecl_null();
+
+        scope_entry_t* entry = _delayed_member_initializer[i].entry;
+        AST initializer = _delayed_member_initializer[i].initializer;
+
+        /* Create a new block context where we will register 'this' */
+        decl_context_t block_context = new_block_context(entry->decl_context);
+        type_t* pointed_this = entry->entity_specs.class_type;
+        type_t* this_type = get_pointer_type(pointed_this);
+
+        scope_entry_t* this_symbol = new_symbol(block_context, block_context.current_scope, "this");
+
+        this_symbol->locus = entry->locus;
+        this_symbol->kind = SK_VARIABLE;
+        this_symbol->type_information = this_type;
+        this_symbol->defined = 1;
+        this_symbol->do_not_print = 1;
+
+        check_initialization(initializer,
+                block_context,
+                entry,
+                get_unqualified_type(entry->type_information),
+                &nodecl_init,
+                // There should not be an auto type-specifier in a nonstatic member declarator
+                /* is_auto_type */ 0);
+
+        entry->value = nodecl_init;
+    }
+    build_scope_delayed_member_declarator_initializer_clear_pending();
+}
+
+// Delayed member function declarations (due to default arguments)
 struct delayed_function_decl_tag
 {
     scope_entry_t* entry;
@@ -7365,7 +7429,6 @@ static void build_scope_delayed_add_function_declaration(scope_entry_t* entry, d
     _delayed_functions_decl_list[_next_delayed_function_decl].decl_context = decl_context;
     _next_delayed_function_decl++;
 }
-
 
 static void build_scope_delayed_function_decl_clear_pending(void)
 {
@@ -7514,9 +7577,16 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     {
         DEBUG_CODE()
         {
+            fprintf(stderr, "BUILDSCOPE: Building scope of delayed member declarator initializers\n");
+        }
+        build_scope_delayed_member_declarator_initializers();
+
+        DEBUG_CODE()
+        {
             fprintf(stderr, "BUILDSCOPE: Building scope of delayed function declarations\n");
         }
         build_scope_delayed_function_decl();
+
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Building scope of delayed function definitions\n");
@@ -14837,34 +14907,53 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             // Do nothing
                         }
 
+                        if (!current_gather_info.is_static && current_gather_info.is_auto_type)
+                        {
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s: error: nonstatic member declared as auto\n",
+                                        ast_location(declarator_name));
+                            }
+                        }
+
                         if (initializer != NULL)
                         {
                             if (entry->kind == SK_VARIABLE)
                             {
-                                if (!current_gather_info.is_static)
+                                if (!current_gather_info.is_static
+                                        && IS_CXX03_LANGUAGE)
                                 {
-                                    CXX03_LANGUAGE()
+                                    if (!checking_ambiguity())
                                     {
-                                        if (!checking_ambiguity())
-                                        {
-                                            warn_printf("%s: warning: initialization of nonstatic data members is only valid in C++11\n",
-                                                    ast_location(initializer));
-                                        }
+                                        warn_printf("%s: warning: initialization of nonstatic data members is only valid in C++11\n",
+                                                ast_location(initializer));
                                     }
                                 }
 
-                                nodecl_t nodecl_expr = nodecl_null();
-                                check_initialization(initializer,
-                                        entry->decl_context,
-                                        entry,
-                                        get_unqualified_type(entry->type_information),
-                                        &nodecl_expr,
-                                        current_gather_info.is_auto_type);
-
+                                if (current_gather_info.is_static)
+                                {
+                                    nodecl_t nodecl_expr = nodecl_null();
+                                    check_initialization(initializer,
+                                            entry->decl_context,
+                                            entry,
+                                            get_unqualified_type(entry->type_information),
+                                            &nodecl_expr,
+                                            current_gather_info.is_auto_type);
+                                    entry->value = nodecl_expr;
+                                }
+                                else
+                                {
+                                    // We need to delay them because this must work
+                                    //
+                                    // struct A
+                                    // {
+                                    //    size_t x = sizeof(A);
+                                    // };
+                                    build_scope_add_delayed_member_declarator_initializer(entry, initializer);
+                                }
                                 entry->entity_specs.is_defined_inside_class_specifier = 1;
-                                entry->value = nodecl_expr;
-
                             }
+
                             // Special initializer for functions
                             else if (entry->kind == SK_FUNCTION)
                             {

@@ -583,6 +583,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 }
                 else
                 {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: 'this' cannot be used in this context\n",
+                                ast_location(expression));
+                    }
                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                 }
                 entry_list_free(entry_list);
@@ -13428,6 +13433,10 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
         default:
             {
                 check_expression_impl_(initializer, decl_context, nodecl_output);
+
+                if (nodecl_is_err_expr(*nodecl_output))
+                    return;
+
                 char is_type_dependent = nodecl_expr_is_type_dependent(*nodecl_output);
                 char is_value_dependent = nodecl_expr_is_value_dependent(*nodecl_output);
 
