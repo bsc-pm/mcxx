@@ -5321,6 +5321,10 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     {
         decl_specifiers += "register ";
     }
+    if (symbol.is_constexpr())
+    {
+        decl_specifiers += "constexpr ";
+    }
     if (symbol.is_bitfield())
     {
         unsigned int bits_of_bitfield =  const_value_cast_to_4(
