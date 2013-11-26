@@ -49,7 +49,6 @@ namespace TL
                 virtual void visit(const Nodecl::Mul& n);
                 virtual void visit(const Nodecl::Div& n);
                 virtual void visit(const Nodecl::VectorDiv& n);
-                virtual void visit(const Nodecl::VectorSqrt& n);
         };
 
         void strength_reduce(Nodecl::NodeclBase& node, bool fast_math);
