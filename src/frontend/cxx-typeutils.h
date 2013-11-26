@@ -65,6 +65,8 @@ LIBMCXX_EXTERN type_t* get_char_type(void);
 LIBMCXX_EXTERN type_t* get_signed_char_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_char_type(void);
 LIBMCXX_EXTERN type_t* get_wchar_t_type(void);
+LIBMCXX_EXTERN type_t* get_char16_t_type(void);
+LIBMCXX_EXTERN type_t* get_char32_t_type(void);
 LIBMCXX_EXTERN type_t* get_bool_type(void);
 LIBMCXX_EXTERN type_t* get_signed_int_type(void);
 LIBMCXX_EXTERN type_t* get_signed_short_int_type(void);
@@ -329,6 +331,8 @@ LIBMCXX_EXTERN char is_signed_int128_type(type_t*);
 LIBMCXX_EXTERN char is_unsigned_int128_type(type_t*);
 
 LIBMCXX_EXTERN char is_wchar_t_type(type_t* t);
+LIBMCXX_EXTERN char is_char16_t_type(type_t* t);
+LIBMCXX_EXTERN char is_char32_t_type(type_t* t);
 
 LIBMCXX_EXTERN char is_floating_type(type_t* t);
 LIBMCXX_EXTERN char is_double_type(type_t* t);

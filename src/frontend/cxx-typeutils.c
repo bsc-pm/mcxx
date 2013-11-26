@@ -97,7 +97,9 @@ enum builtin_type_tag
     BT_CHAR,
     BT_WCHAR,
     BT_VOID,
-    BT_NULLPTR_T
+    BT_NULLPTR_T,
+    BT_CHAR16_T,
+    BT_CHAR32_T,
 } builtin_type_t;
 
 typedef 
@@ -726,6 +728,40 @@ type_t* get_char_type(void)
         _type->type->builtin_type = BT_CHAR;
         _type->info->size = 1;
         _type->info->alignment = 1;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+type_t* get_char16_t_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_CHAR16_T;
+        _type->info->size = 2;
+        _type->info->alignment = 2;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+type_t* get_char32_t_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_CHAR32_T;
+        _type->info->size = 4;
+        _type->info->alignment = 4;
         _type->info->valid_size = 1;
     }
 
@@ -5024,6 +5060,14 @@ char equivalent_builtin_type(type_t* p_t1, type_t *p_t2, decl_context_t decl_con
             return 0;
     }
 
+    if (t1->builtin_type == BT_CHAR16_T
+            && t2->builtin_type == BT_CHAR16_T)
+        return 1;
+
+    if (t1->builtin_type == BT_CHAR32_T
+            && t2->builtin_type == BT_CHAR32_T)
+        return 1;
+
     // Ok, nothing makes us think they might be different
     return 1;
 }
@@ -6066,6 +6110,8 @@ char is_integral_type(type_t* t)
     return (is_any_int_type(t)
             || is_bool_type(t)
             || is_character_type(t)
+            || is_char16_t_type(t)
+            || is_char32_t_type(t)
             || is_wchar_t_type(t)
             // In C, enumerated types are integral types
             || (is_enum_type(t) && IS_C_LANGUAGE)
@@ -6263,6 +6309,24 @@ char is_char_type(type_t* t)
 {
     // FIXME: Make a flag to choose signed or unsigned chars
     return is_signed_char_type(t);
+}
+
+char is_char16_t_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR16_T);
+}
+
+char is_char32_t_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR32_T);
 }
 
 char is_wchar_t_type(type_t* t)
@@ -7574,6 +7638,16 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                             result = strappend(result, "char");
                             break;
                         }
+                    case BT_CHAR16_T :
+                        {
+                            result = strappend(result, "char16_t");
+                            break;
+                        }
+                    case BT_CHAR32_T :
+                        {
+                            result = strappend(result, "char32_t");
+                            break;
+                        }
                     case BT_WCHAR :
                         {
                             result = strappend(result, "wchar_t");
@@ -8868,6 +8942,12 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_CHAR :
                         result = strappend(result, "char");
                         break;
+                    case BT_CHAR16_T :
+                        result = strappend(result, "char16_t");
+                        break;
+                    case BT_CHAR32_T :
+                        result = strappend(result, "char32_t");
+                        break;
                     case BT_BYTE:
                         result = strappend(result, "byte");
                         break;
@@ -9863,6 +9943,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_unsigned_char_type(orig)
                     || is_signed_short_int_type(orig)
                     || is_unsigned_short_int_type(orig)
+                    || is_char16_t_type(orig)
+                    || is_char32_t_type(orig)
                     || is_wchar_t_type(orig)
                     || is_bool_type(orig)))
         {
@@ -9882,6 +9964,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_signed_short_int_type(orig_underlying_type)
                     || is_unsigned_short_int_type(orig_underlying_type)
                     || is_signed_int_type(orig_underlying_type)
+                    || is_char16_t_type(orig_underlying_type)
+                    || is_char32_t_type(orig_underlying_type)
                     || is_wchar_t_type(orig_underlying_type)
                     || is_bool_type(orig_underlying_type)))
         {

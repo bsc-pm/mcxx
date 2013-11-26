@@ -2492,6 +2492,12 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_WCHAR_TYPE :
             *simple_type_info = get_wchar_t_type();
             break;
+        case AST_CHAR16_T:
+            *simple_type_info = get_char16_t_type();
+            break;
+        case AST_CHAR32_T:
+            *simple_type_info = get_char32_t_type();
+            break;
         case AST_BOOL_TYPE :
             *simple_type_info = get_bool_type();
             break;
