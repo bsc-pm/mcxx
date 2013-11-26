@@ -4903,10 +4903,13 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
         if (filtered_result_list == NULL)
         {
-            // FIXME - Instead of running_error we should be able to return erroneously
-            running_error("%s: base class '%s' not found\n", 
-                    ast_location(class_name),
-                    prettyprint_in_buffer(class_name));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: base class '%s' not found\n", 
+                        ast_location(class_name),
+                        prettyprint_in_buffer(class_name));
+            }
+            continue;
         }
 
         scope_entry_t* result = entry_list_head(filtered_result_list);
