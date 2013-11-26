@@ -731,6 +731,9 @@ namespace Analysis {
             Utils::ext_sym_set get_assert_killed_vars( );
             void set_assert_killed_var( const ObjectList<Nodecl::NodeclBase>& new_assert_killed_vars );
             
+            Utils::ext_sym_set get_assert_undefined_behaviour_vars( );
+            void set_assert_undefined_behaviour_var( const ObjectList<Nodecl::NodeclBase>& new_assert_undefined_vars );
+            
             Utils::ext_sym_set get_assert_live_in_vars( );
             void set_assert_live_in_var( const ObjectList<Nodecl::NodeclBase>& new_assert_live_in_vars );
             
