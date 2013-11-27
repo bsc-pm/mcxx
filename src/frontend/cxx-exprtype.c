@@ -11129,7 +11129,7 @@ static void check_nodecl_member_access(
     }
 
     cv_qualifier_t cv_accessed = CV_NONE;
-    advance_over_typedefs_with_cv_qualif(orig_accessed_type, &cv_accessed);
+    advance_over_typedefs_with_cv_qualif(no_ref(orig_accessed_type), &cv_accessed);
 
     char ok = 0;
     scope_entry_t* orig_entry = entry_list_head(entry_list);
@@ -11173,36 +11173,49 @@ static void check_nodecl_member_access(
                 nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
             }
 
-            type_t* field_type = no_ref(entry->type_information);
-            if (!entry->entity_specs.is_static)
+            type_t* type_of_class_member_access = entry->type_information;
+            if (is_lvalue_reference_type(entry->type_information))
             {
-                // Combine both qualifiers
-                cv_qualifier_t cv_field = CV_NONE;
-                advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
-                cv_field = cv_accessed | cv_field;
-
-                if (entry->entity_specs.is_mutable)
-                {
-                    cv_field &= ~CV_CONST;
-                }
-
-                field_type = get_cv_qualified_type(field_type, cv_field);
-
-                if (is_lvalue_reference_type(orig_accessed_type))
-                {
-                    field_type = get_lvalue_reference_type(field_type);
-                }
+                // Already OK
+            }
+            else if (is_rvalue_reference_type(entry->type_information))
+            {
+                // T&& -> T&
+                type_of_class_member_access = get_lvalue_reference_type(no_ref(entry->type_information));
             }
             else
             {
-                field_type = get_lvalue_reference_type(field_type);
+                // Not a reference, two cases for nonstatic/static
+                if (!entry->entity_specs.is_static)
+                {
+                    // Combine both qualifiers
+                    cv_qualifier_t cv_field = CV_NONE;
+                    advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
+                    cv_field = cv_accessed | cv_field;
+
+                    if (entry->entity_specs.is_mutable)
+                    {
+                        cv_field &= ~CV_CONST;
+                    }
+
+                    type_of_class_member_access = get_cv_qualified_type(type_of_class_member_access, cv_field);
+
+                    if (is_lvalue_reference_type(orig_accessed_type))
+                    {
+                        type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
+                    }
+                }
+                else
+                {
+                    type_of_class_member_access = get_lvalue_reference_type(type_of_class_member_access);
+                }
             }
 
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_field,
                     nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
                     nodecl_member_form,
-                    field_type,
+                    type_of_class_member_access,
                     nodecl_get_locus(nodecl_accessed));
         }
         else if (entry->kind == SK_ENUMERATOR)
