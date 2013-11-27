@@ -83,6 +83,7 @@ namespace TL
 
                 void process_suitable_clause(const Nodecl::List& environment,
                         TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions);
+                int process_unroll_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment, 
                         TL::Type& vectorlengthfor_type);
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,

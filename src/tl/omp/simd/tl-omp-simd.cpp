@@ -325,6 +325,23 @@ namespace TL {
             {
                 Nodecl::Utils::remove_from_enclosing_list(simd_node);
             }
+            else
+            {
+                // Unroll clause
+                int unroll_clause_arg = process_unroll_clause(simd_environment);
+                if (unroll_clause_arg > 0)
+                {
+                    std::stringstream unroll_pragma_strm;
+                    unroll_pragma_strm << "unroll(";
+                    unroll_pragma_strm << unroll_clause_arg;
+                    unroll_pragma_strm << ")";
+
+                    Nodecl::UnknownPragma unroll_pragma =
+                        Nodecl::UnknownPragma::make(unroll_pragma_strm.str());
+
+                    simd_node.prepend_sibling(unroll_pragma);
+                }
+            }
 
             // Free analysis
             _vectorizer.finalize_analysis();
@@ -661,6 +678,24 @@ namespace TL {
                 suitable_expressions = omp_suitable.get_suitable_expressions().
                     as<Nodecl::List>().to_object_list();
             }
+        }
+
+        int SimdVisitor::process_unroll_clause(const Nodecl::List& environment)
+        {
+            Nodecl::OpenMP::Unroll omp_unroll = 
+                environment.find_first<Nodecl::OpenMP::Unroll>();
+
+            if(!omp_unroll.is_null())
+            {
+                Nodecl::NodeclBase unroll_factor = omp_unroll.get_unroll_factor();
+
+                if (unroll_factor.is_constant())
+                {
+                    return const_value_cast_to_4(unroll_factor.get_constant());
+                }
+            }
+
+            return 0;
         }
 
         void SimdVisitor::process_vectorlengthfor_clause(const Nodecl::List& environment, 
