@@ -47,7 +47,8 @@ namespace Analysis {
     // *************** Class containing all analysis related to a given AST *************** //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _pcfgs( ), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
+        : _pcfgs( ), _tdgs( ), 
+          _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
           _auto_scoping( false ), _auto_deps( false ), _tdg( false )
     {}
@@ -56,10 +57,8 @@ namespace Analysis {
     {
         ExtensibleGraph* pcfg = NULL;
         Name_to_pcfg_map::iterator pcfgs_it = _pcfgs.find( name );
-
         if( pcfgs_it != _pcfgs.end( ) )
             pcfg = _pcfgs[name];
-
         return pcfg;
     }
 
@@ -72,10 +71,22 @@ namespace Analysis {
     {
         ObjectList<ExtensibleGraph*> result;
         for( Name_to_pcfg_map::iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
-        {
             result.insert( it->second );
-        }
         return result;
+    }
+    
+    TaskDependencyGraph* PCFGAnalysis_memento::get_tdg( std::string name )
+    {
+        TaskDependencyGraph* tdg = NULL;
+        Name_to_tdg_map::iterator tdgs_it = _tdgs.find( name );
+        if( tdgs_it != _tdgs.end( ) )
+            tdg = _tdgs[name];
+        return tdg;
+    }
+    
+    void PCFGAnalysis_memento::set_tdg( std::string name, TaskDependencyGraph* tdg )
+    {
+        _tdgs[name] = tdg;
     }
     
     bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
@@ -364,7 +375,7 @@ namespace Analysis {
     {
         ObjectList<ExtensibleGraph*> result;
         ObjectList<Nodecl::NodeclBase> unique_asts;
-
+        
         // Get all unique ASTs embedded in 'ast'
         if( !ast.is<Nodecl::TopLevel>( ) )
         {
@@ -377,7 +388,7 @@ namespace Analysis {
             tlv.walk_functions( ast );
             unique_asts = tlv.get_functions( );
         }
-
+        
         // Compute the PCFG corresponding to each AST
         for( ObjectList<Nodecl::NodeclBase>::iterator it = unique_asts.begin( ); it != unique_asts.end( ); ++it )
         {
@@ -595,8 +606,8 @@ namespace Analysis {
                     printf( "Task Dependency Graph of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 
                 TaskDependencyGraph* tdg = new TaskDependencyGraph( *it );
-                tdg->print_tdg_to_dot( );
                 tdgs.insert( tdg );
+                memento.set_tdg( ( *it )->get_name( ), tdg );
             }
         }
         
@@ -621,11 +632,10 @@ namespace Analysis {
         return pcfgs;
     }
     
-    
     void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )
     {
         if( VERBOSE )
-            printf( "Printing to DOT  PCFG '%s'\n", pcfg_name.c_str( ) );
+            printf( "Printing PCFG '%s' to DOT\n", pcfg_name.c_str( ) );
         ExtensibleGraph* pcfg = memento.get_pcfg( pcfg_name );
         pcfg->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
                                   memento.is_reaching_definitions_computed( ),
@@ -639,12 +649,21 @@ namespace Analysis {
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
             if( VERBOSE )
-                printf( "Printing to DOT  PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                printf( "Printing PCFG '%s' to DOT\n", ( *it )->get_name( ).c_str( ) );
             ( *it )->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
                                          memento.is_reaching_definitions_computed( ),
                                          memento.is_induction_variables_computed( ),
                                          memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
         }
     }
+    
+    void AnalysisSingleton::print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name )
+    {
+        if( VERBOSE )
+            printf( "Printing TDG '%s' to DOT\n", tdg_name.c_str( ) );
+        TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );
+        tdg->print_tdg_to_dot( );
+    }
+    
 }
 }

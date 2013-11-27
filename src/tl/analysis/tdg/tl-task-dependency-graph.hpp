@@ -37,10 +37,12 @@ namespace Analysis {
     enum TDGNodeType {
         Task,
         Taskwait,
-        Barrier
+        Barrier,
+        Control
     };
     
     struct TDG_Node {
+        unsigned int _id;
         Node* _pcfg_node;
         TDGNodeType _type;
         ObjectList<TDG_Edge*> _entries;
@@ -50,22 +52,28 @@ namespace Analysis {
         
         TDG_Node( Node* n );
         
-        void set_entry( TDG_Edge* exit );
+        void set_entry( TDG_Edge* entry );
         void set_exit( TDG_Edge* exit );
         ObjectList<TDG_Node*> get_children( );
         
         static void clear_visits( TDG_Node* current );
         
-    friend class TaskDependencyGraph;
+        friend class TDG_Edge;
+        friend class TaskDependencyGraph;
     };
     
     struct TDG_Edge {
         TDG_Node* _source;
         TDG_Node* _target;
+        ObjectList<Nodecl::NodeclBase> _source_clauses;
+        ObjectList<Nodecl::NodeclBase> _target_clauses;
         
         TDG_Edge( TDG_Node* source, TDG_Node* target );
         TDG_Node* get_source( );
         TDG_Node* get_target( );
+        
+        friend class TDG_Node;
+        friend class TaskDependencyGraph;
     };
     
     class LIBTL_CLASS TaskDependencyGraph
@@ -74,7 +82,7 @@ namespace Analysis {
         TDG_Node* _entry;
         TDG_Node* _exit;
         
-        ObjectList<TDG_Node*> _last_nodes;
+        TDG_Node* _last_node;
         
         ExtensibleGraph* _pcfg;
         
@@ -82,9 +90,9 @@ namespace Analysis {
         TaskDependencyGraph( const TaskDependencyGraph& n );
         TaskDependencyGraph& operator=( const TaskDependencyGraph& );
         
-        void connect_tdg_nodes( ObjectList<TDG_Node*> parents, TDG_Node* child );
         void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child );
         
+        void taskify_graph( Node* current );
         void create_tdg( Node* current );
         
         void print_tdg_to_dot_rec( TDG_Node* current, std::ofstream& dot_tdg );
@@ -92,6 +100,9 @@ namespace Analysis {
     public:
         // *** Constructor *** //
         TaskDependencyGraph( ExtensibleGraph* pcfg );
+        
+        // *** Getters and Setters *** //
+        std::string get_name( ) const;
         
         // *** Printing method *** //
         void print_tdg_to_dot( );

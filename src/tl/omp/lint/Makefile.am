@@ -33,12 +33,14 @@ END=
 libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/analysis/singleton\
                           $(END)
 
 libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 libtlomp_lint_la_LIBADD = $(phases_libadd) \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
+			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
 			  $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
 		          $(END)
 

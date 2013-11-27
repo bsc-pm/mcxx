@@ -30,10 +30,10 @@ phases_LTLIBRARIES = libtest_analysis.la
 
 libtest_analysis_la_CFLAGS = $(phases_cflags)
 libtest_analysis_la_CXXFLAGS = $(phases_cflags) -I $(srcdir)/../common \
-                               -I $(srcdir)/../singleton -I $(srcdir)/../pcfg
+                               -I $(srcdir)/../singleton -I $(srcdir)/../pcfg -I $(srcdir)/../tdg
 libtest_analysis_la_LDFLAGS = $(phases_ldflags)
 libtest_analysis_la_LIBADD = $(phases_libadd) ../common/libanalysis_utils.la ../singleton/libanalysis_singleton.la \
-                             ../pcfg/libpcfg.la
+                             ../pcfg/libpcfg.la ../tdg/libtdg.la
 
 END=
 

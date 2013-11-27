@@ -65,7 +65,8 @@ namespace Analysis {
                             "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
                             
         register_parameter("tdg_enabled",
-                            "If set to '1' enables tdg,
+                            "If set to '1' enables tdg analysis, otherwise it is disabled",
+                            _tdg_enabled_str,
                             "0").connect(functor(&TestAnalysisPhase::set_tdg, *this));
     }
 
@@ -124,11 +125,12 @@ namespace Analysis {
                 std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
         }
         
+        ObjectList<TaskDependencyGraph*> tdgs;
         if( _tdg_enabled )
         {
             if( VERBOSE )
                 std::cerr << "=========  Testing TDG creation =========" << std::endl;
-            pcfgs = analysis.task_dependency_graph( memento, ast );
+            tdgs = analysis.task_dependency_graph( memento, ast );
             if( VERBOSE )
                 std::cerr << "=========  Testing TDG creation done =========" << std::endl;
         }
@@ -143,6 +145,18 @@ namespace Analysis {
             }
             if( VERBOSE )
                 std::cerr << "=========  Printing PCFG to dot file done =========" << std::endl;
+        }
+        
+        if( CURRENT_CONFIGURATION->debug_options.print_tdg )
+        {
+            if( VERBOSE )
+                std::cerr << "=========  Printing TDG to dot file  =========" << std::endl;
+            for( ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin( ); it != tdgs.end( ); ++it)
+            {
+                analysis.print_tdg( memento, (*it)->get_name( ) );
+            }
+            if( VERBOSE )
+                std::cerr << "=========  Printing TDG to dot file done =========" << std::endl;
         }
     }
 

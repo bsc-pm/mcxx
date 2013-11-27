@@ -28,17 +28,17 @@ include $(top_srcdir)/src/tl/Makefile.phases
 
 phases_LTLIBRARIES = libanalysis_check.la
 
-libanalysis_check_la_CFLAGS = $(phases_cflags)
+libanalysis_check_la_CFLAGS =   $(phases_cflags)
 libanalysis_check_la_CXXFLAGS = $(phases_cflags) -I $(srcdir)/../common \
-                                     -I $(srcdir)/../singleton -I $(srcdir)/../pcfg
+                                -I $(srcdir)/../singleton -I $(srcdir)/../pcfg -I $(srcdir)/../tdg
                                   
-libanalysis_check_la_LDFLAGS = $(phases_ldflags)
-libanalysis_check_la_LIBADD = $(phases_libadd) ../common/libanalysis_utils.la ../singleton/libanalysis_singleton.la \
-                                   ../pcfg/libpcfg.la
+libanalysis_check_la_LDFLAGS =  $(phases_ldflags)
+libanalysis_check_la_LIBADD =   $(phases_libadd) ../common/libanalysis_utils.la ../singleton/libanalysis_singleton.la \
+                                ../pcfg/libpcfg.la ../tdg/libtdg.la
 
 END=
 
-libanalysis_check_la_SOURCES = tl-analysis-check-phase.hpp \
-                                    tl-analysis-check-phase.cpp \
-                                    $(END)
+libanalysis_check_la_SOURCES =  tl-analysis-check-phase.hpp \
+                                tl-analysis-check-phase.cpp \
+                                $(END)
 

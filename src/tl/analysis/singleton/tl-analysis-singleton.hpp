@@ -52,12 +52,14 @@ namespace Analysis {
     // *************** Class containing all analysis related to a given AST *************** //
 
     typedef std::map<std::string, ExtensibleGraph*> Name_to_pcfg_map;
+    typedef std::map<std::string, TaskDependencyGraph*> Name_to_tdg_map;
 
     //! Memento class capturing the internal state of the PCFG regarding the analysis
     class PCFGAnalysis_memento {
     private:
 
         Name_to_pcfg_map _pcfgs;
+        Name_to_tdg_map _tdgs;
 
         bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
@@ -91,6 +93,9 @@ namespace Analysis {
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
         ObjectList<ExtensibleGraph*> get_pcfgs( );
+        
+        TaskDependencyGraph* get_tdg( std::string name );
+        void set_tdg( std::string name, TaskDependencyGraph* tdg );
         
         bool is_constants_propagation_computed( ) const;
         void set_constants_propagation_computed( );
@@ -215,6 +220,8 @@ namespace Analysis {
         void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
         
         void print_all_pcfg( PCFGAnalysis_memento& memento );
+        
+        void print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name );
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //

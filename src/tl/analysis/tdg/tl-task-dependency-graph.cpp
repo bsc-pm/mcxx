@@ -34,14 +34,22 @@ namespace TL {
 namespace Analysis {
     
     typedef ObjectList<TDG_Node*> TDG_Node_list;
+    typedef ObjectList<TDG_Edge*> TDG_Edge_list;
     typedef ObjectList<Node*> Node_list;
+    typedef ObjectList<Nodecl::NodeclBase> Nodecl_list;
     
     static TDG_Node_list unsynchronized_tasks;
-    static int dot_current_id = 0;
+    static int id = 0;
     
     TDG_Node::TDG_Node( Node* n )
     {
-        if( n->is_omp_task_node( ) )
+        _id = ++id;
+        if( n == NULL )
+        {
+            _pcfg_node = NULL;
+            _type = Control;
+        }
+        else if( n->is_omp_task_node( ) )
         {
             _pcfg_node = n;
             _type = Task;
@@ -64,9 +72,9 @@ namespace Analysis {
         _visited = false;
     }
     
-    void TDG_Node::set_entry( TDG_Edge* exit )
+    void TDG_Node::set_entry( TDG_Edge* entry )
     {
-        _exits.insert( exit );
+        _entries.insert( entry );
     }
     
     void TDG_Node::set_exit( TDG_Edge* exit )
@@ -74,10 +82,10 @@ namespace Analysis {
         _exits.insert( exit );
     }
     
-    ObjectList<TDG_Node*> TDG_Node::get_children( )
+    TDG_Node_list TDG_Node::get_children( )
     {
-        ObjectList<TDG_Node*> result;
-        for( ObjectList<TDG_Edge*>::iterator it = _exits.begin( ); it != _exits.end( ); ++it )
+        TDG_Node_list result;
+        for( TDG_Edge_list::iterator it = _exits.begin( ); it != _exits.end( ); ++it )
             result.insert( ( *it )->get_target( ) );
         return result;
     }
@@ -88,15 +96,56 @@ namespace Analysis {
         {
             current->_visited = false;
             
-            ObjectList<TDG_Node*> children = current->get_children( );
-            for( ObjectList<TDG_Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            TDG_Node_list children = current->get_children( );
+            for( TDG_Node_list::iterator it = children.begin( ); it != children.end( ); ++it )
                 clear_visits( *it );
         }
     }
     
+    static Nodecl_list get_task_dependency_clauses( const Nodecl::OpenMP::Task& task )
+    {
+        Nodecl_list result;
+        
+        Nodecl::List task_environ = task.get_environment( ).as<Nodecl::List>( );
+        for( Nodecl::List::iterator it = task_environ.begin( ); it != task_environ.end( ); ++it )
+        {
+            if( it->is<Nodecl::OpenMP::DepIn>( ) || it->is<Nodecl::OpenMP::DepInout>( ) || it->is<Nodecl::OpenMP::DepOut>( ) )
+            {
+                result.insert( *it );
+            }
+            else
+            {
+                if( it->is<Nodecl::OpenMP::Target>( ) || it->is<Nodecl::OpenMP::If>( ) || 
+                    it->is<Nodecl::OpenMP::Final>( ) || it->is<Nodecl::OpenMP::Untied>( ) ||
+                    it->is<Nodecl::OpenMP::Firstprivate>( ) || it->is<Nodecl::OpenMP::Private>( ) || 
+                    it->is<Nodecl::OpenMP::Shared>( ) || 
+                    it->is<Nodecl::OpenMP::FlushAtEntry>( ) || it->is<Nodecl::OpenMP::FlushAtExit>( ) )
+                {}  // Ignore them, we need them here
+                else
+                {
+                    WARNING_MESSAGE( "Ignoring clause %s for task %s. Maybe we should do something with it...\n", 
+                                     it->prettyprint( ).c_str( ) );
+                }
+            }
+        }
+        
+        return result;
+    }
+    
     TDG_Edge::TDG_Edge( TDG_Node* source, TDG_Node* target )
-        : _source( source ), _target( target )
-    {}
+        : _source( source ), _target( target ), _source_clauses( ), _target_clauses( )
+    {
+        if( ( source->_pcfg_node != NULL ) && source->_pcfg_node->is_omp_task_node( ) )
+        {
+            Nodecl::OpenMP::Task task = source->_pcfg_node->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
+            _source_clauses = get_task_dependency_clauses( task );
+        }
+        if( ( target->_pcfg_node != NULL ) && target->_pcfg_node->is_omp_task_node( ) )
+        {
+            Nodecl::OpenMP::Task task = target->_pcfg_node->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
+            _target_clauses = get_task_dependency_clauses( task );
+        }
+    }
     
     TDG_Node* TDG_Edge::get_source( )
     {
@@ -109,23 +158,29 @@ namespace Analysis {
     }
     
     TaskDependencyGraph::TaskDependencyGraph( ExtensibleGraph* pcfg )
-        : _entry( NULL ), _exit( NULL ), _last_nodes( ), _pcfg( pcfg )
+        : _entry( NULL ), _exit( NULL ), _last_node( NULL ), _pcfg( pcfg )
     {
         _entry = new TDG_Node( NULL );
-        
-        // TODO Compute the Task Dependency Graph from the PCFG
+        _last_node = _entry;
         Node* pcfg_node = _pcfg->get_graph( );
+        
+        // The whole code must be taskified, otherwise some dependences may not be shown
+        taskify_graph( pcfg_node );
+        
+        // Compute the Task Dependency Graph from the PCFG
         create_tdg( pcfg_node );
         ExtensibleGraph::clear_visits( pcfg_node );
         
         _exit = new TDG_Node( NULL );
-        connect_tdg_nodes( _last_nodes, _exit );
+        connect_tdg_nodes( _last_node, _exit );
     }
     
-    void TaskDependencyGraph::connect_tdg_nodes( TDG_Node_list parents, TDG_Node* child )
+    std::string TaskDependencyGraph::get_name( ) const
     {
-        for( TDG_Node_list::iterator it = parents.begin( ); it != parents.end( ); ++it )
-            connect_tdg_nodes( *it, child );
+        std::string name;
+        if( _pcfg != NULL )
+            name = _pcfg->get_name( );
+        return name;
     }
     
     void TaskDependencyGraph::connect_tdg_nodes( TDG_Node* parent, TDG_Node* child )
@@ -151,6 +206,11 @@ namespace Analysis {
         return result;
     }
     
+    // TODO
+    void TaskDependencyGraph::taskify_graph( Node* current )
+    {
+    }
+    
     void TaskDependencyGraph::create_tdg( Node* current )
     {
         if( !current->is_visited( ) )
@@ -162,18 +222,23 @@ namespace Analysis {
                 if( current->is_omp_task_node( ) )
                 {
                     TDG_Node* tdg_current = new TDG_Node( current );
-                    connect_tdg_nodes( _last_nodes, tdg_current );
+                    if( _last_node == _entry )
+                        connect_tdg_nodes( _entry, tdg_current );
+                    _last_node = tdg_current;
                     unsynchronized_tasks.insert( tdg_current );
                     
                     // Connect the current task with all previous tasks it was dependent with
-                    Node* task_creation = current->get_parents( )[0];
-                    Node_list task_parents = task_creation->get_parents( );
+                    Node_list task_parents = current->get_parents( );
                     if( task_parents.size( ) > 1 )
                     {   // There are previous tasks synchronized with the current one in the PCFG
                         for( Node_list::iterator it = task_parents.begin( ); it != task_parents.end( ); ++it )
                         {
-                            TDG_Node* tdg_task = find_and_remove_task_from_unsynchronized_tasks( *it );
-                            connect_tdg_nodes( tdg_task, tdg_current );
+                            if( ( *it )->is_omp_task_node( ) )
+                            {
+                                // TODO Check whether or not there is a dependence here
+                                TDG_Node* tdg_task = find_and_remove_task_from_unsynchronized_tasks( *it );
+                                connect_tdg_nodes( tdg_task, tdg_current );
+                            }
                         }
                     }
                 }
@@ -184,6 +249,7 @@ namespace Analysis {
             {
                 // Connect all tasks synchronized here with the new Taskwait/Barrier TDG_Node
                 TDG_Node* tdg_current = new TDG_Node( current );
+                _last_node = tdg_current;
                 Node_list parents = current->get_parents( );
                 for( Node_list::iterator it = parents.begin( ); it != parents.end( ); ++it )
                 {
@@ -199,12 +265,53 @@ namespace Analysis {
         }
     }
     
+    static std::string prettyprint_clauses( Nodecl_list clauses )
+    {
+        std::string result;
+        
+        for( Nodecl_list::iterator it = clauses.begin( ); it != clauses.end( ); )
+        {
+            std::string clause_name;
+            std::string clause_args;
+            Nodecl::List args;
+            if( it->is<Nodecl::OpenMP::DepIn>( ) )
+            {
+                clause_name = "in";
+                args =  it->as<Nodecl::OpenMP::DepIn>( ).get_in_deps( ).as<Nodecl::List>( );
+            }
+            else if( it->is<Nodecl::OpenMP::DepOut>( ) )
+            {
+                clause_name = "out";
+                args =  it->as<Nodecl::OpenMP::DepOut>( ).get_out_deps( ).as<Nodecl::List>( );
+            }
+            else if( it->is<Nodecl::OpenMP::DepInout>( ) )
+            {
+                clause_name = "inout";
+                args =  it->as<Nodecl::OpenMP::DepInout>( ).get_inout_deps( ).as<Nodecl::List>( );
+            }
+            
+            for( Nodecl::List::iterator it_a = args.begin( ); it_a != args.end( ); )
+            {
+                clause_args += it_a->prettyprint( );
+                ++it_a;
+                if( it_a != args.end( ) )
+                    clause_args += ", ";
+            }
+            result += clause_name + "(" + clause_args + ")";
+            
+            ++it;
+            if( it != clauses.end( ) )
+                result += ", ";
+        }
+        
+        return result;
+    }
+    
     void TaskDependencyGraph::print_tdg_to_dot_rec( TDG_Node* current, std::ofstream& dot_tdg )
     {
         if( !current->_visited )
         {
             current->_visited = true;
-            TDG_Node_list children = current->get_children( );
             std::string current_id = "";
             
             // Create the node
@@ -215,35 +322,50 @@ namespace Analysis {
                 // Get the name of the task
                 Nodecl::OpenMP::Task task = current_pcfg_node->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
                 task_label = task.get_locus_str( );
-                std::stringstream ss; ss << ++dot_current_id;
+                std::stringstream ss; ss << current->_id;
                 current_id = ss.str( );
                 Nodecl::List environ = task.get_environment( ).as<Nodecl::List>( );
                 for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
-                    if( it->is<Nodecl::OpenMP::TaskLabel>( ) )
-                    {
-                        task_label = "_" + it->prettyprint( );
-                        break;
-                    }
+                     if( it->is<Nodecl::OpenMP::TaskLabel>( ) )
+                {
+                    task_label = "_" + it->prettyprint( );
+                    break;
+                }
             }
             else
             {
-                std::stringstream ss; ss << ++dot_current_id;
+                std::stringstream ss; ss << current->_id;
                 current_id = ss.str( );
-                task_label = "SYNC";
+                if( current->_type == Control )
+                {
+                    if( current->_entries.empty( ) )
+                        task_label = "Entry Point";
+                    else
+                        task_label = "Exit Point";
+                }
+                else
+                    task_label = "SYNC";
             }
-            dot_tdg << "  " + current_id + " label=\"{" + task_label + "}\"\n";
+            dot_tdg << "\t" + current_id + " [label=\"" + task_label + "\"];\n";
             
             // Create the connections from the current node to its children
-            std::string child_id;
-            for( TDG_Node_list::iterator it = children.begin( ); it != children.end( ); ++it )
+            TDG_Node_list children = current->get_children( );
+            TDG_Edge_list::iterator edge_it = current->_exits.begin( );
+            std::string label;
+            for( TDG_Node_list::iterator it = children.begin( ); it != children.end( ); ++it, ++edge_it )
             {
-                // TODO
-                if( !( *it )->_visited )
-                {
-                    std::stringstream ss; ss << ++dot_current_id;
-                    child_id = ss.str( );
-                    dot_tdg << current_id << " -> " << child_id << "\n";
-                }
+                // Get clauses info in a string
+                label += prettyprint_clauses( ( *edge_it )->_source_clauses );
+                if( !( *edge_it )->_source_clauses.empty( ) && !( *edge_it )->_target_clauses.empty( ) )
+                    label += "\\n";
+                label += prettyprint_clauses( ( *edge_it )->_target_clauses );
+                
+                // Create the dot edge
+                std::stringstream child_id; child_id << ( *it )->_id;
+                dot_tdg << "\t" << current_id << " -> " << child_id.str( ) << "[label=\"" << label << "\"]" << "\n";
+                
+                // Call recursively with the current child
+                print_tdg_to_dot_rec( *it, dot_tdg );
             }
         }
     }
@@ -264,25 +386,9 @@ namespace Analysis {
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
         }
         
-        std::string date_str;
-        {
-            time_t t = time(NULL);
-            struct tm* tmp = localtime(&t);
-            if (tmp == NULL)
-            {
-                internal_error("localtime failed", 0);
-            }
-            char outstr[200];
-            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
-            {
-                internal_error("strftime failed", 0);
-            }
-            outstr[199] = '\0';
-            date_str = outstr;
-        }
+        std::string dot_file_name = directory_name + _pcfg->get_name( ) + "_tdg.dot";
         
         std::ofstream dot_tdg;
-        std::string dot_file_name = directory_name + _pcfg->get_name( ) + "_" + date_str + "_tdg.dot";
         dot_tdg.open( dot_file_name.c_str( ) );
         if( !dot_tdg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );

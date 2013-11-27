@@ -34,12 +34,14 @@ libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/../../analysis/singleton \
                           -I $(srcdir)/../../analysis/common \
                           -I $(srcdir)/../../analysis/pcfg \
+                          -I $(srcdir)/../../analysis/tdg \
                           $(END)
 
 libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/../../analysis/singleton \
                           -I $(srcdir)/../../analysis/common \
                           -I $(srcdir)/../../analysis/pcfg \
+                          -I $(srcdir)/../../analysis/tdg \
                           $(END)
 
 libtlomp_auto_scope_la_LDFLAGS = $(tl_ldflags)

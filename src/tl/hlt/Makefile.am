@@ -43,6 +43,7 @@ ANALYSIS_CFLAGS= \
 			  -I $(srcdir)/../analysis/singleton \
 			  -I $(srcdir)/../analysis/test_phase \
 			  -I $(srcdir)/../analysis/use_def \
+			  -I $(srcdir)/../analysis/tdg \
 			  $(END)
 
 ANALYSIS_LDFLAGS = ../analysis/singleton/libanalysis_singleton.la

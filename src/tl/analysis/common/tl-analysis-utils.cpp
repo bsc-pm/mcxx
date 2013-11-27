@@ -41,14 +41,26 @@ namespace Utils {
 
     std::string generate_hashed_name(Nodecl::NodeclBase ast)
     {
-        std::string result = ::give_basename(ast.get_filename().c_str());
-
+        std::string result;
+        
+        std::string date_str;
+        {
+            time_t t = time(NULL);
+            struct tm* tmp = localtime(&t);
+            if (tmp == NULL)
+                internal_error("localtime failed", 0);
+            char outstr[200];
+            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
+                internal_error("strftime failed", 0);
+            outstr[199] = '\0';
+            date_str = outstr;
+        }
+        
+        std::string filename = ::give_basename(ast.get_filename().c_str());
         int line = ast.get_line();
-        size_t hash_value = nodecl_hash_table(ast.get_internal_nodecl());
-
-        std::stringstream ss;
-        ss << line << "_" << hash_value;
-        result += "_" + ss.str();
+        std::stringstream ss; ss << line;
+        
+        result = filename + "_" + ss.str() + "_" + date_str;
 
         return result;
     }

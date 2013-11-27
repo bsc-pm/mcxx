@@ -28,17 +28,21 @@ include ../../Makefile.phases
 
 lib_LTLIBRARIES = libauto_scope.la
 
-libauto_scope_la_CFLAGS = $(tl_cflags)
+libauto_scope_la_CFLAGS =   $(tl_cflags)
 libauto_scope_la_CXXFLAGS = $(tl_cflags)\
-                           -I $(srcdir)/../../ \
-                           -I $(srcdir)/../common -I $(srcdir)/../pcfg
-libauto_scope_la_LDFLAGS = $(tl_ldflags)
-libauto_scope_la_LIBADD = $(tl_libadd) ../../libtl.la ../common/libanalysis_utils.la ../pcfg/libpcfg.la
-
+                            -I $(srcdir)/../../ \
+                            -I $(srcdir)/../common \
+                            -I $(srcdir)/../pcfg \
+                            -I $(srcdir)/../tdg
+libauto_scope_la_LDFLAGS =  $(tl_ldflags)
+libauto_scope_la_LIBADD =   $(tl_libadd) \
+                            ../../libtl.la \
+                            ../common/libanalysis_utils.la \
+                            ../pcfg/libpcfg.la \
+                            ../tdg/libtdg.la
 
 END=
 
-libauto_scope_la_SOURCES = \
-                          tl-auto-scope.hpp \
-                          tl-auto-scope.cpp \
-                          $(END)
+libauto_scope_la_SOURCES = tl-auto-scope.hpp \
+                           tl-auto-scope.cpp \
+                           $(END)
