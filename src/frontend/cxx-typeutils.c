@@ -9853,6 +9853,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
     }
 
+    // T&& -> T
+    if (is_rvalue_reference_type(orig))
+    {
+        orig = no_ref(orig);
+    }
 
     // First kind of conversion
     //

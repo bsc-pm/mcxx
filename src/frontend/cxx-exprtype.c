@@ -17895,7 +17895,16 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
                 return;
             }
 
-            nodecl_new_list = nodecl_append_to_list(nodecl_new_list, n);
+            if (nodecl_is_list(n))
+            {
+                // This can be a list if this came from an expansion, integrate
+                // it into the call
+                nodecl_new_list = nodecl_concat_lists(nodecl_new_list, n);
+            }
+            else
+            {
+                nodecl_new_list = nodecl_append_to_list(nodecl_new_list, n);
+            }
         }
 
         xfree(list);
@@ -17910,26 +17919,42 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
 
 static void instantiate_dep_name_simple(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    v->nodecl_result =
+    nodecl_t nodecl_name =
         nodecl_make_cxx_dep_name_simple(nodecl_get_text(node),
         nodecl_get_locus(node));
+
+    scope_entry_list_t* result_list = query_nodecl_name_flags(
+            v->decl_context,
+            nodecl_name,
+            DF_DEPENDENT_TYPENAME |
+            DF_IGNORE_FRIEND_DECL |
+            DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &v->nodecl_result);
 }
 
 static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    template_parameter_list_t* template_args = nodecl_get_template_parameters(node);
+    template_parameter_list_t* template_args =
+        nodecl_get_template_parameters(node);
     template_parameter_list_t* update_template_args =
         update_template_argument_list(v->decl_context,
                 template_args,
                 nodecl_get_locus(node),
                 v->pack_index);
 
-    nodecl_t nodecl_name = instantiate_expr_walk(v, nodecl_get_child(node, 0));
-
-    v->nodecl_result = nodecl_make_cxx_dep_template_id(nodecl_name,
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_template_id(
+            nodecl_get_child(node, 0), // FIXME - We may have to update this as well!
             nodecl_get_text(node),
             update_template_args,
             nodecl_get_locus(node));
+
+    scope_entry_list_t* result_list = query_nodecl_name_flags(
+            v->decl_context,
+            nodecl_name,
+            DF_DEPENDENT_TYPENAME |
+            DF_IGNORE_FRIEND_DECL |
+            DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &v->nodecl_result);
 }
 
 static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
@@ -17942,23 +17967,37 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
     int i;
     for (i = 0; i < num_items; i++)
     {
-        nodecl_t expr = instantiate_expr_walk(v, list[i]);
-        if (nodecl_is_err_expr(expr))
+        nodecl_t expr = list[i];
+        if (nodecl_get_kind(expr) == NODECL_CXX_DEP_TEMPLATE_ID)
         {
-            v->nodecl_result = expr;
-            return;
+            template_parameter_list_t* template_args =
+                nodecl_get_template_parameters(expr);
+            template_parameter_list_t* updated_template_args =
+                update_template_argument_list(v->decl_context,
+                        template_args,
+                        nodecl_get_locus(expr),
+                        v->pack_index);
+
+            nodecl_set_template_parameters(expr, updated_template_args);
         }
+        else if (nodecl_get_kind(expr) == NODECL_CXX_DEP_NAME_CONVERSION)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+
         nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
     }
     xfree(list);
 
-    v->nodecl_result = (*func)(nodecl_result_list, nodecl_get_locus(node));
+    nodecl_t nodecl_name = (*func)(nodecl_result_list, nodecl_get_locus(node));
 
-    scope_entry_list_t* entry_list = query_nodecl_name(v->decl_context, v->nodecl_result);
-
-    nodecl_t nodecl_output = nodecl_null();
-    cxx_compute_name_from_entry_list(v->nodecl_result, entry_list, v->decl_context, &nodecl_output);
-    v->nodecl_result = nodecl_output;
+    scope_entry_list_t* result_list = query_nodecl_name_flags(
+            v->decl_context,
+            nodecl_name,
+            DF_DEPENDENT_TYPENAME |
+            DF_IGNORE_FRIEND_DECL |
+            DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &v->nodecl_result);
 }
 
 static void instantiate_dep_global_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

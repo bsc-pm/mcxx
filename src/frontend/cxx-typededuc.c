@@ -959,6 +959,18 @@ char deduce_template_arguments_common(
                         locus,
                         /* index_pack */ -1);
 
+                if (new_template_argument == NULL)
+                {
+                    // SFINAE
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Deduction fails because default template argument "
+                                "%d failed to be updated\n",
+                                i_tpl_parameters);
+                    }
+                    return 0;
+                }
+
                 current_deduced_template_arguments->arguments[i_tpl_parameters] = new_template_argument;
 
                 // We update this for debugging purposes

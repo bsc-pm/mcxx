@@ -2994,6 +2994,20 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         return result_type;
     }
+    else if (is_rvalue_reference_type(orig_type))
+    {
+        type_t* referenced = reference_type_get_referenced_type(orig_type);
+
+        type_t* updated_referenced = update_type_aux_(referenced, decl_context,
+                locus, pack_index);
+
+        if (updated_referenced == NULL)
+            return NULL;
+
+        type_t* result_type = get_rvalue_reference_type(updated_referenced);
+
+        return result_type;
+    }
     else if (is_pointer_type(orig_type))
     {
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
@@ -3303,7 +3317,9 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         nodecl_t nodecl_expr = gcc_typeof_expr_type_get_expression(orig_type);
 
+        enter_test_expression();
         nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context);
+        leave_test_expression();
 
         if (nodecl_is_err_expr(nodecl_new_expr))
         {
