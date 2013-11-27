@@ -15431,6 +15431,7 @@ static void check_gcc_alignof_type(type_t* t,
     if (is_dependent_type(t))
     {
         *nodecl_output = nodecl_make_alignof(nodecl_make_type(t, locus), get_size_t_type(), locus);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
 
@@ -16972,7 +16973,7 @@ char check_nontype_template_argument_type(type_t* t)
 }
 
 char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
-        decl_context_t decl_context UNUSED_PARAMETER, 
+        decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
     if (nodecl_expr_is_value_dependent(nodecl_expr)
@@ -17071,8 +17072,9 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: nontype template argument is not constant\n",
-                    nodecl_locus_to_str(nodecl_expr));
+            fprintf(stderr, "%s: nontype template argument '%s' is not constant\n",
+                    nodecl_locus_to_str(nodecl_expr),
+                    codegen_to_str(nodecl_expr, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
         return 0;
