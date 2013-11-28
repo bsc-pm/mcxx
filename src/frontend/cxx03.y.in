@@ -558,7 +558,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> lambda_capture
 %type<ast> lambda_capture_default
 %type<ast> lambda_capture_list
+%type<ast> lambda_capture_item
 %type<ast> lambda_declarator
+%type<ast> lambda_declarator_opt
 %type<ast> lambda_expression
 %type<ast> lambda_introducer
 
@@ -4965,13 +4967,18 @@ constant_expression : conditional_expression
 }
 ;
 
-lambda_expression : lambda_introducer lambda_declarator compound_statement
+lambda_expression : lambda_introducer lambda_declarator_opt compound_statement
 {
-    $$ = ASTMake3(AST_LAMBDA_EXPRESSION, $1, $2, $3, ast_get_locus($1), NULL);
+    AST locus = ($1 == NULL ? ($2 == NULL ? $3 : $2) : $1);
+    $$ = ASTMake3(AST_LAMBDA_EXPRESSION, $1, $2, $3, ast_get_locus(locus), NULL);
 }
 ;
 
-lambda_introducer : '[' lambda_capture ']'
+lambda_introducer : '[' ']'
+{
+    $$ = NULL;
+}
+| '[' lambda_capture ']'
 {
     $$ = $2;
 }
@@ -5001,27 +5008,27 @@ lambda_capture_default : '&'
 }
 ;
 
-lambda_capture_list : lambda_capture
+lambda_capture_list : lambda_capture_item
 {
     $$ = ASTListLeaf($1);
 }
-| lambda_capture_list ',' lambda_capture
+| lambda_capture_list ',' lambda_capture_item
 {
     $$ = ASTList($1, $3);
 }
-| lambda_capture ELLIPSIS
+| lambda_capture_item ELLIPSIS
 {
     AST pack_exp = ASTMake1(AST_LAMBDA_CAPTURE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(pack_exp);
 }
-| lambda_capture_list ',' lambda_capture ELLIPSIS
+| lambda_capture_list ',' lambda_capture_item ELLIPSIS
 {
     AST pack_exp = ASTMake1(AST_LAMBDA_CAPTURE_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
     $$ = ASTList($1, pack_exp);
 }
 ;
 
-lambda_capture : IDENTIFIER
+lambda_capture_item : IDENTIFIER
 {
 	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -5032,6 +5039,16 @@ lambda_capture : IDENTIFIER
 | TOKEN_THIS
 {
 	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_THIS, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+lambda_declarator_opt : /* empty */
+{
+    $$ = NULL;
+}
+| lambda_declarator
+{
+    $$ = $1;
 }
 ;
 
