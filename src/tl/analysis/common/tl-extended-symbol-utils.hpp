@@ -93,11 +93,11 @@ namespace Utils {
     bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set );
     bool ext_sym_set_contains_nodecl( Nodecl::NodeclBase nodecl, ext_sym_set sym_set );
     
-    bool ext_sym_set_contains_englobing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
-    bool ext_sym_set_contains_englobed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    bool ext_sym_set_contains_enclosing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    bool ext_sym_set_contains_enclosed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
     
-    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
-    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
+    void delete_enclosing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
+    void delete_enclosed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
 
     // ******************** END methods for dealing with Extended Symbols ********************* //
     // **************************************************************************************** //
