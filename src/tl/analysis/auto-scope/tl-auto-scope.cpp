@@ -361,7 +361,7 @@ namespace {
     void AutoScoping::scope_variable( Node* task, Node* ei_node, Utils::UsageKind usage, Utils::ExtendedSymbol ei,
                                       Utils::ext_sym_set& scoped_vars )
     {
-        if( !Utils::ext_sym_set_contains_englobing_nodecl( ei, scoped_vars ) )
+        if( !Utils::ext_sym_set_contains_enclosing_nodecl( ei, scoped_vars ) )
         {   // The expression is not a symbol local from the task
             scoped_vars.insert( ei );
 
