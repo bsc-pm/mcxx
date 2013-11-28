@@ -5306,11 +5306,10 @@ scope_entry_list_t* query_nodecl_template_id(
 
     type_t* generic_type = template_symbol->type_information;
 
-    type_t* primary_type =
-        named_type_get_symbol(template_type_get_primary_type(generic_type))->type_information;
+    scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(generic_type));
 
     type_t* specialized_type = NULL;
-    if (is_unnamed_class_type(primary_type))
+    if (primary_symbol->kind == SK_CLASS)
     {
         DEBUG_CODE()
         {
@@ -5344,7 +5343,41 @@ scope_entry_list_t* query_nodecl_template_id(
             return NULL;
         }
     }
-    else if (is_function_type(primary_type))
+    else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: This is a template alias\n");
+        }
+
+        template_parameter_list_t* completed_template_parameters =
+            complete_template_parameters_of_template_class(decl_context,
+                    generic_type,
+                    template_parameters,
+                    nodecl_get_locus(nodecl_name));
+
+        if (completed_template_parameters == NULL)
+            return NULL;
+
+        specialized_type = template_type_get_specialized_type(generic_type,
+                completed_template_parameters,
+                decl_context,
+                nodecl_get_locus(nodecl_name));
+
+        if (specialized_type != NULL)
+        {
+            ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
+
+            scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
+
+            return result;
+        }
+        else
+        {
+            return NULL;
+        }
+    }
+    else if (primary_symbol->kind == SK_FUNCTION)
     {
         // Now we have to solve the best function
         DEBUG_CODE()
@@ -5355,7 +5388,7 @@ scope_entry_list_t* query_nodecl_template_id(
         // Let the user of this function select the proper template
         return entry_list;
     }
-    else 
+    else
     {
         internal_error("Invalid templated type", 0);
     }
@@ -5643,11 +5676,13 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         }
         else if (current_symbol->kind == SK_CLASS
                 || (IS_CXX11_LANGUAGE && current_symbol->kind == SK_ENUM)
+                || (IS_CXX11_LANGUAGE && current_symbol->kind == SK_TEMPLATE_ALIAS)
                 || current_symbol->kind == SK_TYPEDEF
                 || current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || current_symbol->kind == SK_DEPENDENT_ENTITY)
         {
-            if (current_symbol->kind == SK_TYPEDEF)
+            if (current_symbol->kind == SK_TYPEDEF
+                    || current_symbol->kind == SK_TEMPLATE_ALIAS)
             {
                 type_t* t = advance_over_typedefs(current_symbol->type_information);
 

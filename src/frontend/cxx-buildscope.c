@@ -269,6 +269,16 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context);
 
+static void build_scope_simple_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_member_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output,
+        type_t* class_info, access_specifier_t access_specifier);
+
+static void build_scope_template_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_member_template_alias_declaration(decl_context_t decl_context,
+        AST a, access_specifier_t current_access, type_t* class_info,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output);
+
 static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -786,6 +796,11 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         case AST_STATIC_ASSERT:
             {
                 build_scope_static_assert(a, decl_context);
+                break;
+            }
+        case AST_ALIAS_DECLARATION:
+            {
+                build_scope_simple_alias_declaration(a, decl_context, nodecl_output);
                 break;
             }
         case AST_AMBIGUITY :
@@ -1471,6 +1486,174 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     // should be signed in as if they were members
 }
 
+static void build_scope_common_template_alias_declaration(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        char is_member_declaration,
+        type_t* class_info,
+        access_specifier_t access_specifier,
+        char is_explicit_specialization)
+{
+    ERROR_CONDITION(decl_context.template_parameters == NULL,
+            "There must be template parameters", 0);
+
+    if (is_explicit_specialization)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid alias-declaration in explicit template specialization\n",
+                    ast_location(a));
+        }
+        return;
+    }
+
+    AST identifier = ASTSon0(a);
+
+    AST type_id = ASTSon1(a);
+    type_t* aliased_type = compute_type_for_type_id_tree(type_id, decl_context, NULL, NULL);
+
+    if (is_error_type(aliased_type))
+        return;
+
+    scope_entry_t* entry = NULL;
+    scope_entry_list_t* entry_list = query_in_scope_str_flags(
+            decl_context, ASTText(identifier), DF_ONLY_CURRENT_SCOPE);
+
+    if (entry_list != NULL)
+    {
+        entry = entry_list_head(entry_list);
+
+        if (entry->kind != SK_TEMPLATE)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind\n",
+                        ast_location(identifier),
+                        ASTText(identifier));
+            }
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: alias template '%s' has already been defined\n",
+                        ast_location(identifier),
+                        ASTText(identifier));
+            }
+        }
+
+        if (!checking_ambiguity())
+        {
+            info_printf("%s: info: previous declaration of '%s'\n",
+                    locus_to_str(entry->locus),
+                    entry->symbol_name);
+        }
+        return;
+    }
+    else
+    {
+        entry = new_symbol(decl_context, decl_context.current_scope, ASTText(identifier));
+        entry->kind = SK_TEMPLATE;
+        entry->type_information = get_new_template_alias_type(
+                decl_context.template_parameters,
+                aliased_type,
+                ASTText(identifier),
+                decl_context,
+                ast_get_locus(identifier));
+
+        entry->entity_specs.is_user_declared = 1;
+        entry->defined = 1;
+
+        template_type_set_related_symbol(entry->type_information, entry);
+    }
+
+    if (!is_member_declaration)
+    {
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ast_get_locus(a));
+
+        *nodecl_output = nodecl_concat_lists(
+                *nodecl_output,
+                nodecl_make_list_1(
+                    nodecl_make_cxx_def(
+                        nodecl_context,
+                        named_type_get_symbol(template_type_get_primary_type(entry->type_information)),
+                        ast_get_locus(a))));
+    }
+    else
+    {
+        entry->entity_specs.is_member = 1;
+        entry->entity_specs.class_type = class_info;
+        entry->entity_specs.access = access_specifier;
+        class_type_add_member(class_info, entry);
+    }
+}
+
+static void build_scope_template_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    build_scope_common_template_alias_declaration(a, decl_context, nodecl_output,
+            /* is_member_declaration */ 0, NULL, AS_UNKNOWN, 0);
+}
+
+static void build_scope_nontemplate_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output,
+        char is_member_declaration, type_t* class_info, access_specifier_t access_specifier)
+{
+    AST identifier = ASTSon0(a);
+
+    AST type_id = ASTSon1(a);
+    type_t* aliased_type = compute_type_for_type_id_tree(type_id, decl_context, NULL, NULL);
+
+    if (is_error_type(aliased_type))
+        return;
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    scope_entry_t* entry = register_new_typedef_name(identifier, aliased_type, &gather_info, decl_context);
+
+    if (entry == NULL)
+        return;
+
+    if (!is_member_declaration)
+    {
+        nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
+            (entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
+        nodecl_t nodecl_context =
+            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                    decl_context, ast_get_locus(a));
+
+        *nodecl_output = nodecl_concat_lists(
+                *nodecl_output,
+                nodecl_make_list_1(
+                    make_cxx_decl_or_def(
+                        nodecl_context,
+                        entry,
+                        ast_get_locus(a))));
+    }
+    else
+    {
+        entry->entity_specs.is_member = 1;
+        entry->entity_specs.class_type = class_info;
+        entry->entity_specs.access = access_specifier;
+        class_type_add_member(class_info, entry);
+    }
+}
+
+static void build_scope_simple_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    build_scope_nontemplate_alias_declaration(a, decl_context, nodecl_output,
+            /* is_member_declaration */ 0, NULL, AS_UNKNOWN);
+}
+
+static void build_scope_member_alias_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output,
+        type_t* class_info, access_specifier_t access_specifier)
+{
+    build_scope_nontemplate_alias_declaration(a, decl_context, nodecl_output,
+            /* is_member_declaration */ 1, class_info, access_specifier);
+}
+
 static void gather_cxx11_attributes(AST a, gather_decl_spec_t* gather_info UNUSED_PARAMETER)
 {
     if (a != NULL)
@@ -1828,7 +2011,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         scope_entry_t* extern_entry = entry_list_head(extern_scope_entry_list);
                         if (extern_entry->kind != entry->kind)
                         {
-                            error_printf("%s: error: extern entity redeclared as a diferent entity kind\n",
+                            error_printf("%s: error: extern entity redeclared as a different entity kind\n",
                                    ast_location(declarator));
                         }
                         else if (is_array_type(extern_entry->type_information)
@@ -4170,7 +4353,8 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
                 && entry->kind != SK_GCC_BUILTIN_TYPE
-                && entry->kind != SK_USING_TYPENAME)
+                && entry->kind != SK_USING_TYPENAME
+                && entry->kind != SK_TEMPLATE_ALIAS)
         {
             if (!checking_ambiguity())
             {
@@ -11648,8 +11832,6 @@ static void build_scope_template_declaration(AST a,
         solve_ambiguous_declaration(templated_decl, template_context);
     }
 
-    // Link the AST with the scope in the templated declaration
-
     switch (ASTType(templated_decl))
     {
         case AST_FUNCTION_DEFINITION :
@@ -11666,6 +11848,11 @@ static void build_scope_template_declaration(AST a,
                         /* is_explicit_specialization */ 0, nodecl_output,
                         declared_symbols, gather_decl_spec_list);
 
+                break;
+            }
+        case AST_ALIAS_DECLARATION:
+            {
+                build_scope_template_alias_declaration(templated_decl, template_context, nodecl_output);
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
@@ -11826,6 +12013,15 @@ static void build_scope_explicit_template_specialization(AST a,
                 build_scope_template_declaration(ASTSon0(a), a, template_context,
                         nodecl_output,
                         declared_symbols, gather_decl_spec_list);
+                break;
+            }
+        case AST_ALIAS_DECLARATION:
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid alias-declaration in explicit template specialization\n",
+                            ast_location(ASTSon0(a)));
+                }
                 break;
             }
         default :
@@ -13842,6 +14038,12 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 build_scope_static_assert(a, inner_decl_context);
                 break;
             }
+        case AST_ALIAS_DECLARATION:
+            {
+                build_scope_member_alias_declaration(a, inner_decl_context, nodecl_output,
+                        class_info, current_access);
+                break;
+            }
         case AST_AMBIGUITY :
             {
                 solve_ambiguous_declaration(a, inner_decl_context);
@@ -13934,8 +14136,6 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
         solve_ambiguous_declaration(templated_decl, template_context);
     }
 
-    // Link the AST with the scope
-
     switch (ASTType(templated_decl))
     {
         case AST_FUNCTION_DEFINITION :
@@ -13948,6 +14148,12 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
             {
                 build_scope_member_template_simple_declaration(template_context, ASTSon1(a), current_access, class_info, 
                         is_explicit_specialization, nodecl_output);
+                break;
+            }
+        case AST_ALIAS_DECLARATION:
+            {
+                build_scope_member_template_alias_declaration(template_context, ASTSon1(a),
+                        current_access, class_info, is_explicit_specialization, nodecl_output);
                 break;
             }
         default :
@@ -13978,6 +14184,15 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
     build_scope_member_simple_declaration(decl_context, a, current_access, class_info, 
             /* is_template */ 1, is_explicit_specialization,
             nodecl_output, /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
+}
+
+static void build_scope_member_template_alias_declaration(decl_context_t decl_context,
+        AST a, access_specifier_t current_access, type_t* class_info,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output)
+{
+    build_scope_common_template_alias_declaration(a, decl_context, nodecl_output,
+            /* is_member_declaration */ 1, class_info, current_access, is_explicit_specialization);
 }
 
 char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)

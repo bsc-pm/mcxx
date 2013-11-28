@@ -529,6 +529,7 @@ static char check_simple_type_spec(AST type_spec,
                 && entry->kind != SK_CLASS
                 // We allow this because templates are like types
                 && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_ALIAS
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK

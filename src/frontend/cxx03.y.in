@@ -3204,6 +3204,10 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 {
 	$$ = $1;
 }
+| alias_declaration
+{
+    $$ = $1;
+}
 | template_declaration %merge<ambiguityHandler>
 {
 	$$ = $1;

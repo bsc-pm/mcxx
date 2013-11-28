@@ -132,6 +132,9 @@ LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus);
 
+LIBMCXX_EXTERN type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
+        const char* template_name, decl_context_t decl_context, const locus_t* locus);
+
 LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,

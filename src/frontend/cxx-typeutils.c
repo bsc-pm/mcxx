@@ -112,6 +112,7 @@ enum simple_type_kind_tag
     STK_ENUM, // enum {identifier}
     STK_INDIRECT, // A type defined after the type of another symbol
     STK_TEMPLATE_TYPE, // a template type
+    STK_TEMPLATE_ALIAS, // an alias
     STK_TEMPLATE_DEPENDENT_TYPE, // 
     // Mercurium extensions
     STK_VECTOR,
@@ -1381,7 +1382,8 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 
 type_t* get_user_defined_type(scope_entry_t* entry)
 {
-    return get_indirect_type_(entry, /* indirect */ entry->kind == SK_TYPEDEF);
+    return get_indirect_type_(entry,
+            /* indirect */ entry->kind == SK_TYPEDEF || entry->kind == SK_TEMPLATE_ALIAS);
 }
 
 type_t* get_indirect_type(scope_entry_t* entry)
@@ -1665,6 +1667,46 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     }
 
     return result;
+}
+
+type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
+        const char* template_name, decl_context_t decl_context, const locus_t* locus)
+{
+    type_t* type_info = get_simple_type();
+    type_info->type->kind = STK_TEMPLATE_TYPE;
+    type_info->template_parameters = template_parameter_list;
+
+    scope_entry_t* primary_symbol = NULL;
+    primary_symbol = counted_xcalloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
+    primary_symbol->symbol_name = template_name;
+    primary_symbol->kind = SK_TEMPLATE_ALIAS;
+
+    primary_symbol->type_information = primary_type;
+    primary_symbol->decl_context = decl_context;
+
+    primary_symbol->locus = locus;
+    primary_symbol->entity_specs.is_user_declared = 1;
+    primary_symbol->entity_specs.is_instantiable = 1;
+
+    primary_type->info->is_template_specialized_type = 1;
+    primary_type->template_parameters = template_parameter_list;
+    primary_type->template_arguments = compute_template_parameter_values_of_primary(template_parameter_list);
+    primary_type->related_template_type = type_info;
+
+    if (template_parameter_list->num_parameters != 0)
+    {
+        set_is_dependent_type(primary_type, 1);
+    }
+    else
+    {
+        // If it is zero this means it is a special uninstantiated
+        // (non-template) class member
+        set_is_dependent_type(primary_type, 0);
+    }
+
+    type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
+
+    return type_info;
 }
 
 static type_t* _get_duplicated_function_type(type_t* function_type);
@@ -2100,6 +2142,25 @@ static type_t* template_type_get_specialized_type_(
             specialized_type->info = actual_class_type->info;
         }
     }
+    else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
+    {
+        if (existing_spec == NULL)
+        {
+            decl_context_t updated_context = primary_symbol->decl_context;
+            updated_context.template_parameters = template_arguments;
+
+            specialized_type = update_type(primary_symbol->type_information, updated_context, locus);
+
+            // If we cannot update the type, give up, something is probably wrong
+            if (specialized_type == NULL)
+                return NULL;
+        }
+        else
+        {
+            // Share the type of the existing_spec
+            specialized_type = named_type_get_symbol(existing_spec)->type_information;
+        }
+    }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
         // We will ignore nonidentical matches of existing specializations
@@ -2151,7 +2212,7 @@ static type_t* template_type_get_specialized_type_(
                 set_is_dependent_type(specialized_type, /* is_dependent */ 0);
             }
         }
-        else
+        else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
         {
             if (has_dependent_temp_args)
             {
@@ -2161,6 +2222,21 @@ static type_t* template_type_get_specialized_type_(
             {
                 set_is_dependent_type(specialized_type, /* is_dependent */ 0);
             }
+        }
+        else if (primary_symbol->kind == SK_FUNCTION)
+        {
+            if (has_dependent_temp_args)
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+            }
+            else
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
     }
 
