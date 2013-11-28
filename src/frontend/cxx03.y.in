@@ -992,8 +992,8 @@ asm_operand_list : asm_operand_list_nonempty
 | /* empty */
 {
 	$$ = NULL;
-};
-
+}
+;
 
 /* GNU Extensions */
 asm_operand_list_nonempty : asm_operand
@@ -3026,7 +3026,8 @@ ctor_initializer_opt : /* empty */
 | ctor_initializer
 {
     $$ = $1;
-};
+}
+;
 
 non_extension_function_definition : function_definition_header ctor_initializer_opt function_body 
 {

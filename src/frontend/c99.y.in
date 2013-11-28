@@ -606,8 +606,8 @@ asm_operand_list : asm_operand_list_nonempty
 | /* empty */
 {
 	$$ = NULL;
-};
-
+}
+;
 
 /* GNU Extensions */
 asm_operand_list_nonempty : asm_operand
@@ -1217,7 +1217,8 @@ optional_array_static_qualif : /* empty */
 | array_static_qualif
 {
     $$ = $1;
-};
+}
+;
 
 array_static_qualif : STATIC
 {
@@ -1432,7 +1433,8 @@ abstract_direct_declarator : '(' abstract_declarator ')'
 identifier_list : identifier_list_kr
 {
     $$ = ASTMake1(AST_KR_PARAMETER_LIST, $1, ast_get_locus($1), NULL);
-};
+}
+;
 
 identifier_list_kr : IDENTIFIER
 {
