@@ -1469,7 +1469,7 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq declarator attribute_specifier_seq_opt %merge<ambiguityHandler>
+parameter_declaration : decl_specifier_seq declarator_not_started_with_attributes attribute_specifier_seq_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
@@ -1477,7 +1477,7 @@ parameter_declaration : decl_specifier_seq declarator attribute_specifier_seq_op
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, NULL, NULL, $2, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq abstract_declarator attribute_specifier_seq_opt %merge<ambiguityHandler>
+| decl_specifier_seq abstract_declarator_not_started_with_attributes attribute_specifier_seq_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $1, $2, NULL, $3, ast_get_locus($1), NULL);
 }
