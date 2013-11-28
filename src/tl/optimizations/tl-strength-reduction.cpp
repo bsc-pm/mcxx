@@ -213,18 +213,23 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
     {
         if (rhs.is<Nodecl::VectorSqrt>())
         {
+            Nodecl::VectorSqrt vsqrt = rhs.as<Nodecl::VectorSqrt>();
+
             Nodecl::VectorMul mul = 
                 Nodecl::VectorMul::make(
                         lhs.shallow_copy(),
                         Nodecl::VectorRsqrt::make(
-                            rhs.shallow_copy(),
+                            vsqrt.get_rhs().shallow_copy(),
                             node.get_mask().shallow_copy(),
-                            rhs.get_type()),
+                            vsqrt.get_type()),
                         node.get_mask().shallow_copy(),
                         node.get_type(),
                         node.get_locus());
 
             node.replace(mul);
+
+            // Optimize 1 * rsqrt
+            walk(mul);
         }
         /*
         else

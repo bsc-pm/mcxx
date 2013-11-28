@@ -557,6 +557,19 @@ char const_value_is_zero(const_value_t* v)
 
 char const_value_is_one(const_value_t* v)
 {
+    if (IS_MULTIVALUE(v->kind))
+    {
+        int num_elements = v->value.m->num_elements;
+        int i;
+        for (i=0; i<num_elements; i++)
+        {
+            if (!const_value_is_one(v->value.m->elements[i]))
+                return 0;
+        }
+
+        return 1;
+    }
+
     switch (v->kind)
     {
         case CVK_INTEGER:
