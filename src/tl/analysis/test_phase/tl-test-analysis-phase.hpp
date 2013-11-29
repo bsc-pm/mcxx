@@ -58,7 +58,11 @@ namespace Analysis {
         std::string _induction_vars_enabled_str;
         bool _induction_vars_enabled;
         void set_induction_vars( const std::string& induction_vars_enabled_str );
-
+        
+        std::string _range_analysis_enabled_str;
+        bool _range_analysis_enabled;
+        void set_range_analsysis( const std::string& range_analysis_enabled_str );
+        
     public:
         //! Constructor of this phase
         TestAnalysisPhase();

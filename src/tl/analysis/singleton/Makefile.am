@@ -40,7 +40,7 @@ libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/../reach_defs \
 				-I$(srcdir)/../loops \
 				-I$(srcdir)/../auto-scope \
-				-I$(srcdir)/../task_analysis \
+				-I$(srcdir)/../range \
 				$(END)
 
 libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
@@ -54,6 +54,7 @@ libanalysis_singleton_la_LIBADD= \
 				../reach_defs/libreaching_definitions.la \
 				../loops/libloops_analysis.la \
 				../auto-scope/libauto_scope.la \
+				../range/librange.la \
 				$(END)
 
 libanalysis_singleton_la_SOURCES= tl-analysis-static-info.cpp \

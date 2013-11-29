@@ -48,6 +48,7 @@ namespace Analysis {
     static bool _liveness;
     static bool _reaching_defs;
     static bool _induction_vars;
+    static bool _ranges;
     static bool _auto_scoping;
     static bool _auto_deps;
     
@@ -161,6 +162,30 @@ namespace {
         return induction_vars;
     }
     
+    std::string print_node_ranges( Node* current )
+    {
+        std::string ranges = "";
+        if( _ranges )
+        {
+            Utils::RangeValuesMap ranges_in_ = current->get_ranges_in( );
+            Utils::RangeValuesMap ranges_out_ = current->get_ranges_out( );
+            if( current->get_id( ) == 9 )
+            {
+                std::cerr << "Node 9 has " << ranges_in_.size( ) << " ranges_in and " << ranges_out_.size( ) << " ranges_out" << std::endl;
+            }
+            std::string ranges_in = prettyprint_range_values_map( current->get_ranges_in( ), /*dot*/ true );
+            std::string ranges_out = prettyprint_range_values_map( current->get_ranges_out( ), /*dot*/ true );
+            
+            ranges = ( ranges_in.empty( )    ? "" : "RI: " + ranges_in  + "\\n" )
+                     + ( ranges_out.empty( ) ? "" : "RO: " + ranges_out );
+            
+            int l_size = ranges.size( );
+            if( ( l_size > 3 ) && ( ranges.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+                ranges = ranges.substr( 0, l_size - 2 );
+        }
+        return ranges;
+    }
+    
     std::string print_node_data_sharing( Node* current )
     {
         std::string auto_scope = "";
@@ -173,7 +198,7 @@ namespace {
             auto_scope = ( sc_private.empty( )        ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
                          + ( sc_firstprivate.empty( ) ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
                          + ( sc_shared.empty( )       ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
-                         + ( sc_undefined.empty( )    ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
+                         + ( sc_undefined.empty( )    ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined );
         }
         return auto_scope;
     }
@@ -196,14 +221,14 @@ namespace {
                         + ( deps_in.empty( )           ? "" : "AUTO-DEPS_IN: "           + deps_in           + "\\n" )
                         + ( deps_out.empty( )          ? "" : "AUTO-DEPS_OUT: "          + deps_out          + "\\n" )
                         + ( deps_inout.empty( )        ? "" : "AUTO-DEPS_INOUT: "        + deps_inout        + "\\n" )
-                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined    + "\\n" );
+                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined );
         }
         return auto_deps;
     }
 }
     
     void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                              bool auto_scoping, bool auto_deps )
+                                              bool ranges, bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_pcfg;
 
@@ -250,11 +275,12 @@ namespace {
         // Create the dot graphs
         if( VERBOSE )
             std::cerr << "- File '" << dot_file_name << "'" << std::endl;
-
+        
         _usage = usage;
         _liveness = liveness;
         _reaching_defs = reaching_defs;
         _induction_vars = induction_vars;
+        _ranges = ranges;
         _auto_scoping = auto_scoping;
         _auto_deps = auto_deps;
         
@@ -704,6 +730,7 @@ namespace {
         std::string usage_str = print_node_usage( current );
         std::string liveness_str = print_node_liveness( current );
         std::string reach_defs_str = print_node_reaching_defs( current );
+        std::string ranges_str = print_node_ranges( current );
         std::string induction_vars_str = print_node_induction_variables( current );
         std::string color;
         std::string common_attrs = "style=dashed";
@@ -746,9 +773,22 @@ namespace {
                 dot_analysis_info += "\n";
             }
         }
-        if( !induction_vars_str.empty( ) )
+        if( !ranges_str.empty( ) )
         {
             std::string id = "-00000" + node_id.str( );
+            color = "cyan3";
+            dot_analysis_info += "\t" + id + "[label=\"" + ranges_str + " \", shape=box, color=" + color + "]\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                if( !cluster_name.empty() )
+                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
+                dot_analysis_info += "\n";
+            }
+        }
+        if( !induction_vars_str.empty( ) )
+        {
+            std::string id = "-000000" + node_id.str( );
             color = "orange2";
             dot_analysis_info += "\t" + id + "[label=\"" + induction_vars_str + " \", shape=box, color=" + color + "]\n";
             if( !current->is_extended_graph_node( ) )
@@ -764,7 +804,7 @@ namespace {
             std::string auto_scope_str = print_node_data_sharing( current );
             if( !auto_scope_str.empty() )
             {
-                std::string id = "-00000" + node_id.str( );
+                std::string id = "-0000000" + node_id.str( );
                 color = "darkgoldenrod1";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_scope_str + " \", shape=box, color=" + color + "]\n";
                 if( !current->is_extended_graph_node( ) )
@@ -779,7 +819,7 @@ namespace {
             std::string auto_deps_str = print_node_deps( current );
             if( !auto_deps_str.empty() )
             {
-                std::string id = "-000000" + node_id.str( );
+                std::string id = "-00000000" + node_id.str( );
                 color = "skyblue3";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_deps_str + " \", shape=box, color=" + color + "]\n";
                 if( !current->is_extended_graph_node( ) )

@@ -65,6 +65,7 @@ namespace Analysis {
         bool _loops;                //!<True when loops analysis has been applied
         bool _reaching_definitions; //!<True when reaching definitions has been calculated
         bool _induction_variables;  //!<True when induction variable analysis has been applied
+        bool _range;                //!<True when range analysis has been applied
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
 
@@ -104,6 +105,8 @@ namespace Analysis {
         void set_reaching_definitions_computed( );
         bool is_induction_variables_computed( ) const;
         void set_induction_variables_computed( );
+        bool is_range_analysis_computed( ) const;
+        void set_range_analysis_computed( );
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
@@ -198,6 +201,8 @@ namespace Analysis {
          */
         ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> range_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );

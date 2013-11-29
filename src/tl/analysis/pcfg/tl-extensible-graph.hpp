@@ -345,7 +345,7 @@ namespace Analysis {
 
         //! Build a DOT file that represents the CFG
         void print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars, 
-                                 bool auto_scoping, bool auto_deps );
+                                 bool ranges, bool auto_scoping, bool auto_deps );
 
 
         // *** Getters and Setters *** //

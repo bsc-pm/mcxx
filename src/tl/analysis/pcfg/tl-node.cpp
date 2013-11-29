@@ -1441,9 +1441,51 @@ namespace Analysis {
 
     // ***************** END getters and setters for loops analysis ***************** //
     // ****************************************************************************** //
-
-
-
+    
+    
+    
+    // ****************************************************************************** //
+    // ******************* Getters and setters for range analysis ******************* //
+    
+    Utils::RangeValuesMap Node::get_ranges_in( )
+    {
+        Utils::RangeValuesMap ranges_in;
+        if( has_key( _RANGES_IN ) )
+            ranges_in = get_data<Utils::RangeValuesMap>( _RANGES_IN );
+        return ranges_in;
+    }
+    
+    void Node::set_range_in( const Nodecl::NodeclBase& var, 
+                             const ObjectList<Utils::RangeValue_tag>& values )
+    {
+        Utils::RangeValuesMap ranges_in = get_ranges_in( );
+        ranges_in.insert( 
+                std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> >( var, values ) );
+        set_data( _RANGES_IN, ranges_in );
+    }
+    
+    Utils::RangeValuesMap Node::get_ranges_out( )
+    {
+        Utils::RangeValuesMap ranges_out;
+        if( has_key( _RANGES_OUT ) )
+            ranges_out = get_data<Utils::RangeValuesMap>( _RANGES_OUT );
+        return ranges_out;
+    }
+    
+    void Node::set_range_out( const Nodecl::NodeclBase& var, 
+                              const ObjectList<Utils::RangeValue_tag>& values )
+    {
+        Utils::RangeValuesMap ranges_out = get_ranges_out( );
+        ranges_out.insert( 
+                std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> >( var, values ) );
+        set_data( _RANGES_OUT, ranges_out );
+    }
+    
+    // ***************** END getters and setters for range analysis ***************** //
+    // ****************************************************************************** //
+    
+    
+    
     // ****************************************************************************** //
     // ******************* Getters and setters for OmpSs analysis ******************* //
 
