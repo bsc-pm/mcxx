@@ -6731,14 +6731,9 @@ char is_indirect_type(type_t* t)
 
 scope_entry_t* named_type_get_symbol(type_t* t)
 {
-    if (is_named_type(t))
-    {
-        return t->type->user_defined_type;
-    }
-    else
-    {
-        internal_error("This is not a named type\n", 0);
-    }
+    ERROR_CONDITION(!is_named_type(t), "This is not a named type\n", 0);
+
+    return t->type->user_defined_type;
 }
 
 char is_floating_type(type_t* t)
