@@ -8446,6 +8446,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
                 cast_kind,
                 locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
 
@@ -8562,12 +8563,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         }
     }
 
-    if (is_dependent_type(declarator_type))
-    {
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-    }
-    if (is_dependent_type(declarator_type)
-            || nodecl_expr_is_value_dependent(nodecl_casted_expr))
+    if (nodecl_expr_is_value_dependent(nodecl_casted_expr))
     {
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
