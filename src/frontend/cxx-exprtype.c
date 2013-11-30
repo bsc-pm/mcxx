@@ -14425,7 +14425,7 @@ char check_initialization(AST initializer,
         scope_entry_t* initialized_entry,
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto_type)
+        char is_auto)
 {
     DEBUG_CODE()
     {
@@ -14437,7 +14437,7 @@ char check_initialization(AST initializer,
 
     compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
 
-    if (is_auto_type
+    if (is_auto
             && !nodecl_expr_is_type_dependent(nodecl_init))
     {
         if (initialized_entry != NULL
