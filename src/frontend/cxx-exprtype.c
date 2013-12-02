@@ -7301,12 +7301,6 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         return;
     }
 
-    if (!standard_conversion_between_types(&sc, no_ref(second_type), no_ref(converted_type)))
-    {
-        *nodecl_output = nodecl_make_err_expr(locus);
-        return;
-    }
-
     type_t* final_type = NULL;
     if (equivalent_types(second_type, third_type)
             && is_lvalue_reference_type(second_type)
