@@ -1084,7 +1084,7 @@ static void build_scope_explicit_instantiation(AST a,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: should be a class\n", ast_location(a));
+                error_printf("%s: error: declaration should declare a class\n", ast_location(a));
             }
         }
     }
@@ -3611,16 +3611,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         }
         else
         {
-            if (is_unqualified_id_expression(id_expression)
-                    && ASTType(id_expression) == AST_TEMPLATE_ID)
-            {
-                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
-            }
-            else
-            {
-                result_list = query_id_expression_flags(decl_context,
-                        id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
-            }
+            result_list = query_id_expression_flags(decl_context,
+                    id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
         }
     }
 
@@ -3880,9 +3872,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         ERROR_CONDITION(entry->kind != SK_CLASS, "This must be a class", 0);
 
         if (class_gather_info.no_declarators
-                && ASTType(id_expression) == AST_TEMPLATE_ID
-                && decl_context.current_scope->kind != NAMESPACE_SCOPE
-                && decl_context.current_scope->kind != CLASS_SCOPE)
+                && (ASTType(id_expression) == AST_TEMPLATE_ID
+                    || ASTType(id_expression) == AST_QUALIFIED_ID)
+                && !class_gather_info.is_template
+                && !class_gather_info.is_explicit_specialization
+                && !class_gather_info.is_explicit_instantiation)
         {
             if (!checking_ambiguity())
                 {
@@ -3921,15 +3915,18 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             return;
         }
         // We only update the template parameters of decl_context of the class symbol if:
-        //  1. The class has not been defined (we want to store the template parameters of its definition!)
-        //  2. It is a template specialized class
-        //  3. It is not a explicit instantiation (they have not template parameters!)
-        if (!class_entry->defined
+        //  1. This is a template declaration
+        //  2. The class has not been defined (we want to store the template parameters of its definition!)
+        //  3. It is a template specialized class
+        //  4. It is not a explicit instantiation (they have not template parameters!)
+        if (gather_info->is_template
+                && !class_entry->defined
                 && is_template_specialized_type(class_entry->type_information)
                 && !class_gather_info.is_explicit_specialization
                 && !class_gather_info.is_explicit_instantiation)
         {
-            template_specialized_type_update_template_parameters(class_entry->type_information,
+            template_specialized_type_update_template_parameters(
+                    class_entry->type_information,
                     decl_context.template_parameters);
 
             // Update the template_scope
