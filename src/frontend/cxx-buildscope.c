@@ -6306,6 +6306,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 scope_entry_t *data_member = entry_list_iterator_current(it);
                 has_variant_member_with_nontrivial_default_ctor = (is_class_type(data_member->type_information)
+                        && class_type_get_default_constructor(data_member->type_information) != NULL
                         && !class_type_get_default_constructor(data_member->type_information)->entity_specs.is_trivial);
             }
             entry_list_iterator_free(it);
@@ -6419,11 +6420,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     member_type = array_type_get_element_type(data_member->type_information);
                 }
 
+                scope_entry_t* default_constructor = class_type_get_default_constructor(member_type);
+
                 has_nonstatic_data_member_with_unusable_base_default_constructor =
-                    !one_function_is_usable(
-                            entry_list_new(class_type_get_default_constructor(member_type)),
-                            NULL, NULL,
-                            decl_context, locus);
+                    default_constructor == NULL
+                    || !one_function_is_usable(
+                                entry_list_new(default_constructor),
+                                NULL, NULL,
+                                decl_context, locus);
             }
         }
 
@@ -6437,8 +6441,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *base = entry_list_iterator_current(it);
 
-            if (!one_function_is_usable(
-                        entry_list_new(class_type_get_default_constructor(base->type_information)),
+            scope_entry_t* default_constructor = class_type_get_default_constructor(base->type_information);
+
+            if (default_constructor == NULL
+                    || !one_function_is_usable(
+                        entry_list_new(default_constructor),
                         NULL, NULL,
                         decl_context,
                         locus))
