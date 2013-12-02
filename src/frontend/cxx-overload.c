@@ -784,8 +784,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         {
             scope_entry_t* constructor = entry_list_iterator_current(it);
 
-            // This is not an eligible conversor constructor
-            if (!constructor->entity_specs.is_conversor_constructor)
+            // Make sure this a non-explicit conversor constructor
+            if (!constructor->entity_specs.is_conversor_constructor
+                    || constructor->entity_specs.is_explicit)
                 continue;
 
             DEBUG_CODE()

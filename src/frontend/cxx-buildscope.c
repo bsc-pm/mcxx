@@ -14347,8 +14347,7 @@ static void update_member_function_info(AST declarator_name,
                                 locus_to_str(entry->locus));
                     }
 
-                    if (!entry->entity_specs.is_explicit
-                            && can_be_called_with_number_of_arguments(entry, 1))
+                    if (can_be_called_with_number_of_arguments(entry, 1))
                     {
                         DEBUG_CODE()
                         {
@@ -14359,8 +14358,7 @@ static void update_member_function_info(AST declarator_name,
                         entry->entity_specs.is_conversor_constructor = 1;
                     }
 
-                    if (!entry->entity_specs.is_explicit
-                            && can_be_called_with_number_of_arguments(entry, 0))
+                    if (can_be_called_with_number_of_arguments(entry, 0))
                     {
                         entry->entity_specs.is_default_constructor = 1;
                         class_type_set_default_constructor(class_type, entry);
