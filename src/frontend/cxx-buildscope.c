@@ -1677,6 +1677,47 @@ static void copy_gather_info(gather_decl_spec_t* dest, gather_decl_spec_t* src)
 #undef COPY_ARRAY
 }
 
+static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
+{
+    nodecl_t result = nodecl_null();
+
+    scope_entry_t* extra_decl_symbol = pop_extra_declaration_symbol();
+    while (extra_decl_symbol != NULL)
+    {
+        if (extra_decl_symbol->entity_specs.is_saved_expression)
+        {
+            result = nodecl_append_to_list(
+                    result,
+                    nodecl_make_object_init(
+                        extra_decl_symbol,
+                        loc));
+        }
+        else if (IS_CXX_LANGUAGE
+                && (is_class_type(extra_decl_symbol->type_information)
+                    || is_enum_type(extra_decl_symbol->type_information)))
+        {
+            // This happens in this case (C can handle this automatically but not C++)
+            //
+            // (union { int x; int y; }){1,2}
+            //
+            result = nodecl_append_to_list(
+                    result,
+                    nodecl_make_cxx_def(
+                        /* optional scope */ nodecl_null(),
+                        extra_decl_symbol,
+                        loc));
+        }
+        else
+        {
+            internal_error("Unhandled extra declared symbol '%s'", extra_decl_symbol->symbol_name);
+        }
+
+        extra_decl_symbol = pop_extra_declaration_symbol();
+    }
+
+    return result;
+}
+
 // Builds scope for a simple declaration
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         char is_template, char is_explicit_specialization,
@@ -2085,6 +2126,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         entry->defined = 1;
                     }
                 }
+
+                *nodecl_output = nodecl_concat_lists(
+                        *nodecl_output,
+                        flush_extra_declared_symbols(ast_get_locus(declarator)));
 
                 // We create object-init nodecls for several cases:
                 // - if the initializer is not null
@@ -15973,46 +16018,6 @@ static void build_scope_declaration_statement(AST a,
             /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 }
 
-static nodecl_t flush_extra_declared_symbols(const locus_t* loc)
-{
-    nodecl_t result = nodecl_null();
-
-    scope_entry_t* extra_decl_symbol = pop_extra_declaration_symbol();
-    while (extra_decl_symbol != NULL)
-    {
-        if (extra_decl_symbol->entity_specs.is_saved_expression)
-        {
-            result = nodecl_append_to_list(
-                    result,
-                    nodecl_make_object_init(
-                        extra_decl_symbol,
-                        loc));
-        }
-        else if (IS_CXX_LANGUAGE
-                && (is_class_type(extra_decl_symbol->type_information)
-                    || is_enum_type(extra_decl_symbol->type_information)))
-        {
-            // This happens in this case (C can handle this automatically but not C++)
-            //
-            // (union { int x; int y; }){1,2}
-            //
-            result = nodecl_append_to_list(
-                    result,
-                    nodecl_make_cxx_def(
-                        /* optional scope */ nodecl_null(),
-                        extra_decl_symbol,
-                        loc));
-        }
-        else
-        {
-            internal_error("Unhandled extra declared symbol '%s'", extra_decl_symbol->symbol_name);
-        }
-
-        extra_decl_symbol = pop_extra_declaration_symbol();
-    }
-
-    return result;
-}
 
 static void build_scope_expression_statement(AST a, 
         decl_context_t decl_context, 
