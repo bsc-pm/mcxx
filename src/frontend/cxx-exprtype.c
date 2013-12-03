@@ -16101,6 +16101,28 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
             locus);
 }
 
+static const char* prettyprint_shape(AST a)
+{
+    if (a == NULL)
+        return "[]";
+    else if (ASTType(a) == AST_NODE_LIST)
+    {
+        const char* result = "";
+        AST it;
+        for_each_element(a, it)
+        {
+            AST shape = ASTSon1(it);
+            uniquestr_sprintf(&result, "%s[%s]", result, prettyprint_in_buffer(shape));
+        }
+        return result;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+
 static void check_shaping_expression(AST expression, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
@@ -16112,6 +16134,70 @@ static void check_shaping_expression(AST expression,
 
     nodecl_t nodecl_shaped_expr = nodecl_null();
     check_expression_impl_(shaped_expr, decl_context, &nodecl_shaped_expr);
+
+    // [X]a[i] is parsed as [X](a[i])
+    if (!nodecl_is_err_expr(nodecl_shaped_expr)
+            && shaped_expr!= NULL
+            &&(ASTType(shaped_expr) == AST_ARRAY_SUBSCRIPT
+                || ASTType(shaped_expr) == AST_ARRAY_SECTION
+                || ASTType(shaped_expr) == AST_ARRAY_SECTION_SIZE))
+    {
+        if (!checking_ambiguity())
+        {
+            warn_printf("%s: warning: syntax '%s%s' is equivalent to '%s(%s)'\n",
+                    ast_location(expression),
+                    prettyprint_shape(shape_list),
+                    prettyprint_in_buffer(shaped_expr),
+                    prettyprint_shape(shape_list),
+                    prettyprint_in_buffer(shaped_expr));
+
+            AST subscripted_item = shaped_expr;
+            while (ASTType(subscripted_item) == AST_ARRAY_SUBSCRIPT
+                    || ASTType(subscripted_item) == AST_ARRAY_SECTION
+                    || ASTType(subscripted_item) == AST_ARRAY_SECTION_SIZE)
+            {
+                subscripted_item = ASTSon0(subscripted_item);
+            }
+
+            AST subscript_item = shaped_expr;
+            const char* array_subscript = "";
+            for (;;)
+            {
+                if (ASTType(subscript_item) == AST_ARRAY_SUBSCRIPT)
+                {
+                    uniquestr_sprintf(&array_subscript, "[%s]%s",
+                            prettyprint_in_buffer(ASTSon1(subscript_item)),
+                            array_subscript);
+                }
+                else if (ASTType(subscript_item) == AST_ARRAY_SECTION)
+                {
+                    uniquestr_sprintf(&array_subscript, "[%s:%s]%s",
+                            prettyprint_in_buffer(ASTSon1(subscript_item)),
+                            prettyprint_in_buffer(ASTSon2(subscript_item)),
+                            array_subscript);
+                }
+                else if (ASTType(subscript_item) == AST_ARRAY_SECTION_SIZE)
+                {
+                    uniquestr_sprintf(&array_subscript, "[%s;%s]%s",
+                            prettyprint_in_buffer(ASTSon1(subscript_item)),
+                            prettyprint_in_buffer(ASTSon2(subscript_item)),
+                            array_subscript);
+                }
+                else
+                {
+                    break;
+                }
+                subscript_item = ASTSon0(subscript_item);
+            }
+
+            info_printf("%s: info: did you actually mean '(%s%s)%s'?\n",
+                    ast_location(expression),
+                    prettyprint_shape(shape_list),
+                    prettyprint_in_buffer(subscripted_item),
+                    array_subscript);
+        }
+    }
+
 
     if (nodecl_is_err_expr(nodecl_shaped_expr))
     {
