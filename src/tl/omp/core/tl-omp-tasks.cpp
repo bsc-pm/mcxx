@@ -585,6 +585,7 @@ namespace TL
             mw.write(_untied);
             mw.write(_task_label);
             mw.write(_parsing_scope);
+            mw.write(_locus);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -599,6 +600,7 @@ namespace TL
             mr.read(_untied);
             mr.read(_task_label);
             mr.read(_parsing_scope);
+            mr.read(_locus);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
