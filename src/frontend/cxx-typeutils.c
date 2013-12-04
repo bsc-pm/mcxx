@@ -183,6 +183,9 @@ struct class_info_tag {
     // Is a packed class (SEQUENCE in Fortran or __attribute__((packed)) )
     _Bool is_packed:1;
 
+    // Was created after a lambda expression in C++
+    _Bool is_lambda:1;
+
     // Enclosing class type
     type_t* enclosing_class_type;
 
@@ -3855,6 +3858,20 @@ void class_type_set_is_abstract(type_t* class_type, char is_abstract)
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
     class_type = get_actual_class_type(class_type);
     class_type->type->class_info->is_abstract = is_abstract;
+}
+
+char class_type_is_lambda(type_t* class_type)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
+    return class_type->type->class_info->is_lambda;
+}
+
+void class_type_set_is_lambda(type_t* class_type, char is_lambda)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
+    class_type->type->class_info->is_lambda = is_lambda;
 }
 
 char class_type_is_polymorphic(type_t* t)

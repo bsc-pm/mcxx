@@ -539,7 +539,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
 // These include gcc and C++11
 %type<ast> attribute_specifier
-%type<ast> attribute_specifier_opt
+// %type<ast> attribute_specifier_opt
 %type<ast> attribute_specifier_seq
 %type<ast> attribute_specifier_seq_opt
 %type<ast> attribute_specifier_seq_and_virt_specifier_seq
@@ -1025,15 +1025,15 @@ asm_operand : string_literal '(' expression ')'
 ;
 /* End of GNU extensions */
 
-attribute_specifier_opt : /* empty */
-{
-    $$ = NULL;
-}
-| attribute_specifier
-{
-    $$ = $1;
-}
-;
+// attribute_specifier_opt : /* empty */
+// {
+//     $$ = NULL;
+// }
+// | attribute_specifier
+// {
+//     $$ = $1;
+// }
+// ;
 
 std_attribute_specifier : '[' '[' std_attribute_list ']' ']'
 {
@@ -5034,7 +5034,7 @@ lambda_capture_item : IDENTIFIER
 }
 | '&' IDENTIFIER
 {
-	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_ADDRESS, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_ADDRESS, make_locus($1.token_file, $1.token_line, 0), $2.token_text);
 }
 | TOKEN_THIS
 {
@@ -5052,12 +5052,21 @@ lambda_declarator_opt : /* empty */
 }
 ;
 
-lambda_declarator : '(' parameter_declaration_clause ')' attribute_specifier_opt mutable_opt exception_specification_opt trailing_return_type_opt
+lambda_declarator : '(' parameter_declaration_clause ')' mutable_opt exception_specification_opt std_attribute_specifier_seq_opt trailing_return_type_opt
 {
-    const locus_t* l = make_locus($1.token_file, $1.token_line, 0);
+    // This tree is the same as in parameter_and_qualifiers
+    AST parameters = ASTMake4(AST_PARAMETERS_AND_QUALIFIERS,
+            $2,
+            ASTMake4(AST_PARAMETERS_AND_QUALIFIERS_EXTRA, $6, NULL, NULL, $5,
+                    make_locus($1.token_file, $1.token_line, 0),
+                    NULL),
+            NULL, NULL,
+            make_locus($1.token_file, $1.token_line, 0),
+            NULL);
 
-    AST lambda_specs = ASTMake4(AST_LAMBDA_DECLARATOR_SPECS, $4, $5, $6, $7, l, NULL);
-    $$ = ASTMake2(AST_LAMBDA_DECLARATOR, $2, lambda_specs, l, NULL);
+    // mutable and trailing_return_type go here
+    $$ = ASTMake3(AST_LAMBDA_DECLARATOR, parameters, $4, $7,
+            make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 

@@ -124,6 +124,7 @@ namespace Codegen
             Ret visit(const Nodecl::IfElseStatement &);
             Ret visit(const Nodecl::ImagPart &);
             Ret visit(const Nodecl::IndexDesignator &);
+            Ret visit(const Nodecl::Lambda &);
             Ret visit(const Nodecl::IntegerLiteral &);
             Ret visit(const Nodecl::LabeledStatement &);
             Ret visit(const Nodecl::LogicalAnd &);

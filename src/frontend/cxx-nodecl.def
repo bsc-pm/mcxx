@@ -280,11 +280,15 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt 
                   | NODECL_VLA_WILDCARD() type
+                  | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
                   | cxx-pack
 
+# Used for C++11 lambdas
+explicit-capture: NODECL_CAPTURE_COPY() symbol
+                | NODECL_CAPTURE_REFERENCE() symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 

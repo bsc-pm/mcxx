@@ -645,6 +645,9 @@ LIBMCXX_EXTERN char class_type_is_polymorphic(type_t* t);
 LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
 LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);
 
+LIBMCXX_EXTERN char class_type_is_lambda(type_t* class_type);
+LIBMCXX_EXTERN void class_type_set_is_lambda(type_t* class_type, char is_lambda);
+
 LIBMCXX_EXTERN void class_type_set_is_packed(type_t* t, char is_packed);
 LIBMCXX_EXTERN char class_type_is_packed(type_t* class_type);
 

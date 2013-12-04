@@ -9632,6 +9632,23 @@ static void set_function_type(type_t** declarator_type,
     build_exception_spec(*declarator_type, except_spec, gather_info, decl_context, nodecl_output);
 }
 
+// Used in C++11
+void set_function_type_for_lambda(type_t** declarator_type,  
+        gather_decl_spec_t* gather_info,
+        AST parameters_and_qualifiers, 
+        decl_context_t decl_context,
+        decl_context_t *lambda_block_context,
+        nodecl_t* nodecl_output)
+{
+    set_function_type(declarator_type,
+            gather_info,
+            parameters_and_qualifiers,
+            decl_context,
+            lambda_block_context,
+            NULL,
+            nodecl_output);
+}
+
 // This function traverses the declarator tree gathering all attributes that might appear there
 // We need to traverse the declarator twice because of gcc allowing attributes appear in many
 // places
@@ -10010,11 +10027,6 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
         }
     }
 }
-
-static void set_parameters_as_related_symbols(scope_entry_t* entry, 
-        gather_decl_spec_t* gather_info,
-        char is_definition,
-        const locus_t* locus);
 
 static void update_function_specifiers(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
@@ -13252,7 +13264,7 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
     common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted, nodecl_output);
 }
 
-static void set_parameters_as_related_symbols(scope_entry_t* entry,
+void set_parameters_as_related_symbols(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         char is_definition,
         const locus_t* locus)
@@ -16348,7 +16360,9 @@ static void build_scope_return_statement(AST a,
 
     scope_entry_t* function = decl_context.current_scope->related_entry;
     ERROR_CONDITION(function->kind != SK_FUNCTION
-            && function->kind != SK_DEPENDENT_FRIEND_FUNCTION, "Invalid related entry!", 0);
+            && function->kind != SK_DEPENDENT_FRIEND_FUNCTION
+            && function->kind != SK_LAMBDA,
+            "Invalid related entry!", 0);
 
     type_t* return_type = function_type_get_return_type(function->type_information);
     if (return_type == NULL)
