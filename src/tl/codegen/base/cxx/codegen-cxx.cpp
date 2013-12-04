@@ -5008,11 +5008,20 @@ void CxxBase::declare_symbol_if_nonnested(TL::Symbol symbol)
 
 void CxxBase::define_nonnested_entities_in_trees(Nodecl::NodeclBase const& node)
 {
+    static std::set<TL::Symbol> visited_symbols;
+    static int nesting = 0;
+    nesting++;
+
     define_generic_entities(node,
             &CxxBase::declare_symbol_if_nonnested,
             &CxxBase::define_symbol_if_nonnested,
             &CxxBase::define_nonnested_entities_in_trees,
-            &CxxBase::entry_just_define);
+            &CxxBase::entry_just_define,
+            visited_symbols);
+
+    nesting--;
+    if (nesting == 0)
+        visited_symbols.clear();
 }
 
 void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
@@ -6146,7 +6155,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
         void (CxxBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
         void (CxxBase::*define_entry_fun)(
             const Nodecl::NodeclBase &node, TL::Symbol entry,
-            void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol))
+            void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol)),
+        std::set<TL::Symbol>& visited_symbols
         )
 {
     if (node.is_null())
@@ -6164,7 +6174,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                     decl_sym_fun,
                     def_sym_fun,
                     define_entities_fun,
-                    define_entry_fun
+                    define_entry_fun,
+                    visited_symbols
                     );
         }
     }
@@ -6180,16 +6191,19 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                     decl_sym_fun,
                     def_sym_fun,
                     define_entities_fun,
-                    define_entry_fun
+                    define_entry_fun,
+                    visited_symbols
                     );
         }
 
         TL::Symbol entry = node.get_symbol();
         if (entry.is_valid()
+                && visited_symbols.find(entry) == visited_symbols.end()
                 && entry.get_type().is_valid()
                 && state.walked_symbols.find(entry) == state.walked_symbols.end())
         {
             state.walked_symbols.insert(entry);
+            visited_symbols.insert(entry);
 
             C_LANGUAGE()
             {
@@ -6207,7 +6221,8 @@ void CxxBase::define_generic_entities(Nodecl::NodeclBase node,
                     decl_sym_fun,
                     def_sym_fun,
                     define_entities_fun,
-                    define_entry_fun
+                    define_entry_fun,
+                    visited_symbols
                     );
 
             state.walked_symbols.erase(entry);
@@ -6279,47 +6294,92 @@ void CxxBase::entry_local_definition(
 
 void CxxBase::define_all_entities_in_trees(const Nodecl::NodeclBase& node)
 {
+    static std::set<TL::Symbol> visited_symbols;
+    static int nesting = 0;
+    nesting++;
+
     define_generic_entities(node,
             &CxxBase::declare_symbol_always,
             &CxxBase::define_symbol_always,
             &CxxBase::define_all_entities_in_trees,
-            &CxxBase::entry_just_define);
+            &CxxBase::entry_just_define,
+            visited_symbols);
+
+    nesting--;
+    if (nesting == 0)
+        visited_symbols.clear();
 }
 
 void CxxBase::define_nonlocal_entities_in_trees(const Nodecl::NodeclBase& node)
 {
+    static std::set<TL::Symbol> visited_symbols;
+    static int nesting = 0;
+    nesting++;
+
     define_generic_entities(node,
             &CxxBase::declare_symbol_if_nonlocal,
             &CxxBase::define_symbol_if_nonlocal,
             &CxxBase::define_nonlocal_entities_in_trees,
-            &CxxBase::entry_just_define);
+            &CxxBase::entry_just_define,
+            visited_symbols);
+
+    nesting--;
+    if (nesting == 0)
+        visited_symbols.clear();
 }
 
 void CxxBase::define_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node)
 {
+    static std::set<TL::Symbol> visited_symbols;
+    static int nesting = 0;
+    nesting++;
+
     define_generic_entities(node,
             &CxxBase::declare_symbol_if_nonprototype,
             &CxxBase::define_symbol_if_nonprototype,
             &CxxBase::define_nonprototype_entities_in_trees,
-            &CxxBase::entry_just_define);
+            &CxxBase::entry_just_define,
+            visited_symbols);
+
+    nesting--;
+    if (nesting == 0)
+        visited_symbols.clear();
 }
 
 void CxxBase::define_nonlocal_nonprototype_entities_in_trees(const Nodecl::NodeclBase& node)
 {
+    static std::set<TL::Symbol> visited_symbols;
+    static int nesting = 0;
+    nesting++;
+
     define_generic_entities(node,
             &CxxBase::declare_symbol_if_nonlocal_nonprototype,
             &CxxBase::define_symbol_if_nonlocal_nonprototype,
             &CxxBase::define_nonlocal_nonprototype_entities_in_trees,
-            &CxxBase::entry_just_define);
+            &CxxBase::entry_just_define,
+            visited_symbols);
+
+    nesting--;
+    if (nesting == 0)
+        visited_symbols.clear();
 }
 
 void CxxBase::define_local_entities_in_trees(const Nodecl::NodeclBase& node)
 {
+    static std::set<TL::Symbol> visited_symbols;
+    static int nesting = 0;
+    nesting++;
+
     define_generic_entities(node,
             &CxxBase::declare_symbol_if_local,
             &CxxBase::define_symbol_if_local,
             &CxxBase::define_local_entities_in_trees,
-            &CxxBase::entry_local_definition);
+            &CxxBase::entry_local_definition,
+            visited_symbols);
+
+    nesting--;
+    if (nesting == 0)
+        visited_symbols.clear();
 }
 
 // This function is only for C
