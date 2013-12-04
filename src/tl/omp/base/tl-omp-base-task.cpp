@@ -527,7 +527,8 @@ namespace TL { namespace OpenMP {
 
         result_list.append(
                 Nodecl::OpenMP::FunctionTaskParsingContext::make(
-                    Nodecl::PragmaContext::make(function_task_info.get_parsing_scope())
+                    Nodecl::PragmaContext::make(function_task_info.get_parsing_scope()),
+                    function_task_info.get_locus()
                     ));
 
         return Nodecl::List::make(result_list);
