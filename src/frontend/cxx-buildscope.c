@@ -4557,8 +4557,8 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
     common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), decl_context, type_info, gather_info, entry_list);
 }
 
-
-static type_t* compute_underlying_type_enum(const_value_t* min_value, 
+static type_t* compute_underlying_type_enum(
+        const_value_t* min_value,
         const_value_t* max_value,
         type_t* underlying_type,
         char short_enums)
@@ -4571,7 +4571,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     {
         type_t *signed_type;
         type_t *unsigned_type;
-    } 
+    }
     checked_types[] =
     {
         { get_signed_char_type(),          get_unsigned_char_type() },
@@ -4596,25 +4596,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
 
     while (result->signed_type != NULL)
     {
-        // Try first signed
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    print_declarator(result->signed_type));
-        }
-
-        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
-                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
-        {
-            return result->signed_type;
-        }
-        // Try second unsigned
+        // Try first unsigned
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
@@ -4632,8 +4614,28 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         {
             return result->unsigned_type;
         }
+
+        // Try second signed
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    print_declarator(result->signed_type));
+        }
+
+        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
+        {
+            return result->signed_type;
+        }
         result++;
     }
+
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
             codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),

@@ -132,6 +132,9 @@ struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
     scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
+    // The underlying type of this enum type when it concerns to conversions
+    // (may be different to underlying_type if !underlying_type_is_fixed)
+    type_t* underlying_type_for_conversion;
     _Bool underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
 } enum_info_t;
 
@@ -4589,6 +4592,81 @@ type_t* enum_type_get_underlying_type(type_t* t)
     simple_type_t* enum_type = t->type;
 
     return enum_type->enum_info->underlying_type;
+}
+
+// This function is used only for conversions of enum types without fixed
+// underlying types
+static type_t* enum_type_get_underlying_type_for_conversion(type_t* t)
+{
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
+
+    // If the enum type has a fixed underlying type, its
+    // underlying_type_for_conversion is its underlying type
+    if (enum_type_get_underlying_type_is_fixed(t))
+        return enum_type_get_underlying_type(t);
+
+    // Not an enum with fixed underlying type, we may have to compute the type
+    // used in conversions
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    if (enum_type->enum_info->underlying_type_for_conversion != NULL)
+        return enum_type->enum_info->underlying_type_for_conversion;
+
+    type_t* checked_types[] =
+    {
+        get_signed_int_type(),
+        get_unsigned_int_type(),
+
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+
+#ifdef HAVE_INT128
+        get_signed_int128_type(),
+        get_unsigned_int128_type(),
+#endif
+        // Sentinel
+        NULL
+    };
+
+    int i, N = enum_type_get_num_enumerators(t);
+
+    if (N == 0)
+        return get_signed_int_type();
+
+    int j;
+
+#define B_(x) const_value_is_nonzero(x)
+
+    for (j = 0; checked_types[j] != NULL; j++)
+    {
+        char all_fit = 1;
+        for (i = 0; i < N && all_fit; i++)
+        {
+            scope_entry_t* enumerator = enum_type_get_enumerator_num(t, i);
+
+            const_value_t* enumerator_value = nodecl_get_constant(enumerator->value);
+            if (enumerator_value == NULL) // This should not happen
+                continue;
+
+            all_fit = (B_(const_value_lte(integer_type_get_minimum(checked_types[j]), enumerator_value))
+                    && B_(const_value_lte(enumerator_value, integer_type_get_maximum(checked_types[j]))));
+        }
+
+        if (all_fit)
+        {
+            enum_type->enum_info->underlying_type_for_conversion = checked_types[j];
+            return checked_types[j];
+        }
+    }
+
+
+#undef B_
+    internal_error("Failure to come up with a integer for conversion of type '%s'\n",
+            print_declarator(t));
 }
 
 void enum_type_set_underlying_type(type_t* t, type_t* underlying_type)
@@ -10077,9 +10155,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     type_t* orig_underlying_type = NULL;
     if (is_enum_type(orig))
     {
-        orig_underlying_type = enum_type_get_underlying_type(orig);
-        if (orig_underlying_type == NULL)
-            orig_underlying_type = get_signed_int_type();
+        orig_underlying_type = enum_type_get_underlying_type_for_conversion(orig);
     }
 
     if (!equivalent_types(get_unqualified_type(dest), get_unqualified_type(orig)))
