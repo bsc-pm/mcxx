@@ -1947,6 +1947,8 @@ src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS=$(tl_cflags) \
 							   -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
                                -I $(top_srcdir)/src/tl/vectorizer/ \
                                -I $(top_srcdir)/src/tl/analysis/singleton/ \
                                -I $(top_srcdir)/src/tl/analysis/common/ \
@@ -1954,9 +1956,11 @@ src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS=$(tl_cflags) \
                                $(END)
 
 src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(tl_cflags)\
-							    -Wall \
+		                       -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
                                -I $(top_srcdir)/src/tl/vectorizer/ \
                                -I $(top_srcdir)/src/tl/analysis/singleton/ \
                                -I $(top_srcdir)/src/tl/analysis/common/ \
@@ -2030,8 +2034,10 @@ src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_LIBADD = \
 $(END)
 
 src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_SOURCES = \
-     src/tl/vector-lowering/knc/tl-vector-lowering-knc.hpp \
-     src/tl/vector-lowering/knc/tl-vector-lowering-knc.cpp \
+     src/tl/vector-lowering/knc/legalization/tl-vector-legalization-knc.hpp \
+     src/tl/vector-lowering/knc/legalization/tl-vector-legalization-knc.cpp \
+     src/tl/vector-lowering/knc/backend/tl-vector-backend-knc.hpp \
+     src/tl/vector-lowering/knc/backend/tl-vector-backend-knc.cpp \
      $(END)
 endif
 

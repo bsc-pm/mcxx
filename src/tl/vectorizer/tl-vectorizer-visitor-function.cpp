@@ -88,7 +88,7 @@ namespace TL
                
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(), 
                         vect_func_sym.get_internal_symbol(),
-                        parameters.size());
+                        /*nesting*/ 0, parameters.size());
 
                 // Add mask symbol and type to parameters
                 parameters.append(mask_sym);
