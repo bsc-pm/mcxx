@@ -37,7 +37,7 @@ namespace TL
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()), 
             _vector_length(64) 
         {
-            std::cerr << "--- KNC lowering phase ---" << std::endl;
+            std::cerr << "--- KNC backend phase ---" << std::endl;
         }
 
         std::string KNCVectorLowering::get_undef_intrinsic(const TL::Type& type)
@@ -497,8 +497,6 @@ namespace TL
 
             TL::Source intrin_src;
             TL::Source cmp_flavor;
-
-            std::cerr << "KNC:::> " << node.prettyprint() << std::endl;
 
             // Intrinsic name
             intrin_src << "_mm512_cmp";
