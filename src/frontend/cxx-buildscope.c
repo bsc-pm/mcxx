@@ -2994,6 +2994,54 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 #endif
                 break;
             }
+        case AST_GXX_UNDERLYING_TYPE:
+            {
+                AST type_id = ASTSon0(a);
+                AST type_specifier_seq = ASTSon0(type_id);
+                AST abstract_decl = ASTSon1(type_id);
+
+                type_t *type_info = NULL;
+
+                gather_decl_spec_t typeof_gather_info;
+                memset(&typeof_gather_info, 0, sizeof(typeof_gather_info));
+
+                // First declarator is NULL because types cannot be defined in 'typeof' expressions
+                build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info,
+                        &type_info, decl_context, nodecl_output);
+
+                if (is_error_type(type_info))
+                {
+                    *simple_type_info = get_error_type();
+                    return;
+                }
+
+                type_t* declarator_type = type_info;
+                compute_declarator_type(abstract_decl,
+                        &typeof_gather_info, type_info, &declarator_type,
+                        decl_context, nodecl_output);
+
+                if (is_dependent_type(declarator_type)
+                        || (is_enum_type(declarator_type)
+                            && is_dependent_type(enum_type_get_underlying_type(declarator_type))))
+                {
+                    *simple_type_info = get_gxx_underlying_type(declarator_type);
+                }
+                else if (is_enum_type(declarator_type))
+                {
+                    *simple_type_info = enum_type_get_underlying_type(declarator_type);
+                }
+                else
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: type-id of an __underlying_type must be an enum type\n",
+                                ast_location(a));
+                    }
+                    *simple_type_info = get_error_type();
+                }
+
+                break;
+            }
             // Mercurium extension @byte@
         case AST_MCC_BYTE:
             {

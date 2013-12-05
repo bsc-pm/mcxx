@@ -3352,6 +3352,30 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         return get_sequence_of_types(num_types, types);
     }
+    else if (is_gxx_underlying_type(orig_type))
+    {
+        type_t* orig_underlying_type = gxx_underlying_type_get_underlying_type(orig_type);
+
+        type_t* updated_underlying_type = update_type_aux_(orig_underlying_type,
+                decl_context, locus, pack_index);
+        if (updated_underlying_type == NULL)
+            return NULL;
+
+        if (is_dependent_type(updated_underlying_type)
+                || (is_enum_type(updated_underlying_type)
+                    && is_dependent_type(enum_type_get_underlying_type(updated_underlying_type))))
+        {
+            return get_gxx_underlying_type(updated_underlying_type);
+        }
+        else if (is_enum_type(updated_underlying_type))
+        {
+            return enum_type_get_underlying_type(updated_underlying_type);
+        }
+        else
+        {
+            return NULL;
+        }
+    }
     else
     {
         // Fallback

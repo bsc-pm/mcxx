@@ -121,6 +121,7 @@ enum simple_type_kind_tag
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
     STK_TYPE_DEP_EXPR,
+    STK_UNDERLYING, // __underlying_type(E) {identifier}
     // Fortran
     STK_HOLLERITH,
 } simple_type_kind_t;
@@ -224,7 +225,7 @@ struct class_info_tag {
 typedef
 struct simple_type_tag {
     // Kind
-    simple_type_kind_t kind:4;
+    simple_type_kind_t kind:5;
 
     // if Kind == STK_BUILTIN_TYPE here we have
     // the exact builtin type
@@ -267,7 +268,7 @@ struct simple_type_tag {
     // For classes (kind == STK_CLASS)
     // this includes struct/class/union
     class_info_t* class_info;
-    
+
     // Decl environment where this type was declared if not builtin The scope
     // where this type was declared since sometimes, types do not have any name
     // related to them
@@ -293,9 +294,12 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
-    enum type_tag_t dependent_entry_kind;  
+    enum type_tag_t dependent_entry_kind;
 
-    // Complex types, base type of the complex type
+    // Underlying type (STK_UNDERLYING)
+    type_t* underlying_type;
+
+    // Complex types, base type of the complex type (STK_COMPLEX)
     type_t* complex_element;
 
     // Vector types, element type and vector size
@@ -1273,6 +1277,36 @@ char is_gcc_builtin_va_list(type_t *t)
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_VA_LIST);
+}
+
+type_t* get_gxx_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    type_t* result = get_simple_type();
+
+    result->type->kind = STK_UNDERLYING;
+    result->type->underlying_type = t;
+
+    // This type is used in dependent contexts always
+    result->info->is_dependent = 1;
+
+    return result;
+}
+
+char is_gxx_underlying_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return t != NULL
+        && t->kind == TK_DIRECT
+        && t->type->kind == STK_UNDERLYING;
+}
+
+type_t* gxx_underlying_type_get_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_gxx_underlying_type(t), "Invalid type", 0);
+
+    t = advance_over_typedefs(t);
+    return t->type->underlying_type;
 }
 
 static void null_dtor(const void* v UNUSED_PARAMETER) { }
@@ -5076,6 +5110,14 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                         deduction_flags_empty());
             }
             break;
+        case STK_UNDERLYING:
+            {
+                result = equivalent_types_in_context(
+                        t1->underlying_type,
+                        t2->underlying_type,
+                        decl_context);
+            }
+            break;
         case STK_VA_LIST :
             // If both are __builtin_va_list, this is trivially true
             result = 1;
@@ -7678,6 +7720,13 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                 }
                 break;
             }
+        case STK_UNDERLYING:
+            {
+                result = strappend(result, "__underlying_type(");
+                result = strappend(result, print_type_str(simple_type->underlying_type, decl_context));
+                result = strappend(result, ")");
+                break;
+            }
         case STK_VA_LIST :
             {
                 result = "__builtin_va_list";
@@ -9101,6 +9150,11 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_TYPEOF :
             result = strappend(result, "__typeof__(");
             result = strappend(result, codegen_to_str(simple_type_info->typeof_expr, CURRENT_COMPILED_FILE->global_decl_context));
+            result = strappend(result, ")");
+            break;
+        case STK_UNDERLYING:
+            result = strappend(result, "__underlying_type(");
+            result = strappend(result, print_declarator(simple_type_info->underlying_type));
             result = strappend(result, ")");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -12419,6 +12473,10 @@ static type_t* get_foundation_type(type_t* t)
         return t;
     }
     else if (is_auto_type(t))
+    {
+        return t;
+    }
+    else if (is_gxx_underlying_type(t))
     {
         return t;
     }

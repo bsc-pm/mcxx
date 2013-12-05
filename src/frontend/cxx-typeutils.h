@@ -111,6 +111,10 @@ LIBMCXX_EXTERN char is_gcc_typeof_expr(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 
+LIBMCXX_EXTERN char is_gxx_underlying_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_gxx_underlying_type(type_t* t);
+LIBMCXX_EXTERN type_t* gxx_underlying_type_get_underlying_type(type_t* t);
+
 LIBMCXX_EXTERN type_t* get_user_defined_type(scope_entry_t* entry);
 LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
