@@ -32,6 +32,12 @@ test_generator=config/mercurium
 </testinfo>
 */
 
+#if ((__GNUC__ < 4) \
+        || (( __GNUC__ == 4) && __GNUC_MINOR__ < 6))
+    #define IGNORE_TEST
+#endif
+
+#ifndef IGNORE_TEST
 template <int N>
 struct A
 {
@@ -56,3 +62,4 @@ void foo()
     /* 5 */ EqualTest<64, __alignof__(A<32>::y)>::Test t5;
     /* 6 */ EqualTest<64, __alignof__(A<32>::z)>::Test t6;
 }
+#endif

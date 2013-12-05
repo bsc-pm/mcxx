@@ -76,7 +76,7 @@ LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, 
 }
 
 #define ASSERT_MESSAGE(cond, message, ...) \
-{ if (!(cond)) \
+{ if (__builtin_expect(!(cond), 0)) \
     { \
         debug_message((message), "Assertion failed (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
@@ -86,7 +86,7 @@ LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, 
 }
 
 #define ERROR_CONDITION(cond, message, ...) \
-{ if ((cond)) \
+{ if (__builtin_expect(!!(cond), 0)) \
     { \
         debug_message((message), "Error condition (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \

@@ -26,17 +26,10 @@
 
 SUBDIRS = config .
 
-NULL=
-
-ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
-
 END=
 CLEANFILES=
 
 CLEANFILES+=test.log test.log.xml
-
-# Replacements are defined in this makefile
-include ../config/Makefile.replace
 
 prepare-check: ./config/bets
 	chmod +x config/bets
@@ -147,3 +140,4 @@ clean-local:
 	rm -f mfc_*.f90 mfc_*.f90.c mfc_*.f90.o
 	rm -f aux_*.f90.c aux_*.f90.o
 	rm -f *.mod
+

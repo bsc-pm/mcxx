@@ -333,7 +333,8 @@ namespace Codegen
                     void (CxxBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
                     void (CxxBase::*define_entry_fun)(
                         const Nodecl::NodeclBase& node, TL::Symbol entry,
-                        void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol))
+                        void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol)),
+                    std::set<TL::Symbol>& visited_symbols
                     );
 
             bool is_local_symbol(TL::Symbol entry);
