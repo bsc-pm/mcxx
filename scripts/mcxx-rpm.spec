@@ -65,7 +65,7 @@ rm tmp.list
 %{_bindir}/*
 %{_libdir}/*
 %{_libdir}/mcxx/*
-%{_datadir}/mcxx/intel-omp/
+# %{_datadir}/mcxx/intel-omp/
 %{_datadir}/mcxx/analysisdata/*
 %{_datadir}/mcxx/fortran/*
 %{_datadir}/mcxx/config.mcxx
