@@ -13064,6 +13064,46 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
     return seq_type;
 }
 
+static void flatten_type(type_t* t, type_t*** flattened_type_seq, int* flattened_num_types)
+{
+    if (!is_sequence_of_types(t))
+    {
+        P_LIST_ADD(*flattened_type_seq, *flattened_num_types, t);
+    }
+    else
+    {
+        int i, N = sequence_of_types_get_num_types(t);
+
+        for (i = 0; i < N; i++)
+        {
+            flatten_type(
+                    sequence_of_types_get_type_num(t, i),
+                    flattened_type_seq,
+                    flattened_num_types);
+        }
+    }
+}
+
+type_t* get_sequence_of_types_flattened(int num_types, type_t** types)
+{
+    int flattened_num_types = 0;
+    type_t** flattened_type_seq = NULL;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        flatten_type(types[i],
+                &flattened_type_seq,
+                &flattened_num_types);
+    }
+
+    type_t* result = get_sequence_of_types(flattened_num_types, flattened_type_seq);
+
+    xfree(flattened_type_seq);
+
+    return result;
+}
+
 int sequence_of_types_get_num_types(type_t* t)
 {
     t = advance_over_typedefs(t);

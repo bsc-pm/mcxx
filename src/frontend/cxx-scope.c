@@ -3350,7 +3350,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 return NULL;
         }
 
-        return get_sequence_of_types(num_types, types);
+        return get_sequence_of_types_flattened(num_types, types);
     }
     else if (is_gxx_underlying_type(orig_type))
     {

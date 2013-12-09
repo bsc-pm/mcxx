@@ -191,6 +191,7 @@ LIBMCXX_EXTERN int sequence_of_types_get_num_types(type_t* seq_type);
 LIBMCXX_EXTERN type_t* sequence_of_types_get_type_num(type_t* seq_type, int num);
 LIBMCXX_EXTERN char is_sequence_of_types(type_t* seq_type);
 LIBMCXX_EXTERN type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t* type);
+LIBMCXX_EXTERN type_t* get_sequence_of_types_flattened(int num_types, type_t** types);
 
 /* Type constructors: cv-qualification */
 // The given cv_qualifier is strictly the one will have the returning type
