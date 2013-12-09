@@ -1737,7 +1737,7 @@ endif
 # src/tl/omp/nanox-nodecl/devices/opencl
 ##########################################################################
 
-if BUILD_NANOX_DEVICE_CUDA
+if BUILD_NANOX_DEVICE_OPENCL
 
 phases_LTLIBRARIES += src/tl/omp/nanox-nodecl/devices/opencl/libtlnanox-opencl.la
 

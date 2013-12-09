@@ -167,6 +167,191 @@ FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
 AC_SUBST([FORTRAN_TESTS_ENABLED])
 dnl -- End Fortran tests ---
 
+dnl -- Extra compilers ---
+
+disable_xlc=no
+AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
+AC_ARG_ENABLE([xlc],
+  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_xlf=no
+AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
+AC_ARG_ENABLE([xlf],
+  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlf="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlf="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlf="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_icc=no
+AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_ARG_ENABLE([icc],
+  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_icc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_icc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_icc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_ifort=no
+AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
+AC_ARG_ENABLE([ifort],
+  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_ifort="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_ifort="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_ifort="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+mic_compilation="no"
+mic_testing="no"
+mic_testing_device="no"
+
+MIC_COMPILATION=$mic_compilation
+MIC_TESTING=$mic_testing
+MIC_TESTING_DEVICE=$mic_testing_device
+
+if test x$disable_icc = xno;
+then
+   dnl Check Intel Compiler C
+   AC_PATH_PROG([ICC], [icc], [$ICC])
+   if test x$ICC != x;
+   then
+      AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
+      AC_ARG_ENABLE([mic],
+             AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
+             [
+                 if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+                 then
+                     mic_compilation="yes"
+                     AC_MSG_RESULT([yes])
+                 else if test x"$enableval" = x"no";
+                      then
+                         AC_MSG_RESULT([no])
+                         mic_compilation="no"
+                      else
+                         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                      fi
+                 fi
+             ])
+
+      AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
+      AC_ARG_ENABLE([mic-testing],
+             AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
+             [
+                if test x$enableval != x;
+                then
+                   AC_MSG_RESULT([yes])
+                   mic_testing_device="$enableval"
+                else
+                   AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
+                fi
+             ])
+
+      MIC_COMPILATION=$mic_compilation
+      MIC_TESTING=$mic_testing
+      MIC_TESTING_DEVICE=$mic_testing_device
+
+      dnl end
+   fi
+   dnl Check Intel Compiler C++
+   AC_PATH_PROG([ICPC], [icpc], [$ICPC])
+else
+    ICC=
+    ICPC=
+fi
+
+if test x$disable_xlc = xno;
+then
+   dnl XL (gcc driver)
+   AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
+   dnl XL (g++ driver)
+   AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
+else
+    GXLC=
+    GXLCXX=
+fi
+
+dnl Check Intel Fortran
+if test x$disable_ifort = xno;
+then
+   AC_PATH_PROG([IFORT], [ifort], [$IFORT])
+else
+    IFORT=
+fi
+
+dnl IBM Fortran
+if test x$disable_xlf = xno;
+then
+    AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+else
+    XLF=
+fi
+
+dnl -- End of extra compiler checks ---
+
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
 dnl Legacy name of openmpt
@@ -492,6 +677,16 @@ dnl             esac
 
    INTEL_OMP_INCLUDE=${intel_omp_include}
    INTEL_OMP_LIB=${intel_omp_lib}
+
+   if test x$ICC = x;
+   then
+       AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C (icc) has not been found or has been disabled])
+   fi
+
+   if test x$ICPC = x;
+   then
+       AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C++ (icpc) has not been found or has been disabled])
+   fi
 
    COMPILER_NAMES="${COMPILER_NAMES} intel-mcc intel-mcxx intel-mfc intel-mf95"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.intel-omp-base 50.config.omp.intel-rtl"
@@ -890,112 +1085,8 @@ AC_ARG_ENABLE([tl-openmp-profile],
   ]
 )
 
-dnl -- Extra compilers ---
-disable_xlc=no
-AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
-AC_ARG_ENABLE([xlc],
-  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_xlc="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_xlc="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_xlc="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-disable_xlf=no
-AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
-AC_ARG_ENABLE([xlf],
-  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_xlf="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_xlf="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_xlf="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-disable_icc=no
-AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
-AC_ARG_ENABLE([icc],
-  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_icc="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_icc="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_icc="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-disable_ifort=no
-AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
-AC_ARG_ENABLE([ifort],
-  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_ifort="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_ifort="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_ifort="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-mic_compilation="no"
-mic_testing="no"
-mic_testing_device="no"
-
-MIC_COMPILATION=$mic_compilation
-MIC_TESTING=$mic_testing
-MIC_TESTING_DEVICE=$mic_testing_device
 
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
@@ -1008,117 +1099,49 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   if test x$disable_icc = xno;
+   # Intel C/C++ + Nanos++
+   if test x$ICC != x;
    then
-      dnl Check Intel Compiler C
-      AC_PATH_PROG([ICC], [icc], [$ICC])
-      if test x$ICC != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} imcc"
-
-         AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
-         AC_ARG_ENABLE([mic],
-                AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
-                [
-                    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-                    then
-                        mic_compilation="yes"
-                        AC_MSG_RESULT([yes])
-                    else if test x"$enableval" = x"no";
-                         then
-                            AC_MSG_RESULT([no])
-                            mic_compilation="no"
-                         else
-                            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-                         fi
-                    fi
-                ])
-
-         AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
-         AC_ARG_ENABLE([mic-testing],
-                AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
-                [
-                   if test x$enableval != x;
-                   then
-                      AC_MSG_RESULT([yes])
-                      mic_testing_device="$enableval"
-                      mic_testing="yes"
-                   else
-                      AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
-                   fi
-                ])
-
-         MIC_COMPILATION=$mic_compilation
-         MIC_TESTING=$mic_testing
-         MIC_TESTING_DEVICE=$mic_testing_device
-
-         dnl end
-      fi
-      dnl Check Intel Compiler C++
-      AC_PATH_PROG([ICPC], [icpc], [$ICPC])
-      if test x$ICPC != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} imcxx"
-      fi
-
-      if test x$ICC != x -o x$ICPC != x;
-      then
-         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
-      fi
-   else
-       ICC=
-       ICPC=
+      COMPILER_NAMES="${COMPILER_NAMES} imcc"
    fi
 
-   if test x$disable_xlc = xno;
+   if test x$ICPC != x;
    then
-      dnl XL (gcc driver)
-      AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
-      if test x$GXLC != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
-      fi
-
-      dnl XL (g++ driver)
-      AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
-      if test x$GXLCXX != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
-      fi
-
-      if test x$GXLC != x -o x$GXLCXX != x;
-      then
-         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
-      fi
-   else
-       GXLC=
-       GXLCXX=
+      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
    fi
 
-   dnl Check Intel Fortran
-   if test x$disable_ifort = xno;
+   if test x$ICC != x -o x$ICPC != x;
    then
-      AC_PATH_PROG([IFORT], [ifort], [$IFORT])
-      if test x$IFORT != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
-         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
-      fi
-   else
-       IFORT=
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
    fi
 
-   dnl IBM Fortran
-   if test x$disable_xlf = xno;
+   # Intel Fortran + Nanos++
+   if test x$IFORT != x;
    then
-       AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
-       if test x$XLF != x;
-       then
-          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
-          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
-       fi
-   else
-       XLF=
+      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+   fi
+
+   # IBM XL C/C++ + Nanos++
+   if test x$GXLC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+   fi
+   if test x$GXLCXX != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+   fi
+
+   if test x$GXLC != x -o x$GXLCXX != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+   fi
+
+   # IBM XL Fortran + Nanos++
+   if test x$XLF != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
    fi
 fi
 
