@@ -62,12 +62,6 @@ namespace TL { namespace OpenMP {
                     TL::Symbol function_sym,
                     FunctionTaskInfo& function_task_info);
 
-            template < typename T>
-                void get_assignment_expressions(
-                        Nodecl::NodeclBase expr,
-                        Nodecl::NodeclBase& lhs_expr,
-                        Nodecl::NodeclBase& rhs_expr);
-
             void fill_map_parameters_to_arguments(
                     TL::Symbol function,
                     Nodecl::List arguments,
@@ -85,6 +79,56 @@ namespace TL { namespace OpenMP {
                     const Nodecl::NodeclBase& join_task);
     };
 
+    //  This visitor creates, for every nonvoid function task called in the
+    //  source, a new void task which acts like a wrapper. At the end of the
+    //  execution of this visitor, the nonvoid function task will be removed
+    //  from the function task set.
+    //
+    // Example:
+    //
+    //          #pragma omp task
+    //          int fact(int n)
+    //          {
+    //              if (n == 0 || n == 1) return 1;
+    //              int res = fact(n-1) * n;
+    //              #pragma omp taskwait
+    //              return res;
+    //          }
+    //
+    //          int main()
+    //          {
+    //              int x = fact(10);
+    //              #pragma omp taskwait
+    //          }
+    //
+    //  This code is tranformed into:
+    //
+    //          void fact__(int n, int* out); // Forward Declaration
+    //
+    //          int fact(int n)
+    //          {
+    //              if (n == 0 || n == 1) return 1;
+    //              int res, *mcc_ret1;
+    //              fact__(n-1, mcc_ret1);
+    //              res = *mcc_ret1 * n;
+    //              #pragma omp taskwait
+    //              return res;
+    //          }
+    //
+    //          #pragma omp task in(n) output(*output)
+    //          void fact__(int n, int* out)
+    //          {
+    //              *out = fact(n);
+    //          }
+    //
+    //          int main()
+    //          {
+    //              int x, *mcc_ret1;
+    //              fact__(10, mcc_ret1);
+    //              x = *mcc_ret1;
+    //              #pragma omp taskwait
+    //          }
+    //
     class TransformNonVoidFunctionCalls : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
@@ -95,7 +139,12 @@ namespace TL { namespace OpenMP {
 
             std::map<TL::Symbol, TL::Symbol> _transformed_task_map;
 
+            // This list will contain the function calls contained in the new
+            // wrappers (we should not transform them!)
             TL::ObjectList<Nodecl::FunctionCall> _ignore_these_function_calls;
+
+            TL::ObjectList<Nodecl::NodeclBase> _enclosing_stmts_with_more_than_one_task;
+
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_stmt_map;
             std::map<Nodecl::NodeclBase, std::set<TL::Symbol> > _enclosing_stmt_to_return_vars_map;
 
@@ -116,19 +165,34 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase get_enclosing_stmt(Nodecl::NodeclBase function_call);
 
+            bool only_one_task_is_involved_in_this_stmt(Nodecl::NodeclBase stmt);
+
             void transform_object_init(Nodecl::NodeclBase enclosing_stmt, const locus_t* locus);
 
             void transform_return_statement(Nodecl::NodeclBase enclosing_stmt, const locus_t* locus);
 
-            void add_the_new_task_to_the_function_task_set(
-                    TL::Symbol function_called,
-                    TL::Symbol new_function,
-                    const FunctionTaskInfo& original_function_task_info,
-                    Nodecl::NodeclBase func_call);
+            void transform_task_expression_into_simple_task(
+                    Nodecl::FunctionCall func_call,
+                    Nodecl::NodeclBase enclosing_stmt);
 
-            Nodecl::NodeclBase create_a_wrapper_to_the_function_called(
+            void add_new_task_to_the_function_task_set(
+                    TL::Symbol ori_funct,
+                    TL::Symbol new_funct,
+                    const FunctionTaskInfo& ori_funct_task_info,
+                    Nodecl::NodeclBase func_call,
+                    bool has_return_argument,
+                    TL::OpenMP::DependencyDirection dep_dir);
+
+            Nodecl::NodeclBase create_body_for_new_function_task(
                     TL::Symbol original_function,
                     TL::Symbol new_function);
+
+            Nodecl::NodeclBase create_body_for_new_optmized_function_task(
+                    TL::Symbol ori_funct,
+                    TL::Symbol new_funct,
+                    Nodecl::NodeclBase enclosing_stmt,
+                    Nodecl::NodeclBase new_funct_body,
+                    TL::ObjectList<TL::Symbol>& captured_value_symbols);
     };
 }}
 #endif //TL_OMP_BASE_TASK_HPP
