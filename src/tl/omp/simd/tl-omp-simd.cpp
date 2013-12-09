@@ -194,6 +194,14 @@ namespace TL {
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(simd_environment, vectorlengthfor_type);
 
+            // Cache clause
+            TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
+            process_cache_clause(simd_environment, cached_expressions);
+
+            VectorizerCache vectorizer_cache(cached_expressions);
+            vectorizer_cache.declare_cache_symbols(for_statement.retrieve_context());
+            simd_node.prepend_sibling(vectorizer_cache.get_init_statements());
+
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
@@ -222,6 +230,7 @@ namespace TL {
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
+                    vectorizer_cache,
                     &new_external_vector_symbol_map);
 
             // Initialize analysis info
@@ -294,7 +303,7 @@ namespace TL {
 
                 // TODO: 
                 // firstprivate in SIMD
-           }
+            }
 
             // Process epilog
             if (epilog_iterations != 0)
@@ -365,6 +374,12 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
+            // Cache clause
+            TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
+            process_cache_clause(omp_for_environment, cached_expressions);
+
+            VectorizerCache vectorizer_cache(cached_expressions);
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(omp_simd_for_environment, vectorlengthfor_type);
@@ -397,6 +412,7 @@ namespace TL {
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
+                    vectorizer_cache,
                     &new_external_vector_symbol_map);
 
             // Initialize analysis info
@@ -566,6 +582,12 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
 
+            // Cache clause
+            TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
+            process_cache_clause(omp_environment, cached_expressions);
+
+            VectorizerCache vectorizer_cache(cached_expressions);
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
@@ -587,12 +609,16 @@ namespace TL {
             // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
-                common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, true);
+                common_simd_function(simd_node, function_code, 
+                        suitable_expressions, vectorlengthfor_type, 
+                        vectorizer_cache, true);
             }
             // Nomask Version
             if (omp_mask.is_null())
             {
-                common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, false);
+                common_simd_function(simd_node, function_code, 
+                        suitable_expressions, vectorlengthfor_type,
+                        vectorizer_cache, false);
             }
         }
 
@@ -600,6 +626,7 @@ namespace TL {
                 const Nodecl::FunctionCode& function_code,
                 const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                 const TL::Type& vectorlengthfor_type,
+                const VectorizerCache& vectorizer_cache,
                 const bool masked_version)
         {
             TL::Symbol func_sym = function_code.get_symbol();
@@ -656,6 +683,7 @@ namespace TL {
                     vectorlengthfor_type,
                     &suitable_expressions,
                     NULL,
+                    vectorizer_cache,
                     NULL);
 
             // Initialize analysis info
@@ -711,6 +739,19 @@ namespace TL {
             else //Float type by default //TODO
             {
                 vectorlengthfor_type = TL::Type::get_float_type();
+            }
+        }
+
+        void SimdVisitor::process_cache_clause(const Nodecl::List& environment,
+                TL::ObjectList<Nodecl::NodeclBase>& cached_expressions)
+        {
+            Nodecl::OpenMP::Cache omp_cache = 
+                environment.find_first<Nodecl::OpenMP::Cache>();
+
+            if(!omp_cache.is_null())
+            {
+                cached_expressions = omp_cache.get_cached_expressions().
+                    as<Nodecl::List>().to_object_list();
             }
         }
 

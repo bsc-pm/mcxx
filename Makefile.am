@@ -1386,6 +1386,8 @@ src_tl_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorizer/tl-vectorizer-utils.cpp \
                            src/tl/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorizer/tl-function-versioning.hpp \
+                           src/tl/vectorizer/tl-vectorizer-cache.cpp \
+                           src/tl/vectorizer/tl-vectorizer-cache.hpp \
                            src/tl/vectorizer/tl-vectorizer.cpp \
                            src/tl/vectorizer/tl-vectorizer.hpp \
                            src/tl/vectorizer/tl-vectorizer-visitor-for.cpp \

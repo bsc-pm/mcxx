@@ -1017,6 +1017,17 @@ namespace TL { namespace OpenMP {
                             stmt.get_locus()));
             }
 
+            // Cache
+            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+            if (cache_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Cache::make(
+                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+
             // Unroll
             PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
             
@@ -1110,6 +1121,16 @@ namespace TL { namespace OpenMP {
                             decl.get_locus()));
             }
 
+            // Cache
+            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+            if (cache_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Cache::make(
+                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
+                            decl.get_locus()));
+            }
+
             // Mask
             PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
             
@@ -1186,6 +1207,16 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::VectorLengthFor::make(
                             target_type,
+                            stmt.get_locus()));
+            }
+
+            // Cache
+            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+            if (cache_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Cache::make(
+                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
                             stmt.get_locus()));
             }
 

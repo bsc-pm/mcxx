@@ -29,6 +29,7 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-cache.hpp"
 
 namespace TL
 {
@@ -86,6 +87,9 @@ namespace TL
                 int process_unroll_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment, 
                         TL::Type& vectorlengthfor_type);
+                void process_cache_clause(const Nodecl::List& environment,
+                        TL::ObjectList<Nodecl::NodeclBase>& cached_expressions);
+
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,
                         std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
@@ -102,6 +106,7 @@ namespace TL
                         const Nodecl::FunctionCode& function_code,
                         const TL::ObjectList<Nodecl::NodeclBase>& suitable_expresions,
                         const TL::Type& vectorlengthfor_type,
+                        const Vectorization::VectorizerCache& vectorizer_cache,
                         const bool masked_version);
         };
 
