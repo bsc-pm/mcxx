@@ -4981,16 +4981,27 @@ void print_template_parameter_list_aux(template_parameter_list_t* template_param
         for (i = 0; i < template_parameters->num_parameters; i++)
         {
             const char* kind_name = "<<unknown>>";
-            switch (template_parameters->parameters[i]->kind)
+            if (template_parameters->parameters[i] != NULL)
             {
-                case TPK_NONTYPE: kind_name = "nontype"; break;
-                case TPK_TYPE: kind_name = "type"; break;
-                case TPK_TEMPLATE: kind_name = "template"; break;
-                default: break;
+                switch (template_parameters->parameters[i]->kind)
+                {
+                    case TPK_NONTYPE: kind_name = "nontype"; break;
+                    case TPK_TYPE: kind_name = "type"; break;
+                    case TPK_TEMPLATE: kind_name = "template"; break;
+
+                    case TPK_NONTYPE_PACK: kind_name = "nontype pack"; break;
+                    case TPK_TYPE_PACK: kind_name = "type pack"; break;
+                    case TPK_TEMPLATE_PACK: kind_name = "template pack"; break;
+                    default: break;
+                }
+                fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
+                        template_parameters->parameters[i]->entry->symbol_name,
+                        kind_name);
             }
-            fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
-                    template_parameters->parameters[i]->entry->symbol_name,
-                    kind_name);
+            else
+            {
+                fprintf(stderr, "* Nesting: %d | Position: %d | <<unknown parameter>\n", *n, i);
+            }
 
             template_parameter_value_t* v = template_parameters->arguments[i];
             if (v == NULL)
