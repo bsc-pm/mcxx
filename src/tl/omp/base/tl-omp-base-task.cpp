@@ -754,7 +754,6 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase expr = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
         return (expr.is<Nodecl::AddAssignment>()
                 || expr.is<Nodecl::ArithmeticShrAssignment>()
-                || expr.is<Nodecl::Assignment>()
                 || expr.is<Nodecl::BitwiseAndAssignment>()
                 || expr.is<Nodecl::BitwiseOrAssignment>()
                 || expr.is<Nodecl::BitwiseShlAssignment>()
