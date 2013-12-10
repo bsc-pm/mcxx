@@ -800,8 +800,9 @@ void unificate_two_types(type_t* t1,
 
             if (template_args_are_deduced)
             {
-                for (i = 0; 
-                        (i < targ_list_1->num_parameters) && (i < targ_list_2->num_parameters);
+                for (i = 0;
+                        i < targ_list_1->num_parameters
+                        && i < targ_list_2->num_parameters;
                         i++)
                 {
                     template_parameter_value_t* current_arg_1 = targ_list_1->arguments[i];
@@ -817,6 +818,8 @@ void unificate_two_types(type_t* t1,
                                     fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d\n", i);
                                 }
 
+                                // If we are unificating T... <- S... and S is
+                                // the last pack, do not unificate T... <- {S...}
                                 if (is_pack_type(current_arg_1->type))
                                 {
                                     int num_t2_types = 0;
@@ -1019,10 +1022,7 @@ void unificate_two_types(type_t* t1,
                 }
                 else
                 {
-                    // We cannot deduce this pack here...
-                    // FIXME: But we deduced the previous types, should have we
-                    // aborted all the deduction earlier?
-                    break;
+                    // We cannot deduce this pack here
                 }
             }
             else
@@ -1056,10 +1056,16 @@ void unificate_two_types(type_t* t1,
                 merge_deduction_set(deduction_set, current_deduction_set, flags);
             }
         }
+        else if (is_pack_type(t2))
+        {
+            unificate_two_types(packed_type,
+                    pack_type_get_packed_type(t2),
+                    deduction_set, decl_context, locus, flags);
+        }
         else
         {
-            unificate_two_types(packed_type, t2,
-                    deduction_set, decl_context, locus, flags);
+            UNIFICATION_ENDED;
+            return;
         }
     }
     else if (is_lvalue_reference_type(t1)

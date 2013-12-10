@@ -2000,9 +2000,6 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
-    // This is needed only by debug routines
-    decl_context.template_parameters = template_parameters;
-
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
     // Search an existing specialization
@@ -2024,7 +2021,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
-                    print_type_str(specialization, decl_context),
+                    print_type_str(specialization, entry->decl_context),
                     entry->type_information,
                     locus_to_str(entry->locus));
         }
@@ -2038,7 +2035,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
             {
                 fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
                 fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
-                        print_type_str(specialization, decl_context),
+                        print_type_str(specialization, entry->decl_context),
                         entry->type_information);
             }
 
