@@ -765,10 +765,41 @@ namespace TL { namespace OpenMP {
                 || expr.is<Nodecl::MulAssignment>());
     }
 
+    bool is_a_subexpression_of(Nodecl::NodeclBase subexpr, Nodecl::NodeclBase expr)
+    {
+        if (expr.is_null())
+            return false;
+
+        if (expr.get_kind() == subexpr.get_kind()
+                && Nodecl::Utils::equal_nodecls(expr, subexpr))
+            return true;
+
+        bool found = false;
+        if (expr.is<Nodecl::List>())
+        {
+            Nodecl::List l = expr.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin(); it != l.end() && !found; it++)
+            {
+                found = is_a_subexpression_of(subexpr, *it);
+            }
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = expr.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end() && !found;
+                    it++)
+            {
+                found = is_a_subexpression_of(subexpr, *it);
+            }
+        }
+        return found;
+    }
+
     bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
-                        "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
+                "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
 
         // FIXME: How to know if a expression is a reduction will be implemented by
         // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
@@ -783,9 +814,8 @@ namespace TL { namespace OpenMP {
         if (expression_stmt_is_compound_assignment(expr))
             return true;
 
-        // FIXME: detect this kind of expression:  x = x + expr
-
-        return false;
+        // Detect this kind of reductions: x = foo(i) + x;
+        return is_a_subexpression_of(lhs_expr, rhs_expr);
     }
 
     Nodecl::OpenMP::Task FunctionCallVisitor::generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
