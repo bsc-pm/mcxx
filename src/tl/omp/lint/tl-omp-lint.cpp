@@ -444,7 +444,7 @@ namespace TL { namespace OpenMP {
             {
                 tribool result = false;
 
-                Nodecl::NodeclBase task = n->get_graph_label();
+                // Nodecl::NodeclBase task = n->get_graph_label();
                 // std::cerr << "Checking if task at " << task.get_locus_str()
                 //     << " can be late executed" << std::endl;
 
@@ -477,7 +477,7 @@ namespace TL { namespace OpenMP {
                         *(mit->second) = true;
                     }
 
-                    // If none of the exit edges is a "maybe" and there is a "post", there is a change
+                    // If none of the exit edges is a "maybe" and there is a "post", there is a chance
                     // it runs lately
                     result = (!seen_maybe_edges && seen_post_edges);
                 }
