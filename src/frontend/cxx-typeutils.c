@@ -1601,9 +1601,8 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                     {
                         result->arguments[i]->type = simplify_types_template_arguments_rec(result->arguments[i]->type);
 
-                        if (nodecl_is_constant(result->arguments[i]->value)
-                                // When expansions are involved there may not be a symbol for this parameter
-                                && result->parameters[i]->entry != NULL
+                        if (result->parameters[i] != NULL
+                                && nodecl_is_constant(result->arguments[i]->value)
                                 && !is_dependent_type(result->parameters[i]->entry->type_information))
                         {
                             if (!is_enum_type(result->parameters[i]->entry->type_information))
