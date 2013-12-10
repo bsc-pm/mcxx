@@ -800,7 +800,9 @@ void unificate_two_types(type_t* t1,
 
             if (template_args_are_deduced)
             {
-                for (i = 0; i < targ_list_1->num_parameters; i++)
+                for (i = 0; 
+                        (i < targ_list_1->num_parameters) && (i < targ_list_2->num_parameters);
+                        i++)
                 {
                     template_parameter_value_t* current_arg_1 = targ_list_1->arguments[i];
                     template_parameter_value_t* current_arg_2 = targ_list_2->arguments[i];
