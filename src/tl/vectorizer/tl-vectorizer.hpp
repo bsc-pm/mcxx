@@ -39,6 +39,8 @@ namespace TL
 { 
     namespace Vectorization
     {
+        class VectorizerCache;
+
         class VectorizerEnvironment
         {
             private:
@@ -94,6 +96,7 @@ namespace TL
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
                 friend class VectorizerVectorReduction;
+                friend class VectorizerCache;
 
                 friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
                         const VectorizerEnvironment& environment,
@@ -123,6 +126,11 @@ namespace TL
                 static void finalize_analysis();
 
                 ~Vectorizer();
+
+                void load_environment(const Nodecl::ForStatement& for_statement,
+                        VectorizerEnvironment& environment);
+
+                void unload_environment(VectorizerEnvironment& environment);
 
                 void vectorize(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);

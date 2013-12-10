@@ -25,17 +25,19 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-cache.hpp"
+#include "tl-vectorizer-visitor-statement.hpp"
 
 namespace TL 
 {
     namespace Vectorization
     {
-        CacheInfo::CacheInfo(const NodeclBase& lower_bound, const NodeclBase& upper_bound,
+        CacheInfo::CacheInfo(
+                const NodeclBase &lower_bound,
+                const NodeclBase& upper_bound,
                 const NodeclBase& stride)
             : _lower_bound(lower_bound), _upper_bound(upper_bound), _stride(stride)
         {
         }
-
 
         VectorizerCache::VectorizerCache(const ObjectList<Nodecl::NodeclBase>& cached_expressions)
         {
@@ -47,25 +49,35 @@ namespace TL
                         "VECTORIZER: cache clause does not contain an ArraySubscript", 0);
     
                 Nodecl::ArraySubscript arr_it = it->as<Nodecl::ArraySubscript>();
-                Nodecl::Range range_it = arr_it.get_subscripts().as<Nodecl::List>().front().as<Nodecl::Range>();
+                Nodecl::NodeclBase list_front = arr_it.get_subscripts().as<Nodecl::List>().front();
+
+                ERROR_CONDITION(!list_front.is<Nodecl::Range>(), 
+                        "VECTORIZER: Range not found in cache clause", 0);
+ 
+                Nodecl::Range range_it = list_front.as<Nodecl::Range>();
+
 
                 TL::Symbol key = arr_it.get_subscripted().as<Nodecl::Symbol>().get_symbol();
+
                 Nodecl::NodeclBase lower_bound = range_it.get_lower();
                 Nodecl::NodeclBase upper_bound = range_it.get_upper();
                 Nodecl::NodeclBase stride = range_it.get_stride();
 
                 _cache_map.insert(cache_pair_t(key, 
-                            CacheInfo(upper_bound, lower_bound, stride)));
+                            CacheInfo(lower_bound, upper_bound, stride)));
             }
         }
 
-        void VectorizerCache::declare_cache_symbols(TL::Scope scope)
+        void VectorizerCache::declare_cache_symbols(TL::Scope scope, 
+                const VectorizerEnvironment& environment)
         {
+            // Map of caches
             for(cache_map_t::iterator it = _cache_map.begin();
                     it != _cache_map.end();
                     it++)
             {
                 // TODO # registers
+                // Add registers to each cache
                 for (int i=0; i<2; i++)
                 {
                     std::stringstream new_sym_name;
@@ -74,35 +86,106 @@ namespace TL
                     TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
                     new_sym.get_internal_symbol()->kind = SK_VARIABLE;
                     new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                    new_sym.set_type(it->first.get_type());
+                    new_sym.set_type(it->first.get_type().basic_type().
+                            get_vector_of_elements(environment._unroll_factor));
+
+                    std::cerr << it->first.get_name() << ": " << it->first.get_type().get_simple_declaration(scope, " ") 
+                              << it->first.get_type().basic_type().get_simple_declaration(scope, " ")
+                              << it->first.get_type().basic_type().get_vector_of_elements(environment._unroll_factor).get_simple_declaration(scope, " ")
+                              << std::endl;
 
                     it->second._register_list.push_back(new_sym);
                 }
             } 
         } 
 
-        Nodecl::List VectorizerCache::get_init_statements()
+        Nodecl::List VectorizerCache::get_init_statements(VectorizerEnvironment& environment) const
         {
             Nodecl::List result_list;
 
-            for(cache_map_t::iterator it = _cache_map.begin();
+            for(cache_map_t::const_iterator it = _cache_map.begin();
                     it != _cache_map.end();
                     it++)
             {
-                std::vector<TL::Symbol>& register_list = it->second._register_list;
+                const std::vector<TL::Symbol>& register_list = it->second._register_list;
                 const int size = register_list.size();
 
-                for(int i=0; i < size; i++)
+                //TODO: different strategies
+                for(int i=1; i < size; i++)
                 {
-                    result_list.append(Nodecl::ExpressionStatement::make(Nodecl::Add::make(
-                                register_list[i].make_nodecl(), 
-                                register_list[i].make_nodecl(),
-                                register_list[i].get_type())));
+                    // __cache_X_1 = a[i];
+                    Nodecl::ExpressionStatement exp_stmt = 
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    register_list[i].make_nodecl(/* type = */ true), 
+                                    Nodecl::ArraySubscript::make(
+                                        it->first.make_nodecl(/* type = */true),
+                                        Nodecl::List::make( //TODO: + VL*(i-1)
+                                            it->second._lower_bound.shallow_copy()),
+                                        it->first.get_type().basic_type()),
+                                    register_list[i].get_type().basic_type()));
+
+                    VectorizerVisitorStatement stmt_vectorizer(environment);
+                    stmt_vectorizer.walk(exp_stmt);
+
+                    result_list.prepend(exp_stmt);
                 } 
             }
             
             return result_list;
         } 
+
+        Nodecl::List VectorizerCache::get_iteration_update(VectorizerEnvironment& environment) const
+        {
+            Nodecl::List result_list;
+
+            for(cache_map_t::const_iterator it = _cache_map.begin();
+                    it != _cache_map.end();
+                    it++)
+            {
+                const std::vector<TL::Symbol>& register_list = it->second._register_list;
+                const int size = register_list.size();
+
+                //TODO: different strategies
+                int i;
+                for(i=0; i < (size-1); i++)
+                {
+                    // __cache_X_0 = __cache_X_1;
+                    Nodecl::ExpressionStatement exp_stmt = 
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::Assignment::make(
+                                    register_list[i].make_nodecl(/* type = */ true), 
+                                    register_list[i+1].make_nodecl(/* type = */ true), 
+                                    register_list[i].get_type().basic_type()));
+
+                    result_list.prepend(exp_stmt);
+                } 
+
+                // __cache_X_0 = load(a[i + VL]) // TODO: VL*;
+                Nodecl::ExpressionStatement exp_stmt = 
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                register_list[i].make_nodecl(/* type = */ true), 
+                                Nodecl::ArraySubscript::make(
+                                    it->first.make_nodecl(/* type = */true),
+                                    Nodecl::List::make(
+                                        Nodecl::Add::make(
+                                            it->second._lower_bound.shallow_copy(),
+                                            const_value_to_nodecl(const_value_get_signed_int(environment._unroll_factor)),
+                                            TL::Type::get_int_type())),
+                                    it->first.get_type().basic_type()),
+                                register_list[i].get_type().basic_type()));
+
+                VectorizerVisitorStatement stmt_vectorizer(environment);
+                stmt_vectorizer.walk(exp_stmt);
+
+                result_list.prepend(exp_stmt);
+
+            }
+            
+            return result_list;
+        } 
+
     }
 }
 

@@ -40,37 +40,21 @@ namespace TL
         {
         }
 
+
         void VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
-            // Set up enviroment
-            _environment._external_scope =
-                for_statement.retrieve_context();
-            _environment._local_scope_list.push_back(
-                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
-
-            // Push ForStatement as scope for analysis
-            _environment._analysis_simd_scope = for_statement;
-            _environment._analysis_scopes.push_back(for_statement);
-
             // Vectorize Loop Header
             VectorizerVisitorLoopHeader visitor_loop_header(_environment);
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
-            // Vectorize Loop Body
-
-            // Add MaskLiteral to mask_list
-            Nodecl::MaskLiteral all_one_mask =
-                Nodecl::MaskLiteral::make(
-                        TL::Type::get_mask_type(_environment._unroll_factor),
-                        const_value_get_minus_one(_environment._unroll_factor, 1));
-            _environment._mask_list.push_back(all_one_mask);
-
+            // LOOP BODY
             VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(for_statement.get_statement());
 
-            _environment._mask_list.pop_back();
-            _environment._analysis_scopes.pop_back();
-            _environment._local_scope_list.pop_back();
+            // TODO: Function->Add statement in enclosed compound statement
+            for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
+                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
+                .prepend(_environment._vectorizer_cache.get_iteration_update(_environment));
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)

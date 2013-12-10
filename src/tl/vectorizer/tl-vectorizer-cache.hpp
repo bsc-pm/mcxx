@@ -28,6 +28,7 @@
 #define TL_VECTORIZER_CACHE_HPP
 
 #include "tl-nodecl.hpp"
+#include "tl-vectorizer.hpp"
 #include <map>
 #include <vector>
 
@@ -38,6 +39,7 @@ namespace TL
     namespace Vectorization
     {
         class VectorizerCache;
+
         class CacheInfo
         {
             private:
@@ -55,6 +57,7 @@ namespace TL
             friend VectorizerCache;
 
         };
+
         class VectorizerCache
         {
             private:
@@ -66,8 +69,11 @@ namespace TL
             public:
                 VectorizerCache(const TL::ObjectList<Nodecl::NodeclBase>& cached_expressions);
 
-                void declare_cache_symbols(TL::Scope scope);
-                Nodecl::List get_init_statements();
+                void declare_cache_symbols(TL::Scope scope, 
+                        const VectorizerEnvironment& environment);
+                
+                Nodecl::List get_init_statements(VectorizerEnvironment& environment) const;
+                Nodecl::List get_iteration_update(VectorizerEnvironment& environment) const;
         };
     }
 }

@@ -197,10 +197,7 @@ namespace TL {
             // Cache clause
             TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
             process_cache_clause(simd_environment, cached_expressions);
-
             VectorizerCache vectorizer_cache(cached_expressions);
-            vectorizer_cache.declare_cache_symbols(for_statement.retrieve_context());
-            simd_node.prepend_sibling(vectorizer_cache.get_init_statements());
 
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
@@ -244,8 +241,22 @@ namespace TL {
             int epilog_iterations = _vectorizer.get_epilog_info(for_statement, 
                     for_environment, only_epilog);
 
+
+            // Add scopes, default masks, etc.
+            _vectorizer.load_environment(for_statement, for_environment);
+
+            // Cache init
+            vectorizer_cache.declare_cache_symbols(
+                    for_statement.retrieve_context(), for_environment);
+            simd_node.prepend_sibling(vectorizer_cache.get_init_statements(for_environment));
+
+            // Call to vectorizer
             if (!only_epilog)
+            {
                 _vectorizer.vectorize(for_statement, for_environment); 
+            }
+
+            _vectorizer.unload_environment(for_environment);
 
             // Add new vector symbols
             if (!new_external_vector_symbol_map.empty())
