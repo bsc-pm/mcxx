@@ -51,7 +51,7 @@ namespace Utils {
             return ObjectList<Nodecl::NodeclBase>(1, n);
         }
         else if (n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() || n.is<Nodecl::ComplexLiteral>()
-                || n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>())
+                || n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>() || n.is<Nodecl::MaskLiteral>() )
         {
             return ObjectList<Nodecl::NodeclBase>();
         }

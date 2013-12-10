@@ -249,147 +249,174 @@ namespace {
             current->set_visited( true );
             
             // Treat current node
-            if( current->has_assertion( ) )
+            std::string locus_str;
+            if( current->is_graph_node( ) )
+                locus_str = current->get_graph_label( ).get_locus_str( );
+            else
             {
-                std::string locus_str;
-                if( current->is_graph_node( ) )
-                    locus_str = current->get_graph_label( ).get_locus_str( );
-                else
+                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
+                if( !stmts.empty( ) )
+                    locus_str = stmts[0].get_locus_str( );
+            }
+                
+            // Check UseDef analysis
+            if( current->has_usage_assertion( ) )
+            {
+                Utils::ext_sym_set assert_ue = current->get_assert_ue_vars( );
+                Utils::ext_sym_set assert_killed = current->get_assert_killed_vars( );
+                Utils::ext_sym_set ue = current->get_ue_vars( );
+                Utils::ext_sym_set killed = current->get_killed_vars( );
+            
+                compare_assert_set_with_analysis_set( assert_ue, ue, locus_str, current->get_id( ), "upper_exposed", "Upper Exposed" );
+                compare_assert_set_with_analysis_set( assert_killed, killed, locus_str, current->get_id( ), "defined", "Killed" );
+            }
+                
+            // Check Liveness analysis
+            if( current->has_liveness_assertion( ) )
+            {
+                Utils::ext_sym_set assert_live_in = current->get_assert_live_in_vars( );
+                Utils::ext_sym_set assert_live_out = current->get_assert_live_out_vars( );
+                Utils::ext_sym_set assert_dead = current->get_assert_dead_vars( );
+                Utils::ext_sym_set live_in = current->get_live_in_vars( );
+                Utils::ext_sym_set live_out = current->get_live_out_vars( );
+            
+                compare_assert_set_with_analysis_set( assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In" );
+                compare_assert_set_with_analysis_set( assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out" );
+                // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
+                if( !assert_dead.empty( ) ) 
                 {
-                    ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-                    if( !stmts.empty( ) )
-                        locus_str = stmts[0].get_locus_str( );
-                }
-                
-                // Check UseDef analysis
-                {
-                    Utils::ext_sym_set assert_ue = current->get_assert_ue_vars( );
-                    Utils::ext_sym_set assert_killed = current->get_assert_killed_vars( );
-                    Utils::ext_sym_set ue = current->get_ue_vars( );
-                    Utils::ext_sym_set killed = current->get_killed_vars( );
-                
-                    compare_assert_set_with_analysis_set( assert_ue, ue, locus_str, current->get_id( ), "upper_exposed", "Upper Exposed" );
-                    compare_assert_set_with_analysis_set( assert_killed, killed, locus_str, current->get_id( ), "defined", "Killed" );
-                }
-                
-                // Check Liveness analysis
-                {
-                    Utils::ext_sym_set assert_live_in = current->get_assert_live_in_vars( );
-                    Utils::ext_sym_set assert_live_out = current->get_assert_live_out_vars( );
-                    Utils::ext_sym_set assert_dead = current->get_assert_dead_vars( );
-                    Utils::ext_sym_set live_in = current->get_live_in_vars( );
-                    Utils::ext_sym_set live_out = current->get_live_out_vars( );
-                
-                    compare_assert_set_with_analysis_set( assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In" );
-                    compare_assert_set_with_analysis_set( assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out" );
-                    // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
-                    if( !assert_dead.empty( ) ) 
+                    Utils::ext_sym_set diff = Utils::ext_sym_set_difference( assert_dead, live_in );
+                    for( Utils::ext_sym_set::iterator it = assert_dead.begin( ); it != assert_dead.end( ); ++it )
                     {
-                        Utils::ext_sym_set diff = Utils::ext_sym_set_difference( assert_dead, live_in );
-                        for( Utils::ext_sym_set::iterator it = assert_dead.begin( ); it != assert_dead.end( ); ++it )
+                        if( Utils::ext_sym_set_contains_nodecl( it->get_nodecl( ), live_in ) )
                         {
-                            if( Utils::ext_sym_set_contains_nodecl( it->get_nodecl( ), live_in ) )
-                            {
-                                internal_error( "%s: Assertion 'dead(%s)' does not fulfill.\n"\
-                                                "Expression '%s' is not Dead at the Entry point of node %d\n", 
-                                                locus_str.c_str( ), 
-                                                Utils::prettyprint_ext_sym_set( assert_dead, /*dot*/ false ).c_str( ),
-                                                it->get_nodecl( ).prettyprint( ).c_str( ),
-                                                current->get_id( ) );
-                            }
+                            internal_error( "%s: Assertion 'dead(%s)' does not fulfill.\n"\
+                                            "Expression '%s' is not Dead at the Entry point of node %d\n", 
+                                            locus_str.c_str( ), 
+                                            Utils::prettyprint_ext_sym_set( assert_dead, /*dot*/ false ).c_str( ),
+                                            it->get_nodecl( ).prettyprint( ).c_str( ),
+                                            current->get_id( ) );
                         }
                     }
                 }
+            }
                 
-                // Check Reaching Definitions analysis
+            // Check Reaching Definitions analysis
+            if( current->has_reach_defs_assertion( ) )
+            {
+                Utils::ext_sym_map assert_reach_defs_in = current->get_assert_reaching_definitions_in( );
+                Utils::ext_sym_map assert_reach_defs_out = current->get_assert_reaching_definitions_out( );
+                Utils::ext_sym_map reach_defs_in = current->get_reaching_definitions_in( );
+                Utils::ext_sym_map reach_defs_out = current->get_reaching_definitions_out( );
+            
+                compare_assert_map_with_analysis_map( assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ), 
+                                                        "reaching_definition_in", "Input Reaching Definitions" );
+                compare_assert_map_with_analysis_map( assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ), 
+                                                        "reaching_definition_out", "Output Reaching Definitions" );
+            }
+                
+            // Induction Variables
+            if( current->has_induction_vars_assertion( ) )
+            {
+                ObjectList<Utils::InductionVariableData*> assert_induction_vars = current->get_assert_induction_vars( );
+                if( current->is_loop_node( ) )
                 {
-                    Utils::ext_sym_map assert_reach_defs_in = current->get_assert_reaching_definitions_in( );
-                    Utils::ext_sym_map assert_reach_defs_out = current->get_assert_reaching_definitions_out( );
-                    Utils::ext_sym_map reach_defs_in = current->get_reaching_definitions_in( );
-                    Utils::ext_sym_map reach_defs_out = current->get_reaching_definitions_out( );
+                    ObjectList<Utils::InductionVariableData*> induction_vars = current->get_induction_variables( );
                 
-                    compare_assert_map_with_analysis_map( assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ), 
-                                                          "reaching_definition_in", "Input Reaching Definitions" );
-                    compare_assert_map_with_analysis_map( assert_reach_defs_out, reach_defs_out, locus_str, current->get_id( ), 
-                                                          "reaching_definition_out", "Output Reaching Definitions" );
-                }
-                
-                // TODO Induction Variables
-                {
-                    ObjectList<Utils::InductionVariableData*> assert_induction_vars = current->get_assert_induction_vars( );
-                    if( current->is_loop_node( ) )
+                    if( !assert_induction_vars.empty( ) )
                     {
-                        ObjectList<Utils::InductionVariableData*> induction_vars = current->get_induction_variables( );
-                    
-                        if( !assert_induction_vars.empty( ) )
+                        for( ObjectList<Utils::InductionVariableData*>::iterator it = assert_induction_vars.begin( );
+                            it != assert_induction_vars.end( ); ++it )
                         {
-                            for( ObjectList<Utils::InductionVariableData*>::iterator it = assert_induction_vars.begin( );
-                                it != assert_induction_vars.end( ); ++it )
-                            {
-                                Utils::InductionVariableData* iv = *it;
-                                Nodecl::NodeclBase iv_nodecl = iv->get_variable( ).get_nodecl( );
-                                bool found = false;
-                                for( ObjectList<Utils::InductionVariableData*>::iterator it2 = induction_vars.begin( );
+                            Utils::InductionVariableData* iv = *it;
+                            Nodecl::NodeclBase iv_nodecl = iv->get_variable( ).get_nodecl( );
+                            bool found = false;
+                            for( ObjectList<Utils::InductionVariableData*>::iterator it2 = induction_vars.begin( );
                                     it2 != induction_vars.end( ) && !found; ++it2 )
+                            {
+                                if( Nodecl::Utils::equal_nodecls( ( *it2 )->get_variable( ).get_nodecl( ), iv_nodecl ) )
                                 {
-                                    if( Nodecl::Utils::equal_nodecls( ( *it2 )->get_variable( ).get_nodecl( ), 
-                                                                    iv_nodecl ) )
+                                    found = true;
+                                    
+                                    if( !Nodecl::Utils::equal_nodecls( ( *it2 )->get_lb( ), iv->get_lb( ) ) )
                                     {
-                                        found = true;
-                                        
-                                        if( !Nodecl::Utils::equal_nodecls( ( *it2 )->get_lb( ), iv->get_lb( ) ) )
-                                        {
-                                            internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                            "Lower Bound computed for induction variable '%s' "\
-                                                            "in node %d is '%s', but the lower bound indicated in the assertion is '%s'.\n", 
-                                                            locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
-                                                            iv_nodecl.prettyprint( ).c_str( ), current->get_id( ), 
-                                                            ( *it2 )->get_lb( ).prettyprint( ).c_str( ), 
-                                                            iv->get_lb( ).prettyprint( ).c_str( ) );
-                                        }
-                                        else if( !Nodecl::Utils::equal_nodecls( ( *it2 )->get_ub( ), iv->get_ub( ) ) )
-                                        {
-                                            internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                            "Upper Bound computed for induction variable '%s' "\
-                                                            "in node %d is '%s', but the upper bound indicated in the assertion is '%s'.\n", 
-                                                            locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
-                                                            iv_nodecl.prettyprint( ).c_str( ), current->get_id( ), 
-                                                            ( *it2 )->get_ub( ).prettyprint( ).c_str( ), 
-                                                            iv->get_ub( ).prettyprint( ).c_str( ) );
-                                        }
-                                        else if( !Nodecl::Utils::equal_nodecls( ( *it2 )->get_increment( ), iv->get_increment( ) ) )
-                                        {
-                                            internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                            "Stride computed for induction variable '%s' "\
-                                                            "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n", 
-                                                            locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
-                                                            iv_nodecl.prettyprint( ).c_str( ), current->get_id( ), 
-                                                            ( *it2 )->get_increment( ).prettyprint( ).c_str( ), 
-                                                            iv->get_increment( ).prettyprint( ).c_str( ) );
-                                        }
+                                        internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
+                                                        "Lower Bound computed for induction variable '%s' "\
+                                                        "in node %d is '%s', but the lower bound indicated in the assertion is '%s'.\n", 
+                                                        locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
+                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ), 
+                                                        ( *it2 )->get_lb( ).prettyprint( ).c_str( ), 
+                                                        iv->get_lb( ).prettyprint( ).c_str( ) );
+                                    }
+                                    else if( !Nodecl::Utils::equal_nodecls( ( *it2 )->get_ub( ), iv->get_ub( ) ) )
+                                    {
+                                        internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
+                                                        "Upper Bound computed for induction variable '%s' "\
+                                                        "in node %d is '%s', but the upper bound indicated in the assertion is '%s'.\n", 
+                                                        locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
+                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ), 
+                                                        ( *it2 )->get_ub( ).prettyprint( ).c_str( ), 
+                                                        iv->get_ub( ).prettyprint( ).c_str( ) );
+                                    }
+                                    else if( !Nodecl::Utils::equal_nodecls( ( *it2 )->get_increment( ), iv->get_increment( ) ) )
+                                    {
+                                        internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
+                                                        "Stride computed for induction variable '%s' "\
+                                                        "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n", 
+                                                        locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
+                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ), 
+                                                        ( *it2 )->get_increment( ).prettyprint( ).c_str( ), 
+                                                        iv->get_increment( ).prettyprint( ).c_str( ) );
                                     }
                                 }
-                                if( !found )
-                                {
-                                    internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                    "Induction variable '%s' not found in the induction variables list "\
-                                                    "of node %d\n", 
-                                                    locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
-                                                    iv_nodecl.prettyprint( ).c_str( ), current->get_id( ) );
-                                }
+                            }
+                            if( !found )
+                            {
+                                internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
+                                                "Induction variable '%s' not found in the induction variables list "\
+                                                "of node %d\n", 
+                                                locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ), 
+                                                iv_nodecl.prettyprint( ).c_str( ), current->get_id( ) );
                             }
                         }
                     }
-                    else
+                }
+                else
+                {
+                    if( !assert_induction_vars.empty( ) )
                     {
-                        if( !assert_induction_vars.empty( ) )
-                        {
-                            WARNING_MESSAGE( "%s: warning: #pragma analysis_check assert induction_variables is only used "\
-                                             "when associated with a loop structure. Ignoring it when associated with any other statement.",
-                                             locus_str.c_str( ) );
-                        }
+                        WARNING_MESSAGE( "%s: warning: #pragma analysis_check assert induction_variables is only used "\
+                                            "when associated with a loop structure. Ignoring it when associated with any other statement.",
+                                            locus_str.c_str( ) );
                     }
                 }
+            }
+                
+            // Auto-scoping
+            if( current->has_autoscope_assertion( ) )
+            {
+                // Autoscope is particular because the computed auto-scope is not in the current node (the task creation node), 
+                // but in his task child node, which is the actual task
+                ObjectList<Node*> children = current->get_children( );
+                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least 1 child, the created task, "\
+                                 "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
+                                 "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
+                Node* task = ( children[0]->is_omp_task_node( ) ? children[0] : children[1] );
+                Utils::ext_sym_set assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars( );
+                Utils::ext_sym_set assert_autosc_private = current->get_assert_auto_sc_private_vars( );
+                Utils::ext_sym_set assert_autosc_shared = current->get_assert_auto_sc_shared_vars( );
+                Utils::ext_sym_set autosc_firstprivate = task->get_sc_firstprivate_vars( );
+                Utils::ext_sym_set autosc_private = task->get_sc_private_vars( );
+                Utils::ext_sym_set autosc_shared = task->get_sc_shared_vars( );
+                
+                // TODO
+                compare_assert_set_with_analysis_set( assert_autosc_firstprivate, autosc_firstprivate, 
+                                                      locus_str, task->get_id( ), "auto_sc_firstprivate", "AutoScope Firstprivate" );
+                compare_assert_set_with_analysis_set( assert_autosc_private, autosc_private, 
+                                                      locus_str, task->get_id( ), "auto_sc_private", "AutoScope Private" );
+                compare_assert_set_with_analysis_set( assert_autosc_shared, autosc_shared, 
+                                                      locus_str, task->get_id( ), "auto_sc_shared", "AutoScope Shared" );
+                
             }
             
             
@@ -513,6 +540,32 @@ namespace {
             environment.append( Nodecl::Analysis::InductionVariable::make( induction_vars, loc ) );
         }
         
+        // Auto-scope analysis clauses
+        if( pragma_line.get_clause( "auto_sc_firstprivate" ).is_defined( ) )
+        {
+            PragmaCustomClause auto_sc_fp_vars_clause = pragma_line.get_clause( "auto_sc_firstprivate" );
+            
+            environment.append(
+                Nodecl::Analysis::AutoScope::Firstprivate::make(
+                    Nodecl::List::make( auto_sc_fp_vars_clause.get_arguments_as_expressions( ) ), loc ) );
+        }
+        if( pragma_line.get_clause( "auto_sc_private" ).is_defined( ) )
+        {
+            PragmaCustomClause auto_sc_p_vars_clause = pragma_line.get_clause( "auto_sc_private" );
+            
+            environment.append(
+                Nodecl::Analysis::AutoScope::Private::make(
+                    Nodecl::List::make( auto_sc_p_vars_clause.get_arguments_as_expressions( ) ), loc ) );
+        }
+        if( pragma_line.get_clause( "auto_sc_shared" ).is_defined( ) )
+        {
+            PragmaCustomClause auto_sc_s_vars_clause = pragma_line.get_clause( "auto_sc_shared" );
+            
+            environment.append(
+                Nodecl::Analysis::AutoScope::Shared::make(
+                    Nodecl::List::make( auto_sc_s_vars_clause.get_arguments_as_expressions( ) ), loc ) );
+        }
+        
         Nodecl::Analysis::Assert assert =
             Nodecl::Analysis::Assert::make(
                 directive.get_statements( ),
@@ -533,17 +586,19 @@ namespace {
         Nodecl::NodeclBase ast = dto["nodecl"];
 
         ObjectList<ExtensibleGraph*> pcfgs;
-
-        // Check PCFG consistency
-        pcfgs = analysis.parallel_control_flow_graph( memento, ast );
+            
+        // Auto Scope analysis encloses all other analysis
+        // FIXME we should launch the analyses depending on the clauses in the assert directives
+        pcfgs = analysis.all_analyses( memento, ast );
         
+        // Check PCFG consistency
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
+            if( VERBOSE )
+                printf( "Check PCFG '%s' consistency\n", ( *it )->get_name( ).c_str( ) );
             check_pcfg_consistency( *it );
         }
-            
         // Check user assertions
-        pcfgs = analysis.induction_variables( memento, ast );
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
             analysis.print_pcfg( memento, (*it)->get_name( ) );

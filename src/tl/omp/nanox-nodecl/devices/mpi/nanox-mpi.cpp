@@ -1039,7 +1039,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
                TL::Symbol function_sym = function_code.get_symbol();
                if (function_sym.get_internal_symbol()->kind==SK_PROGRAM){                   
                     type_t *function_type = get_new_function_type(
-                            get_void_type(), NULL ,0);
+                            get_void_type(), NULL ,0, REF_QUALIFIER_NONE);
                     
                    function_sym.get_internal_symbol()->kind=SK_FUNCTION;
                    function_sym.get_internal_symbol()->type_information=function_type;

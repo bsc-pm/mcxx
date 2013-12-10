@@ -65,6 +65,8 @@ LIBMCXX_EXTERN type_t* get_char_type(void);
 LIBMCXX_EXTERN type_t* get_signed_char_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_char_type(void);
 LIBMCXX_EXTERN type_t* get_wchar_t_type(void);
+LIBMCXX_EXTERN type_t* get_char16_t_type(void);
+LIBMCXX_EXTERN type_t* get_char32_t_type(void);
 LIBMCXX_EXTERN type_t* get_bool_type(void);
 LIBMCXX_EXTERN type_t* get_signed_int_type(void);
 LIBMCXX_EXTERN type_t* get_signed_short_int_type(void);
@@ -130,6 +132,9 @@ LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus);
 
+LIBMCXX_EXTERN type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
+        const char* template_name, decl_context_t decl_context, const locus_t* locus);
+
 LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
@@ -171,6 +176,10 @@ LIBMCXX_EXTERN type_t* get_implicit_none_type(void);
 LIBMCXX_EXTERN type_t* get_pack_type(type_t* t);
 LIBMCXX_EXTERN char is_pack_type(type_t* t);
 LIBMCXX_EXTERN type_t* pack_type_get_packed_type(type_t* t);
+
+LIBMCXX_EXTERN void get_packs_in_type(type_t* pack_type,
+        scope_entry_t*** packs_to_expand,
+        int *num_packs_to_expand);
 
 // Used for parameter packs when they are expanded but cannot be flattened
 LIBMCXX_EXTERN type_t* get_sequence_of_types(int num_types, type_t** types);
@@ -220,7 +229,12 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
 
 LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
 
-LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters);
+LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier);
+type_t* get_new_function_type_trailing_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier);
 LIBMCXX_EXTERN type_t* get_nonproto_function_type(type_t* t, int num_parameters);
 
 LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector_size);
@@ -238,6 +252,11 @@ LIBMCXX_EXTERN char equivalent_types_in_context(type_t* t1, type_t* t2, decl_con
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
+// Compares two function types ignoring ref qualifiers
+LIBMCXX_EXTERN char equivalent_function_types_may_differ_ref_qualifier(
+        type_t* ft1, type_t* ft2,
+        decl_context_t decl_context);
+
 /* Modifiers used when the type is still being built */
 
 LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type, 
@@ -249,7 +268,6 @@ LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type,
 
 LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause);
 LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
 
@@ -320,6 +338,8 @@ LIBMCXX_EXTERN char is_signed_int128_type(type_t*);
 LIBMCXX_EXTERN char is_unsigned_int128_type(type_t*);
 
 LIBMCXX_EXTERN char is_wchar_t_type(type_t* t);
+LIBMCXX_EXTERN char is_char16_t_type(type_t* t);
+LIBMCXX_EXTERN char is_char32_t_type(type_t* t);
 
 LIBMCXX_EXTERN char is_floating_type(type_t* t);
 LIBMCXX_EXTERN char is_double_type(type_t* t);
@@ -456,13 +476,17 @@ LIBMCXX_EXTERN type_t* function_type_get_parameter_type_num(type_t* function_typ
 LIBMCXX_EXTERN type_t* function_type_get_nonadjusted_parameter_type_num(type_t* function_type, int num_param);
 LIBMCXX_EXTERN char function_type_get_lacking_prototype(type_t* function_type);
 LIBMCXX_EXTERN char function_type_get_has_ellipsis(type_t* function_type);
+LIBMCXX_EXTERN char function_type_get_has_trailing_return(type_t *t);
 LIBMCXX_EXTERN type_t* function_type_get_return_type(type_t* t);
+
+LIBMCXX_EXTERN ref_qualifier_t function_type_get_ref_qualifier(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
 LIBMCXX_EXTERN char function_type_same_parameter_types(type_t* t1, type_t* t2);
 
 LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_return);
+LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
 
 LIBMCXX_EXTERN type_t* pointer_type_get_pointee_type(type_t *t);
 LIBMCXX_EXTERN scope_entry_t* pointer_to_member_type_get_class(type_t *t);
@@ -518,6 +542,9 @@ LIBMCXX_EXTERN scope_entry_list_t* class_type_get_conversions(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_direct_base_classes(type_t* t);
 
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_base_classes_canonical(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_direct_base_classes_canonical(type_t* t);
+
 LIBMCXX_EXTERN type_t* class_type_get_enclosing_class_type(type_t* t);
 
 LIBMCXX_EXTERN computed_function_type_t computed_function_type_get_computing_function(type_t* t);
@@ -534,7 +561,6 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_default_constructor(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* class_type_get_destructor(type_t* t);
 LIBMCXX_EXTERN decl_context_t class_type_get_context(type_t* t);
-LIBMCXX_EXTERN void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause);
 LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
@@ -553,16 +579,12 @@ LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t,
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context,
         const locus_t* locus);
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type_noreuse(type_t* t,
-        template_parameter_list_t * template_parameters,
-        decl_context_t decl_context,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
-        template_parameter_list_t *template_parameters, 
-        type_t* after_type,
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type_for_instantiation(type_t* t,
+        template_parameter_list_t* template_parameters,
+        type_t* type_used_as_template,
         decl_context_t decl_context, 
         const locus_t* locus);
+
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(type_t* t);
@@ -660,8 +682,6 @@ LIBMCXX_EXTERN void set_as_template_specialized_type(type_t* type_to_specialize,
         template_parameter_list_t * template_parameters,
         type_t* template_type);
 
-LIBMCXX_EXTERN type_t* get_foundation_type(type_t* t);
-
 /* Naming types functions */
 LIBMCXX_EXTERN const char* get_declaration_string(type_t* type_info,
         decl_context_t decl_context,
@@ -743,6 +763,7 @@ LIBMCXX_EXTERN unsigned int get_array_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_class_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_function_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_function_type_reused(void);
+LIBMCXX_EXTERN unsigned int get_function_type_requested(void);
 LIBMCXX_EXTERN unsigned int get_pointer_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_pointer_to_member_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_qualified_type_counter(void);

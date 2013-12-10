@@ -314,7 +314,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
     };
 
     type_t* faked_type_1 = get_new_function_type(get_void_type(), 
-            c1_parameters, 1);
+            c1_parameters, 1, REF_QUALIFIER_NONE);
 
     template_parameter_list_t* template_parameters = 
         duplicate_template_argument_list(
@@ -333,7 +333,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             template_specialized_type_get_related_template_type(get_actual_class_type(c1)));
 
     type_t* faked_type_2 = get_new_function_type(get_void_type(), 
-            c2_parameters, 1);
+            c2_parameters, 1, REF_QUALIFIER_NONE);
 
     return is_less_or_equal_specialized_template_function_common_(faked_type_1, faked_type_2, 
             named_type_get_symbol(c1)->decl_context, 

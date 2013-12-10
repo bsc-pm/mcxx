@@ -269,9 +269,11 @@ LIBMCXX_EXTERN const char* symbol_to_source(scope_entry_t* entry);
 LIBMCXX_EXTERN char is_dependent_function(scope_entry_t* entry);
 
 // Symbol helping routines
-LIBMCXX_EXTERN void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function, int position);
+LIBMCXX_EXTERN void symbol_set_as_parameter_of_function(scope_entry_t* entry, scope_entry_t* function,
+        int nesting, int position);
 LIBMCXX_EXTERN char symbol_is_parameter_of_function(scope_entry_t* entry, scope_entry_t* function);
 LIBMCXX_EXTERN int symbol_get_parameter_position_in_function(scope_entry_t* entry, scope_entry_t* function);
+LIBMCXX_EXTERN int symbol_get_parameter_nesting_in_function(scope_entry_t* entry, scope_entry_t* function);
 
 LIBMCXX_EXTERN char template_parameter_kind_is_pack(enum template_parameter_kind k);
 LIBMCXX_EXTERN enum template_parameter_kind template_parameter_kind_get_base_kind(enum template_parameter_kind kind);
@@ -285,6 +287,8 @@ LIBMCXX_EXTERN int get_length_of_pack_expansion_from_type(type_t* pack_type,
         const locus_t* locus);
 
 LIBMCXX_EXTERN nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry);
+
+LIBMCXX_EXTERN scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol);
 
 MCXX_END_DECLS
 

@@ -297,6 +297,9 @@ namespace Nodecl
 
         // Returns a single subscript linearized (not the whole ArraySubscript)
         Nodecl::NodeclBase linearize_array_subscript(const Nodecl::ArraySubscript& n);
+
+        bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, 
+                const NodeclBase& containee);
     }
 }
 

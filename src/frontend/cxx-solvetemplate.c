@@ -91,6 +91,20 @@ type_t* solve_class_template(type_t* template_type,
             continue;
         }
 
+        // We do not want aliases for instantiation purposes either
+        if (named_type_get_symbol(current_specialized_type)->entity_specs.alias_to != NULL)
+        {
+            DEBUG_CODE()
+            {
+                scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s) since it is actually "
+                        "an alias to another specialized type\n",
+                        print_declarator(current_specialized_type),
+                        locus_to_str(entry->locus));
+            }
+            continue;
+        }
+
         if (equivalent_types(current_specialized_type, specialized_type))
         {
             // Ourselves is not an option
@@ -442,7 +456,7 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
         num_params = function_type_get_num_parameters(funct_type);
     }
 
-    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1);
+    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1, REF_QUALIFIER_NONE);
 
     if (is_template_specialized_type(funct_type))
     {

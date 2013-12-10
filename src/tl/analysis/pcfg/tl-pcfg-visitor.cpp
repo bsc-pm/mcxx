@@ -597,38 +597,39 @@ namespace Analysis {
                          "The expected number of nodes returned while traversing "\
                          "the Analysis::Assert statements is one, but %s returned", stmts.size( ) );
         
-        Node* asserted_node = stmts[0];
+        // Walk the clauses to add its information in the PCFG
+        _utils->_assert_nodes.push( stmts[0] );
         PCFGPragmaInfo current_pragma;
         _utils->_pragma_nodes.push( current_pragma );
         walk( n.get_environment( ) );
-        ObjectList<PCFGClause> clauses = _utils->_pragma_nodes.top( ).get_clauses( );
-        for( ObjectList<PCFGClause>::iterator it = clauses.begin( ); it != clauses.end( ); ++it )
-        {
-            switch( it->get_clause( ) )
-            {
-                case __assert_dead:             asserted_node->set_assert_dead_var( it->get_args( ) );
-                                                break;
-                case __assert_defined:          asserted_node->set_assert_killed_var( it->get_args( ) );
-                                                break;
-                case __assert_live_in:          asserted_node->set_assert_live_in_var( it->get_args( ) );
-                                                break;
-                case __assert_live_out:         asserted_node->set_assert_live_out_var( it->get_args( ) );
-                                                break;
-                case __assert_upper_exposed:    asserted_node->set_assert_ue_var( it->get_args( ) );
-                                                break;
-                case __assert_reach_in:         asserted_node->set_assert_reaching_definitions_in( it->get_args( ) );
-                                                break;
-                case __assert_reach_out:        asserted_node->set_assert_reaching_definitions_out( it->get_args( ) );
-                                                break;
-                case __assert_induction_var:    asserted_node->set_assert_induction_variables( it->get_args( ) );
-                                                break;
-                default:
-                    internal_error( "Unexpected clause found associated with an Analysis::Assert node.", 0 );
-            }
-        }
-        asserted_node->set_assertion( );
+        _utils->_assert_nodes.pop( );
         _utils->_pragma_nodes.pop( );
         
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::AutoScope::Firstprivate& n )
+    {
+        
+        PCFGClause current_clause( __assert_autosc_firstprivate, n.get_scoped_variables( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_auto_sc_firstprivate_var( current_clause.get_args( ) );
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::AutoScope::Private& n )
+    {
+        PCFGClause current_clause( __assert_autosc_private, n.get_scoped_variables( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_auto_sc_private_var( current_clause.get_args( ) );
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::AutoScope::Shared& n )
+    {
+        PCFGClause current_clause( __assert_autosc_shared, n.get_scoped_variables( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_auto_sc_shared_var( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -636,6 +637,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_dead, n.get_dead_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_dead_var( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -643,6 +645,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_defined, n.get_defined_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_killed_var( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -656,6 +659,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_induction_var, n.get_induction_variables( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_induction_variables( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -663,6 +667,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_live_in, n.get_live_in_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_live_in_var( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -670,6 +675,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_live_out, n.get_live_out_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_live_out_var( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -683,6 +689,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_reach_in, n.get_reaching_definitions_in( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_reaching_definitions_in( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -690,6 +697,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_reach_out, n.get_reaching_definitions_out( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_reaching_definitions_out( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -697,6 +705,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_upper_exposed, n.get_upper_exposed_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_ue_var( current_clause.get_args( ) );
         return ObjectList<Node*>( );
     }
     
@@ -1642,7 +1651,12 @@ namespace Analysis {
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
-  
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::MaskLiteral& n )
+    {
+        return visit_literal_node( n );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Minus& n )
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
@@ -2631,9 +2645,9 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
     {
-        WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s'.",
+        WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s' but visiting its statements.",
                          n.get_pragma_line( ).prettyprint( ).c_str( ) );
-        return ObjectList<Node*>( );
+        return walk( n.get_statements( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )

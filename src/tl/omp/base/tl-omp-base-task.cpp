@@ -527,7 +527,8 @@ namespace TL { namespace OpenMP {
 
         result_list.append(
                 Nodecl::OpenMP::FunctionTaskParsingContext::make(
-                    Nodecl::PragmaContext::make(function_task_info.get_parsing_scope())
+                    Nodecl::PragmaContext::make(function_task_info.get_parsing_scope()),
+                    function_task_info.get_locus()
                     ));
 
         return Nodecl::List::make(result_list);
@@ -1219,7 +1220,7 @@ namespace TL { namespace OpenMP {
 
             // Finally, we should add the new void function task into the task set
             FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
-            add_the_new_task_to_the_function_task_set(function_called, new_function, function_called_task_info);
+            add_the_new_task_to_the_function_task_set(function_called, new_function, function_called_task_info, func_call);
             transformed_task = new_function;
         }
         else
@@ -1467,7 +1468,8 @@ namespace TL { namespace OpenMP {
     void TransformNonVoidFunctionCalls::add_the_new_task_to_the_function_task_set(
             TL::Symbol function_called,
             TL::Symbol new_function,
-            const FunctionTaskInfo& original_function_task_info)
+            const FunctionTaskInfo& original_function_task_info,
+            Nodecl::NodeclBase func_call)
     {
         Nodecl::Utils::SimpleSymbolMap translation_map;
         TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
@@ -1503,6 +1505,8 @@ namespace TL { namespace OpenMP {
 
         FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
         new_function_task_info.add_function_task_dependency(result_dependence);
+
+        new_function_task_info.set_locus(func_call.get_locus());
 
         TargetInfo& target_info = new_function_task_info.get_target_info();
         TL::ObjectList<CopyItem> new_copies;

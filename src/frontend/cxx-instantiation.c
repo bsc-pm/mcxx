@@ -531,14 +531,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
 
-                    AST orig_bases_tree, orig_body_tree;
-                    class_type_get_instantiation_trees(member_of_template->type_information,
-                            &orig_body_tree, &orig_bases_tree);
-
-                    class_type_set_instantiation_trees(get_actual_class_type(new_member->type_information),
-                            orig_body_tree, orig_bases_tree);
-
-
                     set_is_complete_type(new_member->type_information, 0);
                     set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
 
@@ -623,7 +615,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         }
 
                         // Now ask a new specialization
-                        type_t* new_template_specialized_type = template_type_get_specialized_type_after_type(new_template_type,
+                        type_t* new_template_specialized_type =
+                            template_type_get_specialized_type_for_instantiation(new_template_type,
                                 template_args,
                                 member_of_template->type_information,
                                 context_of_being_instantiated,
@@ -879,7 +872,6 @@ static void instantiate_dependent_friend_function(
 
         if (candidates_list != NULL)
         {
-
             template_parameter_list_t* explicit_temp_params = NULL;
             nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
 
@@ -1223,14 +1215,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     scope_entry_t* being_instantiated_sym = named_type_get_symbol(being_instantiated);
 
-    AST instantiation_body = NULL;
-    AST instantiation_base_clause = NULL;
-    class_type_get_instantiation_trees(get_actual_class_type(selected_template), 
-            &instantiation_body, &instantiation_base_clause);
-
-    instantiation_body = ast_copy_for_instantiation(instantiation_body);
-    instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
-
     // Update the template parameter with the deduced template parameters
     decl_context_t instantiation_context = being_instantiated_sym->decl_context;
 
@@ -1260,16 +1244,13 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // From now this class acts as instantiated
     being_instantiated_sym->entity_specs.is_instantiated = 1;
 
-    if (instantiation_base_clause != NULL)
-    {
-        instantiate_bases(
-                get_actual_class_type(selected_template),
-                get_actual_class_type(being_instantiated),
-                inner_decl_context,
-                locus
-                );
-    }
-    
+    instantiate_bases(
+            get_actual_class_type(selected_template),
+            get_actual_class_type(being_instantiated),
+            inner_decl_context,
+            locus
+            );
+
     // Inject the class name
     scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
             inner_decl_context.current_scope, being_instantiated_sym->symbol_name);

@@ -32,7 +32,7 @@ linker_options = -Xlinker --add-needed
 {svml} linker_options = -lsvml
 {mmic} linker_options = -mmic
 {fast-math} options = --variable=fast_math_enabled:1
-{mmic} options = --variable=mic_enabled:1
+{simd, mmic} options = --variable=mic_enabled:1
 {mmic} preprocessor_options = -include immintrin.h
 {ompss} options = --variable=ompss_mode:1
 linker_options = -Xlinker --enable-new-dtags

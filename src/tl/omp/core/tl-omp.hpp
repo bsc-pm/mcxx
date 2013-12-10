@@ -492,6 +492,8 @@ namespace OpenMP
 
                 TL::Scope _parsing_scope;
 
+                const locus_t* _locus;
+
             public:
                 FunctionTaskInfo() : _untied(false) { }
 
@@ -543,6 +545,9 @@ namespace OpenMP
                 void set_untied(bool b);
 
                 Symbol get_symbol() const;
+
+                const locus_t* get_locus() const;
+                void set_locus(const locus_t*);
 
                 // The scope we used to parse the clauses
                 void set_parsing_scope(TL::Scope sc);

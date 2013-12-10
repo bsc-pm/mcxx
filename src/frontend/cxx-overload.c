@@ -195,6 +195,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        ref_qualifier_t ref_qualifier,
         const locus_t* locus);
 
 static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t decl_context, 
@@ -239,6 +240,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                         &current,
                         no_user_defined_conversions,
                         is_implicit_argument,
+                        REF_QUALIFIER_NONE,
                         locus);
 
                 if (current.kind == ICSK_INVALID)
@@ -309,6 +311,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &init_ics,
                     /* no_user_defined_conversions */ 0,
                     /* is_implicit_argument */ 0,
+                    REF_QUALIFIER_NONE,
                     locus);
             
             if (init_ics.kind == ICSK_INVALID)
@@ -342,6 +345,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &init_ics,
                     /* no_user_defined_conversions */ 0,
                     /* is_implicit_argument */ 0,
+                    REF_QUALIFIER_NONE,
                     locus);
 
             if (init_ics.kind == ICSK_INVALID)
@@ -367,6 +371,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     result,
                     /* no_user_defined_conversions */ 1,
                     /* is_implicit_argument */ 0,
+                    REF_QUALIFIER_NONE,
                     locus);
         }
     }
@@ -376,6 +381,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        ref_qualifier_t ref_qualifier,
         const locus_t* locus)
 {
     DEBUG_CODE()
@@ -488,8 +494,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
     if (is_implicit_argument)
     {
-        // An implicit argument of rvalue type C can be bound to the implicit
-        // argument parameter of type C
         if (is_named_class_type(no_ref(orig)))
         {
             scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
@@ -503,27 +507,41 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 fprintf(stderr, "ICS: Destination type instantiated\n");
             }
         }
-
-        if ((equivalent_types(no_ref(orig), no_ref(dest))
-                    || (is_class_type(no_ref(orig))
+        if (ref_qualifier == REF_QUALIFIER_NONE)
+        {
+            // An implicit argument of rvalue type C can be bound to the implicit
+            // argument parameter of type C
+            if ((equivalent_types(no_ref(orig), no_ref(dest))
+                        || (is_class_type(no_ref(orig))
                             && is_class_type(no_ref(dest))
                             && class_type_is_base(no_ref(dest), no_ref(orig))))
-                && (!is_const_qualified_type(no_ref(orig))
-                    || is_const_qualified_type(no_ref(dest))))
-        {
-            result->kind = ICSK_STANDARD;
-            result->first_sc.orig = no_ref(orig);
-            result->first_sc.dest = dest;
-            result->first_sc.conv[0] = SCI_IDENTITY;
-            result->first_sc.conv[1] = SCI_NO_CONVERSION;
-            result->first_sc.conv[2] = SCI_NO_CONVERSION;
-
-            DEBUG_CODE()
+                    && (!is_const_qualified_type(no_ref(orig))
+                        || is_const_qualified_type(no_ref(dest))))
             {
-                fprintf(stderr, "ICS: We allow binding the implicit argument of type '%s' to the implicit parameter type '%s'\n",
-                        print_type_str(orig, decl_context),
-                        print_type_str(dest, decl_context));
+                result->kind = ICSK_STANDARD;
+                result->first_sc.orig = no_ref(orig);
+                result->first_sc.dest = dest;
+                result->first_sc.conv[0] = SCI_IDENTITY;
+                result->first_sc.conv[1] = SCI_NO_CONVERSION;
+                result->first_sc.conv[2] = SCI_NO_CONVERSION;
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "ICS: We allow binding the implicit argument of type '%s' to the implicit parameter type '%s'\n",
+                            print_type_str(orig, decl_context),
+                            print_type_str(dest, decl_context));
+                }
             }
+        }
+        else if (ref_qualifier == REF_QUALIFIER_LVALUE
+                || ref_qualifier == REF_QUALIFIER_RVALUE)
+        {
+            // If we reach here it means that no standard conversion exists (so
+            // the reference cannot be bound to the implicit parameter)
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
         return;
     }
@@ -649,12 +667,28 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             // The implicit parameter of this operator function is a reference
             // to the class type, this will filter not eligible conversion functions
             // (e.g. given a 'const T' we cannot call a non-const method)
-            type_t* implicit_parameter = conv_funct->entity_specs.class_type;
+            type_t* implicit_parameter = NULL;
+
+            ref_qualifier_t conv_ref_qualifier = function_type_get_ref_qualifier(conv_funct->type_information);
+
+            implicit_parameter = conv_funct->entity_specs.class_type;
             if (is_const_qualified_type(conv_funct->type_information))
             {
                 implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
             }
-            implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+            if (conv_ref_qualifier == REF_QUALIFIER_NONE
+                    || conv_ref_qualifier == REF_QUALIFIER_LVALUE)
+            {
+                implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+            }
+            else if (conv_ref_qualifier == REF_QUALIFIER_RVALUE)
+            {
+                implicit_parameter = get_rvalue_reference_type(implicit_parameter);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
 
             standard_conversion_t first_sc;
             standard_conversion_t second_sc;
@@ -665,6 +699,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     decl_context, &ics_call,
                     /* no_user_defined_conversions */ 1,
                     /* is_implicit_argument */ 1,
+                    conv_ref_qualifier,
                     locus);
             first_sc = ics_call.first_sc;
 
@@ -749,8 +784,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         {
             scope_entry_t* constructor = entry_list_iterator_current(it);
 
-            // This is not an eligible conversor constructor
-            if (!constructor->entity_specs.is_conversor_constructor)
+            // Make sure this a non-explicit conversor constructor
+            if (!constructor->entity_specs.is_conversor_constructor
+                    || constructor->entity_specs.is_explicit)
                 continue;
 
             DEBUG_CODE()
@@ -992,6 +1028,7 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
     compute_ics_flags(orig, dest, decl_context, result, 
             /* no_user_defined_conversions = */ 0,
             /* is_implicit_argument */ 0,
+            REF_QUALIFIER_NONE,
             locus);
 }
 
@@ -1570,9 +1607,26 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                         {
                             member_object_type = candidate->entity_specs.class_type;
                         }
+
+                        ref_qualifier_t ref_qualifier =
+                            function_type_get_ref_qualifier(candidate->type_information);
+
                         member_object_type = get_cv_qualified_type(member_object_type,
                                 get_cv_qualifier(candidate->type_information));
-                        member_object_type = get_lvalue_reference_type(member_object_type);
+
+                        if (ref_qualifier == REF_QUALIFIER_NONE
+                                || ref_qualifier == REF_QUALIFIER_LVALUE)
+                        {
+                            member_object_type = get_lvalue_reference_type(member_object_type);
+                        }
+                        else if (ref_qualifier == REF_QUALIFIER_RVALUE)
+                        {
+                            member_object_type = get_rvalue_reference_type(member_object_type);
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
 
                         compute_ics_flags(argument_types[0],
                                 member_object_type,
@@ -1580,6 +1634,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                                 &ics_to_candidate,
                                 /* no_user_defined_conversions */ 1,
                                 /* is_implicit_argument */ 1,
+                                ref_qualifier,
                                 locus);
                     }
                     else

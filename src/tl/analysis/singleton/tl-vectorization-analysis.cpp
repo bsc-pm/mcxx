@@ -141,7 +141,8 @@ namespace Analysis {
         return result;
     }
         
-    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, const Nodecl::List* suitable_expressions, 
+    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, 
+            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
             int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -164,7 +165,27 @@ namespace Analysis {
         
         return result;
     }
-    
+
+    bool NodeclStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& n, 
+            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            int unroll_factor, int alignment, int& vector_size_module ) const
+    {
+        bool result = false;
+        int type_size = n.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
+        int subscript_alignment = sa_v.walk( n );
+
+        printf("SUBSCRIPT ALIGNMENT %d\n", subscript_alignment);
+
+        vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment : 
+                                                               subscript_alignment % alignment );
+        if( vector_size_module == 0 )
+            result = true;
+
+        return result;
+    }
+
     // ************ END class to retrieve SIMD analysis info about one specific nodecl ************* //
     // ********************************************************************************************* //
     
@@ -174,7 +195,7 @@ namespace Analysis {
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const Nodecl::List* suitable_expressions, int unroll_factor, 
+                                                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions, int unroll_factor, 
                                                         int type_size, int alignment )
         : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
           _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
@@ -192,16 +213,12 @@ namespace Analysis {
         return result;
     }
 
-    bool SuitableAlignmentVisitor::is_suitable_expression(Nodecl::NodeclBase n)
+    bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
-        if(_suitable_expressions == NULL)
-            return false;
-
-        if( _suitable_expressions->end() == std::find_if(_suitable_expressions->begin(), _suitable_expressions->end(), 
-                    std::bind1st(std::ptr_fun(Nodecl::Utils::equal_nodecls), n)))
-            return false;
-
-        return true;
+        bool result = true;
+        if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
+            result = false;
+        return result;
     }
 
     bool SuitableAlignmentVisitor::is_suitable_constant( int n )
@@ -280,8 +297,6 @@ namespace Analysis {
                     dimension_size_node = dimension_size_node.get_symbol().get_value();
                 }
                
-                std::cerr << dimension_size_node.prettyprint() << std::endl;
-
                 int dimension_size = -1;
                 if( dimension_size_node.is_constant( ) )
                 {
@@ -295,7 +310,7 @@ namespace Analysis {
                 {
                     dimension_size = 0;
                 }
-                //if( VERBOSE )
+                if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
                 
                 dimension_sizes[i] = dimension_size;
@@ -330,8 +345,6 @@ namespace Analysis {
                 
                 if( it_alignment < 0 )
                 {
-                    if( VERBOSE )
-                        printf ("-1\n");
                     return -1;
                 }
                 
@@ -344,8 +357,6 @@ namespace Analysis {
             
             _nesting_level--;
             
-            if( VERBOSE )
-                printf("alignment %d\n", alignment);
             return alignment;
         }
         // Nested array subscript
@@ -424,7 +435,13 @@ namespace Analysis {
         int rhs_mod = walk( n.get_rhs( ) );
         
         if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
-            return lhs_mod - rhs_mod;
+        {
+            int result = lhs_mod - rhs_mod;
+            if (result < 0)
+                result = _alignment + result;
+
+            return result;
+        }
         
         return -1;
     }
@@ -717,6 +734,11 @@ namespace Analysis {
     }
     
     bool ArrayAccessInfoVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        return true;
+    }
+    
+    bool ArrayAccessInfoVisitor::visit( const Nodecl::MaskLiteral& n )
     {
         return true;
     }

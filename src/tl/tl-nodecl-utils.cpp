@@ -1703,6 +1703,21 @@ namespace Nodecl
 
         return new_linearized_subscript;
     }
+    
+    bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& containee)
+    {
+        for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = container.begin();
+                it != container.end();
+                it ++)
+        {
+            if (equal_nodecls(containee, *it, true))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 namespace TL

@@ -200,6 +200,8 @@ namespace Analysis {
 
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        
         ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         // ********************* Utils ******************** //

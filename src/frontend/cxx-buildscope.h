@@ -127,6 +127,8 @@ LIBMCXX_EXTERN void introduce_using_entities(
         char is_typename,
         const locus_t* locus);
 
+LIBMCXX_EXTERN scope_entry_t* get_function_declaration_proxy(void);
+
 void build_scope_friend_declarator(decl_context_t decl_context, 
         gather_decl_spec_t *gather_info,
         type_t* class_type,

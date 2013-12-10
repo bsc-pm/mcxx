@@ -359,7 +359,9 @@ namespace TL { namespace Nanox {
         {
             scope_entry_t* param = it->get_internal_symbol();
 
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ new_function_sym->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
                     new_function_sym->entity_specs.num_related_symbols,
@@ -375,8 +377,8 @@ namespace TL { namespace Nanox {
 
         type_t *function_type = get_new_function_type(
                 get_void_type(),
-                p_types,
-                parameter_symbols.size());
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
 
         new_function_sym->type_information = function_type;
 
@@ -802,7 +804,9 @@ namespace TL { namespace Nanox {
             it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
         }
 
-        type_t *function_type = get_new_function_type(get_void_type(), p_types, parameter_symbols.size());
+        type_t *function_type = get_new_function_type(get_void_type(),
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
         delete[] p_types;
 
         // Now everything is set to register the function
@@ -853,7 +857,9 @@ namespace TL { namespace Nanox {
                 it2++, it_ptypes++)
         {
             scope_entry_t* param = it2->get_internal_symbol();
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ new_function_sym->entity_specs.num_related_symbols);
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
         }
 
