@@ -50,7 +50,6 @@ namespace TL
         {
             private:
 
-                  Nodecl::List _cuda_file_code;
                   bool _mpi_task_processed;
                   Source _sectionCodeHost;
                   Source _sectionCodeDevice;

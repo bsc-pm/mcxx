@@ -412,7 +412,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             unpacked_function_body);
     
     // Add the unpacked function to the file
-    Nodecl::Utils::prepend_to_top_level_nodecl(unpacked_function_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(info._original_statements,unpacked_function_code);
     
     TL::Scope host_function_scope(host_function_body.retrieve_context());    
     TL::Symbol structure_symbol = host_function_scope.get_symbol_from_name("args");
@@ -1211,42 +1211,50 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
            Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
         }
     }
+
     
-    if (_extra_c_code.is_null()) return;
+    if (!_extra_c_code.is_null()){
 
-    original_filename = TL::CompilationProcess::get_current_file().get_filename();
-    std::string new_filename = "mpi_aux_nanox_outline_file_" + original_filename  + ".c";
+        original_filename = TL::CompilationProcess::get_current_file().get_filename();
+        std::string new_filename = "mpi_aux_nanox_outline_file_" + original_filename  + ".c";
 
-    FILE* ancillary_file = fopen(new_filename.c_str(), "w");
-    if (ancillary_file == NULL)
-    {
-        running_error("%s: error: cannot open file '%s'. %s\n",
-                original_filename.c_str(),
-                new_filename.c_str(),
-                strerror(errno));
+        FILE* ancillary_file = fopen(new_filename.c_str(), "w");
+        if (ancillary_file == NULL)
+        {
+            running_error("%s: error: cannot open file '%s'. %s\n",
+                    original_filename.c_str(),
+                    new_filename.c_str(),
+                    strerror(errno));
+        }
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+
+        compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
+        ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
+
+        // Make sure phases are loaded (this is needed for codegen)
+        load_compiler_phases(configuration);
+
+        TL::CompilationProcess::add_file(new_filename, "auxcc");
+
+        ::mark_file_for_cleanup(new_filename.c_str());
+
+        Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
+        phase->codegen_top_level(_extra_c_code, ancillary_file);
+
+        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+
+
+        fclose(ancillary_file);
+        // Do not forget the clear the code for next files
+        _extra_c_code.get_internal_nodecl() = nodecl_null();
     }
-
-    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
-
-    compilation_configuration_t* configuration = ::get_compilation_configuration("auxcc");
-    ERROR_CONDITION (configuration == NULL, "auxcc profile is mandatory when using Fortran", 0);
-
-    // Make sure phases are loaded (this is needed for codegen)
-    load_compiler_phases(configuration);
-
-    TL::CompilationProcess::add_file(new_filename, "auxcc");
-
-    ::mark_file_for_cleanup(new_filename.c_str());
-
-    Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-    phase->codegen_top_level(_extra_c_code, ancillary_file);
-
-    CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
     
-
-    fclose(ancillary_file);
-    // Do not forget the clear the code for next files
-    _extra_c_code.get_internal_nodecl() = nodecl_null();
+    //Clear sources
+    Source empty_src;
+    _sectionCodeDevice=empty_src;
+    _extraFortranDecls=empty_src;
+    _sectionCodeHost=empty_src;
 }
 
 void DeviceMPI::pre_run(DTO& dto) {
