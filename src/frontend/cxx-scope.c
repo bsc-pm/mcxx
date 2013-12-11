@@ -3836,12 +3836,19 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
             template_parameter_value_t* folded_value = xcalloc(1, sizeof(*folded_value));
             folded_value->kind = pack_base_kind;
 
+            type_t* parameter_type = NULL;
+
+            if (last->kind == TPK_NONTYPE_PACK)
+            {
+                // Update the parameter type of this nontype template parameter pack
+                parameter_type = update_type(
+                        last->entry->type_information,
+                        new_template_context,
+                        locus);
+            }
+
             for (; i < result->num_parameters; i++)
             {
-                // Set the template parameter
-                result->parameters[i] = last;
-
-                // And check it matches the base kind of this pack
                 if (pack_base_kind != result->arguments[i]->kind)
                 {
                     DEBUG_CODE()
@@ -3860,19 +3867,52 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     return NULL;
                 }
 
+                if (last->kind != TPK_NONTYPE_PACK)
+                {
+                    // For type or template template parameter pack, use the type of the
+                    // argument
+                    parameter_type = result->arguments[i]->type;
+                }
+
                 // Nontype template arguments must be adjusted first
                 if (result->arguments[i]->kind == TPK_NONTYPE)
                 {
                     // We need to do this because of cases like this
                     //
-                    // N in    template <typename T, T N>
-                    // PF in   template <typename R, typename A, R (*PF)(A)>
-                    result->arguments[i]->type = update_type(
-                            result->parameters[i]->entry->type_information,
-                            new_template_context,
-                            locus);
+                    // N in    template <typename T>
+                    //         template <T ...N>
+                    //
+                    // or
+                    //
+                    // N in    template <typename ...T>
+                    //         template <T... N>
+                    //
+                    if (is_sequence_of_types(parameter_type))
+                    {
+                        // This case of the two above
+                        //    N in    template <typename ...T>
+                        //            template <T... N>
+                        int index_of_type = last_argument_index - i;
+                        if (index_of_type >= sequence_of_types_get_num_types(parameter_type))
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "SCOPE: Template argument pack is expanding '%s' "
+                                        "but there are too many elements (this is element %d)\n",
+                                        print_declarator(parameter_type), index_of_type);
+                            }
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s: error: too many template arguments for"
+                                        " the template parameter pack\n",
+                                        locus_to_str(locus));
+                            }
 
-                    type_t* dest_type = result->arguments[i]->type;
+                            return NULL;
+                        }
+
+                        parameter_type = sequence_of_types_get_type_num(parameter_type, index_of_type);
+                    }
 
                     if (!nodecl_expr_is_value_dependent(result->arguments[i]->value))
                     {
@@ -3883,7 +3923,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             scope_entry_t* entry = address_of_overloaded_function(
                                     unresolved_overloaded_type_get_overload_set(arg_type),
                                     unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                                    dest_type,
+                                    parameter_type,
                                     new_template_context,
                                     locus);
 
@@ -3915,7 +3955,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             if (!is_dependent_type(arg_type))
                             {
                                 standard_conversion_t scs_conv;
-                                if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(dest_type)))
+                                if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(parameter_type)))
                                 {
                                     DEBUG_CODE()
                                     {
@@ -3928,7 +3968,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                                 locus_to_str(locus),
                                                 print_type_str(arg_type, template_name_context),
                                                 i + 1,
-                                                print_type_str(dest_type, template_name_context));
+                                                print_type_str(parameter_type, template_name_context));
                                     }
                                     return NULL;
                                 }
@@ -3937,7 +3977,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     }
                 }
 
-                folded_value->type = get_sequence_of_types_append_type(folded_value->type, result->arguments[i]->type);
+                folded_value->type = get_sequence_of_types_append_type(folded_value->type, parameter_type);
                 if (result->arguments[i]->kind == TPK_NONTYPE)
                 {
                     folded_value->value = nodecl_append_to_list(folded_value->value, result->arguments[i]->value);
