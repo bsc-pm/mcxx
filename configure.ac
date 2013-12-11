@@ -884,13 +884,13 @@ then
    CFLAGS="$CFLAGSBACKUP"
    CPPFLAGS="$CPPFLAGSBACKUP"
    CXXFLAGS="$CXXFLAGSBACKUP"
+fi
 
-   if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
-      COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
-   else
-      DISABLE_OPENCL="\#OpenCL support disabled"
-   fi
+if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
+else
+    DISABLE_OPENCL="\#OpenCL support disabled"
 fi
 
 AC_SUBST([opencl_valid])
