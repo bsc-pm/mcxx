@@ -190,6 +190,8 @@ namespace TL
             bool is_enumerator() const;
             //! States whether this symbol is template name
             bool is_template() const;
+            //! States whether this symbol is a template alias
+            bool is_template_alias() const;
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a dependent friend function

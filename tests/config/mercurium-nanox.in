@@ -115,6 +115,7 @@ compile_versions="\${compile_versions} nanox_imfc"
 test_FC_nanox_imfc="\${IMFC}"
 test_FFLAGS_nanox_imfc="${PROGRAMMING_MODEL}"
 test_LDFLAGS_nanox_imfc="-L@abs_top_builddir@/lib -lperish"
+test_ENV_nanox_imfc="FOR_IGNORE_EXCEPTIONS=1"
 EOF
   fi
 

@@ -94,7 +94,9 @@ namespace TL { namespace Nanox {
 
             param->defined = 1;
 
-            symbol_set_as_parameter_of_function(param, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
 
@@ -128,8 +130,8 @@ namespace TL { namespace Nanox {
         // Type of the function
         type_t *function_type = get_new_function_type(
                 return_type.get_internal_type(),
-                p_types,
-                parameter_types.size());
+                p_types, parameter_types.size(),
+                REF_QUALIFIER_NONE);
 
         entry->type_information = function_type;
 

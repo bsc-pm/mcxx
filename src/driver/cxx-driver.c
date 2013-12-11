@@ -4724,6 +4724,7 @@ static void print_memory_report(void)
         fprintf(stderr, "    - Size of type node (bytes): %zu\n", get_type_t_size());
         fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
         fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
+        fprintf(stderr, "    - Number of requested function types: %d\n", get_function_type_requested());
         fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
         fprintf(stderr, "    - Number of reused function types: %d\n", get_function_type_reused());
         fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());

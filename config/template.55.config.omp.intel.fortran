@@ -1,4 +1,4 @@
-[plainimfc : fortran-base]
+[plainimfc]
 language = Fortran
 options = --do-not-wrap-modules --fortran-array-descriptor=ifort
 fortran_preprocessor_name = @IFORT@

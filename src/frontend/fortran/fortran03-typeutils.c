@@ -283,7 +283,7 @@ type_t* fortran_replace_return_type_of_function_type(type_t* function_type, type
             parameter_info[i].type_info = function_type_get_parameter_type_num(function_type, i);
         }
 
-        return get_new_function_type(new_return_type, parameter_info, num_parameters);
+        return get_new_function_type(new_return_type, parameter_info, num_parameters, REF_QUALIFIER_NONE);
     }
     else
     {

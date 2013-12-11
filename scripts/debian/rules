@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+#export DH_VERBOSE=1
+export DEB_BUILD_OPTIONS=nocheck
+export DEB_BUILD_MAINT_OPTIONS=hardening=-all
+
+# Parallel makes
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+MAKEFLAGS += -j$(NUMJOBS)
+endif
+
+%:
+	dh $@
+
+# Compat version != 8 sets libdir and libexecdir to something like /usr/lib/x86_64-linux-gnu
+override_dh_auto_configure:
+	dh_auto_configure -- --libdir=$$\{prefix\}/lib/ --libexecdir=$$\{prefix\}/lib/ --enable-ompss --with-nanox=/usr
+
+#override_dh_testdir:	
+#	echo $$CFLAGS > flags.txt
+
+#override_dh_auto_install:
+#	$(MAKE) DESTDIR=$$(pwd)/debian/mcxx prefix=/usr install
