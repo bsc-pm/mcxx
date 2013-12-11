@@ -4072,6 +4072,11 @@ static const char* template_arguments_to_str_ex(
 
                     if (nodecl_is_list(argument->value))
                     {
+                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        {
+                            argument_str = strappend(argument_str, " /* { */ ");
+                        }
+
                         int num_items;
                         int j;
                         nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
@@ -4081,6 +4086,11 @@ static const char* template_arguments_to_str_ex(
                                 argument_str = strappend(argument_str, ", ");
 
                             argument_str = strappend(argument_str, codegen_to_str(list[j], decl_context));
+                        }
+
+                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        {
+                            argument_str = strappend(argument_str, " /* } */ ");
                         }
 
                         xfree(list);
@@ -4105,6 +4115,11 @@ static const char* template_arguments_to_str_ex(
                     }
                     if (is_sequence_of_types(template_type))
                     {
+                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        {
+                            argument_str = strappend(argument_str, " /* { */ ");
+                        }
+
                         int num_types = sequence_of_types_get_num_types(template_type);
                         int k;
                         for (k = 0; k < num_types; k++)
@@ -4117,6 +4132,11 @@ static const char* template_arguments_to_str_ex(
                                         named_type_get_symbol(sequence_of_types_get_type_num(template_type, k)),
                                         decl_context)
                                     );
+                        }
+
+                        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+                        {
+                            argument_str = strappend(argument_str, " /* } */ ");
                         }
                     }
                     else

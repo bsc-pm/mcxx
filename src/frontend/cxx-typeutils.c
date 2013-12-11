@@ -8175,6 +8175,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     }
     else if (is_sequence_of_types(type_info))
     {
+        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        {
+            result = strappend(result, " /* { */ ");
+        }
+
         int i;
         for (i = 0; i < sequence_of_types_get_num_types(type_info); i++)
         {
@@ -8187,6 +8192,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         decl_context, "", "",
                         0, 0, NULL, NULL, 0,
                         print_symbol_fun, print_symbol_data));
+        }
+
+        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        {
+            result = strappend(result, " /* } */ ");
         }
     }
     else if (is_auto_type(type_info))
