@@ -994,7 +994,53 @@ char deduce_template_arguments_common(
             deduced_arguments.deduction_list[i_tpl_parameters]->deduced_parameters[0]->type =
                 current_deduced_template_arguments->arguments[i_tpl_parameters]->type;
 
-            if (!check_nontype_template_argument_type(t))
+            if (is_sequence_of_types(t))
+            {
+                int value_length = 0;
+                int i, N = sequence_of_types_get_num_types(t);
+
+                if (!nodecl_is_null(current_deduced_template_arguments->arguments[i_tpl_parameters]->value))
+                {
+                    if (nodecl_is_list(current_deduced_template_arguments->arguments[i_tpl_parameters]->value))
+                        value_length = nodecl_list_length(current_deduced_template_arguments->arguments[i_tpl_parameters]->value);
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: There is a mismatch in nontype template argument %d, "
+                                    "I expected a list as a value because its type is a sequence, "
+                                    "but the value is not a list\n", i_tpl_parameters);
+                        }
+                        return 0;
+                    }
+                }
+
+                if (value_length != N)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: There is a mismatch in nontype template argument %d, "
+                                "the length of the list values and the sequence type associated do not match",
+                                i_tpl_parameters);
+                    }
+                    return 0;
+                }
+
+                for (i = 0; i < N; i++)
+                {
+                    if (!check_nontype_template_argument_type(sequence_of_types_get_type_num(t, i)))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: Deduction fails because nontype template parameter "
+                                    "%d was deduced a sequence type containing an invalid type '%s'\n",
+                                    i_tpl_parameters, print_declarator(sequence_of_types_get_type_num(t, i)));
+                        }
+                        return 0;
+                    }
+                }
+            }
+            else if (!check_nontype_template_argument_type(t))
             {
                 DEBUG_CODE()
                 {

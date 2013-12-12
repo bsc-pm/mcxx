@@ -388,6 +388,8 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
 static void check_noexcept_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void check_lambda_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_vla_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -846,6 +848,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_NOEXCEPT_EXPRESSION:
             {
                 check_noexcept_expression(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_LAMBDA_EXPRESSION:
+            {
+                check_lambda_expression(expression, decl_context, nodecl_output);
                 break;
             }
             // GCC Extension
@@ -10454,6 +10461,542 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
             ast_get_locus(expression));
 }
 
+enum lambda_capture_default_tag
+{
+    LAMBDA_CAPTURE_NONE,
+    LAMBDA_CAPTURE_COPY,
+    LAMBDA_CAPTURE_REFERENCE
+};
+
+static void compute_implicit_captures(nodecl_t node,
+        enum lambda_capture_default_tag lambda_capture_default,
+        scope_entry_list_t** capture_copy_entities,
+        scope_entry_list_t** capture_reference_entities,
+        scope_entry_t* lambda_symbol,
+        char *ok)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    if (nodecl_get_kind(node) == NODECL_OBJECT_INIT)
+    {
+        return compute_implicit_captures(
+                nodecl_get_symbol(node)->value,
+                lambda_capture_default,
+                capture_copy_entities,
+                capture_reference_entities,
+                lambda_symbol,
+                ok);
+    }
+
+    scope_entry_t *entry = nodecl_get_symbol(node);
+    if (entry != NULL
+            && (entry->kind != SK_VARIABLE
+                || entry->entity_specs.is_saved_expression
+                || entry->entity_specs.is_member
+                || (entry->decl_context.current_scope->kind != BLOCK_SCOPE)
+                || entry->entity_specs.is_static
+                || entry->entity_specs.is_extern))
+        entry = NULL;
+
+    if (entry != NULL)
+    {
+        // Filter the parameters of the lambda
+        int i;
+        for (i = 0; i < lambda_symbol->entity_specs.num_related_symbols; i++)
+        {
+            if (lambda_symbol->entity_specs.related_symbols[i] == entry)
+            {
+                entry = NULL;
+                break;
+            }
+        }
+    }
+
+    if (entry != NULL)
+    {
+        if (!entry_list_contains(*capture_copy_entities, entry)
+                && !entry_list_contains(*capture_reference_entities, entry))
+        {
+            if (lambda_capture_default == LAMBDA_CAPTURE_NONE)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: symbol '%s' has not been captured\n",
+                            nodecl_locus_to_str(node),
+                            entry->symbol_name);
+                }
+                *ok = 0;
+            }
+            else if (lambda_capture_default == LAMBDA_CAPTURE_COPY)
+            {
+                *capture_copy_entities =
+                    entry_list_add(*capture_copy_entities, entry);
+            }
+            else if (lambda_capture_default == LAMBDA_CAPTURE_REFERENCE)
+            {
+                *capture_reference_entities =
+                    entry_list_add(*capture_reference_entities, entry);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+    }
+
+    // Recurse children
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        compute_implicit_captures(
+                nodecl_get_child(node, i),
+                lambda_capture_default,
+                capture_copy_entities,
+                capture_reference_entities,
+                lambda_symbol,
+                ok);
+    }
+}
+
+static void check_lambda_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    CXX03_LANGUAGE()
+    {
+        if (!checking_ambiguity())
+        {
+            warn_printf("%s: warning: lambda-expressions are only valid in C++11\n",
+                    ast_location(expression));
+        }
+    }
+
+    AST lambda_capture = ASTSon0(expression);
+    AST lambda_declarator = ASTSon1(expression);
+    AST compound_statement = ASTSon2(expression);
+
+    enum lambda_capture_default_tag lambda_capture_default = LAMBDA_CAPTURE_NONE;
+
+    scope_entry_list_t* capture_copy_entities = NULL;
+    scope_entry_list_t* capture_reference_entities = NULL;
+
+    if (lambda_capture != NULL)
+    {
+        AST lambda_capture_default_tree = ASTSon0(lambda_capture);
+
+        if (lambda_capture_default_tree != NULL)
+        {
+            if (ASTType(lambda_capture_default_tree) == AST_LAMBDA_CAPTURE_DEFAULT_VALUE)
+            {
+                lambda_capture_default = LAMBDA_CAPTURE_COPY;
+            }
+            else if (ASTType(lambda_capture_default_tree) == AST_LAMBDA_CAPTURE_DEFAULT_ADDR)
+            {
+                lambda_capture_default = LAMBDA_CAPTURE_REFERENCE;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        AST lambda_capture_list = ASTSon1(lambda_capture);
+        AST it;
+
+        if (lambda_capture_list != NULL)
+        {
+            for_each_element(lambda_capture_list, it)
+            {
+                AST capture = ASTSon1(it);
+                char is_pack = 0;
+
+                if (ASTType(capture) == AST_LAMBDA_CAPTURE_PACK_EXPANSION)
+                {
+                    is_pack = 1;
+                    capture = ASTSon0(capture);
+                }
+
+                node_t n = ASTType(capture);
+                switch (n)
+                {
+                    case AST_LAMBDA_CAPTURE_VALUE:
+                    case AST_LAMBDA_CAPTURE_ADDRESS:
+                        {
+                            scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(capture));
+                            if (entry_list == NULL)
+                            {
+                                if (!checking_ambiguity())
+                                {
+                                    error_printf("%s: error: captured entity '%s' not found in current scope\n",
+                                            ast_location(capture),
+                                            ASTText(capture));
+                                }
+                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                                return;
+                            }
+                            else
+                            {
+                                scope_entry_t* entry = entry_list_head(entry_list);
+
+                                if ((is_pack
+                                            || entry->kind != SK_VARIABLE
+                                            || entry->decl_context.current_scope->kind != BLOCK_SCOPE
+                                            || entry->entity_specs.is_static
+                                            || entry->entity_specs.is_extern
+                                            )
+                                        && (!is_pack || entry->kind != SK_VARIABLE_PACK))
+                                {
+                                    if (!checking_ambiguity())
+                                    {
+                                        error_printf("%s: error: cannot capture entity '%s'\n",
+                                                ast_location(capture),
+                                                ASTText(capture));
+                                    }
+                                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                                    return;
+                                }
+
+                                if (entry_list_contains(capture_reference_entities, entry)
+                                        || entry_list_contains(capture_copy_entities, entry))
+                                {
+                                    error_printf("%s: error: entity '%s' captured more than once\n",
+                                            ast_location(capture),
+                                            ASTText(capture));
+                                }
+                                else
+                                {
+                                    if (n == AST_LAMBDA_CAPTURE_VALUE)
+                                        capture_copy_entities = entry_list_add(capture_copy_entities, entry);
+                                    else
+                                        capture_reference_entities = entry_list_add(capture_reference_entities, entry);
+                                }
+                            }
+
+                            break;
+                        }
+                    case AST_LAMBDA_CAPTURE_THIS:
+                        {
+                            scope_entry_list_t* entry_list = query_name_str(decl_context, "this");
+                            if (entry_list == NULL)
+                            {
+                                if (!checking_ambiguity())
+                                {
+                                    error_printf("%s: error: captured entity 'this' not found in current scope\n",
+                                            ast_location(capture));
+                                }
+                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                                return;
+                            }
+                            else
+                            {
+                                scope_entry_t* entry = entry_list_head(entry_list);
+                                entry_list_free(entry_list);
+
+                                if (entry_list_contains(capture_reference_entities, entry)
+                                        || entry_list_contains(capture_copy_entities, entry)
+                                        || lambda_capture_default == LAMBDA_CAPTURE_COPY)
+                                {
+                                    error_printf("%s: error: entity 'this' captured more than once\n",
+                                            ast_location(capture));
+                                }
+                                else
+                                {
+                                    capture_copy_entities = entry_list_add(capture_copy_entities, entry);
+                                }
+                            }
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("Unexpected node' %s'\n", ast_print_node_type(ASTType(capture)));
+                        }
+                }
+            }
+        }
+    }
+
+    static int lambda_counter = 0;
+
+    const char *lambda_symbol_str = NULL;
+    const char *lambda_class_name_str = NULL;
+
+    uniquestr_sprintf(&lambda_symbol_str, ".lambda_%d", lambda_counter);
+    uniquestr_sprintf(&lambda_class_name_str, "<<lambda_class_%d>>", lambda_counter);
+    lambda_counter++;
+
+    scope_entry_t* lambda_symbol = new_symbol(decl_context, decl_context.current_scope, lambda_symbol_str);
+    lambda_symbol->kind = SK_LAMBDA;
+    lambda_symbol->locus = ast_get_locus(expression);
+
+    type_t* function_type = NULL;
+
+    decl_context_t lambda_block_context = new_block_context(decl_context);
+    lambda_block_context.current_scope->related_entry = lambda_symbol;
+    lambda_symbol->related_decl_context = lambda_block_context;
+
+    AST trailing_return_type = NULL;
+    AST mutable = NULL;
+    if (lambda_declarator != NULL)
+    {
+        AST function_declarator = ASTSon0(lambda_declarator);
+        mutable = ASTSon1(lambda_declarator);
+        trailing_return_type = ASTSon2(lambda_declarator);
+
+        if (trailing_return_type != NULL)
+        {
+            AST type_id = ASTSon0(trailing_return_type);
+            function_type = compute_type_for_type_id_tree(type_id, decl_context,
+                    /* out simple type */ NULL, /* gather_info */ NULL);
+
+            if (is_error_type(function_type))
+            {
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                return;
+            }
+        }
+
+        nodecl_t nodecl_function_decl_output = nodecl_null();
+
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+        // gather_info->in_lambda_declarator = 1;
+
+        set_function_type_for_lambda(
+                &function_type,
+                &gather_info,
+                function_declarator,
+                decl_context,
+                &lambda_block_context,
+                &nodecl_function_decl_output);
+
+        if (is_error_type(function_type))
+        {
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+            return;
+        }
+
+        set_parameters_as_related_symbols(lambda_symbol,
+                &gather_info,
+                /* is_definition */ 1,
+                ast_get_locus(expression));
+
+        lambda_symbol->entity_specs.any_exception = gather_info.any_exception;
+        lambda_symbol->entity_specs.num_exceptions = gather_info.num_exceptions;
+        lambda_symbol->entity_specs.exceptions = gather_info.exceptions;
+        lambda_symbol->entity_specs.noexception = gather_info.noexception;
+    }
+    else
+    {
+        function_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
+
+        lambda_symbol->entity_specs.any_exception = 1;
+    }
+
+    char body_already_processed = 0;
+    nodecl_t nodecl_lambda_body = nodecl_null();
+
+    if (trailing_return_type == NULL)
+    {
+        type_t* return_type = get_void_type();
+        AST body = ASTSon0(compound_statement);
+        if (body != NULL
+                && ASTSon0(body) == NULL
+                && ASTType(ASTSon1(body)) == AST_RETURN_STATEMENT)
+        {
+            AST return_stmt = ASTSon1(body);
+            AST return_expr = ASTSon0(return_stmt);
+            if (return_expr != NULL
+                    && ASTType(return_expr) != AST_INITIALIZER_BRACES)
+            {
+                nodecl_t nodecl_return_expr = nodecl_null();
+                check_expression(return_expr, lambda_block_context, &nodecl_return_expr);
+
+                if (nodecl_is_err_expr(nodecl_return_expr))
+                {
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+                    return;
+                }
+
+                return_type = nodecl_get_type(nodecl_return_expr);
+
+                // Apply lvalue conversions
+                return_type = no_ref(return_type);
+                if (is_array_type(return_type))
+                    return_type = get_pointer_type(array_type_get_element_type(return_type));
+                else if (is_function_type(return_type))
+                    return_type = get_pointer_type(return_type);
+
+                nodecl_lambda_body =
+                    nodecl_make_list_1(
+                            nodecl_make_compound_statement(
+                                nodecl_make_list_1(
+                                    nodecl_make_return_statement(
+                                        nodecl_return_expr,
+                                        ast_get_locus(return_stmt)
+                                        )
+                                    ),
+                                nodecl_null(),
+                                ast_get_locus(compound_statement)
+                                )
+                            );
+
+                nodecl_lambda_body = nodecl_make_context(
+                        nodecl_lambda_body,
+                        lambda_block_context,
+                        ast_get_locus(compound_statement)
+                        );
+                body_already_processed = 1;
+            }
+        }
+
+        function_type = function_type_replace_return_type(function_type, return_type);
+    }
+
+    if (!body_already_processed)
+    {
+        build_scope_statement(compound_statement, lambda_block_context, &nodecl_lambda_body);
+        // We are only interested in the head of this list
+        nodecl_lambda_body = nodecl_list_head(nodecl_lambda_body);
+
+        body_already_processed = 1;
+    }
+
+    ERROR_CONDITION(nodecl_get_kind(nodecl_lambda_body) != NODECL_CONTEXT,
+            "Lambda expression wrongly constructed", 0);
+
+    char ok = 1;
+    compute_implicit_captures(nodecl_lambda_body,
+            lambda_capture_default,
+            &capture_copy_entities,
+            &capture_reference_entities,
+            lambda_symbol,
+            &ok);
+
+    if (!ok)
+    {
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        return;
+    }
+
+    lambda_symbol->type_information = function_type;
+    lambda_symbol->entity_specs.function_code = nodecl_lambda_body;
+    lambda_symbol->entity_specs.is_mutable = (mutable != NULL);
+
+    // Create tree that represents explicit captures
+    nodecl_t captures = nodecl_null();
+
+    char lambda_class_is_dependent = is_dependent_type(function_type);
+
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(capture_copy_entities);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* sym = entry_list_iterator_current(it);
+        lambda_class_is_dependent = lambda_class_is_dependent
+            || is_dependent_type(sym->type_information);
+
+        captures = nodecl_append_to_list(
+                captures,
+                nodecl_make_capture_copy(
+                    sym,
+                    ast_get_locus(expression)));
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(capture_reference_entities);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* sym = entry_list_iterator_current(it);
+        lambda_class_is_dependent = lambda_class_is_dependent
+            || is_dependent_type(sym->type_information);
+
+        captures = nodecl_append_to_list(
+                captures,
+                nodecl_make_capture_reference(
+                    sym,
+                    ast_get_locus(expression)));
+    }
+    entry_list_iterator_free(it);
+
+    // Craft a class with a proper operator()
+    scope_entry_t* lambda_class = new_symbol(decl_context, decl_context.current_scope, lambda_class_name_str);
+    lambda_class->locus = ast_get_locus(expression);
+    lambda_class->kind = SK_CLASS;
+    lambda_class->type_information = get_new_class_type(decl_context, TT_STRUCT);
+
+    class_type_set_is_lambda(lambda_class->type_information, 1);
+
+    scope_entry_t* enclosing_function = NULL;
+    if (decl_context.current_scope->kind == BLOCK_SCOPE
+            && ((enclosing_function = decl_context.current_scope->related_entry) != NULL)
+            && (is_dependent_type(enclosing_function->type_information)
+                || (enclosing_function->entity_specs.is_member
+                    && is_dependent_type(enclosing_function->entity_specs.class_type))))
+    {
+        lambda_class_is_dependent = 1;
+    }
+    // Note that we might be in an nonstatic member initializer so we directly
+    // check the class_scope (the current scope is a BLOCK_SCOPE in these
+    // environments but there is no related entry)
+    else if (decl_context.class_scope != NULL)
+    {
+        scope_entry_t* enclosing_class_symbol = decl_context.class_scope->related_entry;
+        type_t* enclosing_class_type = enclosing_class_symbol->type_information;
+
+        lambda_class_is_dependent = lambda_class_is_dependent || is_dependent_type(enclosing_class_type);
+    }
+
+    set_is_dependent_type(lambda_class->type_information, lambda_class_is_dependent);
+
+    decl_context_t inner_class_context = new_class_context(lambda_class->decl_context, lambda_class);
+    class_type_set_inner_context(lambda_class->type_information, inner_class_context);
+
+    scope_entry_t* new_operator_call = new_symbol(inner_class_context, inner_class_context.current_scope, STR_OPERATOR_CALL);
+    new_operator_call->kind = SK_FUNCTION;
+    new_operator_call->entity_specs.is_member = 1;
+    new_operator_call->entity_specs.class_type = get_user_defined_type(lambda_class);
+    new_operator_call->type_information = function_type;
+    if (mutable == NULL)
+    {
+        new_operator_call->type_information = get_const_qualified_type(new_operator_call->type_information);
+    }
+    class_type_add_member(lambda_class->type_information, new_operator_call);
+
+    if (entry_list_size(capture_copy_entities) == 0
+            && entry_list_size(capture_reference_entities) == 0)
+    {
+        // Add a conversion from the class to the pointer type of the function
+        type_t* pointer_to_function = get_pointer_type(function_type);
+
+        scope_entry_t* new_conversion = new_symbol(inner_class_context, inner_class_context.current_scope,
+                 "$.operator");
+        new_conversion->kind = SK_FUNCTION;
+        new_conversion->entity_specs.is_member = 1;
+        new_conversion->entity_specs.class_type = get_user_defined_type(lambda_class);
+        new_conversion->type_information =
+            get_new_function_type(pointer_to_function, NULL, 0, REF_QUALIFIER_NONE);
+        new_conversion->entity_specs.is_conversion = 1;
+
+        class_type_add_member(lambda_class->type_information, new_conversion);
+    }
+
+    // rvalue of the class type
+    type_t* lambda_type = get_user_defined_type(lambda_class);
+
+    *nodecl_output = nodecl_make_lambda(
+            captures,
+            lambda_symbol,
+            lambda_type,
+            ast_get_locus(expression));
+
+    if (lambda_class_is_dependent)
+    {
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
+}
+
 void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand)
@@ -10685,7 +11228,6 @@ static void check_templated_member_access(AST templated_member_access, decl_cont
 {
     check_member_access(templated_member_access, decl_context, is_arrow, /*has template tag*/ 1, nodecl_output);
 }
-
 
 static char is_pseudo_destructor_id(decl_context_t decl_context,
         type_t* accessed_type,

@@ -90,6 +90,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
     { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
+    { "__underlying_type", GXX_UNDERLYING_TYPE },
     // Sentinel
     { NULL, 0 },
 };
@@ -1173,7 +1174,8 @@ type {
 "__is_polymorphic" |
 "__is_standard_layout" |
 "__is_trivial" |
-"__is_union" {
+"__is_union" |
+"__underlying_type" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }
  /*!endif*/

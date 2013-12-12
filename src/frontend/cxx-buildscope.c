@@ -2994,6 +2994,54 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 #endif
                 break;
             }
+        case AST_GXX_UNDERLYING_TYPE:
+            {
+                AST type_id = ASTSon0(a);
+                AST type_specifier_seq = ASTSon0(type_id);
+                AST abstract_decl = ASTSon1(type_id);
+
+                type_t *type_info = NULL;
+
+                gather_decl_spec_t typeof_gather_info;
+                memset(&typeof_gather_info, 0, sizeof(typeof_gather_info));
+
+                // First declarator is NULL because types cannot be defined in 'typeof' expressions
+                build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info,
+                        &type_info, decl_context, nodecl_output);
+
+                if (is_error_type(type_info))
+                {
+                    *simple_type_info = get_error_type();
+                    return;
+                }
+
+                type_t* declarator_type = type_info;
+                compute_declarator_type(abstract_decl,
+                        &typeof_gather_info, type_info, &declarator_type,
+                        decl_context, nodecl_output);
+
+                if (is_dependent_type(declarator_type)
+                        || (is_enum_type(declarator_type)
+                            && is_dependent_type(enum_type_get_underlying_type(declarator_type))))
+                {
+                    *simple_type_info = get_gxx_underlying_type(declarator_type);
+                }
+                else if (is_enum_type(declarator_type))
+                {
+                    *simple_type_info = enum_type_get_underlying_type(declarator_type);
+                }
+                else
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: type-id of an __underlying_type must be an enum type\n",
+                                ast_location(a));
+                    }
+                    *simple_type_info = get_error_type();
+                }
+
+                break;
+            }
             // Mercurium extension @byte@
         case AST_MCC_BYTE:
             {
@@ -4509,8 +4557,8 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
     common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), decl_context, type_info, gather_info, entry_list);
 }
 
-
-static type_t* compute_underlying_type_enum(const_value_t* min_value, 
+static type_t* compute_underlying_type_enum(
+        const_value_t* min_value,
         const_value_t* max_value,
         type_t* underlying_type,
         char short_enums)
@@ -4523,7 +4571,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     {
         type_t *signed_type;
         type_t *unsigned_type;
-    } 
+    }
     checked_types[] =
     {
         { get_signed_char_type(),          get_unsigned_char_type() },
@@ -4548,25 +4596,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
 
     while (result->signed_type != NULL)
     {
-        // Try first signed
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    print_declarator(result->signed_type));
-        }
-
-        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
-                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
-        {
-            return result->signed_type;
-        }
-        // Try second unsigned
+        // Try first unsigned
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
@@ -4584,8 +4614,28 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         {
             return result->unsigned_type;
         }
+
+        // Try second signed
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    print_declarator(result->signed_type));
+        }
+
+        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
+        {
+            return result->signed_type;
+        }
         result++;
     }
+
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
             codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
@@ -9632,6 +9682,23 @@ static void set_function_type(type_t** declarator_type,
     build_exception_spec(*declarator_type, except_spec, gather_info, decl_context, nodecl_output);
 }
 
+// Used in C++11
+void set_function_type_for_lambda(type_t** declarator_type,  
+        gather_decl_spec_t* gather_info,
+        AST parameters_and_qualifiers, 
+        decl_context_t decl_context,
+        decl_context_t *lambda_block_context,
+        nodecl_t* nodecl_output)
+{
+    set_function_type(declarator_type,
+            gather_info,
+            parameters_and_qualifiers,
+            decl_context,
+            lambda_block_context,
+            NULL,
+            nodecl_output);
+}
+
 // This function traverses the declarator tree gathering all attributes that might appear there
 // We need to traverse the declarator twice because of gcc allowing attributes appear in many
 // places
@@ -10010,11 +10077,6 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
         }
     }
 }
-
-static void set_parameters_as_related_symbols(scope_entry_t* entry, 
-        gather_decl_spec_t* gather_info,
-        char is_definition,
-        const locus_t* locus);
 
 static void update_function_specifiers(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
@@ -13252,7 +13314,7 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
     common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted, nodecl_output);
 }
 
-static void set_parameters_as_related_symbols(scope_entry_t* entry,
+void set_parameters_as_related_symbols(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
         char is_definition,
         const locus_t* locus)
@@ -16348,7 +16410,9 @@ static void build_scope_return_statement(AST a,
 
     scope_entry_t* function = decl_context.current_scope->related_entry;
     ERROR_CONDITION(function->kind != SK_FUNCTION
-            && function->kind != SK_DEPENDENT_FRIEND_FUNCTION, "Invalid related entry!", 0);
+            && function->kind != SK_DEPENDENT_FRIEND_FUNCTION
+            && function->kind != SK_LAMBDA,
+            "Invalid related entry!", 0);
 
     type_t* return_type = function_type_get_return_type(function->type_information);
     if (return_type == NULL)
