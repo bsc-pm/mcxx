@@ -440,8 +440,9 @@ NANOX_INCLUDES=""
 NANOX_LIBS=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
-MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin"
-
+nanox_mic_enabled=no
+MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
+show_mic_tools_warning=NO
 
 if test x$is_enabled_openmpt = xyes;
 then
@@ -482,6 +483,7 @@ then
            [
             nanox_mic_include="${withval}/include/nanox"
             nanox_mic_lib="${withval}/lib"
+            nanox_mic_enabled=yes
             if test -d "${withval}/lib64";
             then
              nanox_mic_lib="${withval}/lib64"
@@ -493,6 +495,7 @@ then
            AS_HELP_STRING([--with-nanox-mic-include=dir], [Directory of Nanos++ MIC headers]),
            [
             nanox_mic_include="${withval}"
+            nanox_mic_enabled=yes
            ]
    )
 
@@ -500,6 +503,7 @@ then
            AS_HELP_STRING([--with-nanox-mic-lib=dir], [Directory of Nanos++ MIC libraries]),
            [
             nanox_mic_lib="${withval}"
+            nanox_mic_enabled=yes
            ]
    )
 
@@ -510,14 +514,21 @@ then
    fi
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
+   
 
    AC_ARG_WITH([mic-tools],
            AS_HELP_STRING([--with-mic-tools=dir], [Directory where MIC (k1om arch) tools are located (objcopy,objdump & ar)]),
            [
-             MIC_TOOLS="${withval}"
+             MIC_TOOLS="${withval}/"
+             #some machines seem to add a prefix to objdump, ar...
+             AC_CHECK_FILE(${MIC_TOOLS}objdump, [], [MIC_TOOLS="${MIC_TOOLS}x86_64-k1om-linux-"])
+             if test x$NANOX_MIC_ENABLED = xyes;
+             then
+              AC_CHECK_FILE(${MIC_TOOLS}objdump, [], [show_mic_tools_warning=YES])
+             fi
            ]
    )
-
+   
    if test x$nanox_include = x -o x$nanox_lib = x;
    then
       AC_MSG_ERROR([OpenMP support requires '--with-nanox=dir'. See --help.])
@@ -1941,6 +1952,11 @@ fi
 
 echo ""
 
+if test x$show_mic_tools_warning = xyes;
+then
+	AC_MSG_WARN([Fortran+MIC compiling requires k1om objdump/ar/objcpy binaries to be avaiable, configure folder with '--with-mic-tools=dir'. See --help.])
+fi
+
 if test x$flex_good = xno;
 then
   AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
@@ -1953,4 +1969,3 @@ if test x$gperf_good = xno;
 then
    AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
 fi
-

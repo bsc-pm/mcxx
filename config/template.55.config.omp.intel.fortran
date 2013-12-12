@@ -30,6 +30,9 @@ linker_options = -reentrancy threaded
 @DISABLE_OPENCL@{!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
 @DISABLE_OPENCL@{!mmic,openmp}compiler_phase = libtlnanox-opencl.so
 @DISABLE_OPENCL@{!mmic,openmp}linker_options = -lnanox-opencl-api
+{mmic}target_objcopy=@MIC_TOOLS@objcopy
+{mmic}target_objdump=@MIC_TOOLS@objdump
+{mmic}target_ar=@MIC_TOOLS@ar
 
 [imf95 : imfc]
 [ifort-mfc : imfc]
