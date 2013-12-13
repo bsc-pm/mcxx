@@ -96,6 +96,8 @@ loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt
             | NODECL_UNBOUNDED_LOOP_CONTROL()
 
 range-loop-control : NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
+# Next one is for C++2011
+    | NODECL_ITERATOR_LOOP_CONTROL([range_iterator] name, [initializer]expression)
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration

@@ -63,10 +63,13 @@ LIBMCXX_EXTERN char check_initialization(AST initializer,
         nodecl_t* nodecl_output,
         char is_auto_type);
 
-LIBMCXX_EXTERN void check_nodecl_initialization(nodecl_t nodecl_initializer,
+LIBMCXX_EXTERN void check_nodecl_initialization(
+        nodecl_t nodecl_initializer,
         decl_context_t decl_context,
+        scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
-        nodecl_t* nodecl_output);
+        nodecl_t* nodecl_output,
+        char is_auto_type);
 
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);

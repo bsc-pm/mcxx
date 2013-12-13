@@ -3717,6 +3717,11 @@ iteration_statement : WHILE '(' condition ')' statement
     AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
 	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+| FOR '(' for_range_declaration ':' braced_init_list ')' statement
+{
+    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
 ;
 
 for_range_declaration : type_specifier_seq_0 declarator %merge<ambiguityHandler>
