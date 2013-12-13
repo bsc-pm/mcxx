@@ -162,6 +162,9 @@ namespace Analysis {
                         break;
                     }
                 }
+                
+                edge->set_type( etype );
+                edge->set_label( label );
             }
         }
         else
@@ -274,17 +277,13 @@ namespace Analysis {
     void ExtensibleGraph::disconnect_nodes( ObjectList<Node*> parents, Node* child )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-        {
             disconnect_nodes( *it, child );
-        }
     }
 
     void ExtensibleGraph::disconnect_nodes( Node* parent, ObjectList<Node*> children )
     {
         for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-        {
             disconnect_nodes( parent, *it );
-        }
     }
 
     void ExtensibleGraph::disconnect_nodes( Node *parent, Node *child )
@@ -297,7 +296,7 @@ namespace Analysis {
                                               Graph_type graph_type, Nodecl::NodeclBase context )
     {
         Node* result = new Node( _utils->_nid, __Graph, outer_node );
-
+        
         Node* entry_node = result->get_graph_entry_node( );
         entry_node->set_outer_node( result );
         Node* exit_node = result->get_graph_exit_node( );

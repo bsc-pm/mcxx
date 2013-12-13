@@ -402,42 +402,39 @@ namespace {
     {
         switch( current->get_graph_type( ) )
         {
-            case __AsmDef:
+            case __Context:
                 dot_graph += indent + "color=lightsteelblue;\n";
-                break;
-            case __CondExpr:
-            case __FunctionCallGraph:
-            case __IfElse:
-            case __SplitStmt:
-            case __Switch:
-                dot_graph += indent + "color=grey45;\n";
-                break;
-            case __LoopDoWhile:
-            case __LoopFor:
-            case __LoopWhile:
-                dot_graph += indent + "color=maroon4;\n";
                 break;
             case __ExtensibleGraph:
                 dot_graph += indent + "color=white;\n";
+                break;
+            case __AsmDef:
+            case __CondExpr:
+            case __FunctionCallGraph:
+            case __IfElse:
+            case __LoopDoWhile:
+            case __LoopFor:
+            case __LoopWhile:
+            case __SplitStmt:
+            case __Switch:
+                dot_graph += indent + "color=grey45;\n";
                 break;
             case __OmpAtomic:
             case __OmpBarrierGraph:
             case __OmpCritical:
             case __OmpLoop:
+            case __OmpMaster:
             case __OmpParallel:
             case __OmpSection:
             case __OmpSections:
-            case __OmpSingle:
-            case __OmpWorkshare:
-            case __OmpTask:
-            case __OmpMaster:
-                dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
-                break;
             case __OmpSimd:
             case __OmpSimdFor:
             case __OmpSimdParallelFor:
             case __OmpSimdFunction:
-                dot_graph += indent + "color=indianred2;\n";
+            case __OmpSingle:
+            case __OmpTask:
+            case __OmpWorkshare:
+                dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
                 break;
             case __VectorCondExpr:
             case __VectorFunctionCallGraph:

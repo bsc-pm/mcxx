@@ -341,6 +341,11 @@ namespace Analysis {
     {
         return ( get_type( ) == __Continue );
     }
+    
+    bool Node::is_context_node( )
+    {
+        return ( ( get_type( ) == __Graph ) && ( get_graph_type( ) == __Context ) );
+    }
 
     bool Node::is_ifelse_statement( )
     {

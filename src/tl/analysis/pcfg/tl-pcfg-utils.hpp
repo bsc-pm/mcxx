@@ -85,6 +85,7 @@ namespace Analysis {
     #define GRAPH_NODE_TYPE_LIST \
     GRAPH_TYPE(AsmDef) \
     GRAPH_TYPE(CondExpr) \
+    GRAPH_TYPE(Context) \
     GRAPH_TYPE(ExtensibleGraph) \
     GRAPH_TYPE(FunctionCallGraph) \
     GRAPH_TYPE(IfElse) \

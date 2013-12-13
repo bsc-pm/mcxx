@@ -218,7 +218,10 @@ namespace Analysis {
 
             //! Returns true when the node is a CONTINUE node
             bool is_continue_node( );
-
+            
+            //! Returns true when the node is a CONTEXT node
+            bool is_context_node( );
+            
             //! Returns true when the node is a GOTO node
             bool is_goto_node( );
 
