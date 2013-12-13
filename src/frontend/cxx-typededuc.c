@@ -1101,7 +1101,7 @@ char deduce_arguments_of_conversion(
     (*argument_types) = no_ref((*argument_types));
 
     // If P is not a reference type
-    if (!is_lvalue_reference_type((*parameter_types)))
+    if (!is_any_reference_type((*parameter_types)))
     {
         // if A is an array type the pointer type produced by the array to pointer conversion
         // is used in place of A
@@ -1122,7 +1122,7 @@ char deduce_arguments_of_conversion(
         }
     }
 
-    if (is_lvalue_reference_type((*parameter_types)))
+    if (is_any_reference_type((*parameter_types)))
     {
         (*parameter_types) = reference_type_get_referenced_type((*parameter_types));
     }
@@ -1158,7 +1158,7 @@ char deduce_arguments_of_conversion(
         type_t* original_parameter = function_type_get_return_type(specialized_type);
 
         char ok = 0;
-        if (is_lvalue_reference_type(original_parameter)
+        if (is_any_reference_type(original_parameter)
                 && is_more_or_equal_cv_qualified_type(reference_type_get_referenced_type(updated_type),
                     (*argument_types)))
         {
@@ -1258,7 +1258,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         current_argument_type = no_ref(current_argument_type);
 
         // If P is not a reference type
-        if (!is_lvalue_reference_type(current_parameter_type))
+        if (!is_any_reference_type(current_parameter_type))
         {
             // if A is an array type the pointer type produced by the array to pointer conversion
             // is used in place of A
@@ -1341,18 +1341,21 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
         // If P is a qualified type the top level cv-qualifiers of P are ignored for type deduction
         current_parameter_type = get_unqualified_type(current_parameter_type);
-        if (is_lvalue_reference_type(current_parameter_type))
+        if (is_any_reference_type(current_parameter_type))
         {
             // If P is a reference type the type referred to by P is used for type deducton
             current_parameter_type = reference_type_get_referenced_type(current_parameter_type);
         }
-        else if (is_rvalue_reference_type(current_parameter_type)
+
+        if (is_rvalue_reference_type(original_parameter_type)
+                && get_cv_qualifier(no_ref(original_parameter_type)) == CV_NONE
+                && is_named_type(no_ref(original_parameter_type))
+                && named_type_get_symbol(no_ref(original_parameter_type))->kind == SK_TEMPLATE_TYPE_PARAMETER
                 && is_lvalue_reference_type(call_argument_types[i_arg]))
         {
-            // If P is a rvalue-reference type and the argument is a
-            // lvalue (so, a lvalue reference for us), the type A& is used in
-            // place of A for type deduction. We removed the reference at the
-            // beginning, so we want it back
+            // If P is an rvalue reference to a cv-unqualified template parameter and the
+            // argument is an lvalue, the type “lvalue reference to A” is used in place of
+            // A for type deduction.
             current_argument_type = get_lvalue_reference_type(current_argument_type);
         }
 
@@ -1472,7 +1475,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     // Some adjustment goes here so the equivalent_types check below works.
                     // We mimic the adjustments performed before
                     //
-                    if (!is_lvalue_reference_type(current_original_parameter_type))
+                    if (!is_any_reference_type(current_original_parameter_type))
                     {
                         // If it is not a reference convert from function to pointer
                         if (!solved_function->entity_specs.is_member
@@ -1543,7 +1546,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 //   f(a); <-- won't match the template since the deduced 'A' is (int&) and we are passing (const int&)
                 // }
                 //
-                else if (is_lvalue_reference_type(current_original_parameter_type)
+                else if (is_any_reference_type(current_original_parameter_type)
                         && equivalent_types(
                             get_unqualified_type(current_type), 
                             get_unqualified_type(argument_types[current_arg]))

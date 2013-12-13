@@ -2363,16 +2363,15 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
     else if (is_lvalue_reference_type(t))
     {
         type_t* result = update_type_for_auto(reference_type_get_referenced_type(t), template_parameter);
-        return get_cv_qualified_type(
-                get_lvalue_reference_type(result),
-                get_cv_qualifier(t));
+        return get_lvalue_reference_type(no_ref(result));
     }
     else if (is_rvalue_reference_type(t))
     {
         type_t* result = update_type_for_auto(reference_type_get_referenced_type(t), template_parameter);
-        return get_cv_qualified_type(
-                get_rvalue_reference_type(result),
-                get_cv_qualifier(t));
+        if (is_any_reference_type(result))
+            return result;
+        else
+            return get_rvalue_reference_type(result);
     }
     else if (is_array_type(t))
     {
@@ -2890,7 +2889,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (updated_referenced == NULL)
             return NULL;
 
-        type_t* result_type = get_lvalue_reference_type(updated_referenced);
+        // Any attempt to create a lvalue reference of any reference type is an
+        // lvalue reference type
+        type_t* result_type = get_lvalue_reference_type(no_ref(updated_referenced));
 
         return result_type;
     }
@@ -2904,7 +2905,14 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (updated_referenced == NULL)
             return NULL;
 
-        type_t* result_type = get_rvalue_reference_type(updated_referenced);
+        type_t* result_type = NULL;
+
+        // Any attempt to create a rvalue reference of any reference type is
+        // that reference type
+        if (is_any_reference_type(updated_referenced))
+            result_type = updated_referenced;
+        else
+            result_type = get_rvalue_reference_type(updated_referenced);
 
         return result_type;
     }
