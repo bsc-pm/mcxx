@@ -1930,6 +1930,12 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
     
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
+    {
+        // Nothing to be done
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Commutative& n )
     {
         PCFGClause current_clause( __commutative, n.get_inout_deps( ) );
