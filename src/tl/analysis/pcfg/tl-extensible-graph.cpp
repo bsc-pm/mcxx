@@ -1252,6 +1252,19 @@ namespace Analysis {
         return result;
     }
     
+    Node* ExtensibleGraph::get_enclosing_context( Node* n )
+    {
+        Node* sc = NULL;
+        Node* outer = n;
+        while( sc == NULL && outer != NULL )
+        {
+            if( outer->is_context_node( ) )
+                sc = outer;
+            outer = outer->get_outer_node( );
+        }
+        return sc;
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;

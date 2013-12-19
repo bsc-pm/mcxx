@@ -2578,8 +2578,7 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskExpression& n )
     {
         walk( n.get_task_calls( ) );
-        ObjectList<Node*> res = walk( n.get_join_task( ) );
-        return res;
+        return walk( n.get_join_task( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )

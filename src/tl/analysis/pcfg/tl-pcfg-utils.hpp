@@ -663,7 +663,7 @@ namespace Analysis {
     class PCFGClause {
     private:
         Clause _clause;
-        ObjectList<Nodecl::NodeclBase> _args;
+        Nodecl::List _args;
 
     public:
         //! Empty constructor
@@ -679,7 +679,7 @@ namespace Analysis {
         //! Getters
         Clause get_clause( ) const;
         std::string get_clause_as_string( ) const;
-        ObjectList<Nodecl::NodeclBase> get_args( ) const;
+        Nodecl::List get_args( ) const;
         
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
@@ -705,6 +705,7 @@ namespace Analysis {
         ~PCFGPragmaInfo( );
 
         bool has_clause( Clause clause ) const;
+        PCFGClause get_clause( Clause clause ) const;
 
         void add_clause( PCFGClause pcfg_clause );
         

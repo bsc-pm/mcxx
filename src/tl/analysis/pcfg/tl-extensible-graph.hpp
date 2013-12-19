@@ -399,7 +399,7 @@ namespace Analysis {
         static bool node_is_ancestor_of_node( Node* ancestor, Node* descendant );
         static Node* get_omp_enclosing_node( Node* current );
         static Edge* get_edge_between_nodes( Node* source, Node* target );
-        
+        static Node* get_enclosing_context( Node* n );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

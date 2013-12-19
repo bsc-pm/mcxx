@@ -567,9 +567,9 @@ namespace {
     {
         std::string clauses_str = ""; 
         int i = 0;
-        ObjectList<Nodecl::NodeclBase> args_list = clause.get_args( );
-        int n_args = args_list.size( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = args_list.begin( ); it != args_list.end( ); ++it, ++i )
+        Nodecl::List args = clause.get_args( );
+        int n_args = args.size( );
+        for( Nodecl::List::const_iterator it = args.begin( ); it != args.end( ); ++it, ++i )
         {
             if( it->is<Nodecl::OpenMP::ReductionItem>( ) )
             {
