@@ -387,7 +387,7 @@ namespace Analysis {
 
             //! Returns the nodecl contained in the graph node (Only valid for graph nodes)
             //! If the graph doesn't have a label, a null Nodecl is returned
-            Nodecl::NodeclBase get_graph_label( );
+            Nodecl::NodeclBase get_graph_related_ast( );
 
             //! Set the label of the graph node (Only valid for graph nodes)
             void set_graph_label( Nodecl::NodeclBase n );

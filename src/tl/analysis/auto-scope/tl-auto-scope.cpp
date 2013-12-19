@@ -333,7 +333,7 @@ namespace {
             else if( current->has_statements( ) )
             {
                 Utils::ext_sym_set undef = task->get_undefined_behaviour_vars( );
-                Scope sc( task->get_graph_label( ).retrieve_context( ) );
+                Scope sc( task->get_graph_related_ast( ).retrieve_context( ) );
 
                 Utils::ext_sym_set ue = current->get_ue_vars( );
                 for( Utils::ext_sym_set::iterator it = ue.begin( ); it != ue.end( ); ++it )

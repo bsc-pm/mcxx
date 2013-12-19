@@ -251,7 +251,7 @@ namespace {
             // Treat current node
             std::string locus_str;
             if( current->is_graph_node( ) )
-                locus_str = current->get_graph_label( ).get_locus_str( );
+                locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
             {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );

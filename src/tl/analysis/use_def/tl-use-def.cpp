@@ -298,7 +298,7 @@ namespace Analysis {
                     || current->is_omp_parallel_node( ) || current->is_omp_task_node( ) )
                 {   // Take into account data-sharing clauses in Use-Def Task node computation
                     Nodecl::List environ =
-                            current->get_graph_label( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
+                            current->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
                     for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
                     {
                         if( it->is<Nodecl::OpenMP::Private>( ) )

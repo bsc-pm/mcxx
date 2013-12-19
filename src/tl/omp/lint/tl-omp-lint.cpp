@@ -74,7 +74,7 @@ namespace OpenMP {
                 {
                     if( task_only_synchronizes_in_enclosing_scopes(*it).is_true( ) )
                     {
-                        Nodecl::NodeclBase task = (*it)->get_graph_label( );
+                        Nodecl::NodeclBase task = (*it)->get_graph_related_ast( );
                         std::string local_vars_str = get_nodecl_list_str( local_vars );
                         warn_printf( "%s: warning: '#pragma omp task' uses local data '%s' "
                                      "whose lifetime may have ended when the task is executed\n", 
@@ -82,7 +82,7 @@ namespace OpenMP {
                     }
                     else if( task_is_statically_determined_to_late_execution(*it).is_true( ) )
                     {
-                        Nodecl::NodeclBase task = (*it)->get_graph_label();
+                        Nodecl::NodeclBase task = (*it)->get_graph_related_ast();
                         std::string local_vars_str = get_nodecl_list_str( local_vars );
                         warn_printf( "%s: warning: '#pragma omp task' uses local data '%s' but may be"
                                      " executed after the function ends\n",
@@ -203,7 +203,7 @@ namespace OpenMP {
             ERROR_CONDITION( !n->is_omp_task_node( ), "Expecting a Task node, but found a '%s' node.", 
                              n->get_type_as_string( ).c_str( ) );
             
-            Nodecl::NodeclBase task = n->get_graph_label( );
+            Nodecl::NodeclBase task = n->get_graph_related_ast( );
             ERROR_CONDITION( task.is_null( ), "Invalid target task tree related to node %d.", n->get_id( ) );
             
             tribool result = false;

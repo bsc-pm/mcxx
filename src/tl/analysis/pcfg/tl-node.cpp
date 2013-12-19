@@ -764,7 +764,7 @@ namespace Analysis {
                             get_type_as_string( ).c_str( ), _id );
     }
 
-    Nodecl::NodeclBase Node::get_graph_label( )
+    Nodecl::NodeclBase Node::get_graph_related_ast( )
     {
         if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
@@ -869,7 +869,7 @@ namespace Analysis {
         Nodecl::NodeclBase n = Nodecl::NodeclBase::null( );
         if( is_graph_node( ) )
         {
-            n = get_graph_label( );
+            n = get_graph_related_ast( );
         }
         else
         {

@@ -184,7 +184,7 @@ namespace Analysis {
                 // When calling to analysis with a non-TopLevel node, both the EXTENSIBLE_GRAPH and
                 // the non-TopLevel node, have the same label, so we have to look for the one that
                 // is not the EXTENSIBLE_GRAPH node.
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n, /* skip conversion nodes */ true )
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_related_ast( ), n, /* skip conversion nodes */ true )
                     && ( n.is<Nodecl::FunctionCode>( )
                          || n.is<Nodecl::OpenMP::SimdFunction>( )
                          || ( !n.is<Nodecl::FunctionCode>() && !current->is_extended_graph_node( ) ) ) )

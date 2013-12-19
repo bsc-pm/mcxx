@@ -308,7 +308,7 @@ namespace {
     tribool compute_taskwait_sync_relationship(Node* source, Node* target)
     {
         // Source (task)
-        Nodecl::NodeclBase task_node_source = source->get_graph_label();
+        Nodecl::NodeclBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
                 && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
@@ -418,7 +418,7 @@ namespace {
 
         // TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
         // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
-        Nodecl::NodeclBase task_node_source = source->get_graph_label();
+        Nodecl::NodeclBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
                 && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
@@ -466,7 +466,7 @@ namespace {
 
         // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
         // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
-        Nodecl::NodeclBase task_node_target = target->get_graph_label();
+        Nodecl::NodeclBase task_node_target = target->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
                 && !task_node_target.is<Nodecl::OpenMP::TaskExpression>()
@@ -1093,7 +1093,7 @@ namespace {
         ObjectList<Node*> end_point = task->get_children( );
         if( end_point.size( ) != 1 )
         {
-            Nodecl::OpenMP::Task task_label = task->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
+            Nodecl::OpenMP::Task task_label = task->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
             internal_error( "The end point of a task should be one unique node representing "\
                             "a 'taskwait', a 'barrier' or a 'virtual synchronization'. "\
                             "Task (%d) '%s' has more than one exit", task_label.prettyprint( ).c_str( ) );
