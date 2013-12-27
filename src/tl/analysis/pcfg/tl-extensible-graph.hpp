@@ -90,7 +90,7 @@ namespace Analysis {
         //! Map that relates each task in the graph with the immediately previous nodes where it is synchronized
         std::map<Node*, ObjectList<Node*> > _last_sync;
         //! Map that relates each task in the graph with the immediately next nodes where it is synchronized
-        std::map<Node*, Node* > _next_sync;
+        std::map<Node*, ObjectList<Node*> > _next_sync;
         
         // *** DOT Graph *** //
         //! Map used during PCFG outlining that contains the mapping between DOT cluster and its ENTRY node
@@ -384,8 +384,8 @@ namespace Analysis {
         void add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks );
         ObjectList<Node*> get_task_last_synchronization( Node* task );
         void add_last_synchronization( Node* task, ObjectList<Node*> last_sync );
-        Node* get_task_next_synchronization( Node* task );
-        void add_next_synchronization( Node* task, Node* next_sync );
+        ObjectList<Node*> get_task_next_synchronization( Node* task );
+        void add_next_synchronization( Node* task, ObjectList<Node*> next_sync );
         
         
         // *** Consultants *** //

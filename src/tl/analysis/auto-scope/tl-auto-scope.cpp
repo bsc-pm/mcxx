@@ -292,7 +292,7 @@ namespace {
         _simultaneous_tasks = _graph->get_task_concurrent_tasks( task );
         
         ObjectList<Node*> last_sync = _graph->get_task_last_synchronization( task );
-        Node* next_sync = _graph->get_task_next_synchronization( task );
+        ObjectList<Node*> next_sync = _graph->get_task_next_synchronization( task );
         if( VERBOSE )
         {
             std::cerr << " Task concurrent regions limits: \n";
@@ -305,12 +305,17 @@ namespace {
                     std::cerr << (*it)->get_id( ) << ", ";
                 std::cerr << std::endl;
             }
-            if( next_sync == NULL )
+            if( next_sync.empty( ) )
                 std::cerr << "    - Next sync not found" << std::endl;
             else
-                std::cerr << "    - Next sync: " << next_sync->get_id( ) << std::endl;
+            {
+                std::cerr << "    - Next sync: ";
+                for( ObjectList<Node*>::iterator it = next_sync.begin( ); it != next_sync.end( ); ++it )
+                    std::cerr << (*it)->get_id( ) << ", ";
+                std::cerr << std::endl;
+            }
         }
-        if( last_sync.empty( ) || ( next_sync == NULL ) )
+        if( last_sync.empty( ) || ( next_sync.empty( ) ) )
             _check_only_local = true;
         
         // Scope variables
@@ -361,7 +366,7 @@ namespace {
     void AutoScoping::scope_variable( Node* task, Node* ei_node, Utils::UsageKind usage, Utils::ExtendedSymbol ei,
                                       Utils::ext_sym_set& scoped_vars )
     {
-        if( !Utils::ext_sym_set_contains_enclosing_nodecl( ei, scoped_vars ) )
+        if( !Utils::ext_sym_set_contains_enclosing_nodecl( ei.get_nodecl( ), scoped_vars ) )
         {   // The expression is not a symbol local from the task
             scoped_vars.insert( ei );
 

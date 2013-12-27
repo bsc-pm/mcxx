@@ -1025,9 +1025,9 @@ namespace Analysis {
         _last_sync[task] = last_sync;
     }
     
-    Node* ExtensibleGraph::get_task_next_synchronization( Node* task )
+    ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization( Node* task )
     {
-        Node* result = NULL;
+        ObjectList<Node*> result = NULL;
         if( !task->is_omp_task_node( ) )
         {
             WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
@@ -1044,7 +1044,7 @@ namespace Analysis {
         return result;
     }
     
-    void ExtensibleGraph::add_next_synchronization( Node* task, Node* next_sync )
+    void ExtensibleGraph::add_next_synchronization( Node* task, ObjectList<Node*> next_sync )
     {
         if( _next_sync.find( task ) != _next_sync.end( ) )
         {
@@ -1090,18 +1090,16 @@ namespace Analysis {
     bool ExtensibleGraph::node_is_in_loop( Node* current )
     {
         bool res = false;
-
         Node* outer_node = current->get_outer_node( );
-        while( ( outer_node != NULL ) && !outer_node->is_loop_node( ) )
+        while( outer_node != NULL )
         {
+            if( outer_node->is_loop_node( ) )
+            {
+                res = true;
+                break;
+            }
             outer_node = outer_node->get_outer_node( );
         }
-
-        if( ( outer_node != NULL ) && outer_node->is_loop_node( ) )
-        {
-            res = true;
-        }
-
         return res;
     }
 

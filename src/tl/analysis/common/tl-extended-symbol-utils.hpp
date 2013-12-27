@@ -91,10 +91,10 @@ namespace Utils {
     bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
     
     bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set );
-    bool ext_sym_set_contains_nodecl( Nodecl::NodeclBase nodecl, ext_sym_set sym_set );
+    bool ext_sym_set_contains_nodecl( const Nodecl::NodeclBase& nodecl, const ext_sym_set& sym_set );
     
-    bool ext_sym_set_contains_enclosing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
-    bool ext_sym_set_contains_enclosed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set );
+    bool ext_sym_set_contains_enclosing_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
+    bool ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
     
     void delete_enclosing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
     void delete_enclosed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
