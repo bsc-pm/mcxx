@@ -7313,7 +7313,8 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
             && is_lvalue_reference_type(second_type)
             && is_lvalue_reference_type(third_type))
     {
-        final_type = second_type;
+        // A conditional expression is never a lvalue in C99
+        final_type = no_ref(second_type);
     }
     else
     {
