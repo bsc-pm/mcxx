@@ -321,7 +321,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
    { \
        *(file) << "("; \
    } \
-   char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
+   char needs_parentheses = get_rank(lhs) < get_rank_kind(NODECL_LOGICAL_OR, ""); \
    if (needs_parentheses) \
    { \
        *(file) << "("; \
@@ -332,7 +332,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
        *(file) << ")"; \
    } \
    *(file) << _operand; \
-   needs_parentheses = operand_has_lower_priority(node, rhs); \
+   needs_parentheses = get_rank(rhs) < get_rank_kind(NODECL_ASSIGNMENT, ""); \
    if (needs_parentheses) \
    { \
        *(file) << "("; \
