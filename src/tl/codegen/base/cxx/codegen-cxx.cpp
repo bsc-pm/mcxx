@@ -797,14 +797,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
+    bool condition_must_be_parenthesized = get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, "");
+    if (condition_must_be_parenthesized)
     {
         // This expression is a logical-or-expression, so an assignment (or comma)
         // needs parentheses
         *(file) << "(";
     }
     walk(cond);
-    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
+    if (condition_must_be_parenthesized)
     {
         *(file) << ")";
     }
@@ -816,13 +817,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 
     *(file) << " : ";
 
-    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+    node_t priority_node = NODECL_CONDITIONAL_EXPRESSION;
+    CXX_LANGUAGE()
     {
-        // Only comma operator could get here actually
+        // C++ is more liberal in the syntax of the conditional operator than C99
+        priority_node = NODECL_ASSIGNMENT;
+    }
+
+    bool else_part_must_be_parenthesized = get_rank(_else) < get_rank_kind(priority_node, "");
+    if (else_part_must_be_parenthesized)
+    {
         *(file) << "(";
     }
     walk(_else);
-    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+    if (else_part_must_be_parenthesized)
     {
         *(file) << ")";
     }
