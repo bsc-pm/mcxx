@@ -58,6 +58,7 @@ struct A
             aux = *this;
             aux._sign = !aux._sign;
         }
+        #pragma omp taskwait
         return aux;
     }
 
@@ -68,6 +69,7 @@ struct A
         {
             res = (this->_sign == a._sign);
         }
+        #pragma omp taskwait
         return res;
     }
 };
@@ -86,11 +88,8 @@ int main()
     }
 
     A A_false = -A_true;
-#pragma omp taskwait
-    assert( A_true._sign == true);
-    assert( A_false._sign == false);
+    assert(A_true._sign == true);
+    assert(A_false._sign == false);
 
-    bool equal = (A_true == A_false);
-#pragma omp taskwait
-    assert( !(equal));
+    assert(!(A_true == A_false));
 }
