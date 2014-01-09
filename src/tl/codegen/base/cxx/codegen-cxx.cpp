@@ -6587,7 +6587,9 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
-    else if (t.is_named_class())
+    else if (t.is_named_class()
+                // Anonymous unions are handled as unnamed classes
+                && !t.get_symbol().is_anonymous_union())
     {
         TL::Symbol class_entry = t.get_symbol();
         if (needs_definition)
@@ -6599,7 +6601,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
             (this->*symbol_to_declare)(class_entry);
         }
     }
-    else if (t.is_unnamed_class())
+    else if (t.is_unnamed_class()
+            // Anonymous unions are handled as unnamed classes
+            || (t.is_named_class()
+                && t.get_symbol().is_anonymous_union()))
     {
         // Special case for nested members
 
