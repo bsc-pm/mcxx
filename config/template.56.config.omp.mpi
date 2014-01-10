@@ -41,5 +41,4 @@ compiler_name = @MPIFORT@
 compiler_options= -mt_mpi
 linker_name = @MPIFORT@
 linker_options = -mt_mpi
-{mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so

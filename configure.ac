@@ -443,6 +443,7 @@ NANOX_MIC_LIBS=""
 nanox_mic_enabled=no
 MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
 show_mic_tools_warning=NO
+MIC_LIBS=""
 
 if test x$is_enabled_openmpt = xyes;
 then
@@ -528,6 +529,15 @@ then
              fi
            ]
    )
+
+   AC_ARG_WITH([mic-libs],
+   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
+   [
+      MIC_LIBS="${withval}"
+   ],
+   [
+      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
+   ])
    
    if test x$nanox_include = x -o x$nanox_lib = x;
    then
@@ -940,16 +950,6 @@ then
 
    mpi_found=no
    MPIMODULE=""
-   MIC_LIBS=""
-
-   AC_ARG_WITH([mic-libs],
-   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
-   	[
-   		MIC_LIBS="${withval}"
-   	],
-   	[
-   		MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
-   	])
 
    #check the directory and get the right compiler path and name
    AC_ARG_WITH([mpi],
