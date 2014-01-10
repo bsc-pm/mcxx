@@ -321,7 +321,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
    { \
        *(file) << "("; \
    } \
-   char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
+   char needs_parentheses = get_rank(lhs) < get_rank_kind(NODECL_LOGICAL_OR, ""); \
    if (needs_parentheses) \
    { \
        *(file) << "("; \
@@ -332,7 +332,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
        *(file) << ")"; \
    } \
    *(file) << _operand; \
-   needs_parentheses = operand_has_lower_priority(node, rhs); \
+   needs_parentheses = get_rank(rhs) < get_rank_kind(NODECL_ASSIGNMENT, ""); \
    if (needs_parentheses) \
    { \
        *(file) << "("; \
@@ -797,14 +797,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
+    bool condition_must_be_parenthesized = get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, "");
+    if (condition_must_be_parenthesized)
     {
         // This expression is a logical-or-expression, so an assignment (or comma)
         // needs parentheses
         *(file) << "(";
     }
     walk(cond);
-    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
+    if (condition_must_be_parenthesized)
     {
         *(file) << ")";
     }
@@ -816,13 +817,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 
     *(file) << " : ";
 
-    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+    node_t priority_node = NODECL_CONDITIONAL_EXPRESSION;
+    CXX_LANGUAGE()
     {
-        // Only comma operator could get here actually
+        // C++ is more liberal in the syntax of the conditional operator than C99
+        priority_node = NODECL_ASSIGNMENT;
+    }
+
+    bool else_part_must_be_parenthesized = get_rank(_else) < get_rank_kind(priority_node, "");
+    if (else_part_must_be_parenthesized)
+    {
         *(file) << "(";
     }
     walk(_else);
-    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+    if (else_part_must_be_parenthesized)
     {
         *(file) << ")";
     }
@@ -6579,7 +6587,9 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
-    else if (t.is_named_class())
+    else if (t.is_named_class()
+                // Anonymous unions are handled as unnamed classes
+                && !t.get_symbol().is_anonymous_union())
     {
         TL::Symbol class_entry = t.get_symbol();
         if (needs_definition)
@@ -6591,7 +6601,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
             (this->*symbol_to_declare)(class_entry);
         }
     }
-    else if (t.is_unnamed_class())
+    else if (t.is_unnamed_class()
+            // Anonymous unions are handled as unnamed classes
+            || (t.is_named_class()
+                && t.get_symbol().is_anonymous_union()))
     {
         // Special case for nested members
 
@@ -7058,7 +7071,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             return -14;
         case NODECL_LOGICAL_OR:
             return -15;
+        case NODECL_THROW:
         case NODECL_CONDITIONAL_EXPRESSION:
+            return -16;
         case NODECL_ASSIGNMENT:
         case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
@@ -7071,10 +7086,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_BITWISE_AND_ASSIGNMENT:
         case NODECL_BITWISE_OR_ASSIGNMENT:
         case NODECL_BITWISE_XOR_ASSIGNMENT:
-        case NODECL_THROW:
-            return -16;
-        case NODECL_COMMA:
             return -17;
+        case NODECL_COMMA:
+            return -18;
         default:
             // Lowest priority possible. This is a conservative approach that
             // will work always albeit it will introduce some unnecessary

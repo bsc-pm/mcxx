@@ -7313,7 +7313,8 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
             && is_lvalue_reference_type(second_type)
             && is_lvalue_reference_type(third_type))
     {
-        final_type = second_type;
+        // A conditional expression is never a lvalue in C99
+        final_type = no_ref(second_type);
     }
     else
     {
@@ -10238,13 +10239,16 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
 
         if (ASTType(advanced_called_expression) == AST_SYMBOL)
         {
-            scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, advanced_called_expression); 
+            scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, advanced_called_expression);
 
             scope_entry_t* entry = NULL;
             if (result == NULL)
             {
-                // Create a symbol here
-                entry = new_symbol(decl_context, decl_context.global_scope, ASTText(advanced_called_expression));
+                // At this point we should create a new symbol in the global scope
+                decl_context_t global_context = decl_context;
+                global_context.current_scope = decl_context.global_scope;
+                entry = new_symbol(global_context, global_context.current_scope, ASTText(advanced_called_expression));
+
                 entry->kind = SK_FUNCTION;
                 entry->locus = ast_get_locus(advanced_called_expression);
 

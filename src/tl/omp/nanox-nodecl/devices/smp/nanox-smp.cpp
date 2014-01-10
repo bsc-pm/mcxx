@@ -513,7 +513,7 @@ namespace TL { namespace Nanox {
 
             ancillary_device_description
                 << "static nanos_smp_args_t " << outline_name << "_args = {"
-                << ".outline = (void(*)(void*)) " << extra_cast << " &" << qualified_name
+                << ".outline = ((void(*)(void*)) " << "(" << extra_cast << " &" << qualified_name << "))"
                 << "};"
                 ;
             device_descriptor
