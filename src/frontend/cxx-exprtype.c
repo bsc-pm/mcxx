@@ -14410,6 +14410,15 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
     *nodecl_output = nodecl_null();
     if (initializer_list != NULL)
     {
+        if (ASTType(initializer_list) == AST_AMBIGUITY)
+        {
+            char result = solve_ambiguous_list_of_initializer_clauses(initializer_list, decl_context, NULL);
+            if (result == 0)
+            {
+                internal_error("Ambiguity not solved %s", ast_location(initializer));
+            }
+        }
+
         AST it;
         for_each_element(initializer_list, it)
         {
@@ -16811,6 +16820,53 @@ char check_list_of_expressions(AST expression_list,
 
         nodecl_t nodecl_current = nodecl_null();
         check_expression_impl_(ASTSon1(expression_list), decl_context, &nodecl_current);
+
+        if (nodecl_is_err_expr(nodecl_current))
+        {
+            *nodecl_output = nodecl_current;
+            return 0;
+        }
+
+        *nodecl_output = nodecl_append_to_list(nodecl_prev_list, nodecl_current);
+
+        return 1;
+    }
+
+    internal_error("Code unreachable", 0);
+}
+
+char check_list_of_initializer_clauses(
+        AST initializer_clause_list,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_null();
+    if (initializer_clause_list == NULL)
+    {
+        // An empty list is OK
+        return 1;
+    }
+
+    if (ASTType(initializer_clause_list) == AST_AMBIGUITY)
+    {
+        return solve_ambiguous_list_of_initializer_clauses(initializer_clause_list, decl_context, nodecl_output);
+    }
+    else
+    {
+        // Check the beginning of the list
+        nodecl_t nodecl_prev_list = nodecl_null();
+        check_list_of_initializer_clauses(ASTSon0(initializer_clause_list), decl_context, &nodecl_prev_list);
+
+        if (!nodecl_is_null(nodecl_prev_list)
+                && nodecl_is_err_expr(nodecl_prev_list))
+        {
+            *nodecl_output = nodecl_prev_list;
+            return 0;
+        }
+
+        nodecl_t nodecl_current = nodecl_null();
+        AST initializer = ASTSon1(initializer_clause_list);
+        compute_nodecl_initializer_clause(initializer, decl_context, &nodecl_current);
 
         if (nodecl_is_err_expr(nodecl_current))
         {

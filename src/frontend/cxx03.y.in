@@ -2929,31 +2929,31 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 	$$ = ASTList($1, $3);
 }
 // C++2011 pack expansion
-| initializer_clause ELLIPSIS
+| initializer_clause ELLIPSIS %merge<ambiguityHandler>
 {
     AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(pack_expansion);
 }
-| initializer_list ',' initializer_clause ELLIPSIS
+| initializer_list ',' initializer_clause ELLIPSIS %merge<ambiguityHandler>
 {
     AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTList($1, pack_expansion);
 }
 // C99 extensions
-| designation initializer_clause
+| designation initializer_clause %merge<ambiguityHandler>
 {
     AST designated_initializer = ASTMake2(AST_DESIGNATED_INITIALIZER, $1, $2, ast_get_locus($1), NULL);
 
     $$ = ASTListLeaf(designated_initializer);
 }
-| initializer_list ',' designation initializer_clause
+| initializer_list ',' designation initializer_clause %merge<ambiguityHandler>
 {
     AST designated_initializer = ASTMake2(AST_DESIGNATED_INITIALIZER, $3, $4, ast_get_locus($3), NULL);
 
     $$ = ASTList($1, designated_initializer);
 }
 // GNU Extensions
-| IDENTIFIER ':' initializer_clause
+| IDENTIFIER ':' initializer_clause %merge<ambiguityHandler>
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -2961,7 +2961,7 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 
 	$$ = ASTListLeaf(gcc_initializer_clause);
 }
-| initializer_list ',' IDENTIFIER ':' initializer_clause
+| initializer_list ',' IDENTIFIER ':' initializer_clause %merge<ambiguityHandler>
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
