@@ -217,6 +217,24 @@ namespace Nodecl
                 _adaptor_symbol_map.obj = this;
             }
 
+            SymbolMap(const SymbolMap& copy_symbol_map)
+            {
+                _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                _adaptor_symbol_map.obj = this;
+            }
+
+            SymbolMap& operator=(const SymbolMap& symbol_map)
+            {
+                if (this != &symbol_map)
+                {
+                    _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                    _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                    _adaptor_symbol_map.obj = this;
+                }
+                return (*this);
+            }
+
             virtual ~SymbolMap()
             {
             }
