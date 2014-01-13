@@ -56,8 +56,11 @@ namespace Analysis {
         _pcfg = graph;
     }
 
-    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n )
+    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n, 
+                                                               const std::map<Symbol, Nodecl::NodeclBase>& asserted_funcs )
     {
+        _asserted_funcs = asserted_funcs;
+        
         // Visit the nodes in \n
         walk( n );
 
@@ -603,7 +606,7 @@ namespace Analysis {
         
         return ObjectList<Node*>( );
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::AutoScope::Firstprivate& n )
     {
         
@@ -645,12 +648,6 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
     
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::InductionVarExpr& n )
-    {
-        WARNING_MESSAGE( "We should not be parsing a Nodecl::Analysis::InductionVarExpr node.", 0 );
-        return ObjectList<Node*>( );
-    }
-    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::InductionVariable& n )
     {
         PCFGClause current_clause( __assert_induction_var, n.get_induction_variables( ) );
@@ -672,12 +669,6 @@ namespace Analysis {
         PCFGClause current_clause( __assert_live_out, n.get_live_out_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         _utils->_assert_nodes.top( )->set_assert_live_out_var( current_clause.get_args( ) );
-        return ObjectList<Node*>( );
-    }
-    
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::ReachDefExpr& n )
-    {
-        WARNING_MESSAGE( "We should not be parsing a Nodecl::Analysis::ReachDefExpr node.", 0 );
         return ObjectList<Node*>( );
     }
     
@@ -1302,9 +1293,20 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::FunctionCode& n )
     {
-        _pcfg->_function_sym = n.get_symbol( );
-
-        return walk( n.get_statements( ) );
+        Symbol func_sym( n.get_symbol( ) );
+        _pcfg->_function_sym = func_sym;
+        ObjectList<Node*> func = walk( n.get_statements( ) );
+        if( _asserted_funcs.find( func_sym ) != _asserted_funcs.end( ) )
+        {
+            // Walk the clauses to add its information in the PCFG
+            _utils->_assert_nodes.push( func[0] );
+            PCFGPragmaInfo current_pragma;
+            _utils->_pragma_nodes.push( current_pragma );
+            walk( _asserted_funcs[func_sym] );
+            _utils->_assert_nodes.pop( );
+            _utils->_pragma_nodes.pop( );
+        }
+        return func;
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
@@ -2667,18 +2669,20 @@ namespace Analysis {
     {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
-    {
-        WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s' but visiting its statements.",
-                         n.get_pragma_line( ).prettyprint( ).c_str( ) );
-        return walk( n.get_statements( ) );
-    }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
     {
-        WARNING_MESSAGE( "Ignoring PragmaCustomDirective \n'%s'", n.get_pragma_line( ).prettyprint( ).c_str( ) );
+        if( VERBOSE )
+            WARNING_MESSAGE( "Ignoring PragmaCustomDirective \n'%s'", n.get_pragma_line( ).prettyprint( ).c_str( ) );
         return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomStatement& n )
+    {
+        if( VERBOSE )
+            WARNING_MESSAGE( "Ignoring PragmaCustomStatement '%s' but visiting its statements.",
+                            n.get_pragma_line( ).prettyprint( ).c_str( ) );
+        return walk( n.get_statements( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Predecrement& n )

@@ -354,6 +354,7 @@ namespace Analysis {
     {
         ObjectList<ExtensibleGraph*> result;
         ObjectList<Nodecl::NodeclBase> unique_asts;
+        std::map<Symbol, Nodecl::NodeclBase> asserted_funcs;
 
         // Get all unique ASTs embedded in 'ast'
         if( !ast.is<Nodecl::TopLevel>( ) )
@@ -366,6 +367,7 @@ namespace Analysis {
             Utils::TopLevelVisitor tlv;
             tlv.walk_functions( ast );
             unique_asts = tlv.get_functions( );
+            asserted_funcs = tlv.get_asserted_funcs( );
         }
 
         // Compute the PCFG corresponding to each AST
@@ -381,7 +383,7 @@ namespace Analysis {
                 if( VERBOSE )
                     printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
                 PCFGVisitor v( pcfg_name, *it );
-                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
+                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it, asserted_funcs );
 
                 // Synchronize the tasks, if applies
                 if( VERBOSE )

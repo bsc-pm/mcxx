@@ -45,8 +45,10 @@ namespace Analysis {
         //! Constructor of this phase
         AnalysisCheckPhase( );
 
-        void assert_handler_pre( TL::PragmaCustomStatement ctr );
-        void assert_handler_post( TL::PragmaCustomStatement ctr );
+        void assert_handler_pre( TL::PragmaCustomStatement directive );
+        void assert_handler_post( TL::PragmaCustomStatement directive );
+        void assert_decl_handler_pre( TL::PragmaCustomDeclaration directive );
+        void assert_decl_handler_post( TL::PragmaCustomDeclaration directive );
         
         void check_pcfg_consistency( ExtensibleGraph* graph );
         void check_analysis_assertions( ExtensibleGraph* graph );
@@ -64,6 +66,7 @@ namespace Analysis {
         
     public:
         Ret visit( const Nodecl::Analysis::Assert& n );
+        Ret visit( const Nodecl::Analysis::AssertDecl& n );
     };
 }
 }

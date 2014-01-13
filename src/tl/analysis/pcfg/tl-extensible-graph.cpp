@@ -1027,7 +1027,7 @@ namespace Analysis {
     
     ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization( Node* task )
     {
-        ObjectList<Node*> result = NULL;
+        ObjectList<Node*> result;
         if( !task->is_omp_task_node( ) )
         {
             WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
@@ -1039,7 +1039,7 @@ namespace Analysis {
                 WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
             }
             else
-                result = _next_sync[task];
+                result.insert( _next_sync[task] );
         }
         return result;
     }
