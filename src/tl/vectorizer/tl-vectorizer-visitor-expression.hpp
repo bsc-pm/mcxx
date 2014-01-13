@@ -39,11 +39,13 @@ namespace TL
         {
             private:
                 VectorizerEnvironment& _environment;
+                const bool _cache_enabled;
 
                 bool process_fmul_op(const Nodecl::NodeclBase&  n);
 
             public:
-                VectorizerVisitorExpression(VectorizerEnvironment& environment);
+                VectorizerVisitorExpression(VectorizerEnvironment& environment,
+                        const bool cache_enabled);
 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);

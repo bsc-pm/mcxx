@@ -97,6 +97,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorMul& node);
                 virtual void visit(const Nodecl::VectorDiv& node);
                 virtual void visit(const Nodecl::VectorMod& node);
+                virtual void visit(const Nodecl::VectorSqrt& node);
                 virtual void visit(const Nodecl::VectorRsqrt& node);
 
                 virtual void visit(const Nodecl::VectorFmadd& node);
@@ -116,6 +117,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLogicalOr& node);
                 virtual void visit(const Nodecl::VectorBitwiseShl& node);
                 virtual void visit(const Nodecl::VectorBitwiseShr& node);
+                virtual void visit(const Nodecl::VectorShiftRight2& node);
 
                 virtual void visit(const Nodecl::VectorConversion& node);
                 virtual void visit(const Nodecl::VectorCast& node);

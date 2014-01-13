@@ -67,13 +67,17 @@ namespace TL
                 cache_map_t _cache_map;
 
             public:
-                VectorizerCache(const TL::ObjectList<Nodecl::NodeclBase>& cached_expressions);
+                VectorizerCache(const TL::ObjectList<NodeclBase>& cached_expressions);
 
                 void declare_cache_symbols(TL::Scope scope, 
                         const VectorizerEnvironment& environment);
                 
                 Nodecl::List get_init_statements(VectorizerEnvironment& environment) const;
                 Nodecl::List get_iteration_update(VectorizerEnvironment& environment) const;
+
+
+                bool is_cached_access(const ArraySubscript& n) const;
+                NodeclBase get_load_access(const ArraySubscript& n) const;
         };
     }
 }

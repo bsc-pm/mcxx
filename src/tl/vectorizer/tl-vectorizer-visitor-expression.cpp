@@ -33,8 +33,9 @@ namespace TL
     namespace Vectorization
     {
         VectorizerVisitorExpression::VectorizerVisitorExpression(
-                VectorizerEnvironment& environment) :
-            _environment(environment)
+                VectorizerEnvironment& environment,
+                const bool cache_enabled) :
+            _environment(environment), _cache_enabled(cache_enabled)
         {
         }
 
@@ -716,7 +717,7 @@ namespace TL
                     else // Unaligned
                     {
                        if (_environment._prefer_gather_scatter ||
-                                (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
+                                (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Store or Scatter
                         {
                             //DEBUG_CODE()
                             {
@@ -1012,6 +1013,13 @@ namespace TL
                 vector_prom.set_constant(const_value);
 
                 n.replace(vector_prom);
+            }
+            // Cached access
+            else if (_cache_enabled && _environment._vectorizer_cache.is_cached_access(n))
+            {
+                std::cerr << "CACHED ACCESS: " << n.prettyprint() << " IS ";
+                n.replace(_environment._vectorizer_cache.get_load_access(n));
+                std::cerr << n.prettyprint() << std::endl;
             }
             // Vector Load
             else if (Vectorizer::_analysis_info->is_adjacent_access(

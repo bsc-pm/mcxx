@@ -27,6 +27,7 @@
 #include "tl-vectorizer-cache.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 
+
 namespace TL 
 {
     namespace Vectorization
@@ -39,29 +40,29 @@ namespace TL
         {
         }
 
-        VectorizerCache::VectorizerCache(const ObjectList<Nodecl::NodeclBase>& cached_expressions)
+        VectorizerCache::VectorizerCache(const ObjectList<NodeclBase>& cached_expressions)
         {
-            for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cached_expressions.begin();
+            for(ObjectList<NodeclBase>::const_iterator it = cached_expressions.begin();
                     it != cached_expressions.end();
                     it++)
             {
-                ERROR_CONDITION(!it->is<Nodecl::ArraySubscript>(), 
+                ERROR_CONDITION(!it->is<ArraySubscript>(), 
                         "VECTORIZER: cache clause does not contain an ArraySubscript", 0);
     
-                Nodecl::ArraySubscript arr_it = it->as<Nodecl::ArraySubscript>();
-                Nodecl::NodeclBase list_front = arr_it.get_subscripts().as<Nodecl::List>().front();
+                ArraySubscript arr_it = it->as<ArraySubscript>();
+                NodeclBase list_front = arr_it.get_subscripts().as<Nodecl::List>().front();
 
-                ERROR_CONDITION(!list_front.is<Nodecl::Range>(), 
+                ERROR_CONDITION(!list_front.is<Range>(), 
                         "VECTORIZER: Range not found in cache clause", 0);
  
-                Nodecl::Range range_it = list_front.as<Nodecl::Range>();
+                Range range_it = list_front.as<Range>();
 
 
                 TL::Symbol key = arr_it.get_subscripted().as<Nodecl::Symbol>().get_symbol();
 
-                Nodecl::NodeclBase lower_bound = range_it.get_lower();
-                Nodecl::NodeclBase upper_bound = range_it.get_upper();
-                Nodecl::NodeclBase stride = range_it.get_stride();
+                NodeclBase lower_bound = range_it.get_lower();
+                NodeclBase upper_bound = range_it.get_upper();
+                NodeclBase stride = range_it.get_stride();
 
                 _cache_map.insert(cache_pair_t(key, 
                             CacheInfo(lower_bound, upper_bound, stride)));
@@ -114,18 +115,18 @@ namespace TL
                 for(int i=1; i < size; i++)
                 {
                     // __cache_X_1 = a[i];
-                    Nodecl::ExpressionStatement exp_stmt = 
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
+                    ExpressionStatement exp_stmt = 
+                        ExpressionStatement::make(
+                                Assignment::make(
                                     register_list[i].make_nodecl(/* type = */ true), 
-                                    Nodecl::ArraySubscript::make(
+                                    ArraySubscript::make(
                                         it->first.make_nodecl(/* type = */true),
                                         Nodecl::List::make( //TODO: + VL*(i-1)
                                             it->second._lower_bound.shallow_copy()),
                                         it->first.get_type().basic_type()),
                                     register_list[i].get_type().basic_type()));
 
-                    VectorizerVisitorStatement stmt_vectorizer(environment);
+                    VectorizerVisitorStatement stmt_vectorizer(environment, /* cached disabled */ false);
                     stmt_vectorizer.walk(exp_stmt);
 
                     result_list.prepend(exp_stmt);
@@ -151,9 +152,9 @@ namespace TL
                 for(i=0; i < (size-1); i++)
                 {
                     // __cache_X_0 = __cache_X_1;
-                    Nodecl::ExpressionStatement exp_stmt = 
-                        Nodecl::ExpressionStatement::make(
-                                Nodecl::Assignment::make(
+                    ExpressionStatement exp_stmt = 
+                        ExpressionStatement::make(
+                                Assignment::make(
                                     register_list[i].make_nodecl(/* type = */ true), 
                                     register_list[i+1].make_nodecl(/* type = */ true), 
                                     register_list[i].get_type().basic_type()));
@@ -162,21 +163,21 @@ namespace TL
                 } 
 
                 // __cache_X_0 = load(a[i + VL]) // TODO: VL*;
-                Nodecl::ExpressionStatement exp_stmt = 
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
+                ExpressionStatement exp_stmt = 
+                    ExpressionStatement::make(
+                            Assignment::make(
                                 register_list[i].make_nodecl(/* type = */ true), 
-                                Nodecl::ArraySubscript::make(
+                                ArraySubscript::make(
                                     it->first.make_nodecl(/* type = */true),
                                     Nodecl::List::make(
-                                        Nodecl::Add::make(
+                                        Add::make(
                                             it->second._lower_bound.shallow_copy(),
                                             const_value_to_nodecl(const_value_get_signed_int(environment._unroll_factor)),
                                             TL::Type::get_int_type())),
                                     it->first.get_type().basic_type()),
                                 register_list[i].get_type().basic_type()));
 
-                VectorizerVisitorStatement stmt_vectorizer(environment);
+                VectorizerVisitorStatement stmt_vectorizer(environment, /* cache disabled */ false);
                 stmt_vectorizer.walk(exp_stmt);
 
                 result_list.prepend(exp_stmt);
@@ -186,6 +187,58 @@ namespace TL
             return result_list;
         } 
 
+        bool VectorizerCache::is_cached_access(const ArraySubscript& n) const
+        {
+            NodeclBase subscripted = Nodecl::Utils::advance_conversions(n.get_subscripted());
+
+            if(subscripted.is<Nodecl::Symbol>())
+            {
+                TL::Symbol sym = subscripted.as<Nodecl::Symbol>().get_symbol();
+                if (_cache_map.find(sym) != _cache_map.end())
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        NodeclBase VectorizerCache::get_load_access(const ArraySubscript& n) const
+        {
+            NodeclBase subscripted = Nodecl::Utils::advance_conversions(n.get_subscripted());
+
+            if(subscripted.is<Nodecl::Symbol>())
+            {
+                TL::Symbol sym = subscripted.as<Nodecl::Symbol>().get_symbol();
+
+                // Find cache
+                cache_map_t::const_iterator cache_it = _cache_map.find(sym); 
+                if (cache_it != _cache_map.end())
+                {
+                    const CacheInfo& cache = cache_it->second;
+
+                    // Compare subscripts
+                    NodeclBase subscript = n.get_subscripts().as<Nodecl::List>().front();
+
+                    if (Nodecl::Utils::equal_nodecls(cache._lower_bound, subscript, 
+                                /* skip conversions */ true))
+                    {
+                        return cache._register_list[0].make_nodecl(true);
+                    }
+                    else
+                    {
+                        return Nodecl::VectorShiftRight2::make(
+                                cache._register_list[1].make_nodecl(true),
+                                cache._register_list[0].make_nodecl(true),
+                                const_value_to_nodecl(const_value_get_one(4, 1)),
+                                Vectorization::Utils::get_null_mask(),
+                                cache._register_list[0].get_type());
+                    }
+                }
+            }
+
+            return n;
+        }
     }
 }
 

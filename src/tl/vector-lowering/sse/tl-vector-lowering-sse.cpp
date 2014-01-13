@@ -709,6 +709,75 @@ namespace TL
             node.replace(function_call);
         }   
 
+        void SSEVectorLowering::visit(const Nodecl::VectorShiftRight2& node) 
+        { 
+            const Nodecl::NodeclBase left_vector = node.get_left_vector();
+            const Nodecl::NodeclBase right_vector = node.get_right_vector();
+            const Nodecl::NodeclBase num_elements = node.get_num_elements();
+            const Nodecl::NodeclBase mask = node.get_mask();
+
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, casting_args, args, mask_args, rhs_expression;
+
+            intrin_src << casting_intrin
+                << "("
+                << intrin_name
+                << "("
+                << args
+                << "))"
+                ;
+
+            intrin_name << "_mm"
+                << mask_prefix
+                << "_"
+                << intrin_op_name
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            intrin_op_name << "alignr";
+            intrin_type_suffix << "epi8"; 
+
+            //process_mask_component(mask, mask_prefix, mask_args, type);
+
+            if (type.is_float()) 
+            { 
+                casting_intrin << "_mm_castsi128_ps";
+                casting_args << "_mm_castps_si128";
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+            } 
+            else
+            {
+                internal_error("SSE Lowering: Node %s at %s has an unsupported type (%s).", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()),
+                        type.get_simple_declaration(node.retrieve_context(), "").c_str());
+            }      
+
+            walk(left_vector);
+            walk(right_vector);
+            walk(num_elements);
+
+            args << mask_args
+                << casting_args << "(" << as_expression(left_vector) << ")"
+                << ", "
+                << casting_args << "(" << as_expression(right_vector) << ")"
+                << ", "
+                << as_expression(num_elements) << "* 4"
+                ;
+#warning  
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void SSEVectorLowering::visit(const Nodecl::VectorLogicalOr& node) 
         { 
             running_error("SSE Lowering %s: 'logical or' operation (i.e., operator '||') is not supported in SSE. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",

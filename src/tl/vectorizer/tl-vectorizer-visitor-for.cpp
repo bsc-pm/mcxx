@@ -48,13 +48,20 @@ namespace TL
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
             // LOOP BODY
-            VectorizerVisitorStatement visitor_stmt(_environment);
+            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
             visitor_stmt.walk(for_statement.get_statement());
 
-            // TODO: Function->Add statement in enclosed compound statement
-            for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .prepend(_environment._vectorizer_cache.get_iteration_update(_environment));
+            // CACHE
+            Nodecl::List cache_it_update = _environment._vectorizer_cache.get_iteration_update(_environment);
+   
+            // Add cache it update to Compound Statement 
+            if (!cache_it_update.empty())
+            {
+                // TODO: Function to do this in Nodecl::Utils
+                for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
+                    .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
+                    .prepend(cache_it_update);
+            }
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
@@ -440,7 +447,7 @@ namespace TL
                                 _environment._unroll_factor);
                     _environment._mask_list.push_back(all_one_mask);
 
-                    VectorizerVisitorExpression visitor_mask(_environment);
+                    VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
                     visitor_mask.walk(mask_value);
 
                     _environment._mask_list.pop_back();
@@ -457,7 +464,7 @@ namespace TL
             {
                 _environment._mask_list.push_back(mask_nodecl_sym);
 
-                VectorizerVisitorStatement visitor_stmt(_environment);
+                VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
                 visitor_stmt.walk(comp_statement);
 
                 _environment._mask_list.pop_back();

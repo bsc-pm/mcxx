@@ -132,7 +132,7 @@ namespace TL
                         _environment._unroll_factor).get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
-            VectorizerVisitorStatement visitor_stmt(_environment);
+            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
             visitor_stmt.walk(function_code.get_statements());
 
             // Add final return if multi-return function

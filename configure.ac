@@ -305,6 +305,7 @@ then
                 then
                    AC_MSG_RESULT([yes])
                    mic_testing_device="$enableval"
+                   mic_testing="yes"
                 else
                    AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
                 fi

@@ -303,15 +303,15 @@ namespace TL
 
             if (type.is_float()) 
             { 
-                casting_intrin << "_mm512_castsi512i_ps";
-                casting_args << "_mm512_castps_si512i";
+                casting_intrin << "_mm512_castsi512_ps";
+                casting_args << "_mm512_castps_si512";
 
                 intrin_type_suffix << "epi32"; 
             } 
             else if (type.is_double()) 
             { 
-                casting_intrin << "_mm512_castsi512i_pd";
-                casting_args << "_mm512_castpd_si512i";
+                casting_intrin << "_mm512_castsi512_pd";
+                casting_args << "_mm512_castpd_si512";
  
                 intrin_type_suffix << "epi64"; 
             } 
@@ -370,6 +370,11 @@ namespace TL
         void KNCVectorLowering::visit(const Nodecl::VectorMod& node) 
         { 
             common_binary_op_lowering(node, "rem");
+        }                                                 
+
+        void KNCVectorLowering::visit(const Nodecl::VectorSqrt& node) 
+        { 
+            common_unary_op_lowering(node, "sqrt");
         }                                                 
 
         void KNCVectorLowering::visit(const Nodecl::VectorRsqrt& node) 
@@ -876,6 +881,75 @@ namespace TL
                     "supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
                     locus_to_str(node.get_locus()));
         }                                                 
+
+        void KNCVectorLowering::visit(const Nodecl::VectorShiftRight2& node) 
+        { 
+            const Nodecl::NodeclBase left_vector = node.get_left_vector();
+            const Nodecl::NodeclBase right_vector = node.get_right_vector();
+            const Nodecl::NodeclBase num_elements = node.get_num_elements();
+            const Nodecl::NodeclBase mask = node.get_mask();
+
+            TL::Type type = node.get_type().basic_type();
+
+            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, casting_args, args, mask_args, rhs_expression;
+
+            intrin_src << casting_intrin
+                << "("
+                << intrin_name
+                << "("
+                << args
+                << "))"
+                ;
+
+            intrin_name << KNC_INTRIN_PREFIX
+                << mask_prefix
+                << "_"
+                << intrin_op_name
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            intrin_op_name << "alignr";
+            intrin_type_suffix << "epi32"; 
+
+            process_mask_component(mask, mask_prefix, mask_args, type);
+
+            if (type.is_float()) 
+            { 
+                casting_intrin << "_mm512_castsi512_ps";
+                casting_args << "_mm512_castps_si512";
+            } 
+            else if (type.is_signed_int() ||
+                    type.is_unsigned_int()) 
+            { 
+            } 
+            else
+            {
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type (%s).", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()),
+                        type.get_simple_declaration(node.retrieve_context(), "").c_str());
+            }      
+
+            walk(left_vector);
+            walk(right_vector);
+            walk(num_elements);
+
+            args << mask_args
+                << casting_args << "(" << as_expression(left_vector) << ")"
+                << ", "
+                << casting_args << "(" << as_expression(right_vector) << ")"
+                << ", "
+                << as_expression(num_elements)
+                ;
+#warning  
+
+            Nodecl::NodeclBase function_call =
+                intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
 
         void KNCVectorLowering::visit(const Nodecl::VectorNeg& node) 
         {
