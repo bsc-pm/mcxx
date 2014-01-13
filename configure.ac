@@ -1471,7 +1471,7 @@ then
     AC_MSG_CHECKING([bison version])
     bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
-       x2.@<:@34567@:>@*)
+       x2.@<:@34567@:>@*|x3.@<:@0@:>@*)
           AC_MSG_RESULT([${bison_ver}])
           if test x${bison_ver} = x2.4;
           then
