@@ -73,20 +73,15 @@ namespace OpenMP {
                     Nodecl::List local_vars;
                     if( task_is_locally_bound(*it, local_vars).is_true( ) )
                     {
-                        if( task_only_synchronizes_in_enclosing_scopes(*it).is_true( ) )
+                        if( task_only_synchronizes_in_enclosing_scopes(*it).is_true( ) 
+                            || task_is_statically_determined_to_late_execution(*it).is_true( ) )
                         {
                             Nodecl::NodeclBase task = (*it)->get_graph_related_ast( );
                             std::string local_vars_str = get_nodecl_list_str( local_vars );
-                            warn_printf( "%s: warning: '#pragma omp task' uses local data '%s' "
-                                         "whose lifetime may have ended when the task is executed\n", 
-                                         task.get_locus_str().c_str(), local_vars_str.c_str( ) );
-                        }
-                        else if( task_is_statically_determined_to_late_execution(*it).is_true( ) )
-                        {
-                            Nodecl::NodeclBase task = (*it)->get_graph_related_ast();
-                            std::string local_vars_str = get_nodecl_list_str( local_vars );
-                            warn_printf( "%s: warning: '#pragma omp task' uses local data '%s' but may be "
-                                         "executed after the function ends\n",
+                            warn_printf( "%s: warning: OpenMP task defines as shared local data '%s'"
+                                         "whose lifetime may have ended when the task is executed.\n"
+                                         "Consider privatizing the variable or synchronizing "
+                                         "the task before the local data is deallocated.", 
                                          task.get_locus_str().c_str(), local_vars_str.c_str( ) );
                         }
                     }
@@ -99,8 +94,8 @@ namespace OpenMP {
                     {
                         Nodecl::NodeclBase task = (*it)->get_graph_related_ast( );
                         std::string race_cond_vars_str = get_nodecl_list_str( race_cond_vars );
-                        warn_printf( "%s: warning: '#pragma omp task' may have a race condition on '%s' "
-                                     "because other threads access concurrently to the same data\n", 
+                        warn_printf( "%s: warning: OpenMP task may have a race condition on '%s' "
+                                     "because other threads access concurrently to the same data.\n", 
                                      task.get_locus_str().c_str(), race_cond_vars_str.c_str( ) );
                     }
                 }
