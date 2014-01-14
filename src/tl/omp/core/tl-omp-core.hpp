@@ -82,7 +82,8 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-                static bool _already_registered;
+                static bool _constructs_already_registered;
+                static bool _reductions_already_registered;
 
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
