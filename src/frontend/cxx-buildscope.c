@@ -6525,9 +6525,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_type = array_type_get_element_type(data_member->type_information);
-                }
 
                 scope_entry_t* default_constructor = class_type_get_default_constructor(member_type);
 
@@ -6631,9 +6629,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
-                    {
                         member_class_type = array_type_get_element_type(member_class_type);
-                    }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -6716,9 +6712,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 const_parameter = const_parameter &&
                     class_has_const_copy_constructor(member_class_type);
@@ -6822,9 +6816,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -7102,9 +7094,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 const_parameter = const_parameter &&
                     class_has_const_copy_assignment_operator(member_class_type);
@@ -7273,9 +7263,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
-                    {
                         member_class_type = array_type_get_element_type(member_class_type);
-                    }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -7438,6 +7426,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
+                if (is_array_type(member_type))
+                    member_type = array_type_get_element_type(member_type);
 
                 has_nonstatic_data_member_without_move_assignment_operator_and_not_trivially_copiable =
                     class_type_get_move_assignment_operators(member_type) == NULL
@@ -7502,9 +7492,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
-                    {
                         member_class_type = array_type_get_element_type(member_class_type);
-                    }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -7599,9 +7587,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
