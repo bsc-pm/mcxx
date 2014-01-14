@@ -5677,6 +5677,8 @@ static void compute_operator_reference_type(nodecl_t* op,
 
         scope_entry_t* entry = entry_list_head(entry_list);
 
+        entry = entry_advance_aliases(entry);
+
         if (entry->kind == SK_TEMPLATE)
         {
             entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
