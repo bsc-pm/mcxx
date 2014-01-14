@@ -1301,7 +1301,7 @@ namespace Nodecl
     {
         if (n.is_null())
             return n;
-        while (n.is<Nodecl::Conversion>())
+        while (n.is<Nodecl::Conversion>() || n.is<Nodecl::VectorConversion>())
         {
             n = n.as<Nodecl::Conversion>().get_nest();
         }
