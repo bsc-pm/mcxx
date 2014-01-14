@@ -16428,8 +16428,38 @@ static void build_scope_for_statement_range(AST a,
         }
         else
         {
+            // For the purpose of this lookup, std is an associated namespace
+            decl_context_t global_context = decl_context;
+            global_context.current_scope = global_context.global_scope;
+            scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+
+
+            scope_entry_t* std_namespace = NULL;
+            if (entry_list != NULL)
+            {
+                std_namespace = entry_list_head(entry_list);
+                entry_list_free(entry_list);
+            }
+
+            char must_remove_std = (std_namespace != NULL);
+            if (must_remove_std)
+            {
+                int i;
+                for (i = 0;
+                        i < block_context.current_scope->num_used_namespaces;
+                        i++)
+                {
+                    if (block_context.current_scope->use_namespace[i] == std_namespace)
+                    {
+                        must_remove_std = 0;
+                        break;
+                    }
+                }
+
+            }
+
             AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), "__begin"),
+                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), "begin"),
                     ASTListLeaf(
                         ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__range")
                         ),
@@ -16438,7 +16468,7 @@ static void build_scope_for_statement_range(AST a,
 
             check_expression(begin_init_tree, block_context, &nodecl_begin_init);
 
-            if (!nodecl_is_err_expr(nodecl_begin_init))
+            if (nodecl_is_err_expr(nodecl_begin_init))
             {
                 *nodecl_output = nodecl_make_list_1(
                         nodecl_make_err_statement(ast_get_locus(a))
@@ -16454,7 +16484,7 @@ static void build_scope_for_statement_range(AST a,
                     nodecl_get_type(nodecl_begin_init),
                     ast_get_locus(a));
 
-            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL, 
+            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
                     ASTLeaf(AST_SYMBOL, ast_get_locus(a), "end"),
                     ASTListLeaf(
                         ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__range")
@@ -16464,7 +16494,7 @@ static void build_scope_for_statement_range(AST a,
 
             check_expression(end_init_tree, block_context, &nodecl_end_init);
 
-            if (!nodecl_is_err_expr(nodecl_end_init))
+            if (nodecl_is_err_expr(nodecl_end_init))
             {
                 *nodecl_output = nodecl_make_list_1(
                         nodecl_make_err_statement(ast_get_locus(a))
@@ -16479,6 +16509,13 @@ static void build_scope_for_statement_range(AST a,
                         ast_get_locus(a)),
                     nodecl_get_type(nodecl_end_init),
                     ast_get_locus(a));
+
+            if (must_remove_std)
+            {
+                P_LIST_REMOVE(block_context.current_scope->use_namespace,
+                        block_context.current_scope->num_used_namespaces,
+                        std_namespace);
+            }
         }
 
         // Create __begin and __end
