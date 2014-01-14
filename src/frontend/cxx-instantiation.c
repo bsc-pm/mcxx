@@ -373,8 +373,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
                             || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
                     {
-                        check_nodecl_initialization(new_expr, context_of_being_instantiated,
-                                get_unqualified_type(new_member->type_information), &new_member->value);
+                        check_nodecl_initialization(
+                                new_expr,
+                                context_of_being_instantiated,
+                                new_member,
+                                get_unqualified_type(new_member->type_information),
+                                &new_member->value,
+                                /* is_auto */ 0);
                     }
                     else
                     {

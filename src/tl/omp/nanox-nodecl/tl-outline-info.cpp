@@ -1308,6 +1308,8 @@ namespace TL { namespace Nanox {
 
     std::string OutlineInfo::get_outline_name(TL::Symbol function_symbol)
     {
+        // This string will be the returned outline name
+        std::string outline_name;
         std::string orig_function_name = function_symbol.get_name();
 
         std::string prefix = "", suffix = "";
@@ -1356,6 +1358,7 @@ namespace TL { namespace Nanox {
             }
 
             // suffix is left empty here as we included the task_counter in our hash
+            outline_name = prefix + function_symbol.get_name();
         }
         else if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
@@ -1365,14 +1368,33 @@ namespace TL { namespace Nanox {
             std::stringstream ss;
             ss << "_" << (int)task_counter;
             suffix = ss.str();
-        }
 
-        std::string outline_name = prefix + function_symbol.get_name() + suffix;
+            if (IS_C_LANGUAGE)
+            {
+                outline_name = prefix + function_symbol.get_name() + suffix;
+            }
+            else
+            {
+                // If the symbol name contains any space, we should remove them!
+
+                // First case: the function symbol is a constructor
+                // We need to unmangle the symbol name
+                std::string unmangle_name = unmangle_symbol_name(function_symbol.get_internal_symbol());
+
+                // Second case: the function symbol is an operator
+                // We cannot add the characters of the operator to the function name
+                if (unmangle_name.find("operator ") != std::string::npos)
+                    unmangle_name = "operator";
+
+                outline_name = prefix + unmangle_name + suffix;
+            }
+        }
 
         task_counter++;
 
         return outline_name;
     }
+
     OutlineInfo::implementation_table_t& OutlineInfo::get_implementation_table()
     {
         return _implementation_table;

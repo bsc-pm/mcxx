@@ -121,6 +121,7 @@ enum simple_type_kind_tag
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
     STK_TYPE_DEP_EXPR,
+    STK_UNDERLYING, // __underlying_type(E) {identifier}
     // Fortran
     STK_HOLLERITH,
 } simple_type_kind_t;
@@ -131,6 +132,9 @@ struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
     scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
+    // The underlying type of this enum type when it concerns to conversions
+    // (may be different to underlying_type if !underlying_type_is_fixed)
+    type_t* underlying_type_for_conversion;
     _Bool underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
 } enum_info_t;
 
@@ -183,6 +187,9 @@ struct class_info_tag {
     // Is a packed class (SEQUENCE in Fortran or __attribute__((packed)) )
     _Bool is_packed:1;
 
+    // Was created after a lambda expression in C++
+    _Bool is_lambda:1;
+
     // Enclosing class type
     type_t* enclosing_class_type;
 
@@ -221,7 +228,7 @@ struct class_info_tag {
 typedef
 struct simple_type_tag {
     // Kind
-    simple_type_kind_t kind:4;
+    simple_type_kind_t kind:5;
 
     // if Kind == STK_BUILTIN_TYPE here we have
     // the exact builtin type
@@ -264,7 +271,7 @@ struct simple_type_tag {
     // For classes (kind == STK_CLASS)
     // this includes struct/class/union
     class_info_t* class_info;
-    
+
     // Decl environment where this type was declared if not builtin The scope
     // where this type was declared since sometimes, types do not have any name
     // related to them
@@ -290,9 +297,12 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
-    enum type_tag_t dependent_entry_kind;  
+    enum type_tag_t dependent_entry_kind;
 
-    // Complex types, base type of the complex type
+    // Underlying type (STK_UNDERLYING)
+    type_t* underlying_type;
+
+    // Complex types, base type of the complex type (STK_COMPLEX)
     type_t* complex_element;
 
     // Vector types, element type and vector size
@@ -1272,6 +1282,36 @@ char is_gcc_builtin_va_list(type_t *t)
             && t->type->kind == STK_VA_LIST);
 }
 
+type_t* get_gxx_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    type_t* result = get_simple_type();
+
+    result->type->kind = STK_UNDERLYING;
+    result->type->underlying_type = t;
+
+    // This type is used in dependent contexts always
+    result->info->is_dependent = 1;
+
+    return result;
+}
+
+char is_gxx_underlying_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return t != NULL
+        && t->kind == TK_DIRECT
+        && t->type->kind == STK_UNDERLYING;
+}
+
+type_t* gxx_underlying_type_get_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_gxx_underlying_type(t), "Invalid type", 0);
+
+    t = advance_over_typedefs(t);
+    return t->type->underlying_type;
+}
+
 static void null_dtor(const void* v UNUSED_PARAMETER) { }
 
 static void* rb_tree_query_uint(rb_red_blk_tree* tree, unsigned int u)
@@ -1561,7 +1601,8 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                     {
                         result->arguments[i]->type = simplify_types_template_arguments_rec(result->arguments[i]->type);
 
-                        if (nodecl_is_constant(result->arguments[i]->value)
+                        if (result->parameters[i] != NULL
+                                && nodecl_is_constant(result->arguments[i]->value)
                                 && !is_dependent_type(result->parameters[i]->entry->type_information))
                         {
                             if (!is_enum_type(result->parameters[i]->entry->type_information))
@@ -1959,9 +2000,6 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
-    // This is needed only by debug routines
-    decl_context.template_parameters = template_parameters;
-
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
     // Search an existing specialization
@@ -1983,7 +2021,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
-                    print_type_str(specialization, decl_context),
+                    print_type_str(specialization, entry->decl_context),
                     entry->type_information,
                     locus_to_str(entry->locus));
         }
@@ -1997,7 +2035,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
             {
                 fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
                 fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
-                        print_type_str(specialization, decl_context),
+                        print_type_str(specialization, entry->decl_context),
                         entry->type_information);
             }
 
@@ -3857,6 +3895,20 @@ void class_type_set_is_abstract(type_t* class_type, char is_abstract)
     class_type->type->class_info->is_abstract = is_abstract;
 }
 
+char class_type_is_lambda(type_t* class_type)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
+    return class_type->type->class_info->is_lambda;
+}
+
+void class_type_set_is_lambda(type_t* class_type, char is_lambda)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
+    class_type->type->class_info->is_lambda = is_lambda;
+}
+
 char class_type_is_polymorphic(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);
@@ -4540,6 +4592,81 @@ type_t* enum_type_get_underlying_type(type_t* t)
     return enum_type->enum_info->underlying_type;
 }
 
+// This function is used only for conversions of enum types without fixed
+// underlying types
+static type_t* enum_type_get_underlying_type_for_conversion(type_t* t)
+{
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
+
+    // If the enum type has a fixed underlying type, its
+    // underlying_type_for_conversion is its underlying type
+    if (enum_type_get_underlying_type_is_fixed(t))
+        return enum_type_get_underlying_type(t);
+
+    // Not an enum with fixed underlying type, we may have to compute the type
+    // used in conversions
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    if (enum_type->enum_info->underlying_type_for_conversion != NULL)
+        return enum_type->enum_info->underlying_type_for_conversion;
+
+    type_t* checked_types[] =
+    {
+        get_signed_int_type(),
+        get_unsigned_int_type(),
+
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+
+#ifdef HAVE_INT128
+        get_signed_int128_type(),
+        get_unsigned_int128_type(),
+#endif
+        // Sentinel
+        NULL
+    };
+
+    int i, N = enum_type_get_num_enumerators(t);
+
+    if (N == 0)
+        return get_signed_int_type();
+
+    int j;
+
+#define B_(x) const_value_is_nonzero(x)
+
+    for (j = 0; checked_types[j] != NULL; j++)
+    {
+        char all_fit = 1;
+        for (i = 0; i < N && all_fit; i++)
+        {
+            scope_entry_t* enumerator = enum_type_get_enumerator_num(t, i);
+
+            const_value_t* enumerator_value = nodecl_get_constant(enumerator->value);
+            if (enumerator_value == NULL) // This should not happen
+                continue;
+
+            all_fit = (B_(const_value_lte(integer_type_get_minimum(checked_types[j]), enumerator_value))
+                    && B_(const_value_lte(enumerator_value, integer_type_get_maximum(checked_types[j]))));
+        }
+
+        if (all_fit)
+        {
+            enum_type->enum_info->underlying_type_for_conversion = checked_types[j];
+            return checked_types[j];
+        }
+    }
+
+
+#undef B_
+    internal_error("Failure to come up with a integer for conversion of type '%s'\n",
+            print_declarator(t));
+}
+
 void enum_type_set_underlying_type(type_t* t, type_t* underlying_type)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
@@ -5057,6 +5184,14 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                 result = same_functional_expression(t1->typeof_expr,
                         t2->typeof_expr,
                         deduction_flags_empty());
+            }
+            break;
+        case STK_UNDERLYING:
+            {
+                result = equivalent_types_in_context(
+                        t1->underlying_type,
+                        t2->underlying_type,
+                        decl_context);
             }
             break;
         case STK_VA_LIST :
@@ -7661,6 +7796,13 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                 }
                 break;
             }
+        case STK_UNDERLYING:
+            {
+                result = strappend(result, "__underlying_type(");
+                result = strappend(result, print_type_str(simple_type->underlying_type, decl_context));
+                result = strappend(result, ")");
+                break;
+            }
         case STK_VA_LIST :
             {
                 result = "__builtin_va_list";
@@ -8033,6 +8175,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     }
     else if (is_sequence_of_types(type_info))
     {
+        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        {
+            result = strappend(result, " /* { */ ");
+        }
+
         int i;
         for (i = 0; i < sequence_of_types_get_num_types(type_info); i++)
         {
@@ -8045,6 +8192,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         decl_context, "", "",
                         0, 0, NULL, NULL, 0,
                         print_symbol_fun, print_symbol_data));
+        }
+
+        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        {
+            result = strappend(result, " /* } */ ");
         }
     }
     else if (is_auto_type(type_info))
@@ -9086,6 +9238,11 @@ static const char* get_builtin_type_name(type_t* type_info)
             result = strappend(result, codegen_to_str(simple_type_info->typeof_expr, CURRENT_COMPILED_FILE->global_decl_context));
             result = strappend(result, ")");
             break;
+        case STK_UNDERLYING:
+            result = strappend(result, "__underlying_type(");
+            result = strappend(result, print_declarator(simple_type_info->underlying_type));
+            result = strappend(result, ")");
+            break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
                 // snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
@@ -10006,9 +10163,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     type_t* orig_underlying_type = NULL;
     if (is_enum_type(orig))
     {
-        orig_underlying_type = enum_type_get_underlying_type(orig);
-        if (orig_underlying_type == NULL)
-            orig_underlying_type = get_signed_int_type();
+        orig_underlying_type = enum_type_get_underlying_type_for_conversion(orig);
     }
 
     if (!equivalent_types(get_unqualified_type(dest), get_unqualified_type(orig)))
@@ -12405,6 +12560,10 @@ static type_t* get_foundation_type(type_t* t)
     {
         return t;
     }
+    else if (is_gxx_underlying_type(t))
+    {
+        return t;
+    }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }
 
@@ -12911,6 +13070,46 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
     }
 
     return seq_type;
+}
+
+static void flatten_type(type_t* t, type_t*** flattened_type_seq, int* flattened_num_types)
+{
+    if (!is_sequence_of_types(t))
+    {
+        P_LIST_ADD(*flattened_type_seq, *flattened_num_types, t);
+    }
+    else
+    {
+        int i, N = sequence_of_types_get_num_types(t);
+
+        for (i = 0; i < N; i++)
+        {
+            flatten_type(
+                    sequence_of_types_get_type_num(t, i),
+                    flattened_type_seq,
+                    flattened_num_types);
+        }
+    }
+}
+
+type_t* get_sequence_of_types_flattened(int num_types, type_t** types)
+{
+    int flattened_num_types = 0;
+    type_t** flattened_type_seq = NULL;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        flatten_type(types[i],
+                &flattened_type_seq,
+                &flattened_num_types);
+    }
+
+    type_t* result = get_sequence_of_types(flattened_num_types, flattened_type_seq);
+
+    xfree(flattened_type_seq);
+
+    return result;
 }
 
 int sequence_of_types_get_num_types(type_t* t)

@@ -124,12 +124,14 @@ namespace Codegen
             Ret visit(const Nodecl::IfElseStatement &);
             Ret visit(const Nodecl::ImagPart &);
             Ret visit(const Nodecl::IndexDesignator &);
+            Ret visit(const Nodecl::Lambda &);
             Ret visit(const Nodecl::IntegerLiteral &);
             Ret visit(const Nodecl::LabeledStatement &);
             Ret visit(const Nodecl::LogicalAnd &);
             Ret visit(const Nodecl::LogicalNot &);
             Ret visit(const Nodecl::LogicalOr &);
             Ret visit(const Nodecl::LoopControl &);
+            Ret visit(const Nodecl::IteratorLoopControl &);
             Ret visit(const Nodecl::LowerOrEqualThan &);
             Ret visit(const Nodecl::LowerThan &);
             Ret visit(const Nodecl::MemberInit &);
