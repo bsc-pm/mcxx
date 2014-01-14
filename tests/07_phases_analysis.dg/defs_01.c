@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     //     #pragma analysis_check assert defined(a)
     a = 0;
     
-    x = 5;
+    x++;
     
     return 0;
 }
