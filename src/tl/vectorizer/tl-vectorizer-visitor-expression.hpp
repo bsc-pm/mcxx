@@ -63,6 +63,7 @@ namespace TL
                 virtual void visit(const Nodecl::BitwiseAnd& n);
                 virtual void visit(const Nodecl::BitwiseOr& n);
                 virtual void visit(const Nodecl::BitwiseShl& n);
+                virtual void visit(const Nodecl::ArithmeticShr& n);
                 virtual void visit(const Nodecl::BitwiseShr& n);
                 virtual void visit(const Nodecl::LogicalAnd& n);
                 virtual void visit(const Nodecl::LogicalOr& n);
