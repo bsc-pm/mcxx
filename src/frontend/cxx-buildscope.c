@@ -5176,11 +5176,12 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         enum cxx_symbol_kind filter[] =
         {
             SK_CLASS,
+            SK_TEMPLATE_ALIAS,
             SK_TEMPLATE_TYPE_PARAMETER,
             SK_TEMPLATE_TEMPLATE_PARAMETER, // ???
             SK_TEMPLATE_TYPE_PARAMETER_PACK,
             SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, // ???
-            SK_TYPEDEF, 
+            SK_TYPEDEF,
             SK_DEPENDENT_ENTITY,
             SK_USING,
             SK_USING_TYPENAME,
