@@ -872,7 +872,6 @@ static void instantiate_dependent_friend_function(
 
         if (candidates_list != NULL)
         {
-
             template_parameter_list_t* explicit_temp_params = NULL;
             nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
 

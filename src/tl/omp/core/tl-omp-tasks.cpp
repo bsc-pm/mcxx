@@ -384,6 +384,16 @@ namespace TL
             return _sym;
         }
 
+        void FunctionTaskInfo::set_locus(const locus_t* locus)
+        {
+            _locus = locus;
+        }
+
+        const locus_t* FunctionTaskInfo::get_locus() const
+        {
+            return _locus;
+        }
+
         void FunctionTaskInfo::set_parsing_scope(TL::Scope sc)
         {
             _parsing_scope = sc;
@@ -575,6 +585,7 @@ namespace TL
             mw.write(_untied);
             mw.write(_task_label);
             mw.write(_parsing_scope);
+            mw.write(_locus);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -589,6 +600,7 @@ namespace TL
             mr.read(_untied);
             mr.read(_task_label);
             mr.read(_parsing_scope);
+            mr.read(_locus);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -1180,6 +1192,7 @@ namespace TL
             }
 
             task_info.set_parsing_scope(parsing_scope);
+            task_info.set_locus(construct.get_locus());
 
             std::cerr << construct.get_locus_str()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;

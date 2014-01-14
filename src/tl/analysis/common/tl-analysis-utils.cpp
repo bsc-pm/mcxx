@@ -81,7 +81,7 @@ namespace Utils {
     // ****************************** Visitor for Top Level nodes ******************************** //
 
     TopLevelVisitor::TopLevelVisitor( )
-            : _main ( Nodecl::NodeclBase::null( ) ), _functions( ), _filename( "" )
+            : _main ( Nodecl::NodeclBase::null( ) ), _functions( ), _analysis_asserted_funcs( ), _filename( "" )
     {}
 
     Nodecl::NodeclBase TopLevelVisitor::get_main( ) const
@@ -94,6 +94,11 @@ namespace Utils {
         return _functions;
     }
 
+    std::map<Symbol, Nodecl::NodeclBase> TopLevelVisitor::get_asserted_funcs( ) const
+    {
+        return _analysis_asserted_funcs;    
+    }
+    
     void TopLevelVisitor::walk_functions( const Nodecl::NodeclBase& n )
     {
         _filename = n.get_filename( );
@@ -107,9 +112,20 @@ namespace Utils {
                          codegen_to_str( intern_n, nodecl_retrieve_context( intern_n ) ),
                          ast_print_node_type( n.get_kind( ) ) );
     }
-
+    
     void TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
 
+    void TopLevelVisitor::visit( const Nodecl::Analysis::AssertDecl& n ) 
+    {
+        Symbol s = n.get_symbol( );
+        ERROR_CONDITION( !s.is_valid( ), "The symbol associated to the declaration assertion '%s' is not valid.", 
+                            n.prettyprint( ).c_str( ) );
+        ERROR_CONDITION( _analysis_asserted_funcs.find( s ) != _analysis_asserted_funcs.end( ), 
+                            "Function %s has more than one '#pragma analysis_checker assert' associated. Only one is allowed", 
+                            s.get_name( ).c_str( ) );
+        _analysis_asserted_funcs[s] = n.get_environment( );
+    }
+    
     void TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
 
     void TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}

@@ -28,7 +28,10 @@
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 
-TL::Optimizations::StrengthReduction::StrengthReduction(){}
+TL::Optimizations::StrengthReduction::StrengthReduction(bool fast_math)
+ : _fast_math(fast_math)
+{
+}
 
 void TL::Optimizations::StrengthReduction::visit(const Nodecl::ObjectInit& n)
 {
@@ -134,10 +137,10 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
     TL::Type lhs_type = lhs.get_type();
     TL::Type rhs_type = rhs.get_type();
 
-    if(lhs.is_constant() && lhs_type.is_integral_type())
+    if(rhs.is_constant() && rhs_type.is_integral_type())
     {
         //TODO: It could be a different type than int
-        const_value_t * cv = lhs.get_constant(); 
+        const_value_t * cv = rhs.get_constant(); 
         int integer_value = const_value_cast_to_signed_int(cv);
 
         if (__builtin_popcount(integer_value) == 1) //Pow2
@@ -155,21 +158,111 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
             node.replace(shr);
         }
     }
+    else if(_fast_math) // RCP
+    {
+        /*
+        Nodecl::Mul mul = 
+            Nodecl::Mul::make(
+                    lhs.shallow_copy(),
+                    Nodecl::Rcp::make(
+                        rhs.shallow_copy(),
+                        rhs.get_type()),
+                    node.get_type(),
+                    node.get_locus());
+
+        node.replace(mul);
+        */
+    }
 }
 
-
-void TL::Optimizations::strength_reduce(Nodecl::NodeclBase& node)
+void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
 {
-    StrengthReduction strength_reduction;
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+
+    walk(lhs);
+    walk(rhs);
+
+    TL::Type lhs_type = lhs.get_type().basic_type();
+    TL::Type rhs_type = rhs.get_type().basic_type();
+    // TODO
+    /* 
+    if(rhs.is_constant() && rhs_type.is_integral_type())
+    {
+        //TODO: It could be a different type than int
+        const_value_t * cv = rhs.get_constant(); 
+        int integer_value = const_value_cast_to_signed_int(cv);
+
+        if (__builtin_popcount(integer_value) == 1) //Pow2
+        {
+            int ctz = __builtin_ctz(integer_value);
+
+            // lhs << (cv>>ctz)
+            Nodecl::BitwiseShr shr = 
+                Nodecl::BitwiseShr::make(
+                        rhs.shallow_copy(),
+                        const_value_to_nodecl(const_value_get_signed_int(ctz)),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(shr);
+        }
+    }
+    else*/
+    if(_fast_math) // RSQRT
+    {
+        if (rhs.is<Nodecl::VectorSqrt>())
+        {
+            Nodecl::VectorSqrt vsqrt = rhs.as<Nodecl::VectorSqrt>();
+
+            Nodecl::VectorMul mul = 
+                Nodecl::VectorMul::make(
+                        lhs.shallow_copy(),
+                        Nodecl::VectorRsqrt::make(
+                            vsqrt.get_rhs().shallow_copy(),
+                            node.get_mask().shallow_copy(),
+                            vsqrt.get_type()),
+                        node.get_mask().shallow_copy(),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(mul);
+
+            // Optimize 1 * rsqrt
+            walk(mul);
+        }
+        /*
+        else
+        {
+            Nodecl::VectorMul mul = 
+                Nodecl::VectorMul::make(
+                        lhs.shallow_copy(),
+                        Nodecl::VectorRcp::make(
+                            rhs.shallow_copy(),
+                            node.get_mask().shallow_copy(),
+                            rhs.get_type()),
+                        node.get_mask().shallow_copy(),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(mul);
+        }
+        */
+    }
+}
+
+void TL::Optimizations::strength_reduce(Nodecl::NodeclBase& node, bool fast_math)
+{
+    StrengthReduction strength_reduction(fast_math);
     strength_reduction.walk(node);
 }
 
-void TL::Optimizations::canonicalize_and_fold(Nodecl::NodeclBase& node)
+void TL::Optimizations::canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math)
 {
     Nodecl::Utils::ReduceExpressionVisitor exp_reducer;
 
     exp_reducer.walk(node);
-    strength_reduce(node);
+    strength_reduce(node, fast_math);
     exp_reducer.walk(node);
 }
 

@@ -123,7 +123,8 @@ namespace TL { namespace OpenMP {
             void add_the_new_task_to_the_function_task_set(
                     TL::Symbol function_called,
                     TL::Symbol new_function,
-                    const FunctionTaskInfo& original_function_task_info);
+                    const FunctionTaskInfo& original_function_task_info,
+                    Nodecl::NodeclBase func_call);
 
             Nodecl::NodeclBase create_a_wrapper_to_the_function_called(
                     TL::Symbol original_function,

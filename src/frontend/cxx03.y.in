@@ -438,7 +438,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> new_placement
 %type<ast> new_type_id
 %type<ast> nonabstract_declarator
+%type<ast> nonabstract_declarator_not_started_with_attributes
 %type<ast> nonabstract_main_declarator
+%type<ast> nonabstract_main_declarator_not_started_with_attributes
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
 %type<ast> nontype_specifier_but_SUSL
@@ -584,6 +586,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nonglobal_member_declarator_list
 %type<ast> nonglobal_new_declarator
 %type<ast> nonglobal_nonabstract_declarator
+%type<ast> nonglobal_nonabstract_declarator_not_started_with_attributes
+%type<ast> nonglobal_nonabstract_main_declarator_not_started_with_attributes
+%type<ast> nonglobal_nonabstract_direct_declarator
 %type<ast> nonglobal_ptr_operator
 %type<ast> nonglobal_abstract_declarator_not_started_with_attributes_not_ellipsis
 %type<ast> nonglobal_abstract_main_declarator_not_started_with_attributes_not_ellipsis
@@ -1273,6 +1278,10 @@ nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = $1;
 }
+| TOKEN_CONSTEXPR
+{
+	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 // GNU Extension
 | COMPLEX
 {
@@ -1339,13 +1348,13 @@ nontype_specifier_without_attribute : storage_class_specifier
 {
 	$$ = $1;
 }
-| type_specifier_SUSL
-{
-    $$ = $1;
-}
 | TOKEN_CONSTEXPR
 {
 	$$ = ASTLeaf(AST_CONSTEXPR_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| type_specifier_SUSL
+{
+    $$ = $1;
 }
 // GNU Extension
 | COMPLEX
@@ -1987,7 +1996,7 @@ functional_declarator : functional_main_declarator_not_started_with_attributes
 {
     $$ = $1;
 }
-| functional_direct_declarator parameters_and_qualifiers trailing_return_type
+| functional_final_declarator_id parameters_and_qualifiers trailing_return_type
 {
     $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
 }
@@ -2064,14 +2073,6 @@ ref_qualifier : '&'
 functional_direct_declarator : functional_declarator_id %dprec 2
 {
 	$$ = $1;
-}
-| functional_direct_declarator parameters_and_qualifiers
-{
-	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
-}
-| functional_direct_declarator '[' constant_expression_opt ']' %dprec 1
-{
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
 | '(' functional_main_declarator ')'
 {
@@ -2504,7 +2505,7 @@ abstract_main_declarator : ptr_operator
 }
 | attribute_specifier_seq abstract_direct_declarator
 {
-	$$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -2572,7 +2573,7 @@ abstract_main_declarator_not_ellipsis : ptr_operator
 }
 | attribute_specifier_seq abstract_direct_declarator_not_ellipsis
 {
-	$$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+	$$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
 ;
 
@@ -2686,25 +2687,25 @@ parameter_declaration : std_attribute_specifier_seq_opt decl_specifier_seq_0 %me
    $$ = ASTMake4(AST_PARAMETER_DECL, $2, NULL, $4, ast_list_concat($1, $5), ast_get_locus($2), NULL);
 }
 // --
-| std_attribute_specifier_seq_opt decl_specifier_seq_0 nonabstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
-| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
 // --
-| std_attribute_specifier_seq_opt decl_specifier_seq_0 nonabstract_declarator gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
-| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_ended_with_named_type_spec nonglobal_nonabstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression  %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
 // --
-| std_attribute_specifier_seq_opt decl_specifier_seq_0 abstract_declarator gcc_attributes_opt %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
@@ -2713,7 +2714,7 @@ parameter_declaration : std_attribute_specifier_seq_opt decl_specifier_seq_0 %me
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, NULL, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
 // --
-| std_attribute_specifier_seq_opt decl_specifier_seq_0 abstract_declarator gcc_attributes_opt '=' assignment_expression %merge<ambiguityHandler>
+| std_attribute_specifier_seq_opt decl_specifier_seq_0 abstract_declarator_not_started_with_attributes gcc_attributes_opt '=' assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_PARAMETER_DECL, $2, $3, $6, ast_list_concat($1, $4), ast_get_locus($2), NULL);
 }
@@ -2733,11 +2734,31 @@ nonglobal_nonabstract_declarator : nonabstract_direct_declarator
 }
 | attribute_specifier_seq nonabstract_direct_declarator
 {
-    $$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
 | attribute_specifier_seq ptr_operator nonabstract_main_declarator
 {
     $$ = ASTMake3(AST_POINTER_DECLARATOR, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+nonglobal_nonabstract_declarator_not_started_with_attributes : nonglobal_nonabstract_main_declarator_not_started_with_attributes
+{
+	$$ = $1;
+}
+| nonglobal_nonabstract_direct_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
+}
+;
+
+nonabstract_declarator_not_started_with_attributes : nonabstract_main_declarator_not_started_with_attributes
+{
+    $$ = $1;
+}
+| nonabstract_direct_declarator parameters_and_qualifiers trailing_return_type
+{
+    $$ = ASTMake3(AST_DECLARATOR_FUNC_TRAIL, $1, $2, $3, ast_get_locus($1), NULL);
 }
 ;
 
@@ -2751,6 +2772,33 @@ nonabstract_declarator : nonabstract_main_declarator
 }
 ;
 
+nonabstract_main_declarator_not_started_with_attributes : nonabstract_direct_declarator
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+}
+| ptr_operator nonabstract_main_declarator
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+nonglobal_nonabstract_main_declarator_not_started_with_attributes : nonglobal_nonabstract_direct_declarator
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
+}
+| nonglobal_ptr_operator nonabstract_main_declarator
+{
+	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+// They are the same because nonabstract_direct_declarator does not have :: in its FIRST set
+nonglobal_nonabstract_direct_declarator : nonabstract_direct_declarator
+{
+    $$ = $1;
+}
+;
+
 nonabstract_main_declarator : nonabstract_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ast_get_locus($1), NULL);
@@ -2761,7 +2809,7 @@ nonabstract_main_declarator : nonabstract_direct_declarator
 }
 | attribute_specifier_seq nonabstract_direct_declarator
 {
-    $$ = ASTMake2(AST_DECLARATOR, $1, $2, ast_get_locus($1), NULL);
+    $$ = ASTMake2(AST_DECLARATOR, $2, $1, ast_get_locus($1), NULL);
 }
 | attribute_specifier_seq ptr_operator nonabstract_main_declarator
 {
@@ -2960,11 +3008,12 @@ function_definition_header : functional_declarator %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, $2, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_0 functional_declarator virt_specifier_seq %merge<ambiguityHandler>
+// Note that in GCC C++ (but not in GCC C) there can be attributes before the function-body
+| decl_specifier_seq_0 functional_declarator gcc_attr_or_virt_specifier_seq %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator virt_specifier_seq %merge<ambiguityHandler>
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator gcc_attr_or_virt_specifier_seq %merge<ambiguityHandler>
 {
     $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, $3, ast_get_locus($1), NULL);
 }
@@ -3154,6 +3203,10 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 | using_declaration
 {
 	$$ = $1;
+}
+| alias_declaration
+{
+    $$ = $1;
 }
 | template_declaration %merge<ambiguityHandler>
 {

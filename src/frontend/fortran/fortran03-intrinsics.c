@@ -449,7 +449,10 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
             new_keyword_sym->do_not_print = 1;
 
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(new_keyword_sym, 
+                    entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -468,7 +471,9 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
@@ -1183,7 +1188,7 @@ static scope_entry_t* get_intrinsic_symbol_(
             ERROR_CONDITION((types[i] == NULL), "Invalid description of builtin", 0);
             param_info[i].type_info = types[i];
         }
-        type_t* function_type = get_new_function_type(result_type, param_info, num_types);
+        type_t* function_type = get_new_function_type(result_type, param_info, num_types, REF_QUALIFIER_NONE);
 
         // We do not want it be signed in the scope
         scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
@@ -1389,7 +1394,9 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
         new_keyword_sym->decl_context = entry->decl_context;
         new_keyword_sym->type_information = dummy_arg->type_information;
 
-        symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+        symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                /* nesting */ 0,
+                /* position */ entry->entity_specs.num_related_symbols);
 
         new_keyword_sym->entity_specs.is_optional = dummy_arg->entity_specs.is_optional;
 
@@ -1500,7 +1507,8 @@ static scope_entry_t* register_specific_intrinsic_name(
             symbol_set_as_parameter_of_function(
                     specific_entry->entity_specs.related_symbols[i],
                     new_specific_entry,
-                    new_specific_entry->entity_specs.num_related_symbols);
+                    /* nesting */ 0,
+                    /* position */ new_specific_entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
                     new_specific_entry->entity_specs.num_related_symbols,
@@ -7000,7 +7008,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq_class_type->type_information =
             get_new_function_type(
                     fortran_get_default_logical_type(),
-                    eq_class_type_parameter_info, 2);
+                    eq_class_type_parameter_info, 2, REF_QUALIFIER_NONE);
         new_operator_eq_class_type->entity_specs.in_module = ieee_arithmetic;
         new_operator_eq_class_type->entity_specs.access = AS_PRIVATE;
 
@@ -7018,7 +7026,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq_round_type->type_information =
             get_new_function_type(
                     fortran_get_default_logical_type(),
-                    eq_round_type_parameter_info, 2);
+                    eq_round_type_parameter_info, 2, REF_QUALIFIER_NONE);
         new_operator_eq_round_type->entity_specs.in_module = ieee_arithmetic;
         new_operator_eq_round_type->entity_specs.access = AS_PRIVATE;
 

@@ -341,6 +341,11 @@ namespace Analysis {
     {
         return ( get_type( ) == __Continue );
     }
+    
+    bool Node::is_context_node( )
+    {
+        return ( ( get_type( ) == __Graph ) && ( get_graph_type( ) == __Context ) );
+    }
 
     bool Node::is_ifelse_statement( )
     {
@@ -759,7 +764,7 @@ namespace Analysis {
                             get_type_as_string( ).c_str( ), _id );
     }
 
-    Nodecl::NodeclBase Node::get_graph_label( )
+    Nodecl::NodeclBase Node::get_graph_related_ast( )
     {
         if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
         {
@@ -864,7 +869,7 @@ namespace Analysis {
         Nodecl::NodeclBase n = Nodecl::NodeclBase::null( );
         if( is_graph_node( ) )
         {
-            n = get_graph_label( );
+            n = get_graph_related_ast( );
         }
         else
         {
@@ -1063,10 +1068,10 @@ namespace Analysis {
     void Node::set_ue_var( Utils::ExtendedSymbol new_ue_var )
     {
         Utils::ext_sym_set ue_vars = get_ue_vars( );
-        if(!Utils::ext_sym_set_contains_englobing_nodecl(new_ue_var, ue_vars))
+        if(!Utils::ext_sym_set_contains_enclosing_nodecl(new_ue_var.get_nodecl( ), ue_vars))
         {
-            if( Utils::ext_sym_set_contains_englobed_nodecl( new_ue_var, ue_vars ) )
-                delete_englobed_var_from_list( new_ue_var, ue_vars );
+            if( Utils::ext_sym_set_contains_enclosed_nodecl( new_ue_var.get_nodecl( ), ue_vars ) )
+                delete_enclosed_var_from_list( new_ue_var, ue_vars );
             
             ue_vars.insert(new_ue_var);
             set_data(_UPPER_EXPOSED, ue_vars);
@@ -1080,10 +1085,10 @@ namespace Analysis {
         Utils::ext_sym_set::iterator it = new_ue_vars.begin( );
         for( ; it != new_ue_vars.end( ); ++it )
         {
-            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, ue_vars ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), ue_vars ) )
             {
-                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, ue_vars ) )
-                    delete_englobed_var_from_list( *it, ue_vars );
+                if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), ue_vars ) )
+                    delete_enclosed_var_from_list( *it, ue_vars );
                 
                 purged_ue_vars.insert( *it );
             }
@@ -1110,10 +1115,10 @@ namespace Analysis {
     void Node::set_killed_var( Utils::ExtendedSymbol new_killed_var )
     {
         Utils::ext_sym_set killed_vars = get_killed_vars( );
-        if( !Utils::ext_sym_set_contains_englobing_nodecl( new_killed_var, killed_vars ) )
+        if( !Utils::ext_sym_set_contains_enclosing_nodecl( new_killed_var.get_nodecl( ), killed_vars ) )
         {
-            if( Utils::ext_sym_set_contains_englobed_nodecl( new_killed_var, killed_vars ) )
-                delete_englobed_var_from_list( new_killed_var, killed_vars );
+            if( Utils::ext_sym_set_contains_enclosed_nodecl( new_killed_var.get_nodecl( ), killed_vars ) )
+                delete_enclosed_var_from_list( new_killed_var, killed_vars );
             
             killed_vars.insert( new_killed_var );
             set_data( _KILLED, killed_vars );
@@ -1127,10 +1132,10 @@ namespace Analysis {
         Utils::ext_sym_set::iterator it = new_killed_vars.begin( );
         for( ; it != new_killed_vars.end( ); ++it )
         {
-            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, killed_vars ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), killed_vars ) )
             {
-                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, killed_vars ) )
-                    delete_englobed_var_from_list( *it, killed_vars );
+                if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), killed_vars ) )
+                    delete_enclosed_var_from_list( *it, killed_vars );
                 purged_killed_vars.insert( *it );
             }
         }
@@ -1157,10 +1162,10 @@ namespace Analysis {
     void Node::set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var )
     {
         Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars( );
-        if( !Utils::ext_sym_set_contains_englobing_nodecl( new_undef_var, undef_vars ) )
+        if( !Utils::ext_sym_set_contains_enclosing_nodecl( new_undef_var.get_nodecl( ), undef_vars ) )
         {
-            if( Utils::ext_sym_set_contains_englobed_nodecl( new_undef_var, undef_vars ) )
-                delete_englobed_var_from_list( new_undef_var, undef_vars );
+            if( Utils::ext_sym_set_contains_enclosed_nodecl( new_undef_var.get_nodecl( ), undef_vars ) )
+                delete_enclosed_var_from_list( new_undef_var, undef_vars );
             undef_vars.insert( new_undef_var );
             set_data( _UNDEF, undef_vars );
         }
@@ -1173,10 +1178,10 @@ namespace Analysis {
         Utils::ext_sym_set::iterator it = new_undef_vars.begin( );
         for( ; it != new_undef_vars.end( ); ++it )
         {
-            if( !Utils::ext_sym_set_contains_englobing_nodecl( *it, undef_vars ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), undef_vars ) )
             {
-                if( Utils::ext_sym_set_contains_englobed_nodecl( *it, undef_vars ) )
-                    delete_englobed_var_from_list( *it, undef_vars );
+                if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), undef_vars ) )
+                    delete_enclosed_var_from_list( *it, undef_vars );
                 purged_undef_vars.insert( *it );
             }
         }
@@ -1781,8 +1786,8 @@ namespace Analysis {
         {
             if( it->get_clause( ) == __reduction )
             {
-                ObjectList<Nodecl::NodeclBase> reductions = it->get_args( );
-                for( ObjectList<Nodecl::NodeclBase>::iterator itr = reductions.begin( ); itr != reductions.end( ); ++itr )
+                Nodecl::List reductions = it->get_args( );
+                for( Nodecl::List::iterator itr = reductions.begin( ); itr != reductions.end( ); ++itr )
                 {
                     Symbol reduc( itr->as<Nodecl::OpenMP::ReductionItem>( ).get_reduced_symbol( ).get_symbol( ) );
                     ERROR_CONDITION( !reduc.is_valid( ), "Invalid symbol stored for Reduction argument '%s'", 
@@ -1811,14 +1816,14 @@ namespace Analysis {
         return assert_ue_vars;
     }
     
-    void Node::set_assert_ue_var( const ObjectList<Nodecl::NodeclBase>& new_assert_ue_vars )
+    void Node::set_assert_ue_var( const Nodecl::List& new_assert_ue_vars )
     {
         Utils::ext_sym_set assert_ue_vars = get_assert_ue_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_ue_vars.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_ue_vars.begin( ); 
              it != new_assert_ue_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_ue_var( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_ue_var, assert_ue_vars ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_ue_var.get_nodecl( ), assert_ue_vars ) )
             {
                 assert_ue_vars.insert( new_assert_ue_var );
                 set_data( _ASSERT_UPPER_EXPOSED, assert_ue_vars );
@@ -1834,17 +1839,40 @@ namespace Analysis {
         return assert_killed_vars;
     }
     
-    void Node::set_assert_killed_var( const ObjectList<Nodecl::NodeclBase>& new_assert_killed_vars )
+    void Node::set_assert_killed_var( const Nodecl::List& new_assert_killed_vars )
     {
         Utils::ext_sym_set assert_killed_vars = get_assert_killed_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_killed_vars.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_killed_vars.begin( ); 
              it != new_assert_killed_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_killed_var( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_killed_var, assert_killed_vars ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_killed_var.get_nodecl( ), assert_killed_vars ) )
             {
                 assert_killed_vars.insert( new_assert_killed_var );
                 set_data( _ASSERT_KILLED, assert_killed_vars );
+            }
+        }
+    }
+    
+    Utils::ext_sym_set Node::get_assert_undefined_behaviour_vars( )
+    {
+        Utils::ext_sym_set assert_undefined_vars;
+        if( has_key( _ASSERT_UNDEFINED ) )
+            assert_undefined_vars = get_data<Utils::ext_sym_set>( _ASSERT_UNDEFINED );
+        return assert_undefined_vars;
+    }
+    
+    void Node::set_assert_undefined_behaviour_var( const Nodecl::List& new_assert_undefined_vars )
+    {
+        Utils::ext_sym_set assert_undefined_vars = get_assert_undefined_behaviour_vars( );
+        for( Nodecl::List::const_iterator it = new_assert_undefined_vars.begin( ); 
+             it != new_assert_undefined_vars.end( ); ++it )
+        {
+            Utils::ExtendedSymbol new_assert_undefined_var( *it );
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_undefined_var.get_nodecl( ), assert_undefined_vars ) )
+            {
+                assert_undefined_vars.insert( new_assert_undefined_var );
+                set_data( _ASSERT_UNDEFINED, assert_undefined_vars );
             }
         }
     }
@@ -1857,14 +1885,14 @@ namespace Analysis {
         return assert_live_in_vars;
     }
     
-    void Node::set_assert_live_in_var( const ObjectList<Nodecl::NodeclBase>& new_assert_live_in_vars )
+    void Node::set_assert_live_in_var( const Nodecl::List& new_assert_live_in_vars )
     {
         Utils::ext_sym_set assert_live_in_vars = get_assert_live_in_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_live_in_vars.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_live_in_vars.begin( ); 
              it != new_assert_live_in_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_live_in_var( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_live_in_var, assert_live_in_vars ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_live_in_var.get_nodecl( ), assert_live_in_vars ) )
             {
                 assert_live_in_vars.insert( new_assert_live_in_var );
                 set_data( _ASSERT_LIVE_IN, assert_live_in_vars );
@@ -1880,14 +1908,14 @@ namespace Analysis {
         return assert_live_out_vars;
     }
     
-    void Node::set_assert_live_out_var( const ObjectList<Nodecl::NodeclBase>& new_assert_live_out_vars )
+    void Node::set_assert_live_out_var( const Nodecl::List& new_assert_live_out_vars )
     {
         Utils::ext_sym_set assert_live_out_vars = get_assert_live_out_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_live_out_vars.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_live_out_vars.begin( ); 
              it != new_assert_live_out_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_live_out_var( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_live_out_var, assert_live_out_vars ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_live_out_var.get_nodecl( ), assert_live_out_vars ) )
             {
                 assert_live_out_vars.insert( new_assert_live_out_var );
                 set_data( _ASSERT_LIVE_OUT, assert_live_out_vars );
@@ -1903,14 +1931,14 @@ namespace Analysis {
         return assert_dead_vars;
     }
     
-    void Node::set_assert_dead_var( const ObjectList<Nodecl::NodeclBase>& new_assert_dead_vars )
+    void Node::set_assert_dead_var( const Nodecl::List& new_assert_dead_vars )
     {
         Utils::ext_sym_set assert_dead_vars = get_assert_dead_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_dead_vars.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_dead_vars.begin( ); 
              it != new_assert_dead_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_dead_var( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_dead_var, assert_dead_vars ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_dead_var.get_nodecl( ), assert_dead_vars ) )
             {
                 assert_dead_vars.insert( new_assert_dead_var );
                 set_data( _ASSERT_DEAD, assert_dead_vars );
@@ -1926,10 +1954,10 @@ namespace Analysis {
         return assert_reach_defs_in;
     }
 
-    void Node::set_assert_reaching_definitions_in( const ObjectList<Nodecl::NodeclBase>& new_assert_reach_defs_in )
+    void Node::set_assert_reaching_definitions_in( const Nodecl::List& new_assert_reach_defs_in )
     {   
         Utils::ext_sym_map assert_reach_defs_in = get_assert_reaching_definitions_in( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_reach_defs_in.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_reach_defs_in.begin( ); 
              it != new_assert_reach_defs_in.end( ); ++it )
         {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
@@ -1948,10 +1976,10 @@ namespace Analysis {
         return assert_reach_defs_out;
     }
     
-    void Node::set_assert_reaching_definitions_out( const ObjectList<Nodecl::NodeclBase>& new_assert_reach_defs_out )
+    void Node::set_assert_reaching_definitions_out( const Nodecl::List& new_assert_reach_defs_out )
     {   
         Utils::ext_sym_map assert_reach_defs_out = get_assert_reaching_definitions_out( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_reach_defs_out.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_reach_defs_out.begin( ); 
              it != new_assert_reach_defs_out.end( ); ++it )
         {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
@@ -1970,10 +1998,10 @@ namespace Analysis {
         return assert_induction_vars;
     }
     
-    void Node::set_assert_induction_variables( const ObjectList<Nodecl::NodeclBase>& new_assert_induction_vars )
+    void Node::set_assert_induction_variables( const Nodecl::List& new_assert_induction_vars )
     {
         ObjectList<Utils::InductionVariableData*> assert_induction_vars = get_assert_induction_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_induction_vars.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_induction_vars.begin( ); 
             it != new_assert_induction_vars.end( ); ++it )
         {
             Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>( );
@@ -1995,14 +2023,15 @@ namespace Analysis {
         return assert_auto_sc_firstprivate_vars;
     }
     
-    void Node::set_assert_auto_sc_firstprivate_var( const ObjectList<Nodecl::NodeclBase>& new_assert_auto_sc_fp )
+    void Node::set_assert_auto_sc_firstprivate_var( const Nodecl::List& new_assert_auto_sc_fp )
     {
         Utils::ext_sym_set assert_auto_sc_firstprivate_vars = get_assert_auto_sc_firstprivate_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_auto_sc_fp.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_auto_sc_fp.begin( ); 
              it != new_assert_auto_sc_fp.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_auto_sc_firstprivate_vars( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_auto_sc_firstprivate_vars, assert_auto_sc_firstprivate_vars ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_auto_sc_firstprivate_vars.get_nodecl( ), 
+                                                               assert_auto_sc_firstprivate_vars ) )
             {
                 assert_auto_sc_firstprivate_vars.insert( new_assert_auto_sc_firstprivate_vars );
                 set_data( _ASSERT_AUTOSC_FIRSTPRIVATE, assert_auto_sc_firstprivate_vars );
@@ -2018,14 +2047,15 @@ namespace Analysis {
         return assert_auto_sc_private_vars;
     }
     
-    void Node::set_assert_auto_sc_private_var( const ObjectList<Nodecl::NodeclBase>& new_assert_auto_sc_p )
+    void Node::set_assert_auto_sc_private_var( const Nodecl::List& new_assert_auto_sc_p )
     {
         Utils::ext_sym_set assert_auto_sc_private_vars = get_assert_auto_sc_private_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_auto_sc_p.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_auto_sc_p.begin( ); 
             it != new_assert_auto_sc_p.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_auto_sc_private_vars( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_auto_sc_private_vars, assert_auto_sc_private_vars ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_auto_sc_private_vars.get_nodecl( ), 
+                                                               assert_auto_sc_private_vars ) )
             {
                 assert_auto_sc_private_vars.insert( new_assert_auto_sc_private_vars );
                 set_data( _ASSERT_AUTOSC_PRIVATE, assert_auto_sc_private_vars );
@@ -2041,14 +2071,15 @@ namespace Analysis {
         return assert_auto_sc_shared_vars;
     }
     
-    void Node::set_assert_auto_sc_shared_var( const ObjectList<Nodecl::NodeclBase>& new_assert_auto_sc_s )
+    void Node::set_assert_auto_sc_shared_var( const Nodecl::List& new_assert_auto_sc_s )
     {
         Utils::ext_sym_set assert_auto_sc_shared_vars = get_assert_auto_sc_shared_vars( );
-        for( ObjectList<Nodecl::NodeclBase>::const_iterator it = new_assert_auto_sc_s.begin( ); 
+        for( Nodecl::List::const_iterator it = new_assert_auto_sc_s.begin( ); 
              it != new_assert_auto_sc_s.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_auto_sc_shared_vars( *it );
-            if(!Utils::ext_sym_set_contains_englobing_nodecl( new_assert_auto_sc_shared_vars, assert_auto_sc_shared_vars ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_auto_sc_shared_vars.get_nodecl( ), 
+                                                               assert_auto_sc_shared_vars ) )
             {
                 assert_auto_sc_shared_vars.insert( new_assert_auto_sc_shared_vars );
                 set_data( _ASSERT_AUTOSC_SHARED, assert_auto_sc_shared_vars );

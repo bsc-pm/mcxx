@@ -819,6 +819,14 @@ namespace Nodecl
         {   // 0 * t = t , t * 0 = t
             replace( n, const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) );
         }
+        else if( ( lhs.is_constant( ) && const_value_is_one( lhs.get_constant( ) ) ) )
+        {   // 1 * t = t
+            replace( n, rhs );
+        }
+        else if( ( rhs.is_constant( ) && const_value_is_one( rhs.get_constant( ) ) ) )
+        {   // t * 1 = t
+            replace( n, lhs );
+        }
         else if( lhs.is_constant( ) && rhs.is_constant( ) )
         {   // R7
             const_value_t* c_value = _calc.compute_const_value( n );
@@ -1032,6 +1040,14 @@ namespace Nodecl
             replace( n, const_value_to_nodecl( const_value_make_vector_from_scalar(
                             n.get_type().vector_num_elements(),
                             const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
+        }
+        else if( ( lhs.is_constant( ) && const_value_is_one( lhs.get_constant( ) ) ) )
+        {   // 1 * t = t
+            replace( n, rhs );
+        }
+        else if( ( rhs.is_constant( ) && const_value_is_one( rhs.get_constant( ) ) ) )
+        {   // t * 1 = t
+            replace( n, lhs );
         }
         else if( lhs.is_constant( ) && rhs.is_constant( ) )
         {   // R7

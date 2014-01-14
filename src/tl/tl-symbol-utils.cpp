@@ -117,7 +117,7 @@ namespace SymbolUtils
         type_t *function_type = get_new_function_type(
                 return_type.get_internal_type(),
                 p_types,
-                parameter_types.size());
+                parameter_types.size(), REF_QUALIFIER_NONE);
 
         delete[] p_types;
 
@@ -162,7 +162,9 @@ namespace SymbolUtils
         for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
         {
             symbol_set_as_parameter_of_function(
-                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+                    new_function_sym->entity_specs.related_symbols[i], new_function_sym,
+                    /* parameter nesting */ 0,
+                    /* parameter position */ i);
         }
 
         // Make it static

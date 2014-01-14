@@ -48,16 +48,18 @@ int bar(int p)
 
 int function(int (*fun)(int), int p)
 {
-    #pragma analysis_check assert upper_exposed(p)
+    #pragma analysis_check assert undefined(p)
     return (*fun)(p);
 }
 
 int main(int argc, char *argv[])
 {
+    int a, b;
+    
     #pragma analysis_check assert upper_exposed(argc) defined(argc)
-    int a = function((int (*)(int))foo, argc++);
+    a = function((int (*)(int))foo, argc++);
     #pragma analysis_check assert upper_exposed(argc) defined(argc)
-    int b = function((int (*)(int))bar, argc++);
+    b = function((int (*)(int))bar, argc++);
     
     #pragma analysis_check assert upper_exposed(a, b)
     if( a != 1 || b != 2 )

@@ -195,7 +195,7 @@ namespace Utils {
         return false;
     }
 
-    bool ext_sym_set_contains_nodecl( Nodecl::NodeclBase nodecl, ext_sym_set sym_set )
+    bool ext_sym_set_contains_nodecl( const Nodecl::NodeclBase& nodecl, const ext_sym_set& sym_set )
     {
         for(ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
@@ -210,51 +210,50 @@ namespace Utils {
         return false;
     }
 
-    bool ext_sym_set_contains_englobing_nodecl( ExtendedSymbol ei, ext_sym_set sym_set )
+    bool ext_sym_set_contains_enclosing_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
     {
-        Nodecl::NodeclBase nodecl = ei.get_nodecl( );
-        if( nodecl.is<Nodecl::ArraySubscript>( ) )
+        if( n.is<Nodecl::ArraySubscript>( ) )
         {
-            Nodecl::ArraySubscript arr = nodecl.as<Nodecl::ArraySubscript>( );
-            return ( ext_sym_set_contains_nodecl(nodecl, sym_set )
-                     || ext_sym_set_contains_englobing_nodecl( arr.get_subscripted( ), sym_set ) );
+            Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>( );
+            return ( ext_sym_set_contains_nodecl( n, sym_set )
+                     || ext_sym_set_contains_enclosing_nodecl( arr.get_subscripted( ), sym_set ) );
         }
-        else if( nodecl.is<Nodecl::ClassMemberAccess>( ) )
+        else if( n.is<Nodecl::ClassMemberAccess>( ) )
         {
-            Nodecl::ClassMemberAccess memb_access = nodecl.as<Nodecl::ClassMemberAccess>( );
-            return ( ext_sym_set_contains_nodecl( nodecl, sym_set )
-                     || ext_sym_set_contains_englobing_nodecl( memb_access.get_lhs( ), sym_set) );
+            Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>( );
+            return ( ext_sym_set_contains_nodecl( n, sym_set )
+                     || ext_sym_set_contains_enclosing_nodecl( memb_access.get_lhs( ), sym_set) );
         }
-        else if( nodecl.is<Nodecl::Conversion>( ) )
+        else if( n.is<Nodecl::Conversion>( ) )
         {
-            Nodecl::Conversion conv = nodecl.as<Nodecl::Conversion>( );
-            return ext_sym_set_contains_englobing_nodecl( conv.get_nest( ), sym_set );
+            Nodecl::Conversion conv = n.as<Nodecl::Conversion>( );
+            return ext_sym_set_contains_enclosing_nodecl( conv.get_nest( ), sym_set );
         }
         else
         {
-            return ext_sym_set_contains_nodecl( nodecl, sym_set );
+            return ext_sym_set_contains_nodecl( n, sym_set );
         }
     }
 
-    bool ext_sym_set_contains_englobed_nodecl( ExtendedSymbol ei, ext_sym_set sym_set )
+    bool ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
     {
         ext_sym_set fake_set;
-        fake_set.insert( ei );
+        fake_set.insert( ExtendedSymbol( n ) );
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
-            if( ext_sym_set_contains_englobing_nodecl( *it, fake_set ) )
+            if( ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), fake_set ) )
                 return true;
         }
         return false;
     }
     
-    void delete_englobing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
+    void delete_enclosing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it)
         {
             ext_sym_set fake_set;
             fake_set.insert( *it );
-            if( ext_sym_set_contains_englobing_nodecl( ei, fake_set ) )
+            if( ext_sym_set_contains_enclosing_nodecl( ei.get_nodecl( ), fake_set ) )
             {
                 sym_set.erase( it );
                 return;
@@ -262,13 +261,13 @@ namespace Utils {
         }
     }
 
-    void delete_englobed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
+    void delete_enclosed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set )
     {
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
             ext_sym_set fake_set;
             fake_set.insert( *it );
-            if( ext_sym_set_contains_englobed_nodecl( ei, fake_set ) )
+            if( ext_sym_set_contains_enclosed_nodecl( ei.get_nodecl( ), fake_set ) )
             {
                 sym_set.erase( it );
                 return;

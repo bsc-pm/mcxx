@@ -358,10 +358,15 @@ namespace TL
     {
         return this->_symbol->kind == SK_DEPENDENT_FRIEND_CLASS;
     }
-
+    
     bool Symbol::is_template() const
     {
         return this->_symbol->kind == SK_TEMPLATE;
+    }
+
+    bool Symbol::is_template_alias() const
+    {
+        return this->_symbol->kind == SK_TEMPLATE_ALIAS;
     }
 
     bool Symbol::is_enum() const

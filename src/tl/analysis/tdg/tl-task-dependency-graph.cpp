@@ -137,12 +137,12 @@ namespace Analysis {
     {
         if( ( source->_pcfg_node != NULL ) && source->_pcfg_node->is_omp_task_node( ) )
         {
-            Nodecl::OpenMP::Task task = source->_pcfg_node->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
+            Nodecl::OpenMP::Task task = source->_pcfg_node->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
             _source_clauses = get_task_dependency_clauses( task );
         }
         if( ( target->_pcfg_node != NULL ) && target->_pcfg_node->is_omp_task_node( ) )
         {
-            Nodecl::OpenMP::Task task = target->_pcfg_node->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
+            Nodecl::OpenMP::Task task = target->_pcfg_node->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
             _target_clauses = get_task_dependency_clauses( task );
         }
     }
@@ -320,7 +320,7 @@ namespace Analysis {
             if( current_pcfg_node != NULL )
             {
                 // Get the name of the task
-                Nodecl::OpenMP::Task task = current_pcfg_node->get_graph_label( ).as<Nodecl::OpenMP::Task>( );
+                Nodecl::OpenMP::Task task = current_pcfg_node->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
                 task_label = task.get_locus_str( );
                 std::stringstream ss; ss << current->_id;
                 current_id = ss.str( );

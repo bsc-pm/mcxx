@@ -1635,6 +1635,7 @@ static int get_extra_function_parameter_info(void *datum,
 
     function_parameter_info_t parameter_info;
     parameter_info.function = function_symbol;
+    parameter_info.nesting = 0;
     parameter_info.position = position;
 
     P_LIST_ADD(
@@ -2661,7 +2662,7 @@ static int get_type(void *datum,
             type_t* new_function_type = NULL;
             if (kind == TKT_FUNCTION)
             {
-                new_function_type = get_new_function_type(result, parameter_info, num_parameters);
+                new_function_type = get_new_function_type(result, parameter_info, num_parameters, REF_QUALIFIER_NONE);
             }
             else if (kind == TKT_NONPROTOTYPE_FUNCTION)
             {

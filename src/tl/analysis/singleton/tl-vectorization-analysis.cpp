@@ -508,6 +508,17 @@ namespace Analysis {
                                       * _unroll_factor)) * _type_size;
                 }
             }
+            else if ( is_suitable_expression( lb ) )
+            {
+                Nodecl::NodeclBase incr = iv->get_increment( ).shallow_copy( );
+                v.walk( incr );
+                if( incr.is_constant( ) )
+                {
+                    return ( ( 0 /* assuming lb = 0 since it's suitable */ ) 
+                                  + ( const_value_cast_to_signed_int( incr.get_constant( ) ) 
+                                      * _unroll_factor)) * _type_size;
+                }
+            }
         }
 
         return -1;

@@ -170,6 +170,8 @@ expression : literal
            | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_RSQRT([rhs]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
            | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
@@ -529,6 +531,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*NO_FLUSH()
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*MASK()
                  | NODECL_OPEN_M_P*NO_MASK()
                  | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
@@ -603,6 +607,7 @@ induction_var_expression : NODECL_ANALYSIS*INDUCTION_VAR_EXPR([induction_variabl
 
 analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] expression-seq)
                           | NODECL_ANALYSIS*DEFINED([defined_exprs] expression-seq)
+                          | NODECL_ANALYSIS*UNDEFINED([undefined_exprs] expression-seq)
                           | NODECL_ANALYSIS*LIVE_IN([live_in_exprs] expression-seq)
                           | NODECL_ANALYSIS*LIVE_OUT([live_out_exprs] expression-seq)
                           | NODECL_ANALYSIS*DEAD([dead_exprs] expression-seq)
@@ -614,3 +619,7 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
+
+top-level : assert-directive
+
+assert-directive : NODECL_ANALYSIS*ASSERT_DECL([environment] analysis-exec-environment-seq-opt) symbol

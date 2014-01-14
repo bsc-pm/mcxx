@@ -171,6 +171,21 @@ namespace TL
             }
         };
 
+    template <>
+        struct ModuleWriterTrait<const locus_t* >
+        {
+            static void write(ModuleWriter& mw, const locus_t* &d)
+            {
+                std::string filename = locus_get_filename(d);
+                int line = locus_get_line(d);
+                int column = locus_get_col(d);
+
+                mw.write(filename);
+                mw.write(line);
+                mw.write(column);
+            }
+        };
+
     // Reader
     class LIBTL_CLASS ModuleReader
     {
@@ -224,6 +239,7 @@ namespace TL
                 }
             }
         };
+
 
     template <typename T, typename P = T>
         struct BuiltinModuleReaderTrait
@@ -295,7 +311,7 @@ namespace TL
 
     template <>
     struct ModuleReaderTrait<std::string> : public BuiltinModuleReaderTrait<std::string> { };
-    
+
     template <>
     struct ModuleReaderTrait<TL::Symbol> : public BuiltinModuleReaderTrait<TL::Symbol> { };
 
@@ -307,6 +323,23 @@ namespace TL
 
     template <>
     struct ModuleReaderTrait<TL::Scope> : public BuiltinModuleReaderTrait<TL::Scope> { };
+
+    template <>
+        struct ModuleReaderTrait<const locus_t* >
+        {
+            static void read(ModuleReader& mr, const locus_t* &d)
+            {
+                std::string filename;
+                int line = 0;
+                int column = 0;
+
+                mr.read(filename);
+                mr.read(line);
+                mr.read(column);
+
+                d = make_locus(filename.c_str(), line, column);
+            }
+        };
 }
 
 #endif // TL_MODULES_HPP

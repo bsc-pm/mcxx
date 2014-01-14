@@ -162,6 +162,9 @@ namespace Analysis {
                         break;
                     }
                 }
+                
+                edge->set_type( etype );
+                edge->set_label( label );
             }
         }
         else
@@ -274,17 +277,13 @@ namespace Analysis {
     void ExtensibleGraph::disconnect_nodes( ObjectList<Node*> parents, Node* child )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-        {
             disconnect_nodes( *it, child );
-        }
     }
 
     void ExtensibleGraph::disconnect_nodes( Node* parent, ObjectList<Node*> children )
     {
         for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-        {
             disconnect_nodes( parent, *it );
-        }
     }
 
     void ExtensibleGraph::disconnect_nodes( Node *parent, Node *child )
@@ -297,7 +296,7 @@ namespace Analysis {
                                               Graph_type graph_type, Nodecl::NodeclBase context )
     {
         Node* result = new Node( _utils->_nid, __Graph, outer_node );
-
+        
         Node* entry_node = result->get_graph_entry_node( );
         entry_node->set_outer_node( result );
         Node* exit_node = result->get_graph_exit_node( );
@@ -1026,9 +1025,9 @@ namespace Analysis {
         _last_sync[task] = last_sync;
     }
     
-    Node* ExtensibleGraph::get_task_next_synchronization( Node* task )
+    ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization( Node* task )
     {
-        Node* result = NULL;
+        ObjectList<Node*> result;
         if( !task->is_omp_task_node( ) )
         {
             WARNING_MESSAGE( "Trying to get the simultaneous tasks of a node that is not a task. Only tasks accepted.", 0 );
@@ -1040,12 +1039,12 @@ namespace Analysis {
                 WARNING_MESSAGE( "Simultaneous tasks of task '%d' have not been computed", task->get_id( ) );
             }
             else
-                result = _next_sync[task];
+                result.insert( _next_sync[task] );
         }
         return result;
     }
     
-    void ExtensibleGraph::add_next_synchronization( Node* task, Node* next_sync )
+    void ExtensibleGraph::add_next_synchronization( Node* task, ObjectList<Node*> next_sync )
     {
         if( _next_sync.find( task ) != _next_sync.end( ) )
         {
@@ -1091,18 +1090,16 @@ namespace Analysis {
     bool ExtensibleGraph::node_is_in_loop( Node* current )
     {
         bool res = false;
-
         Node* outer_node = current->get_outer_node( );
-        while( ( outer_node != NULL ) && !outer_node->is_loop_node( ) )
+        while( outer_node != NULL )
         {
+            if( outer_node->is_loop_node( ) )
+            {
+                res = true;
+                break;
+            }
             outer_node = outer_node->get_outer_node( );
         }
-
-        if( ( outer_node != NULL ) && outer_node->is_loop_node( ) )
-        {
-            res = true;
-        }
-
         return res;
     }
 
@@ -1251,6 +1248,19 @@ namespace Analysis {
                          "Asking for the connection edge between two nodes ( %d, %d ) that are not connected\n", 
                          source->get_id( ), target->get_id( ) );
         return result;
+    }
+    
+    Node* ExtensibleGraph::get_enclosing_context( Node* n )
+    {
+        Node* sc = NULL;
+        Node* outer = n;
+        while( sc == NULL && outer != NULL )
+        {
+            if( outer->is_context_node( ) )
+                sc = outer;
+            outer = outer->get_outer_node( );
+        }
+        return sc;
     }
     
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
