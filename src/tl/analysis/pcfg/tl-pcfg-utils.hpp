@@ -620,37 +620,38 @@ namespace Analysis {
     CLAUSE(assert_upper_exposed) \
     CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
-    CLAUSE(in) \
-    CLAUSE(in_alloca) \
-    CLAUSE(in_value) \
-    CLAUSE(out) \
-    CLAUSE(inout) \
+    CLAUSE(cache) \
     CLAUSE(concurrent) \
     CLAUSE(commutative) \
     CLAUSE(copy_in) \
     CLAUSE(copy_out) \
     CLAUSE(copy_inout) \
+    CLAUSE(device) \
     CLAUSE(final) \
     CLAUSE(firstprivate) \
     CLAUSE(firstlastprivate) \
     CLAUSE(flushed_vars) \
     CLAUSE(if) \
+    CLAUSE(in) \
+    CLAUSE(in_alloca) \
+    CLAUSE(in_value) \
+    CLAUSE(inout) \
     CLAUSE(lastprivate) \
+    CLAUSE(length_for) \
+    CLAUSE(mask) \
     CLAUSE(name) \
+    CLAUSE(no_mask) \
     CLAUSE(nowait) \
+    CLAUSE(out) \
     CLAUSE(priority) \
     CLAUSE(private) \
     CLAUSE(reduction) \
     CLAUSE(schedule) \
     CLAUSE(shared) \
+    CLAUSE(suitable) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
     CLAUSE(untied) \
-    CLAUSE(device) \
-    CLAUSE(length_for) \
-    CLAUSE(mask) \
-    CLAUSE(no_mask) \
-    CLAUSE(suitable) \
     CLAUSE(wait_on)
     
     enum Clause {

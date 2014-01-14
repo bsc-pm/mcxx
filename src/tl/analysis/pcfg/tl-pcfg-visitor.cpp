@@ -1932,6 +1932,13 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
     
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Cache& n )
+    {
+        PCFGClause current_clause( __cache, n.get_cached_expressions( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CombinedWorksharing& n )
     {
         // Nothing to be done
