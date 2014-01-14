@@ -651,6 +651,7 @@ namespace Analysis {
     CLAUSE(suitable) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
+    CLAUSE(unroll) \
     CLAUSE(untied) \
     CLAUSE(wait_on)
     

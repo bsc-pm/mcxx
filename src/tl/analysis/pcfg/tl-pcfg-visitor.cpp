@@ -2200,6 +2200,13 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
     
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Mask& n )
+    {
+        PCFGClause current_clause( __mask );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( ); 
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Master& n )
     {
         // Create the new graph node containing the master
@@ -2219,7 +2226,14 @@ namespace Analysis {
         return ObjectList<Node*>( 1, master_node );
 
     }
-
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::NoMask& n )
+    {
+        PCFGClause current_clause( __no_mask );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );        
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Parallel& n )
     {
         // Create the new graph node containing the parallel
@@ -2471,7 +2485,21 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, single_node );
         return ObjectList<Node*>( 1, single_node );
     }
-
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Suitable& n )
+    {
+        PCFGClause current_clause( __suitable, n.get_suitable_expressions( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Unroll& n )
+    {
+        PCFGClause current_clause( __unroll, n.get_unroll_factor( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Workshare& n )
     {
         // Create the new graph node containing the single
@@ -2613,28 +2641,7 @@ namespace Analysis {
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( ); 
     }
-    
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Mask& n )
-    {
-        PCFGClause current_clause( __mask );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( ); 
-    }
-    
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::NoMask& n )
-    {
-        PCFGClause current_clause( __no_mask );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( );        
-    }
-    
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Suitable& n )
-    {
-        PCFGClause current_clause( __suitable, n.get_suitable_expressions( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( );
-    }
-    
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::WaitOnDependences& n )
     {
         return visit_taskwait_on( n );
@@ -2923,7 +2930,9 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnknownPragma& n )
     {
-        WARNING_MESSAGE( "Ignoring unknown pragma '%s' during PCFG construction", n.get_text( ).c_str( ) );
+        if( VERBOSE )
+            WARNING_MESSAGE( "Ignoring unknown pragma '%s' during PCFG construction", 
+                             n.get_text( ).c_str( ) );
         return ObjectList<Node*>( );
     }
     
