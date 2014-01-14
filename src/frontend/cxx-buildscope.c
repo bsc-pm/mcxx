@@ -13498,11 +13498,11 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
 
     if (entry->entity_specs.is_constructor)
     {
-        if (nodecl_list_length(compound_list) == 0)
+        if (nodecl_list_length(compound_list) != 0)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: the compound-statement of a constexpr construct must contain no statements\n",
+                error_printf("%s: error: the compound-statement of a constexpr constructor must contain no statements\n",
                         nodecl_locus_to_str(nodecl_body));
             }
             return 0;
@@ -13510,8 +13510,32 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
     }
     else
     {
-        if (nodecl_list_length(compound_list) != 1
-                || nodecl_get_kind(nodecl_list_head(compound_list)) != NODECL_RETURN_STATEMENT)
+        int num_seen_returns = 0;
+        int num_seen_other_statements = 0;
+
+        int num_items = 0;
+        nodecl_t* l = nodecl_unpack_list(compound_list, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
+        {
+            if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF)
+            {
+                // These are declarations, ignore them
+            }
+            else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
+            {
+                num_seen_returns++;
+            }
+            else
+            {
+                num_seen_other_statements++;
+            }
+        }
+
+        if (num_seen_other_statements != 0
+                || num_seen_returns != 1)
         {
             if (!checking_ambiguity())
             {
