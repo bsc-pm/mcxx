@@ -2936,7 +2936,7 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 }
 | initializer_list ',' initializer_clause ELLIPSIS %merge<ambiguityHandler>
 {
-    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
     $$ = ASTList($1, pack_expansion);
 }
 // C99 extensions
