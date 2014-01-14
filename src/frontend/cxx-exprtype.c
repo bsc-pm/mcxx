@@ -17424,9 +17424,13 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 
 static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry UNUSED_PARAMETER,
         nodecl_t converted_arg_list UNUSED_PARAMETER,
-        const locus_t* locus UNUSED_PARAMETER)
+        const locus_t* locus)
 {
-    internal_error("Not yet implemented", 0);
+    if (!checking_ambiguity())
+    {
+        warn_printf("%s: warning: call to constexpr function not yet implemented\n", locus_to_str(locus));
+    }
+    return NULL;
 }
 
 nodecl_t cxx_nodecl_make_function_call(
