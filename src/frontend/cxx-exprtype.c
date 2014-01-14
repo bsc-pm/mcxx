@@ -11198,7 +11198,8 @@ static void check_nodecl_noexcept(nodecl_t nodecl_expr, nodecl_t* nodecl_output)
         return;
     }
 
-    if (nodecl_expr_is_value_dependent(nodecl_expr))
+    if (nodecl_expr_is_value_dependent(nodecl_expr)
+            || nodecl_expr_is_type_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_make_cxx_noexcept(nodecl_expr, get_bool_type(), nodecl_get_locus(nodecl_expr));
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);

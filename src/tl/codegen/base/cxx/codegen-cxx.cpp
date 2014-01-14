@@ -3030,6 +3030,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
     }
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxNoexcept& node)
+{
+    *(file) << "noexcept(";
+    walk(node.get_expr());
+    *(file) << ")";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
 {
     Nodecl::NodeclBase initializer = node.get_init();

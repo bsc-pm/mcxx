@@ -315,7 +315,10 @@ static void build_scope_asm_definition(AST a, decl_context_t decl_context, nodec
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
-static void build_exception_spec(type_t* function_type, AST a, gather_decl_spec_t *gather_info, decl_context_t decl_context, 
+static void build_exception_spec(type_t* function_type, AST a,
+        gather_decl_spec_t *gather_info,
+        decl_context_t decl_context,
+        decl_context_t prototype_context,
         nodecl_t* nodecl_output);
 
 static char is_constructor_declarator(AST a);
@@ -9693,7 +9696,12 @@ static void set_function_type(type_t** declarator_type,
 
     *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
 
-    build_exception_spec(*declarator_type, except_spec, gather_info, decl_context, nodecl_output);
+    build_exception_spec(*declarator_type,
+            except_spec,
+            gather_info,
+            decl_context,
+            prototype_context,
+            nodecl_output);
 }
 
 // Used in C++11
@@ -15559,6 +15567,7 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
 static void build_exception_spec(type_t* function_type UNUSED_PARAMETER, 
         AST a, gather_decl_spec_t *gather_info, 
         decl_context_t decl_context,
+        decl_context_t prototype_context,
         nodecl_t* nodecl_output)
 {
     // No exception specifier at all
@@ -15574,7 +15583,7 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
     else if (ASTType(a) == AST_NOEXCEPT_SPECIFICATION)
     {
-        build_noexcept_spec(function_type, a, gather_info, decl_context, nodecl_output);
+        build_noexcept_spec(function_type, a, gather_info, prototype_context, nodecl_output);
     }
     else
     {

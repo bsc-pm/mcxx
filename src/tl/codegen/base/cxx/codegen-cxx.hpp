@@ -92,6 +92,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepNew &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
+            Ret visit(const Nodecl::CxxNoexcept &);
             Ret visit(const Nodecl::CxxInitializer &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
             Ret visit(const Nodecl::CxxMemberInit &);
