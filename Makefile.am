@@ -1382,6 +1382,8 @@ src_tl_vectorizer_libtlvectorizer_la_LIBADD = $(phases_libadd) \
                           $(END)
 
 src_tl_vectorizer_libtlvectorizer_la_SOURCES = \
+                           src/tl/vectorizer/tl-vectorizer-analysis.hpp \
+                           src/tl/vectorizer/tl-vectorizer-analysis.cpp \
                            src/tl/vectorizer/tl-vectorizer-utils.hpp \
                            src/tl/vectorizer/tl-vectorizer-utils.cpp \
                            src/tl/vectorizer/tl-function-versioning.cpp \

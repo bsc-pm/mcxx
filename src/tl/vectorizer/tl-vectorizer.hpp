@@ -29,11 +29,12 @@
 
 #include <string>
 #include <list>
-#include "tl-analysis-static-info.hpp"
+//#include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
 #include "tl-vectorizer-utils.hpp"
 #include "tl-vectorizer-cache.hpp"
+#include "tl-vectorizer-analysis.hpp"
 
 namespace TL 
 { 
@@ -112,7 +113,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
 
-                static Analysis::AnalysisStaticInfo *_analysis_info;
+                static VectorizerAnalysisStaticInfo *_analysis_info;
 
                 bool _svml_sse_enabled;
                 bool _svml_knc_enabled;

@@ -68,7 +68,7 @@ namespace TL
 
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
-        Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;
+        VectorizerAnalysisStaticInfo* Vectorizer::_analysis_info = 0;
 
         Vectorizer& Vectorizer::get_vectorizer()
         {
@@ -85,7 +85,7 @@ namespace TL
             if(Vectorizer::_analysis_info != 0)
                 running_error("VECTORIZER: Analysis was previously initialize");
 
-            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+            Vectorizer::_analysis_info = new VectorizerAnalysisStaticInfo(
                     enclosing_function,
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
