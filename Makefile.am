@@ -1950,6 +1950,9 @@ phases_LTLIBRARIES += src/tl/vector-lowering/libtlvector-lowering.la
 src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS=$(tl_cflags) \
 							   -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/legalization \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/backend \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
@@ -1962,6 +1965,9 @@ src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS=$(tl_cflags) \
 src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(tl_cflags)\
 		                       -Wall \
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/legalization \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/backend \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
                                -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
@@ -1980,6 +1986,7 @@ src_tl_vector_lowering_libtlvector_lowering_la_SOURCES = \
 
 src_tl_vector_lowering_libtlvector_lowering_la_LIBADD = \
     $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
+    $(top_builddir)/src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la \
     $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(END)
 endif
@@ -2010,6 +2017,40 @@ endif
 vector-lowering-sse-install-exec-hook:
 	rm -f ${libdir}/libtlvector-lowering-sse.la
 	rm -f ${libdir}/libtlvector-lowering-sse.so
+
+##########################################################################
+# src/tl/vector-lowering/avx2
+##########################################################################
+
+if BUILD_VECTORIZER
+phases_LTLIBRARIES += src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags) \
+    -I $(top_srcdir)/src/tl/analysis/singleton/ \
+    -I $(top_srcdir)/src/tl/analysis/common/ \
+    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+    -I $(top_srcdir)/src/tl/vectorizer/ \
+    $(END)
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
+    -I $(top_srcdir)/src/tl/analysis/singleton/ \
+    -I $(top_srcdir)/src/tl/analysis/common/ \
+    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+    -I $(top_srcdir)/src/tl/vectorizer/ \
+    $(END)
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
+	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+$(END)
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
+     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp \
+     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp \
+     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp \
+     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp \
+     $(END)
+endif
 
 ##########################################################################
 # src/tl/vector-lowering/knc
