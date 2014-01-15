@@ -76,6 +76,8 @@ LIBMCXX_EXTERN void solve_ambiguous_expression(AST ambig_expression, decl_contex
 
 LIBMCXX_EXTERN char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 LIBMCXX_EXTERN template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambiguous_list, decl_context_t decl_context);
 
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);

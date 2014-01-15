@@ -188,7 +188,7 @@ void DeviceMPI::generate_additional_mpi_code(
             //    displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
             //} else {
             //This seems to work correctly in both "languages"
-            displ_src.append_with_separator("((size_t) ( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
+            displ_src.append_with_separator("(( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
             //}
             if (parameters_called[i].get_type().is_pointer()) {
                 typelist_src.append_with_separator(ompss_get_mpi_type  + "(\"__mpitype_ompss_unsigned_long_long\")", ",");

@@ -143,6 +143,12 @@ namespace TL { namespace OpenMP {
         function_call_visitor.build_all_needed_task_expressions();
     }
 
+    void Base::phase_cleanup(DTO& data_flow)
+    {
+        _core.phase_cleanup(data_flow);
+    }
+
+
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \

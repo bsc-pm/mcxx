@@ -111,6 +111,10 @@ LIBMCXX_EXTERN char is_gcc_typeof_expr(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 
+LIBMCXX_EXTERN char is_gxx_underlying_type(type_t* t);
+LIBMCXX_EXTERN type_t* get_gxx_underlying_type(type_t* t);
+LIBMCXX_EXTERN type_t* gxx_underlying_type_get_underlying_type(type_t* t);
+
 LIBMCXX_EXTERN type_t* get_user_defined_type(scope_entry_t* entry);
 LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
@@ -187,6 +191,7 @@ LIBMCXX_EXTERN int sequence_of_types_get_num_types(type_t* seq_type);
 LIBMCXX_EXTERN type_t* sequence_of_types_get_type_num(type_t* seq_type, int num);
 LIBMCXX_EXTERN char is_sequence_of_types(type_t* seq_type);
 LIBMCXX_EXTERN type_t* get_sequence_of_types_append_type(type_t* seq_type, type_t* type);
+LIBMCXX_EXTERN type_t* get_sequence_of_types_flattened(int num_types, type_t** types);
 
 /* Type constructors: cv-qualification */
 // The given cv_qualifier is strictly the one will have the returning type
@@ -644,6 +649,9 @@ LIBMCXX_EXTERN char class_type_is_polymorphic(type_t* t);
 
 LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
 LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);
+
+LIBMCXX_EXTERN char class_type_is_lambda(type_t* class_type);
+LIBMCXX_EXTERN void class_type_set_is_lambda(type_t* class_type, char is_lambda);
 
 LIBMCXX_EXTERN void class_type_set_is_packed(type_t* t, char is_packed);
 LIBMCXX_EXTERN char class_type_is_packed(type_t* class_type);

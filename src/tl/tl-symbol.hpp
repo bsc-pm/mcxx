@@ -163,6 +163,8 @@ namespace TL
 
             //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is a variable pack (C++11)
+            bool is_variable_pack() const;
             //! States whether this symbol is a variable that stores a runtime value of the program
             bool is_saved_expression() const;
             //! States whether this symbol is the result variable
@@ -196,6 +198,8 @@ namespace TL
             bool is_function() const;
             //! States whether this symbol is a dependent friend function
             bool is_dependent_friend_function() const;
+            //! States whether this symbol is a lambda
+            bool is_lambda() const;
             //! States whether this symbol is a dependent function
             bool is_dependent_function() const;
 
