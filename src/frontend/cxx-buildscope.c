@@ -581,6 +581,20 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         }
     }
 
+#ifdef HAVE_INT128
+    {
+        scope_entry_t* __int128_t_type = new_symbol(decl_context, decl_context.global_scope, "__int128_t");
+        __int128_t_type->kind = SK_TYPEDEF;
+        __int128_t_type->type_information = get_signed_int128_type();
+        __int128_t_type->locus = make_locus("(global scope)", 0, 0);
+    }
+    {
+        scope_entry_t* __uint128_t_type = new_symbol(decl_context, decl_context.global_scope, "__uint128_t");
+        __uint128_t_type->kind = SK_TYPEDEF;
+        __uint128_t_type->type_information = get_unsigned_int128_type();
+        __uint128_t_type->locus = make_locus("(global scope)", 0, 0);
+    }
+#endif
     // Mercurium limit constants
 
     struct {
