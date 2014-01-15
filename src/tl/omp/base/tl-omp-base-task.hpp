@@ -132,6 +132,9 @@ namespace TL { namespace OpenMP {
     class TransformNonVoidFunctionCalls : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
+
+            bool _task_expr_optim_disabled;
+
             int _counter;
             Nodecl::NodeclBase _enclosing_stmt;
 
@@ -150,7 +153,7 @@ namespace TL { namespace OpenMP {
 
         public:
 
-            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set);
+            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set, bool task_expr_optim_disabled);
 
             virtual void visit(const Nodecl::ObjectInit& object_init);
             virtual void visit(const Nodecl::ReturnStatement& return_stmt);
@@ -193,6 +196,19 @@ namespace TL { namespace OpenMP {
                     Nodecl::NodeclBase enclosing_stmt,
                     Nodecl::NodeclBase new_funct_body,
                     TL::ObjectList<TL::Symbol>& captured_value_symbols);
+
+            TL::ObjectList<TL::Symbol> generate_list_of_symbols_to_be_captured(
+                    Nodecl::NodeclBase rhs_expr,
+                    Nodecl::NodeclBase lhs_expr,
+                    Nodecl::NodeclBase func_call);
+
+            void update_rhs_expression(
+                    Nodecl::NodeclBase node,
+                    Nodecl::NodeclBase lhs_expr,
+                    TL::Symbol ori_funct,
+                    const ObjectList<TL::Symbol>& new_funct_related_symbols,
+                    Nodecl::Utils::SimpleSymbolMap& map_for_captures,
+                    Nodecl::NodeclBase& task_call);
     };
 }}
 #endif //TL_OMP_BASE_TASK_HPP
