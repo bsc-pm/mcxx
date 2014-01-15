@@ -222,6 +222,12 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> ';'
 %token<token_atrib> '<'
 %token<token_atrib> '='
+/* Different tokens in C++2003 and C++2011 */
+/* C++2003 */
+%token<token_atrib> RIGHT ">>"
+%token<token_atrib> RIGHT_ASSIGN ">>="
+%token<token_atrib> GREATER_OR_EQUAL ">="
+/* C++2011 */
 // AB1 is '>' when it is just before another '>'
 // KLUDGE: Note that since names can't be repeated we surround this one with spaces
 // The error message may be a bit weird, as if it was bad formatted
@@ -230,6 +236,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // KLUDGE: Note that since names can't be repeated we surround this one with one space before
 // The error message may be a bit weird, as if it was bad formatted
 %token<token_atrib> AB2 "'>=' "
+/* End of different tokens in C++2003 and C++2011 */
 %token<token_atrib> '>'
 %token<token_atrib> '?'
 %token<token_atrib> '['
@@ -5648,10 +5655,10 @@ template_shift_expression : additive_expression %merge<ambiguityHandler>
 	$$ = ASTMake2(AST_BITWISE_SHL, $1, $3, ast_get_locus($1), NULL);
 }
 // Not here
-// | template_shift_expression right_token additive_expression
-// {
-// 	$$ = ASTMake2(AST_SHR, $1, $3, ast_get_locus($1), NULL);
-// }
+| template_shift_expression RIGHT additive_expression
+{
+	$$ = ASTMake2(AST_SHR, $1, $3, ast_get_locus($1), NULL);
+}
 ;
 
 template_relational_expression : template_shift_expression %merge<ambiguityHandler>
@@ -5662,14 +5669,14 @@ template_relational_expression : template_shift_expression %merge<ambiguityHandl
 {
 	$$ = ASTMake2(AST_LOWER_THAN, $1, $3, ast_get_locus($1), NULL);
 }
-// Not here
+// Not valid here
 // | template_relational_expression '>' shift_expression
 // {
 // }
-// Not here
-// | template_relational_expression greater_equal_token shift_expression
-// {
-// }
+| template_relational_expression GREATER_OR_EQUAL shift_expression
+{
+	$$ = ASTMake2(AST_GREATER_OR_EQUAL_THAN, $1, $3, ast_get_locus($1), NULL);
+}
 | template_relational_expression LESS_OR_EQUAL template_shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOWER_OR_EQUAL_THAN, $1, $3, ast_get_locus($1), NULL);
@@ -5929,37 +5936,58 @@ string_literal : STRING_LITERAL
 
 right_token : AB1 '>'
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = uniquestr(">>");
+}
+| RIGHT
+{
+    // C++2003
+    $$ = $1;
 }
 ;
 
 right_assign_token : AB1 AB2 '='
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = uniquestr(">>=");
+}
+| RIGHT_ASSIGN
+{
+    // C++2003
+    $$ = $1;
 }
 ;
 
 greater_equal_token : AB2 '='
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = uniquestr(">=");
+}
+| GREATER_OR_EQUAL
+{
+    // C++2003
+    $$ = $1;
 }
 ;
 
 right_bracket_token : '>'
 {
+    // C++2003 and C++2011
     $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 | AB1
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 | AB2
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }

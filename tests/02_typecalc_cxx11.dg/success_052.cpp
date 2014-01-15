@@ -28,7 +28,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium-cxx11
 </testinfo>
 */
 
