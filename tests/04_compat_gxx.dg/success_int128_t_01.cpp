@@ -33,8 +33,10 @@ test_generator=config/mercurium
 
 int main()
 {
+#if defined(__SIZEOF_INT128__)
     __int128_t a = 0;
     __uint128_t b = 0;
     b = b + a;
+#endif
     return 0;
 }
