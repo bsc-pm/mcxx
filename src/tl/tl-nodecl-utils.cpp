@@ -1357,6 +1357,56 @@ namespace Nodecl
 
     namespace
     {
+        template <typename Type, typename Map>
+        void fill_deep_copy_map(Type orig, Type copied, void *info)
+        {
+            Map &m = *static_cast<Map*>(info);
+            m[orig] = copied;
+        }
+    }
+
+    Nodecl::NodeclBase Utils::deep_copy(Nodecl::NodeclBase orig,
+            TL::ReferenceScope ref_scope,
+            Utils::SymbolMap& map,
+            Nodecl::Utils::NodeclDeepCopyMap& nodecl_deep_copy_map,
+            Nodecl::Utils::SymbolDeepCopyMap& symbol_deep_copy_map)
+    {
+        Nodecl::NodeclBase result;
+
+        nodecl_deep_copy_map_t* internal_nodecl_deep_copy_map = nodecl_deep_copy_map_new();
+        symbol_deep_copy_map_t* internal_symbol_deep_copy_map = symbol_deep_copy_map_new();
+
+        result = ::nodecl_deep_copy_compute_maps(orig.get_internal_nodecl(),
+                ref_scope.get_scope().get_decl_context(),
+                map.get_symbol_map(),
+                internal_nodecl_deep_copy_map,
+                internal_symbol_deep_copy_map);
+
+        nodecl_deep_copy_map_traverse(internal_nodecl_deep_copy_map,
+                &nodecl_deep_copy_map,
+                &fill_deep_copy_map<nodecl_t, Nodecl::Utils::NodeclDeepCopyMap>);
+
+        symbol_deep_copy_map_traverse(internal_symbol_deep_copy_map,
+                &symbol_deep_copy_map,
+                &fill_deep_copy_map<scope_entry_t*, Nodecl::Utils::SymbolDeepCopyMap>);
+
+        nodecl_deep_copy_map_free(internal_nodecl_deep_copy_map);
+        symbol_deep_copy_map_free(internal_symbol_deep_copy_map);
+
+        return result;
+    }
+
+    Nodecl::NodeclBase Utils::deep_copy(Nodecl::NodeclBase orig,
+            TL::ReferenceScope ref_scope,
+            NodeclDeepCopyMap& nodecl_deep_copy_map,
+            SymbolDeepCopyMap& symbol_deep_copy_map)
+    {
+        Utils::SimpleSymbolMap empty_map;
+        return deep_copy(orig, ref_scope, empty_map, nodecl_deep_copy_map, symbol_deep_copy_map);
+    }
+
+    namespace
+    {
         bool is_in_top_level_list(Nodecl::NodeclBase list)
         {
             ERROR_CONDITION(!list.is<Nodecl::List>(), "Must be a list", 0);
