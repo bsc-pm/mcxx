@@ -382,11 +382,15 @@ namespace Analysis {
         int rhs_mod = walk( n.get_rhs( ) );
         
         // Something suitable multiplied by anything is suitable
-        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
-            return 0;
-        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
-            return lhs_mod << rhs_mod;
-        
+        if (rhs_mod > 0)
+        {
+            // Because a << const is: a * (1 << const)
+            if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(1 << rhs_mod) )) 
+                return 0;
+            else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+                return lhs_mod << rhs_mod;
+        }
+
         return -1;
     }
     
