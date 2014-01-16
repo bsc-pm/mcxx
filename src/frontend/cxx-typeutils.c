@@ -4828,6 +4828,16 @@ decl_context_t class_type_get_inner_context(type_t* class_type)
     return class_type->type->class_info->inner_decl_context;
 }
 
+decl_context_t class_or_enum_type_get_inner_context(type_t* class_or_enum_type)
+{
+    if (is_class_type(class_or_enum_type))
+        return class_type_get_inner_context(class_or_enum_type);
+    else if (is_enum_type(class_or_enum_type))
+        return enum_type_get_context(class_or_enum_type);
+
+    internal_error("This is not a class or enum type", 0);
+}
+
 scope_entry_t* class_type_get_base_num(type_t* class_type, int num,
         char *is_virtual, char *is_dependent, char *is_expansion, access_specifier_t* access_specifier)
 {

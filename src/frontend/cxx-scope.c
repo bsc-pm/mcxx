@@ -1393,7 +1393,7 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
             for (i = 0; i < result.path_length; i++)
             {
                 fprintf(stderr, "%s%s", 
-                        class_type_get_inner_context(result.path[i]).current_scope->related_entry->symbol_name,
+                        class_or_enum_type_get_inner_context(result.path[i]).current_scope->related_entry->symbol_name,
                         ((i+1) < result.path_length) ? "::" : "");
             }
             fprintf(stderr, "'\n");

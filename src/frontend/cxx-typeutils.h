@@ -566,6 +566,8 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_destructor(type_t* t);
 LIBMCXX_EXTERN decl_context_t class_type_get_context(type_t* t);
 LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
 
+LIBMCXX_EXTERN decl_context_t class_or_enum_type_get_inner_context(type_t* class_or_enum_type);
+
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_friends(type_t* class_type);

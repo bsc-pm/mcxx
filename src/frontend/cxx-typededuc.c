@@ -60,6 +60,9 @@ static void print_deduction_set(deduction_set_t* deduction_set)
     int i_deductions;
     for (i_deductions = 0; i_deductions < deduction_set->num_deductions; i_deductions++)
     {
+        if (i_deductions > 0)
+            fprintf(stderr, "TYPEDEDUC:\n");
+
         deduction_t* current_deduction = deduction_set->deduction_list[i_deductions];
 
         fprintf(stderr, "TYPEDEDUC:    Name:     %s\n", current_deduction->parameter_name);
