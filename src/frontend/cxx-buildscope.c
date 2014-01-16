@@ -13533,7 +13533,9 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
         for (i = 0; i < num_items; i++)
         {
             if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF)
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
             {
                 // These are declarations, ignore them
             }
