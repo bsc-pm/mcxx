@@ -600,7 +600,7 @@ char deduce_template_arguments_common(
                 type_t* types[num_types + 1];
                 int k;
                 for (k = 0; k < num_types; k++)
-                    types[k] = arguments[k];
+                    types[k] = arguments[k + i_arg];
 
                 unificate_two_types(parameter_type,
                         get_sequence_of_types(num_types, types),
