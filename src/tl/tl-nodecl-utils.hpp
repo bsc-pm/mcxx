@@ -294,9 +294,13 @@ namespace Nodecl
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,
+                TL::ReferenceScope ref_scope,
+                NodeclDeepCopyMap& nodecl_deep_copy_map,
+                SymbolDeepCopyMap& symbol_deep_copy_map);
 
-        // Returns a single subscript linearized (not the whole ArraySubscript)
-        Nodecl::NodeclBase linearize_array_subscript(const Nodecl::ArraySubscript& n);
+        // Returns the whole ArraySbuscript with a single subscript linearized
+        Nodecl::ArraySubscript linearize_array_subscript(const Nodecl::ArraySubscript& n);
 
         bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, 
                 const NodeclBase& containee);

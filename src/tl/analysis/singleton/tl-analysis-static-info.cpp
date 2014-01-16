@@ -667,16 +667,7 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
 
-            // An access will be aligned only if it is an adjacent access
-            if(this->is_adjacent_access(scope, n))
-            {
-                result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
-            }
-            else
-            {
-                internal_error( "Using 'is_simd_aligned_access' in access '%s' which is not adjacent",
-                        n.prettyprint( ).c_str( ) );
-            }
+            result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
         }
         
         return result;
