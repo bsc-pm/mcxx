@@ -1702,7 +1702,7 @@ namespace Nodecl
 
     }
 
-    Nodecl::NodeclBase Utils::linearize_array_subscript(const Nodecl::ArraySubscript& n)
+    Nodecl::ArraySubscript Utils::linearize_array_subscript(const Nodecl::ArraySubscript& n)
     {
         Nodecl::List indexes = n.get_subscripts().as<Nodecl::List>();
         int num_dimensions = indexes.size();
@@ -1767,7 +1767,13 @@ namespace Nodecl
             it_sizes++;
         }
 
-        return new_linearized_subscript;
+        Nodecl::ArraySubscript result_array =
+            ArraySubscript::make(n.get_subscripted().shallow_copy(),
+                    Nodecl::List::make(new_linearized_subscript),
+                    n.get_type(),
+                    n.get_locus());
+
+        return result_array;
     }
     
     bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& containee)
