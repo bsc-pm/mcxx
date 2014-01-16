@@ -561,6 +561,7 @@ fi
 AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
 AM_CONDITIONAL([BUILD_NANOX_NODECL], test x$is_enabled_tl_omp_nanox = xyes)
 AM_CONDITIONAL([BUILD_NANOX_DEVICE_SMP], test x$is_enabled_tl_omp_nanox = xyes)
+AM_CONDITIONAL([BUILD_NANOX_NANOSMAIN], test x$is_enabled_tl_omp_nanox = xyes)
 
 NANOX_INSTRUMENTATION=""
 NANOX_MIC_INSTRUMENTATION=""
