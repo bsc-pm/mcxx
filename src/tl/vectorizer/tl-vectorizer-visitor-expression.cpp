@@ -802,7 +802,8 @@ namespace TL
 
                     std::cerr << "Scatter: " << lhs_array.prettyprint() << std::endl;
 
-                    Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(lhs.as<Nodecl::ArraySubscript>());
+                    Nodecl::NodeclBase strides = subscripts.front();
+//                    Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(lhs.as<Nodecl::ArraySubscript>());
 
                     //std::cerr << "Stride: " << strides.prettyprint() << std::endl;
 
@@ -835,101 +836,6 @@ namespace TL
 
                 n.replace(vector_assignment);
             }
-        }
-
-        void VectorizerVisitorExpression::visit(const Nodecl::AddAssignment& n)
-        {
-            const Nodecl::Assignment assignment =
-                Nodecl::Assignment::make(
-                        n.get_lhs().shallow_copy(),
-                        Nodecl::Add::make(
-                            n.get_lhs().shallow_copy(),
-                            n.get_rhs().shallow_copy(),
-                            n.get_type(),
-                            n.get_locus()),
-                        n.get_type(),
-                        n.get_locus());
-
-            n.replace(assignment);
-
-            // Visit standard assignment
-            walk(n);
-        }
-
-        void VectorizerVisitorExpression::visit(const Nodecl::MinusAssignment& n)
-        {
-            const Nodecl::Assignment assignment =
-                Nodecl::Assignment::make(
-                        n.get_lhs().shallow_copy(),
-                        Nodecl::Minus::make(
-                            n.get_lhs().shallow_copy(),
-                            n.get_rhs().shallow_copy(),
-                            n.get_type(),
-                            n.get_locus()),
-                        n.get_type(),
-                        n.get_locus());
-
-            n.replace(assignment);
-
-            // Visit standard assignment
-            walk(n);
-        }
-
-        void VectorizerVisitorExpression::visit(const Nodecl::MulAssignment& n)
-        {
-            const Nodecl::Assignment assignment =
-                Nodecl::Assignment::make(
-                        n.get_lhs().shallow_copy(),
-                        Nodecl::Mul::make(
-                            n.get_lhs().shallow_copy(),
-                            n.get_rhs().shallow_copy(),
-                            n.get_type(),
-                            n.get_locus()),
-                        n.get_type(),
-                        n.get_locus());
-
-            n.replace(assignment);
-
-            // Visit standard assignment
-            walk(n);
-        }
-
-        void VectorizerVisitorExpression::visit(const Nodecl::DivAssignment& n)
-        {
-            const Nodecl::Assignment assignment =
-                Nodecl::Assignment::make(
-                        n.get_lhs().shallow_copy(),
-                        Nodecl::Div::make(
-                            n.get_lhs().shallow_copy(),
-                            n.get_rhs().shallow_copy(),
-                            n.get_type(),
-                            n.get_locus()),
-                        n.get_type(),
-                        n.get_locus());
-
-            n.replace(assignment);
-
-            // Visit standard assignment
-            walk(n);
-        }
-
-        void VectorizerVisitorExpression::visit(const Nodecl::ModAssignment& n)
-        {
-            const Nodecl::Assignment assignment =
-                Nodecl::Assignment::make(
-                        n.get_lhs().shallow_copy(),
-                        Nodecl::Mod::make(
-                            n.get_lhs().shallow_copy(),
-                            n.get_rhs().shallow_copy(),
-                            n.get_type(),
-                            n.get_locus()),
-                        n.get_type(),
-                        n.get_locus());
-
-            n.replace(assignment);
-
-            // Visit standard assignment
-            walk(n);
         }
 
         void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
@@ -1145,7 +1051,8 @@ namespace TL
 
                 std::cerr << "Gather: " << n.prettyprint() << "\n";
 
-                Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(n);
+                Nodecl::NodeclBase strides = subscripts.front();
+//                Nodecl::NodeclBase strides = Nodecl::Utils::linearize_array_subscript(n);
 
                 //std::cerr << "Stride: " << strides.prettyprint() << std::endl;
 

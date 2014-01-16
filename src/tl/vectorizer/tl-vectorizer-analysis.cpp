@@ -34,11 +34,276 @@ namespace TL
                 const Nodecl::NodeclBase& n, Analysis::WhichAnalysis analysis_mask,
                 Analysis::WhereAnalysis nested_analysis_mask, int nesting_level) 
             :
-//            AnalysisStaticInfo::AnalysisStaticInfo(Nodecl::Utils::deep_copy(n, n), analysis_mask, nested_analysis_mask, nesting_level),
-            AnalysisStaticInfo::AnalysisStaticInfo(n, analysis_mask, nested_analysis_mask, nesting_level),
+            VectorizerAnalysisMaps(),
+            AnalysisStaticInfo::AnalysisStaticInfo(copy_function_code(n.as<Nodecl::FunctionCode>()), analysis_mask, 
+                    nested_analysis_mask, nesting_level),
             _original_node(n) 
         {
+            //Fill inverse maps
+            for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it = _orig_to_copy_nodes.begin();
+                    it != _orig_to_copy_nodes.end();
+                    it ++)
+            {
+                //std::cerr << "-> " << it->first.prettyprint() << ": " << &(it->first) << std::endl;
 
+                std::pair<Nodecl::Utils::NodeclDeepCopyMap::const_iterator, bool> ret_insert = 
+                    _copy_to_orig_nodes.insert(
+                            std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(it->second, it->first));
+
+                if (!(ret_insert.second))
+                {
+                    internal_error("VectorizerAnalysis: Error inserting Nodecl in reverse map. Nodecl already exists?", 0);
+                }
+            }
+
+            for(Nodecl::Utils::SymbolDeepCopyMap::const_iterator it = _orig_to_copy_symbols.begin();
+                    it != _orig_to_copy_symbols.end();
+                    it ++)
+            {
+                std::pair<Nodecl::Utils::SymbolDeepCopyMap::const_iterator, bool> ret_insert = 
+                    _copy_to_orig_symbols.insert(
+                            std::pair<TL::Symbol, TL::Symbol>(it->second, it->first));
+
+                if (!(ret_insert.second))
+                {
+                    internal_error("VectorizerAnalysis: Error inserting Symbol in reverse map. Nodecl already exists?", 0);
+                }
+            }
+        }
+
+        Nodecl::FunctionCode VectorizerAnalysisStaticInfo::copy_function_code(const Nodecl::FunctionCode& n)
+        {
+            TL::Symbol func_sym = n.get_symbol();
+            std::string orig_func_name = func_sym.get_name();
+
+            TL::Symbol new_func_sym = func_sym.get_scope().
+                new_symbol("__" + orig_func_name + "_copy");
+            new_func_sym.get_internal_symbol()->kind = SK_FUNCTION;
+
+            Nodecl::Utils::SimpleSymbolMap func_sym_map;
+            func_sym_map.add_map(func_sym, new_func_sym);
+
+            return Nodecl::Utils::deep_copy(n, n, func_sym_map, _orig_to_copy_nodes, 
+                    _orig_to_copy_symbols).as<Nodecl::FunctionCode>();
+        }
+
+        Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translate_input(const Nodecl::NodeclBase& n) const
+        {
+            Nodecl::Utils::NodeclDeepCopyMap::const_iterator it = _orig_to_copy_nodes.find(n);
+
+            if (it == _orig_to_copy_nodes.end())
+            {
+                std::cerr << "From O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
+
+                Nodecl::Utils::NodeclDeepCopyMap::const_iterator it2 = _copy_to_orig_nodes.find(n);
+                if (it2 != _copy_to_orig_nodes.end())
+                    std::cerr << "ALREADY TRANSLATED!" << std::endl;
+
+                // internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
+            }
+
+            return it->second;
+        }
+
+        TL::ObjectList<Nodecl::NodeclBase> VectorizerAnalysisStaticInfo::translate_input(
+                const TL::ObjectList<Nodecl::NodeclBase>& list) const
+        {
+            TL::ObjectList<Nodecl::NodeclBase> result_list;
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
+                    it != list.end();
+                    it++)
+            {
+                result_list.append(translate_input(*it));
+            }
+
+            return result_list;
+        }
+
+        TL::Symbol VectorizerAnalysisStaticInfo::translate_input(const TL::Symbol& n) const
+        {
+            Nodecl::Utils::SymbolDeepCopyMap::const_iterator it = _orig_to_copy_symbols.find(n);
+
+            if (it == _orig_to_copy_symbols.end())
+            {
+                internal_error("VectorizerAnalysis: Error translating Symbol from origin to copy", 0);
+            }
+
+            return it->second;
+        }
+
+        Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translate_output(const Nodecl::NodeclBase& n) const
+        {
+            Nodecl::Utils::NodeclDeepCopyMap::const_iterator it = _copy_to_orig_nodes.find(n);
+
+            if (it == _copy_to_orig_nodes.end())
+            {
+                std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
+//                internal_error("VectorizerAnalysis: Error translating Nodecl from copy to origin", 0);
+                return n;
+            }
+
+            return it->second;
+        }
+
+        TL::ObjectList<Nodecl::NodeclBase> VectorizerAnalysisStaticInfo::translate_output(const TL::ObjectList<Nodecl::NodeclBase>& list) const
+        {
+            TL::ObjectList<Nodecl::NodeclBase> result_list;
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
+                    it != list.end();
+                    it++)
+            {
+                result_list.append(translate_output(*it));
+            }
+
+            return result_list;
+        }
+
+        TL::Symbol VectorizerAnalysisStaticInfo::translate_output(const TL::Symbol& n) const
+        {
+            Nodecl::Utils::SymbolDeepCopyMap::const_iterator it = _copy_to_orig_symbols.find(n);
+
+            if (it == _copy_to_orig_symbols.end())
+            {
+                internal_error("VectorizerAnalysis: Error translating Symbol from copy to origin", 0);
+            }
+
+            return it->second;
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_constant(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::has_been_defined(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                const Nodecl::NodeclBase& s) const
+        {
+            return Analysis::AnalysisStaticInfo::has_been_defined(
+                    translate_input(scope), translate_input(n), translate_input(s));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_induction_variable(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_induction_variable(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_basic_induction_variable(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_basic_induction_variable(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_non_reduction_basic_induction_variable(const Nodecl::NodeclBase& scope, 
+                const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_non_reduction_basic_induction_variable(
+                    translate_input(scope), translate_input(n));
+        }
+ 
+        Nodecl::NodeclBase VectorizerAnalysisStaticInfo::get_induction_variable_increment(const Nodecl::NodeclBase& scope,
+                const Nodecl::NodeclBase& n ) const
+        {
+            Nodecl::NodeclBase return_nodecl = Analysis::AnalysisStaticInfo::get_induction_variable_increment(
+                    translate_input(scope), translate_input(n));
+
+            if (return_nodecl.is<Nodecl::IntegerLiteral>())
+                return return_nodecl;
+            
+            return translate_output(return_nodecl);
+        }
+        
+        ObjectList<Nodecl::NodeclBase> VectorizerAnalysisStaticInfo::get_induction_variable_increment_list(
+                const Nodecl::NodeclBase& scope,
+                const Nodecl::NodeclBase& n ) const
+        {
+            return translate_output(Analysis::AnalysisStaticInfo::get_induction_variable_increment_list(
+                    translate_input(scope), translate_input(n)));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, 
+                const Nodecl::NodeclBase& n ) const
+        {
+            return Analysis::AnalysisStaticInfo::is_induction_variable_increment_one(
+                    translate_input(scope), translate_input(n));
+        }
+
+        ObjectList<Analysis::Utils::InductionVariableData*> VectorizerAnalysisStaticInfo::get_induction_variables(
+                const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+        {
+            std::cerr << "INDUCTIONVARIABLEDATA" << std::endl;
+
+            return Analysis::AnalysisStaticInfo::get_induction_variables(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_adjacent_access(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_adjacent_access(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_induction_variable_dependent_access(
+                const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_induction_variable_dependent_access(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_constant_access(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
+        {
+            return Analysis::AnalysisStaticInfo::is_constant_access(
+                    translate_input(scope), translate_input(n));
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_simd_aligned_access(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                int unroll_factor, int alignment) const
+        {
+            if (suitable_expressions != NULL)
+            {
+                ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
+                    translate_input(*suitable_expressions);
+
+                return Analysis::AnalysisStaticInfo::is_simd_aligned_access(
+                        translate_input(scope), translate_input(n), 
+                        &translated_suitable_expressions,
+                        unroll_factor, alignment);
+            }
+            else
+            {
+                return Analysis::AnalysisStaticInfo::is_simd_aligned_access(
+                        translate_input(scope), translate_input(n), 
+                        suitable_expressions,
+                        unroll_factor, alignment);
+            }
+        }
+
+        bool VectorizerAnalysisStaticInfo::is_suitable_expression(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                int unroll_factor, int alignment, int& vector_size_module) const
+        {
+
+            if (suitable_expressions != NULL)
+            {
+                ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
+                    translate_input(*suitable_expressions);
+
+                return Analysis::AnalysisStaticInfo::is_suitable_expression(
+                        translate_input(scope), translate_input(n),
+                        &translated_suitable_expressions,
+                        unroll_factor, alignment, vector_size_module);
+            }
+            else
+            {
+                return Analysis::AnalysisStaticInfo::is_suitable_expression(
+                        translate_input(scope), translate_input(n),
+                        suitable_expressions,
+                        unroll_factor, alignment, vector_size_module);
+            }
         }
     }
 }

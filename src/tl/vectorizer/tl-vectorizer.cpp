@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
@@ -111,6 +112,14 @@ namespace TL
         {
         }
 
+        void Vectorizer::preprocess_code(Nodecl::NodeclBase& n)
+        {
+            VectorizerVisitorPreprocessor vectorizer_preproc;
+            vectorizer_preproc.walk(n);
+
+            TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
+        }
+
         void Vectorizer::load_environment(const Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
@@ -142,9 +151,6 @@ namespace TL
         void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
-            // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
-
             VectorizerVisitorFor visitor_for(environment);
             visitor_for.walk(for_statement);
 
@@ -156,9 +162,6 @@ namespace TL
                 VectorizerEnvironment& environment,
                 const bool masked_version)
         {
-            // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
-
             VectorizerVisitorFunction visitor_function(environment, masked_version);
             visitor_function.walk(func_code);
 
@@ -173,9 +176,6 @@ namespace TL
                 bool only_epilog,
                 bool is_parallel_loop)
         {
-            // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
-
             VectorizerVisitorForEpilog visitor_epilog(environment, 
                     epilog_iterations, only_epilog, is_parallel_loop);
             visitor_epilog.visit(for_statement, net_epilog_node);

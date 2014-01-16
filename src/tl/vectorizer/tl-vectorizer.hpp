@@ -128,9 +128,10 @@ namespace TL
 
                 ~Vectorizer();
 
+                void preprocess_code(Nodecl::NodeclBase& n);
+
                 void load_environment(const Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment);
-
                 void unload_environment(VectorizerEnvironment& environment);
 
                 void vectorize(Nodecl::ForStatement& for_statement, 

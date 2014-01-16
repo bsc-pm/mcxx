@@ -209,6 +209,9 @@ namespace TL {
                     reductions, new_external_vector_symbol_map,
                     for_statement);
 
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(for_statement);
+
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
                     simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
@@ -240,7 +243,6 @@ namespace TL {
             bool only_epilog;
             int epilog_iterations = _vectorizer.get_epilog_info(for_statement, 
                     for_environment, only_epilog);
-
 
             // Add scopes, default masks, etc.
             _vectorizer.load_environment(for_statement, for_environment);
@@ -404,6 +406,9 @@ namespace TL {
                 process_reduction_clause(omp_for_environment, 
                         reductions, new_external_vector_symbol_map,
                         for_statement);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(for_statement);
 
             // Add epilog before vectorization
             Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
@@ -616,6 +621,9 @@ namespace TL {
             {
                 running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             } 
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(function_code);
 
             // Mask Version
             if (_support_masking && omp_nomask.is_null())

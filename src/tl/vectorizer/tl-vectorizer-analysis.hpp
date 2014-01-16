@@ -28,29 +28,70 @@
 #define TL_VECTORIZER_ANALYSIS_STATIC_INFO_HPP
 
 #include "tl-nodecl-base.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-analysis-static-info.hpp"
-#include <map>
 
 
 namespace TL 
 { 
     namespace Vectorization 
     {
-        class VectorizerAnalysisStaticInfo : public Analysis::AnalysisStaticInfo
+        class VectorizerAnalysisMaps 
+        {
+            protected:
+                Nodecl::Utils::NodeclDeepCopyMap _orig_to_copy_nodes;
+                Nodecl::Utils::NodeclDeepCopyMap _copy_to_orig_nodes;
+                
+                Nodecl::Utils::SymbolDeepCopyMap _orig_to_copy_symbols;
+                Nodecl::Utils::SymbolDeepCopyMap _copy_to_orig_symbols;
+
+            public:
+        };
+
+
+        class VectorizerAnalysisStaticInfo : public VectorizerAnalysisMaps, public Analysis::AnalysisStaticInfo
         {
             private:
                 Nodecl::NodeclBase _original_node;
 
-                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _orig_to_copy_nodes;
-                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _copy_to_orig_nodes;
-                
-                std::map<TL::Symbol, TL::Symbol> _orig_to_copy_sym;
-                std::map<TL::Symbol, TL::Symbol> _copy_to_orig_sym;
+                Nodecl::FunctionCode copy_function_code(const Nodecl::FunctionCode& n);
+
+                Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n) const;
+                TL::ObjectList<Nodecl::NodeclBase> translate_input(const TL::ObjectList<Nodecl::NodeclBase>& list) const;
+                TL::Symbol translate_input(const TL::Symbol& n) const;
+
+                Nodecl::NodeclBase translate_output(const Nodecl::NodeclBase& n) const;
+                TL::ObjectList<Nodecl::NodeclBase> translate_output(const TL::ObjectList<Nodecl::NodeclBase>& list) const;
+                TL::Symbol translate_output(const TL::Symbol& n) const;
 
             public:
                 VectorizerAnalysisStaticInfo(const Nodecl::NodeclBase& n, Analysis::WhichAnalysis analysis_mask,
                         Analysis::WhereAnalysis nested_analysis_mask, int nesting_level);
 
+                virtual ~VectorizerAnalysisStaticInfo(){};
+
+                virtual bool is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const;
+                virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                        const Nodecl::NodeclBase& s ) const;
+                virtual bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& scope,
+                        const Nodecl::NodeclBase& n ) const;
+                virtual ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
+                        const Nodecl::NodeclBase& n ) const;
+                virtual bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual ObjectList<Analysis::Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
+                        const Nodecl::NodeclBase& n ) const;
+                virtual bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                        int unroll_factor, int alignment ) const;
+                virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                        int unroll_factor, int alignment, int& vector_size_module ) const;
         };
     }
 }
