@@ -96,6 +96,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> DECIMAL_LITERAL "decimal-literal"
 %token<token_atrib> DEFAULT "default"
 %token<token_atrib> TOKEN_DELETE "delete"
+%token<token_atrib> TOKEN_DELETE_ARRAY "delete []"
 %token<token_atrib> DIV_ASSIGN "/="
 %token<token_atrib> DO "do"
 %token<token_atrib> TWO_COLONS "::"
@@ -131,6 +132,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> MUTABLE "mutable"
 %token<token_atrib> NAMESPACE "namespace"
 %token<token_atrib> TOKEN_NEW "new"
+%token<token_atrib> TOKEN_NEW_ARRAY "new []"
 %token<token_atrib> NOT_EQUAL "!="
 %token<token_atrib> OCTAL_LITERAL "octal-literal"
 %token<token_atrib> OPERATOR "operator"
@@ -250,7 +252,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> TOKEN_CONSTEXPR "constexpr"
 %token<token_atrib> TOKEN_THREAD_LOCAL "thread_local"
 %token<token_atrib> TOKEN_NULLPTR "nullptr"
-%token<token_atrib> TOKEN_NOEXCEPT "noexcept"
+%token<token_atrib> TOKEN_NOEXCEPT "noexcept "
+%token<token_atrib> TOKEN_NOEXCEPT_ALONE "noexcept"
 
 // Tokens implemented with grammar
 %type<token_atrib> right_token
@@ -1796,7 +1799,7 @@ nonglobal_non_functional_declarator_not_started_with_attributes : nonglobal_non_
 }
 ;
 
-nonglobal_non_functional_direct_declarator : nonglobal_declarator_id %dprec 2
+nonglobal_non_functional_direct_declarator : nonglobal_declarator_id
 {
 	$$ = $1;
 }
@@ -1804,7 +1807,7 @@ nonglobal_non_functional_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| nonglobal_non_functional_direct_declarator '[' ']' %dprec 1
+| nonglobal_non_functional_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -1988,7 +1991,7 @@ non_functional_main_declarator : non_functional_direct_declarator
 }
 ;
 
-non_functional_direct_declarator : declarator_id %dprec 2
+non_functional_direct_declarator : declarator_id
 {
 	$$ = $1;
 }
@@ -1996,7 +1999,7 @@ non_functional_direct_declarator : declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| non_functional_direct_declarator '[' ']' %dprec 1
+| non_functional_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -2089,7 +2092,7 @@ ref_qualifier : '&'
 }
 ;
 
-functional_direct_declarator : functional_declarator_id %dprec 2
+functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
@@ -2136,7 +2139,7 @@ nonglobal_functional_main_declarator_not_started_with_attributes : nonglobal_fun
 }
 ;
 
-nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id %dprec 2
+nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id
 {
 	$$ = $1;
 }
@@ -2144,7 +2147,7 @@ nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id %dpr
 {
 	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
-| nonglobal_functional_direct_declarator '[' constant_expression_opt ']' %dprec 1
+| nonglobal_functional_direct_declarator '[' constant_expression_opt ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
@@ -2222,7 +2225,7 @@ cv_qualifier : TOKEN_CONST
 }
 ;
 
-nonglobal_direct_declarator : nonglobal_declarator_id %dprec 2
+nonglobal_direct_declarator : nonglobal_declarator_id
 {
 	$$ = $1;
 }
@@ -2234,7 +2237,7 @@ nonglobal_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| nonglobal_direct_declarator '[' ']' %dprec 1
+| nonglobal_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -2258,7 +2261,7 @@ nonglobal_declarator_id : nonglobal_id_expression std_attribute_specifier_seq_op
 }
 ;
 
-direct_declarator : declarator_id %dprec 2
+direct_declarator : declarator_id
 {
 	$$ = $1;
 }
@@ -2270,7 +2273,7 @@ direct_declarator : declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| direct_declarator '[' ']' %dprec 1
+| direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -4737,25 +4740,25 @@ new_initializer : parent_initializer_ctor
 }
 ;
 
-delete_expression : TOKEN_DELETE cast_expression 
+delete_expression : TOKEN_DELETE cast_expression
 {
 	$$ = ASTMake2(AST_DELETE_EXPR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOKEN_DELETE '[' ']' cast_expression
+| TOKEN_DELETE_ARRAY cast_expression
 {
-	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TWO_COLONS TOKEN_DELETE cast_expression 
+| TWO_COLONS TOKEN_DELETE cast_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
 	$$ = ASTMake2(AST_DELETE_EXPR, global_op, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TWO_COLONS TOKEN_DELETE '[' ']' cast_expression
+| TWO_COLONS TOKEN_DELETE_ARRAY cast_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
-	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, global_op, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, global_op, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -5246,11 +5249,11 @@ operator : TOKEN_NEW
 {
 	$$ = ASTLeaf(AST_DELETE_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOKEN_NEW '[' ']'
+| TOKEN_NEW_ARRAY
 {
 	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOKEN_DELETE '[' ']'
+| TOKEN_DELETE_ARRAY
 {
 	$$ = ASTLeaf(AST_DELETE_ARRAY_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -5952,7 +5955,7 @@ throw_type_id_list : type_id
 }
 ;
 
-noexcept_specification : TOKEN_NOEXCEPT
+noexcept_specification : TOKEN_NOEXCEPT_ALONE
 {
     $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
