@@ -1858,10 +1858,6 @@ condition : expression
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ast_get_locus($1), NULL);
 }
-| type_specifier_seq declarator gcc_extra_bits_init_declarator_opt initializer
-{
-	$$ = ASTMake4(AST_CONDITION, $1, $2, $4, $3, ast_get_locus($1), NULL);
-}
 ;
 
 iteration_statement : WHILE '(' condition ')' statement

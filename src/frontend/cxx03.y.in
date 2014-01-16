@@ -222,6 +222,12 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> ';'
 %token<token_atrib> '<'
 %token<token_atrib> '='
+/* Different tokens in C++2003 and C++2011 */
+/* C++2003 */
+%token<token_atrib> RIGHT ">>"
+%token<token_atrib> RIGHT_ASSIGN ">>="
+%token<token_atrib> GREATER_OR_EQUAL ">="
+/* C++2011 */
 // AB1 is '>' when it is just before another '>'
 // KLUDGE: Note that since names can't be repeated we surround this one with spaces
 // The error message may be a bit weird, as if it was bad formatted
@@ -230,6 +236,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 // KLUDGE: Note that since names can't be repeated we surround this one with one space before
 // The error message may be a bit weird, as if it was bad formatted
 %token<token_atrib> AB2 "'>=' "
+/* End of different tokens in C++2003 and C++2011 */
 %token<token_atrib> '>'
 %token<token_atrib> '?'
 %token<token_atrib> '['
@@ -2929,31 +2936,31 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 	$$ = ASTList($1, $3);
 }
 // C++2011 pack expansion
-| initializer_clause ELLIPSIS
+| initializer_clause ELLIPSIS %merge<ambiguityHandler>
 {
     AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
     $$ = ASTListLeaf(pack_expansion);
 }
-| initializer_list ',' initializer_clause ELLIPSIS
+| initializer_list ',' initializer_clause ELLIPSIS %merge<ambiguityHandler>
 {
-    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $1, ast_get_locus($1), NULL);
+    AST pack_expansion = ASTMake1(AST_INITIALIZER_CLAUSE_PACK_EXPANSION, $3, ast_get_locus($3), NULL);
     $$ = ASTList($1, pack_expansion);
 }
 // C99 extensions
-| designation initializer_clause
+| designation initializer_clause %merge<ambiguityHandler>
 {
     AST designated_initializer = ASTMake2(AST_DESIGNATED_INITIALIZER, $1, $2, ast_get_locus($1), NULL);
 
     $$ = ASTListLeaf(designated_initializer);
 }
-| initializer_list ',' designation initializer_clause
+| initializer_list ',' designation initializer_clause %merge<ambiguityHandler>
 {
     AST designated_initializer = ASTMake2(AST_DESIGNATED_INITIALIZER, $3, $4, ast_get_locus($3), NULL);
 
     $$ = ASTList($1, designated_initializer);
 }
 // GNU Extensions
-| IDENTIFIER ':' initializer_clause
+| IDENTIFIER ':' initializer_clause %merge<ambiguityHandler>
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -2961,7 +2968,7 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 
 	$$ = ASTListLeaf(gcc_initializer_clause);
 }
-| initializer_list ',' IDENTIFIER ':' initializer_clause
+| initializer_list ',' IDENTIFIER ':' initializer_clause %merge<ambiguityHandler>
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -3713,6 +3720,11 @@ iteration_statement : WHILE '(' condition ')' statement
 	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 | FOR '(' for_range_declaration ':' expression ')' statement
+{
+    AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| FOR '(' for_range_declaration ':' braced_init_list ')' statement
 {
     AST loop_control = ASTMake2(AST_RANGE_LOOP_CONTROL, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
 	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $7, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
@@ -5643,10 +5655,10 @@ template_shift_expression : additive_expression %merge<ambiguityHandler>
 	$$ = ASTMake2(AST_BITWISE_SHL, $1, $3, ast_get_locus($1), NULL);
 }
 // Not here
-// | template_shift_expression right_token additive_expression
-// {
-// 	$$ = ASTMake2(AST_SHR, $1, $3, ast_get_locus($1), NULL);
-// }
+| template_shift_expression RIGHT additive_expression
+{
+	$$ = ASTMake2(AST_SHR, $1, $3, ast_get_locus($1), NULL);
+}
 ;
 
 template_relational_expression : template_shift_expression %merge<ambiguityHandler>
@@ -5657,14 +5669,14 @@ template_relational_expression : template_shift_expression %merge<ambiguityHandl
 {
 	$$ = ASTMake2(AST_LOWER_THAN, $1, $3, ast_get_locus($1), NULL);
 }
-// Not here
+// Not valid here
 // | template_relational_expression '>' shift_expression
 // {
 // }
-// Not here
-// | template_relational_expression greater_equal_token shift_expression
-// {
-// }
+| template_relational_expression GREATER_OR_EQUAL shift_expression
+{
+	$$ = ASTMake2(AST_GREATER_OR_EQUAL_THAN, $1, $3, ast_get_locus($1), NULL);
+}
 | template_relational_expression LESS_OR_EQUAL template_shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOWER_OR_EQUAL_THAN, $1, $3, ast_get_locus($1), NULL);
@@ -5924,37 +5936,58 @@ string_literal : STRING_LITERAL
 
 right_token : AB1 '>'
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = uniquestr(">>");
+}
+| RIGHT
+{
+    // C++2003
+    $$ = $1;
 }
 ;
 
 right_assign_token : AB1 AB2 '='
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = uniquestr(">>=");
+}
+| RIGHT_ASSIGN
+{
+    // C++2003
+    $$ = $1;
 }
 ;
 
 greater_equal_token : AB2 '='
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = uniquestr(">=");
+}
+| GREATER_OR_EQUAL
+{
+    // C++2003
+    $$ = $1;
 }
 ;
 
 right_bracket_token : '>'
 {
+    // C++2003 and C++2011
     $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 | AB1
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }
 | AB2
 {
+    // C++2011
     $$.token_line = $1.token_line;
     $$.token_text = $1.token_text;
 }

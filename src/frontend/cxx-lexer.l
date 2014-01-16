@@ -1368,7 +1368,6 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 }
  /* There is no '>>' token in C++ but AB1 followed by '>', see below */
  /*!if C99*/
-">>"        { parse_token_text(); return RIGHT; }
 ">>>"       { 
     if (CURRENT_CONFIGURATION->enable_cuda)
     {
@@ -1377,9 +1376,10 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     }
     REJECT;
 }
+">>"        { parse_token_text(); return RIGHT; }
  /*!endif*/
 "<="        { parse_token_text(); return LESS_OR_EQUAL; }
- /* There is no '>=' token in C++ but AB2 followed by '=', see below */
+ /* There is no '>=' token in C++11 but AB2 followed by '=', see below */
  /*!if C99*/
 ">="        { parse_token_text(); return GREATER_OR_EQUAL; }
  /*!endif*/
@@ -1396,7 +1396,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "+="        { parse_token_text(); return ADD_ASSIGN; }
 "-="        { parse_token_text(); return SUB_ASSIGN; }
 "<<="       { parse_token_text(); return LEFT_ASSIGN; }
- /* There is no '>>=' in C++ but AB1 followed by 'AB2' and '=', see below */
+ /* There is no '>>=' in C++11 but AB1 followed by 'AB2' and '=', see below */
  /*!if C99*/
 ">>="       { parse_token_text(); return RIGHT_ASSIGN; }
  /*!endif*/
@@ -1415,6 +1415,44 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "}"         { parse_token_text(); return '}'; } 
 "<"         { parse_token_text(); return '<'; }
  /*!if CPLUSPLUS*/
+ /* In C++2003 these three tokens behave like in C99 
+    REJECT is used to let the input be matched by later rules
+    since flex always prioritize the longer matches
+  */
+>>>         {
+              if (CURRENT_CONFIGURATION->enable_cuda
+                   && IS_CXX03_LANGUAGE)
+              {
+                  parse_token_text();
+                  return CUDA_KERNEL_RIGHT;
+              }
+              REJECT;
+            }
+>>          {
+              if (IS_CXX03_LANGUAGE)
+              {
+                parse_token_text();
+                return RIGHT;
+              }
+              REJECT;
+            }
+>>=         {
+              if (IS_CXX03_LANGUAGE)
+              {
+                parse_token_text();
+                return RIGHT_ASSIGN;
+              }
+              REJECT;
+            }
+>=          {
+              if (IS_CXX03_LANGUAGE)
+              {
+                  parse_token_text();
+                  return GREATER_OR_EQUAL;
+              }
+              REJECT;
+            }
+ /* In C++2011 these three tokens behave different */
 >/>         { parse_token_text(); return AB1; }
 >/=         { parse_token_text(); return AB2; }
 >/[^>=]     { parse_token_text(); return '>'; }

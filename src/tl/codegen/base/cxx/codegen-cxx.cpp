@@ -1287,6 +1287,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         }
 
     }
+    // C++2011
+    else if (loop_control.is<Nodecl::IteratorLoopControl>())
+    {
+        indent();
+        *(file) << "for (";
+        walk(loop_control);
+        *(file) << ")\n";
+
+        inc_indent();
+        walk(statement);
+        dec_indent();
+    }
     else
     {
         internal_error("Code unreachable", 0);
@@ -2893,6 +2905,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     state.in_condition = old;
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::IteratorLoopControl& node)
+{
+    Nodecl::NodeclBase node_iterator_symbol = node.get_range_iterator();
+    TL::Symbol iterator_symbol = node_iterator_symbol.get_symbol();
+
+    bool old_in_condition = state.in_condition;
+    state.in_condition = 1;
+
+    define_or_declare_variable(iterator_symbol, /* is_definition */ 1);
+
+    state.in_condition = old_in_condition;
+
+    *file << " : ";
+
+    walk(node.get_initializer());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
@@ -2999,6 +3028,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         }
         *(file) << ")";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxNoexcept& node)
+{
+    *(file) << "noexcept(";
+    walk(node.get_expr());
+    *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)

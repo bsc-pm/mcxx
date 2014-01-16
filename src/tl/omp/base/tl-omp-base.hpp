@@ -43,6 +43,8 @@ namespace TL
                 virtual void run(TL::DTO& dto);
                 virtual void pre_run(TL::DTO& dto);
 
+                virtual void phase_cleanup(TL::DTO& dto);
+
                 virtual ~Base() { }
 
             private:
@@ -70,6 +72,8 @@ namespace TL
 
                 std::string _allow_array_reductions_str;
                 void set_allow_array_reductions(const std::string& allow_array_reductions);
+
+                std::string _disable_task_expr_optim_str;
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \

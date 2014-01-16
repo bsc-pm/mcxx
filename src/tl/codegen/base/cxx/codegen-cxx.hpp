@@ -92,6 +92,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepNew &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
+            Ret visit(const Nodecl::CxxNoexcept &);
             Ret visit(const Nodecl::CxxInitializer &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
             Ret visit(const Nodecl::CxxMemberInit &);
@@ -131,6 +132,7 @@ namespace Codegen
             Ret visit(const Nodecl::LogicalNot &);
             Ret visit(const Nodecl::LogicalOr &);
             Ret visit(const Nodecl::LoopControl &);
+            Ret visit(const Nodecl::IteratorLoopControl &);
             Ret visit(const Nodecl::LowerOrEqualThan &);
             Ret visit(const Nodecl::LowerThan &);
             Ret visit(const Nodecl::MemberInit &);

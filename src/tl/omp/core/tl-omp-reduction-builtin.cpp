@@ -48,10 +48,9 @@ namespace TL { namespace OpenMP {
 
     void Core::initialize_builtin_reductions(Scope sc)
     {
-        static bool already_initialized = false;
-        if (already_initialized)
+        if (_reductions_already_registered)
             return;
-        already_initialized = true;
+        _reductions_already_registered = true;
 
         _silent_declare_reduction = true;
 

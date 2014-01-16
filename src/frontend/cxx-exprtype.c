@@ -5677,6 +5677,8 @@ static void compute_operator_reference_type(nodecl_t* op,
 
         scope_entry_t* entry = entry_list_head(entry_list);
 
+        entry = entry_advance_aliases(entry);
+
         if (entry->kind == SK_TEMPLATE)
         {
             entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
@@ -8212,10 +8214,13 @@ static void check_new_expression_impl(
     nodecl_t nodecl_init_out = nodecl_null();
 
     // Verify the initializer
-    check_nodecl_initialization(nodecl_initializer,
+    check_nodecl_initialization(
+            nodecl_initializer,
             decl_context,
+            /*  initialized_entry */ NULL,
             new_type,
-            &nodecl_init_out);
+            &nodecl_init_out,
+            /* is_auto */ 0);
 
     type_t* synthesized_type = new_type;
 
@@ -11195,7 +11200,8 @@ static void check_nodecl_noexcept(nodecl_t nodecl_expr, nodecl_t* nodecl_output)
         return;
     }
 
-    if (nodecl_expr_is_value_dependent(nodecl_expr))
+    if (nodecl_expr_is_value_dependent(nodecl_expr)
+            || nodecl_expr_is_type_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_make_cxx_noexcept(nodecl_expr, get_bool_type(), nodecl_get_locus(nodecl_expr));
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -14407,6 +14413,15 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
     *nodecl_output = nodecl_null();
     if (initializer_list != NULL)
     {
+        if (ASTType(initializer_list) == AST_AMBIGUITY)
+        {
+            char result = solve_ambiguous_list_of_initializer_clauses(initializer_list, decl_context, NULL);
+            if (result == 0)
+            {
+                internal_error("Ambiguity not solved %s", ast_location(initializer));
+            }
+        }
+
         AST it;
         for_each_element(initializer_list, it)
         {
@@ -14877,8 +14892,114 @@ void check_nodecl_equal_initializer(nodecl_t nodecl_initializer,
     }
 }
 
-void check_nodecl_initialization(nodecl_t nodecl_initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
+static char check_self_reference(nodecl_t initializer, scope_entry_t* entry)
 {
+    if (nodecl_is_null(initializer))
+        return 1;
+
+    if (nodecl_get_symbol(initializer) == entry)
+        return 0;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (!check_self_reference(nodecl_get_child(initializer, i), entry))
+            return 0;
+    }
+
+    return 1;
+}
+
+void check_nodecl_initialization(
+        nodecl_t nodecl_initializer,
+        decl_context_t decl_context,
+        scope_entry_t* initialized_entry, // May have its type_information updated
+        type_t* declared_type,
+        nodecl_t* nodecl_output,
+        char is_auto_type)
+{
+    if (is_auto_type
+            && initialized_entry != NULL
+            && !nodecl_expr_is_type_dependent(nodecl_initializer))
+    {
+        if (!nodecl_is_null(nodecl_initializer))
+        {
+            if (!check_self_reference(nodecl_initializer, initialized_entry))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
+                            nodecl_locus_to_str(nodecl_initializer));
+                }
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+                return;
+            }
+        }
+
+        // Now try to deduce the type
+        char is_braced_initializer = nodecl_get_kind(nodecl_initializer) == NODECL_CXX_BRACED_INITIALIZER
+            ||(nodecl_get_kind(nodecl_initializer) == NODECL_CXX_EQUAL_INITIALIZER
+                    && nodecl_get_kind(nodecl_get_child(nodecl_initializer, 0)) == NODECL_CXX_BRACED_INITIALIZER);
+
+        template_parameter_list_t* deduced_template_arguments = NULL;
+        if (deduce_arguments_of_auto_initialization(
+                initialized_entry->type_information,
+                nodecl_get_type(nodecl_initializer),
+                decl_context,
+                &deduced_template_arguments,
+                is_braced_initializer,
+                nodecl_get_locus(nodecl_initializer)))
+        {
+            if (!is_braced_initializer)
+            {
+                // const auto& -> const int&
+                initialized_entry->type_information = update_type_for_auto(
+                        initialized_entry->type_information,
+                        deduced_template_arguments->arguments[0]->type);
+            }
+            else
+            {
+                // const auto& -> const std::initializer_list<T>
+                type_t* specialized_type = template_type_get_specialized_type(
+                        get_std_initializer_list_template(decl_context,
+                            nodecl_get_locus(nodecl_initializer),
+                            /* mandatory */ 1)->type_information,
+                        deduced_template_arguments,
+                        decl_context,
+                        nodecl_get_locus(nodecl_initializer));
+
+                initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Deduced type for auto initializer is '%s'\n",
+                        print_declarator(initialized_entry->type_information));
+            }
+            declared_type = get_unqualified_type(initialized_entry->type_information);
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
+                        nodecl_locus_to_str(nodecl_initializer),
+                        print_type_str(declared_type, decl_context),
+                        print_type_str(nodecl_get_type(nodecl_initializer), decl_context));
+            }
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            return;
+        }
+    }
+
+    if (is_dependent_type(declared_type))
+    {
+        // We do not bother to check anything else if the declared entity is
+        // dependent
+        *nodecl_output = nodecl_initializer;
+        return;
+    }
+
     if (nodecl_is_err_expr(nodecl_initializer))
     {
         *nodecl_output = nodecl_initializer;
@@ -14942,23 +15063,6 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
     }
 }
 
-static char check_self_reference(nodecl_t initializer, scope_entry_t* entry)
-{
-    if (nodecl_is_null(initializer))
-        return 1;
-
-    if (nodecl_get_symbol(initializer) == entry)
-        return 0;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if (!check_self_reference(nodecl_get_child(initializer, i), entry))
-            return 0;
-    }
-
-    return 1;
-}
 
 char check_initialization(AST initializer,
         decl_context_t decl_context,
@@ -14976,89 +15080,12 @@ char check_initialization(AST initializer,
     nodecl_t nodecl_init = nodecl_null();
 
     compute_nodecl_initialization(initializer, decl_context, &nodecl_init);
-
-    if (is_auto
-            && !nodecl_expr_is_type_dependent(nodecl_init))
-    {
-        if (initialized_entry != NULL
-                && !nodecl_is_null(nodecl_init))
-        {
-            if (!check_self_reference(nodecl_init, initialized_entry))
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
-                            nodecl_locus_to_str(nodecl_init));
-                }
-                *nodecl_output = nodecl_make_err_expr(ast_get_locus(initializer));
-                return 0;
-            }
-        }
-
-        // Now try to deduce the type
-        char is_braced_initializer = nodecl_get_kind(nodecl_init) == NODECL_CXX_BRACED_INITIALIZER
-            ||(nodecl_get_kind(nodecl_init) == NODECL_CXX_EQUAL_INITIALIZER
-                    && nodecl_get_kind(nodecl_get_child(nodecl_init, 0)) == NODECL_CXX_BRACED_INITIALIZER);
-
-        template_parameter_list_t* deduced_template_arguments = NULL;
-        if (deduce_arguments_of_auto_initialization(
-                initialized_entry->type_information,
-                nodecl_get_type(nodecl_init),
-                decl_context,
-                &deduced_template_arguments,
-                is_braced_initializer,
-                ast_get_locus(initializer)))
-        {
-            if (!is_braced_initializer)
-            {
-                // const auto& -> const int&
-                initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information,
-                        deduced_template_arguments->arguments[0]->type);
-            }
-            else
-            {
-                // const auto& -> const std::initializer_list<T>
-                type_t* specialized_type = template_type_get_specialized_type(
-                        get_std_initializer_list_template(decl_context,
-                            ast_get_locus(initializer),
-                            /* mandatory */ 1)->type_information,
-                        deduced_template_arguments,
-                        decl_context,
-                        ast_get_locus(initializer));
-
-                initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
-            }
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: Deduced type for auto initializer is '%s'\n",
-                        print_declarator(initialized_entry->type_information));
-            }
-            declared_type = get_unqualified_type(initialized_entry->type_information);
-        }
-        else
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
-                        nodecl_locus_to_str(nodecl_init),
-                        print_type_str(declared_type, decl_context),
-                        print_type_str(nodecl_get_type(nodecl_init), decl_context));
-            }
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(initializer));
-            return 0;
-        }
-    }
-
-    if (is_dependent_type(declared_type))
-    {
-        // We do not bother to check anything else if the declared entity is
-        // dependent
-        *nodecl_output = nodecl_init;
-        return 1;
-    }
-
-    check_nodecl_initialization(nodecl_init, decl_context, declared_type, nodecl_output);
+    check_nodecl_initialization(nodecl_init,
+            decl_context,
+            initialized_entry,
+            declared_type,
+            nodecl_output,
+            is_auto);
 
     DEBUG_CODE()
     {
@@ -16811,6 +16838,53 @@ char check_list_of_expressions(AST expression_list,
     internal_error("Code unreachable", 0);
 }
 
+char check_list_of_initializer_clauses(
+        AST initializer_clause_list,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_null();
+    if (initializer_clause_list == NULL)
+    {
+        // An empty list is OK
+        return 1;
+    }
+
+    if (ASTType(initializer_clause_list) == AST_AMBIGUITY)
+    {
+        return solve_ambiguous_list_of_initializer_clauses(initializer_clause_list, decl_context, nodecl_output);
+    }
+    else
+    {
+        // Check the beginning of the list
+        nodecl_t nodecl_prev_list = nodecl_null();
+        check_list_of_initializer_clauses(ASTSon0(initializer_clause_list), decl_context, &nodecl_prev_list);
+
+        if (!nodecl_is_null(nodecl_prev_list)
+                && nodecl_is_err_expr(nodecl_prev_list))
+        {
+            *nodecl_output = nodecl_prev_list;
+            return 0;
+        }
+
+        nodecl_t nodecl_current = nodecl_null();
+        AST initializer = ASTSon1(initializer_clause_list);
+        compute_nodecl_initializer_clause(initializer, decl_context, &nodecl_current);
+
+        if (nodecl_is_err_expr(nodecl_current))
+        {
+            *nodecl_output = nodecl_current;
+            return 0;
+        }
+
+        *nodecl_output = nodecl_append_to_list(nodecl_prev_list, nodecl_current);
+
+        return 1;
+    }
+
+    internal_error("Code unreachable", 0);
+}
+
 
 static char check_default_initialization_(scope_entry_t* entry,
         decl_context_t decl_context,
@@ -17352,9 +17426,13 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 
 static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry UNUSED_PARAMETER,
         nodecl_t converted_arg_list UNUSED_PARAMETER,
-        const locus_t* locus UNUSED_PARAMETER)
+        const locus_t* locus)
 {
-    internal_error("Not yet implemented", 0);
+    if (!checking_ambiguity())
+    {
+        warn_printf("%s: warning: call to constexpr function not yet implemented\n", locus_to_str(locus));
+    }
+    return NULL;
 }
 
 nodecl_t cxx_nodecl_make_function_call(

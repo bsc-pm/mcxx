@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -28,19 +28,25 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium-ompss
 </testinfo>
 */
-
-template <typename _T>
-struct A
+template < typename T>
+int foo(T* x, T* y,  int n)
 {
-};
+    int result = 0;
+#pragma omp parallel for reduction(+:result)
+    for (int i = 0; i < n; ++i)
+    {
+        result += x[i] + y[i];
+    }
+    return result;
+}
 
-template <typename _T>
-struct B
+#define N 5
+int main()
 {
-};
-
-typedef A<B<int> > S;
-typedef A<B<int>> S;
+    int v1[N] = {1, 2, 3, 4, 5};
+    int v2[N] = {5, 4, 3, 2, 1};
+    int res = foo(v1, v2, N);
+}

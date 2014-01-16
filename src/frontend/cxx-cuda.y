@@ -95,7 +95,13 @@ cuda_kernel_config_right : CUDA_KERNEL_RIGHT
 ;
 /*!endif*/
 /*!if CPLUSPLUS*/
+// C++2011
 cuda_kernel_config_right : AB1 AB1 '>'
+{
+    $$ = $1;
+}
+// C++2003
+| CUDA_KERNEL_RIGHT
 {
     $$ = $1;
 }

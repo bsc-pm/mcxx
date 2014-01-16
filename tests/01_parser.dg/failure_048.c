@@ -28,21 +28,13 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium
+test_compile_fail=yes
 </testinfo>
 */
 
-template <typename _T>
-struct A
+void foo(void)
 {
-};
-
-template <typename _T>
-struct B
-{
-};
-
-template <typename _T = A<B<int>>>
-struct C
-{
-};
+  if(int a = 0)
+  {}
+}

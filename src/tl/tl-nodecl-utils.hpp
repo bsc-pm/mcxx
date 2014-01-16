@@ -217,6 +217,24 @@ namespace Nodecl
                 _adaptor_symbol_map.obj = this;
             }
 
+            SymbolMap(const SymbolMap& copy_symbol_map)
+            {
+                _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                _adaptor_symbol_map.obj = this;
+            }
+
+            SymbolMap& operator=(const SymbolMap& symbol_map)
+            {
+                if (this != &symbol_map)
+                {
+                    _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                    _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                    _adaptor_symbol_map.obj = this;
+                }
+                return (*this);
+            }
+
             virtual ~SymbolMap()
             {
             }
@@ -286,14 +304,27 @@ namespace Nodecl
                 }
         };
 
+        typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> NodeclDeepCopyMap;
+        typedef std::map<TL::Symbol, TL::Symbol> SymbolDeepCopyMap;
 
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, SymbolMap& map);
+
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,
+                TL::ReferenceScope ref_scope,
+                Utils::SymbolMap& map,
+                NodeclDeepCopyMap& nodecl_deep_copy_map,
+                SymbolDeepCopyMap& symbol_deep_copy_map);
 
         // This updates symbols in the given tree using a symbol map
         void update_symbols(Nodecl::NodeclBase orig, SymbolMap& map);
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
+
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,
+                TL::ReferenceScope ref_scope,
+                NodeclDeepCopyMap& nodecl_deep_copy_map,
+                SymbolDeepCopyMap& symbol_deep_copy_map);
 
         // Returns a single subscript linearized (not the whole ArraySubscript)
         Nodecl::NodeclBase linearize_array_subscript(const Nodecl::ArraySubscript& n);
@@ -336,6 +367,7 @@ namespace TL
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
     };
+
 }
 
 #endif // TL_NODECL_UTILS_HPP
