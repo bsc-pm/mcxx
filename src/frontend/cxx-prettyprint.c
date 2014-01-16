@@ -86,6 +86,7 @@ HANDLER_PROTOTYPE(throw_expression_handler);
 HANDLER_PROTOTYPE(conditional_expression_handler);
 HANDLER_PROTOTYPE(cast_expression_handler);
 HANDLER_PROTOTYPE(prefix_with_parameter_then_parenthesized_son_handler);
+HANDLER_PROTOTYPE(prefix_with_parameter_then_optional_parenthesized_son_handler);
 HANDLER_PROTOTYPE(new_expression_handler);
 HANDLER_PROTOTYPE(new_type_id_handler);
 HANDLER_PROTOTYPE(new_type_id_expr_handler);
@@ -506,6 +507,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DEFAULTED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
     NODE_HANDLER(AST_DELETED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
     NODE_HANDLER(AST_NOEXCEPT_EXPRESSION, prefix_with_parameter_then_parenthesized_son_handler, "noexcept"),
+    NODE_HANDLER(AST_NOEXCEPT_SPECIFICATION, prefix_with_parameter_then_optional_parenthesized_son_handler, "noexcept"),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -921,16 +923,16 @@ static void abstract_declarator_function_handler(FILE* f, AST a, prettyprint_con
         prettyprint_level(f, ASTSon0(a), pt_ctx);
     }
 
-    token_fprintf(f, a, pt_ctx, "(");
     if (ASTType(ASTSon1(a)) != AST_KR_PARAMETER_LIST)
-    {
-        list_handler(f, ASTSon1(a), pt_ctx);
-    }
-    else
     {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
-    token_fprintf(f, a, pt_ctx, ")");
+    else
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+        prettyprint_level(f, ASTSon1(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
+    }
 
     if (ASTSon2(a) != NULL)
     {
@@ -1005,14 +1007,16 @@ static void parameters_and_qualifiers_handler(FILE* f, AST a, prettyprint_contex
 
 static void parameters_and_qualifiers_extra_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
     if (ASTSon0(a) != NULL)
         token_fprintf(f, a, pt_ctx, " ");
-    spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
+    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
     if (ASTSon1(a) != NULL)
         token_fprintf(f, a, pt_ctx, " ");
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
     if (ASTSon2(a) != NULL)
+        token_fprintf(f, a, pt_ctx, " ");
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    if (ASTSon3(a) != NULL)
         token_fprintf(f, a, pt_ctx, " ");
     prettyprint_level(f, ASTSon3(a), pt_ctx);
 }
@@ -1166,6 +1170,17 @@ static void prefix_with_parameter_then_parenthesized_son_handler(FILE* f, AST a,
     token_fprintf(f, a, pt_ctx, "%s(", HELPER_PARAMETER_STRING);
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void prefix_with_parameter_then_optional_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
+    }
 }
 
 static void new_expression_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
