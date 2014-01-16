@@ -798,6 +798,9 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
 
     scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
 
+    if (class_in_scope->kind == SK_ENUM)
+        return 0;
+
     if (class_symbol_get_canonical_symbol(class_symbol) 
             == class_symbol_get_canonical_symbol(class_in_scope))
     {
