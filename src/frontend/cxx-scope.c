@@ -2589,8 +2589,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 // A type template parameter pack replaced by another template
                 // type parameter pack
-                ERROR_CONDITION(!is_pack_type(argument->type_information),
-                        "This type should be a pack type but it is '%s'", print_declarator(argument->type_information));
                 // FIXME - Should we augment the qualifier of the packed type as well?
                 return get_user_defined_type(argument);
             }
