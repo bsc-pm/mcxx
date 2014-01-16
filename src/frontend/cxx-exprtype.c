@@ -8657,10 +8657,18 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
 {
     AST id_expression = ASTSon0(expr);
 
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
+    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression,
+            // Do not examine uninstantiated templates
+            DF_DEPENDENT_TYPENAME);
 
     if (entry_list == NULL)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: 'typename %s' not found in the current scope\n",
+                    ast_location(id_expression),
+                    prettyprint_in_buffer(id_expression));
+        }
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
