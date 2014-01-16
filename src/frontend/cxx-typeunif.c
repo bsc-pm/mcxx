@@ -1569,7 +1569,14 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         {
             fprintf(stderr, "TYPEUNIF: The overloaded set contains one or more templates, not using it for deduction\n");
         }
+        entry_list_free(overloaded_set);
         return;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUNIF: There are %d overloads\n",
+                entry_list_size(overloaded_set));
     }
 
     // template_parameter_list_t* explicit_template_parameters 
@@ -1591,42 +1598,6 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         {
             function_type = entry->type_information;
         }
-        // else if (entry->kind == SK_TEMPLATE)
-        // {
-        //     // Try to deduce it with what we are given
-        //     template_parameter_list_t* type_template_parameters = 
-        //         template_type_get_template_parameters(entry->type_information);
-        //     type_t* specialization_type = template_type_get_primary_type(entry->type_information);
-        //     scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
-        //     type_t* specialized_function_type = specialization_symbol->type_information;
-
-        //     template_parameter_list_t* template_parameters = 
-        //         template_specialized_type_get_template_arguments(specialized_function_type);
-
-        //     template_parameter_list_t* deduced_template_arguments = NULL;
-        //     if (deduce_arguments_from_call_to_specific_template_function(/* no arguments */ NULL,
-        //                 /* num_arguments */ 0, specialization_type, 
-        //                 template_parameters, type_template_parameters,
-        //                 decl_context, &deduced_template_arguments, locus, 
-        //                 explicit_template_parameters))
-        //     {
-        //         // Now get a specialized template type for this
-        //         // function (this will sign it in if it does not exist)
-        //         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-        //                 deduced_template_arguments, decl_context, locus);
-
-        //         // Update entry and its function type
-        //         entry = named_type_get_symbol(named_specialization_type);
-        //         function_type = entry->type_information;
-
-        //         is_template = 1;
-        //     }
-        //     else
-        //     {
-        //         // Ignore this one
-        //         continue;
-        //     }
-        // }
         else
         {
             internal_error("Code unreachable", 0);
