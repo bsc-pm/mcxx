@@ -3356,6 +3356,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         {
             kind = CXX11_EXPLICIT;
         }
+        if ((items.empty()
+                    || ((items.size() == 1)
+                && (type.is_named()
+                    || type.is_builtin())))
+                && !(type.is_class()
+                    && type.is_aggregate()))
+        {
+            kind = CXX11_EXPLICIT;
+        }
         else
         {
             // If this is not a named type fallback to gcc
