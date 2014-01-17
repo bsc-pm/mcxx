@@ -64,7 +64,7 @@ namespace TL
 
                 Nodecl::Utils::NodeclDeepCopyMap::iterator find_equal_nodecl(const Nodecl::NodeclBase& n,
                         Nodecl::Utils::NodeclDeepCopyMap& map);
-                Nodecl::NodeclBase translated_copy(const Nodecl::NodeclBase& n);
+                Nodecl::NodeclBase get_translated_copy(const Nodecl::NodeclBase& n);
 
 
             public:

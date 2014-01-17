@@ -35,8 +35,8 @@ namespace TL
                 Analysis::WhereAnalysis nested_analysis_mask, int nesting_level) 
             :
             VectorizerAnalysisMaps(),
-            AnalysisStaticInfo::AnalysisStaticInfo(copy_function_code(n.as<Nodecl::FunctionCode>()), analysis_mask, 
-                    nested_analysis_mask, nesting_level),
+            AnalysisStaticInfo::AnalysisStaticInfo(copy_function_code(n.as<Nodecl::FunctionCode>()), 
+                    analysis_mask, nested_analysis_mask, nesting_level),
             _original_node(n) 
         {
             //Fill inverse maps
@@ -97,9 +97,9 @@ namespace TL
 
                 Nodecl::Utils::NodeclDeepCopyMap::const_iterator it2 = _copy_to_orig_nodes.find(n);
                 if (it2 != _copy_to_orig_nodes.end())
-                    std::cerr << "ALREADY TRANSLATED!" << std::endl;
+                    internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy. NODE ALREADY TRANSLATED", 0);
 
-                // internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
+                internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
             }
 
             return it->second;
@@ -139,7 +139,7 @@ namespace TL
             if (it == _copy_to_orig_nodes.end())
             {
                 std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
-//                internal_error("VectorizerAnalysis: Error translating Nodecl from copy to origin", 0);
+                internal_error("VectorizerAnalysis: Error translating Nodecl from copy to origin", 0);
                 return n;
             }
 
@@ -187,7 +187,7 @@ namespace TL
             return map.end();
         }
         
-        Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translated_copy(const Nodecl::NodeclBase& n)
+        Nodecl::NodeclBase VectorizerAnalysisStaticInfo::get_translated_copy(const Nodecl::NodeclBase& n)
         {
             Nodecl::Utils::NodeclDeepCopyMap::const_iterator it = 
                 find_equal_nodecl(n, _orig_to_copy_nodes);
@@ -202,13 +202,14 @@ namespace TL
             {
                 Nodecl::NodeclBase new_node = n.shallow_copy();
 
-                TL::ObjectList<Nodecl::NodeclBase> children_list = n.children();
+                TL::ObjectList<Nodecl::NodeclBase> children_list = new_node.children();
 
                 for(TL::ObjectList<Nodecl::NodeclBase>::iterator children_it = children_list.begin();
                         children_it != children_list.end();
                         children_it++)
                 {
-                    children_it->replace(translated_copy(*children_it));
+                    if(!children_it->is_null())
+                        children_it->replace(get_translated_copy(*children_it));
                 }
 
                 return new_node;
@@ -240,7 +241,7 @@ namespace TL
             // Insert it and create a "translated copy" of it and its children
             else
             {
-                Nodecl::NodeclBase translated_n = translated_copy(n);
+                Nodecl::NodeclBase translated_n = get_translated_copy(n);
 
                 _orig_to_copy_nodes.insert(
                         std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(n, translated_n));

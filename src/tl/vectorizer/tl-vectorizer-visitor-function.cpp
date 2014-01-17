@@ -98,18 +98,18 @@ namespace TL
                 // Take care of default_argument_info_t*
                 //TODO: Move this into a function
                 {
-                int num_parameters =
-                    vect_func_sym.get_internal_symbol()->entity_specs.num_parameters;
-                default_argument_info_t** default_argument_info =
-                    vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
+                    int num_parameters =
+                        vect_func_sym.get_internal_symbol()->entity_specs.num_parameters;
+                    default_argument_info_t** default_argument_info =
+                        vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info;
 
-                num_parameters++;
-                default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
-                        num_parameters * sizeof(*default_argument_info));
-                default_argument_info[num_parameters-1] = NULL;
+                    num_parameters++;
+                    default_argument_info = (default_argument_info_t**)xrealloc(default_argument_info,
+                            num_parameters * sizeof(*default_argument_info));
+                    default_argument_info[num_parameters-1] = NULL;
 
-                vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
-                vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
+                    vect_func_sym.get_internal_symbol()->entity_specs.default_argument_info = default_argument_info;
+                    vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
                 }
 
                 Nodecl::Symbol mask_nodecl_sym = 
