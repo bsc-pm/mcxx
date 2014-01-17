@@ -1514,6 +1514,15 @@ static void build_scope_common_template_alias_declaration(AST a,
     ERROR_CONDITION(decl_context.template_parameters == NULL,
             "There must be template parameters", 0);
 
+    if (IS_CXX03_LANGUAGE)
+    {
+        if (!checking_ambiguity())
+        {
+            warn_printf("%s: warning: template-alias are only valid in C++11\n",
+                    ast_location(a));
+        }
+    }
+
     if (is_explicit_specialization)
     {
         if (!checking_ambiguity())

@@ -5738,13 +5738,13 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         {
                             error_printf("%s: typedef name '%s' is not a namespace or class\n", 
                                     nodecl_locus_to_str(current_name),
-                                    nodecl_get_text(current_name));
+                                    codegen_to_str(current_name, decl_context));
                         }
                         CXX11_LANGUAGE()
                         {
                             error_printf("%s: typedef name '%s' is not a namespace, class or enum\n", 
                                     nodecl_locus_to_str(current_name),
-                                    nodecl_get_text(current_name));
+                                    codegen_to_str(current_name, decl_context));
                         }
                     }
                     return NULL;
@@ -5829,13 +5829,13 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 {
                     error_printf("%s: error: name '%s' is not a namespace or class\n", 
                             nodecl_locus_to_str(current_name),
-                            nodecl_get_text(current_name));
+                            codegen_to_str(current_name, decl_context));
                 }
                 CXX11_LANGUAGE()
                 {
                     error_printf("%s: error: name '%s' is not a namespace, class or enum\n", 
                             nodecl_locus_to_str(current_name),
-                            nodecl_get_text(current_name));
+                            codegen_to_str(current_name, decl_context));
                 }
             }
             return NULL;
