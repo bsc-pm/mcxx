@@ -176,7 +176,20 @@ namespace Analysis {
         SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( n );
 
+        // Remove me!
         printf("SUBSCRIPT ALIGNMENT %d\n", subscript_alignment);
+        printf("SUITABLE LIST: ");
+        if (suitable_expressions != NULL)
+        {
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions->begin();
+                    it != suitable_expressions->end();
+                    it ++)
+            {
+                printf("%s ", it->prettyprint().c_str());        
+            }
+            printf("\n");
+        }
+        // End Remove me!
 
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment : 
                                                                subscript_alignment % alignment );
@@ -215,6 +228,9 @@ namespace Analysis {
 
     bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
+        std::cerr << &n << " of " << n.prettyprint() << " and " << &(_suitable_expressions->front()) << " of " << _suitable_expressions->front().prettyprint() 
+            << Nodecl::Utils::equal_nodecls(n, _suitable_expressions->front(), true) << std::endl;
+
         bool result = true;
         if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
             result = false;
@@ -316,7 +332,7 @@ namespace Analysis {
                 dimension_sizes[i] = dimension_size;
             }
             
-            int it_alignment;
+            int it_alignment = -1;
             Nodecl::List::iterator it = subscripts.begin( );
             // Multiply dimension sizes by indexes
             for( i=0; it != subscripts.end( ); i++ )
@@ -350,6 +366,12 @@ namespace Analysis {
                 
                 alignment += it_alignment;
             }
+            
+            if( it_alignment < 0 )
+            {
+                return -1;
+            }
+
             // Add adjacent dimension
             alignment += it_alignment;
             
@@ -405,11 +427,15 @@ namespace Analysis {
         int rhs_mod = walk( n.get_rhs( ) );
         
         // Something suitable multiplied by anything is suitable
-        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
-            return 0;
-        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
-            return lhs_mod >> rhs_mod;
-        
+        if (rhs_mod > 0)
+        {
+            // Because a << const is: a / (1 << const)
+            if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(1 << rhs_mod) )) 
+                return 0;
+            else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+                return lhs_mod >> rhs_mod;
+        }
+
         return -1;
     }
     
