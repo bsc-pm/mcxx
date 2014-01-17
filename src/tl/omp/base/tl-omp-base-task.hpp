@@ -135,7 +135,9 @@ namespace TL { namespace OpenMP {
 
             bool _task_expr_optim_disabled;
 
-            int _counter;
+            int _optimized_task_expr_counter;
+
+            int _new_return_vars_counter;
             Nodecl::NodeclBase _enclosing_stmt;
 
             RefPtr<FunctionTaskSet> _function_task_set;
