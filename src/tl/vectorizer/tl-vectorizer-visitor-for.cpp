@@ -40,37 +40,28 @@ namespace TL
         {
         }
 
+
         void VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
-            // Set up enviroment
-            _environment._external_scope =
-                for_statement.retrieve_context();
-            _environment._local_scope_list.push_back(
-                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
-
-            // Push ForStatement as scope for analysis
-            _environment._analysis_simd_scope = for_statement;
-            _environment._analysis_scopes.push_back(for_statement);
-
             // Vectorize Loop Header
             VectorizerVisitorLoopHeader visitor_loop_header(_environment);
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
-            // Vectorize Loop Body
-
-            // Add MaskLiteral to mask_list
-            Nodecl::MaskLiteral all_one_mask =
-                Nodecl::MaskLiteral::make(
-                        TL::Type::get_mask_type(_environment._unroll_factor),
-                        const_value_get_minus_one(_environment._unroll_factor, 1));
-            _environment._mask_list.push_back(all_one_mask);
-
-            VectorizerVisitorStatement visitor_stmt(_environment);
+            // LOOP BODY
+            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
             visitor_stmt.walk(for_statement.get_statement());
 
-            _environment._mask_list.pop_back();
-            _environment._analysis_scopes.pop_back();
-            _environment._local_scope_list.pop_back();
+            // CACHE
+            Nodecl::List cache_it_update = _environment._vectorizer_cache.get_iteration_update(_environment);
+   
+            // Add cache it update to Compound Statement 
+            if (!cache_it_update.empty())
+            {
+                // TODO: Function to do this in Nodecl::Utils
+                for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
+                    .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
+                    .prepend(cache_it_update);
+            }
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
@@ -447,7 +438,8 @@ namespace TL
             else // Unknown number of iterations
             {
                     mask_value = for_statement.get_loop_header().
-                        as<Nodecl::LoopControl>().get_cond().shallow_copy();
+                        as<Nodecl::LoopControl>().get_cond();
+                    //.shallow_copy();
 
                     // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
                     Nodecl::MaskLiteral all_one_mask =
@@ -456,7 +448,8 @@ namespace TL
                                 _environment._unroll_factor);
                     _environment._mask_list.push_back(all_one_mask);
 
-                    VectorizerVisitorExpression visitor_mask(_environment);
+                    // Vectorising mask
+                    VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
                     visitor_mask.walk(mask_value);
 
                     _environment._mask_list.pop_back();
@@ -473,12 +466,13 @@ namespace TL
             {
                 _environment._mask_list.push_back(mask_nodecl_sym);
 
-                VectorizerVisitorStatement visitor_stmt(_environment);
+                VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
                 visitor_stmt.walk(comp_statement);
 
                 _environment._mask_list.pop_back();
             }
 
+            // Same as comp_statement
             Nodecl::NodeclBase for_inner_statement = for_statement.get_statement().
                 as<Nodecl::List>().front().shallow_copy();
             Nodecl::List result_stmt_list;

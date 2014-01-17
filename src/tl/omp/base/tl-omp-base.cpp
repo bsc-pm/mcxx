@@ -143,6 +143,12 @@ namespace TL { namespace OpenMP {
         function_call_visitor.build_all_needed_task_expressions();
     }
 
+    void Base::phase_cleanup(DTO& data_flow)
+    {
+        _core.phase_cleanup(data_flow);
+    }
+
+
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
@@ -1017,6 +1023,17 @@ namespace TL { namespace OpenMP {
                             stmt.get_locus()));
             }
 
+            // Cache
+            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+            if (cache_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Cache::make(
+                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+
             // Unroll
             PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
             
@@ -1110,6 +1127,16 @@ namespace TL { namespace OpenMP {
                             decl.get_locus()));
             }
 
+            // Cache
+            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+            if (cache_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Cache::make(
+                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
+                            decl.get_locus()));
+            }
+
             // Mask
             PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
             
@@ -1186,6 +1213,16 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::VectorLengthFor::make(
                             target_type,
+                            stmt.get_locus()));
+            }
+
+            // Cache
+            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+            if (cache_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Cache::make(
+                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
                             stmt.get_locus()));
             }
 

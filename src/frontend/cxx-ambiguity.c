@@ -529,6 +529,7 @@ static char check_simple_type_spec(AST type_spec,
                 && entry->kind != SK_CLASS
                 // We allow this because templates are like types
                 && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_ALIAS
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
@@ -1100,7 +1101,6 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
     return result;
 }
 
-
 char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -1115,6 +1115,55 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
         nodecl_t nodecl_expr = nodecl_null();
         enter_test_expression();
         check_list_of_expressions(current_expression_list, decl_context, &nodecl_expr);
+        leave_test_expression();
+
+        if (nodecl_is_null(nodecl_expr)
+                || !nodecl_is_err_expr(nodecl_expr))
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+                if (nodecl_output != NULL)
+                    *nodecl_output = nodecl_expr;
+            }
+            else
+            {
+                AST previous_choice = ast_get_ambiguity(ambiguous_list, correct_choice);
+                AST current_choice = ast_get_ambiguity(ambiguous_list, i);
+                internal_error("More than one valid alternative '%s' vs '%s'",
+                        ast_print_node_type(ASTType(previous_choice)),
+                        ast_print_node_type(ASTType(current_choice)));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        if (nodecl_output != NULL)
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(ambiguous_list));
+        return 0;
+    }
+    else
+    {
+        choose_option(ambiguous_list, correct_choice);
+        return 1;
+    }
+}
+
+char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
+
+    int i;
+    int correct_choice = -1;
+    for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
+    {
+        AST current_expression_list = ast_get_ambiguity(ambiguous_list, i);
+
+        nodecl_t nodecl_expr = nodecl_null();
+        enter_test_expression();
+        check_list_of_initializer_clauses(current_expression_list, decl_context, &nodecl_expr);
         leave_test_expression();
 
         if (nodecl_is_null(nodecl_expr)
@@ -1692,10 +1741,20 @@ static int solve_ambiguous_parameter_declaration_choose_interpretation(
     if (previous_decl_speq_seq != NULL)
     {
         previous_type_spec = ASTSon1(previous_decl_speq_seq);
+
+        // Ignore any implicit int here
+        if (previous_type_spec != NULL
+                && ASTType(previous_type_spec) == AST_IMPLICIT_INT_TYPE)
+            previous_type_spec = NULL;
     }
     if (current_decl_speq_seq != NULL)
     {
         current_type_spec = ASTSon1(current_decl_speq_seq);
+
+        // Ignore any implicit int here
+        if (current_type_spec != NULL
+                && ASTType(current_type_spec) == AST_IMPLICIT_INT_TYPE)
+            current_type_spec = NULL;
     }
 
     AST previous_declarator = ASTSon1(previous_parameter_decl);

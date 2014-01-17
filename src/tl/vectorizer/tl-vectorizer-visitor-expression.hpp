@@ -39,11 +39,13 @@ namespace TL
         {
             private:
                 VectorizerEnvironment& _environment;
+                const bool _cache_enabled;
 
                 bool process_fmul_op(const Nodecl::NodeclBase&  n);
 
             public:
-                VectorizerVisitorExpression(VectorizerEnvironment& environment);
+                VectorizerVisitorExpression(VectorizerEnvironment& environment,
+                        const bool cache_enabled);
 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);
@@ -61,18 +63,13 @@ namespace TL
                 virtual void visit(const Nodecl::BitwiseAnd& n);
                 virtual void visit(const Nodecl::BitwiseOr& n);
                 virtual void visit(const Nodecl::BitwiseShl& n);
+                virtual void visit(const Nodecl::ArithmeticShr& n);
                 virtual void visit(const Nodecl::BitwiseShr& n);
                 virtual void visit(const Nodecl::LogicalAnd& n);
                 virtual void visit(const Nodecl::LogicalOr& n);
                 virtual void visit(const Nodecl::ConditionalExpression& n);
 
                 virtual void visit(const Nodecl::Assignment& n);
-                virtual void visit(const Nodecl::AddAssignment& n);
-                virtual void visit(const Nodecl::MinusAssignment& n);
-                virtual void visit(const Nodecl::MulAssignment& n);
-                virtual void visit(const Nodecl::DivAssignment& n);
-                virtual void visit(const Nodecl::ModAssignment& n);
-
                 virtual void visit(const Nodecl::Conversion& n);
                 virtual void visit(const Nodecl::Cast& n);
                 virtual void visit(const Nodecl::ArraySubscript& n);

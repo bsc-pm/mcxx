@@ -882,11 +882,20 @@ void LoweringVisitor::visit_task_call_c(
 
     TL::Symbol called_sym = function_call.get_called().get_symbol();
 
-    std::cerr << construct.get_locus_str() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
-
-    // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
 
+    Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+        = parameters_environment.as<Nodecl::List>()
+        .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+    ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
+    std::cerr << construct.get_locus_str()
+        << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
+    std::cerr << function_parsing_context.get_locus_str()
+        << ": note: task function declared here"
+        << std::endl;
+
+    // Get parameters outline info
     OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
@@ -923,11 +932,6 @@ void LoweringVisitor::visit_task_call_c(
             && called_sym.is_member())
     {
         Nodecl::NodeclBase class_object = *(arguments.begin());
-
-        Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
-            = parameters_environment.as<Nodecl::List>()
-            .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
-        ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
 
         TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
 
@@ -1501,7 +1505,9 @@ static TL::Symbol new_function_symbol_adapter(
     {
         scope_entry_t* param = it->get_internal_symbol();
 
-        symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+        symbol_set_as_parameter_of_function(param, new_function_sym, 
+                /* nesting */ 0,
+                /* position */ new_function_sym->entity_specs.num_related_symbols);
 
         P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
                 new_function_sym->entity_specs.num_related_symbols,
@@ -1514,8 +1520,8 @@ static TL::Symbol new_function_symbol_adapter(
 
     type_t *function_type = get_new_function_type(
             get_void_type(),
-            p_types,
-            parameters_of_new_function.size());
+            p_types, parameters_of_new_function.size(),
+            REF_QUALIFIER_NONE);
 
     new_function_sym->type_information = function_type;
 
@@ -1766,8 +1772,18 @@ void LoweringVisitor::visit_task_call_fortran(
         return;
     }
 
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
+
+    Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+        = parameters_environment.as<Nodecl::List>()
+        .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+    ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
     std::cerr << construct.get_locus_str()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
+    std::cerr << function_parsing_context.get_locus_str()
+        << ": note: task function declared here"
+        << std::endl;
 
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
@@ -1800,7 +1816,6 @@ void LoweringVisitor::visit_task_call_fortran(
     }
 
     // Get parameters outline info
-    Nodecl::NodeclBase parameters_environment = construct.get_environment();
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,

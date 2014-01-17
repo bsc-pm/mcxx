@@ -205,6 +205,11 @@ namespace TL
         return (this->_symbol->kind == SK_VARIABLE);
     }
 
+    bool Symbol::is_variable_pack() const
+    {
+        return (this->_symbol->kind == SK_VARIABLE_PACK);
+    }
+
     bool Symbol::is_saved_expression() const
     {
         return this->_symbol->entity_specs.is_saved_expression;
@@ -223,6 +228,11 @@ namespace TL
     bool Symbol::is_dependent_friend_function() const
     {
         return (this->_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION);
+    }
+
+    bool Symbol::is_lambda() const
+    {
+        return (this->_symbol->kind == SK_LAMBDA);
     }
 
     bool Symbol::is_dependent_function() const
@@ -358,10 +368,15 @@ namespace TL
     {
         return this->_symbol->kind == SK_DEPENDENT_FRIEND_CLASS;
     }
-
+    
     bool Symbol::is_template() const
     {
         return this->_symbol->kind == SK_TEMPLATE;
+    }
+
+    bool Symbol::is_template_alias() const
+    {
+        return this->_symbol->kind == SK_TEMPLATE_ALIAS;
     }
 
     bool Symbol::is_enum() const

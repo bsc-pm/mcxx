@@ -88,7 +88,7 @@ namespace TL
                
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(), 
                         vect_func_sym.get_internal_symbol(),
-                        parameters.size());
+                        /*nesting*/ 0, parameters.size());
 
                 // Add mask symbol and type to parameters
                 parameters.append(mask_sym);
@@ -132,7 +132,7 @@ namespace TL
                         _environment._unroll_factor).get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
-            VectorizerVisitorStatement visitor_stmt(_environment);
+            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
             visitor_stmt.walk(function_code.get_statements());
 
             // Add final return if multi-return function

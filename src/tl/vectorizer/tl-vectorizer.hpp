@@ -29,15 +29,21 @@
 
 #include <string>
 #include <list>
-#include "tl-analysis-static-info.hpp"
+//#include "tl-analysis-static-info.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-function-versioning.hpp"
 #include "tl-vectorizer-utils.hpp"
+#include "tl-vectorizer-cache.hpp"
+#include "tl-vectorizer-analysis.hpp"
 
 namespace TL 
 { 
     namespace Vectorization
     {
+        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
+
+        class VectorizerCache;
+
         class VectorizerEnvironment
         {
             private:
@@ -51,6 +57,7 @@ namespace TL
                 const bool _prefer_mask_gather_scatter;
                 const TL::Type& _target_type;
                 const TL::ObjectList<Nodecl::NodeclBase>* _suitable_expr_list;
+                const VectorizerCache& _vectorizer_cache;
 
                 const TL::ObjectList<TL::Symbol>* _reduction_list;
                 std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
@@ -77,6 +84,7 @@ namespace TL
                         const TL::Type& target_type,
                         const TL::ObjectList<Nodecl::NodeclBase>* suitable_expr_list,
                         const TL::ObjectList<TL::Symbol>* reduction_list,
+                        const VectorizerCache& vectorizer_cache,
                         std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
                 ~VectorizerEnvironment();
@@ -91,6 +99,7 @@ namespace TL
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
                 friend class VectorizerVectorReduction;
+                friend class VectorizerCache;
 
                 friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
                         const VectorizerEnvironment& environment,
@@ -106,9 +115,12 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
 
-                static Analysis::AnalysisStaticInfo *_analysis_info;
+                static VectorizerAnalysisStaticInfo *_analysis_info;
 
+                bool _avx2_enabled;
+                bool _knc_enabled;
                 bool _svml_sse_enabled;
+                bool _svml_avx2_enabled;
                 bool _svml_knc_enabled;
                 bool _fast_math_enabled;
 
@@ -120,6 +132,12 @@ namespace TL
                 static void finalize_analysis();
 
                 ~Vectorizer();
+
+                void preprocess_code(Nodecl::NodeclBase& n);
+
+                void load_environment(const Nodecl::ForStatement& for_statement,
+                        VectorizerEnvironment& environment);
+                void unload_environment(VectorizerEnvironment& environment);
 
                 void vectorize(Nodecl::ForStatement& for_statement, 
                         VectorizerEnvironment& environment);
@@ -162,6 +180,7 @@ namespace TL
                         const bool masked) const;
 
                 void enable_svml_sse();
+                void enable_svml_avx2();
                 void enable_svml_knc();
                 void enable_fast_math();
 

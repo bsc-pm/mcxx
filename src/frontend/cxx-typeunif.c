@@ -613,6 +613,7 @@ void unificate_two_types(type_t* t1,
         {
             if (sequence_of_types_get_num_types(t2) == 1)
             {
+                // T <- {int}
                 t2 = sequence_of_types_get_type_num(t2, 0);
             }
             else
@@ -621,6 +622,14 @@ void unificate_two_types(type_t* t1,
                 UNIFICATION_ENDED;
                 return;
             }
+        }
+
+        if (named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER
+                && is_pack_type(t2))
+        {
+            // Cannot unify a type template parameter with a template pack
+            UNIFICATION_ENDED;
+            return;
         }
 
         deduction_t* deduction = get_unification_item_for_template_parameter(
@@ -791,7 +800,10 @@ void unificate_two_types(type_t* t1,
 
             if (template_args_are_deduced)
             {
-                for (i = 0; i < targ_list_1->num_parameters; i++)
+                for (i = 0;
+                        i < targ_list_1->num_parameters
+                        && i < targ_list_2->num_parameters;
+                        i++)
                 {
                     template_parameter_value_t* current_arg_1 = targ_list_1->arguments[i];
                     template_parameter_value_t* current_arg_2 = targ_list_2->arguments[i];
@@ -806,12 +818,13 @@ void unificate_two_types(type_t* t1,
                                     fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d\n", i);
                                 }
 
+                                // If we are unificating T... <- S... and S is
+                                // the last pack, do not unificate T... <- {S...}
                                 if (is_pack_type(current_arg_1->type))
                                 {
-                                    int n = targ_list_2->num_parameters - i;
                                     int num_t2_types = 0;
                                     int k;
-                                    for (k = 0; k < n; k++)
+                                    for (k = i; k < targ_list_2->num_parameters; k++)
                                     {
                                         if (is_sequence_of_types(targ_list_2->arguments[k]->type))
                                         {
@@ -825,7 +838,7 @@ void unificate_two_types(type_t* t1,
 
                                     type_t* types[num_t2_types + 1];
                                     int type_idx = 0;
-                                    for (k = 0; k < n; k++)
+                                    for (k = i; k < targ_list_2->num_parameters; k++)
                                     {
                                         if (is_sequence_of_types(targ_list_2->arguments[k]->type))
                                         {
@@ -980,18 +993,47 @@ void unificate_two_types(type_t* t1,
         }
     }
     else if (is_sequence_of_types(t1)
-            && is_sequence_of_types(t2)
-            && sequence_of_types_get_num_types(t1) == sequence_of_types_get_num_types(t2))
+            && is_sequence_of_types(t2))
     {
-        int i, n = sequence_of_types_get_num_types(t1);
-        for (i = 0; i < n; i++)
+        int i, n1 = sequence_of_types_get_num_types(t1), n2 = sequence_of_types_get_num_types(t2);
+        for (i = 0; i < n1 && i < n2; i++)
         {
-            unificate_two_types(
-                    sequence_of_types_get_type_num(t1, i),
-                    sequence_of_types_get_type_num(t2, i),
-                    deduction_set,
-                    decl_context,
-                    locus, flags);
+            type_t* item_t1 = sequence_of_types_get_type_num(t1, i);
+
+            if (is_pack_type(item_t1))
+            {
+                if (i == (n1 - 1))
+                {
+                    // Craft a sequence type with the remaining types (if any)
+                    type_t* remaining_sequence = get_sequence_of_types(0, NULL);
+                    int j;
+                    for (j = 0; j < n2; j++)
+                    {
+                        remaining_sequence = get_sequence_of_types_append_type(remaining_sequence,
+                                sequence_of_types_get_type_num(t2, j));
+                    }
+
+                    unificate_two_types(
+                            item_t1,
+                            remaining_sequence,
+                            deduction_set,
+                            decl_context,
+                            locus, flags);
+                }
+                else
+                {
+                    // We cannot deduce this pack here
+                }
+            }
+            else
+            {
+                unificate_two_types(
+                        item_t1,
+                        sequence_of_types_get_type_num(t2, i),
+                        deduction_set,
+                        decl_context,
+                        locus, flags);
+            }
         }
     }
     else if (is_pack_type(t1))
@@ -1014,10 +1056,16 @@ void unificate_two_types(type_t* t1,
                 merge_deduction_set(deduction_set, current_deduction_set, flags);
             }
         }
+        else if (is_pack_type(t2))
+        {
+            unificate_two_types(packed_type,
+                    pack_type_get_packed_type(t2),
+                    deduction_set, decl_context, locus, flags);
+        }
         else
         {
-            unificate_two_types(packed_type, t2,
-                    deduction_set, decl_context, locus, flags);
+            UNIFICATION_ENDED;
+            return;
         }
     }
     else if (is_lvalue_reference_type(t1)
@@ -1219,17 +1267,19 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
     if (right_symbol != NULL)
     {
-        // Advance right value except for enumerators
+        // Advance right value except for enumerators or a function parameter name
         if (right_symbol->kind != SK_ENUMERATOR
+                && !symbol_is_parameter_of_function(right_symbol, get_function_declaration_proxy())
                 && !nodecl_is_null(right_symbol->value))
             return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set, flags);
     }
 
     if (left_symbol != NULL)
     {
-        // Advance left value only if it is not a nontype template parameter
+        // Advance left value only if it is not a nontype template parameter or a function parameter name
         if (left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER 
                 && left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                && !symbol_is_parameter_of_function(left_symbol, get_function_declaration_proxy())
                 && !nodecl_is_null(left_symbol->value))
             return equivalent_dependent_expressions(left_symbol->value, right_tree, unif_set, flags);
 
@@ -1305,6 +1355,24 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             }
 
             return equivalent;
+        }
+        // If both a parameters of a function, check if they might mean the same entity
+        else if (left_symbol->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(left_symbol, get_function_declaration_proxy())
+                && right_symbol->kind == SK_VARIABLE
+                && symbol_is_parameter_of_function(right_symbol, get_function_declaration_proxy()))
+        {
+            int left_nesting = symbol_get_parameter_nesting_in_function(left_symbol, get_function_declaration_proxy());
+            int left_position = symbol_get_parameter_position_in_function(left_symbol, get_function_declaration_proxy());
+
+            int right_nesting = symbol_get_parameter_nesting_in_function(right_symbol, get_function_declaration_proxy());
+            int right_position = symbol_get_parameter_position_in_function(right_symbol, get_function_declaration_proxy());
+
+            return (left_nesting == right_nesting
+                    && left_position == right_position
+                    // Check also type identity of the parameters themselves
+                    && equivalent_types(left_symbol->type_information,
+                        right_symbol->type_information));
         }
 
         DEBUG_CODE()

@@ -34,8 +34,9 @@ namespace TL
 {
     namespace Vectorization
     {
-        VectorizerVisitorStatement::VectorizerVisitorStatement(VectorizerEnvironment& environment)
-            : _environment(environment)
+        VectorizerVisitorStatement::VectorizerVisitorStatement(VectorizerEnvironment& environment,
+                const bool cache_enabled)
+            : _environment(environment), _cache_enabled(cache_enabled)
         {
         }
 
@@ -75,7 +76,7 @@ namespace TL
                 bool has_else = !n.get_else().is_null();
                 unsigned int prev_mask_cost = _environment._mask_check_bb_cost.back();
 
-                VectorizerVisitorExpression visitor_expression(_environment);
+                VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
                 visitor_expression.walk(condition); 
 
                 Nodecl::NodeclBase prev_mask =
@@ -279,7 +280,7 @@ namespace TL
 
         void VectorizerVisitorStatement::visit(const Nodecl::ExpressionStatement& n)
         {
-            VectorizerVisitorExpression visitor_expression(_environment);
+            VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
             visitor_expression.walk(n.get_nest());
         }
 
@@ -294,7 +295,7 @@ namespace TL
             Nodecl::NodeclBase init = sym.get_value();
             if(!init.is_null())
             {
-                VectorizerVisitorExpression visitor_expression(_environment);
+                VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
                 visitor_expression.walk(init);
             }
         }
@@ -304,7 +305,7 @@ namespace TL
             Nodecl::NodeclBase return_value = n.get_value();
             Nodecl::NodeclBase mask = _environment._mask_list.back();
 
-            VectorizerVisitorExpression visitor_expression(_environment);
+            VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
             visitor_expression.walk(return_value);
             
             // If I'm inside an inner basic block with mask and mask exists but no special symbol, 

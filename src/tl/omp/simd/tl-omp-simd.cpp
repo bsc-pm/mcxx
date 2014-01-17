@@ -35,7 +35,7 @@ namespace TL {
 
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),  
-            _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), _mic_enabled(false),
+            _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), 
             _prefer_gather_scatter(false), _prefer_mask_gather_scatter(false)
         {        
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
@@ -58,9 +58,14 @@ namespace TL {
                     "0").connect(functor(&Simd::set_fast_math, *this));
 
             register_parameter("mic_enabled",
-                    "If set to '1' enables compilation for MIC architecture, otherwise it is disabled",
-                    _mic_enabled_str,
-                    "0").connect(functor(&Simd::set_mic, *this));
+                    "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
+                    _knc_enabled_str,
+                    "0").connect(functor(&Simd::set_knc, *this));
+
+            register_parameter("avx2_enabled",
+                    "If set to '1' enables compilation for AVX2 instruction set, otherwise it is disabled",
+                    _avx2_enabled_str,
+                    "0").connect(functor(&Simd::set_avx2, *this));
 
             register_parameter("prefer_gather_scatter",
                     "If set to '1' enables generation of gather/scatter instructions instead of unaligned memory instructions",
@@ -97,11 +102,19 @@ namespace TL {
             }
         }
 
-        void Simd::set_mic(const std::string mic_enabled_str)
+        void Simd::set_knc(const std::string knc_enabled_str)
         {
-            if (mic_enabled_str == "1")
+            if (knc_enabled_str == "1")
             {
-                _mic_enabled = true;
+                _knc_enabled = true;
+            }
+        }
+
+        void Simd::set_avx2(const std::string avx2_enabled_str)
+        {
+            if (avx2_enabled_str == "1")
+            {
+                _avx2_enabled = true;
             }
         }
 
@@ -136,14 +149,35 @@ namespace TL {
 
             if (_simd_enabled)
             {
-                SimdVisitor simd_visitor(_fast_math_enabled, _svml_enabled,
-                        _mic_enabled, _prefer_gather_scatter, _prefer_mask_gather_scatter);
+                TL::Vectorization::SIMDInstructionSet simd_isa;
+
+                if(_avx2_enabled)
+                {
+                    simd_isa = AVX2_ISA;
+                }
+                else if (_knc_enabled)
+                {
+                    simd_isa = KNC_ISA;
+                }
+                else
+                {
+                    simd_isa = SSE4_2_ISA;
+                }
+
+                if (_avx2_enabled && _knc_enabled)
+                {
+                    running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
+                }
+
+                SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
+                        _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 simd_visitor.walk(translation_unit);
             }
         }
 
-        SimdVisitor::SimdVisitor(bool fast_math_enabled, bool svml_enabled, 
-                bool mic_enabled, bool prefer_gather_scatter, bool prefer_mask_gather_scatter)
+        SimdVisitor::SimdVisitor(Vectorization::SIMDInstructionSet simd_isa, 
+                bool fast_math_enabled, bool svml_enabled,  
+                bool prefer_gather_scatter, bool prefer_mask_gather_scatter)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
             _prefer_gather_scatter = prefer_gather_scatter;
@@ -159,25 +193,43 @@ namespace TL {
                 _fast_math_enabled = false;
             }
 
-            if (mic_enabled)
+            switch (simd_isa)
             {
-                _vector_length = 64;
-                _device_name = "knc";
-                _support_masking = true;
-                _mask_size = 16;
+                case KNC_ISA:
+                    _vector_length = 64;
+                    _device_name = "knc";
+                    _support_masking = true;
+                    _mask_size = 16;
 
-                if (svml_enabled)
-                    _vectorizer.enable_svml_knc();
-            }
-            else
-            {
-                _vector_length = 16;
-                _device_name = "smp";
-                _support_masking = false;
-                _mask_size = 0;
+                    if (svml_enabled)
+                        _vectorizer.enable_svml_knc();
+                    break;
+ 
+                case AVX2_ISA:
+                    _vector_length = 32;
+                    _device_name = "avx2";
+                    _support_masking = false;
+                    _mask_size = 0;
 
-                if (svml_enabled)
-                    _vectorizer.enable_svml_sse();
+                    if (svml_enabled)
+                        _vectorizer.enable_svml_avx2();
+                    break;
+                   
+                 case SSE4_2_ISA:
+                    _vector_length = 16;
+                    _device_name = "smp";
+                    _support_masking = false;
+                    _mask_size = 0;
+
+                    if (svml_enabled)
+                        _vectorizer.enable_svml_sse();
+
+                    break;
+
+                 default:
+                    running_error("SIMD: Unsupported SIMD ISA: %d", 
+                            simd_isa);
+
             }
         }
 
@@ -194,6 +246,11 @@ namespace TL {
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(simd_environment, vectorlengthfor_type);
 
+            // Cache clause
+            TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
+            process_cache_clause(simd_environment, cached_expressions);
+            VectorizerCache vectorizer_cache(cached_expressions);
+
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
@@ -203,6 +260,9 @@ namespace TL {
             Nodecl::List omp_reduction_list = process_reduction_clause(simd_environment, 
                     reductions, new_external_vector_symbol_map,
                     for_statement);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(for_statement);
 
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
@@ -222,6 +282,7 @@ namespace TL {
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
+                    vectorizer_cache,
                     &new_external_vector_symbol_map);
 
             // Initialize analysis info
@@ -235,8 +296,21 @@ namespace TL {
             int epilog_iterations = _vectorizer.get_epilog_info(for_statement, 
                     for_environment, only_epilog);
 
+            // Add scopes, default masks, etc.
+            _vectorizer.load_environment(for_statement, for_environment);
+
+            // Cache init
+            vectorizer_cache.declare_cache_symbols(
+                    for_statement.retrieve_context(), for_environment);
+            simd_node.prepend_sibling(vectorizer_cache.get_init_statements(for_environment));
+
+            // Call to vectorizer
             if (!only_epilog)
+            {
                 _vectorizer.vectorize(for_statement, for_environment); 
+            }
+
+            _vectorizer.unload_environment(for_environment);
 
             // Add new vector symbols
             if (!new_external_vector_symbol_map.empty())
@@ -294,7 +368,7 @@ namespace TL {
 
                 // TODO: 
                 // firstprivate in SIMD
-           }
+            }
 
             // Process epilog
             if (epilog_iterations != 0)
@@ -365,6 +439,12 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
+            // Cache clause
+            TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
+            process_cache_clause(omp_for_environment, cached_expressions);
+
+            VectorizerCache vectorizer_cache(cached_expressions);
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(omp_simd_for_environment, vectorlengthfor_type);
@@ -378,6 +458,9 @@ namespace TL {
                 process_reduction_clause(omp_for_environment, 
                         reductions, new_external_vector_symbol_map,
                         for_statement);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(for_statement);
 
             // Add epilog before vectorization
             Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
@@ -397,6 +480,7 @@ namespace TL {
                     vectorlengthfor_type,
                     &suitable_expressions,
                     &reductions,
+                    vectorizer_cache,
                     &new_external_vector_symbol_map);
 
             // Initialize analysis info
@@ -566,6 +650,12 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
 
+            // Cache clause
+            TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
+            process_cache_clause(omp_environment, cached_expressions);
+
+            VectorizerCache vectorizer_cache(cached_expressions);
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
@@ -584,15 +674,22 @@ namespace TL {
                 running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             } 
 
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(function_code);
+
             // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
-                common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, true);
+                common_simd_function(simd_node, function_code, 
+                        suitable_expressions, vectorlengthfor_type, 
+                        vectorizer_cache, true);
             }
             // Nomask Version
             if (omp_mask.is_null())
             {
-                common_simd_function(simd_node, function_code, suitable_expressions, vectorlengthfor_type, false);
+                common_simd_function(simd_node, function_code, 
+                        suitable_expressions, vectorlengthfor_type,
+                        vectorizer_cache, false);
             }
         }
 
@@ -600,6 +697,7 @@ namespace TL {
                 const Nodecl::FunctionCode& function_code,
                 const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                 const TL::Type& vectorlengthfor_type,
+                const VectorizerCache& vectorizer_cache,
                 const bool masked_version)
         {
             TL::Symbol func_sym = function_code.get_symbol();
@@ -656,6 +754,7 @@ namespace TL {
                     vectorlengthfor_type,
                     &suitable_expressions,
                     NULL,
+                    vectorizer_cache,
                     NULL);
 
             // Initialize analysis info
@@ -711,6 +810,19 @@ namespace TL {
             else //Float type by default //TODO
             {
                 vectorlengthfor_type = TL::Type::get_float_type();
+            }
+        }
+
+        void SimdVisitor::process_cache_clause(const Nodecl::List& environment,
+                TL::ObjectList<Nodecl::NodeclBase>& cached_expressions)
+        {
+            Nodecl::OpenMP::Cache omp_cache = 
+                environment.find_first<Nodecl::OpenMP::Cache>();
+
+            if(!omp_cache.is_null())
+            {
+                cached_expressions = omp_cache.get_cached_expressions().
+                    as<Nodecl::List>().to_object_list();
             }
         }
 

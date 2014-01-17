@@ -97,7 +97,9 @@ enum builtin_type_tag
     BT_CHAR,
     BT_WCHAR,
     BT_VOID,
-    BT_NULLPTR_T
+    BT_NULLPTR_T,
+    BT_CHAR16_T,
+    BT_CHAR32_T,
 } builtin_type_t;
 
 typedef 
@@ -110,6 +112,7 @@ enum simple_type_kind_tag
     STK_ENUM, // enum {identifier}
     STK_INDIRECT, // A type defined after the type of another symbol
     STK_TEMPLATE_TYPE, // a template type
+    STK_TEMPLATE_ALIAS, // an alias
     STK_TEMPLATE_DEPENDENT_TYPE, // 
     // Mercurium extensions
     STK_VECTOR,
@@ -118,6 +121,7 @@ enum simple_type_kind_tag
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
     STK_TYPE_DEP_EXPR,
+    STK_UNDERLYING, // __underlying_type(E) {identifier}
     // Fortran
     STK_HOLLERITH,
 } simple_type_kind_t;
@@ -128,6 +132,9 @@ struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
     scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
+    // The underlying type of this enum type when it concerns to conversions
+    // (may be different to underlying_type if !underlying_type_is_fixed)
+    type_t* underlying_type_for_conversion;
     _Bool underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
 } enum_info_t;
 
@@ -180,6 +187,9 @@ struct class_info_tag {
     // Is a packed class (SEQUENCE in Fortran or __attribute__((packed)) )
     _Bool is_packed:1;
 
+    // Was created after a lambda expression in C++
+    _Bool is_lambda:1;
+
     // Enclosing class type
     type_t* enclosing_class_type;
 
@@ -218,7 +228,7 @@ struct class_info_tag {
 typedef
 struct simple_type_tag {
     // Kind
-    simple_type_kind_t kind:4;
+    simple_type_kind_t kind:5;
 
     // if Kind == STK_BUILTIN_TYPE here we have
     // the exact builtin type
@@ -261,7 +271,7 @@ struct simple_type_tag {
     // For classes (kind == STK_CLASS)
     // this includes struct/class/union
     class_info_t* class_info;
-    
+
     // Decl environment where this type was declared if not builtin The scope
     // where this type was declared since sometimes, types do not have any name
     // related to them
@@ -287,9 +297,12 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     nodecl_t dependent_parts;
-    enum type_tag_t dependent_entry_kind;  
+    enum type_tag_t dependent_entry_kind;
 
-    // Complex types, base type of the complex type
+    // Underlying type (STK_UNDERLYING)
+    type_t* underlying_type;
+
+    // Complex types, base type of the complex type (STK_COMPLEX)
     type_t* complex_element;
 
     // Vector types, element type and vector size
@@ -310,10 +323,15 @@ struct function_tag
     int num_parameters;
     parameter_info_t** parameter_list;
 
+    // Reference qualifier, only meaningful in C++2011
+    ref_qualifier_t ref_qualifier:2;
+
     // States if this function has been declared or defined without prototype.
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
     _Bool lacks_prototype:1;
+    // This is only meaningful in C++2011
+    _Bool is_trailing:1;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -556,6 +574,7 @@ const standard_conversion_t no_scs_conversion = {
 
 
 static unsigned int _function_type_counter = 0;
+static unsigned int _function_type_requested = 0;
 static unsigned int _function_type_reused = 0;
 static unsigned int _class_type_counter = 0;
 static unsigned int _array_type_counter = 0;
@@ -577,6 +596,11 @@ unsigned int get_function_type_counter(void)
 unsigned int get_function_type_reused(void)
 {
     return _function_type_reused;
+}
+
+unsigned int get_function_type_requested(void)
+{
+    return _function_type_requested;
 }
 
 unsigned int get_class_type_counter(void)
@@ -715,6 +739,40 @@ type_t* get_char_type(void)
         _type->type->builtin_type = BT_CHAR;
         _type->info->size = 1;
         _type->info->alignment = 1;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+type_t* get_char16_t_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_CHAR16_T;
+        _type->info->size = 2;
+        _type->info->alignment = 2;
+        _type->info->valid_size = 1;
+    }
+
+    return _type;
+}
+
+type_t* get_char32_t_type(void)
+{
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_CHAR32_T;
+        _type->info->size = 4;
+        _type->info->alignment = 4;
         _type->info->valid_size = 1;
     }
 
@@ -1224,6 +1282,36 @@ char is_gcc_builtin_va_list(type_t *t)
             && t->type->kind == STK_VA_LIST);
 }
 
+type_t* get_gxx_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    type_t* result = get_simple_type();
+
+    result->type->kind = STK_UNDERLYING;
+    result->type->underlying_type = t;
+
+    // This type is used in dependent contexts always
+    result->info->is_dependent = 1;
+
+    return result;
+}
+
+char is_gxx_underlying_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return t != NULL
+        && t->kind == TK_DIRECT
+        && t->type->kind == STK_UNDERLYING;
+}
+
+type_t* gxx_underlying_type_get_underlying_type(type_t* t)
+{
+    ERROR_CONDITION(!is_gxx_underlying_type(t), "Invalid type", 0);
+
+    t = advance_over_typedefs(t);
+    return t->type->underlying_type;
+}
+
 static void null_dtor(const void* v UNUSED_PARAMETER) { }
 
 static void* rb_tree_query_uint(rb_red_blk_tree* tree, unsigned int u)
@@ -1334,7 +1422,8 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 
 type_t* get_user_defined_type(scope_entry_t* entry)
 {
-    return get_indirect_type_(entry, /* indirect */ entry->kind == SK_TYPEDEF);
+    return get_indirect_type_(entry,
+            /* indirect */ entry->kind == SK_TYPEDEF || entry->kind == SK_TEMPLATE_ALIAS);
 }
 
 type_t* get_indirect_type(scope_entry_t* entry)
@@ -1512,7 +1601,8 @@ static template_parameter_list_t* simplify_template_arguments(template_parameter
                     {
                         result->arguments[i]->type = simplify_types_template_arguments_rec(result->arguments[i]->type);
 
-                        if (nodecl_is_constant(result->arguments[i]->value)
+                        if (result->parameters[i] != NULL
+                                && nodecl_is_constant(result->arguments[i]->value)
                                 && !is_dependent_type(result->parameters[i]->entry->type_information))
                         {
                             if (!is_enum_type(result->parameters[i]->entry->type_information))
@@ -1618,6 +1708,46 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     }
 
     return result;
+}
+
+type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
+        const char* template_name, decl_context_t decl_context, const locus_t* locus)
+{
+    type_t* type_info = get_simple_type();
+    type_info->type->kind = STK_TEMPLATE_TYPE;
+    type_info->template_parameters = template_parameter_list;
+
+    scope_entry_t* primary_symbol = NULL;
+    primary_symbol = counted_xcalloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
+    primary_symbol->symbol_name = template_name;
+    primary_symbol->kind = SK_TEMPLATE_ALIAS;
+
+    primary_symbol->type_information = primary_type;
+    primary_symbol->decl_context = decl_context;
+
+    primary_symbol->locus = locus;
+    primary_symbol->entity_specs.is_user_declared = 1;
+    primary_symbol->entity_specs.is_instantiable = 1;
+
+    primary_type->info->is_template_specialized_type = 1;
+    primary_type->template_parameters = template_parameter_list;
+    primary_type->template_arguments = compute_template_parameter_values_of_primary(template_parameter_list);
+    primary_type->related_template_type = type_info;
+
+    if (template_parameter_list->num_parameters != 0)
+    {
+        set_is_dependent_type(primary_type, 1);
+    }
+    else
+    {
+        // If it is zero this means it is a special uninstantiated
+        // (non-template) class member
+        set_is_dependent_type(primary_type, 0);
+    }
+
+    type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
+
+    return type_info;
 }
 
 static type_t* _get_duplicated_function_type(type_t* function_type);
@@ -1870,9 +2000,6 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
-    // This is needed only by debug routines
-    decl_context.template_parameters = template_parameters;
-
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
     // Search an existing specialization
@@ -1894,7 +2021,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
-                    print_type_str(specialization, decl_context),
+                    print_type_str(specialization, entry->decl_context),
                     entry->type_information,
                     locus_to_str(entry->locus));
         }
@@ -1908,7 +2035,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
             {
                 fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
                 fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
-                        print_type_str(specialization, decl_context),
+                        print_type_str(specialization, entry->decl_context),
                         entry->type_information);
             }
 
@@ -2053,6 +2180,25 @@ static type_t* template_type_get_specialized_type_(
             specialized_type->info = actual_class_type->info;
         }
     }
+    else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
+    {
+        if (existing_spec == NULL)
+        {
+            decl_context_t updated_context = primary_symbol->decl_context;
+            updated_context.template_parameters = template_arguments;
+
+            specialized_type = update_type(primary_symbol->type_information, updated_context, locus);
+
+            // If we cannot update the type, give up, something is probably wrong
+            if (specialized_type == NULL)
+                return NULL;
+        }
+        else
+        {
+            // Share the type of the existing_spec
+            specialized_type = named_type_get_symbol(existing_spec)->type_information;
+        }
+    }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
         // We will ignore nonidentical matches of existing specializations
@@ -2104,7 +2250,7 @@ static type_t* template_type_get_specialized_type_(
                 set_is_dependent_type(specialized_type, /* is_dependent */ 0);
             }
         }
-        else
+        else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
         {
             if (has_dependent_temp_args)
             {
@@ -2114,6 +2260,21 @@ static type_t* template_type_get_specialized_type_(
             {
                 set_is_dependent_type(specialized_type, /* is_dependent */ 0);
             }
+        }
+        else if (primary_symbol->kind == SK_FUNCTION)
+        {
+            if (has_dependent_temp_args)
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+            }
+            else
+            {
+                set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
     }
 
@@ -3356,7 +3517,10 @@ int vector_type_get_num_elements(type_t* t)
     return t->type->vector_size / type_get_size(t->type->vector_element);
 }
 
-static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
+static type_t* _get_new_function_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        char is_trailing,
+        ref_qualifier_t ref_qualifier)
 {
     _function_type_counter++;
 
@@ -3365,6 +3529,8 @@ static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_inf
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
     result->function = counted_xcalloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
+    result->function->ref_qualifier = ref_qualifier;
+    result->function->is_trailing = is_trailing;
     result->function->return_type = t;
 
     result->function->parameter_list = counted_xcalloc(num_parameters, sizeof(*( result->function->parameter_list )), &_bytes_due_to_type_system);
@@ -3420,17 +3586,22 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
 
     int num_parameters = function_type->function->num_parameters;
     parameter_info_t parameter_list[num_parameters];
-    
+    ref_qualifier_t ref_qualifier = function_type->function->ref_qualifier;
+    char is_trailing = function_type->function->is_trailing;
+
     int i;
     for (i = 0; i < num_parameters; i++)
     {
         parameter_list[i] = *(function_type->function->parameter_list[i]);
     }
 
+    _function_type_requested++;
     type_t* result = _get_new_function_type(
             function_type->function->return_type,
             parameter_list,
-            num_parameters);
+            num_parameters,
+            is_trailing,
+            ref_qualifier);
 
     // Preserve the cv qualifier
     result = get_cv_qualified_type(result, get_cv_qualifier(function_type));
@@ -3438,31 +3609,26 @@ static type_t* _get_duplicated_function_type(type_t* function_type)
     return result;
 }
 
-type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
+static
+type_t* get_new_function_type_common(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        char is_trailing,
+        ref_qualifier_t ref_qualifier)
 {
-    static type_trie_t *_no_type_functions = NULL;
-    static type_trie_t *_functions = NULL;
+#define MY_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MAX_REF_QUALIFIER MY_MAX(REF_QUALIFIER_NONE, MY_MAX(REF_QUALIFIER_RVALUE, REF_QUALIFIER_LVALUE))
+    static type_trie_t* _function_tries[2][2][MAX_REF_QUALIFIER + 1] = { };
+#undef MAX_REF_QUALIFIER
+#undef MY_MAX
 
     type_trie_t* used_trie = NULL;
 
-    if (t == NULL)
+    if (_function_tries[!!is_trailing][!!t][ref_qualifier] == NULL)
     {
-        if (_no_type_functions == NULL)
-        {
-            _no_type_functions = allocate_type_trie();
-        }
-
-        used_trie = _no_type_functions;
+        _function_tries[!!is_trailing][!!t][ref_qualifier] = allocate_type_trie();
     }
-    else
-    {
-        if (_functions == NULL)
-        {
-            _functions = allocate_type_trie();
-        }
 
-        used_trie = _functions;
-    }
+    used_trie = _function_tries[!!is_trailing][!!t][ref_qualifier];
 
     const type_t* type_seq[num_parameters + 1];
     //  Don't worry, this 'void' is just for the trie
@@ -3504,9 +3670,10 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
     type_t* function_type = (type_t*)lookup_type_trie(used_trie, 
             type_seq, num_parameters + 1);
 
+    _function_type_requested++;
     if (function_type == NULL)
     {
-        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters);
+        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters, is_trailing, ref_qualifier);
         insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
         function_type = new_funct_type;
 
@@ -3516,9 +3683,42 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
     {
         _function_type_reused++;
     }
-    
+
     return function_type;
 }
+
+type_t* get_new_function_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier)
+{
+    return get_new_function_type_common(t, parameter_info, num_parameters, /* is_trailing */ 0, ref_qualifier);
+}
+
+type_t* get_new_function_type_trailing_type(type_t* t,
+        parameter_info_t* parameter_info, int num_parameters,
+        ref_qualifier_t ref_qualifier)
+{
+    return get_new_function_type_common(t, parameter_info, num_parameters, /* is_trailing */ 1, ref_qualifier);
+}
+
+char function_type_get_has_trailing_return(type_t *t)
+{
+    ERROR_CONDITION(!is_function_type(t), "Invalid type", 0);
+
+    t = advance_over_typedefs(t);
+
+    return t->function->is_trailing;
+}
+
+ref_qualifier_t function_type_get_ref_qualifier(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "Invalid type", 0);
+
+    t = advance_over_typedefs(t);
+
+    return t->function->ref_qualifier;
+}
+
 
 type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 {
@@ -3693,6 +3893,20 @@ void class_type_set_is_abstract(type_t* class_type, char is_abstract)
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
     class_type = get_actual_class_type(class_type);
     class_type->type->class_info->is_abstract = is_abstract;
+}
+
+char class_type_is_lambda(type_t* class_type)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
+    return class_type->type->class_info->is_lambda;
+}
+
+void class_type_set_is_lambda(type_t* class_type, char is_lambda)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
+    class_type->type->class_info->is_lambda = is_lambda;
 }
 
 char class_type_is_polymorphic(type_t* t)
@@ -4161,7 +4375,7 @@ scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t)
     return _class_type_get_members_pred(t, NULL, _member_is_copy_assignment_operator);
 }
 
-static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_t** result)
+static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_t** result, char canonical)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
@@ -4177,27 +4391,40 @@ static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_
         scope_entry_t* base = class_type_get_base_num(t, i,
                 &is_virtual, &is_dependent, &is_expansion, &access_spec);
 
-        class_type_get_virtual_base_classes_rec(base->type_information, result);
+        class_type_get_virtual_base_classes_rec(base->type_information, result, canonical);
 
         if (!is_virtual || is_dependent)
             continue;
+
+        if (canonical && base->kind == SK_CLASS)
+            base = class_symbol_get_canonical_symbol(base);
 
         *result = entry_list_add_once(*result, base);
     }
 }
 
-scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t)
+static scope_entry_list_t* class_type_get_virtual_base_classes_(type_t* t, char canonical)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
 
     scope_entry_list_t* result = NULL;
-    class_type_get_virtual_base_classes_rec(t, &result);
+    class_type_get_virtual_base_classes_rec(t, &result, canonical);
 
     return result;
 }
 
-scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
+scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t)
+{
+    return class_type_get_virtual_base_classes_(t, /* canonical */ 0);
+}
+
+scope_entry_list_t* class_type_get_virtual_base_classes_canonical(type_t* t)
+{
+    return class_type_get_virtual_base_classes_(t, /* canonical */ 1);
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes_(type_t* t, char canonical)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
@@ -4213,6 +4440,11 @@ scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
 
         scope_entry_t* base = class_type_get_base_num(t, i,
                 &is_virtual, &is_dependent, &is_expansion, &access_spec);
+
+        if (canonical && base->kind == SK_CLASS)
+        {
+                base = class_symbol_get_canonical_symbol(base);
+        }
 
         if (is_virtual || is_dependent)
             continue;
@@ -4221,6 +4453,16 @@ scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
     }
 
     return result;
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
+{
+    return class_type_get_direct_base_classes_(t, /* canonical */ 0);
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes_canonical(type_t* t)
+{
+    return class_type_get_direct_base_classes_(t, /* canonical */ 1);
 }
 
 static char _member_is_virtual_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
@@ -4350,6 +4592,81 @@ type_t* enum_type_get_underlying_type(type_t* t)
     return enum_type->enum_info->underlying_type;
 }
 
+// This function is used only for conversions of enum types without fixed
+// underlying types
+static type_t* enum_type_get_underlying_type_for_conversion(type_t* t)
+{
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
+
+    // If the enum type has a fixed underlying type, its
+    // underlying_type_for_conversion is its underlying type
+    if (enum_type_get_underlying_type_is_fixed(t))
+        return enum_type_get_underlying_type(t);
+
+    // Not an enum with fixed underlying type, we may have to compute the type
+    // used in conversions
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    if (enum_type->enum_info->underlying_type_for_conversion != NULL)
+        return enum_type->enum_info->underlying_type_for_conversion;
+
+    type_t* checked_types[] =
+    {
+        get_signed_int_type(),
+        get_unsigned_int_type(),
+
+        get_signed_long_int_type(),
+        get_unsigned_long_int_type(),
+
+        get_signed_long_long_int_type(),
+        get_unsigned_long_long_int_type(),
+
+#ifdef HAVE_INT128
+        get_signed_int128_type(),
+        get_unsigned_int128_type(),
+#endif
+        // Sentinel
+        NULL
+    };
+
+    int i, N = enum_type_get_num_enumerators(t);
+
+    if (N == 0)
+        return get_signed_int_type();
+
+    int j;
+
+#define B_(x) const_value_is_nonzero(x)
+
+    for (j = 0; checked_types[j] != NULL; j++)
+    {
+        char all_fit = 1;
+        for (i = 0; i < N && all_fit; i++)
+        {
+            scope_entry_t* enumerator = enum_type_get_enumerator_num(t, i);
+
+            const_value_t* enumerator_value = nodecl_get_constant(enumerator->value);
+            if (enumerator_value == NULL) // This should not happen
+                continue;
+
+            all_fit = (B_(const_value_lte(integer_type_get_minimum(checked_types[j]), enumerator_value))
+                    && B_(const_value_lte(enumerator_value, integer_type_get_maximum(checked_types[j]))));
+        }
+
+        if (all_fit)
+        {
+            enum_type->enum_info->underlying_type_for_conversion = checked_types[j];
+            return checked_types[j];
+        }
+    }
+
+
+#undef B_
+    internal_error("Failure to come up with a integer for conversion of type '%s'\n",
+            print_declarator(t));
+}
+
 void enum_type_set_underlying_type(type_t* t, type_t* underlying_type)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
@@ -4440,7 +4757,8 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->is_ellipsis;
 }
 
-type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
+static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
+        type_t* (new_function_type)(type_t*, parameter_info_t*, int, ref_qualifier_t))
 {
     ERROR_CONDITION(!is_function_type(t), "Invalid function type", 0);
 
@@ -4450,6 +4768,7 @@ type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
     memset(param_info, 0, sizeof(param_info));
 
     char has_ellipsis = function_type_get_has_ellipsis(t);
+    ref_qualifier_t ref_qualifier = function_type_get_ref_qualifier(t);
 
     int real_parameters = num_parameters;
     if (has_ellipsis)
@@ -4465,8 +4784,17 @@ type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
     if (has_ellipsis)
         param_info[num_parameters - 1].is_ellipsis = 1;
 
-    return get_new_function_type(new_return, param_info, num_parameters);
+    return new_function_type(new_return, param_info, num_parameters, ref_qualifier);
+}
 
+type_t* function_type_replace_return_type(type_t* t, type_t* new_return)
+{
+    return function_type_replace_return_type_(t, new_return, get_new_function_type);
+}
+
+type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return)
+{
+    return function_type_replace_return_type_(t, new_return, get_new_function_type_trailing_type);
 }
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
@@ -4711,12 +5039,14 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
         case TK_SEQUENCE:
             result = equivalent_sequence_types(t1, t2, decl_context);
             break;
+        case TK_AUTO:
         case TK_ERROR:
             // This is always true
             result = 1;
             break;
         case TK_OVERLOAD:
             // These are always false
+            result = 0;
             break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -4845,8 +5175,24 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             result = compare_template_dependent_typename_types(p_t1, p_t2, decl_context);
             break;
         case STK_TYPEOF :
-            // Nobody compares these structurally, but using the "name" (e.g. the pointer)
-            result = (t1 == t2);
+            C_LANGUAGE()
+            {
+                result = (t1 == t2);
+            }
+            CXX_LANGUAGE()
+            {
+                result = same_functional_expression(t1->typeof_expr,
+                        t2->typeof_expr,
+                        deduction_flags_empty());
+            }
+            break;
+        case STK_UNDERLYING:
+            {
+                result = equivalent_types_in_context(
+                        t1->underlying_type,
+                        t2->underlying_type,
+                        decl_context);
+            }
             break;
         case STK_VA_LIST :
             // If both are __builtin_va_list, this is trivially true
@@ -4925,6 +5271,14 @@ char equivalent_builtin_type(type_t* p_t1, type_t *p_t2, decl_context_t decl_con
             return 0;
     }
 
+    if (t1->builtin_type == BT_CHAR16_T
+            && t2->builtin_type == BT_CHAR16_T)
+        return 1;
+
+    if (t1->builtin_type == BT_CHAR32_T
+            && t2->builtin_type == BT_CHAR32_T)
+        return 1;
+
     // Ok, nothing makes us think they might be different
     return 1;
 }
@@ -4999,7 +5353,8 @@ static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_c
         && (t1->type->vector_size == t2->type->vector_size);
 }
 
-static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t decl_context)
+static char equivalent_function_types_may_differ_ref_qualifier_(type_t* ft1, type_t* ft2,
+        decl_context_t decl_context)
 {
     function_info_t* t1 = ft1->function;
     function_info_t* t2 = ft2->function;
@@ -5023,11 +5378,40 @@ static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t de
     if (!compatible_parameters(t1, t2, decl_context))
         return 0;
 
+    if (t1->ref_qualifier != t2->ref_qualifier)
+        return 0;
+
     if (!equivalent_cv_qualification(ft1->cv_qualifier, ft2->cv_qualifier))
         return 0;
 
     return 1;
 }
+
+static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t decl_context)
+{
+    if (!equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2, decl_context))
+        return 0;
+
+    function_info_t* t1 = ft1->function;
+    function_info_t* t2 = ft2->function;
+
+    if (t1->ref_qualifier != t2->ref_qualifier)
+        return 0;
+
+    return 1;
+}
+
+char equivalent_function_types_may_differ_ref_qualifier(type_t* ft1, type_t* ft2,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(!is_function_type(ft1) || !is_function_type(ft2), "Invalid types", 0);
+
+    ft1 = advance_over_typedefs(ft1);
+    ft2 = advance_over_typedefs(ft2);
+
+    return equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2, decl_context);
+}
+
 
 char equivalent_pack_types(type_t* t1, type_t *t2, decl_context_t decl_context)
 {
@@ -5937,6 +6321,8 @@ char is_integral_type(type_t* t)
     return (is_any_int_type(t)
             || is_bool_type(t)
             || is_character_type(t)
+            || is_char16_t_type(t)
+            || is_char32_t_type(t)
             || is_wchar_t_type(t)
             // In C, enumerated types are integral types
             || (is_enum_type(t) && IS_C_LANGUAGE)
@@ -6134,6 +6520,24 @@ char is_char_type(type_t* t)
 {
     // FIXME: Make a flag to choose signed or unsigned chars
     return is_signed_char_type(t);
+}
+
+char is_char16_t_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR16_T);
+}
+
+char is_char32_t_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_BUILTIN_TYPE
+            && t->type->builtin_type == BT_CHAR32_T);
 }
 
 char is_wchar_t_type(type_t* t)
@@ -6462,14 +6866,9 @@ char is_indirect_type(type_t* t)
 
 scope_entry_t* named_type_get_symbol(type_t* t)
 {
-    if (is_named_type(t))
-    {
-        return t->type->user_defined_type;
-    }
-    else
-    {
-        internal_error("This is not a named type\n", 0);
-    }
+    ERROR_CONDITION(!is_named_type(t), "This is not a named type\n", 0);
+
+    return t->type->user_defined_type;
 }
 
 char is_floating_type(type_t* t)
@@ -7397,6 +7796,13 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                 }
                 break;
             }
+        case STK_UNDERLYING:
+            {
+                result = strappend(result, "__underlying_type(");
+                result = strappend(result, print_type_str(simple_type->underlying_type, decl_context));
+                result = strappend(result, ")");
+                break;
+            }
         case STK_VA_LIST :
             {
                 result = "__builtin_va_list";
@@ -7443,6 +7849,16 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                     case BT_CHAR :
                         {
                             result = strappend(result, "char");
+                            break;
+                        }
+                    case BT_CHAR16_T :
+                        {
+                            result = strappend(result, "char16_t");
+                            break;
+                        }
+                    case BT_CHAR32_T :
+                        {
+                            result = strappend(result, "char32_t");
                             break;
                         }
                     case BT_WCHAR :
@@ -7759,6 +8175,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     }
     else if (is_sequence_of_types(type_info))
     {
+        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        {
+            result = strappend(result, " /* { */ ");
+        }
+
         int i;
         for (i = 0; i < sequence_of_types_get_num_types(type_info); i++)
         {
@@ -7771,6 +8192,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         decl_context, "", "",
                         0, 0, NULL, NULL, 0,
                         print_symbol_fun, print_symbol_data));
+        }
+
+        if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
+        {
+            result = strappend(result, " /* } */ ");
         }
     }
     else if (is_auto_type(type_info))
@@ -7821,6 +8247,8 @@ const char* get_declarator_name_string_ex(decl_context_t decl_context,
             print_symbol_fun,
             print_symbol_data);
 }
+
+static type_t* get_foundation_type(type_t* t);
 
 const char* get_declaration_string_ex(type_t* type_info,
         decl_context_t decl_context,
@@ -8273,7 +8701,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
             }
         case TK_FUNCTION :
             {
-                if (type_info->function->return_type != NULL)
+                if (!type_info->function->is_trailing
+                        && type_info->function->return_type != NULL)
                 {
                     get_type_name_string_internal_impl(decl_context, type_info->function->return_type, left, right,
                             0, NULL, NULL, 0, print_symbol_fun, print_symbol_data);
@@ -8381,12 +8810,43 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                     }
                 }
                 prototype = strappend(prototype, ")");
+
+                ref_qualifier_t ref_qualif = function_type_get_ref_qualifier(type_info);
+                switch (ref_qualif)
+                {
+                    case REF_QUALIFIER_NONE:
+                        break;
+                    case REF_QUALIFIER_LVALUE:
+                        prototype = strappend(prototype, " &");
+                        break;
+                    case REF_QUALIFIER_RVALUE:
+                        prototype = strappend(prototype, " &&");
+                        break;
+                    default:
+                        internal_error("Invalid value %d ref-qualifier\n", ref_qualif);
+                }
+
                 if (get_cv_qualifier(type_info) != CV_NONE)
                 {
                     prototype = strappend(prototype, " ");
                     prototype = strappend(prototype, get_cv_qualifier_string(type_info));
                 }
 
+                if (type_info->function->is_trailing
+                        && type_info->function->return_type != NULL)
+                {
+                    prototype = strappend(prototype, " -> ");
+
+                    const char *trailing_type = get_declaration_string_ex(
+                            type_info->function->return_type,
+                            decl_context,
+                            "", "", 0,
+                            0, NULL, NULL,
+                            0,
+                            print_symbol_fun, print_symbol_data);
+
+                    prototype = strappend(prototype, trailing_type);
+                }
                 (*right) = strappend(prototype, (*right));
                 break;
             }
@@ -8705,6 +9165,12 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_CHAR :
                         result = strappend(result, "char");
                         break;
+                    case BT_CHAR16_T :
+                        result = strappend(result, "char16_t");
+                        break;
+                    case BT_CHAR32_T :
+                        result = strappend(result, "char32_t");
+                        break;
                     case BT_BYTE:
                         result = strappend(result, "byte");
                         break;
@@ -8770,6 +9236,11 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_TYPEOF :
             result = strappend(result, "__typeof__(");
             result = strappend(result, codegen_to_str(simple_type_info->typeof_expr, CURRENT_COMPILED_FILE->global_decl_context));
+            result = strappend(result, ")");
+            break;
+        case STK_UNDERLYING:
+            result = strappend(result, "__underlying_type(");
+            result = strappend(result, print_declarator(simple_type_info->underlying_type));
             result = strappend(result, ")");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -9610,6 +10081,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
     }
 
+    // T&& -> T
+    if (is_rvalue_reference_type(orig))
+    {
+        orig = no_ref(orig);
+    }
 
     // First kind of conversion
     //
@@ -9687,9 +10163,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     type_t* orig_underlying_type = NULL;
     if (is_enum_type(orig))
     {
-        orig_underlying_type = enum_type_get_underlying_type(orig);
-        if (orig_underlying_type == NULL)
-            orig_underlying_type = get_signed_int_type();
+        orig_underlying_type = enum_type_get_underlying_type_for_conversion(orig);
     }
 
     if (!equivalent_types(get_unqualified_type(dest), get_unqualified_type(orig)))
@@ -9700,6 +10174,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_unsigned_char_type(orig)
                     || is_signed_short_int_type(orig)
                     || is_unsigned_short_int_type(orig)
+                    || is_char16_t_type(orig)
+                    || is_char32_t_type(orig)
                     || is_wchar_t_type(orig)
                     || is_bool_type(orig)))
         {
@@ -9719,6 +10195,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_signed_short_int_type(orig_underlying_type)
                     || is_unsigned_short_int_type(orig_underlying_type)
                     || is_signed_int_type(orig_underlying_type)
+                    || is_char16_t_type(orig_underlying_type)
+                    || is_char32_t_type(orig_underlying_type)
                     || is_wchar_t_type(orig_underlying_type)
                     || is_bool_type(orig_underlying_type)))
         {
@@ -10620,7 +11098,7 @@ type_t* get_pseudo_destructor_call_type(void)
     if (_pseudo_destructor_call_type == NULL)
     {
         _pseudo_destructor_call_type = 
-            get_pointer_type(get_new_function_type(get_void_type(), NULL, 0));
+            get_pointer_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
     }
 
     return _pseudo_destructor_call_type;
@@ -12013,7 +12491,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
 //     const T& f(int)   returns 'const T' 
 //
 // so the type-specifier part of a type-id plus cv-qualifiers, if any
-type_t* get_foundation_type(type_t* t)
+static type_t* get_foundation_type(type_t* t)
 {
     if (t == NULL)
     {
@@ -12032,7 +12510,10 @@ type_t* get_foundation_type(type_t* t)
     }
     else if (is_function_type(t))
     {
-        return get_foundation_type(function_type_get_return_type(t));
+        if (function_type_get_has_trailing_return(t))
+            return get_auto_type();
+        else
+            return get_foundation_type(function_type_get_return_type(t));
     }
     else if (is_pointer_type(t))
     {
@@ -12076,6 +12557,10 @@ type_t* get_foundation_type(type_t* t)
         return t;
     }
     else if (is_auto_type(t))
+    {
+        return t;
+    }
+    else if (is_gxx_underlying_type(t))
     {
         return t;
     }
@@ -12287,7 +12772,7 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
                 param_info[i].type_info = type_deep_copy(function_type_get_parameter_type_num(orig, i), new_decl_context, symbol_map);
             }
 
-            result = get_new_function_type(return_type, param_info, N);
+            result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
         }
     }
     else if (is_vector_type(orig))
@@ -12587,6 +13072,46 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
     return seq_type;
 }
 
+static void flatten_type(type_t* t, type_t*** flattened_type_seq, int* flattened_num_types)
+{
+    if (!is_sequence_of_types(t))
+    {
+        P_LIST_ADD(*flattened_type_seq, *flattened_num_types, t);
+    }
+    else
+    {
+        int i, N = sequence_of_types_get_num_types(t);
+
+        for (i = 0; i < N; i++)
+        {
+            flatten_type(
+                    sequence_of_types_get_type_num(t, i),
+                    flattened_type_seq,
+                    flattened_num_types);
+        }
+    }
+}
+
+type_t* get_sequence_of_types_flattened(int num_types, type_t** types)
+{
+    int flattened_num_types = 0;
+    type_t** flattened_type_seq = NULL;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        flatten_type(types[i],
+                &flattened_type_seq,
+                &flattened_num_types);
+    }
+
+    type_t* result = get_sequence_of_types(flattened_num_types, flattened_type_seq);
+
+    xfree(flattened_type_seq);
+
+    return result;
+}
+
 int sequence_of_types_get_num_types(type_t* t)
 {
     t = advance_over_typedefs(t);
@@ -12758,4 +13283,109 @@ void variant_type_get_ms_attributes(type_t* t, int* num_attrs, gcc_attribute_t**
 {
     *num_attrs = t->info->num_ms_attributes;
     *attrs = t->info->ms_attributes;
+}
+
+void get_packs_in_type(type_t* pack_type,
+        scope_entry_t*** packs_to_expand,
+        int *num_packs_to_expand)
+{
+    if (is_named_type(pack_type))
+    {
+        scope_entry_t* sym = named_type_get_symbol(pack_type);
+        if (sym->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                || sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+        {
+            P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, sym);
+            return;
+        }
+
+        if (is_template_specialized_type(sym->type_information))
+        {
+            type_t* template_type =
+                template_specialized_type_get_related_template_type(sym->type_information);
+            template_parameter_list_t* template_parameters =
+                template_specialized_type_get_template_arguments(sym->type_information);
+            scope_entry_t* template_related_symbol =
+                template_type_get_related_symbol(template_type);
+
+
+            if (template_related_symbol != NULL
+                    && template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+            {
+                P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, template_related_symbol);
+            }
+
+            int i;
+            for (i = 0; i < template_parameters->num_parameters; i++)
+            {
+                template_parameter_value_t* v = template_parameters->arguments[i];
+
+                enum template_parameter_kind k = template_parameter_kind_get_base_kind(v->kind);
+
+                if (k == TPK_TYPE
+                        || k == TPK_TEMPLATE)
+                {
+                    get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                }
+            }
+        }
+    }
+    else if (is_pointer_type(pack_type))
+    {
+        get_packs_in_type(pointer_type_get_pointee_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_rvalue_reference_type(pack_type)
+            || is_lvalue_reference_type(pack_type))
+    {
+        get_packs_in_type(reference_type_get_referenced_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_array_type(pack_type))
+    {
+        get_packs_in_expression(array_type_get_array_size_expr(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+        get_packs_in_type(array_type_get_element_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_vector_type(pack_type))
+    {
+        get_packs_in_type(vector_type_get_element_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+    }
+    else if (is_function_type(pack_type))
+    {
+        get_packs_in_type(function_type_get_return_type(pack_type),
+                packs_to_expand,
+                num_packs_to_expand);
+
+        int last = function_type_get_num_parameters(pack_type);
+
+        char has_ellipsis = function_type_get_has_ellipsis(pack_type);
+
+        if (has_ellipsis)
+            last--;
+
+        int i;
+        for (i = 0; i < last; i++)
+        {
+            type_t* param_type = function_type_get_parameter_type_num(pack_type, i);
+
+            get_packs_in_type(param_type, packs_to_expand, num_packs_to_expand);
+        }
+    }
+    else if (is_sequence_of_types(pack_type))
+    {
+        int i, num = sequence_of_types_get_num_types(pack_type);
+
+        for (i = 0; i < num; i++)
+        {
+            get_packs_in_type(sequence_of_types_get_type_num(pack_type, i), packs_to_expand, num_packs_to_expand);
+        }
+    }
 }

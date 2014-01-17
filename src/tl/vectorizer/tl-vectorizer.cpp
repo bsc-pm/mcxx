@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
@@ -45,11 +46,12 @@ namespace TL
                 const TL::Type& target_type,
                 const TL::ObjectList<Nodecl::NodeclBase> * suitable_expr_list,
                 const TL::ObjectList<TL::Symbol> * reduction_list,
+                const VectorizerCache& vectorizer_cache,
                 std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
            _support_masking(support_masking), _mask_size(mask_size), _fast_math(fast_math),  
            _prefer_gather_scatter(prefer_gather_scatter), _prefer_mask_gather_scatter(prefer_mask_gather_scatter),
-           _target_type(target_type), _suitable_expr_list(suitable_expr_list),
+           _target_type(target_type), _suitable_expr_list(suitable_expr_list), _vectorizer_cache(vectorizer_cache),
            _reduction_list(reduction_list), _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
             std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
@@ -67,7 +69,7 @@ namespace TL
 
         Vectorizer *Vectorizer::_vectorizer = 0;
         FunctionVersioning Vectorizer::_function_versioning;
-        Analysis::AnalysisStaticInfo* Vectorizer::_analysis_info = 0;
+        VectorizerAnalysisStaticInfo* Vectorizer::_analysis_info = 0;
 
         Vectorizer& Vectorizer::get_vectorizer()
         {
@@ -84,7 +86,7 @@ namespace TL
             if(Vectorizer::_analysis_info != 0)
                 running_error("VECTORIZER: Analysis was previously initialize");
 
-            Vectorizer::_analysis_info = new Analysis::AnalysisStaticInfo(
+            Vectorizer::_analysis_info = new VectorizerAnalysisStaticInfo(
                     enclosing_function,
                     Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                     Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
@@ -102,7 +104,9 @@ namespace TL
             }
         }
 
-        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _fast_math_enabled(false)
+        Vectorizer::Vectorizer() : _avx2_enabled(false), _knc_enabled(false),
+        _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false), 
+        _fast_math_enabled(false)
         {
         }
 
@@ -110,12 +114,45 @@ namespace TL
         {
         }
 
+        void Vectorizer::preprocess_code(Nodecl::NodeclBase& n)
+        {
+            VectorizerVisitorPreprocessor vectorizer_preproc;
+            vectorizer_preproc.walk(n);
+
+            TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
+        }
+
+        void Vectorizer::load_environment(const Nodecl::ForStatement& for_statement,
+                VectorizerEnvironment& environment)
+        {
+            // Set up scopes
+            environment._external_scope =
+                for_statement.retrieve_context();
+            environment._local_scope_list.push_back(
+                    for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
+
+            // Push ForStatement as scope for analysis
+            environment._analysis_simd_scope = for_statement;
+            environment._analysis_scopes.push_back(for_statement);
+
+            // Add MaskLiteral to mask_list
+            Nodecl::MaskLiteral all_one_mask =
+                Nodecl::MaskLiteral::make(
+                        TL::Type::get_mask_type(environment._unroll_factor),
+                        const_value_get_minus_one(environment._unroll_factor, 1));
+            environment._mask_list.push_back(all_one_mask);
+        }
+
+        void Vectorizer::unload_environment(VectorizerEnvironment& environment)
+        {
+            environment._mask_list.pop_back();
+            environment._analysis_scopes.pop_back();
+            environment._local_scope_list.pop_back();
+        }
+
         void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment)
         {
-            // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
-
             VectorizerVisitorFor visitor_for(environment);
             visitor_for.walk(for_statement);
 
@@ -127,9 +164,6 @@ namespace TL
                 VectorizerEnvironment& environment,
                 const bool masked_version)
         {
-            // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
-
             VectorizerVisitorFunction visitor_function(environment, masked_version);
             visitor_function.walk(func_code);
 
@@ -144,9 +178,6 @@ namespace TL
                 bool only_epilog,
                 bool is_parallel_loop)
         {
-            // Applying strenth reduction
-            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
-
             VectorizerVisitorForEpilog visitor_epilog(environment, 
                     epilog_iterations, only_epilog, is_parallel_loop);
             visitor_epilog.visit(for_statement, net_epilog_node);
@@ -246,9 +277,13 @@ namespace TL
                                     const_value_get_one(4, 1)),
                                 ub.get_type());
 
+                    _analysis_info->register_node(ub_plus_one);
+
                     ub_is_suitable = _analysis_info->is_suitable_expression(for_statement, ub_plus_one,
                             environment._suitable_expr_list, environment._unroll_factor,
                             environment._vector_length, ub_vector_size_module);
+
+                    _analysis_info->unregister_node(ub_plus_one);
 
                     environment._analysis_scopes.pop_back();
 
@@ -393,6 +428,51 @@ namespace TL
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("__svml_floorf4").make_nodecl(true),
                             "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+            }
+        }
+
+        void Vectorizer::enable_svml_avx2()
+        {
+            fprintf(stderr, "Enabling SVML AVX2\n");
+
+            if (!_svml_avx2_enabled)
+            {
+                _svml_avx2_enabled = true;
+
+                // SVML AVX2
+                TL::Source svml_avx2_vector_math;
+
+                svml_avx2_vector_math << "__m256 __svml_expf8(__m256);\n"
+                    << "__m256 __svml_sqrtf8(__m256);\n"
+                    << "__m256 __svml_logf8(__m256);\n"
+                    << "__m256 __svml_sinf8(__m256);\n"
+                    << "__m256 __svml_sincosf8(__m256, __m256*, __m256*);\n"
+                    << "__m256 __svml_floorf8(__m256);\n"
+                    ;
+
+                // Parse SVML declarations
+                TL::Scope global_scope = TL::Scope::get_global_scope();
+                svml_avx2_vector_math.parse_global(global_scope);
+
+                // Add SVML math function as vector version of the scalar one
+                add_vector_function_version("expf", 
+                        global_scope.get_symbol_from_name("__svml_expf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sqrtf", 
+                            global_scope.get_symbol_from_name("__svml_sqrtf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("logf", 
+                            global_scope.get_symbol_from_name("__svml_logf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sinf",
+                            global_scope.get_symbol_from_name("__svml_sinf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sincosf",
+                            global_scope.get_symbol_from_name("__svml_sincosf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("floorf",
+                            global_scope.get_symbol_from_name("__svml_floorf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 

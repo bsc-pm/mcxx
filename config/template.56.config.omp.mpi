@@ -30,19 +30,15 @@ compiler_phase = libtlnanox-mpi.so
 @DISABLEMPI_ICC@[mpimfc : imfc]
 @DISABLEMPI_GCC@[mpimfc : mfc]
 language = Fortran
-options = -I @PKGDATADIR@/fortran/openmp -I @PKGDATADIR@/fortran/openmp -I @PKGDATADIR@/fortran/mpi/@MPIMODULE@ --variable=allow_shared_without_copies:1
+options = --variable=allow_shared_without_copies:1
 preprocessor_name = @MPICC@
 {!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH
 {mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH
 fortran_preprocessor_name = @MPIFORT@
 {!mmic} fortran_preprocessor_options = -cpp -P -mt_mpi -DX86_ARCH
-{mmic} fortran_preprocessor_options = -cpp -P -mt_mpi-DMIC_ARCH
+{mmic} fortran_preprocessor_options = -cpp -P -mt_mpi -DMIC_ARCH
 compiler_name = @MPIFORT@
 compiler_options= -mt_mpi
 linker_name = @MPIFORT@
 linker_options = -mt_mpi
-{mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
-target_objcopy=@MIC_TOOLS@/objcopy
-target_objdump=@MIC_TOOLS@/objdump
-target_ar=@MIC_TOOLS@/ar

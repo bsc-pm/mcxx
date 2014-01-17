@@ -29,6 +29,7 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-cache.hpp"
 
 namespace TL
 {
@@ -49,21 +50,24 @@ namespace TL
                 std::string _simd_enabled_str;
                 std::string _svml_enabled_str;
                 std::string _fast_math_enabled_str;
-                std::string _mic_enabled_str;
+                std::string _avx2_enabled_str;
+                std::string _knc_enabled_str;
                 std::string _prefer_gather_scatter_str;
                 std::string _prefer_mask_gather_scatter_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
                 bool _fast_math_enabled;
-                bool _mic_enabled;
+                bool _avx2_enabled;
+                bool _knc_enabled;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
 
                 void set_simd(const std::string simd_enabled_str);
                 void set_svml(const std::string svml_enabled_str);
                 void set_fast_math(const std::string fast_math_enabled_str);
-                void set_mic(const std::string mic_enabled_str);
+                void set_avx2(const std::string avx2_enabled_str);
+                void set_knc(const std::string knc_enabled_str);
                 void set_prefer_gather_scatter(const std::string prefer_gather_scatter_str);
                 void set_prefer_mask_gather_scatter(const std::string prefer_gather_scatter_str);
         };
@@ -86,15 +90,19 @@ namespace TL
                 int process_unroll_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment, 
                         TL::Type& vectorlengthfor_type);
+                void process_cache_clause(const Nodecl::List& environment,
+                        TL::ObjectList<Nodecl::NodeclBase>& cached_expressions);
+
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,
                         std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
                         const Nodecl::ForStatement& for_statement);
 
             public:
-                SimdVisitor(bool fast_math_enabled, bool svml_enabled,
-                        bool mic_enabled, bool prefer_gather_scatter, bool prefer_mask_gather_scatter);
-                
+                SimdVisitor(Vectorization::SIMDInstructionSet simd_isa, 
+                        bool fast_math_enabled, bool svml_enabled,  
+                        bool prefer_gather_scatter, bool prefer_mask_gather_scatter);
+
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
@@ -102,6 +110,7 @@ namespace TL
                         const Nodecl::FunctionCode& function_code,
                         const TL::ObjectList<Nodecl::NodeclBase>& suitable_expresions,
                         const TL::Type& vectorlengthfor_type,
+                        const Vectorization::VectorizerCache& vectorizer_cache,
                         const bool masked_version);
         };
 
