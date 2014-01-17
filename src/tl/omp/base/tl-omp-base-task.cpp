@@ -24,11 +24,11 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-diagnostic.h"
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
-#include "tl-nodecl-utils.hpp"
 #include "tl-symbol-utils.hpp"
-#include "cxx-diagnostic.h"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -193,7 +193,6 @@ namespace TL { namespace OpenMP {
 
             if (_function_task_set->is_function_task(sym))
             {
-                // Nodecl::NodeclBase exec_env = compute_
                 FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
                 Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
@@ -201,7 +200,8 @@ namespace TL { namespace OpenMP {
 
                 Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
                         exec_env,
-                        // Do we need to copy this?
+                        // We need to copy the call because we need to preserve
+                        // the original place of the call
                         call.shallow_copy(),
                         // Site environment, do not use it
                         call_site_exec_env,
@@ -535,11 +535,46 @@ namespace TL { namespace OpenMP {
     }
 
     template < typename T>
-    void FunctionCallVisitor::get_assignment_expressions(Nodecl::NodeclBase expr,
-                Nodecl::NodeclBase& lhs_expr, Nodecl::NodeclBase& rhs_expr)
+    void decompose_expression_statement(Nodecl::NodeclBase expr,
+            Nodecl::NodeclBase& lhs_expr, Nodecl::NodeclBase& rhs_expr)
     {
-            lhs_expr = expr.as<T>().get_lhs();
-            rhs_expr = expr.as<T>().get_rhs();
+        lhs_expr = expr.as<T>().get_lhs();
+        rhs_expr = expr.as<T>().get_rhs();
+    }
+
+    void decompose_expression_statement(Nodecl::NodeclBase expression_stmt, Nodecl::NodeclBase & lhs_expr, Nodecl::NodeclBase& rhs_expr)
+    {
+        ERROR_CONDITION(!expression_stmt.is<Nodecl::ExpressionStatement>(),
+                        "Unexpected node %s\n", ast_print_node_type(expression_stmt.get_kind()));
+
+        rhs_expr = lhs_expr = nodecl_null();
+
+        Nodecl::NodeclBase expr = expression_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+        if (expr.is<Nodecl::AddAssignment>())
+            decompose_expression_statement<Nodecl::AddAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::ArithmeticShrAssignment>())
+            decompose_expression_statement<Nodecl::ArithmeticShrAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::Assignment>())
+            decompose_expression_statement<Nodecl::Assignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::BitwiseAndAssignment>())
+            decompose_expression_statement<Nodecl::BitwiseAndAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::BitwiseOrAssignment>())
+            decompose_expression_statement<Nodecl::BitwiseOrAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::BitwiseShlAssignment>())
+            decompose_expression_statement<Nodecl::BitwiseShlAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::BitwiseShrAssignment>())
+            decompose_expression_statement<Nodecl::BitwiseShrAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::BitwiseXorAssignment>())
+            decompose_expression_statement<Nodecl::BitwiseXorAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::DivAssignment>())
+            decompose_expression_statement<Nodecl::DivAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::MinusAssignment>())
+            decompose_expression_statement<Nodecl::MinusAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::ModAssignment>())
+            decompose_expression_statement<Nodecl::ModAssignment>(expr, lhs_expr, rhs_expr);
+        else if (expr.is<Nodecl::MulAssignment>())
+            decompose_expression_statement<Nodecl::MulAssignment>(expr, lhs_expr, rhs_expr);
+        else rhs_expr = expr;
     }
 
     void FunctionCallVisitor::fill_map_parameters_to_arguments(
@@ -711,6 +746,78 @@ namespace TL { namespace OpenMP {
         return new_enclosing_stmt;
     }
 
+    bool expression_stmt_is_compound_assignment(Nodecl::NodeclBase expr_stmt)
+    {
+        ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(),
+                        "Unexpected node %s\n", ast_print_node_type(expr_stmt.get_kind()));
+
+        Nodecl::NodeclBase expr = expr_stmt.as<Nodecl::ExpressionStatement>().get_nest();
+        return (expr.is<Nodecl::AddAssignment>()
+                || expr.is<Nodecl::ArithmeticShrAssignment>()
+                || expr.is<Nodecl::BitwiseAndAssignment>()
+                || expr.is<Nodecl::BitwiseOrAssignment>()
+                || expr.is<Nodecl::BitwiseShlAssignment>()
+                || expr.is<Nodecl::BitwiseShrAssignment>()
+                || expr.is<Nodecl::BitwiseXorAssignment>()
+                || expr.is<Nodecl::DivAssignment>()
+                || expr.is<Nodecl::MinusAssignment>()
+                || expr.is<Nodecl::ModAssignment>()
+                || expr.is<Nodecl::MulAssignment>());
+    }
+
+    bool is_a_subexpression_of(Nodecl::NodeclBase subexpr, Nodecl::NodeclBase expr)
+    {
+        if (expr.is_null())
+            return false;
+
+        if (expr.get_kind() == subexpr.get_kind()
+                && Nodecl::Utils::equal_nodecls(expr, subexpr))
+            return true;
+
+        bool found = false;
+        if (expr.is<Nodecl::List>())
+        {
+            Nodecl::List l = expr.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin(); it != l.end() && !found; it++)
+            {
+                found = is_a_subexpression_of(subexpr, *it);
+            }
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = expr.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end() && !found;
+                    it++)
+            {
+                found = is_a_subexpression_of(subexpr, *it);
+            }
+        }
+        return found;
+    }
+
+    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr)
+    {
+        ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
+                "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
+
+        // FIXME: How to know if a expression is a reduction will be implemented by
+        // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
+        Nodecl::NodeclBase lhs_expr, rhs_expr;
+        decompose_expression_statement(expr, lhs_expr, rhs_expr);
+
+        // If the expression does not have a left-hand-side expression, this is not a reduction
+        if (lhs_expr.is_null())
+            return false;
+
+        // If the expression is a compound assignment, this is a reduction
+        if (expression_stmt_is_compound_assignment(expr))
+            return true;
+
+        // Detect this kind of reductions: x = foo(i) + x;
+        return is_a_subexpression_of(lhs_expr, rhs_expr);
+    }
+
     Nodecl::OpenMP::Task FunctionCallVisitor::generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
     {
         Nodecl::List exec_environment;
@@ -720,46 +827,22 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
             in_alloca_deps, concurrent_deps, out_deps, assumed_firstprivates, alloca_exprs;
 
-        Nodecl::NodeclBase expr, lhs_expr, rhs_expr;
-        expr = enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest();
-        if (expr.is<Nodecl::AddAssignment>())
-            get_assignment_expressions<Nodecl::AddAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::ArithmeticShrAssignment>())
-            get_assignment_expressions<Nodecl::ArithmeticShrAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::Assignment>())
-            get_assignment_expressions<Nodecl::Assignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::BitwiseAndAssignment>())
-            get_assignment_expressions<Nodecl::BitwiseAndAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::BitwiseOrAssignment>())
-            get_assignment_expressions<Nodecl::BitwiseOrAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::BitwiseShlAssignment>())
-            get_assignment_expressions<Nodecl::BitwiseShlAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::BitwiseShrAssignment>())
-            get_assignment_expressions<Nodecl::BitwiseShrAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::BitwiseXorAssignment>())
-            get_assignment_expressions<Nodecl::BitwiseXorAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::DivAssignment>())
-            get_assignment_expressions<Nodecl::DivAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::MinusAssignment>())
-            get_assignment_expressions<Nodecl::MinusAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::ModAssignment>())
-            get_assignment_expressions<Nodecl::ModAssignment>(expr, lhs_expr, rhs_expr);
-        else if (expr.is<Nodecl::MulAssignment>())
-            get_assignment_expressions<Nodecl::MulAssignment>(expr, lhs_expr, rhs_expr);
-        else rhs_expr = expr;
+        Nodecl::NodeclBase lhs_expr, rhs_expr;
+        decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
 
         // Create the output depedence if needed
+        bool is_reduction = expression_stmt_is_a_reduction(enclosing_stmt);
         if (!lhs_expr.is_null())
         {
-            if (expr.is<Nodecl::Assignment>())
-            {
-                out_deps.append(lhs_expr.shallow_copy());
-                copy_out.append(lhs_expr.shallow_copy());
-            }
-            else
+            if (is_reduction)
             {
                 concurrent_deps.append(lhs_expr.shallow_copy());
                 copy_inout.append(lhs_expr.shallow_copy());
+            }
+            else
+            {
+                out_deps.append(lhs_expr.shallow_copy());
+                copy_out.append(lhs_expr.shallow_copy());
             }
         }
 
@@ -896,8 +979,7 @@ namespace TL { namespace OpenMP {
                     locus));
 
         Nodecl::NodeclBase join_task_stmt;
-        if (!lhs_expr.is_null()
-                && !expr.is<Nodecl::Assignment>())
+        if (is_reduction)
         {
             Nodecl::List atomic_exec_env = Nodecl::List::make(
                     Nodecl::OpenMP::FlushAtEntry::make(locus),
@@ -1022,65 +1104,16 @@ namespace TL { namespace OpenMP {
         return sequential_code;
     }
 
-
-    //  This visitor creates, for every nonvoid function task called in the
-    //  source, a new void task which acts like a wrapper. At the end of the
-    //  execution of this visitor, the nonvoid function task will be removed
-    //  from the function task set.
-    //
-    // Example:
-    //
-    //          #pragma omp task
-    //          int fact(int n)
-    //          {
-    //              if (n == 0 || n == 1) return 1;
-    //              int res = fact(n-1) * n;
-    //              #pragma omp taskwait
-    //              return res;
-    //          }
-    //
-    //          int main()
-    //          {
-    //              int x = fact(10);
-    //              #pragma omp taskwait
-    //          }
-    //
-    //  This code is tranformed into:
-    //
-    //          void fact__(int n, int* out); // Forward Declaration
-    //
-    //          int fact(int n)
-    //          {
-    //              if (n == 0 || n == 1) return 1;
-    //              int res, *mcc_ret1;
-    //              fact__(n-1, mcc_ret1);
-    //              res = *mcc_ret1 * n;
-    //              #pragma omp taskwait
-    //              return res;
-    //          }
-    //
-    //          #pragma omp task in(n) output(*output)
-    //          void fact__(int n, int* out)
-    //          {
-    //              *out = fact(n);
-    //          }
-    //
-    //          int main()
-    //          {
-    //              int x, *mcc_ret1;
-    //              fact__(10, mcc_ret1);
-    //              x = *mcc_ret1;
-    //              #pragma omp taskwait
-    //          }
-    //
-
-    TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_Set)
+    TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set, bool task_expr_optim_disabled)
         :
-            _counter(0),
+            _task_expr_optim_disabled(task_expr_optim_disabled),
+            _optimized_task_expr_counter(0),
+            _new_return_vars_counter(0),
             _enclosing_stmt(nodecl_null()),
-            _function_task_set(function_task_Set),
+            _function_task_set(function_task_set),
             _transformed_task_map(),
             _ignore_these_function_calls(),
+            _enclosing_stmts_with_more_than_one_task(),
             _funct_call_to_enclosing_stmt_map(),
             _enclosing_stmt_to_return_vars_map()
     {
@@ -1113,6 +1146,7 @@ namespace TL { namespace OpenMP {
         // Restore the old enclosing expr statement
         _enclosing_stmt = old_enclosing_stmt;
     }
+
 
     void TransformNonVoidFunctionCalls::visit(const Nodecl::FunctionCall& func_call)
     {
@@ -1147,13 +1181,30 @@ namespace TL { namespace OpenMP {
         }
         Scope scope = enclosing_stmt.retrieve_context();
 
+        // Optimization: Do not create two tasks if there is only a task
+        // involved in the task expression
+        if ( !_task_expr_optim_disabled
+                && expression_stmt_is_a_reduction(enclosing_stmt)
+                && only_one_task_is_involved_in_this_stmt(enclosing_stmt))
+        {
+            std::cerr << locus_to_str(enclosing_stmt.get_locus())
+                      << ": info: enabling experimental optimization: transforming task expression '"
+                      << enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().prettyprint()
+                      << "' into a simple task" << std::endl
+                      << "To disable this optimization use the flag "
+                      << " --variable=disable_task_expression_optimization:1" << std::endl;
+
+            transform_task_expression_into_simple_task(func_call, enclosing_stmt);
+            return;
+        }
+
         TL::Symbol transformed_task;
         TL::Type return_type = function_called.get_type().returns().get_pointer_to();
         std::map<TL::Symbol, TL::Symbol>::iterator it_transformed_task = _transformed_task_map.find(function_called);
         if (it_transformed_task == _transformed_task_map.end())
         {
             // Using the information of the nonvoid function task,create a new void function
-            // task which acts like a wrapper (i. e. calls to the nonvoid function).
+            // task which acts like a wrapper (i. e. calls to the nonvoid function)
             std::string new_function_name = function_called.get_name() + "__";
             TL::ObjectList<std::string> parameter_names;
             TL::ObjectList<TL::Type> parameter_types;
@@ -1193,6 +1244,7 @@ namespace TL { namespace OpenMP {
                     parameter_names,
                     parameter_types);
 
+
             Nodecl::NodeclBase new_function_code,new_function_body;
             SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
 
@@ -1202,13 +1254,12 @@ namespace TL { namespace OpenMP {
             _transformed_task_map.insert(std::make_pair(function_called, new_function));
 
             // Create the code of the new void function task
-            Nodecl::NodeclBase function_called_code, new_function_stmts;
-            function_called_code = function_called.get_function_code();
-            new_function_stmts = create_a_wrapper_to_the_function_called(function_called, new_function);
+            Nodecl::NodeclBase new_function_stmts =
+                create_body_for_new_function_task(function_called, new_function);
 
             Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
 
-            // In C++, we need to specify explictly the forward declaration
+            // In C++, we need to specify explicitly the forward declaration
             CXX_LANGUAGE()
             {
                 Nodecl::Utils::prepend_items_before(
@@ -1220,7 +1271,15 @@ namespace TL { namespace OpenMP {
 
             // Finally, we should add the new void function task into the task set
             FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
-            add_the_new_task_to_the_function_task_set(function_called, new_function, function_called_task_info, func_call);
+
+            add_new_task_to_the_function_task_set(
+                    function_called,
+                    new_function,
+                    function_called_task_info,
+                    func_call,
+                    /* has_return_argument */ true,
+                    TL::OpenMP::DEP_DIR_OUT);
+
             transformed_task = new_function;
         }
         else
@@ -1241,9 +1300,9 @@ namespace TL { namespace OpenMP {
 
         // Declare a new variable which represents the return of the original function as an argument
         std::stringstream ss;
-        ss << "mcc_ret_" << _counter;
+        ss << "mcc_ret_" << _new_return_vars_counter;
         TL::Symbol return_arg_sym = scope.new_symbol(ss.str());
-        _counter++;
+        _new_return_vars_counter++;
 
         return_arg_sym.get_internal_symbol()->kind = SK_VARIABLE;
         return_arg_sym.get_internal_symbol()->type_information = return_type.get_internal_type();
@@ -1308,7 +1367,7 @@ namespace TL { namespace OpenMP {
         // Prepend the new function call before the enclosing statement of the original function call
         Nodecl::Utils::prepend_items_before(enclosing_stmt, expression_stmt);
 
-        // Replace the original function call by the variable
+        // Replace the original function call with the variable
         Nodecl::NodeclBase dereference_return =
             Nodecl::Conversion::make(
                     Nodecl::Dereference::make(
@@ -1363,7 +1422,62 @@ namespace TL { namespace OpenMP {
         return enclosing_stmt;
     }
 
-    // Replace the object initialization by a variable definition and an assignment
+    bool TransformNonVoidFunctionCalls::only_one_task_is_involved_in_this_stmt(Nodecl::NodeclBase stmt)
+    {
+        // If this enclosing stmt has been handled before and It has more than one task, ignore it
+        if (_enclosing_stmts_with_more_than_one_task.contains(stmt))
+            return false;
+
+        class TaskFinder : public Nodecl::ExhaustiveVisitor<void>
+        {
+            private:
+                int _num_involved_tasks;
+                RefPtr<FunctionTaskSet> _function_task_set;
+
+            public:
+                TaskFinder(RefPtr<FunctionTaskSet> function_task_set) :
+                    _num_involved_tasks(0),
+                    _function_task_set(function_task_set) { }
+
+                void visit(const Nodecl::Symbol& node)
+                {
+                    TL::Symbol sym = node.get_symbol();
+                    Nodecl::NodeclBase value = sym.get_value();
+                    if (!value.is_null())
+                    {
+                        walk(sym.get_value());
+                    }
+                }
+
+                void visit(const Nodecl::FunctionCall& func_call)
+                {
+                    if (_num_involved_tasks >= 2)
+                        return;
+
+                    Nodecl::NodeclBase called = func_call.get_called();
+                    if (!called.is<Nodecl::Symbol>())
+                        return;
+
+                    TL::Symbol function_called = called.as<Nodecl::Symbol>().get_symbol();
+                    if (_function_task_set->is_function_task(function_called))
+                        _num_involved_tasks++;
+                }
+
+                bool only_one_task_is_involved() { return (_num_involved_tasks == 1); }
+        };
+
+        TaskFinder visitor(_function_task_set);
+        visitor.walk(stmt);
+
+        bool result = visitor.only_one_task_is_involved();
+        if (!result)
+        {
+            _enclosing_stmts_with_more_than_one_task.append(stmt);
+        }
+        return result;
+    }
+
+    // Replace the object initialization with a variable definition and an assignment
     // Expected input:
     //      {
     //          int x = foo(...);
@@ -1395,7 +1509,7 @@ namespace TL { namespace OpenMP {
                     locus),
                 locus);
 
-        // Replace the object initialization by this new assignment
+        // Replace the object initialization with this new assignment
         enclosing_stmt.replace(new_expr_stmt);
 
         // Remove the value of the 'sym' symbol
@@ -1408,7 +1522,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    // Replace the return statement by a variable definition, an assignment,
+    // Replace the return statement with a variable definition, an assignment,
     // a taskwait and an empty return statement
     // Expected input:
     //      {
@@ -1432,10 +1546,10 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase value = enclosing_stmt.as<Nodecl::ReturnStatement>().get_value();
 
         std::stringstream ss;
-        ss << "mcc_ret_stmt_" << _counter;
+        ss << "mcc_ret_stmt_" << _new_return_vars_counter;
         Scope scope = enclosing_stmt.retrieve_context();
         TL::Symbol new_symbol = scope.new_symbol(ss.str());
-        _counter++;
+        _new_return_vars_counter++;
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = value.get_type().get_internal_type();
@@ -1452,7 +1566,7 @@ namespace TL { namespace OpenMP {
                     locus),
                 locus);
 
-        // Replace the return statement by this new assignment
+        // Replace the return statement with this new assignment
         enclosing_stmt.replace(new_expr_stmt);
 
         Nodecl::Utils::append_items_after(enclosing_stmt, Nodecl::ReturnStatement::make(sym_nodecl.shallow_copy()));
@@ -1465,58 +1579,62 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void TransformNonVoidFunctionCalls::add_the_new_task_to_the_function_task_set(
-            TL::Symbol function_called,
-            TL::Symbol new_function,
-            const FunctionTaskInfo& original_function_task_info,
-            Nodecl::NodeclBase func_call)
+    void TransformNonVoidFunctionCalls::add_new_task_to_the_function_task_set(
+            TL::Symbol ori_funct,
+            TL::Symbol new_funct,
+            const FunctionTaskInfo& ori_funct_task_info,
+            Nodecl::NodeclBase func_call,
+            bool has_return_argument,
+            TL::OpenMP::DependencyDirection dep_dir_ret_arg)
     {
         Nodecl::Utils::SimpleSymbolMap translation_map;
-        TL::ObjectList<TL::Symbol> new_function_related_symbols = new_function.get_related_symbols();
-        TL::ObjectList<TL::Symbol> function_called_related_symbols = function_called.get_related_symbols();
-        unsigned int function_called_num_related_symbols = function_called.get_num_related_symbols();
+        TL::ObjectList<TL::Symbol> new_funct_related_symbols = new_funct.get_related_symbols();
+        TL::ObjectList<TL::Symbol> ori_funct_related_symbols = ori_funct.get_related_symbols();
+        unsigned int ori_funct_num_related_symbols = ori_funct.get_num_related_symbols();
         unsigned int j = 0;
-        if (function_called.is_member()
-                && !function_called.is_static())
+        if (ori_funct.is_member()
+                && !ori_funct.is_static())
         {
             j++;
         }
 
-        for (unsigned int i = 0; i < function_called_num_related_symbols; ++i, ++j)
+        for (unsigned int i = 0; i < ori_funct_num_related_symbols; ++i, ++j)
         {
-            translation_map.add_map(function_called_related_symbols[j], new_function_related_symbols[i]);
+            translation_map.add_map(ori_funct_related_symbols[j], new_funct_related_symbols[i]);
         }
-        translation_map.add_map(function_called, new_function);
+        translation_map.add_map(ori_funct, new_funct);
 
-        FunctionTaskInfo new_function_task_info(original_function_task_info, translation_map, new_function);
+        FunctionTaskInfo new_funct_task_info(ori_funct_task_info, translation_map, new_funct);
+        new_funct_task_info.set_locus(func_call.get_locus());
 
-        TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_function.get_related_symbols();
-        TL::Symbol return_argument = new_funcion_related_symbols[new_funcion_related_symbols.size()-1];
-        Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
-                return_argument,
-                return_argument.get_locus());
-        return_argument_nodecl.set_type(lvalue_ref(return_argument.get_type().get_internal_type()));
+        if (has_return_argument)
+        {
+            TL::ObjectList<TL::Symbol> new_funcion_related_symbols = new_funct.get_related_symbols();
+            TL::Symbol return_argument = new_funcion_related_symbols[new_funcion_related_symbols.size()-1];
+            Nodecl::NodeclBase return_argument_nodecl = Nodecl::Symbol::make(
+                    return_argument,
+                    return_argument.get_locus());
+            return_argument_nodecl.set_type(lvalue_ref(return_argument.get_type().get_internal_type()));
 
-        TL::DataReference data_ref_dep(
-                Nodecl::Dereference::make(
-                    return_argument_nodecl,
-                    return_argument_nodecl.get_type().no_ref().points_to().get_lvalue_reference_to(),
-                    return_argument.get_locus()));
+            TL::DataReference data_ref_dep(
+                    Nodecl::Dereference::make(
+                        return_argument_nodecl,
+                        return_argument_nodecl.get_type().no_ref().points_to().get_lvalue_reference_to(),
+                        return_argument.get_locus()));
 
-        FunctionTaskDependency result_dependence(data_ref_dep, TL::OpenMP::DEP_DIR_OUT);
-        new_function_task_info.add_function_task_dependency(result_dependence);
+            FunctionTaskDependency result_dependence(data_ref_dep, dep_dir_ret_arg);
+            new_funct_task_info.add_function_task_dependency(result_dependence);
 
-        new_function_task_info.set_locus(func_call.get_locus());
+            TargetInfo& target_info = new_funct_task_info.get_target_info();
+            TL::ObjectList<CopyItem> new_copies;
+            new_copies.append(CopyItem(data_ref_dep, TL::OpenMP::COPY_DIR_OUT));
+            target_info.append_to_copy_out(new_copies);
+        }
 
-        TargetInfo& target_info = new_function_task_info.get_target_info();
-        TL::ObjectList<CopyItem> new_copies;
-        new_copies.append(CopyItem(data_ref_dep, TL::OpenMP::COPY_DIR_OUT));
-        target_info.append_to_copy_out(new_copies);
-
-        _function_task_set->add_function_task(new_function, new_function_task_info);
+        _function_task_set->add_function_task(new_funct, new_funct_task_info);
     }
 
-    Nodecl::NodeclBase TransformNonVoidFunctionCalls::create_a_wrapper_to_the_function_called(
+    Nodecl::NodeclBase TransformNonVoidFunctionCalls::create_body_for_new_function_task(
             TL::Symbol original_function,
             TL::Symbol new_function)
     {
@@ -1590,5 +1708,473 @@ namespace TL { namespace OpenMP {
         // The function call to the original task should be ignored!
         _ignore_these_function_calls.append(new_function_call.as<Nodecl::FunctionCall>());
         return expression_stmt;
+    }
+
+
+
+    // If the current task expression contains only a return task, we can create
+    // a new function task which evaluates the whole expression, instead of create
+    // two tasks (one for the return task and another one for the join).
+    //
+    // Expected input:
+    //
+    //      #pragma omp task in(*i)
+    //      int foo(int* i) { return *i + 1; }
+    //
+    //      int main()
+    //      {
+    //          int x = 0, i = 1;
+    //          x += foo(&i) + i;
+    //      }
+    //
+    // Expected output:
+    //      int foo(int *i) { return *i + 1; }
+    //
+    //      #pragma omp task in(*i) concurrent(*out)
+    //      void foo__(int* i, int i_captured, int* out)
+    //      {
+    //          int tmp = foo(i) + i_captured;
+    //          #pragma omp atomic
+    //          *out += tmp;
+    //      }
+    //
+    //      int main()
+    //      {
+    //          int x = 0, i = 1;
+    //          foo__(&i, i, x);
+    //      }
+    //
+
+    void generate_list_of_symbols_to_be_captured_rec(Nodecl::NodeclBase node,
+            Nodecl::NodeclBase lhs_expr,
+            Nodecl::NodeclBase func_call,
+            TL::ObjectList<TL::Symbol>& captured_value_symbols)
+    {
+        if (node.is_null())
+            return;
+
+        if (node == func_call)
+            return;
+
+        if (!lhs_expr.is_null()
+                && node.get_kind() == lhs_expr.get_kind()
+                && Nodecl::Utils::equal_nodecls(node, lhs_expr))
+            return;
+
+        if (node.is<Nodecl::Symbol>())
+        {
+            TL::Symbol sym = node.as<Nodecl::Symbol>().get_symbol();
+            if (sym.is_variable())
+                captured_value_symbols.append(sym);
+        }
+
+        if (node.is<Nodecl::List>())
+        {
+            Nodecl::List l = node.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+            {
+                generate_list_of_symbols_to_be_captured_rec(
+                        *it, lhs_expr, func_call, captured_value_symbols);
+            }
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end();
+                    it++)
+            {
+                generate_list_of_symbols_to_be_captured_rec(
+                        *it, lhs_expr, func_call, captured_value_symbols);
+            }
+        }
+    }
+
+    TL::ObjectList<TL::Symbol> TransformNonVoidFunctionCalls::generate_list_of_symbols_to_be_captured(
+            Nodecl::NodeclBase rhs_expr,
+            Nodecl::NodeclBase lhs_expr,
+            Nodecl::NodeclBase func_call)
+    {
+        TL::ObjectList<TL::Symbol> captured_value_symbols;
+        generate_list_of_symbols_to_be_captured_rec(
+                rhs_expr, lhs_expr, func_call, captured_value_symbols);
+        return captured_value_symbols;
+    }
+
+    void TransformNonVoidFunctionCalls::transform_task_expression_into_simple_task(
+            Nodecl::FunctionCall func_call,
+            Nodecl::NodeclBase enclosing_stmt)
+    {
+        Scope scope = enclosing_stmt.retrieve_context();
+        Nodecl::List arguments = func_call.get_arguments().as<Nodecl::List>();
+        TL::Symbol function_called = func_call.get_called().as<Nodecl::Symbol>().get_symbol();
+
+        std::stringstream ss;
+        ss << function_called.get_name() << "__" << _optimized_task_expr_counter;
+        _optimized_task_expr_counter++;
+
+        std::string new_function_name = ss.str();
+        TL::ObjectList<std::string> parameter_names;
+        TL::ObjectList<TL::Type> parameter_types;
+
+        // An extra parameter should be added to this new function if the function called
+        // is a nonstatic member. This parameter represents the 'this' object
+        if (function_called.is_member()
+                && !function_called.is_static())
+        {
+            // Make sure we use the scope we used to parse the dependences
+            FunctionTaskInfo function_called_task_info =
+                _function_task_set->get_function_task(function_called);
+
+            Scope sc = function_called_task_info.get_parsing_scope();
+            TL::Symbol this_ = sc.get_symbol_from_name("this");
+            ERROR_CONDITION(this_.is_invalid(), "Unreachable code", 0);
+            parameter_names.append("this__");
+            parameter_types.append(this_.get_type());
+        }
+
+        parameter_types.append(function_called.get_type().parameters());
+        TL::ObjectList<TL::Symbol> function_called_related_symbols = function_called.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = function_called_related_symbols.begin();
+                it != function_called_related_symbols.end();
+                it++)
+        {
+            parameter_names.append(it->get_name());
+        }
+
+        Nodecl::NodeclBase lhs_expr, rhs_expr;
+        decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
+        bool has_return_argument = !lhs_expr.is_null();
+
+        TL::ObjectList<TL::Symbol> captured_value_symbols =
+            generate_list_of_symbols_to_be_captured(rhs_expr, lhs_expr, func_call);
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = captured_value_symbols.begin();
+                it != captured_value_symbols.end(); ++it)
+        {
+            parameter_names.append(it->get_name() + "_capt");
+            parameter_types.append(it->get_type());
+
+        }
+
+        if (has_return_argument)
+        {
+            parameter_names.append("output");
+            parameter_types.append(function_called.get_type().returns().get_pointer_to());
+        }
+
+        TL::Symbol new_function = SymbolUtils::new_function_symbol(
+                scope.get_related_symbol(),
+                new_function_name,
+                TL::Type::get_void_type(),
+                parameter_names,
+                parameter_types);
+
+        Nodecl::NodeclBase new_function_code,new_function_body;
+        SymbolUtils::build_empty_body_for_function(new_function, new_function_code, new_function_body);
+
+        new_function.get_internal_symbol()->entity_specs.function_code = new_function_code.get_internal_nodecl();
+
+        // Create the code of the new void function task
+        Nodecl::NodeclBase new_stmts = create_body_for_new_optmized_function_task(
+                function_called,
+                new_function,
+                enclosing_stmt.shallow_copy(),
+                new_function_body,
+                captured_value_symbols);
+
+        Nodecl::Utils::append_to_top_level_nodecl(new_function_code);
+
+        // In C++, we need to specify explicitly the forward declaration
+        CXX_LANGUAGE()
+        {
+            Nodecl::Utils::prepend_items_before(
+                    scope.get_related_symbol().get_function_code(),
+                    Nodecl::CxxDecl::make(/* context */ nodecl_null(), new_function));
+        }
+
+        new_function_body.replace(new_stmts);
+
+        // Finally, we should add the new void function task into the task set
+        FunctionTaskInfo function_called_task_info = _function_task_set->get_function_task(function_called);
+
+        add_new_task_to_the_function_task_set(
+                function_called,
+                new_function,
+                function_called_task_info,
+                func_call,
+                has_return_argument,
+                TL::OpenMP::DEP_CONCURRENT);
+
+
+        // Create the new called entity
+        Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
+                new_function,
+                func_call.get_locus());
+
+        called_entity.set_type(lvalue_ref(new_function.get_type().get_internal_type()));
+
+        // Create the new argument's list of the new function call to the void function task
+        Nodecl::List new_arguments;
+        Nodecl::List::iterator it = arguments.begin();
+
+        // If this is a nonstatic member, the first argument should be the address of the 'this' object
+        if (function_called.is_member()
+                && !function_called.is_static())
+        {
+            new_arguments.append(
+                    Nodecl::Reference::make(
+                        *it,
+                        it->get_type().no_ref().get_pointer_to(),
+                        func_call.get_locus()));
+            it++;
+        }
+
+        for (; it != arguments.end(); it++)
+        {
+            new_arguments.append(*it);
+        }
+
+        for(TL::ObjectList<TL::Symbol>::iterator it2 = captured_value_symbols.begin();
+                it2 != captured_value_symbols.end(); ++it2)
+        {
+            Nodecl::NodeclBase new_arg =
+                Nodecl::Symbol::make(*it2,
+                        func_call.get_locus());
+
+            new_arg.set_type(lvalue_ref(it2->get_type().get_internal_type()));
+            new_arguments.append(new_arg);
+        }
+
+        if (has_return_argument)
+        {
+            // Finally, extend the argument's list adding the output argument
+            Nodecl::NodeclBase dereference_return =
+                Nodecl::Reference::make(
+                        lhs_expr,
+                        lhs_expr.get_type().no_ref(),
+                        func_call.get_locus());
+
+            new_arguments.append(dereference_return);
+        }
+
+        // Create the new function call and encapsulate it in a ExpressionStatement
+        Nodecl::NodeclBase new_function_call =
+            Nodecl::FunctionCall::make(
+                    called_entity,
+                    new_arguments,
+                    /* alternate_name */ nodecl_null(),
+                    /* function_form */ nodecl_null(),
+                    TL::Type::get_void_type(),
+                    func_call.get_locus());
+
+        Nodecl::NodeclBase expression_stmt =
+            Nodecl::ExpressionStatement::make(new_function_call);
+
+        enclosing_stmt.replace(expression_stmt);
+    }
+
+    void TransformNonVoidFunctionCalls::update_rhs_expression(
+            Nodecl::NodeclBase node,
+            Nodecl::NodeclBase lhs_expr,
+            TL::Symbol ori_funct,
+            const ObjectList<TL::Symbol>& new_funct_related_symbols,
+            Nodecl::Utils::SimpleSymbolMap& map_for_captures,
+            Nodecl::NodeclBase& task_call)
+    {
+        if (node.is_null())
+            return;
+
+        if (node.is<Nodecl::FunctionCall>())
+        {
+            Nodecl::NodeclBase called = node.as<Nodecl::FunctionCall>().get_called();
+            if (called.is<Nodecl::Symbol>()
+                    && ori_funct == called.as<Nodecl::Symbol>().get_symbol())
+            {
+                Nodecl::NodeclBase called_entity = Nodecl::Symbol::make(
+                        ori_funct,
+                        ori_funct.get_locus());
+
+                called_entity.set_type(lvalue_ref(ori_funct.get_type().get_internal_type()));
+
+                unsigned int i = 0;
+                Nodecl::List argument_list;
+                if (ori_funct.is_member()
+                        && !ori_funct.is_static())
+                {
+                    Nodecl::NodeclBase new_arg =
+                        Nodecl::Symbol::make(new_funct_related_symbols[0],
+                                ori_funct.get_locus());
+
+                    new_arg.set_type(lvalue_ref(new_funct_related_symbols[0].get_type().get_internal_type()));
+                    argument_list.append(Nodecl::Dereference::make(
+                                new_arg,
+                                new_arg.get_type().no_ref().points_to().get_lvalue_reference_to(),
+                                ori_funct.get_locus()));
+                    i++;
+                }
+
+                unsigned int num_ori_funct_params = ori_funct.get_related_symbols().size();
+                for (; i < num_ori_funct_params; ++i)
+                {
+                    Nodecl::NodeclBase new_arg =
+                        Nodecl::Symbol::make(new_funct_related_symbols[i],
+                                ori_funct.get_locus());
+
+                    new_arg.set_type(lvalue_ref(new_funct_related_symbols[i].get_type().get_internal_type()));
+                    argument_list.append(new_arg);
+                }
+
+                Nodecl::FunctionCall new_funct_call = Nodecl::FunctionCall::make(
+                        called_entity,
+                        argument_list,
+                        /* alternate name */ nodecl_null(),
+                        /* function_form */ nodecl_null(),
+                        ori_funct.get_type().returns(),
+                        ori_funct.get_locus());
+
+                node.replace(new_funct_call);
+
+                task_call = node;
+
+                return;
+            }
+        }
+
+        if (!lhs_expr.is_null()
+                && node.get_kind() == lhs_expr.get_kind()
+                && Nodecl::Utils::equal_nodecls(node, lhs_expr))
+        {
+            int new_funct_num_related_symbols = new_funct_related_symbols.size();
+
+            Nodecl::NodeclBase return_param = Nodecl::Symbol::make(
+                    new_funct_related_symbols[new_funct_num_related_symbols - 1],
+                    ori_funct.get_locus());
+
+            return_param.set_type(lvalue_ref(
+                        new_funct_related_symbols[new_funct_num_related_symbols-1].get_type().get_internal_type()));
+
+            Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
+                    return_param,
+                    return_param.get_type().no_ref().points_to().get_lvalue_reference_to(),
+                    ori_funct.get_locus());
+
+            node.replace(deref_return_param);
+            return;
+        }
+
+        if (node.is<Nodecl::Symbol>())
+        {
+            Nodecl::NodeclBase node_updated
+                = Nodecl::Utils::deep_copy(node, node, map_for_captures);
+            node.replace(node_updated);
+            return;
+        }
+        if (node.is<Nodecl::List>())
+        {
+            Nodecl::List l = node.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = l.begin(); it != l.end(); it++)
+            {
+                update_rhs_expression(*it, lhs_expr, ori_funct, new_funct_related_symbols, map_for_captures, task_call);
+            }
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = node.children();
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end();
+                    it++)
+            {
+                update_rhs_expression(*it, lhs_expr, ori_funct, new_funct_related_symbols, map_for_captures, task_call);
+            }
+        }
+    }
+
+
+    Nodecl::NodeclBase TransformNonVoidFunctionCalls::create_body_for_new_optmized_function_task(
+            TL::Symbol ori_funct,
+            TL::Symbol new_funct,
+            Nodecl::NodeclBase enclosing_stmt,
+            Nodecl::NodeclBase new_funct_body,
+            TL::ObjectList<TL::Symbol>& captured_value_symbols)
+    {
+        Nodecl::List new_stmts;
+        Nodecl::NodeclBase lhs_expr, rhs_expr;
+        decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
+
+        // We need to update the rhs_expr because It's not expressed in terms
+        // of the parameters of the new function
+        Nodecl::Utils::SimpleSymbolMap map;
+        int aux = ori_funct.get_related_symbols().size();
+        TL::ObjectList<TL::Symbol> new_funct_related_symbols = new_funct.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = captured_value_symbols.begin();
+                it != captured_value_symbols.end(); ++it, ++aux)
+        {
+            map.add_map(*it, new_funct_related_symbols[aux]);
+        }
+
+        Nodecl::NodeclBase task_call = nodecl_null();
+        update_rhs_expression(rhs_expr, lhs_expr, ori_funct, new_funct_related_symbols, map, task_call);
+
+        ERROR_CONDITION(task_call.is_null(), "Unreachable code", 0);
+        ERROR_CONDITION(!task_call.is<Nodecl::FunctionCall>(),
+                "Unexpected '%s' node",
+                    ast_print_node_type(task_call.get_kind()));
+
+        if (!lhs_expr.is_null())
+        {
+            // We create a new auxiliar variable wich value is the result of the task call
+            TL::Symbol aux_var = new_funct_body.retrieve_context().new_symbol("tmp");
+            aux_var.get_internal_symbol()->kind = SK_VARIABLE;
+            aux_var.get_internal_symbol()->type_information = task_call.get_type().no_ref().get_internal_type();
+            aux_var.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+            Nodecl::NodeclBase task_call_copied = task_call.shallow_copy();
+            aux_var.get_internal_symbol()->value = task_call_copied.get_internal_nodecl();
+
+            // The function call to the original task should be ignored!
+             _ignore_these_function_calls.append(task_call_copied.as<Nodecl::FunctionCall>());
+
+            new_stmts.append(Nodecl::ObjectInit::make(aux_var, new_funct_body.get_locus()));
+
+            Nodecl::NodeclBase aux_var_nodecl = Nodecl::Symbol::make(
+                    aux_var,
+                    new_funct_body.get_locus());
+
+            aux_var_nodecl.set_type(aux_var.get_type().get_internal_type());
+
+            // Replace the task call with new auxiliar variable in the rhs expression
+            task_call.replace(aux_var_nodecl);
+
+            int new_funct_num_related_symbols = new_funct_related_symbols.size();
+            Nodecl::NodeclBase return_param = Nodecl::Symbol::make(
+                    new_funct_related_symbols[new_funct_num_related_symbols - 1],
+                    ori_funct.get_locus());
+
+            return_param.set_type(lvalue_ref(new_funct_related_symbols[new_funct_num_related_symbols-1].get_type().get_internal_type()));
+
+            Nodecl::NodeclBase deref_return_param = Nodecl::Dereference::make(
+                    return_param,
+                    return_param.get_type().no_ref().points_to().get_lvalue_reference_to(),
+                    ori_funct.get_locus());
+
+            // Replace the lhs expression with the return parameter
+            lhs_expr.replace(deref_return_param);
+
+
+            Nodecl::List atomic_exec_env = Nodecl::List::make(
+                    Nodecl::OpenMP::FlushAtEntry::make(new_funct_body.get_locus()),
+                    Nodecl::OpenMP::FlushAtExit::make(new_funct_body.get_locus()));
+
+            Nodecl::OpenMP::Atomic atomic =
+                Nodecl::OpenMP::Atomic::make(
+                        atomic_exec_env,
+                        Nodecl::List::make(enclosing_stmt),
+                        new_funct_body.get_locus());
+            enclosing_stmt = atomic;
+        }
+
+         new_stmts.append(enclosing_stmt);
+         return new_stmts;
     }
 }}

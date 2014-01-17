@@ -70,10 +70,13 @@ HANDLER_PROTOTYPE(null_handler);
 HANDLER_PROTOTYPE(parameter_decl_handler);
 HANDLER_PROTOTYPE(parameters_and_qualifiers_handler);
 HANDLER_PROTOTYPE(parameters_and_qualifiers_extra_handler);
+HANDLER_PROTOTYPE(lambda_declarator_handler);
+HANDLER_PROTOTYPE(lambda_capture_handler);
 HANDLER_PROTOTYPE(init_declarator_handler);
 HANDLER_PROTOTYPE(pointer_decl_handler);
 HANDLER_PROTOTYPE(type_id_handler);
 HANDLER_PROTOTYPE(prefix_with_parameter_then_son_handler);
+HANDLER_PROTOTYPE(prefix_with_parameter_then_text);
 HANDLER_PROTOTYPE(prefix_with_token_text_then_son_handler);
 HANDLER_PROTOTYPE(braced_initializer_handler);
 HANDLER_PROTOTYPE(pointer_spec_handler);
@@ -154,6 +157,9 @@ HANDLER_PROTOTYPE(designation_handler);
 HANDLER_PROTOTYPE(index_designator_handler);
 HANDLER_PROTOTYPE(field_designator_handler);
 
+HANDLER_PROTOTYPE(trailing_return_handler);
+
+HANDLER_PROTOTYPE(lambda_expression_handler);
 HANDLER_PROTOTYPE(decltype_handler);
 HANDLER_PROTOTYPE(static_assert_handler);
 
@@ -245,6 +251,13 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
     NODE_HANDLER(AST_PARAMETERS_AND_QUALIFIERS, parameters_and_qualifiers_handler, NULL),
     NODE_HANDLER(AST_PARAMETERS_AND_QUALIFIERS_EXTRA, parameters_and_qualifiers_extra_handler, NULL),
+    NODE_HANDLER(AST_LAMBDA_DECLARATOR, lambda_declarator_handler, NULL),
+    NODE_HANDLER(AST_LAMBDA_CAPTURE, lambda_capture_handler, NULL),
+    NODE_HANDLER(AST_LAMBDA_CAPTURE_DEFAULT_ADDR, simple_parameter_handler, "&"),
+    NODE_HANDLER(AST_LAMBDA_CAPTURE_DEFAULT_VALUE, simple_parameter_handler, "="),
+    NODE_HANDLER(AST_LAMBDA_CAPTURE_VALUE, simple_text_handler, NULL),
+    NODE_HANDLER(AST_LAMBDA_CAPTURE_ADDRESS, prefix_with_parameter_then_text, "&"),
+    NODE_HANDLER(AST_LAMBDA_CAPTURE_THIS, simple_parameter_handler, "this"),
     NODE_HANDLER(AST_PARENTHESIZED_INITIALIZER, parenthesized_initializer_handler, NULL),
     NODE_HANDLER(AST_EQUAL_INITIALIZER, prefix_with_parameter_then_son_handler, " = "),
     NODE_HANDLER(AST_INITIALIZER_BRACES, braced_initializer_handler, NULL),
@@ -274,6 +287,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VIRTUAL_SPEC, simple_parameter_handler, "virtual"),
     NODE_HANDLER(AST_EXPLICIT_SPEC, simple_parameter_handler, "explicit"),
     NODE_HANDLER(AST_DECIMAL_LITERAL, simple_text_handler, NULL),
+    NODE_HANDLER(AST_LAMBDA_EXPRESSION, lambda_expression_handler, NULL),
+    NODE_HANDLER(AST_TRAILING_RETURN, trailing_return_handler, NULL),
     NODE_HANDLER(AST_VLA_EXPRESSION, simple_text_handler, NULL),
     NODE_HANDLER(AST_OCTAL_LITERAL, simple_text_handler, NULL),
     NODE_HANDLER(AST_HEXADECIMAL_LITERAL, simple_text_handler, NULL),
@@ -1008,6 +1023,12 @@ static void prefix_with_parameter_then_son_handler(FILE* f, AST a, prettyprint_c
     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
+
+static void prefix_with_parameter_then_text(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "%s%s", HELPER_PARAMETER_STRING, ASTText(a));
+}
+
 
 static void braced_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
@@ -2574,4 +2595,64 @@ static void cuda_kernel_arguments_handler(FILE* f, AST a, prettyprint_context_t*
     }
 
     token_fprintf(f, a, pt_ctx, ">>>");
+}
+
+static void trailing_return_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, " -> ");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void lambda_capture_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    if (ASTSon0(a) != NULL
+            && ASTSon1(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, ", ");
+    }
+    list_handler(f, ASTSon1(a), pt_ctx);
+}
+
+static void lambda_declarator_handler(FILE *f, AST a, prettyprint_context_t *pt_ctx)
+{
+    AST parameter_decls = ASTSon0(a);
+    AST mutable = ASTSon1(a);
+    AST trailing_return = ASTSon2(a);
+
+    token_fprintf(f, a, pt_ctx, "(");
+    list_handler(f, ASTSon0(parameter_decls), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+
+    prettyprint_level(f, mutable, pt_ctx);
+    if (mutable != NULL)
+        token_fprintf(f, a, pt_ctx, " ");
+
+    AST extra = ASTSon1(parameter_decls);
+
+    if (extra != NULL)
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            AST parameter_decl = ast_get_child(extra, i);
+
+            if (parameter_decl != NULL)
+            {
+                sequence_handler(f, parameter_decl, pt_ctx);
+                token_fprintf(f, a, pt_ctx, " ");
+            }
+        }
+    }
+
+    prettyprint_level(f, trailing_return, pt_ctx);
+}
+
+static void lambda_expression_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "[");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, "]");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
 }

@@ -96,6 +96,8 @@ loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt
             | NODECL_UNBOUNDED_LOOP_CONTROL()
 
 range-loop-control : NODECL_RANGE_LOOP_CONTROL([induction_variable] name, [lower]expression, [upper]expression, [step]expression-opt)
+# Next one is for C++2011
+    | NODECL_ITERATOR_LOOP_CONTROL([range_iterator] name, [initializer]expression)
 
 pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line, [context_of_decl]pragma-context) text
                 | pragma-declaration
@@ -283,11 +285,15 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt 
                   | NODECL_VLA_WILDCARD() type
+                  | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
                   | cxx-pack
 
+# Used for C++11 lambdas
+explicit-capture: NODECL_CAPTURE_COPY() symbol
+                | NODECL_CAPTURE_REFERENCE() symbol
 
 mask-expressions : NODECL_MASK_LITERAL() type const-value
 

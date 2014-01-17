@@ -321,7 +321,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
    { \
        *(file) << "("; \
    } \
-   char needs_parentheses = operand_has_lower_priority(node, lhs) || same_operation(node, lhs); \
+   char needs_parentheses = get_rank(lhs) < get_rank_kind(NODECL_LOGICAL_OR, ""); \
    if (needs_parentheses) \
    { \
        *(file) << "("; \
@@ -332,7 +332,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
        *(file) << ")"; \
    } \
    *(file) << _operand; \
-   needs_parentheses = operand_has_lower_priority(node, rhs); \
+   needs_parentheses = get_rank(rhs) < get_rank_kind(NODECL_ASSIGNMENT, ""); \
    if (needs_parentheses) \
    { \
        *(file) << "("; \
@@ -797,14 +797,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
 
-    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
+    bool condition_must_be_parenthesized = get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, "");
+    if (condition_must_be_parenthesized)
     {
         // This expression is a logical-or-expression, so an assignment (or comma)
         // needs parentheses
         *(file) << "(";
     }
     walk(cond);
-    if (get_rank(cond) < get_rank_kind(NODECL_LOGICAL_OR, ""))
+    if (condition_must_be_parenthesized)
     {
         *(file) << ")";
     }
@@ -816,13 +817,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 
     *(file) << " : ";
 
-    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+    node_t priority_node = NODECL_CONDITIONAL_EXPRESSION;
+    CXX_LANGUAGE()
     {
-        // Only comma operator could get here actually
+        // C++ is more liberal in the syntax of the conditional operator than C99
+        priority_node = NODECL_ASSIGNMENT;
+    }
+
+    bool else_part_must_be_parenthesized = get_rank(_else) < get_rank_kind(priority_node, "");
+    if (else_part_must_be_parenthesized)
+    {
         *(file) << "(";
     }
     walk(_else);
-    if (get_rank(cond) < get_rank_kind(NODECL_ASSIGNMENT, ""))
+    if (else_part_must_be_parenthesized)
     {
         *(file) << ")";
     }
@@ -1278,6 +1286,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
             dec_indent();
         }
 
+    }
+    // C++2011
+    else if (loop_control.is<Nodecl::IteratorLoopControl>())
+    {
+        indent();
+        *(file) << "for (";
+        walk(loop_control);
+        *(file) << ")\n";
+
+        inc_indent();
+        walk(statement);
+        dec_indent();
     }
     else
     {
@@ -2608,6 +2628,108 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IndexDesignator& node)
     walk(next);
 }
 
+void CxxBase::visit(const Nodecl::Lambda& node)
+{
+    (*file) << "[";
+
+    Nodecl::List explicit_captures = node.get_explicit_captures().as<Nodecl::List>();
+
+    for (Nodecl::List::iterator it = explicit_captures.begin();
+            it != explicit_captures.end();
+            it++)
+    {
+        if (it != explicit_captures.begin())
+            (*file) << ", ";
+
+        if (it->get_symbol().get_name() == "this")
+        {
+            (*file) << "this";
+            continue;
+        }
+
+        if (it->is<Nodecl::CaptureReference>())
+        {
+                (*file) << "&";
+        }
+
+        (*file) << it->get_symbol().get_name();
+
+        if (it->get_symbol().is_variable_pack())
+            (*file) << " ...";
+    }
+
+    *file << "]";
+
+    // This is a fake symbol used only to keep things around
+    TL::Symbol lambda_symbol = node.get_symbol();
+    std::string exception_specifier = this->exception_specifier_to_str(lambda_symbol);
+
+    TL::Type real_type = lambda_symbol.get_type();
+
+    std::string trailing_type_specifier;
+    trailing_type_specifier = " -> ";
+    trailing_type_specifier += print_type_str(
+            real_type.returns().get_internal_type(),
+            lambda_symbol.get_scope().get_decl_context(),
+            (void*) this);
+
+    // Remove return type because we will just print ( P )
+    real_type = function_type_replace_return_type(real_type.get_internal_type(), NULL);
+
+    int num_parameters = lambda_symbol.get_related_symbols().size();
+    TL::ObjectList<std::string> parameter_names(num_parameters);
+    TL::ObjectList<std::string> parameter_attributes(num_parameters);
+    fill_parameter_names_and_parameter_attributes(lambda_symbol,
+            parameter_names,
+            parameter_attributes,
+            /* emit_default_arguments */ true);
+
+    std::string declarator;
+    declarator = this->get_declaration_with_parameters(real_type, lambda_symbol.get_scope(),
+            "", // No function name
+            parameter_names,
+            parameter_attributes);
+
+    *file << declarator << " ";
+
+    if (lambda_symbol.is_mutable())
+        *file << "mutable ";
+
+    *file << exception_specifier;
+
+    Nodecl::Context context = lambda_symbol.get_function_code().as<Nodecl::Context>();
+    Nodecl::List statements = context.get_in_context().as<Nodecl::List>();
+
+    this->push_scope(lambda_symbol.get_related_scope());
+
+    *(file) << "{\n";
+    inc_indent();
+
+    State::EmitDeclarations emit_declarations = state.emit_declarations;
+    if (state.emit_declarations == State::EMIT_NO_DECLARATIONS)
+        state.emit_declarations = State::EMIT_CURRENT_SCOPE_DECLARATIONS;
+
+    bool in_condition = state.in_condition;
+    state.in_condition = 0;
+
+    ERROR_CONDITION(statements.size() != 1, "In C/C++ blocks only have one statement", 0);
+    ERROR_CONDITION(!statements[0].is<Nodecl::CompoundStatement>(), "Invalid statement", 0);
+
+    Nodecl::NodeclBase statement_seq = statements[0].as<Nodecl::CompoundStatement>().get_statements();
+
+    define_local_entities_in_trees(statement_seq);
+    walk(statement_seq);
+
+    state.in_condition = in_condition;
+    state.emit_declarations = emit_declarations;
+    dec_indent();
+
+    indent();
+    *(file) << "}";
+
+    this->pop_scope();
+}
+
 void CxxBase::emit_integer_constant(const_value_t* cval, TL::Type t)
 {
     unsigned long long int v = const_value_cast_to_8(cval);
@@ -2783,6 +2905,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
     state.in_condition = old;
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::IteratorLoopControl& node)
+{
+    Nodecl::NodeclBase node_iterator_symbol = node.get_range_iterator();
+    TL::Symbol iterator_symbol = node_iterator_symbol.get_symbol();
+
+    bool old_in_condition = state.in_condition;
+    state.in_condition = 1;
+
+    define_or_declare_variable(iterator_symbol, /* is_definition */ 1);
+
+    state.in_condition = old_in_condition;
+
+    *file << " : ";
+
+    walk(node.get_initializer());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
 {
     TL::Symbol entry = node.get_symbol();
@@ -2889,6 +3028,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
         }
         *(file) << ")";
     }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxNoexcept& node)
+{
+    *(file) << "noexcept(";
+    walk(node.get_expr());
+    *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepNew& node)
@@ -6477,7 +6623,9 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
     {
         walk_type_for_symbols(t.vector_element(), symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
-    else if (t.is_named_class())
+    else if (t.is_named_class()
+                // Anonymous unions are handled as unnamed classes
+                && !t.get_symbol().is_anonymous_union())
     {
         TL::Symbol class_entry = t.get_symbol();
         if (needs_definition)
@@ -6489,7 +6637,10 @@ void CxxBase::walk_type_for_symbols(TL::Type t,
             (this->*symbol_to_declare)(class_entry);
         }
     }
-    else if (t.is_unnamed_class())
+    else if (t.is_unnamed_class()
+            // Anonymous unions are handled as unnamed classes
+            || (t.is_named_class()
+                && t.get_symbol().is_anonymous_union()))
     {
         // Special case for nested members
 
@@ -6855,6 +7006,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
         case NODECL_COMPOUND_EXPRESSION:
+        case NODECL_LAMBDA:
 
         case NODECL_CXX_DEP_NAME_SIMPLE:
         case NODECL_CXX_DEP_NAME_CONVERSION:
@@ -6955,7 +7107,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
             return -14;
         case NODECL_LOGICAL_OR:
             return -15;
+        case NODECL_THROW:
         case NODECL_CONDITIONAL_EXPRESSION:
+            return -16;
         case NODECL_ASSIGNMENT:
         case NODECL_MUL_ASSIGNMENT:
         case NODECL_DIV_ASSIGNMENT:
@@ -6968,10 +7122,9 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_BITWISE_AND_ASSIGNMENT:
         case NODECL_BITWISE_OR_ASSIGNMENT:
         case NODECL_BITWISE_XOR_ASSIGNMENT:
-        case NODECL_THROW:
-            return -16;
-        case NODECL_COMMA:
             return -17;
+        case NODECL_COMMA:
+            return -18;
         default:
             // Lowest priority possible. This is a conservative approach that
             // will work always albeit it will introduce some unnecessary
@@ -7744,7 +7897,8 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
         bool emit_default_arguments)
 {
     ERROR_CONDITION(!symbol.is_function()
-            && !symbol.is_dependent_friend_function(), "This symbol should be a function\n", -1);
+            && !symbol.is_dependent_friend_function()
+            && !symbol.is_lambda(), "This symbol should be a function\n", -1);
 
     int i = 0;
     TL::ObjectList<TL::Symbol> related_symbols = symbol.get_related_symbols();
