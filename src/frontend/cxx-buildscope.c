@@ -1603,7 +1603,13 @@ static void build_scope_common_template_alias_declaration(AST a,
         entry->entity_specs.is_member = 1;
         entry->entity_specs.class_type = class_info;
         entry->entity_specs.access = access_specifier;
-        class_type_add_member(class_info, entry);
+
+        scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+        primary_symbol->entity_specs.is_member = 1;
+        primary_symbol->entity_specs.class_type = class_info;
+        primary_symbol->entity_specs.access = access_specifier;
+
+        class_type_add_member(class_info, primary_symbol);
     }
 }
 
