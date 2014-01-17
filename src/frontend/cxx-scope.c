@@ -2219,6 +2219,10 @@ static type_t* update_dependent_typename(
     {
         return get_user_defined_type(member);
     }
+    else if (member->kind == SK_TEMPLATE_ALIAS)
+    {
+        return member->type_information;
+    }
     else if (member->kind == SK_DEPENDENT_ENTITY)
     {
         return member->type_information;
