@@ -7815,7 +7815,10 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                 }
                 else 
                 {
-                    result = strappend(result, "decltype(");
+                    if (IS_CXX03_LANGUAGE)
+                        result = strappend(result, "__decltype(");
+                    else
+                        result = strappend(result, "decltype(");
                     result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
                     result = strappend(result, ")");
                 }
@@ -9262,7 +9265,10 @@ static const char* get_builtin_type_name(type_t* type_info)
             if (!simple_type_info->is_decltype)
                 result = strappend(result, "__typeof__(");
             else
-                result = strappend(result, "decltype(");
+                if (IS_CXX03_LANGUAGE)
+                    result = strappend(result, "__decltype(");
+                else
+                    result = strappend(result, "decltype(");
             result = strappend(result, codegen_to_str(simple_type_info->typeof_expr, CURRENT_COMPILED_FILE->global_decl_context));
             result = strappend(result, ")");
             break;
