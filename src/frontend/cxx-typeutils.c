@@ -120,7 +120,7 @@ enum simple_type_kind_tag
     // GCC Extensions
     STK_VA_LIST, // __builtin_va_list {identifier};
     STK_TYPEOF,  //  __typeof__(int) {identifier};
-    STK_TYPE_DEP_EXPR,
+    STK_TYPE_DEP_EXPR, // unknown dependent type
     STK_UNDERLYING, // __underlying_type(E) {identifier}
     // Fortran
     STK_HOLLERITH,
