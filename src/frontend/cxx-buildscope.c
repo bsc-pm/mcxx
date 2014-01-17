@@ -1322,10 +1322,6 @@ void introduce_using_entities(
         if (is_hidden)
             continue;
 
-        // Do not add it twice in the scope
-        if (entry_list_contains(already_using, entry))
-            continue;
-
         scope_entry_t* original_entry = entry;
         if (original_entry->kind == SK_USING
                 || original_entry->kind == SK_USING_TYPENAME)
@@ -1333,6 +1329,10 @@ void introduce_using_entities(
             // We want the ultimate alias
             original_entry = original_entry->entity_specs.alias_to;
         }
+
+        // Do not add it twice in the scope
+        if (entry_list_contains(already_using, original_entry))
+            continue;
 
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;

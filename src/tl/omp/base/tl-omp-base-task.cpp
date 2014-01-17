@@ -1107,7 +1107,8 @@ namespace TL { namespace OpenMP {
     TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set, bool task_expr_optim_disabled)
         :
             _task_expr_optim_disabled(task_expr_optim_disabled),
-            _counter(0),
+            _optimized_task_expr_counter(0),
+            _new_return_vars_counter(0),
             _enclosing_stmt(nodecl_null()),
             _function_task_set(function_task_set),
             _transformed_task_map(),
@@ -1299,9 +1300,9 @@ namespace TL { namespace OpenMP {
 
         // Declare a new variable which represents the return of the original function as an argument
         std::stringstream ss;
-        ss << "mcc_ret_" << _counter;
+        ss << "mcc_ret_" << _new_return_vars_counter;
         TL::Symbol return_arg_sym = scope.new_symbol(ss.str());
-        _counter++;
+        _new_return_vars_counter++;
 
         return_arg_sym.get_internal_symbol()->kind = SK_VARIABLE;
         return_arg_sym.get_internal_symbol()->type_information = return_type.get_internal_type();
@@ -1545,10 +1546,10 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase value = enclosing_stmt.as<Nodecl::ReturnStatement>().get_value();
 
         std::stringstream ss;
-        ss << "mcc_ret_stmt_" << _counter;
+        ss << "mcc_ret_stmt_" << _new_return_vars_counter;
         Scope scope = enclosing_stmt.retrieve_context();
         TL::Symbol new_symbol = scope.new_symbol(ss.str());
-        _counter++;
+        _new_return_vars_counter++;
 
         new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
         new_symbol.get_internal_symbol()->type_information = value.get_type().get_internal_type();
@@ -1808,7 +1809,11 @@ namespace TL { namespace OpenMP {
         Nodecl::List arguments = func_call.get_arguments().as<Nodecl::List>();
         TL::Symbol function_called = func_call.get_called().as<Nodecl::Symbol>().get_symbol();
 
-        std::string new_function_name = function_called.get_name() + "__";
+        std::stringstream ss;
+        ss << function_called.get_name() << "__" << _optimized_task_expr_counter;
+        _optimized_task_expr_counter++;
+
+        std::string new_function_name = ss.str();
         TL::ObjectList<std::string> parameter_names;
         TL::ObjectList<TL::Type> parameter_types;
 
