@@ -65,12 +65,6 @@ namespace TL {
         {
             this->PragmaCustomCompilerPhase::run(dto);
 
-            //RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
-
-
-        }
-        
-        void NanosMain::phase_cleanup(DTO& data_flow) {        
             if (_nmain_enabled && Nanos::Version::interface_is_at_least("master", 5026)) {
                 Source _mpiDaemonMain;
                 _mpiDaemonMain <<"ompss_nanox_main();	";   
@@ -102,7 +96,7 @@ namespace TL {
                 if (main.is_valid()) { 
                     if (IS_FORTRAN_LANGUAGE)
                        Source::source_language = SourceLanguage::C;
-                    Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_statement(_root);
+                    Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_statement(main.get_function_code());
                     Source::source_language = SourceLanguage::Current; 
                    //main.get_function_code().children().at(0).children().append(newompss_main);
 
@@ -121,6 +115,11 @@ namespace TL {
             
             }
         }
+        
+        void NanosMain::phase_cleanup(DTO& data_flow) {  
+            
+        }      
+
     }
 }
 
