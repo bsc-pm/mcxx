@@ -40,7 +40,8 @@ namespace TL
 {
     namespace OpenMP
     {
-        bool Core::_already_registered(false);
+        bool Core::_constructs_already_registered(false);
+        bool Core::_reductions_already_registered(false);
         bool Core::_silent_declare_reduction(false);
 
         Core::Core()
@@ -137,7 +138,7 @@ namespace TL
             if (_pred) register_construct(_directive, _noend); 
 
             // Register pragmas
-            if (!_already_registered)
+            if (!_constructs_already_registered)
             {
 #define OMP_CONSTRUCT(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, false, _pred)
 #define OMP_CONSTRUCT_NOEND(_directive, _name, _pred) OMP_CONSTRUCT_COMMON(_directive, _name, true, _pred)
@@ -149,7 +150,7 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
             }
 
-            _already_registered = true;
+            _constructs_already_registered = true;
 
             // Connect handlers to member functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
@@ -179,7 +180,8 @@ namespace TL
 
         void Core::phase_cleanup(DTO& data_flow)
         {
-            _already_registered = false;
+            _constructs_already_registered = false;
+            _reductions_already_registered = false;
         }
 
         void Core::get_clause_symbols(

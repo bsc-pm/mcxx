@@ -75,6 +75,11 @@ namespace TL { namespace OpenMP {
                 _ompss_mode_str,
                 "0").connect(functor(&Base::set_ompss_mode, *this));
 
+        register_parameter("disable_task_expression_optimization",
+                "Disables some optimizations applied to task expressions",
+                _disable_task_expr_optim_str,
+                "0");
+
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -126,7 +131,8 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase translation_unit = dto["nodecl"];
 
-        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set);
+        bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
+        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
         const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map =
@@ -142,6 +148,12 @@ namespace TL { namespace OpenMP {
         function_call_visitor.walk(translation_unit);
         function_call_visitor.build_all_needed_task_expressions();
     }
+
+    void Base::phase_cleanup(DTO& data_flow)
+    {
+        _core.phase_cleanup(data_flow);
+    }
+
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \

@@ -1352,33 +1352,44 @@ def generate_c_deep_copy_def(rule_map):
     print """
 extern nodecl_t nodecl_deep_copy_context(nodecl_t n, decl_context_t new_decl_context, 
    symbol_map_t* symbol_map,
-   symbol_map_t** synth_symbol_map);
+   symbol_map_t** synth_symbol_map,
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   symbol_deep_copy_map_t* symbol_deep_copy_map);
 extern nodecl_t nodecl_deep_copy_function_code(nodecl_t n, decl_context_t new_decl_context, 
    symbol_map_t* symbol_map,
-   symbol_map_t** synth_symbol_map);
+   symbol_map_t** synth_symbol_map,
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   symbol_deep_copy_map_t* symbol_deep_copy_map);
+
+extern void nodecl_deep_copy_map_add(
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   nodecl_t orig,
+   nodecl_t copied);
 
 nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
    symbol_map_t* symbol_map,
-   symbol_map_t** synth_symbol_map)
+   symbol_map_t** synth_symbol_map,
+   nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+   symbol_deep_copy_map_t* symbol_deep_copy_map)
 {
     *synth_symbol_map = symbol_map;
 
     if (nodecl_is_null(n))
         return nodecl_null();
+    nodecl_t result;
     switch (nodecl_get_kind(n))
     {
         case AST_NODE_LIST:
         {
           int num_items = 0;
-          nodecl_t result = nodecl_null();
+          result = nodecl_null();
           nodecl_t* list = nodecl_unpack_list(n, &num_items);
           int i;
           for (i = 0; i < num_items; i++)
           {
                   result = nodecl_append_to_list(result, nodecl_deep_copy_rec(list[i], new_decl_context,
-                          *synth_symbol_map, synth_symbol_map));
+                          *synth_symbol_map, synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map));
           }
-          return result;
           break;
         }
 """
@@ -1394,18 +1405,18 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "       {"
 
         if node[0] == "NODECL_CONTEXT":
-            print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
+            print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
             print "       }"
             continue
         elif node[0] == "NODECL_FUNCTION_CODE":
-            print "return nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map);"
+            print "return nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
             print "       }"
             continue
 
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
-            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map);" % (i, i)
+            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (i, i)
             factory_arguments.append("child_%d" % (i))
             i = i + 1
 
@@ -1448,7 +1459,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "const locus_t* location = nodecl_get_locus(n);"
         factory_arguments.append("location")
 
-        print "nodecl_t result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
+        print "result = nodecl_make_%s(%s);" % (node[1], string.join(factory_arguments, ", "))
 
         if may_have_attr("symbol"):
             print "nodecl_set_symbol(result, symbol);"
@@ -1468,14 +1479,16 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         if may_have_attr("decl_context"):
             print "nodecl_set_decl_context(n, decl_context);"
 
-        print "       return result;";
         print "       break;"
         print "       }"
     print """
        default:
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(nodecl_get_kind(n))); }
        }
-       return nodecl_null();
+
+       nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);
+
+       return result;
 }
 """
 

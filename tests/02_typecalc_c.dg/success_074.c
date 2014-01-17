@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,24 +25,25 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium
 </testinfo>
 */
 
-template <typename _T>
+typedef long int __my_type;
+
 struct A
 {
+    union
+    {
+    __my_type x;
+     };
+    int y;
 };
 
-template <typename _T>
-struct B
+int main()
 {
-};
-
-template <typename _T = A<B<int>>>
-struct C
-{
-};
+    struct A a;
+    a.y = 1;
+}

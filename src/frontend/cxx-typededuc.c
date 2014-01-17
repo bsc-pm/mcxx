@@ -994,7 +994,53 @@ char deduce_template_arguments_common(
             deduced_arguments.deduction_list[i_tpl_parameters]->deduced_parameters[0]->type =
                 current_deduced_template_arguments->arguments[i_tpl_parameters]->type;
 
-            if (!check_nontype_template_argument_type(t))
+            if (is_sequence_of_types(t))
+            {
+                int value_length = 0;
+                int i, N = sequence_of_types_get_num_types(t);
+
+                if (!nodecl_is_null(current_deduced_template_arguments->arguments[i_tpl_parameters]->value))
+                {
+                    if (nodecl_is_list(current_deduced_template_arguments->arguments[i_tpl_parameters]->value))
+                        value_length = nodecl_list_length(current_deduced_template_arguments->arguments[i_tpl_parameters]->value);
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: There is a mismatch in nontype template argument %d, "
+                                    "I expected a list as a value because its type is a sequence, "
+                                    "but the value is not a list\n", i_tpl_parameters);
+                        }
+                        return 0;
+                    }
+                }
+
+                if (value_length != N)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: There is a mismatch in nontype template argument %d, "
+                                "the length of the list values and the sequence type associated do not match",
+                                i_tpl_parameters);
+                    }
+                    return 0;
+                }
+
+                for (i = 0; i < N; i++)
+                {
+                    if (!check_nontype_template_argument_type(sequence_of_types_get_type_num(t, i)))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: Deduction fails because nontype template parameter "
+                                    "%d was deduced a sequence type containing an invalid type '%s'\n",
+                                    i_tpl_parameters, print_declarator(sequence_of_types_get_type_num(t, i)));
+                        }
+                        return 0;
+                    }
+                }
+            }
+            else if (!check_nontype_template_argument_type(t))
             {
                 DEBUG_CODE()
                 {
@@ -1055,7 +1101,7 @@ char deduce_arguments_of_conversion(
     (*argument_types) = no_ref((*argument_types));
 
     // If P is not a reference type
-    if (!is_lvalue_reference_type((*parameter_types)))
+    if (!is_any_reference_type((*parameter_types)))
     {
         // if A is an array type the pointer type produced by the array to pointer conversion
         // is used in place of A
@@ -1076,7 +1122,7 @@ char deduce_arguments_of_conversion(
         }
     }
 
-    if (is_lvalue_reference_type((*parameter_types)))
+    if (is_any_reference_type((*parameter_types)))
     {
         (*parameter_types) = reference_type_get_referenced_type((*parameter_types));
     }
@@ -1112,7 +1158,7 @@ char deduce_arguments_of_conversion(
         type_t* original_parameter = function_type_get_return_type(specialized_type);
 
         char ok = 0;
-        if (is_lvalue_reference_type(original_parameter)
+        if (is_any_reference_type(original_parameter)
                 && is_more_or_equal_cv_qualified_type(reference_type_get_referenced_type(updated_type),
                     (*argument_types)))
         {
@@ -1212,7 +1258,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         current_argument_type = no_ref(current_argument_type);
 
         // If P is not a reference type
-        if (!is_lvalue_reference_type(current_parameter_type))
+        if (!is_any_reference_type(current_parameter_type))
         {
             // if A is an array type the pointer type produced by the array to pointer conversion
             // is used in place of A
@@ -1295,18 +1341,21 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
         // If P is a qualified type the top level cv-qualifiers of P are ignored for type deduction
         current_parameter_type = get_unqualified_type(current_parameter_type);
-        if (is_lvalue_reference_type(current_parameter_type))
+        if (is_any_reference_type(current_parameter_type))
         {
             // If P is a reference type the type referred to by P is used for type deducton
             current_parameter_type = reference_type_get_referenced_type(current_parameter_type);
         }
-        else if (is_rvalue_reference_type(current_parameter_type)
+
+        if (is_rvalue_reference_type(original_parameter_type)
+                && get_cv_qualifier(no_ref(original_parameter_type)) == CV_NONE
+                && is_named_type(no_ref(original_parameter_type))
+                && named_type_get_symbol(no_ref(original_parameter_type))->kind == SK_TEMPLATE_TYPE_PARAMETER
                 && is_lvalue_reference_type(call_argument_types[i_arg]))
         {
-            // If P is a rvalue-reference type and the argument is a
-            // lvalue (so, a lvalue reference for us), the type A& is used in
-            // place of A for type deduction. We removed the reference at the
-            // beginning, so we want it back
+            // If P is an rvalue reference to a cv-unqualified template parameter and the
+            // argument is an lvalue, the type “lvalue reference to A” is used in place of
+            // A for type deduction.
             current_argument_type = get_lvalue_reference_type(current_argument_type);
         }
 
@@ -1426,7 +1475,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     // Some adjustment goes here so the equivalent_types check below works.
                     // We mimic the adjustments performed before
                     //
-                    if (!is_lvalue_reference_type(current_original_parameter_type))
+                    if (!is_any_reference_type(current_original_parameter_type))
                     {
                         // If it is not a reference convert from function to pointer
                         if (!solved_function->entity_specs.is_member
@@ -1497,7 +1546,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 //   f(a); <-- won't match the template since the deduced 'A' is (int&) and we are passing (const int&)
                 // }
                 //
-                else if (is_lvalue_reference_type(current_original_parameter_type)
+                else if (is_any_reference_type(current_original_parameter_type)
                         && equivalent_types(
                             get_unqualified_type(current_type), 
                             get_unqualified_type(argument_types[current_arg]))

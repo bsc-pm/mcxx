@@ -28,19 +28,22 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-template <typename _T>
-struct A
+int main()
 {
-};
+    int ok;
+     ok = foo();
+    return ok;
+}
 
-template <typename _T>
-struct B
+int foo()
 {
-};
-
-typedef A<B<int> > S;
-typedef A<B<int>> S;
+    #pragma omp task
+    {
+    }
+    #pragma omp taskwait
+    return 0;
+}

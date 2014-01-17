@@ -183,7 +183,7 @@ namespace TL
                         else
                         {
                             // A single element of this region
-                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_one(4, 1)));
+                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
                         }
 
                         t = t.points_to();
