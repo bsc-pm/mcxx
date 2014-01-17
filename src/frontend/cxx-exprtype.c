@@ -14916,9 +14916,9 @@ void check_nodecl_initialization(
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto_type)
+        char is_auto)
 {
-    if (is_auto_type
+    if (is_auto
             && initialized_entry != NULL
             && !nodecl_expr_is_type_dependent(nodecl_initializer))
     {
