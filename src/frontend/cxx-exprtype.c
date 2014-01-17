@@ -5677,6 +5677,8 @@ static void compute_operator_reference_type(nodecl_t* op,
 
         scope_entry_t* entry = entry_list_head(entry_list);
 
+        entry = entry_advance_aliases(entry);
+
         if (entry->kind == SK_TEMPLATE)
         {
             entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
@@ -11198,7 +11200,8 @@ static void check_nodecl_noexcept(nodecl_t nodecl_expr, nodecl_t* nodecl_output)
         return;
     }
 
-    if (nodecl_expr_is_value_dependent(nodecl_expr))
+    if (nodecl_expr_is_value_dependent(nodecl_expr)
+            || nodecl_expr_is_type_dependent(nodecl_expr))
     {
         *nodecl_output = nodecl_make_cxx_noexcept(nodecl_expr, get_bool_type(), nodecl_get_locus(nodecl_expr));
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -14913,9 +14916,9 @@ void check_nodecl_initialization(
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto_type)
+        char is_auto)
 {
-    if (is_auto_type
+    if (is_auto
             && initialized_entry != NULL
             && !nodecl_expr_is_type_dependent(nodecl_initializer))
     {
@@ -17423,9 +17426,13 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 
 static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry UNUSED_PARAMETER,
         nodecl_t converted_arg_list UNUSED_PARAMETER,
-        const locus_t* locus UNUSED_PARAMETER)
+        const locus_t* locus)
 {
-    internal_error("Not yet implemented", 0);
+    if (!checking_ambiguity())
+    {
+        warn_printf("%s: warning: call to constexpr function not yet implemented\n", locus_to_str(locus));
+    }
+    return NULL;
 }
 
 nodecl_t cxx_nodecl_make_function_call(

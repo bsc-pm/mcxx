@@ -1010,19 +1010,6 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     
     std::string original_filename = TL::CompilationProcess::get_current_file().get_filename();        
     original_filename =original_filename.substr(0, original_filename.find("."));
-    Source _mpiDaemonMain;
-    if (IS_FORTRAN_LANGUAGE){
-        _mpiDaemonMain << "int ompss___mpi_daemon_main_() { "
-                       << "   nanos_mpi_initf();	";   
-    } else {
-        _mpiDaemonMain << "int ompss___mpi_daemon_main(int argc, char* argv[]) { ";
-        _mpiDaemonMain << "   nanos_mpi_init(&argc, &argv);	";
-                
-    }
-    _mpiDaemonMain << "    nanos_sync_dev_pointers(ompss_mpi_masks, "<< MASK_TASK_NUMBER << ", ompss_mpi_filenames, ompss_mpi_file_sizes,"
-       << "    ompss_mpi_file_ntasks,ompss_mpi_func_pointers_dev);"
-       << "    return nanos_mpi_worker(ompss_mpi_func_pointers_dev);"
-       << " }"; //END main
 
     Symbol main;
     if (IS_FORTRAN_LANGUAGE){
@@ -1037,12 +1024,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
            {
                Nodecl::FunctionCode function_code = current_item.as<Nodecl::FunctionCode>();
                TL::Symbol function_sym = function_code.get_symbol();
-               if (function_sym.get_internal_symbol()->kind==SK_PROGRAM){                   
-                    type_t *function_type = get_new_function_type(
-                            get_void_type(), NULL ,0, REF_QUALIFIER_NONE);
-                    
-                   function_sym.get_internal_symbol()->kind=SK_FUNCTION;
-                   function_sym.get_internal_symbol()->type_information=function_type;
+               if (function_sym.get_internal_symbol()->kind==SK_PROGRAM){               
                    main=function_sym;
                    found=true;
                }
@@ -1101,117 +1083,6 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
            Nodecl::Utils::append_to_top_level_nodecl(functions_section_tree); 
         }
     }
-        
-    
-    if (main.is_valid()) {
-            //Build a new main which calls to the OmpSs daemon or to the user main
-            Source real_main;
-            
-            if (IS_FORTRAN_LANGUAGE){                
-                real_main <<    "PROGRAM ompss_main\n"
-                                "    IMPLICIT NONE\n"
-                                "    INTEGER(4) :: nargs\n"
-                                "    CHARACTER(LEN=24) :: arg\n"
-                                "    INTEGER(4) :: offload_err\n"
-                                "    INTEGER(4), EXTERNAL :: ompss___mpi_daemon_main\n"
-                                "    INTERFACE\n"
-                                "      SUBROUTINE ompss___user_main()\n"
-                                "          IMPLICIT NONE\n"
-                                "      END SUBROUTINE ompss___user_main\n"
-                                "    END INTERFACE\n"
-                                "    nargs = iargc()\n"
-                                "    CALL getarg(nargs, arg)\n"          
-                                "    IF (nargs > 1 .AND. arg == \"" << TAG_MAIN_OMPSS << "\") THEN\n"
-                                "      offload_err = ompss___mpi_daemon_main()\n"
-                                "    ELSE\n"
-                                "      CALL " << main.get_name() << "()\n"
-                                "    END IF\n"
-                                "END PROGRAM ompss_main";                
-            } else {
-                Source args_main;
-                
-                real_main << "int ompss_tmp_main(int argc, char* argv[], char *envp[] ) {"
-                        << "int offload_err;"
-                        << "if (argc > 1 && !strcmp(argv[argc-1],\"" << TAG_MAIN_OMPSS << "\")){"
-                        << "offload_err=ompss___mpi_daemon_main(argc,argv);"
-                        << "return 0;"
-                        << "} else {";
-                
-                if (main.get_function_parameters().size()==3){
-                    args_main << "argc,argv,envp";
-                }
-                
-                if (main.get_function_parameters().size()==2){
-                    args_main << "argc,argv";
-                }
-                //Possible?
-                if (main.get_function_parameters().size()==1){
-                    args_main << "argc";
-                }                
-                
-                if (main.get_type().returns().is_signed_int() || main.get_type().returns().is_unsigned_int()){
-                     real_main << "offload_err= main(" << args_main<< ");"
-                        << "return offload_err;"
-                        << "}}"
-                        ;
-                } else {
-                    real_main << "main(" << args_main << ");"
-                        << "return 0;"
-                        << "}}"
-                        ;
-                }
-                
-            }
-        
-            if (IS_FORTRAN_LANGUAGE)
-               Source::source_language = SourceLanguage::C;
-            Nodecl::NodeclBase newompss_main = _mpiDaemonMain.parse_global(_root);
-            Source::source_language = SourceLanguage::Current;
-            Nodecl::NodeclBase new_main = real_main.parse_global(main.get_function_code());    
-            
-            if (IS_FORTRAN_LANGUAGE){
-               _extra_c_code.prepend(newompss_main); 
-               Nodecl::Utils::append_to_top_level_nodecl(new_main); 
-            } else {
-               Nodecl::Utils::append_to_top_level_nodecl(newompss_main); 
-               Nodecl::Utils::append_to_top_level_nodecl(new_main); 
-               main.set_name("ompss___user_main");
-               if (Nanos::Version::interface_is_at_least("copies_api", 1003)){
-                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("_nanox_main");
-               } else {
-                  _root.retrieve_context().get_symbol_from_name("ompss_tmp_main").set_name("main");                   
-               }
-            }
-    }
-    
-    if (main.is_valid()){        
-        //This function search for it's index in the pointer arrays
-        //so we can pass it to the device array, we only add it on main
-        Source search_function;
-        //There can't be errors here, sooner or later we'll find the pointer (i hope)
-        //If fortran, append _ so we can link correctly
-        if (IS_FORTRAN_LANGUAGE){
-            search_function << "int ompss_mpi_get_function_index_host_(void* func_pointer){";
-        } else {
-            search_function << "int ompss_mpi_get_function_index_host(void* func_pointer){";          
-        }
-        search_function << "int i=0;"
-                           "for (i=0;ompss_mpi_func_pointers_host[i]!=func_pointer;i++);"
-                           "return i;"
-                           "}";       
-
-        if (IS_FORTRAN_LANGUAGE)
-          Source::source_language = SourceLanguage::C;
-        Nodecl::NodeclBase search_function_tree = search_function.parse_global(_root);
-        Source::source_language = SourceLanguage::Current;    
-
-        if (IS_FORTRAN_LANGUAGE){
-           _extra_c_code.append(search_function_tree); 
-        } else {
-           Nodecl::Utils::append_to_top_level_nodecl(search_function_tree); 
-        }
-    }
-
     
     if (!_extra_c_code.is_null()){
 
@@ -1255,6 +1126,8 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     _sectionCodeDevice=empty_src;
     _extraFortranDecls=empty_src;
     _sectionCodeHost=empty_src;
+    _mpi_task_processed=false;
+    _currTaskId=0;
 }
 
 void DeviceMPI::pre_run(DTO& dto) {

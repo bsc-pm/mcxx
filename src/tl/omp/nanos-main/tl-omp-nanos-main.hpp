@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,19 +24,41 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef TL_OMP_SIMD_HPP
+#define TL_OMP_SIMD_HPP
 
-/*
-<testinfo>
-test_generator=config/mercurium
-</testinfo>
-*/
+#include "tl-compilerphase.hpp"
+#include "tl-devices.hpp"
 
-int main()
+
+using namespace TL::Nanox;
+
+namespace TL
 {
-#if defined(__SIZEOF_INT128__)
-    __int128_t a = 0;
-    __uint128_t b = 0;
-    b = b + a;
-#endif
-    return 0;
+    namespace Nanox
+    {
+        //! This class transforms 
+        class NanosMain : public TL::PragmaCustomCompilerPhase
+        {
+            public:
+                NanosMain();
+
+                virtual void run(TL::DTO& dto);
+                virtual void pre_run(TL::DTO& dto);
+
+                virtual ~NanosMain() { }
+
+            private:
+                std::string _nmain_enabled_str;
+                Nodecl::NodeclBase _root;
+
+                bool _nmain_enabled;
+
+                void set_nmain(const std::string nmain_str);
+                void phase_cleanup(DTO& data_flow);
+        };
+
+    }
 }
+
+#endif // TL_OMP_SIMD_HPP

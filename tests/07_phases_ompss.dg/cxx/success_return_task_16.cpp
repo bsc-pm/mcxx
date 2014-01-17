@@ -25,18 +25,31 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
 <testinfo>
-test_generator=config/mercurium
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
+#include<assert.h>
+
+#define N 5
+#pragma omp task
+int f(int i)
+{
+    return i + 1;
+}
+
+
 int main()
 {
-#if defined(__SIZEOF_INT128__)
-    __int128_t a = 0;
-    __uint128_t b = 0;
-    b = b + a;
-#endif
-    return 0;
+    int i, x = 0;
+    for (i = 0; i < N; ++i)
+    {
+        x += f(i) + i;
+    }
+    #pragma omp taskwait
+
+assert(x == 25);
 }

@@ -1405,11 +1405,15 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "       {"
 
         if node[0] == "NODECL_CONTEXT":
-            print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          result = nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);"
+            print "          return result;"
             print "       }"
             continue
         elif node[0] == "NODECL_FUNCTION_CODE":
-            print "return nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          result = nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);"
+            print "          return result;"
             print "       }"
             continue
 

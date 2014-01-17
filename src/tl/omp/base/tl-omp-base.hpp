@@ -73,6 +73,8 @@ namespace TL
                 std::string _allow_array_reductions_str;
                 void set_allow_array_reductions(const std::string& allow_array_reductions);
 
+                std::string _disable_task_expr_optim_str;
+
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \

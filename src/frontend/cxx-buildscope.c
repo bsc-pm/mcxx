@@ -315,7 +315,10 @@ static void build_scope_asm_definition(AST a, decl_context_t decl_context, nodec
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
-static void build_exception_spec(type_t* function_type, AST a, gather_decl_spec_t *gather_info, decl_context_t decl_context, 
+static void build_exception_spec(type_t* function_type, AST a,
+        gather_decl_spec_t *gather_info,
+        decl_context_t decl_context,
+        decl_context_t prototype_context,
         nodecl_t* nodecl_output);
 
 static char is_constructor_declarator(AST a);
@@ -1319,10 +1322,6 @@ void introduce_using_entities(
         if (is_hidden)
             continue;
 
-        // Do not add it twice in the scope
-        if (entry_list_contains(already_using, entry))
-            continue;
-
         scope_entry_t* original_entry = entry;
         if (original_entry->kind == SK_USING
                 || original_entry->kind == SK_USING_TYPENAME)
@@ -1330,6 +1329,10 @@ void introduce_using_entities(
             // We want the ultimate alias
             original_entry = original_entry->entity_specs.alias_to;
         }
+
+        // Do not add it twice in the scope
+        if (entry_list_contains(already_using, original_entry))
+            continue;
 
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
         used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
@@ -5173,11 +5176,12 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         enum cxx_symbol_kind filter[] =
         {
             SK_CLASS,
+            SK_TEMPLATE_ALIAS,
             SK_TEMPLATE_TYPE_PARAMETER,
             SK_TEMPLATE_TEMPLATE_PARAMETER, // ???
             SK_TEMPLATE_TYPE_PARAMETER_PACK,
             SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, // ???
-            SK_TYPEDEF, 
+            SK_TYPEDEF,
             SK_DEPENDENT_ENTITY,
             SK_USING,
             SK_USING_TYPENAME,
@@ -6522,9 +6526,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_type = array_type_get_element_type(data_member->type_information);
-                }
 
                 scope_entry_t* default_constructor = class_type_get_default_constructor(member_type);
 
@@ -6628,9 +6630,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
-                    {
                         member_class_type = array_type_get_element_type(member_class_type);
-                    }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -6713,9 +6713,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 const_parameter = const_parameter &&
                     class_has_const_copy_constructor(member_class_type);
@@ -6819,9 +6817,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -7099,9 +7095,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 const_parameter = const_parameter &&
                     class_has_const_copy_assignment_operator(member_class_type);
@@ -7270,9 +7264,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
-                    {
                         member_class_type = array_type_get_element_type(member_class_type);
-                    }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -7435,6 +7427,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             if (is_class_type_or_array_thereof(data_member->type_information))
             {
                 type_t* member_type = data_member->type_information;
+                if (is_array_type(member_type))
+                    member_type = array_type_get_element_type(member_type);
 
                 has_nonstatic_data_member_without_move_assignment_operator_and_not_trivially_copiable =
                     class_type_get_move_assignment_operators(member_type) == NULL
@@ -7499,9 +7493,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 {
                     type_t* member_class_type = data_member->type_information;
                     if (is_array_type(data_member->type_information))
-                    {
                         member_class_type = array_type_get_element_type(member_class_type);
-                    }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -7596,9 +7588,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 type_t* member_class_type = data_member->type_information;
                 if (is_array_type(data_member->type_information))
-                {
                     member_class_type = array_type_get_element_type(member_class_type);
-                }
 
                 type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
@@ -9693,7 +9683,12 @@ static void set_function_type(type_t** declarator_type,
 
     *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
 
-    build_exception_spec(*declarator_type, except_spec, gather_info, decl_context, nodecl_output);
+    build_exception_spec(*declarator_type,
+            except_spec,
+            gather_info,
+            decl_context,
+            prototype_context,
+            nodecl_output);
 }
 
 // Used in C++11
@@ -13490,11 +13485,11 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
 
     if (entry->entity_specs.is_constructor)
     {
-        if (nodecl_list_length(compound_list) == 0)
+        if (nodecl_list_length(compound_list) != 0)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: the compound-statement of a constexpr construct must contain no statements\n",
+                error_printf("%s: error: the compound-statement of a constexpr constructor must contain no statements\n",
                         nodecl_locus_to_str(nodecl_body));
             }
             return 0;
@@ -13502,8 +13497,32 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
     }
     else
     {
-        if (nodecl_list_length(compound_list) != 1
-                || nodecl_get_kind(nodecl_list_head(compound_list)) != NODECL_RETURN_STATEMENT)
+        int num_seen_returns = 0;
+        int num_seen_other_statements = 0;
+
+        int num_items = 0;
+        nodecl_t* l = nodecl_unpack_list(compound_list, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
+        {
+            if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF)
+            {
+                // These are declarations, ignore them
+            }
+            else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
+            {
+                num_seen_returns++;
+            }
+            else
+            {
+                num_seen_other_statements++;
+            }
+        }
+
+        if (num_seen_other_statements != 0
+                || num_seen_returns != 1)
         {
             if (!checking_ambiguity())
             {
@@ -15559,6 +15578,7 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
 static void build_exception_spec(type_t* function_type UNUSED_PARAMETER, 
         AST a, gather_decl_spec_t *gather_info, 
         decl_context_t decl_context,
+        decl_context_t prototype_context,
         nodecl_t* nodecl_output)
 {
     // No exception specifier at all
@@ -15574,7 +15594,7 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
     else if (ASTType(a) == AST_NOEXCEPT_SPECIFICATION)
     {
-        build_noexcept_spec(function_type, a, gather_info, decl_context, nodecl_output);
+        build_noexcept_spec(function_type, a, gather_info, prototype_context, nodecl_output);
     }
     else
     {
@@ -16428,8 +16448,38 @@ static void build_scope_for_statement_range(AST a,
         }
         else
         {
+            // For the purpose of this lookup, std is an associated namespace
+            decl_context_t global_context = decl_context;
+            global_context.current_scope = global_context.global_scope;
+            scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+
+
+            scope_entry_t* std_namespace = NULL;
+            if (entry_list != NULL)
+            {
+                std_namespace = entry_list_head(entry_list);
+                entry_list_free(entry_list);
+            }
+
+            char must_remove_std = (std_namespace != NULL);
+            if (must_remove_std)
+            {
+                int i;
+                for (i = 0;
+                        i < block_context.current_scope->num_used_namespaces;
+                        i++)
+                {
+                    if (block_context.current_scope->use_namespace[i] == std_namespace)
+                    {
+                        must_remove_std = 0;
+                        break;
+                    }
+                }
+
+            }
+
             AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), "__begin"),
+                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), "begin"),
                     ASTListLeaf(
                         ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__range")
                         ),
@@ -16438,7 +16488,7 @@ static void build_scope_for_statement_range(AST a,
 
             check_expression(begin_init_tree, block_context, &nodecl_begin_init);
 
-            if (!nodecl_is_err_expr(nodecl_begin_init))
+            if (nodecl_is_err_expr(nodecl_begin_init))
             {
                 *nodecl_output = nodecl_make_list_1(
                         nodecl_make_err_statement(ast_get_locus(a))
@@ -16454,7 +16504,7 @@ static void build_scope_for_statement_range(AST a,
                     nodecl_get_type(nodecl_begin_init),
                     ast_get_locus(a));
 
-            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL, 
+            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
                     ASTLeaf(AST_SYMBOL, ast_get_locus(a), "end"),
                     ASTListLeaf(
                         ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__range")
@@ -16464,7 +16514,7 @@ static void build_scope_for_statement_range(AST a,
 
             check_expression(end_init_tree, block_context, &nodecl_end_init);
 
-            if (!nodecl_is_err_expr(nodecl_end_init))
+            if (nodecl_is_err_expr(nodecl_end_init))
             {
                 *nodecl_output = nodecl_make_list_1(
                         nodecl_make_err_statement(ast_get_locus(a))
@@ -16479,6 +16529,13 @@ static void build_scope_for_statement_range(AST a,
                         ast_get_locus(a)),
                     nodecl_get_type(nodecl_end_init),
                     ast_get_locus(a));
+
+            if (must_remove_std)
+            {
+                P_LIST_REMOVE(block_context.current_scope->use_namespace,
+                        block_context.current_scope->num_used_namespaces,
+                        std_namespace);
+            }
         }
 
         // Create __begin and __end
