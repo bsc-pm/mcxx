@@ -484,7 +484,7 @@ namespace Analysis {
     void UsageVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         nodecl_t internal_n = n.get_internal_nodecl( );
-        WARNING_MESSAGE( "Unhandled node '%s' with type '%s 'during Use-Def Analysis'",
+        WARNING_MESSAGE( "Unhandled node '%s' with type '%s' during Use-Def Analysis",
                          codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ),
                          ast_print_node_type( n.get_kind( ) ) );
     }

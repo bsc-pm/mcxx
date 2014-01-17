@@ -604,7 +604,11 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.is_adjacent_access( n );
+            Node* pcfg_node = current_info.find_node_from_nodecl( n );
+            if( pcfg_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                                 n.prettyprint( ).c_str( ) );
+            result = current_info.is_adjacent_access( n, pcfg_node );
         }
 
         return result;
@@ -624,7 +628,11 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.contains_induction_variable( n );
+            Node* pcfg_node = current_info.find_node_from_nodecl( n );
+            if( pcfg_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                                 n.prettyprint( ).c_str( ) );
+            result = current_info.contains_induction_variable( n, pcfg_node );
         }
 
         return result;
