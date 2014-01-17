@@ -54,7 +54,7 @@ namespace TL
                        const NodeclBase& upper_bound,
                        const NodeclBase& stride);
 
-            friend VectorizerCache;
+            friend class VectorizerCache;
 
         };
 
