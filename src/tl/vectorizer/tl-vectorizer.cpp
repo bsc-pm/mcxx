@@ -277,9 +277,13 @@ namespace TL
                                     const_value_get_one(4, 1)),
                                 ub.get_type());
 
+                    _analysis_info->register_node(ub_plus_one);
+
                     ub_is_suitable = _analysis_info->is_suitable_expression(for_statement, ub_plus_one,
                             environment._suitable_expr_list, environment._unroll_factor,
                             environment._vector_length, ub_vector_size_module);
+
+                    _analysis_info->unregister_node(ub_plus_one);
 
                     environment._analysis_scopes.pop_back();
 

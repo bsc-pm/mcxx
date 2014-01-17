@@ -44,8 +44,6 @@ namespace TL
                 
                 Nodecl::Utils::SymbolDeepCopyMap _orig_to_copy_symbols;
                 Nodecl::Utils::SymbolDeepCopyMap _copy_to_orig_symbols;
-
-            public:
         };
 
 
@@ -64,11 +62,19 @@ namespace TL
                 TL::ObjectList<Nodecl::NodeclBase> translate_output(const TL::ObjectList<Nodecl::NodeclBase>& list) const;
                 TL::Symbol translate_output(const TL::Symbol& n) const;
 
+                Nodecl::Utils::NodeclDeepCopyMap::iterator find_equal_nodecl(const Nodecl::NodeclBase& n,
+                        Nodecl::Utils::NodeclDeepCopyMap& map);
+                Nodecl::NodeclBase translated_copy(const Nodecl::NodeclBase& n);
+
+
             public:
                 VectorizerAnalysisStaticInfo(const Nodecl::NodeclBase& n, Analysis::WhichAnalysis analysis_mask,
                         Analysis::WhereAnalysis nested_analysis_mask, int nesting_level);
 
                 virtual ~VectorizerAnalysisStaticInfo(){};
+
+                void register_node(const Nodecl::NodeclBase& n);
+                void unregister_node(const Nodecl::NodeclBase& n);
 
                 virtual bool is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const;
                 virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 

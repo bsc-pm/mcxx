@@ -172,6 +172,93 @@ namespace TL
             return it->second;
         }
 
+        Nodecl::Utils::NodeclDeepCopyMap::iterator VectorizerAnalysisStaticInfo::find_equal_nodecl(
+                const Nodecl::NodeclBase& n,
+                Nodecl::Utils::NodeclDeepCopyMap& map)
+        {
+            for (Nodecl::Utils::NodeclDeepCopyMap::iterator it = map.begin();
+                    it != map.end();
+                    it ++)
+            {
+                if(Nodecl::Utils::equal_nodecls(n, it->first, false /*Do no skip conversions*/))
+                    return it;
+            }
+
+            return map.end();
+        }
+        
+        Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translated_copy(const Nodecl::NodeclBase& n)
+        {
+            Nodecl::Utils::NodeclDeepCopyMap::const_iterator it = 
+                find_equal_nodecl(n, _orig_to_copy_nodes);
+
+            // New node already exists.
+            // Get the copy, then shallow copy it
+            if (it != _orig_to_copy_nodes.end())
+            {
+                return it->second.shallow_copy();
+            }
+            else
+            {
+                Nodecl::NodeclBase new_node = n.shallow_copy();
+
+                TL::ObjectList<Nodecl::NodeclBase> children_list = n.children();
+
+                for(TL::ObjectList<Nodecl::NodeclBase>::iterator children_it = children_list.begin();
+                        children_it != children_list.end();
+                        children_it++)
+                {
+                    children_it->replace(translated_copy(*children_it));
+                }
+
+                return new_node;
+            }
+        }
+
+        void VectorizerAnalysisStaticInfo::register_node(const Nodecl::NodeclBase& n)
+        {
+            if (_orig_to_copy_nodes.find(n) != _orig_to_copy_nodes.end())
+                 internal_error("VectorizerAnalysis: Node already registered", 0);
+
+            
+            Nodecl::Utils::NodeclDeepCopyMap::iterator it = 
+                find_equal_nodecl(n, _orig_to_copy_nodes);
+
+            // There is equal node in origin and, therefore, in copy
+            // Shallow copy it and insert the new copy
+            if (it != _orig_to_copy_nodes.end())
+            {
+                Nodecl::NodeclBase sc_copy = it->second.shallow_copy();
+
+                _orig_to_copy_nodes.insert(
+                        std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(n, sc_copy));
+
+                _copy_to_orig_nodes.insert(
+                        std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(sc_copy, n));
+            }
+            // There is NO equal node in origin
+            // Insert it and create a "translated copy" of it and its children
+            else
+            {
+                Nodecl::NodeclBase translated_n = translated_copy(n);
+
+                _orig_to_copy_nodes.insert(
+                        std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(n, translated_n));
+
+                _copy_to_orig_nodes.insert(
+                        std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(translated_n, n));
+            }
+        }
+
+        void VectorizerAnalysisStaticInfo::unregister_node(const Nodecl::NodeclBase& n)
+        {
+            Nodecl::Utils::NodeclDeepCopyMap::iterator it = _orig_to_copy_nodes.find(n);
+            Nodecl::Utils::NodeclDeepCopyMap::iterator it2 = _copy_to_orig_nodes.find(it->second);
+
+            _orig_to_copy_nodes.erase(it);
+            _orig_to_copy_nodes.erase(it2);
+        }
+ 
         bool VectorizerAnalysisStaticInfo::is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const
         {
             return Analysis::AnalysisStaticInfo::is_constant(
@@ -286,7 +373,6 @@ namespace TL
                 const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
                 int unroll_factor, int alignment, int& vector_size_module) const
         {
-
             if (suitable_expressions != NULL)
             {
                 ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =

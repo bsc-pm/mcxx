@@ -438,7 +438,8 @@ namespace TL
             else // Unknown number of iterations
             {
                     mask_value = for_statement.get_loop_header().
-                        as<Nodecl::LoopControl>().get_cond().shallow_copy();
+                        as<Nodecl::LoopControl>().get_cond();
+                    //.shallow_copy();
 
                     // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
                     Nodecl::MaskLiteral all_one_mask =
@@ -447,6 +448,7 @@ namespace TL
                                 _environment._unroll_factor);
                     _environment._mask_list.push_back(all_one_mask);
 
+                    // Vectorising mask
                     VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
                     visitor_mask.walk(mask_value);
 
@@ -470,6 +472,7 @@ namespace TL
                 _environment._mask_list.pop_back();
             }
 
+            // Same as comp_statement
             Nodecl::NodeclBase for_inner_statement = for_statement.get_statement().
                 as<Nodecl::List>().front().shallow_copy();
             Nodecl::List result_stmt_list;
