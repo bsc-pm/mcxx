@@ -40,6 +40,8 @@ namespace TL
 { 
     namespace Vectorization
     {
+        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
+
         class VectorizerCache;
 
         class VectorizerEnvironment
@@ -115,7 +117,10 @@ namespace TL
 
                 static VectorizerAnalysisStaticInfo *_analysis_info;
 
+                bool _avx2_enabled;
+                bool _knc_enabled;
                 bool _svml_sse_enabled;
+                bool _svml_avx2_enabled;
                 bool _svml_knc_enabled;
                 bool _fast_math_enabled;
 
@@ -175,6 +180,7 @@ namespace TL
                         const bool masked) const;
 
                 void enable_svml_sse();
+                void enable_svml_avx2();
                 void enable_svml_knc();
                 void enable_fast_math();
 

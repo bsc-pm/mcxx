@@ -104,7 +104,9 @@ namespace TL
             }
         }
 
-        Vectorizer::Vectorizer() : _svml_sse_enabled(false), _svml_knc_enabled(false), _fast_math_enabled(false)
+        Vectorizer::Vectorizer() : _avx2_enabled(false), _knc_enabled(false),
+        _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false), 
+        _fast_math_enabled(false)
         {
         }
 
@@ -422,6 +424,51 @@ namespace TL
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("__svml_floorf4").make_nodecl(true),
                             "smp", 16, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+            }
+        }
+
+        void Vectorizer::enable_svml_avx2()
+        {
+            fprintf(stderr, "Enabling SVML AVX2\n");
+
+            if (!_svml_avx2_enabled)
+            {
+                _svml_avx2_enabled = true;
+
+                // SVML AVX2
+                TL::Source svml_avx2_vector_math;
+
+                svml_avx2_vector_math << "__m256 __svml_expf8(__m256);\n"
+                    << "__m256 __svml_sqrtf8(__m256);\n"
+                    << "__m256 __svml_logf8(__m256);\n"
+                    << "__m256 __svml_sinf8(__m256);\n"
+                    << "__m256 __svml_sincosf8(__m256, __m256*, __m256*);\n"
+                    << "__m256 __svml_floorf8(__m256);\n"
+                    ;
+
+                // Parse SVML declarations
+                TL::Scope global_scope = TL::Scope::get_global_scope();
+                svml_avx2_vector_math.parse_global(global_scope);
+
+                // Add SVML math function as vector version of the scalar one
+                add_vector_function_version("expf", 
+                        global_scope.get_symbol_from_name("__svml_expf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sqrtf", 
+                            global_scope.get_symbol_from_name("__svml_sqrtf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("logf", 
+                            global_scope.get_symbol_from_name("__svml_logf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sinf",
+                            global_scope.get_symbol_from_name("__svml_sinf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("sincosf",
+                            global_scope.get_symbol_from_name("__svml_sincosf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                add_vector_function_version("floorf",
+                            global_scope.get_symbol_from_name("__svml_floorf8").make_nodecl(true),
+                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 
