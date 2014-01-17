@@ -228,9 +228,10 @@ namespace Analysis {
 
     bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
+        /*
         std::cerr << &n << " of " << n.prettyprint() << " and " << &(_suitable_expressions->front()) << " of " << _suitable_expressions->front().prettyprint() 
             << Nodecl::Utils::equal_nodecls(n, _suitable_expressions->front(), true) << std::endl;
-
+        */
         bool result = true;
         if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
             result = false;
