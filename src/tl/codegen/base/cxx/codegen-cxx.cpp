@@ -5772,11 +5772,11 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     else if (symbol.is_template_alias())
     {
         move_to_namespace_of_symbol(symbol);
-        indent();
 
         TL::TemplateParameters template_parameters = symbol.get_scope().get_template_parameters();
         codegen_template_header(template_parameters, /* show_default_values */ true);
 
+        indent();
         *(file) << "using " << symbol.get_name() << " = ";
         TL::Type type = symbol.get_type();
         *(file) << this->get_declaration(type, symbol.get_scope(),  "");
