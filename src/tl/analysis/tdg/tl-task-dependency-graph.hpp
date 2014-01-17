@@ -37,8 +37,7 @@ namespace Analysis {
     enum TDGNodeType {
         Task,
         Taskwait,
-        Barrier,
-        Control
+        Barrier
     };
     
     struct TDG_Node {
@@ -65,10 +64,12 @@ namespace Analysis {
     struct TDG_Edge {
         TDG_Node* _source;
         TDG_Node* _target;
+        std::string _type;
         ObjectList<Nodecl::NodeclBase> _source_clauses;
         ObjectList<Nodecl::NodeclBase> _target_clauses;
+        Nodecl::NodeclBase _condition;
         
-        TDG_Edge( TDG_Node* source, TDG_Node* target );
+        TDG_Edge( TDG_Node* source, TDG_Node* target, std::string type );
         TDG_Node* get_source( );
         TDG_Node* get_target( );
         
@@ -79,23 +80,24 @@ namespace Analysis {
     class LIBTL_CLASS TaskDependencyGraph
     {
     private:
-        TDG_Node* _entry;
-        TDG_Node* _exit;
-        
-        TDG_Node* _last_node;
-        
-        ExtensibleGraph* _pcfg;
+        // *** Class members *** //
+        ExtensibleGraph* _pcfg;                 /*!< PCFG corresponding to the graph */
+        ObjectList<TDG_Node*> _tdg_nodes;       /*!< List of nodes in the TDG */
         
         // *** Not allowed construction methods *** //
         TaskDependencyGraph( const TaskDependencyGraph& n );
         TaskDependencyGraph& operator=( const TaskDependencyGraph& );
         
-        void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child );
+        void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, std::string type );
+        
+        TDG_Node* find_task_from_tdg_nodes_list( Node* task );
+        void create_tdg_nodes_from_pcfg( Node* current );
+        void connect_tdg_nodes_from_pcfg( Node* current );
         
         void taskify_graph( Node* current );
         void create_tdg( Node* current );
         
-        void print_tdg_to_dot_rec( TDG_Node* current, std::ofstream& dot_tdg );
+        void print_tdg_node_to_dot( TDG_Node* current, std::ofstream& dot_tdg );
         
     public:
         // *** Constructor *** //
