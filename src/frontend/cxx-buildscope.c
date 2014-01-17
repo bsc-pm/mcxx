@@ -2832,12 +2832,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         }
                     }
 
-                    if (is_dependent_type(computed_type))
-                    {
-                        // The expression type is dependent, wrap it in a typeof
-                        computed_type = get_gcc_typeof_expr_dependent_type(nodecl_expr, decl_context);
-                    }
-
+                    char is_removed_reference = 0;
                     switch (ASTType(expression))
                     {
                         // id-expressions
@@ -2858,7 +2853,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                 // If the 'e' expression is an id-expression or class member
                                 // access, 'decltype(e)' is defined as the type of the entity
                                 // named by 'e'. We remove the reference type.
-                                *simple_type_info = no_ref(computed_type);
+                                is_removed_reference = 1;
                                 break;
                             }
                         default:
@@ -2866,10 +2861,23 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                 // Function calls or other expressions will
                                 // return 'lvalues' with form of 'reference to
                                 // type'. So, we do not need to update the type
-                                *simple_type_info = computed_type;
                                 break;
                             }
                     }
+
+                    if (is_dependent_type(computed_type))
+                    {
+                        // The expression type is dependent, wrap it in a typeof
+                        computed_type = get_typeof_expr_dependent_type(nodecl_expr, decl_context,
+                                /* is_decltype */ 1,
+                                is_removed_reference);
+                    }
+                    else if (is_removed_reference)
+                    {
+                        computed_type = no_ref(computed_type);
+                    }
+
+                    *simple_type_info = computed_type;
                 }
                 else
                 {
@@ -2938,7 +2946,9 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         else if (nodecl_expr_is_type_dependent(nodecl_expr))
                         {
                             // The expression type is dependent, so we will wrap in an typeof expression
-                            computed_type = get_gcc_typeof_expr_dependent_type(nodecl_expr, decl_context);
+                            computed_type = get_typeof_expr_dependent_type(nodecl_expr, decl_context,
+                                    /* is_decltype */ 0,
+                                    /* is_removed_reference */ 0);
                         }
                     }
 

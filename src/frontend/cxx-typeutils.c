@@ -249,6 +249,11 @@ struct simple_type_tag {
     // States that the type is a transparent union (GCC extension)
     _Bool is_transparent_union:1;
 
+    // States that this STK_TYPEOF is a decltype and not a __typeof__
+    _Bool is_decltype:1;
+    // States that this STK_TYPEOF cannot yield a reference
+    _Bool is_removed_reference:1;
+
     // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
     floating_type_info_t* floating_info;
 
@@ -1217,7 +1222,9 @@ type_t* get_void_type(void)
     return _type;
 }
 
-type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context)
+type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context,
+        char is_decltype,
+        char is_removed_reference)
 {
     type_t* type = get_simple_type();
 
@@ -1225,12 +1232,15 @@ type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t 
     type->type->typeof_expr = nodecl_expr;
     type->type->typeof_decl_context = decl_context;
 
+    type->type->is_decltype = is_decltype;
+    type->type->is_removed_reference = is_removed_reference;
+
     // We always return a dependent type
     type->info->is_dependent = 1;
     return type;
 }
 
-char is_gcc_typeof_expr(type_t* t)
+char is_typeof_expr(type_t* t)
 {
     t = advance_over_typedefs(t);
     return t != NULL
@@ -1238,22 +1248,40 @@ char is_gcc_typeof_expr(type_t* t)
         && t->type->kind == STK_TYPEOF;
 }
 
-nodecl_t gcc_typeof_expr_type_get_expression(type_t* t)
+nodecl_t typeof_expr_type_get_expression(type_t* t)
 {
-    ERROR_CONDITION(!is_gcc_typeof_expr(t), "This is not a typeof type", 0);
+    ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
 
     t = advance_over_typedefs(t);
 
     return t->type->typeof_expr;
 }
 
-decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t)
+decl_context_t typeof_expr_type_get_expression_context(type_t* t)
 {
-    ERROR_CONDITION(!is_gcc_typeof_expr(t), "This is not a typeof type", 0);
+    ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
 
     t = advance_over_typedefs(t);
 
     return t->type->typeof_decl_context;
+}
+
+char typeof_expr_type_is_removed_reference(type_t* t)
+{
+    ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
+
+    t = advance_over_typedefs(t);
+
+    return t->type->is_removed_reference;
+}
+
+char typeof_expr_type_is_decltype(type_t* t)
+{
+    ERROR_CONDITION(!is_typeof_expr(t), "This is not a typeof type", 0);
+
+    t = advance_over_typedefs(t);
+
+    return t->type->is_decltype;
 }
 
 type_t* get_gcc_builtin_va_list_type(void)
@@ -7779,21 +7807,17 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
         case STK_TYPEOF :
             {
                 if (IS_C_LANGUAGE
-                        || IS_CXX03_LANGUAGE)
+                        || !simple_type->is_decltype)
                 {
                     result = strappend(result, "__typeof__(");
                     result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
                     result = strappend(result, ")");
                 }
-                else if (IS_CXX11_LANGUAGE)
+                else 
                 {
                     result = strappend(result, "decltype(");
                     result = strappend(result, codegen_to_str(simple_type->typeof_expr, decl_context));
                     result = strappend(result, ")");
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
                 }
                 break;
             }
@@ -9235,7 +9259,10 @@ static const char* get_builtin_type_name(type_t* type_info)
             result = strappend(result, "__builtin_va_list");
             break;
         case STK_TYPEOF :
-            result = strappend(result, "__typeof__(");
+            if (!simple_type_info->is_decltype)
+                result = strappend(result, "__typeof__(");
+            else
+                result = strappend(result, "decltype(");
             result = strappend(result, codegen_to_str(simple_type_info->typeof_expr, CURRENT_COMPILED_FILE->global_decl_context));
             result = strappend(result, ")");
             break;

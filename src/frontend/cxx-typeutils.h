@@ -102,12 +102,18 @@ LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_hollerith_type(void);
 LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
-LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr,
+        decl_context_t decl_context,
+        char is_decltype,
+        char is_removed_reference);
 
-LIBMCXX_EXTERN nodecl_t gcc_typeof_expr_type_get_expression(type_t* t);
-LIBMCXX_EXTERN decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t);
+LIBMCXX_EXTERN nodecl_t typeof_expr_type_get_expression(type_t* t);
+LIBMCXX_EXTERN decl_context_t typeof_expr_type_get_expression_context(type_t* t);
 
-LIBMCXX_EXTERN char is_gcc_typeof_expr(type_t* t);
+LIBMCXX_EXTERN char typeof_expr_type_is_removed_reference(type_t* t);
+LIBMCXX_EXTERN char typeof_expr_type_is_decltype(type_t* t);
+
+LIBMCXX_EXTERN char is_typeof_expr(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 

@@ -3226,9 +3226,9 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         return updated_type;
     }
-    else if (is_gcc_typeof_expr(orig_type))
+    else if (is_typeof_expr(orig_type))
     {
-        nodecl_t nodecl_expr = gcc_typeof_expr_type_get_expression(orig_type);
+        nodecl_t nodecl_expr = typeof_expr_type_get_expression(orig_type);
 
         enter_test_expression();
         nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context);
@@ -3244,7 +3244,12 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else
         {
-            return nodecl_get_type(nodecl_new_expr);
+            type_t* result = nodecl_get_type(nodecl_new_expr);
+            if (typeof_expr_type_is_removed_reference(orig_type))
+            {
+                result = no_ref(result);
+            }
+            return result;
         }
     }
     else if (is_pack_type(orig_type))
@@ -5692,7 +5697,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             {
                 type_t* t = advance_over_typedefs(current_symbol->type_information);
 
-                if (is_dependent_typename_type(t))
+                if (is_dependent_typename_type(t)
+                        || is_typeof_expr(t))
                 {
                     scope_entry_t* dependent_symbol = create_new_dependent_entity(
                             decl_context,
