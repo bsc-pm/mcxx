@@ -10175,6 +10175,12 @@ static void check_nodecl_function_call_cxx(
                 }
             }
 
+            if (nodecl_is_err_expr(nodecl_arg))
+            {
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
+            }
+
             nodecl_argument_list_output = nodecl_append_to_list(nodecl_argument_list_output, nodecl_arg);
         }
 

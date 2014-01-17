@@ -953,7 +953,11 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
             fprintf(stderr, "SCOPE: Found in current class, hides any symbol in base classes\n");
         }
     }
-    else
+    else if (is_enum_type(current_class_type))
+    {
+        // All done for enums
+    }
+    else if (is_class_type(current_class_type))
     {
         // Check bases if not found in the current class
         int num_all_bases = class_type_get_num_bases(current_class_type);
@@ -1227,6 +1231,10 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                 }
             }
         }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
     }
 }
 
@@ -3728,6 +3736,16 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 template_parameter_value_t* v = update_template_parameter_value_of_template_class(primary_template_parameters->arguments[i],
                         new_template_context,
                         locus, /* pack_index */ -1);
+
+                if (v == NULL)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
+                    }
+
+                    return NULL;
+                }
                 P_LIST_ADD(result->arguments, result->num_parameters, v);
             }
         }
