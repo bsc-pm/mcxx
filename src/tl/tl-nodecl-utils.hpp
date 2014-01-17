@@ -65,6 +65,7 @@ namespace Nodecl
         bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
         bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
+        bool stmtexpr_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, 
@@ -330,6 +331,53 @@ namespace Nodecl
 
         bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, 
                 const NodeclBase& containee);
+        
+        class LIBTL_CLASS ExprFinderVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+        private:
+            Nodecl::NodeclBase _scope;
+            Nodecl::NodeclBase _n;
+            bool _nodecl_is_found;
+            
+            void binary_visitor( const Nodecl::NodeclBase& n, 
+                                 const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+            
+            void unary_visitor( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
+            
+        public:
+            // *** Constructor *** //
+            ExprFinderVisitor( const Nodecl::NodeclBase& stmt );
+            
+            // *** Consultants *** //
+            bool find( const Nodecl::NodeclBase& n );
+            
+            // *** Visitors *** //
+            Ret unhandled_node( const Nodecl::NodeclBase& n );
+            Ret visit( const Nodecl::AddAssignment& n );
+            Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+            Ret visit( const Nodecl::ArraySubscript& n );
+            Ret visit( const Nodecl::Assignment& n );
+            Ret visit( const Nodecl::BitwiseAndAssignment& n );
+            Ret visit( const Nodecl::BitwiseOrAssignment& n );
+            Ret visit( const Nodecl::BitwiseShlAssignment& n );
+            Ret visit( const Nodecl::BitwiseShrAssignment& n );
+            Ret visit( const Nodecl::BitwiseXorAssignment& n );
+            Ret visit( const Nodecl::ClassMemberAccess& n );
+            Ret visit( const Nodecl::Dereference& n );
+            Ret visit( const Nodecl::DivAssignment& n );
+            Ret visit( const Nodecl::FunctionCall& n );
+            Ret visit( const Nodecl::MinusAssignment& n );
+            Ret visit( const Nodecl::ModAssignment& n );
+            Ret visit( const Nodecl::MulAssignment& n );
+            Ret visit( const Nodecl::ObjectInit& n );
+            Ret visit( const Nodecl::Postdecrement& n );
+            Ret visit( const Nodecl::Postincrement& n );
+            Ret visit( const Nodecl::Predecrement& n );
+            Ret visit( const Nodecl::Preincrement& n );
+            Ret visit( const Nodecl::Range& n );
+            Ret visit( const Nodecl::Reference& n );
+            Ret visit( const Nodecl::Symbol& n );
+        };
     }
 }
 
