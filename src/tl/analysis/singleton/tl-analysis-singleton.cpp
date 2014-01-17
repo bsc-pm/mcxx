@@ -38,6 +38,7 @@
 #include "tl-reaching-definitions.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-loop-analysis.hpp"
+#include "tl-task-syncs-tune.hpp"
 #include "tl-auto-scope.hpp"
 
 namespace TL {
@@ -50,7 +51,7 @@ namespace Analysis {
         : _pcfgs( ), _tdgs( ), 
           _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
-          _auto_scoping( false ), _auto_deps( false ), _tdg( false )
+          _tune_task_syncs( false ), _auto_scoping( false ), _auto_deps( false ), _tdg( false )
     {}
 
     ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
@@ -159,6 +160,16 @@ namespace Analysis {
         _induction_variables = true;
     }
 
+    bool PCFGAnalysis_memento::is_task_synchronizations_tuned( ) const
+    {
+        return _tune_task_syncs;
+    }
+    
+    void PCFGAnalysis_memento::set_tune_task_synchronizations( )
+    {
+        _tune_task_syncs = true;
+    }
+    
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
     {
         return _auto_scoping;
@@ -571,9 +582,30 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::tune_task_synchronizations( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
+        
+        if( !memento.is_task_synchronizations_tuned( ) )
+        {
+            memento.set_tune_task_synchronizations( );
+            
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    printf( "Task synchronizations tunning of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                
+                TaskAnalysis::TaskSyncTunning tst( *it );
+                tst.tune_task_synchronizations( );
+            }
+        }
+        
+        return pcfgs;
+    }
+    
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations( memento, ast );
 
         if( !memento.is_auto_scoping_computed( ) )
         {
@@ -596,7 +628,7 @@ namespace Analysis {
     {
         ObjectList<TaskDependencyGraph*> tdgs;
         
-        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
+        ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations( memento, ast );
         
         if( !memento.is_tdg_computed( ) )
         {

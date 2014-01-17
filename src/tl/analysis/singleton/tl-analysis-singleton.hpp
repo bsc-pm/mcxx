@@ -68,6 +68,7 @@ namespace Analysis {
         bool _loops;                //!<True when loops analysis has been applied
         bool _reaching_definitions; //!<True when reaching definitions has been calculated
         bool _induction_variables;  //!<True when induction variable analysis has been applied
+        bool _tune_task_syncs;      //!<True when the task synchronization has been tuned
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
         bool _tdg;                  //!<True when PCFG's tasks dependency graphs have been created
@@ -111,6 +112,8 @@ namespace Analysis {
         void set_reaching_definitions_computed( );
         bool is_induction_variables_computed( ) const;
         void set_induction_variables_computed( );
+        bool is_task_synchronizations_tuned( ) const;
+        void set_tune_task_synchronizations( );
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
@@ -207,6 +210,8 @@ namespace Analysis {
          */
         ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> tune_task_synchronizations( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );

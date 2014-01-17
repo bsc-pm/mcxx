@@ -1129,9 +1129,9 @@ src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 lib_LTLIBRARIES += src/tl/analysis/pcfg/libpcfg.la
 
 PCFG_COMMON_FLAGS= $(tl_cflags) \
-				   -I$(srcdir)/src/tl/analysis/pcfg \
-				   -I$(srcdir)/src/tl/analysis/common \
-				   -I $(srcdir)/src/tl/analysis/loops
+		-I$(srcdir)/src/tl/analysis/pcfg \
+		-I$(srcdir)/src/tl/analysis/common \
+		-I $(srcdir)/src/tl/analysis/loops
 
 src_tl_analysis_pcfg_libpcfg_la_CFLAGS = $(PCFG_COMMON_FLAGS)
 src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS)
@@ -1139,7 +1139,7 @@ src_tl_analysis_pcfg_libpcfg_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_pcfg_libpcfg_la_LIBADD = $(tl_libadd) src/tl/libtl.la src/tl/analysis/common/libanalysis_utils.la
 
 src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
-					src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
+                    src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
                     src/tl/analysis/pcfg/tl-pcfg-utils.cpp \
                     src/tl/analysis/pcfg/tl-edge.hpp \
                     src/tl/analysis/pcfg/tl-edge.cpp \
@@ -1233,6 +1233,24 @@ src_tl_analysis_loops_libloops_analysis_la_SOURCES = src/tl/analysis/loops/tl-iv
                                $(END)
 
 ##########################################################################
+# src/tl/analysis/pcfg-tasks
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/pcfg_tasks/libpcfg_tasks.la
+
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CFLAGS = $(tl_cflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LDFLAGS = $(tl_ldflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
+							src/tl/libtl.la \
+							$(ANALYSIS_LIBADD)
+
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
+                               src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.hpp \
+                               src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.cpp \
+                               $(END)
+
+##########################################################################
 # src/tl/analysis/auto-scope
 ##########################################################################
 if BUILD_AUTO_SCOPE
@@ -1286,6 +1304,7 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/analysis/liveness \
 				-I$(srcdir)/src/tl/analysis/reach_defs \
 				-I$(srcdir)/src/tl/analysis/loops \
+				-I$(srcdir)/src/tl/analysis/pcfg_tasks \
 				-I$(srcdir)/src/tl/analysis/auto-scope \
 				-I$(srcdir)/src/tl/analysis/tdg \
 				$(END)
@@ -1300,6 +1319,7 @@ src_tl_analysis_singleton_libanalysis_singleton_la_LIBADD= \
 				src/tl/analysis/liveness/libliveness.la \
 				src/tl/analysis/reach_defs/libreaching_definitions.la \
 				src/tl/analysis/loops/libloops_analysis.la \
+				src/tl/analysis/pcfg_tasks/libpcfg_tasks.la \
 				src/tl/analysis/auto-scope/libauto_scope.la \
 				src/tl/analysis/tdg/libtdg.la \
 				$(END)
