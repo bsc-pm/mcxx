@@ -18060,7 +18060,8 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
 static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
         dependent_entry, 
         nodecl_t list_of_dependent_parts,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        int pack_index)
 {
     nodecl_t nodecl_extended_parts = nodecl_null();
 
@@ -18079,13 +18080,33 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
                     decl_context,
                     template_specialized_type_get_template_arguments(dependent_entry->type_information),
                     make_locus("", 0, 0),
-                    /* pack_index */ -1),
+                    pack_index),
                 make_locus("", 0, 0));
     }
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
 
-    // Concat with the existing parts
-    nodecl_extended_parts = nodecl_concat_lists(nodecl_extended_parts, nodecl_shallow_copy(list_of_dependent_parts));
+    // Concat with the existing parts but make sure we update the template arguments as well
+    int i;
+    int num_rest_of_parts = 0;
+    nodecl_t* rest_of_parts = nodecl_unpack_list(list_of_dependent_parts, &num_rest_of_parts);
+    for (i = 0; i < num_rest_of_parts; i++)
+    {
+        nodecl_t copied_part = nodecl_shallow_copy(rest_of_parts[i]);
+
+        if (nodecl_get_kind(copied_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            nodecl_set_template_parameters(
+                    copied_part,
+                    update_template_argument_list(
+                        decl_context,
+                        nodecl_get_template_parameters(copied_part),
+                        make_locus("", 0, 0),
+                        pack_index));
+        }
+
+        nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, copied_part);
+    }
+    xfree(rest_of_parts);
 
     nodecl_t result =
         nodecl_make_cxx_dep_global_name_nested(nodecl_extended_parts, make_locus("", 0, 0));
@@ -18183,7 +18204,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry, list_of_dependent_parts, v->decl_context);
+        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
+                list_of_dependent_parts,
+                v->decl_context,
+                v->pack_index);
 
         cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, &result);
     }
