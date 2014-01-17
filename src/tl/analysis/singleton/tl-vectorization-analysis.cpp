@@ -34,7 +34,7 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************** Class to retrieve SIMD analysis info about one specific nodecl *************** //
     
-    bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n ) const
+    bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n, Node* pcfg_node ) const
     {
         bool result = false;
         
@@ -64,7 +64,7 @@ namespace Analysis {
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
                     
-                    ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
+                    ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, pcfg_node );
                     iv_v.walk( s );
                     result = iv_v.is_adjacent_access( );
                 }
@@ -74,7 +74,7 @@ namespace Analysis {
         return result;
     }
 
-    bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n ) const
+    bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n, Node* pcfg_node ) const
     {
         bool result = false;
         
@@ -84,7 +84,7 @@ namespace Analysis {
             Nodecl::NodeclBase s = n.shallow_copy( );
             v.walk( s );
 
-            ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
+            ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, pcfg_node );
             iv_v.walk( s );
             result = iv_v.depends_on_induction_vars( );
 
@@ -572,8 +572,8 @@ namespace Analysis {
     // ******************* Visitor retrieving array accesses info within a loop ******************** //
     
     ArrayAccessInfoVisitor::ArrayAccessInfoVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, 
-                                                  Utils::ext_sym_set killed )
-            : _induction_variables( ivs ), _killed( killed ), _ivs( ), _is_adjacent_access( false )
+                                                    Utils::ext_sym_set killed, Node* pcfg_node )
+            : _induction_variables( ivs ), _killed( killed ), _pcfg_node( pcfg_node ), _ivs( ), _is_adjacent_access( false )
     {}
     
     bool ArrayAccessInfoVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
@@ -590,6 +590,22 @@ namespace Analysis {
             }
         }
         return is_iv;
+    }
+    
+    bool ArrayAccessInfoVisitor::var_is_modified_in_access_immediate_loop( const Nodecl::Symbol& n )
+    {
+        bool result = false;
+        // Find the loop node containing the pcfg node of the access being analyzed
+        Node* outer_node = _pcfg_node->get_outer_node( );
+        while( ( outer_node != NULL ) && !outer_node->is_loop_node( ) )
+            outer_node = outer_node->get_outer_node( );
+        
+        Utils::ext_sym_map reach_defs_in = outer_node->get_reaching_definitions_in( );
+        Utils::ext_sym_map reach_defs_out = outer_node->get_reaching_definitions_out( );
+        if( reach_defs_in.count( n ) != reach_defs_out.count( n ) )
+            result = true;
+
+        return result;
     }
     
     static bool nodecl_is_zero( const Nodecl::NodeclBase& n )
@@ -625,7 +641,7 @@ namespace Analysis {
     {
         return !_ivs.empty( );
     }
-    
+
     bool ArrayAccessInfoVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         std::cerr << "Unhandled node while parsing Array Subscript '"
@@ -662,7 +678,7 @@ namespace Analysis {
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
                            || ( lhs_is_const && rhs_is_adjacent_access );
-        
+                           
         return ( rhs_is_const && lhs_is_const );
     }
     
@@ -754,8 +770,6 @@ namespace Analysis {
         
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_one;
-//         _is_adjacent_access = ( lhs_is_const && rhs_is_const )
-//                            || ( lhs_is_adjacent_access && rhs_is_one );
  
         return ( lhs_is_const && rhs_is_const );
     }
@@ -809,33 +823,22 @@ namespace Analysis {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
-//         bool lhs_is_zero = false;
         bool lhs_is_one = false;
         if( lhs_is_const )
-        {
-//             lhs_is_zero = nodecl_is_zero( lhs );
             lhs_is_one = nodecl_is_one( lhs );
-        }
         bool lhs_is_adjacent_access = _is_adjacent_access;
         
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
-//         bool rhs_is_zero = false;
         bool rhs_is_one = false;
         if( rhs_is_const )
-        {
-//             rhs_is_zero = nodecl_is_zero( rhs );
             rhs_is_one = nodecl_is_one( rhs );
-        }
         bool rhs_is_adjacent_access = _is_adjacent_access;
         
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_one ) 
                            || ( rhs_is_adjacent_access && lhs_is_one );
-//         _is_adjacent_access = (lhs_is_const && rhs_is_const) 
-//                            || (lhs_is_adjacent_access && (rhs_is_zero || rhs_is_one) ) 
-//                            || (rhs_is_adjacent_access && (lhs_is_zero || lhs_is_one) );
         
         return ( lhs_is_const && rhs_is_const );
     }
@@ -939,7 +942,7 @@ namespace Analysis {
 
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
         
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed );
+        return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_modified_in_access_immediate_loop( n );
     }
     
     // ***************** END visitor retrieving array accesses info within a loop ****************** //

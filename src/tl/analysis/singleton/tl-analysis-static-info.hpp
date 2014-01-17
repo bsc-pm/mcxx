@@ -132,9 +132,9 @@ namespace Analysis {
             
             // *** Queries for Vectorization *** //
             
-            bool is_adjacent_access( const Nodecl::NodeclBase& n ) const;
+            bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* sc_node ) const;
             
-            bool contains_induction_variable( const Nodecl::NodeclBase& n ) const;
+            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* sc_node ) const;
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
@@ -151,6 +151,8 @@ namespace Analysis {
             void print_auto_scoping_results( ) const;
 
             Utils::AutoScopedVariables get_auto_scoped_variables( );
+            
+        friend class AnalysisStaticInfo;
     };
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
@@ -352,17 +354,19 @@ namespace Analysis {
     private:
         ObjectList<Utils::InductionVariableData*> _induction_variables; /* All IVs in the containing loop */
         Utils::ext_sym_set _killed;                                     /* All killed variables in the containing loop */
+        Node* _pcfg_node;                                               /* Node in the PCFG containing the nodecl being analyzed */
         ObjectList<Utils::InductionVariableData*> _ivs;                 /* IVs found during traversal */
         bool _is_adjacent_access;
         
         bool variable_is_iv( const Nodecl::NodeclBase& n );
+        bool var_is_modified_in_access_immediate_loop( const Nodecl::Symbol& n );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
         
     public:
         // *** Constructor *** //
         ArrayAccessInfoVisitor( ObjectList<Utils::InductionVariableData*> ivs, 
-                               Utils::ext_sym_set killed );
+                                Utils::ext_sym_set killed, Node* pcfg_node );
         
         // *** Consultants *** //
         bool is_adjacent_access( );
