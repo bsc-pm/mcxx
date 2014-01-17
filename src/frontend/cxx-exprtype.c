@@ -1917,7 +1917,9 @@ static char is_promoteable_integral_type(type_t* t)
             || is_unsigned_short_int_type(t)
             || is_bool_type(t)
             || is_enum_type(t)
-            || is_wchar_t_type(t));
+            || is_wchar_t_type(t)
+            || is_char16_t_type(t)
+            || is_char32_t_type(t));
 }
 
 static type_t* promote_integral_type(type_t* t)
@@ -2145,6 +2147,30 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         }
 
         return result;
+    }
+
+    // char16_t -> uint_least16_t
+    if (is_char16_t_type(lhs_type))
+    {
+        // FIXME - Should be uint_least16_t
+        lhs_type = get_unsigned_short_int_type();
+    }
+    if (is_char16_t_type(rhs_type))
+    {
+        // FIXME - Should be uint_least16_t
+        rhs_type = get_unsigned_short_int_type();
+    }
+
+    // char32_t -> uint_least32_t
+    if (is_char32_t_type(lhs_type))
+    {
+        // FIXME - Should be uint_least32_t
+        lhs_type = get_unsigned_int_type();
+    }
+    if (is_char32_t_type(rhs_type))
+    {
+        // FIXME - Should be uint_least32_t
+        rhs_type = get_unsigned_int_type();
     }
 
     // Perform integral promotions
