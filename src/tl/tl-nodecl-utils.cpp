@@ -597,8 +597,13 @@ namespace Nodecl
             }
         }
 
-
         return result;
+    }
+    
+    bool Utils::stmtexpr_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
+    {
+        ExprFinderVisitor efv( container );
+        return efv.find( contained );
     }
 
     bool Utils::nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l )
@@ -1792,6 +1797,187 @@ namespace Nodecl
 
         return false;
     }
+    
+    
+    // ********************************************************************************* //
+    // *************** Visitor looking for a nodecl contained in a scope *************** //
+    
+    Utils::ExprFinderVisitor::ExprFinderVisitor( const Nodecl::NodeclBase& stmt_expr )
+        : _scope( stmt_expr ), _n( Nodecl::NodeclBase::null( ) ), _nodecl_is_found( false )
+    {}
+    
+    bool Utils::ExprFinderVisitor::find( const Nodecl::NodeclBase& n )
+    {
+        _nodecl_is_found = false;
+        _n = n;
+        walk( _scope );
+        return _nodecl_is_found;
+    }
+    
+    void Utils::ExprFinderVisitor::binary_visitor( const Nodecl::NodeclBase& n, 
+            const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
+    {
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+        else
+        {
+            walk( lhs );
+            if( !_nodecl_is_found )
+                walk( rhs );
+        }
+    }
+
+    void Utils::ExprFinderVisitor::unary_visitor( const Nodecl::NodeclBase& n, 
+                                                  const Nodecl::NodeclBase& rhs )
+    {
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+        else
+            walk( rhs );
+    }
+    
+    void Utils::ExprFinderVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    {
+        WARNING_MESSAGE( "Unhandled node '%s' during ExprFinderVisitor", n.prettyprint( ).c_str( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::AddAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::ArraySubscript& n )
+    {
+        binary_visitor( n, n.get_subscripted( ), n.get_subscripts( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Assignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );   
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::ClassMemberAccess& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_member( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Dereference& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::DivAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::FunctionCall& n )
+    {
+        binary_visitor( n, n.get_called( ), n.get_arguments( ) );
+    } 
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::MinusAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::ModAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::MulAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::ObjectInit& n )
+    {
+        Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus( ) );
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Postdecrement& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Postincrement& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Predecrement& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Preincrement& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Range& n )
+    {
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+        else
+        {
+            walk( n.get_lower( ) );
+            if( !_nodecl_is_found )
+            {
+                walk( n.get_upper( ) );
+                if( !_nodecl_is_found )
+                    walk( n.get_stride( ) );
+            }
+        }
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Reference& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+    
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Symbol& n )
+    {
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+    }
+    
+    // ************* END visitor looking for a nodecl contained in a scope ************* //
+    // ********************************************************************************* //
+    
 }
 
 namespace TL
