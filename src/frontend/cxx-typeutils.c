@@ -12603,8 +12603,11 @@ const char* type_to_source(type_t* t)
     return c;
 }
 
-type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context, 
-        symbol_map_t* symbol_map)
+type_t* type_deep_copy_compute_maps(type_t* orig,
+        decl_context_t new_decl_context, 
+        symbol_map_t* symbol_map,
+        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+        symbol_deep_copy_map_t* symbol_deep_copy_map)
 {
     // Note that this function does not copy class types
 
@@ -12632,13 +12635,15 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     else if (is_pointer_type(orig))
     {
         type_t* pointee = pointer_type_get_pointee_type(orig);
-        pointee = type_deep_copy(pointee, new_decl_context, symbol_map);
+        pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
         result = get_pointer_type(pointee);
     }
     else if (is_pointer_to_member_type(orig))
     {
         type_t* pointee = pointer_type_get_pointee_type(orig);
-        pointee = type_deep_copy(pointee, new_decl_context, symbol_map);
+        pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(orig);
         class_symbol = symbol_map->map(symbol_map, class_symbol);
@@ -12648,28 +12653,32 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     else if (is_lvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy(ref_type, new_decl_context, symbol_map);
+        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_lvalue_reference_type(ref_type);
     }
     else if (is_rvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy(ref_type, new_decl_context, symbol_map);
+        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rvalue_reference_type(ref_type);
     }
     else if (is_rebindable_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy(ref_type, new_decl_context, symbol_map);
+        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rebindable_reference_type(ref_type);
     }
     else if (is_array_type(orig))
     {
         type_t* element_type = array_type_get_element_type(orig);
-        element_type = type_deep_copy(element_type, new_decl_context, symbol_map);
+        element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         // Use the constructor that affects the least to the array type
         if ((IS_C_LANGUAGE
@@ -12677,7 +12686,8 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
                 && !array_type_has_region(orig))
         {
             nodecl_t array_size = array_type_get_array_size_expr(orig);
-            array_size = nodecl_deep_copy(array_size, new_decl_context, symbol_map);
+            array_size = nodecl_deep_copy_compute_maps(array_size, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
 
             result = get_array_type(
                     element_type,
@@ -12690,8 +12700,10 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
             nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
             nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
 
-            lower_bound = nodecl_deep_copy(lower_bound, new_decl_context, symbol_map);
-            upper_bound = nodecl_deep_copy(upper_bound, new_decl_context, symbol_map);
+            lower_bound = nodecl_deep_copy_compute_maps(lower_bound, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
+            upper_bound = nodecl_deep_copy_compute_maps(upper_bound, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
 
             bool has_descriptor = array_type_with_descriptor(orig);
 
@@ -12717,16 +12729,21 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
             nodecl_t lower_bound = array_type_get_array_lower_bound(orig);
             nodecl_t upper_bound = array_type_get_array_upper_bound(orig);
 
-            lower_bound = nodecl_deep_copy(lower_bound, new_decl_context, symbol_map);
-            upper_bound = nodecl_deep_copy(upper_bound, new_decl_context, symbol_map);
+            lower_bound = nodecl_deep_copy_compute_maps(lower_bound, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
+            upper_bound = nodecl_deep_copy_compute_maps(upper_bound, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
 
             nodecl_t region_lower_bound = array_type_get_region_lower_bound(orig);
             nodecl_t region_upper_bound = array_type_get_region_upper_bound(orig);
             nodecl_t region_stride = array_type_get_region_stride(orig);
 
-            region_lower_bound = nodecl_deep_copy(region_lower_bound, new_decl_context, symbol_map);
-            region_upper_bound = nodecl_deep_copy(region_upper_bound, new_decl_context, symbol_map);
-            region_stride = nodecl_deep_copy(region_stride, new_decl_context, symbol_map);
+            region_lower_bound = nodecl_deep_copy_compute_maps(region_lower_bound, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
+            region_upper_bound = nodecl_deep_copy_compute_maps(region_upper_bound, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
+            region_stride = nodecl_deep_copy_compute_maps(region_stride, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
 
             result = get_array_type_bounds_with_regions(element_type,
                     lower_bound,
@@ -12744,7 +12761,8 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     else if (is_function_type(orig))
     {
         type_t* return_type = function_type_get_return_type(orig);
-        return_type = type_deep_copy(return_type, new_decl_context, symbol_map);
+        return_type = type_deep_copy_compute_maps(return_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         if (function_type_get_lacking_prototype(orig))
         {
@@ -12769,7 +12787,10 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
 
             for (i = 0; i < N; i++)
             {
-                param_info[i].type_info = type_deep_copy(function_type_get_parameter_type_num(orig, i), new_decl_context, symbol_map);
+                param_info[i].type_info = type_deep_copy_compute_maps(function_type_get_parameter_type_num(orig, i),
+                        new_decl_context, symbol_map,
+                        nodecl_deep_copy_map,
+                        symbol_deep_copy_map);
             }
 
             result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
@@ -12778,7 +12799,8 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     else if (is_vector_type(orig))
     {
         type_t * element_type = vector_type_get_element_type(orig);
-        element_type = type_deep_copy(element_type, new_decl_context, symbol_map);
+        element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_vector_type(
                 element_type,
@@ -12788,6 +12810,18 @@ type_t* type_deep_copy(type_t* orig, decl_context_t new_decl_context,
     result = get_cv_qualified_type(result, cv_qualif);
 
     return result;
+}
+
+type_t* type_deep_copy(type_t* orig,
+        decl_context_t new_decl_context, 
+        symbol_map_t* symbol_map)
+{
+    return type_deep_copy_compute_maps(
+            orig,
+            new_decl_context,
+            symbol_map,
+            /* nodecl_deep_copy_map_t */ NULL,
+            /* symbol_deep_copy_map_t */ NULL);
 }
 
 static rb_red_blk_tree *_interoperable_hash = NULL;

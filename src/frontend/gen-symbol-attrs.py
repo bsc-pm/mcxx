@@ -511,7 +511,10 @@ def print_deep_copy_entity_specs(lines):
     print "#include \"string_utils.h\""
 
     print """
-    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source, decl_context_t decl_context, symbol_map_t* symbol_map)
+    void symbol_deep_copy_entity_specs(scope_entry_t* dest, scope_entry_t* source,
+             decl_context_t decl_context, symbol_map_t* symbol_map,
+             nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+             symbol_deep_copy_map_t* symbol_deep_copy_map)
     {
     """
     for l in lines:
@@ -528,9 +531,9 @@ def print_deep_copy_entity_specs(lines):
       elif (_type == "scope"):
           print "dest->entity_specs.%s = decl_context;" % (name)
       elif (_type == "nodecl"):
-          print "dest->entity_specs.%s = nodecl_deep_copy(source->entity_specs.%s, decl_context, symbol_map);" % (name, name)
+          print "dest->entity_specs.%s = nodecl_deep_copy_compute_maps(source->entity_specs.%s, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (name, name)
       elif (_type == "type"):
-          print "dest->entity_specs.%s = type_deep_copy(source->entity_specs.%s, decl_context, symbol_map);" % (name, name)
+          print "dest->entity_specs.%s = type_deep_copy_compute_maps(source->entity_specs.%s, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (name, name)
       elif (_type == "symbol"):
           print "dest->entity_specs.%s = symbol_map->map(symbol_map, source->entity_specs.%s);" % (name, name)
       elif (_type == "string"):
@@ -564,7 +567,7 @@ def print_deep_copy_entity_specs(lines):
               print "scope_entry_t* copied = symbol_map->map(symbol_map, source->entity_specs.%s[i]);" % (list_name)
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "type":
-              print "type_t* copied = type_deep_copy(source->entity_specs.%s[i], decl_context, symbol_map);" % (list_name)
+              print "type_t* copied = type_deep_copy_compute_maps(source->entity_specs.%s[i], decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (list_name)
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "default_argument_info_t*":
                   print "default_argument_info_t* source_default_arg = source->entity_specs.%s[i];" % (list_name)
@@ -572,7 +575,7 @@ def print_deep_copy_entity_specs(lines):
                   print "if (source_default_arg != NULL)"
                   print "{"
                   print "  copied = xcalloc(1, sizeof(*copied));"
-                  print "  copied->argument = nodecl_deep_copy(source_default_arg->argument, decl_context, symbol_map);"
+                  print "  copied->argument = nodecl_deep_copy_compute_maps(source_default_arg->argument, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
                   print "  copied->context = decl_context;"
                   print "}"
                   print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
@@ -580,7 +583,7 @@ def print_deep_copy_entity_specs(lines):
               print "gcc_attribute_t source_gcc_attr = source->entity_specs.%s[i];" % (list_name)
               print "gcc_attribute_t copied;"
               print "copied.attribute_name = source_gcc_attr.attribute_name;"
-              print "copied.expression_list = nodecl_deep_copy(source_gcc_attr.expression_list, decl_context, symbol_map);"
+              print "copied.expression_list = nodecl_deep_copy_compute_maps(source_gcc_attr.expression_list, decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
               print "P_LIST_ADD(dest->entity_specs.%s, dest->entity_specs.%s, copied);" % (list_name, num_name)
           elif type_name == "function_parameter_info_t":
               print "function_parameter_info_t param_info = source->entity_specs.%s[i];" % (list_name)
