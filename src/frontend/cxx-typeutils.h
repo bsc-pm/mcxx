@@ -788,6 +788,12 @@ LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
         decl_context_t new_decl_context,
         symbol_map_t* symbol_map);
 
+LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(type_t* orig,
+        decl_context_t new_decl_context,
+        symbol_map_t* symbol_map,
+        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+        symbol_deep_copy_map_t* symbol_deep_copy_map);
+
 LIBMCXX_EXTERN type_t* get_variant_type_interoperable(type_t* t);
 LIBMCXX_EXTERN char variant_type_is_interoperable(type_t* t);
 
