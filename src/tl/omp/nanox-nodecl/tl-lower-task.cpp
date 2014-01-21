@@ -2281,9 +2281,30 @@ void LoweringVisitor::emit_translation_function_region(
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-            << "}"
             ;
+
+        if ((*it)->get_symbol().is_allocatable()
+                || ((*it)->get_symbol().get_type().is_pointer()
+                    && (*it)->get_symbol().get_type().points_to().is_array()
+                    && (*it)->get_symbol().get_type().points_to().array_requires_descriptor()))
+        {
+            TL::Symbol new_function = get_function_modify_array_descriptor(
+                    (*it)->get_field_name(),
+                    (*it)->get_field_type(),
+                    ctr.retrieve_context());
+
+            translations
+                <<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
+                << "}"
+                ;
+        }
+        else
+        {
+            translations
+                << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+                << "}"
+                ;
+        }
 
         copy_num += copies.size();
     }
