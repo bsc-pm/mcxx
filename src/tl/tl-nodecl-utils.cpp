@@ -1921,9 +1921,16 @@ namespace Nodecl
     
     void Utils::ExprFinderVisitor::visit( const Nodecl::ObjectInit& n )
     {
-        Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus( ) );
+        TL::Symbol sym = n.get_symbol( );
+        Nodecl::Symbol n_sym = Nodecl::Symbol::make( sym, n.get_locus( ) );
         if( equal_nodecls( n, _n ) )
             _nodecl_is_found = true;
+        else
+        {
+            Nodecl::NodeclBase val = sym.get_value( );
+            if( !val.is_null( ) )
+                walk( val );
+        }
     }
     
     void Utils::ExprFinderVisitor::visit( const Nodecl::Postdecrement& n )
