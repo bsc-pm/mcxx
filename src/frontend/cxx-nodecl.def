@@ -627,3 +627,7 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
+
+top-level : assert-directive
+
+assert-directive : NODECL_ANALYSIS*ASSERT_DECL([environment] analysis-exec-environment-seq-opt) symbol

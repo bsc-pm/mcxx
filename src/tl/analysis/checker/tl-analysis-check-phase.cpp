@@ -251,7 +251,7 @@ namespace {
             // Treat current node
             std::string locus_str;
             if( current->is_graph_node( ) )
-                locus_str = current->get_graph_label( ).get_locus_str( );
+                locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
             {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
@@ -437,32 +437,9 @@ namespace {
             }
         }
     }
-}
     
-    AnalysisCheckPhase::AnalysisCheckPhase( )
-        : PragmaCustomCompilerPhase("analysis_check")
+    void check_pragma_clauses( PragmaCustomLine pragma_line, const locus_t* loc, Nodecl::List& environment )
     {
-        set_phase_name( "Phase checking the correctness of different analysis" );
-        set_phase_description( "This phase checks first the robustness of a PCFG and then "\
-                                " the correctness of different analysis based on user defined pragmas." );
-        
-        // Register constructs
-        register_construct("assert");
-        
-        dispatcher( ).statement.pre["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_pre, *this ) );
-        dispatcher( ).statement.post["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_post, *this ) );
-    }
-
-    void AnalysisCheckPhase::assert_handler_pre( TL::PragmaCustomStatement directive )
-    {   // Nothing to be done
-    }
-    
-    void AnalysisCheckPhase::assert_handler_post( TL::PragmaCustomStatement directive )
-    {   // TODO
-        Nodecl::List environment;
-        PragmaCustomLine pragma_line = directive.get_pragma_line( );
-        const locus_t* loc = directive.get_locus( );
-        
         // Use-Def analysis clauses
         // #pragma analysis_check assert upper_exposed(expr-list)
         if( pragma_line.get_clause( "upper_exposed" ).is_defined( ) )
@@ -576,15 +553,59 @@ namespace {
                 Nodecl::Analysis::AutoScope::Shared::make(
                     Nodecl::List::make( auto_sc_s_vars_clause.get_arguments_as_expressions( ) ), loc ) );
         }
+    }
+}
+    
+    AnalysisCheckPhase::AnalysisCheckPhase( )
+        : PragmaCustomCompilerPhase("analysis_check")
+    {
+        set_phase_name( "Phase checking the correctness of different analysis" );
+        set_phase_description( "This phase checks first the robustness of a PCFG and then "\
+                                " the correctness of different analysis based on user defined pragmas." );
         
-        Nodecl::Analysis::Assert assert =
-            Nodecl::Analysis::Assert::make(
-                directive.get_statements( ),
-                environment,
-                directive.get_locus( ) );
+        // Register constructs
+        register_construct("assert");
+        register_construct("assert_decl");
         
-        pragma_line.diagnostic_unused_clauses();
-        directive.replace( assert );
+        dispatcher( ).statement.pre["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_pre, *this ) );
+        dispatcher( ).statement.post["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_post, *this ) );
+        dispatcher( ).declaration.pre["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_pre, *this ) );
+        dispatcher( ).declaration.post["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_post, *this ) );
+    }
+
+    void AnalysisCheckPhase::assert_handler_pre( TL::PragmaCustomStatement directive )
+    {   // Nothing to be done
+    }
+    
+    void AnalysisCheckPhase::assert_handler_post( TL::PragmaCustomStatement directive )
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line( );
+        const locus_t* loc = directive.get_locus( );
+        Nodecl::List environment;
+        check_pragma_clauses( pragma_line, loc, environment );
+        Nodecl::Analysis::Assert assert_nodecl = Nodecl::Analysis::Assert::make( 
+                directive.get_statements( ), environment, directive.get_locus( ) );
+        
+        pragma_line.diagnostic_unused_clauses( );
+        directive.replace( assert_nodecl );
+    }
+    
+    void AnalysisCheckPhase::assert_decl_handler_pre( TL::PragmaCustomDeclaration directive )
+    {   // Nothing to be done
+    }
+    
+    void AnalysisCheckPhase::assert_decl_handler_post( TL::PragmaCustomDeclaration directive )
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line( );
+        const locus_t* loc = directive.get_locus( );
+        
+        Nodecl::List environment;
+        check_pragma_clauses( pragma_line, loc, environment );
+        Nodecl::Analysis::AssertDecl assert_nodecl = Nodecl::Analysis::AssertDecl::make( 
+                environment, directive.get_symbol( ), directive.get_locus( ) );
+        
+        pragma_line.diagnostic_unused_clauses( );
+        directive.replace( assert_nodecl );
     }
     
     void AnalysisCheckPhase::run( TL::DTO& dto )
@@ -640,6 +661,11 @@ namespace {
     }
     
     void AnalysisCheckVisitor::visit( const Nodecl::Analysis::Assert& n )
+    {
+        Nodecl::Utils::remove_from_enclosing_list( n );
+    }
+    
+    void AnalysisCheckVisitor::visit( const Nodecl::Analysis::AssertDecl& n )
     {
         Nodecl::Utils::remove_from_enclosing_list( n );
     }
