@@ -321,7 +321,6 @@ namespace Nodecl
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
-
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,
                 TL::ReferenceScope ref_scope,
                 NodeclDeepCopyMap& nodecl_deep_copy_map,

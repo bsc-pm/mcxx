@@ -102,7 +102,7 @@ namespace TaskAnalysis {
         // In that case, the first iteration _last_sync will be previous to the loop, 
         // but for the next iterations, the _last_sync will be the one inside the loop
         ObjectList<Node*> _last_sync;
-        Node* _next_sync;
+        ObjectList<Node*> _next_sync;
         
         
         // *** Private methods *** /
