@@ -11339,7 +11339,7 @@ char is_trivial_type(type_t* t)
 //  2. enumeration type
 //  3. pointer type
 //  4. pointer to member type
-//  5. std::nullptr_-t  FIXME: THIS IS NOT SUPPORTED YET
+//  5. std::nullptr_-t
 //  6. cv-qualified versions of these types
 //
 char is_scalar_type(type_t* t)
@@ -11348,7 +11348,8 @@ char is_scalar_type(type_t* t)
     return (is_arithmetic_type(t) ||
             is_enum_type(t) ||
             is_pointer_type(t) ||
-            is_pointer_to_member_type(t));
+            is_pointer_to_member_type(t) ||
+            is_nullptr_type(t));
 }
 
 char is_incomplete_type(type_t* t)
