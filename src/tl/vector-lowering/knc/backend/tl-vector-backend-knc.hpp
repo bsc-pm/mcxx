@@ -32,13 +32,11 @@
 #include "tl-nodecl-visitor.hpp"
 #include <list>
 
-#define MASK_BIT_SIZE 16
-
 namespace TL
 {
     namespace Vectorization
     {
-        class ConfigMaskProcessing
+        class KNCConfigMaskProcessing
         {
             public: 
                 enum config_mask_processing_t
@@ -50,7 +48,7 @@ namespace TL
                     NO_FINAL_COMMA = 0x8,   // Do not write a final ',' in the string 'mask_params'
                 } config_mask_processing;
 
-                ConfigMaskProcessing(int a)
+                KNCConfigMaskProcessing(int a)
                 {
                     config_mask_processing = config_mask_processing_t(a);
                 }
@@ -80,11 +78,14 @@ namespace TL
                 void bitwise_binary_op_lowering(const Nodecl::NodeclBase& node,
                         const std::string& intrin_op_name);
 
+                std::string get_casting_intrinsic(const TL::Type& type_from,
+                        const TL::Type& type_to);
                 std::string get_undef_intrinsic(const TL::Type& type);
+
                 void process_mask_component(const Nodecl::NodeclBase& mask,
                         TL::Source& mask_prefix, TL::Source& mask_params, 
                         const TL::Type& type, 
-                        ConfigMaskProcessing conf = ConfigMaskProcessing::MASK_DEFAULT );
+                        KNCConfigMaskProcessing conf = KNCConfigMaskProcessing::MASK_DEFAULT );
 
             public:
 

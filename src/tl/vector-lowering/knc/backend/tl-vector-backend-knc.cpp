@@ -27,7 +27,11 @@
 #include "tl-vector-backend-knc.hpp"
 #include "tl-source.hpp"
 
+#define KNC_VECTOR_BIT_SIZE 512
+#define KNC_VECTOR_BYTE_SIZE 64
 #define KNC_INTRIN_PREFIX "_mm512"
+#define KNC_MASK_BIT_SIZE 16
+
 
 namespace TL 
 {
@@ -35,33 +39,80 @@ namespace TL
     {
         KNCVectorLowering::KNCVectorLowering() 
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer()), 
-            _vector_length(64) 
+            _vector_length(KNC_VECTOR_BYTE_SIZE) 
         {
             std::cerr << "--- KNC backend phase ---" << std::endl;
         }
 
+        std::string KNCVectorLowering::get_casting_intrinsic(const TL::Type& type_from,
+                const TL::Type& type_to)
+        {
+            std::stringstream result;
+
+            if (type_from.is_float())
+            {
+                if (type_to.is_double())
+                {
+                    result << KNC_INTRIN_PREFIX << "_castps_pd";
+                }
+                else if (type_to.is_signed_int() || type_to.is_unsigned_int())
+                {
+                    result << KNC_INTRIN_PREFIX << "_castps_si" << 
+                        KNC_VECTOR_BIT_SIZE;
+                }
+            }
+            else if (type_from.is_signed_int() || type_from.is_unsigned_int())
+            {
+                if (type_to.is_float())
+                {
+                    result << KNC_INTRIN_PREFIX << "_castsi" << 
+                        KNC_VECTOR_BIT_SIZE << "_ps";
+                }
+                else if (type_to.is_double())
+                {
+                    result << KNC_INTRIN_PREFIX << "_castsi" <<
+                        KNC_VECTOR_BIT_SIZE << "_pd";
+                }
+            }
+            else
+            {            
+                running_error("KNC Lowering: casting intrinsic not supported");
+            }
+
+            return result.str(); 
+        }
+
+
         std::string KNCVectorLowering::get_undef_intrinsic(const TL::Type& type)
         {
+            std::stringstream result;
+
             if (type.is_float()) 
             { 
-                return "_mm512_undefined()";
+                result << KNC_INTRIN_PREFIX << "_undefined()";
             } 
             else if (type.is_double()) 
             { 
-                return "_mm512_castps_pd(_mm512_undefined())";
+                result << get_casting_intrinsic(TL::Type::get_float_type(), type) << "(" 
+                    << KNC_INTRIN_PREFIX << "_undefined()";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                return "_mm512_castps_si512(_mm512_undefined())";
+                result << get_casting_intrinsic(TL::Type::get_float_type(), type) 
+                    << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+            }
+            else
+            {
+                running_error("KNC Lowering: undef intrinsic not supported");
             }
 
-            return "undefined_error()"; 
+            return result.str(); 
         }
 
         void KNCVectorLowering::process_mask_component(const Nodecl::NodeclBase& mask,
                 TL::Source& mask_prefix, TL::Source& mask_args, const TL::Type& type,
-                ConfigMaskProcessing conf)
+                KNCConfigMaskProcessing conf)
         {
             if(!mask.is_null())
             {
@@ -82,8 +133,8 @@ namespace TL
                         << ")"
                         << as_expression(_old_m512.back());
 
-                    if ((conf & ConfigMaskProcessing::KEEP_OLD) !=
-                            ConfigMaskProcessing::KEEP_OLD)
+                    if ((conf & KNCConfigMaskProcessing::KEEP_OLD) !=
+                            KNCConfigMaskProcessing::KEEP_OLD)
                     { // DEFAULT
                         _old_m512.pop_back();
                     }
@@ -91,8 +142,8 @@ namespace TL
 
                 walk(mask);
 
-                if((conf & ConfigMaskProcessing::ONLY_MASK) ==
-                       ConfigMaskProcessing::ONLY_MASK)
+                if((conf & KNCConfigMaskProcessing::ONLY_MASK) ==
+                       KNCConfigMaskProcessing::ONLY_MASK)
                 {
                     mask_args << as_expression(mask);
                 }
@@ -104,14 +155,14 @@ namespace TL
                         ;
                 }
                 
-                if((conf & ConfigMaskProcessing::NO_FINAL_COMMA) !=
-                        ConfigMaskProcessing::NO_FINAL_COMMA)
+                if((conf & KNCConfigMaskProcessing::NO_FINAL_COMMA) !=
+                        KNCConfigMaskProcessing::NO_FINAL_COMMA)
                 {
                     mask_args << ", ";
                 }
             }
-            else if((conf & ConfigMaskProcessing::ALWAYS_OLD) ==
-                    ConfigMaskProcessing::ALWAYS_OLD)
+            else if((conf & KNCConfigMaskProcessing::ALWAYS_OLD) ==
+                    KNCConfigMaskProcessing::ALWAYS_OLD)
             {
                 if (!_old_m512.empty())
                 {
@@ -280,10 +331,10 @@ namespace TL
 
             TL::Type type = binary_node.get_type().basic_type();
 
-            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix,
-                mask_prefix, casting_args, args, mask_args;
+            TL::Source intrin_src, intrin_name, intrin_type_suffix,
+                mask_prefix, args, mask_args;
 
-            intrin_src << casting_intrin
+            intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type)
                 << "("
                 << intrin_name
                 << "("
@@ -303,16 +354,10 @@ namespace TL
 
             if (type.is_float()) 
             { 
-                casting_intrin << "_mm512_castsi512_ps";
-                casting_args << "_mm512_castps_si512";
-
                 intrin_type_suffix << "epi32"; 
             } 
             else if (type.is_double()) 
             { 
-                casting_intrin << "_mm512_castsi512_pd";
-                casting_args << "_mm512_castpd_si512";
- 
                 intrin_type_suffix << "epi64"; 
             } 
             else if (type.is_signed_int() ||
@@ -331,9 +376,9 @@ namespace TL
             walk(rhs);
  
             args << mask_args
-                << casting_args << "(" << as_expression(lhs) << ")"
+                << get_casting_intrinsic(type, TL::Type::get_int_type()) << "(" << as_expression(lhs) << ")"
                 << ", "
-                << casting_args << "(" << as_expression(rhs) << ")"
+                << get_casting_intrinsic(type, TL::Type::get_int_type()) << "(" << as_expression(rhs) << ")"
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -409,7 +454,7 @@ namespace TL
                 ;
 
             process_mask_component(mask, mask_prefix, mask_args, type,
-                    ConfigMaskProcessing::ONLY_MASK);
+                    KNCConfigMaskProcessing::ONLY_MASK);
 
             if (type.is_float()) 
             { 
@@ -459,7 +504,7 @@ namespace TL
             TL::Source cmp_flavor;
             
             // Intrinsic name
-            intrin_src << "_mm512_cmp";
+            intrin_src << KNC_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
@@ -504,7 +549,7 @@ namespace TL
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << "_mm512_cmp";
+            intrin_src << KNC_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
@@ -549,7 +594,7 @@ namespace TL
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << "_mm512_cmp";
+            intrin_src << KNC_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
@@ -594,7 +639,7 @@ namespace TL
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << "_mm512_cmp";
+            intrin_src << KNC_INTRIN_PREFIX << "_cmp";
             cmp_flavor << _CMP_GE_OS;
 
             if (type.is_float()) 
@@ -640,7 +685,7 @@ namespace TL
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << "_mm512_cmp";
+            intrin_src << KNC_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
@@ -686,7 +731,7 @@ namespace TL
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << "_mm512_cmp";
+            intrin_src << KNC_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
@@ -747,10 +792,10 @@ namespace TL
 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args, rhs_expression;
+            TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, args, mask_args, rhs_expression;
 
-            intrin_src << casting_intrin
+            intrin_src
                 << "("
                 << intrin_name
                 << "("
@@ -796,9 +841,9 @@ namespace TL
             }
  
             args << mask_args
-                << casting_args << "(" << as_expression(lhs) << ")"
+                << "(" << as_expression(lhs) << ")"
                 << ", "
-                << casting_args << "(" << rhs_expression << ")"
+                << "(" << rhs_expression << ")"
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -815,10 +860,10 @@ namespace TL
 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args, rhs_expression;
+            TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, args, mask_args, rhs_expression;
 
-            intrin_src << casting_intrin
+            intrin_src 
                 << "("
                 << intrin_name
                 << "("
@@ -865,9 +910,9 @@ namespace TL
             }
  
             args << mask_args
-                << casting_args << "(" << as_expression(lhs) << ")"
+                << "(" << as_expression(lhs) << ")"
                 << ", "
-                << casting_args << "(" << rhs_expression << ")"
+                << "(" << rhs_expression << ")"
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -885,10 +930,10 @@ namespace TL
 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args, rhs_expression;
+            TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, args, mask_args, rhs_expression;
 
-            intrin_src << casting_intrin
+            intrin_src
                 << "("
                 << intrin_name
                 << "("
@@ -935,9 +980,9 @@ namespace TL
             }
  
             args << mask_args
-                << casting_args << "(" << as_expression(lhs) << ")"
+                << "(" << as_expression(lhs) << ")"
                 << ", "
-                << casting_args << "(" << rhs_expression << ")"
+                << "(" << rhs_expression << ")"
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -962,10 +1007,10 @@ namespace TL
 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, casting_intrin, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args, rhs_expression;
+            TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, args, mask_args, rhs_expression;
 
-            intrin_src << casting_intrin
+            intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type)
                 << "("
                 << intrin_name
                 << "("
@@ -986,35 +1031,18 @@ namespace TL
 
             process_mask_component(mask, mask_prefix, mask_args, type);
 
-            if (type.is_float()) 
-            { 
-                casting_intrin << "_mm512_castsi512_ps";
-                casting_args << "_mm512_castps_si512";
-            } 
-            else if (type.is_signed_int() ||
-                    type.is_unsigned_int()) 
-            { 
-            } 
-            else
-            {
-                internal_error("KNC Lowering: Node %s at %s has an unsupported type (%s).", 
-                        ast_print_node_type(node.get_kind()),
-                        locus_to_str(node.get_locus()),
-                        type.get_simple_declaration(node.retrieve_context(), "").c_str());
-            }      
-
             walk(left_vector);
             walk(right_vector);
             walk(num_elements);
 
             args << mask_args
-                << casting_args << "(" << as_expression(left_vector) << ")"
+                << get_casting_intrinsic(type, TL::Type::get_int_type()) << "(" << as_expression(left_vector) << ")"
                 << ", "
-                << casting_args << "(" << as_expression(right_vector) << ")"
+                << get_casting_intrinsic(type, TL::Type::get_int_type()) << "(" << as_expression(right_vector) << ")"
                 << ", "
                 << as_expression(num_elements)
                 ;
-#warning  
+//#warning  
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1029,9 +1057,9 @@ namespace TL
 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, casting_intrin, neg_op;
+            TL::Source intrin_src, neg_op;
 
-            intrin_src << casting_intrin
+            intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type)
                 << "("
                 << neg_op
                 << ")"
@@ -1039,8 +1067,6 @@ namespace TL
 
             if (type.is_float()) 
             { 
-                casting_intrin << "_mm512_castsi512_ps";
-
                 TL::Type vector_int_type = 
                     TL::Type::get_int_type().get_vector_to(_vector_length);
 
@@ -1065,8 +1091,6 @@ namespace TL
             } 
             else if (type.is_double()) 
             { 
-                casting_intrin << "_mm512_castsi512_pd";
-
                 TL::Type vector_int_type = 
                     TL::Type::get_long_long_int_type().get_vector_to(_vector_length);
 
@@ -1266,38 +1290,18 @@ namespace TL
 
             const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
             const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
+            const TL::Type& src_type = rhs.get_type().basic_type().get_unqualified_type();
 
             TL::Source intrin_src, cast_type, args;
 
-            intrin_src << "("
-                << cast_type
-                << "("
-                << args
-                << "))"
-                ;
-
             walk(rhs);
 
-            if (dst_type.is_float()) 
-            { 
-                cast_type << "(__m512)";
-            } 
-            else if (dst_type.is_double()) 
-            {
-                cast_type << "(__m512d)";
-            }
-            else if (dst_type.is_integral_type()) 
-            {
-                cast_type << "(__m512i)";
-            }
-            else 
-            {
-                fprintf(stderr, "KNC Lowering: Casting at '%s' is not supported yet: %s\n", 
-                        locus_to_str(node.get_locus()),
-                        rhs.prettyprint().c_str());
-            }   
-
-            args << as_expression(rhs);
+            intrin_src  
+                << get_casting_intrinsic(src_type, dst_type)
+                << "("
+                << as_expression(rhs)
+                << ")"
+                ;
 
             Nodecl::NodeclBase function_call = 
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1312,7 +1316,7 @@ namespace TL
             TL::Source intrin_src;
 
             // Intrinsic name
-            intrin_src << "_mm512_set1";
+            intrin_src << KNC_INTRIN_PREFIX << "_set1";
 
             if (type.is_float()) 
             { 
@@ -1360,7 +1364,7 @@ namespace TL
                 ;
 
             // Intrinsic name
-            intrin_name << "_mm512_set";
+            intrin_name << KNC_INTRIN_PREFIX << "_set";
 
             if (scalar_type.is_float()) 
             { 
@@ -1429,17 +1433,17 @@ namespace TL
             if (true_type.is_float()
                     && false_type.is_float())
             {
-                intrin_src << "_mm512_mask_mov_ps";
+                intrin_src << KNC_INTRIN_PREFIX << "_mask_mov_ps";
             }
             else if (true_type.is_double()
                     && false_type.is_double())
             {
-                intrin_src << "_mm512_mask_mov_pd";
+                intrin_src << KNC_INTRIN_PREFIX << "_mask_mov_pd";
             }
             else if (true_type.is_integral_type()
                     && false_type.is_integral_type())
             {
-                intrin_src << "_mm512_mask_swizzle_epi32";
+                intrin_src << KNC_INTRIN_PREFIX << "_mask_swizzle_epi32";
                 swizzle << ", _MM_SWIZ_REG_NONE";
             }
             else
@@ -1477,7 +1481,7 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args;
+                mask_prefix, args, mask_args;
 
             intrin_src << as_expression(lhs)
                 << " = "
@@ -1514,7 +1518,7 @@ namespace TL
                     }
 
                     process_mask_component(mask, mask_prefix, mask_args, type,
-                            Vectorization::ConfigMaskProcessing::ONLY_MASK);
+                            Vectorization::KNCConfigMaskProcessing::ONLY_MASK);
 
                     intrin_name << KNC_INTRIN_PREFIX
                         << mask_prefix
@@ -1566,7 +1570,7 @@ namespace TL
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, casting_args, args, mask_args, extra_args;
+                mask_prefix, args, mask_args, extra_args;
 
             intrin_src << intrin_name
                 << "("
@@ -1656,7 +1660,7 @@ namespace TL
                 ;
 
             process_mask_component(mask, mask_prefix, mask_args, type,
-                    ConfigMaskProcessing::ALWAYS_OLD);
+                    KNCConfigMaskProcessing::ALWAYS_OLD);
 
             if (type.is_float()) 
             { 
@@ -1733,7 +1737,7 @@ namespace TL
                 ;
 
             process_mask_component(mask, mask_prefix, mask_args, type, 
-                    ConfigMaskProcessing::ONLY_MASK );
+                    KNCConfigMaskProcessing::ONLY_MASK );
 
             intrin_op_name << "store";
 
@@ -1821,7 +1825,7 @@ namespace TL
                 << tmp_var_init;
 
             process_mask_component(mask, mask_prefix, mask_args, type, 
-                    ConfigMaskProcessing::ONLY_MASK);
+                    KNCConfigMaskProcessing::ONLY_MASK);
 
 
             if (type.is_float()) 
@@ -1990,7 +1994,7 @@ namespace TL
                 ;
 
             process_mask_component(mask, mask_prefix, mask_args, type,
-                    ConfigMaskProcessing::ONLY_MASK);
+                    KNCConfigMaskProcessing::ONLY_MASK);
 
             intrin_op_name << "i32extscatter";
 
@@ -2087,7 +2091,7 @@ namespace TL
                             /*masked*/ !mask.is_null()))
                 {
                     process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                            ConfigMaskProcessing::NO_FINAL_COMMA);
+                            KNCConfigMaskProcessing::NO_FINAL_COMMA);
 
                     walk(arguments);
 
@@ -2109,7 +2113,7 @@ namespace TL
                     TL::Source conditional_exp, mask_casting;
 
                     process_mask_component(mask, mask_prefix, mask_args, scalar_type,
-                            ConfigMaskProcessing::ONLY_MASK | ConfigMaskProcessing::NO_FINAL_COMMA);
+                            KNCConfigMaskProcessing::ONLY_MASK | KNCConfigMaskProcessing::NO_FINAL_COMMA);
 
                     walk(arguments);
 
@@ -2163,19 +2167,21 @@ namespace TL
             // Handcoded implementations for float and double
             if (type.is_float()) 
             { 
-                intrin_src << "_mm512_castsi512_ps(" << KNC_INTRIN_PREFIX << mask_prefix << "_and_epi32("
+                intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type) << "("
+                    << KNC_INTRIN_PREFIX << mask_prefix << "_and_epi32("
                     << mask_args  
-                    << "_mm512_castps_si512("
+                    << get_casting_intrinsic(type, TL::Type::get_int_type()) << "("
                     << as_expression(argument)
-                    << "), _mm512_set1_epi32(0x7FFFFFFF)))"; 
+                    << "), " << KNC_INTRIN_PREFIX << "_set1_epi32(0x7FFFFFFF)))"; 
             } 
             else if (type.is_double()) 
-            { 
-                intrin_src << "_mm512_castsi512_pd(" << KNC_INTRIN_PREFIX << mask_prefix << "_and_epi64("
+            {
+                intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type) << "("
+                    << KNC_INTRIN_PREFIX << mask_prefix << "_and_epi64("
                     << mask_args
-                    << "_mm512_castpd_si512("
+                    << get_casting_intrinsic(type, TL::Type::get_int_type()) << "("
                     << as_expression(argument)
-                    << "), _mm512_set1_epi64(0x7FFFFFFFFFFFFFFFLL)))"; 
+                    << "), " << KNC_INTRIN_PREFIX << "_set1_epi64(0x7FFFFFFFFFFFFFFFLL)))"; 
             }
             else
             {
@@ -2214,7 +2220,7 @@ namespace TL
                 if(mask.is_null())
                 {
                     intrin_src << "(*" << as_expression(sin_pointer) << ")"
-                        << " = _mm512_mask_sincos_ps"
+                        << " = " << KNC_INTRIN_PREFIX << "_mask_sincos_ps"
                         << "("
                         << as_expression(sin_pointer.children().front())
                         << ", 0xFFFF, "
@@ -2226,7 +2232,7 @@ namespace TL
                 else
                 {
                     intrin_src << "(*" << as_expression(sin_pointer) << ")"
-                        << " = _mm512_mask_sincos_ps"
+                        << " = " << KNC_INTRIN_PREFIX << "_mask_sincos_ps"
                         << "("
                         << mask_args  
                         << as_expression(cos_pointer)
@@ -2264,7 +2270,7 @@ namespace TL
 
             TL::Source intrin_src, intrin_name;
 
-            intrin_name << "_mm512_reduce_add";
+            intrin_name << KNC_INTRIN_PREFIX << "_reduce_add";
 
             if (type.is_float()) 
             { 
@@ -2352,7 +2358,7 @@ namespace TL
 
             walk(node.get_rhs());
 
-            intrin_src << "_mm512_knot("
+            intrin_src << KNC_INTRIN_PREFIX << "_knot("
                 << as_expression(node.get_rhs())
                 << ")"
                 ;
@@ -2370,7 +2376,7 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mm512_kand("
+            intrin_src << KNC_INTRIN_PREFIX << "_kand("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
@@ -2390,7 +2396,7 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mm512_kor("
+            intrin_src << KNC_INTRIN_PREFIX << "_kor("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
@@ -2410,7 +2416,7 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mm512_kandn("
+            intrin_src << KNC_INTRIN_PREFIX << "_kandn("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
@@ -2430,7 +2436,7 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mm512_kandnr("
+            intrin_src << KNC_INTRIN_PREFIX << "_kandnr("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
@@ -2450,7 +2456,7 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mm512_kxor("
+            intrin_src << KNC_INTRIN_PREFIX << "_kxor("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
