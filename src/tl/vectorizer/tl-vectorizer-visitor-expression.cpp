@@ -934,7 +934,7 @@ namespace TL
                     !Vectorizer::_analysis_info->is_induction_variable_dependent_access(_environment._analysis_simd_scope,
                         n))
             {
-//                std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
+                std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
 
                 Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(

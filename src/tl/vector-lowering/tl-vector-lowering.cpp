@@ -28,24 +28,40 @@
 #include "tl-vector-lowering-sse.hpp"
 #include "tl-vector-legalization-knc.hpp"
 #include "tl-vector-backend-knc.hpp"
+#include "tl-vector-legalization-avx2.hpp"
+#include "tl-vector-backend-avx2.hpp"
+
 
 namespace TL
 {
     namespace Vectorization
     {
-        VectorLoweringPhase::VectorLoweringPhase() : _mic_enabled(false)
+        VectorLoweringPhase::VectorLoweringPhase() : _knc_enabled(false), _avx2_enabled(false)
         {
             register_parameter("mic_enabled",
-                    "If set to '1' enables compilation for MIC architecture, otherwise it is disabled",
-                    _mic_enabled_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_mic, *this));
+                    "If set to '1' enables compilation for KNC architecture, otherwise it is disabled",
+                    _knc_enabled_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_knc, *this));
+
+            register_parameter("avx2_enabled",
+                    "If set to '1' enables compilation for AVX2 architecture, otherwise it is disabled",
+                    _avx2_enabled_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_avx2, *this));
         }
 
-        void VectorLoweringPhase::set_mic(const std::string mic_enabled_str)
+        void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
         {
-            if (mic_enabled_str == "1")
+            if (knc_enabled_str == "1")
             {
-                _mic_enabled = true;
+                _knc_enabled = true;
+            }
+        }
+
+        void VectorLoweringPhase::set_avx2(const std::string avx2_enabled_str)
+        {
+            if (avx2_enabled_str == "1")
+            {
+                _avx2_enabled = true;
             }
         }
 
@@ -53,9 +69,23 @@ namespace TL
         {
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
 
-           
-            if(_mic_enabled)
-            { 
+            if (_avx2_enabled && _knc_enabled)
+            {
+                running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
+            }
+
+            if(_avx2_enabled)
+            {
+                // KNC Legalization phase
+                AVX2VectorLegalization avx2_vector_legalization;
+                avx2_vector_legalization.walk(translation_unit);
+
+                // Lowering to intrinsics
+                AVX2VectorLowering avx2_vector_lowering;
+                avx2_vector_lowering.walk(translation_unit);
+            }
+            else if (_knc_enabled)
+            {
                 // KNC Legalization phase
                 KNCVectorLegalization knc_vector_legalization;
                 knc_vector_legalization.walk(translation_unit);

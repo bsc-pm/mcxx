@@ -30,6 +30,7 @@
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-analysis-static-info.hpp"
+#include <list>
 
 
 namespace TL 
@@ -44,6 +45,8 @@ namespace TL
                 
                 Nodecl::Utils::SymbolDeepCopyMap _orig_to_copy_symbols;
                 Nodecl::Utils::SymbolDeepCopyMap _copy_to_orig_symbols;
+
+                std::list<Nodecl::NodeclBase> _registered_nodes;
         };
 
 
@@ -54,8 +57,8 @@ namespace TL
 
                 Nodecl::FunctionCode copy_function_code(const Nodecl::FunctionCode& n);
 
-                Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n) const;
-                TL::ObjectList<Nodecl::NodeclBase> translate_input(const TL::ObjectList<Nodecl::NodeclBase>& list) const;
+                Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n);
+                TL::ObjectList<Nodecl::NodeclBase> translate_input(const TL::ObjectList<Nodecl::NodeclBase>& list);
                 TL::Symbol translate_input(const TL::Symbol& n) const;
 
                 Nodecl::NodeclBase translate_output(const Nodecl::NodeclBase& n) const;
@@ -66,6 +69,9 @@ namespace TL
                         Nodecl::Utils::NodeclDeepCopyMap& map);
                 Nodecl::NodeclBase get_translated_copy(const Nodecl::NodeclBase& n);
 
+                void register_node(const Nodecl::NodeclBase& n);
+                void unregister_node(const Nodecl::NodeclBase& n);
+                void unregister_nodes();
 
             public:
                 VectorizerAnalysisStaticInfo(const Nodecl::NodeclBase& n, Analysis::WhichAnalysis analysis_mask,
@@ -73,31 +79,29 @@ namespace TL
 
                 virtual ~VectorizerAnalysisStaticInfo(){};
 
-                void register_node(const Nodecl::NodeclBase& n);
-                void unregister_node(const Nodecl::NodeclBase& n);
 
-                virtual bool is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n) const;
+                virtual bool is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n);
                 virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                        const Nodecl::NodeclBase& s ) const;
-                virtual bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
-                virtual bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
-                virtual bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                        const Nodecl::NodeclBase& s );
+                virtual bool is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ); 
+                virtual bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
+                virtual bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& scope,
-                        const Nodecl::NodeclBase& n ) const;
+                        const Nodecl::NodeclBase& n );
                 virtual ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
-                        const Nodecl::NodeclBase& n ) const;
-                virtual bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                        const Nodecl::NodeclBase& n );
+                virtual bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual ObjectList<Analysis::Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
-                        const Nodecl::NodeclBase& n ) const;
-                virtual bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
-                virtual bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
-                virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+                        const Nodecl::NodeclBase& n );
+                virtual bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
+                virtual bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
+                virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                         const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
-                        int unroll_factor, int alignment ) const;
+                        int unroll_factor, int alignment );
                 virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                         const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
-                        int unroll_factor, int alignment, int& vector_size_module ) const;
+                        int unroll_factor, int alignment, int& vector_size_module );
         };
     }
 }

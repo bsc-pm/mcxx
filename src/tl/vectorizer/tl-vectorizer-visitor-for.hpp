@@ -106,6 +106,7 @@ namespace TL
                 void visit(const Nodecl::Preincrement& node);
                 void visit(const Nodecl::Postincrement& node);
                 void visit(const Nodecl::AddAssignment& node);
+                void visit(const Nodecl::Assignment& node);
                 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);
         };

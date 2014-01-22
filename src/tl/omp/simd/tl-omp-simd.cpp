@@ -36,7 +36,8 @@ namespace TL {
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),  
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false), 
-            _prefer_gather_scatter(false), _prefer_mask_gather_scatter(false)
+            _avx2_enabled(false), _knc_enabled(false), _prefer_gather_scatter(false),
+            _prefer_mask_gather_scatter(false)
         {        
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -494,9 +495,21 @@ namespace TL {
             int epilog_iterations = _vectorizer.get_epilog_info(for_statement, 
                     for_environment, only_epilog); 
 
+            // Add scopes, default masks, etc.
+            _vectorizer.load_environment(for_statement, for_environment);
+
+            // Cache init
+            vectorizer_cache.declare_cache_symbols(
+                    for_statement.retrieve_context(), for_environment);
+            simd_node.prepend_sibling(vectorizer_cache.get_init_statements(for_environment));
+
             // VECTORIZE FOR
             if(!only_epilog)
+            {
                 _vectorizer.vectorize(for_statement, for_environment); 
+            }
+
+            _vectorizer.unload_environment(for_environment);
 
             // Add new vector symbols
             Nodecl::List pre_for_nodecls, post_for_nodecls;

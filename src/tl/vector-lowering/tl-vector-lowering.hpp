@@ -36,11 +36,14 @@ namespace TL
         class VectorLoweringPhase : public TL::CompilerPhase
         {
             private:
-                bool _mic_enabled;
+                bool _knc_enabled;
+                bool _avx2_enabled;
 
-                std::string _mic_enabled_str;
+                std::string _knc_enabled_str;
+                std::string _avx2_enabled_str;
 
-                void set_mic(const std::string mic_enabled_str);
+                void set_knc(const std::string knc_enabled_str);
+                void set_avx2(const std::string avx2_enabled_str);
 
             public:
                 VectorLoweringPhase();

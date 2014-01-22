@@ -584,11 +584,13 @@ namespace Analysis {
         {
             if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
+
                 _ivs.insert( *it );
                 is_iv = true;
                 break;
             }
         }
+
         return is_iv;
     }
     
@@ -604,6 +606,8 @@ namespace Analysis {
         Utils::ext_sym_map reach_defs_out = outer_node->get_reaching_definitions_out( );
         if( reach_defs_in.count( n ) != reach_defs_out.count( n ) )
             result = true;
+
+        std::cout << n.prettyprint() << ": " << reach_defs_in.count( n ) << " " << reach_defs_out.count( n ) << std::endl;
 
         return result;
     }

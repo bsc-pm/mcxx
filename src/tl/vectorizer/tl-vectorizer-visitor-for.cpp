@@ -321,6 +321,11 @@ namespace TL
             visit_increment(node, node.get_lhs());
         }
 
+        void VectorizerVisitorLoopNext::visit(const Nodecl::Assignment& node)
+        {
+            visit_increment(node, node.get_lhs());
+        }
+
         void VectorizerVisitorLoopNext::visit(const Nodecl::Comma& node)
         {
             // TODO
@@ -438,8 +443,7 @@ namespace TL
             else // Unknown number of iterations
             {
                     mask_value = for_statement.get_loop_header().
-                        as<Nodecl::LoopControl>().get_cond();
-                    //.shallow_copy();
+                        as<Nodecl::LoopControl>().get_cond().shallow_copy();
 
                     // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
                     Nodecl::MaskLiteral all_one_mask =
