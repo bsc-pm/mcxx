@@ -34,7 +34,8 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************** Class to retrieve SIMD analysis info about one specific nodecl *************** //
     
-    bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n, Node* pcfg_node ) const
+    bool NodeclStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& n, 
+                                               Node* scope_node, Node* n_node ) const
     {
         bool result = false;
         
@@ -64,7 +65,7 @@ namespace Analysis {
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
                     
-                    ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, pcfg_node );
+                    ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, scope_node, n_node );
                     iv_v.walk( s );
                     result = iv_v.is_adjacent_access( );
                 }
@@ -74,7 +75,8 @@ namespace Analysis {
         return result;
     }
 
-    bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n, Node* pcfg_node ) const
+    bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n, 
+                                                        Node* scope_node, Node* n_node ) const
     {
         bool result = false;
         
@@ -84,22 +86,9 @@ namespace Analysis {
             Nodecl::NodeclBase s = n.shallow_copy( );
             v.walk( s );
 
-            ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, pcfg_node );
+            ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, scope_node, n_node );
             iv_v.walk( s );
             result = iv_v.depends_on_induction_vars( );
-
-/*
-            for( Nodecl::List::iterator it = subscript.begin( ); it != subscript.end( ); it++ )
-            { 
-                Nodecl::Utils::ReduceExpressionVisitor v;
-                Nodecl::NodeclBase s = it->shallow_copy( );
-                v.walk( s );
-
-                ArrayAccessInfoVisitor iv_v( _induction_variables, _killed );
-                iv_v.walk( s );
-                result = iv_v.depends_on_induction_vars( );
-            }
-*/
         }
         else
         {
@@ -110,7 +99,29 @@ namespace Analysis {
         
         return result;
     }
-
+    
+    bool NodeclStaticInfo::var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, 
+                                                         Node* scope_node, Node* n_node ) const
+    {
+        bool result = false;
+        if( n.is<Nodecl::ArraySubscript>( ) )
+        {
+            ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, scope_node, n_node );
+            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( n );
+            for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ) && !result; ++it )
+            {
+                result = iv_v.var_is_iv_dependent_in_scope( *it );
+            }
+        }
+        else
+        {
+            // TODO: Write an appropriate message such us unsupported case.
+            std::cerr << "warning: returning false '" 
+                      << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
+        }
+        return result;
+    }
+    
     bool NodeclStaticInfo::is_constant_access( const Nodecl::NodeclBase& n ) const
     {
         bool result = true;
@@ -572,8 +583,10 @@ namespace Analysis {
     // ******************* Visitor retrieving array accesses info within a loop ******************** //
     
     ArrayAccessInfoVisitor::ArrayAccessInfoVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs, 
-                                                    Utils::ext_sym_set killed, Node* pcfg_node )
-            : _induction_variables( ivs ), _killed( killed ), _pcfg_node( pcfg_node ), _ivs( ), _is_adjacent_access( false )
+                                                    Utils::ext_sym_set killed, Node* scope, Node* n_node )
+            : _induction_variables( ivs ), _killed( killed ), 
+              _scope_node( scope ), _n_node( n_node ), 
+              _ivs( ), _is_adjacent_access( false )
     {}
     
     bool ArrayAccessInfoVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
@@ -592,19 +605,109 @@ namespace Analysis {
         return is_iv;
     }
     
-    bool ArrayAccessInfoVisitor::var_is_modified_in_access_immediate_loop( const Nodecl::Symbol& n )
+    bool ArrayAccessInfoVisitor::iv_is_used_in_node( Node* node )
     {
         bool result = false;
-        // Find the loop node containing the pcfg node of the access being analyzed
-        Node* outer_node = _pcfg_node->get_outer_node( );
-        while( ( outer_node != NULL ) && !outer_node->is_loop_node( ) )
-            outer_node = outer_node->get_outer_node( );
-        
-        Utils::ext_sym_map reach_defs_in = outer_node->get_reaching_definitions_in( );
-        Utils::ext_sym_map reach_defs_out = outer_node->get_reaching_definitions_out( );
-        if( reach_defs_in.count( n ) != reach_defs_out.count( n ) )
-            result = true;
-
+        for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
+             it != _induction_variables.end( ) && !result; ++it )
+        {
+            if( node->uses_var( ( *it )->get_variable( ).get_nodecl( ) ) )
+                result = true;
+        }
+        return result;
+    }
+    
+    bool ArrayAccessInfoVisitor::var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current )
+    {
+        bool result = false;
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+            
+            if( current != _scope_node )
+            {   // Treat the current node
+                Utils::ext_sym_set killed = current->get_killed_vars( );
+                if( killed.find( n ) != killed.end( ) )
+                {
+                    if( current->is_graph_node( ) )
+                    {   // The current graph node defined the symbol \n
+                        // Treat the inner nodes of the current graph node
+                        result = var_is_iv_dependent_in_scope_rec( n, current->get_graph_exit_node( ) );
+                        
+                        if( !result )
+                        {   
+                            Node* current_entry = current->get_graph_entry_node( );
+                            if( current->is_ifelse_statement( ) || current->is_switch_statement( ) || current->is_while_loop( ) )
+                            {   // Case 1.1: This checks situations such as:
+                                // if(i%2==0)       -> where 'i' is an induction variable in 'scope'
+                                //     n=...;
+                                // switch(i)        -> where 'i' is an induction variable in 'scope'
+                                // {case 0:n=...;}
+                                // while( i )       -> where 'i' is an induction variable in 'scope'
+                                // {n=...;}
+                                Node* cond = current_entry->get_children( )[0];
+                                result = iv_is_used_in_node( cond );
+                            }
+                            else if( current->is_for_loop( ) )
+                            {   // Case 1.2: 
+                                // for(;...<i;)      -> where 'i' is an induction variable in 'scope'
+                                //     n=...;
+                                Node* cond = current_entry->get_children( )[0];
+                                if( ( cond->get_children( ).size( ) == 2 ) && ( cond->get_parents( ).size( ) == 2 ) )
+                                {   // Recheck whether this node is the condition of the loop, or the condition is empty
+                                    result = iv_is_used_in_node( cond );
+                                }
+                            }
+                            else if( current->is_do_loop( ) )
+                            {   // Case 1.2: 
+                                // do {n=...;}
+                                // while(i)          -> where 'i' is an induction variable in 'scope'
+                                Node* cond = current->get_graph_exit_node( )->get_parents( )[0];
+                                result = iv_is_used_in_node( cond );
+                            }
+                        }
+                    }
+                    else
+                    {   // Case 2: This checks situations such as:
+                        // n=i;                      -> where 'i' is an induction variable in 'scope'
+                        Utils::ext_sym_map reaching_defs_out = current->get_reaching_definitions_out( );
+                        for( Utils::ext_sym_map::iterator it = reaching_defs_out.begin( ); 
+                             it != reaching_defs_out.end( ) && !result; ++it )
+                        {
+                            if( Nodecl::Utils::stmtexpr_contains_nodecl( it->first.get_nodecl( ), n ) )
+                            {   // 'n' is being modified
+                                for( ObjectList<Utils::InductionVariableData*>::const_iterator it_iv = _induction_variables.begin( ); 
+                                     it_iv != _induction_variables.end( ) && !result; ++it_iv )
+                                {   // Check whether the expression used to modify it depends on an induction variable
+                                    result = Nodecl::Utils::stmtexpr_contains_nodecl( it->second, 
+                                                    ( *it_iv )->get_variable( ).get_nodecl( ) );
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Recursively treat the parents of the current node
+                if( !result )
+                {
+                    ObjectList<Node*> parents;
+                    if( current->is_entry_node( ) )
+                        parents.append( current->get_outer_node( ) );
+                    else
+                        parents = current->get_parents( );
+                    for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ) && !result; ++it )
+                        result = var_is_iv_dependent_in_scope_rec( n, *it );
+                }
+            }
+        }
+        return result;
+    }
+    
+    // Check whether the definition of 'n' depends on the value of the '_scope' induction variable
+    bool ArrayAccessInfoVisitor::var_is_iv_dependent_in_scope( const Nodecl::Symbol& n )
+    {   
+        bool result = var_is_iv_dependent_in_scope_rec( n, _n_node );
+        ExtensibleGraph::clear_visits_backwards_in_level( _n_node, _scope_node );
         return result;
     }
     
@@ -641,13 +744,11 @@ namespace Analysis {
     {
         return !_ivs.empty( );
     }
-
+    
     bool ArrayAccessInfoVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        std::cerr << "Unhandled node while parsing Array Subscript '"
-                  << codegen_to_str( n.get_internal_nodecl( ),
-                                    nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-                  << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+        WARNING_MESSAGE( "Unhandled node while parsing Array Subscript '%s' of type '%s'", 
+                         n.prettyprint( ).c_str( ), ast_print_node_type( n.get_kind( ) ) );
         return false;
     }
     
@@ -941,8 +1042,7 @@ namespace Analysis {
         bool n_is_iv = variable_is_iv( n );
 
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
-        
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_modified_in_access_immediate_loop( n );
+        return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
     }
     
     // ***************** END visitor retrieving array accesses info within a loop ****************** //

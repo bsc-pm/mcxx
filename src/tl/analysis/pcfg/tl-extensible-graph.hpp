@@ -336,6 +336,7 @@ namespace Analysis {
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_aux_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
+        static void clear_visits_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_aux_backwards( Node* current );
         static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
         static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
