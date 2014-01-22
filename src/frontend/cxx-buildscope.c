@@ -15636,7 +15636,8 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
         if (!nodecl_is_err_expr(*nodecl_output))
         {
             if (!nodecl_is_constant(*nodecl_output)
-                    && !nodecl_expr_is_value_dependent(*nodecl_output))
+                    && !nodecl_expr_is_value_dependent(*nodecl_output)
+                    && !nodecl_expr_is_type_dependent(*nodecl_output))
             {
                 if (!checking_ambiguity())
                 {
