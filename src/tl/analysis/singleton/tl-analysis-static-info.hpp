@@ -362,8 +362,14 @@ namespace Analysis {
         bool _is_adjacent_access;
         
         bool variable_is_iv( const Nodecl::NodeclBase& n );
-        bool iv_is_used_in_node( Node* node );
-        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current );
+        bool node_uses_iv( Node* node );
+        bool node_stmts_depend_on_iv( Node* node, int recursion_level, 
+                                      std::map<Node*, std::set<int> >& visits, 
+                                      std::set<Nodecl::Symbol>& visited_syms );
+        bool definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node );
+        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current, 
+                                               int recursion_level, std::map<Node*, std::set<int> >& visits, 
+                                               std::set<Nodecl::Symbol>& visited_syms );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
         
