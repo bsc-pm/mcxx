@@ -132,10 +132,12 @@ namespace Analysis {
             
             // *** Queries for Vectorization *** //
             
-            bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* sc_node ) const;
+            bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
             
-            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* sc_node ) const;
+            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
 
+            bool var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
             bool is_simd_aligned_access( const Nodecl::NodeclBase& n, 
@@ -352,25 +354,28 @@ namespace Analysis {
     class LIBTL_CLASS ArrayAccessInfoVisitor : public Nodecl::NodeclVisitor<bool>
     {
     private:
-        ObjectList<Utils::InductionVariableData*> _induction_variables; /* All IVs in the containing loop */
-        Utils::ext_sym_set _killed;                                     /* All killed variables in the containing loop */
-        Node* _pcfg_node;                                               /* Node in the PCFG containing the nodecl being analyzed */
-        ObjectList<Utils::InductionVariableData*> _ivs;                 /* IVs found during traversal */
+        const ObjectList<Utils::InductionVariableData*> _induction_variables;   /* All IVs in the containing loop */
+        const Utils::ext_sym_set _killed;                                       /* All killed variables in the containing loop */
+        Node* _scope_node;                                                      /* Scope from which the node is being analyzed */
+        Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
+        ObjectList<Utils::InductionVariableData*> _ivs;                         /* IVs found during traversal */
         bool _is_adjacent_access;
         
         bool variable_is_iv( const Nodecl::NodeclBase& n );
-        bool var_is_modified_in_access_immediate_loop( const Nodecl::Symbol& n );
+        bool iv_is_used_in_node( Node* node );
+        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
         
     public:
         // *** Constructor *** //
         ArrayAccessInfoVisitor( ObjectList<Utils::InductionVariableData*> ivs, 
-                                Utils::ext_sym_set killed, Node* pcfg_node );
+                                Utils::ext_sym_set killed, Node* scope, Node* pcfg_node );
         
         // *** Consultants *** //
         bool is_adjacent_access( );
         bool depends_on_induction_vars( );
+        bool var_is_iv_dependent_in_scope( const Nodecl::Symbol& n );
         
         // *** Visiting methods *** //
         Ret unhandled_node( const Nodecl::NodeclBase& n );
