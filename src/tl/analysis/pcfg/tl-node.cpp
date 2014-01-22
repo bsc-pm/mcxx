@@ -1057,6 +1057,30 @@ namespace Analysis {
         return ( has_key( _UPPER_EXPOSED ) || has_key( _KILLED ) || has_key( _UNDEF ) );
     }
     
+    bool Node::uses_var( const Nodecl::NodeclBase& n )
+    {
+        bool result = false;
+        if( has_key( _UPPER_EXPOSED ) ) 
+        {
+            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>( _UPPER_EXPOSED );
+            if( ue_vars.find( n ) != ue_vars.end( ) )
+                result = true;
+        }
+        if( !result && has_key( _KILLED ) )
+        {
+            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>( _KILLED );
+            if( killed_vars.find( n ) != killed_vars.end( ) )
+                result = true;
+        }
+        if( !result && has_key( _UNDEF ) )
+        {
+            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>( _UNDEF );
+            if( undef_vars.find( n ) != undef_vars.end( ) )
+                result = true;
+        }
+        return result;
+    }
+    
     Utils::ext_sym_set Node::get_ue_vars( )
     {
         Utils::ext_sym_set ue_vars;
