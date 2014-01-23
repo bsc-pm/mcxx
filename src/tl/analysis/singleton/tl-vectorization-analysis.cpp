@@ -607,7 +607,7 @@ namespace Analysis {
         return is_iv;
     }
     
-    bool ArrayAccessInfoVisitor::iv_is_used_in_node( Node* node )
+    bool ArrayAccessInfoVisitor::node_uses_iv( Node* node )
     {
         bool result = false;
         for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
@@ -619,23 +619,81 @@ namespace Analysis {
         return result;
     }
     
-    bool ArrayAccessInfoVisitor::var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current )
+    bool ArrayAccessInfoVisitor::node_stmts_depend_on_iv( Node* node, int recursion_level, 
+                                                          std::map<Node*, std::set<int> >& visits, 
+                                                          std::set<Nodecl::Symbol>& visited_syms )
     {
         bool result = false;
-        if( !current->is_visited( ) )
+        ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); ( it != stmts.end( ) ) && !result; ++it )
         {
-            current->set_visited( true );
+            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( *it );
+            for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); ( its != syms.end( ) ) && !result; ++its )
+            {
+                if( visited_syms.find( *its ) == visited_syms.end( ) )
+                    result = result || var_is_iv_dependent_in_scope_rec( *its, node,
+                                                                         recursion_level+1, visits, visited_syms );
+            }
+        }
+        return result;
+    }
+    
+    bool ArrayAccessInfoVisitor::definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node )
+    {
+        bool result;
+        for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
+             it != _induction_variables.end( ) && !result; ++it )
+        {   // Check whether the expression used to modify it depends on an induction variable
+            result = Nodecl::Utils::stmtexpr_contains_nodecl( n, ( *it )->get_variable( ).get_nodecl( ) );
+        }
+        if( !result )
+        {
+            Utils::ext_sym_map reaching_defs_in = node->get_reaching_definitions_in( );
+            for( Utils::ext_sym_map::iterator it = reaching_defs_in.begin( ); it != reaching_defs_in.end( ) && !result; ++it )
+            {
+                if( Nodecl::Utils::stmtexpr_contains_nodecl( it->first.get_nodecl( ), n ) )
+                {   // n has been defined previously
+                    result = definition_depends_on_iv( it->second, node );
+                }
+            }
+        }
+        return result;
+    }
+    
+    bool ArrayAccessInfoVisitor::var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current, 
+                                                                   int recursion_level, std::map<Node*, std::set<int> >& visits, 
+                                                                   std::set<Nodecl::Symbol>& visited_syms )
+    {
+        bool result = false;
+        visited_syms.insert( n );
+        if( current != _scope_node )
+        {
+            bool visit_node = false;
+            // If the node has never been visited or, if it was visit, it was in a different recursion level
+            if( visits.find( current ) == visits.end( ) )
+            {
+                int recursion_level_value[] = { recursion_level };
+                visits[current] = std::set<int>( recursion_level_value, recursion_level_value + 1 );
+                visit_node = true;
+            }
+            else if( visits.find( current )->second.find( recursion_level ) == visits.find( current )->second.end( ) )
+            {
+                visits.find( current )->second.insert( recursion_level );
+                visit_node = true;
+            }
             
-            if( current != _scope_node )
-            {   // Treat the current node
+            if( visit_node )
+            {
+            
+                // Treat the current node
                 Utils::ext_sym_set killed = current->get_killed_vars( );
                 if( killed.find( n ) != killed.end( ) )
                 {
                     if( current->is_graph_node( ) )
                     {   // The current graph node defined the symbol \n
                         // Treat the inner nodes of the current graph node
-                        result = var_is_iv_dependent_in_scope_rec( n, current->get_graph_exit_node( ) );
-                        
+                        result = var_is_iv_dependent_in_scope_rec( n, current->get_graph_exit_node( ), 
+                                                                   recursion_level, visits, visited_syms );
                         if( !result )
                         {   
                             Node* current_entry = current->get_graph_entry_node( );
@@ -648,7 +706,7 @@ namespace Analysis {
                                 // while( i )       -> where 'i' is an induction variable in 'scope'
                                 // {n=...;}
                                 Node* cond = current_entry->get_children( )[0];
-                                result = iv_is_used_in_node( cond );
+                                result = node_uses_iv( cond ) || node_stmts_depend_on_iv( cond, recursion_level, visits, visited_syms );
                             }
                             else if( current->is_for_loop( ) )
                             {   // Case 1.2: 
@@ -657,7 +715,7 @@ namespace Analysis {
                                 Node* cond = current_entry->get_children( )[0];
                                 if( ( cond->get_children( ).size( ) == 2 ) && ( cond->get_parents( ).size( ) == 2 ) )
                                 {   // Recheck whether this node is the condition of the loop, or the condition is empty
-                                    result = iv_is_used_in_node( cond );
+                                    result = node_uses_iv( cond ) || node_stmts_depend_on_iv( cond, recursion_level, visits, visited_syms );
                                 }
                             }
                             else if( current->is_do_loop( ) )
@@ -665,7 +723,7 @@ namespace Analysis {
                                 // do {n=...;}
                                 // while(i)          -> where 'i' is an induction variable in 'scope'
                                 Node* cond = current->get_graph_exit_node( )->get_parents( )[0];
-                                result = iv_is_used_in_node( cond );
+                                result = node_uses_iv( cond ) || node_stmts_depend_on_iv( cond, recursion_level, visits, visited_syms );
                             }
                         }
                     }
@@ -678,12 +736,7 @@ namespace Analysis {
                         {
                             if( Nodecl::Utils::stmtexpr_contains_nodecl( it->first.get_nodecl( ), n ) )
                             {   // 'n' is being modified
-                                for( ObjectList<Utils::InductionVariableData*>::const_iterator it_iv = _induction_variables.begin( ); 
-                                     it_iv != _induction_variables.end( ) && !result; ++it_iv )
-                                {   // Check whether the expression used to modify it depends on an induction variable
-                                    result = Nodecl::Utils::stmtexpr_contains_nodecl( it->second, 
-                                                    ( *it_iv )->get_variable( ).get_nodecl( ) );
-                                }
+                                result = definition_depends_on_iv( it->second, current );
                             }
                         }
                     }
@@ -698,7 +751,7 @@ namespace Analysis {
                     else
                         parents = current->get_parents( );
                     for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ) && !result; ++it )
-                        result = var_is_iv_dependent_in_scope_rec( n, *it );
+                        result = var_is_iv_dependent_in_scope_rec( n, *it, recursion_level, visits, visited_syms );
                 }
             }
         }
@@ -708,7 +761,9 @@ namespace Analysis {
     // Check whether the definition of 'n' depends on the value of the '_scope' induction variable
     bool ArrayAccessInfoVisitor::var_is_iv_dependent_in_scope( const Nodecl::Symbol& n )
     {   
-        bool result = var_is_iv_dependent_in_scope_rec( n, _n_node );
+        std::map<Node*, std::set<int> > visits;
+        std::set<Nodecl::Symbol> visited_syms;
+        bool result = var_is_iv_dependent_in_scope_rec( n, _n_node, 0, visits, visited_syms );
         ExtensibleGraph::clear_visits_backwards_in_level( _n_node, _scope_node );
         return result;
     }
