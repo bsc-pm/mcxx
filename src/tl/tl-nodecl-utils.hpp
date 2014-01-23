@@ -65,6 +65,7 @@ namespace Nodecl
         bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
         bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
+        bool stmtexpr_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
         bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, 
@@ -217,6 +218,24 @@ namespace Nodecl
                 _adaptor_symbol_map.obj = this;
             }
 
+            SymbolMap(const SymbolMap& copy_symbol_map)
+            {
+                _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                _adaptor_symbol_map.obj = this;
+            }
+
+            SymbolMap& operator=(const SymbolMap& symbol_map)
+            {
+                if (this != &symbol_map)
+                {
+                    _adaptor_symbol_map.map = &SymbolMap::adaptor_symbol_map_fun;
+                    _adaptor_symbol_map.dtor = &SymbolMap::adaptor_symbol_map_dtor;
+                    _adaptor_symbol_map.obj = this;
+                }
+                return (*this);
+            }
+
             virtual ~SymbolMap()
             {
             }
@@ -286,20 +305,79 @@ namespace Nodecl
                 }
         };
 
+        typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> NodeclDeepCopyMap;
+        typedef std::map<TL::Symbol, TL::Symbol> SymbolDeepCopyMap;
 
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope, SymbolMap& map);
+
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,
+                TL::ReferenceScope ref_scope,
+                Utils::SymbolMap& map,
+                NodeclDeepCopyMap& nodecl_deep_copy_map,
+                SymbolDeepCopyMap& symbol_deep_copy_map);
 
         // This updates symbols in the given tree using a symbol map
         void update_symbols(Nodecl::NodeclBase orig, SymbolMap& map);
 
         // Like above but with an empty map
         Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig, TL::ReferenceScope ref_scope);
+        Nodecl::NodeclBase deep_copy(Nodecl::NodeclBase orig,
+                TL::ReferenceScope ref_scope,
+                NodeclDeepCopyMap& nodecl_deep_copy_map,
+                SymbolDeepCopyMap& symbol_deep_copy_map);
 
-        // Returns a single subscript linearized (not the whole ArraySubscript)
-        Nodecl::NodeclBase linearize_array_subscript(const Nodecl::ArraySubscript& n);
+        // Returns the whole ArraySbuscript with a single subscript linearized
+        Nodecl::ArraySubscript linearize_array_subscript(const Nodecl::ArraySubscript& n);
 
         bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, 
                 const NodeclBase& containee);
+        
+        class LIBTL_CLASS ExprFinderVisitor : public Nodecl::ExhaustiveVisitor<void>
+        {
+        private:
+            Nodecl::NodeclBase _scope;
+            Nodecl::NodeclBase _n;
+            bool _nodecl_is_found;
+            
+            void binary_visitor( const Nodecl::NodeclBase& n, 
+                                 const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+            
+            void unary_visitor( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
+            
+        public:
+            // *** Constructor *** //
+            ExprFinderVisitor( const Nodecl::NodeclBase& stmt );
+            
+            // *** Consultants *** //
+            bool find( const Nodecl::NodeclBase& n );
+            
+            // *** Visitors *** //
+            Ret unhandled_node( const Nodecl::NodeclBase& n );
+            Ret visit( const Nodecl::AddAssignment& n );
+            Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+            Ret visit( const Nodecl::ArraySubscript& n );
+            Ret visit( const Nodecl::Assignment& n );
+            Ret visit( const Nodecl::BitwiseAndAssignment& n );
+            Ret visit( const Nodecl::BitwiseOrAssignment& n );
+            Ret visit( const Nodecl::BitwiseShlAssignment& n );
+            Ret visit( const Nodecl::BitwiseShrAssignment& n );
+            Ret visit( const Nodecl::BitwiseXorAssignment& n );
+            Ret visit( const Nodecl::ClassMemberAccess& n );
+            Ret visit( const Nodecl::Dereference& n );
+            Ret visit( const Nodecl::DivAssignment& n );
+            Ret visit( const Nodecl::FunctionCall& n );
+            Ret visit( const Nodecl::MinusAssignment& n );
+            Ret visit( const Nodecl::ModAssignment& n );
+            Ret visit( const Nodecl::MulAssignment& n );
+            Ret visit( const Nodecl::ObjectInit& n );
+            Ret visit( const Nodecl::Postdecrement& n );
+            Ret visit( const Nodecl::Postincrement& n );
+            Ret visit( const Nodecl::Predecrement& n );
+            Ret visit( const Nodecl::Preincrement& n );
+            Ret visit( const Nodecl::Range& n );
+            Ret visit( const Nodecl::Reference& n );
+            Ret visit( const Nodecl::Symbol& n );
+        };
     }
 }
 
@@ -336,6 +414,7 @@ namespace TL
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
     };
+
 }
 
 #endif // TL_NODECL_UTILS_HPP

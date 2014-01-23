@@ -1683,6 +1683,33 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 
 endif
 
+
+##########################################################################
+# src/tl/omp/nanos-main/
+##########################################################################
+
+if BUILD_NANOX_NANOSMAIN
+
+phases_LTLIBRARIES += src/tl/omp/nanos-main/libtlnanox-nanosmain.la
+
+src_tl_omp_nanos_main_libtlnanox_nanosmain_la_CFLAGS = $(phases_cflags)\
+			 -I$(top_srcdir)/src/tl/omp/nanox-nodecl \
+			 -I$(top_srcdir)/src/tl/omp/nanos-common \
+			 -I$(top_srcdir)/src/tl/omp/core
+src_tl_omp_nanos_main_libtlnanox_nanosmain_la_CXXFLAGS = $(phases_cxxflags)\
+			 -I$(top_srcdir)/src/tl/omp/nanox-nodecl \
+			 -I$(top_srcdir)/src/tl/omp/nanos-common \
+			 -I$(top_srcdir)/src/tl/omp/core
+
+src_tl_omp_nanos_main_libtlnanox_nanosmain_la_LDFLAGS = $(phases_ldflags)
+
+src_tl_omp_nanos_main_libtlnanox_nanosmain_la_SOURCES = \
+       src/tl/omp/nanos-main/tl-omp-nanos-main.hpp \
+       src/tl/omp/nanos-main/tl-omp-nanos-main.cpp \
+       $(END)
+endif
+
+
 ##########################################################################
 # src/tl/omp/nanox-nodecl/devices
 ##########################################################################

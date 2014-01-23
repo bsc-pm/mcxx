@@ -834,6 +834,31 @@ namespace Analysis {
         }
     }
 
+    void ExtensibleGraph::clear_visits_backwards_in_level( Node* current, Node* outer_node )
+    {
+        if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
+        {
+            current->set_visited( false );
+            
+            if( current->is_graph_node( ) )
+                clear_visits_backwards_in_level( current->get_graph_exit_node( ), outer_node );
+            
+            ObjectList<Node*> parents;
+            if( current->is_entry_node( ) )
+            {
+                Node* outer = current->get_outer_node( );
+                if( outer->is_visited( ) )
+                    parents.append( outer );
+                else
+                    parents = outer->get_parents( );
+            }
+            else
+                parents = current->get_parents( );
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+                clear_visits_backwards_in_level( *it, outer_node );
+        }
+    }
+    
     void ExtensibleGraph::clear_visits_aux_backwards( Node* current )
     {
         if( current->is_visited_aux( ) )
@@ -1271,12 +1296,16 @@ namespace Analysis {
         {
             current->set_visited_extgraph( true );
             
-            if( !current->is_entry_node( ) )
+            if( !current->is_exit_node( ) )
             {
                 // Look first in nested nodes, if graph, or the current node, is not graph
                 if( current->is_graph_node( ) )
                 {
-                    result = find_nodecl_rec( current->get_graph_exit_node( ), n );
+                    Nodecl::NodeclBase current_ast = current->get_graph_related_ast( );
+                    if( Nodecl::Utils::equal_nodecls( current_ast, n, /*skip conversion nodes*/ true ) )
+                        result = current;
+                    else
+                        result = find_nodecl_rec( current->get_graph_entry_node( ), n );
                 }
                 else
                 {
@@ -1284,17 +1313,15 @@ namespace Analysis {
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); 
                          ( it != stmts.end( ) ) && ( result == NULL ); ++it )
                     {
-                        if( Nodecl::Utils::equal_nodecls( *it, n ) )
-                        {
+                        if( Nodecl::Utils::stmtexpr_contains_nodecl( *it, n ) )
                             result = current;
-                        }
                     }
                 }
                 
-                // If not found, look in the parents
-                ObjectList<Node*> parents = current->get_parents( );
-                for( ObjectList<Node*>::iterator it = parents.begin( ); 
-                     it != parents.end( ) && ( result == NULL ); ++it )
+                // If not found, look in the children
+                ObjectList<Node*> children = current->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); 
+                     it != children.end( ) && ( result == NULL ); ++it )
                 {
                     result = find_nodecl_rec( *it, n );
                 }
@@ -1307,7 +1334,7 @@ namespace Analysis {
     {
         Node* entry = _graph->get_graph_entry_node( );
         Node* result = find_nodecl_rec( entry, n );
-        ExtensibleGraph::clear_visits( entry );
+        ExtensibleGraph::clear_visits_extgraph( entry );
         return result;
     }
     

@@ -34,11 +34,10 @@
 
 
 
-#define MASK_TASK_NUMBER 989
 
 //This two vars MUST keep same value than the ones existing at NANOX
-#define TAG_MAIN_OMPSS "__ompss_mpi_daemon" 
 #define UNKOWN_RANKSRCDST "-95"
+#define MASK_TASK_NUMBER 989
 
 namespace TL
 {

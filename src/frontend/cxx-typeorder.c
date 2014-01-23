@@ -412,7 +412,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, 0);
-        
+
         type_t* updated_type = update_type(original_type, 
                 updated_context,
                 locus);

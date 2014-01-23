@@ -485,6 +485,8 @@ namespace Analysis {
             //! Returns true when some usage information has been computed for the node
             bool usage_is_computed( );
             
+            bool uses_var( const Nodecl::NodeclBase& n );
+            
             //! Returns the list of upper exposed variables of the node
             Utils::ext_sym_set get_ue_vars( );
 

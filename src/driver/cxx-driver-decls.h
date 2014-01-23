@@ -170,6 +170,7 @@ typedef struct debug_options_tag
     char print_pcfg;
     char print_tdg;
     char do_not_codegen;
+    char show_template_packs;
 } debug_options_t;
 
 typedef struct external_var_tag {
