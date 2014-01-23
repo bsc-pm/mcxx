@@ -76,9 +76,9 @@ namespace TL { namespace Nanox {
             ;
 
         // Parse as C
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+        TL::Source::source_language = SourceLanguage::C;
         Nodecl::List n = new_src.parse_global(original_scope).as<Nodecl::List>();
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+        TL::Source::source_language = SourceLanguage::Current;
 
         Nodecl::List& extra_c_code = _lowering->get_extra_c_code();
 
