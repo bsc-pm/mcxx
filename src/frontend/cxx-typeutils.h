@@ -232,8 +232,6 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
         nodecl_t region, 
         decl_context_t decl_context_region);
 
-LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
-
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
         parameter_info_t* parameter_info, int num_parameters,
         ref_qualifier_t ref_qualifier);
