@@ -24,7 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-lowering-visitor.hpp"
+#include "tl-nanox-ptr.hpp"
+#include "tl-nanox-nodecl.hpp"
 
 #include "tl-scope.hpp"
 #include "tl-symbol-utils.hpp"
@@ -77,88 +78,92 @@ namespace TL { namespace Nanox {
             }
         }
 
-    }
-
-    // This is for Fortran only
-    TL::Symbol LoweringVisitor::get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope)
-    {
-        static int num = 0;
-
-        // FIXME - Avoid creating functions twice for a same t
-        std::stringstream ss;
-        ss << "nanox_ptr_of_" 
-            << std::hex 
-            << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
-            << std::dec
-            << "_" 
-            << num;
-
-        num++;
-
-        if (t.is_any_reference())
-            t = t.references_to();
-
-        TL::Type return_type = TL::Type::get_void_type().get_pointer_to();
-
-        ObjectList<std::string> parameter_names;
-        parameter_names.append("nanox_target_phony");
-
-        TL::Type argument_type = t;
-
-        if (t.is_pointer())
+        // This is for Fortran only
+        TL::Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope)
         {
-            // Do nothing. Use the original type
+            static int num = 0;
+
+            // FIXME - Avoid creating functions twice for a same t
+            std::stringstream ss;
+            ss << "nanox_ptr_of_" 
+                << std::hex 
+                << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
+                << std::dec
+                << "_" 
+                << num;
+
+            num++;
+
+            if (t.is_any_reference())
+                t = t.references_to();
+
+            TL::Type return_type = TL::Type::get_void_type().get_pointer_to();
+
+            ObjectList<std::string> parameter_names;
+            parameter_names.append("nanox_target_phony");
+
+            TL::Type argument_type = t;
+
+            if (t.is_pointer())
+            {
+                // Do nothing. Use the original type
+            }
+            else if (t.is_array())
+            {
+                argument_type = get_fake_explicit_shape_array(t);
+            }
+
+            argument_type = argument_type.get_lvalue_reference_to();
+
+            ObjectList<TL::Type> parameter_types;
+            parameter_types.append(argument_type);
+
+            TL::Symbol result = SymbolUtils::new_function_symbol(
+                    CURRENT_COMPILED_FILE->global_decl_context,
+                    ss.str(),
+                    /* has_return */ true,
+                    /* return_name */ "nanox_pointer_phony",
+                    return_type,
+                    parameter_names,
+                    parameter_types);
+
+            ObjectList<TL::Symbol> parameters = result.get_related_symbols();
+            // Propagate ALLOCATABLE attribute
+            parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
+
+            Source src;
+            src << "extern void* " << ss.str() << "_ (void*p)"
+                << "{"
+                << "   return p;"
+                << "}"
+                ;
+
+            // Parse as C
+            Source::source_language = SourceLanguage::C;
+            Nodecl::List n = src.parse_global(original_scope).as<Nodecl::List>();
+            Source::source_language = SourceLanguage::Fortran;
+
+            Nodecl::List& extra_c_code = Lowering::get_extra_c_code();
+
+            extra_c_code.append(n);
+
+            return result;
         }
-        else if (t.is_array())
-        {
-            argument_type = get_fake_explicit_shape_array(t);
-        }
 
-        argument_type = argument_type.get_lvalue_reference_to();
-
-        ObjectList<TL::Type> parameter_types;
-        parameter_types.append(argument_type);
-
-        TL::Symbol result = SymbolUtils::new_function_symbol(
-                CURRENT_COMPILED_FILE->global_decl_context,
-                ss.str(),
-                /* has_return */ true,
-                /* return_name */ "nanox_pointer_phony",
-                return_type,
-                parameter_names,
-                parameter_types);
-
-        ObjectList<TL::Symbol> parameters = result.get_related_symbols();
-        // Propagate ALLOCATABLE attribute
-        parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
-
-        Source src;
-        src << "extern void* " << ss.str() << "_ (void*p)"
-            << "{"
-            << "   return p;"
-            << "}"
-            ;
-
-        // Parse as C
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
-        Nodecl::List n = src.parse_global(original_scope).as<Nodecl::List>();
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
-
-        Nodecl::List& extra_c_code = _lowering->get_extra_c_code();
-
-        extra_c_code.append(n);
-
-        return result;
     }
 
-    TL::Symbol LoweringVisitor::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
-    {
-        return get_function_ptr_of_impl(sym, sym.get_type(), original_scope);
-    }
-
-    TL::Symbol LoweringVisitor::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
-    {
-        return get_function_ptr_of_impl(Symbol(NULL), t, original_scope);
-    }
 } }
+
+namespace TL {
+
+        TL::Symbol Nanox::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
+        {
+            return get_function_ptr_of_impl(sym, sym.get_type(), original_scope);
+        }
+
+        TL::Symbol Nanox::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
+        {
+            return get_function_ptr_of_impl(Symbol(NULL), t, original_scope);
+        }
+} 
 
