@@ -579,11 +579,12 @@ namespace TL
             {
                 get_updated_iv_init_for_epilog(for_statement, iv, iv_init);
 
-                new_iv_init = Nodecl::Assignment::make(
-                        iv.shallow_copy(),
-                        iv_init.shallow_copy(),
-                        iv.get_type(),
-                        iv.get_locus());
+                new_iv_init = Nodecl::List::make(
+                        Nodecl::Assignment::make(
+                            iv.shallow_copy(),
+                            iv_init.shallow_copy(),
+                            iv.get_type(),
+                            iv.get_locus()));
             }
             else
             {
