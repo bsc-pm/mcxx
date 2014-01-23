@@ -79,7 +79,7 @@ namespace TL { namespace Nanox {
         TargetInformation& _target_info;
 
         // The original statements are the statements written by the user
-        const Nodecl::NodeclBase& _original_statements;
+        Nodecl::NodeclBase _original_statements;
 
         // The task statements are the updated version of the statements written by the user.
         // For example:
@@ -97,16 +97,16 @@ namespace TL { namespace Nanox {
         // The task call "foo(2)" has two possible implementors:
         //  - The foo function: In this case the original statements and the task statements are the same: "foo(2)".
         //  - The fii function: The original statements are "foo(2)", but the task statements are: "fii(2)".
-        const Nodecl::NodeclBase& _task_statements;
-        const Nodecl::NodeclBase& _task_label;
+        Nodecl::NodeclBase _task_statements;
+        Nodecl::NodeclBase _task_label;
         const TL::Symbol& _arguments_struct;
         const TL::Symbol& _called_task;
 
         CreateOutlineInfo(std::string& outline_name,
                 ObjectList<OutlineDataItem*> data_items,
                 TargetInformation& target_info,
-                Nodecl::NodeclBase& original_statements,
-                Nodecl::NodeclBase& task_statements,
+                Nodecl::NodeclBase original_statements,
+                Nodecl::NodeclBase task_statements,
                 Nodecl::NodeclBase task_label,
                 TL::Symbol& args_struct,
                 TL::Symbol& called_task)

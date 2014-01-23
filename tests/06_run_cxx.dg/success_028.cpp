@@ -26,4 +26,51 @@
 
 
 
-// We cannot have a library without any source in Automake
+/*
+<testinfo>
+test_generator=config/mercurium-run
+</testinfo>
+*/
+
+#include <stdlib.h>
+
+class A {
+  public:
+    virtual void operator()() {
+      return;
+    }
+    virtual void foo() {
+        return;
+    }
+};
+
+
+class B : public A {
+  public:
+      virtual void operator()() {
+          static int in = 0;
+          in++;
+          if (in > 1)
+              abort();
+          this->A::operator()();
+          in--;
+      }
+
+    virtual void foo()
+    {
+        static int in = 0;
+        in++;
+        if (in > 1)
+            abort();
+        this->A::foo();
+        in--;
+    }
+};
+
+int main() {
+  B b;
+  b.foo();
+  b();
+
+  return 0;
+}

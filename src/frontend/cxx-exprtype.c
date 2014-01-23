@@ -14916,9 +14916,9 @@ void check_nodecl_initialization(
         scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
         nodecl_t* nodecl_output,
-        char is_auto_type)
+        char is_auto)
 {
-    if (is_auto_type
+    if (is_auto
             && initialized_entry != NULL
             && !nodecl_expr_is_type_dependent(nodecl_initializer))
     {
@@ -17658,8 +17658,13 @@ nodecl_t cxx_nodecl_make_function_call(
             if (called_symbol->entity_specs.is_member
                     && called_symbol->entity_specs.is_virtual
                     && (nodecl_is_null(called_name)
-                        || (nodecl_get_kind(called_name) != NODECL_CXX_DEP_NAME_NESTED
-                            && nodecl_get_kind(called_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED)))
+                        || (nodecl_get_kind(called_name) != NODECL_CXX_DEP_NAME_NESTED // A::f()
+                            && nodecl_get_kind(called_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED // ::A::f()
+                            && nodecl_get_kind(called_name) != NODECL_CLASS_MEMBER_ACCESS)
+                        || (nodecl_get_kind(called_name) == NODECL_CLASS_MEMBER_ACCESS // x.y()
+                            && (nodecl_is_null(nodecl_get_child(called_name, 2))
+                                || (nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                    != NODECL_CXX_MEMBER_FORM_QUALIFIED))))) // x.A::f(), x.::A::f()
             {
                 return nodecl_make_virtual_function_call(called,
                         converted_arg_list,
