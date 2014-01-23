@@ -529,94 +529,103 @@ namespace TL
 
             walk(condition);
 
-            Nodecl::NodeclBase prev_mask =
-                _environment._mask_list.back();
-
-            if(Utils::is_all_one_mask(prev_mask))
+            if(_environment._support_masking)
             {
-                _environment._mask_list.push_back(condition);
-                _environment._local_scope_list.push_back(n.get_true().retrieve_context());
-                walk(n.get_true());
-                _environment._mask_list.pop_back();
-                _environment._local_scope_list.pop_back();
+                Nodecl::NodeclBase prev_mask =
+                    _environment._mask_list.back();
 
-                Nodecl::VectorMaskNot neg_condition =
-                    Nodecl::VectorMaskNot::make(condition,
-                            condition.get_type(),
-                            condition.get_locus());
+                if(Utils::is_all_one_mask(prev_mask))
+                {
+                    _environment._mask_list.push_back(condition);
+                    _environment._local_scope_list.push_back(n.get_true().retrieve_context());
+                    walk(n.get_true());
+                    _environment._mask_list.pop_back();
+                    _environment._local_scope_list.pop_back();
 
-                _environment._mask_list.push_back(neg_condition);
-                _environment._local_scope_list.push_back(n.get_false().retrieve_context());
-                walk(n.get_false());
-                _environment._local_scope_list.pop_back();
-                _environment._mask_list.pop_back();
+                    Nodecl::VectorMaskNot neg_condition =
+                        Nodecl::VectorMaskNot::make(condition,
+                                condition.get_type(),
+                                condition.get_locus());
+
+                    _environment._mask_list.push_back(neg_condition);
+                    _environment._local_scope_list.push_back(n.get_false().retrieve_context());
+                    walk(n.get_false());
+                    _environment._local_scope_list.pop_back();
+                    _environment._mask_list.pop_back();
+                }
+                else
+                {
+                    TL::Scope scope = n.retrieve_context();
+                    // True Mask
+                    TL::Symbol true_mask_sym = scope.new_symbol("__mask_" + 
+                            Utils::get_var_counter());
+                    true_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    true_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                    true_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
+
+                    Nodecl::Symbol true_mask_nodecl_sym = true_mask_sym.make_nodecl(true, n.get_locus());
+                    Nodecl::NodeclBase true_mask_value = 
+                        Nodecl::VectorMaskAnd::make(
+                                prev_mask.shallow_copy(),
+                                condition.shallow_copy(),
+                                true_mask_sym.get_type(),
+                                n.get_locus());
+
+                    Nodecl::ExpressionStatement true_mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(true_mask_nodecl_sym, 
+                                    true_mask_value,
+                                    true_mask_sym.get_type(),
+                                    n.get_locus()));
+
+                    // Visit True
+                    _environment._mask_list.push_back(true_mask_nodecl_sym.shallow_copy());
+                    _environment._local_scope_list.push_back(n.get_true().retrieve_context());
+                    walk(n.get_true());
+                    _environment._local_scope_list.pop_back();
+                    _environment._mask_list.pop_back();
+
+                    n.prepend_sibling(true_mask_exp);
+
+
+                    // False Mask
+                    TL::Symbol false_mask_sym = scope.new_symbol("__mask_" + 
+                            Utils::get_var_counter());
+                    false_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    false_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                    false_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
+
+                    Nodecl::Symbol false_mask_nodecl_sym = false_mask_sym.make_nodecl(true, n.get_locus());
+
+                    Nodecl::NodeclBase false_mask_value =
+                        Nodecl::VectorMaskAnd2Not::make(
+                                prev_mask.shallow_copy(),
+                                condition.shallow_copy(),
+                                false_mask_sym.get_type(),
+                                n.get_locus());
+
+                    Nodecl::ExpressionStatement else_mask_exp =
+                        Nodecl::ExpressionStatement::make(
+                                Nodecl::VectorMaskAssignment::make(false_mask_nodecl_sym.shallow_copy(), 
+                                    false_mask_value,
+                                    false_mask_sym.get_type(),
+                                    n.get_locus()));
+
+                    // Visit False
+                    _environment._mask_list.push_back(false_mask_nodecl_sym);
+                    _environment._local_scope_list.push_back(n.get_false().retrieve_context());
+                    walk(n.get_false());
+                    _environment._local_scope_list.pop_back();
+                    _environment._mask_list.pop_back();
+
+                    n.prepend_sibling(else_mask_exp);
+                }
             }
+            // NO MASKING SUPPORT
             else
             {
-                TL::Scope scope = n.retrieve_context();
-                // True Mask
-                TL::Symbol true_mask_sym = scope.new_symbol("__mask_" + 
-                        Utils::get_var_counter());
-                true_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                true_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                true_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                Nodecl::Symbol true_mask_nodecl_sym = true_mask_sym.make_nodecl(true, n.get_locus());
-                Nodecl::NodeclBase true_mask_value = 
-                    Nodecl::VectorMaskAnd::make(
-                            prev_mask.shallow_copy(),
-                            condition.shallow_copy(),
-                            true_mask_sym.get_type(),
-                            n.get_locus());
-
-                Nodecl::ExpressionStatement true_mask_exp =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(true_mask_nodecl_sym, 
-                                true_mask_value,
-                                true_mask_sym.get_type(),
-                                n.get_locus()));
-
-                // Visit True
-                _environment._mask_list.push_back(true_mask_nodecl_sym.shallow_copy());
-                _environment._local_scope_list.push_back(n.get_true().retrieve_context());
                 walk(n.get_true());
-                _environment._local_scope_list.pop_back();
-                _environment._mask_list.pop_back();
-
-                n.prepend_sibling(true_mask_exp);
-
-                    
-                // False Mask
-                TL::Symbol false_mask_sym = scope.new_symbol("__mask_" + 
-                        Utils::get_var_counter());
-                false_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                false_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                false_mask_sym.set_type(TL::Type::get_mask_type(_environment._mask_size));
-
-                Nodecl::Symbol false_mask_nodecl_sym = false_mask_sym.make_nodecl(true, n.get_locus());
-
-                Nodecl::NodeclBase false_mask_value =
-                    Nodecl::VectorMaskAnd2Not::make(
-                            prev_mask.shallow_copy(),
-                            condition.shallow_copy(),
-                            false_mask_sym.get_type(),
-                            n.get_locus());
-
-                Nodecl::ExpressionStatement else_mask_exp =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::VectorMaskAssignment::make(false_mask_nodecl_sym.shallow_copy(), 
-                                false_mask_value,
-                                false_mask_sym.get_type(),
-                                n.get_locus()));
-
-                // Visit False
-                _environment._mask_list.push_back(false_mask_nodecl_sym);
-                _environment._local_scope_list.push_back(n.get_false().retrieve_context());
                 walk(n.get_false());
-                _environment._local_scope_list.pop_back();
-                _environment._mask_list.pop_back();
-
-                n.prepend_sibling(else_mask_exp);
             }
 
             const Nodecl::VectorConditionalExpression vector_cond =

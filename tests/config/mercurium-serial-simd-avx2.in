@@ -21,11 +21,11 @@ test_CC_nanox_imcc="\${IMCC}"
 
 if [ "$1" = "svml" ];
 then
-test_CFLAGS_nanox_imcc="-O0 --simd  --openmp --mavx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --openmp --mavx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CFLAGS_nanox_imcc="-O0 --simd  --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 else
-test_CFLAGS_nanox_imcc="-O0 --simd --openmp --mavx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --openmp --mavx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CFLAGS_nanox_imcc="-O0 --simd --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 fi
 
 test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib"
@@ -58,11 +58,11 @@ test_CC_intel_rtl="\${INTEL_RTL}"
 
 if [ "$1" = "svml" ];
 then
-test_CFLAGS_intel_rtl="-O0 --simd  --openmp --mavx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --openmp --mavx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CFLAGS_intel_rtl="-O0 --simd  --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --openmp --avx2 --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL}"
 else
-test_CFLAGS_intel_rtl="-O0 --simd --openmp --mavx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL}"
-test_CXXFLAGS_intel_rtl="-O0 --simd --openmp --mavx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CFLAGS_intel_rtl="-O0 --simd --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL}"
+test_CXXFLAGS_intel_rtl="-O0 --simd --openmp --avx2 -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL}"
 fi
 
 test_LDFLAGS_intel_rtl="-L@abs_top_builddir@/lib"

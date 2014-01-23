@@ -537,13 +537,14 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mask(";
-            intrin_src << as_expression(node.get_lhs());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ", ";
-            intrin_src << cmp_flavor;
-            intrin_src << ")";
+            intrin_src 
+                << "("
+                << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_rhs())
+                << ", "
+                << cmp_flavor
+                << ")";
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -582,13 +583,14 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mask(";
-            intrin_src << as_expression(node.get_lhs());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ", ";
-            intrin_src << cmp_flavor;
-            intrin_src << ")";
+            intrin_src 
+                << "("
+                << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_rhs())
+                << ", "
+                << cmp_flavor
+                << ")";
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -627,13 +629,14 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mask(";
-            intrin_src << as_expression(node.get_lhs());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ", ";
-            intrin_src << cmp_flavor;
-            intrin_src << ")";
+            intrin_src 
+                << "("
+                << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_rhs())
+                << ", "
+                << cmp_flavor
+                << ")";
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -673,13 +676,14 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mask(";
-            intrin_src << as_expression(node.get_lhs());
-            intrin_src << ", ";
-            intrin_src << as_expression(node.get_rhs());
-            intrin_src << ", ";
-            intrin_src << cmp_flavor;
-            intrin_src << ")";
+            intrin_src 
+                << "("
+                << as_expression(node.get_lhs())
+                << ", "
+                << as_expression(node.get_rhs())
+                << ", "
+                << cmp_flavor
+                << ")";
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -718,7 +722,8 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mask("
+            intrin_src  
+                << "("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
@@ -764,7 +769,8 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src << "_mask("
+            intrin_src 
+                << "("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
@@ -1427,10 +1433,10 @@ namespace TL
         }        
 
         void AVX2VectorLowering::visit(const Nodecl::VectorConditionalExpression& node) 
-        { 
+        {
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, swizzle;
+            TL::Source intrin_src;
 
             Nodecl::NodeclBase true_node = node.get_true();
             Nodecl::NodeclBase false_node = node.get_false();
@@ -1440,25 +1446,33 @@ namespace TL
             TL::Type false_type = false_node.get_type().basic_type();
             TL::Type condiition_type = condition_node.get_type();
 
-            if (true_type.is_float()
+            std::string casting;
+
+            // Intrinsic name
+            intrin_src << AVX2_INTRIN_PREFIX << "_blend";
+
+            // Postfix
+            if (true_type.is_integral_type()
+                    && false_type.is_integral_type())
+            {
+                // TODO _epi16
+                intrin_src << "v_epi8";
+            }
+            else if (true_type.is_float()
                     && false_type.is_float())
             {
-                intrin_src << AVX2_INTRIN_PREFIX << "_mask_mov_ps";
+                // TODO _ps
+                intrin_src << "v_ps";
             }
             else if (true_type.is_double()
                     && false_type.is_double())
             {
-                intrin_src << AVX2_INTRIN_PREFIX << "_mask_mov_pd";
-            }
-            else if (true_type.is_integral_type()
-                    && false_type.is_integral_type())
-            {
-                intrin_src << AVX2_INTRIN_PREFIX << "_mask_swizzle_si" << AVX2_VECTOR_BIT_SIZE;
-                swizzle << ", _MM_SWIZ_REG_NONE";
+                // TODO _pd
+                intrin_src << "v_pd";
             }
             else
             {
-                internal_error("AVX2 Lowering: Node %s at %s has an unsupported type.", 
+                running_error("AVX2 Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }
@@ -1467,13 +1481,12 @@ namespace TL
             walk(true_node);
             walk(condition_node);
 
-            intrin_src << "(" 
+            intrin_src << "("
                 << as_expression(false_node) // False first!
                 << ", "
-                << as_expression(condition_node)
-                << ", "
                 << as_expression(true_node)
-                << swizzle
+                << ", "
+                << as_expression(condition_node)
                 << ")"; 
 
             Nodecl::NodeclBase function_call =

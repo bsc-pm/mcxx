@@ -44,9 +44,37 @@ namespace TL
             {
                 if(_environment._device.compare("smp") == 0)
                 {
-                    if(reduction_name.compare("+") == 0)
+                    if((reduction_name.compare("+") == 0) ||
+                            (reduction_name.compare("-") == 0))
                     {
                         if(reduction_type.is_signed_int())
+                        {
+                            return true;
+                        }
+                        else if(reduction_type.is_float())
+                        {
+                            return true;
+                        }
+                        else if (reduction_type.is_double())
+                        {
+                            return true;
+                        }
+                    }
+                }
+                else if(_environment._device.compare("avx2") == 0)
+                {
+                    if((reduction_name.compare("+") == 0) ||
+                            (reduction_name.compare("-") == 0))
+                    {
+                        if(reduction_type.is_signed_int())
+                        {
+                            return true;
+                        }
+                        else if(reduction_type.is_float())
+                        {
+                            return true;
+                        }
+                        else if (reduction_type.is_double())
                         {
                             return true;
                         }
