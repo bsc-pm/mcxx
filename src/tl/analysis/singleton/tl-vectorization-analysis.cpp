@@ -26,6 +26,7 @@
 
 #include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
+#include "tl-expression-reduction.hpp"
 #include <algorithm>
 
 namespace TL  {
@@ -61,7 +62,7 @@ namespace Analysis {
                 }
                 else
                 {
-                    Nodecl::Utils::ReduceExpressionVisitor v;
+                    TL::Optimizations::ReduceExpressionVisitor v;
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
                     
@@ -82,7 +83,7 @@ namespace Analysis {
         
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
-            Nodecl::Utils::ReduceExpressionVisitor v;
+            Optimizations::ReduceExpressionVisitor v;
             Nodecl::NodeclBase s = n.shallow_copy( );
             v.walk( s );
 
@@ -535,7 +536,7 @@ namespace Analysis {
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
             Utils::InductionVariableData* iv = Utils::get_induction_variable_from_list( _induction_variables, n );
-            Nodecl::Utils::ReduceExpressionVisitor v;
+            Optimizations::ReduceExpressionVisitor v;
             
             Nodecl::NodeclBase lb = iv->get_lb( ).shallow_copy( );
             v.walk( lb );

@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "cxx-cexpr.h"
 #include "cxx-process.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"

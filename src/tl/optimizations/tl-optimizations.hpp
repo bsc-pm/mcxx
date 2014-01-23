@@ -28,6 +28,7 @@
 #define TL_OPTIMIZATIONS_HPP
 
 #include "tl-strength-reduction.hpp"
+#include "tl-expression-reduction.hpp"
 
 
 #endif // TL_OPTIMIZATIONS_HPP

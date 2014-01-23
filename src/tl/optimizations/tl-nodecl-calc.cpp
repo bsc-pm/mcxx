@@ -28,8 +28,9 @@
 
 #include "tl-nodecl-calc.hpp"
 
-namespace Nodecl
-{
+namespace TL {
+namespace Optimizations {
+    
     Calculator::Calculator()
     {}
  
@@ -741,4 +742,6 @@ namespace Nodecl
     {
         return TL::ObjectList<const_value_t*>(1, n.get_constant());
     }
+    
+}
 }
