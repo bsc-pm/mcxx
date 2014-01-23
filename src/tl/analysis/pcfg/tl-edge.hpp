@@ -79,15 +79,17 @@ namespace Analysis {
         //! Returns the boolean indicating whether the target of the edge is a Task
         bool is_task_edge( );
 
-        //! Returns the label of the edge.
-        /*!
-        \return When the label is empty, meaning the edge is always taken, an empty string
-                is returned.
-        */
+        /*! Returns the label of the edge.
+         * \return When the label is empty, meaning the edge is always taken, an empty string is returned.
+         */
         std::string get_label( );
-
+        void add_label( std::string label );
         void set_label( std::string label );
 
+        //! Returns the condition of the task synchronization e
+        Nodecl::NodeclBase get_condition( );
+        void set_condition( const Nodecl::NodeclBase& condition );
+        
         void set_true_edge( );
         void set_false_edge( );
         void set_catch_edge( );

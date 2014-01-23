@@ -133,17 +133,37 @@ namespace Analysis {
         return label;
     }
 
-    void Edge::set_label( std::string label )
+    void Edge::add_label( std::string label )
     {
         std::string new_label = "";
         if( get_data<std::string>( _EDGE_LABEL ) != "")
-        {
             new_label = get_data<std::string>( _EDGE_LABEL ) + ", ";
-        }
         new_label += label;
         set_data( _EDGE_LABEL, new_label );
     }
+    
+    void Edge::set_label( std::string label )
+    {
+        set_data( _EDGE_LABEL, label );
+    }
 
+    Nodecl::NodeclBase Edge::get_condition( )
+    {
+        ERROR_CONDITION( !_source->is_omp_task_node( ) || 
+                         ( !_target->is_omp_task_node( ) && _target->is_omp_taskwait_node( ) && _target->is_omp_barrier_node( ) ), 
+                         "Only edges between two tasks can have a condition, related with the dependency clauses" 
+                         "Edge between %d and %d does not fulfill this condition", _source->get_id( ), _target->get_id( ) );
+        Nodecl::NodeclBase cond;
+        if( has_key( _CONDITION ) )
+            cond = get_data<Nodecl::NodeclBase>( _CONDITION );
+        return cond;
+    }
+    
+    void Edge::set_condition( const Nodecl::NodeclBase& condition )
+    {
+        set_data( _CONDITION, condition );
+    }
+    
     void Edge::set_true_edge( )
     {
         set_data( _EDGE_TYPE, __TrueEdge );

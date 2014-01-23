@@ -39,16 +39,15 @@ namespace {
         Remove = 2
     };
     
-    SyncModification compute_condition_for_unmatched_values( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& m, 
-                                                             Nodecl::NodeclBase& condition )
+    void compute_condition_for_unmatched_values( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& m, 
+                                                 Nodecl::NodeclBase& condition )
     {
         if( condition.is_null( ) )
-            condition = Nodecl::Equal::make( n, m, n.get_type( ) );
+            condition = Nodecl::Equal::make( n.shallow_copy( ), m.shallow_copy( ), n.get_type( ) );
         else
             condition = Nodecl::LogicalAnd::make( condition.shallow_copy( ), 
                                                   Nodecl::Equal::make( n.shallow_copy( ), m.shallow_copy( ), n.get_type( ) ), 
                                                   condition.get_type( ) );
-            return Keep;
     }
     
     SyncModification match_constant_values( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& m, 
@@ -95,13 +94,13 @@ namespace {
                 }
                 else
                 {   // We do not know whether the indexes are equal => compute the condition
-                    modification_type = compute_condition_for_unmatched_values( n, m, condition );
+                    compute_condition_for_unmatched_values( n, m, condition );
                 }
             }
         }
         else
         {   // We do not know whether the indexes are equal => compute the condition
-            modification_type = compute_condition_for_unmatched_values( n, m, condition );
+            compute_condition_for_unmatched_values( n, m, condition );
         }
         
         return modification_type;
@@ -148,14 +147,14 @@ namespace {
                     }
                     else
                     {
-                        modification_type = compute_condition_for_unmatched_values( n, m, condition );
+                        compute_condition_for_unmatched_values( n, m, condition );
                     }
                 }
             }
         }
         else
         {   // We do not know whether the indexes are equal => compute the condition
-            modification_type = compute_condition_for_unmatched_values( n, m, condition );
+            compute_condition_for_unmatched_values( n, m, condition );
         }
         
         return modification_type;
@@ -166,7 +165,6 @@ namespace {
                                              Nodecl::NodeclBase& condition )
     {
         SyncModification modification_type = Keep;
-        
         Nodecl::List source_subscripts = a.get_subscripts( ).as<Nodecl::List>( );
         Nodecl::List target_subscripts = b.get_subscripts( ).as<Nodecl::List>( );
         Nodecl::List::iterator its = source_subscripts.begin( );
@@ -192,7 +190,8 @@ namespace {
                 }
                 else
                 {   // targt_v2
-                    
+                    // TODO Can we do something here?
+                    compute_condition_for_unmatched_values( *itt, *its, condition );
                 }
             }
         }
@@ -264,6 +263,59 @@ namespace {
         return modification_type;
     }
     
+}
+    
+    TaskSyncTunning::TaskSyncTunning( ExtensibleGraph* pcfg )
+        : _pcfg( pcfg )
+    {}
+    
+    void TaskSyncTunning::tune_task_synchronizations( )
+    {
+        Node* entry = _pcfg->get_graph( )->get_graph_entry_node( );
+        tune_task_synchronizations_rec( entry );
+        ExtensibleGraph::clear_visits( entry );
+    }
+
+    void TaskSyncTunning::tune_task_synchronizations_rec( Node* current )
+    {
+        if( !current->is_visited( ) )
+        {
+            current->set_visited( true );
+            // Treat the current node
+            if( current->is_graph_node( ) )
+            {
+                if( current->is_omp_task_node( ) )
+                {
+                    // Tune the synchronizations with its children, if possible
+                    ObjectList<Edge*> exits = current->get_exit_edges( );
+                    for( ObjectList<Edge*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
+                    {
+                        std::string label = ( *it )->get_label( );
+                        if( label == "maybe" )
+                        {   // Can we tune this edge to make it static
+                            // if so, remove the rest of the edges
+                            Nodecl::NodeclBase target_task_environ = ( *it )->get_target( )->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( );
+                            Nodecl::NodeclBase condition = match_dependencies( current, ( *it )->get_target( ) );
+                            // TODO Shall the 'condition' be stored in the linked data associated to the edge??
+                            // This information will be used when building the Task Dependency Graph
+                            ( *it )->set_condition( condition );
+                        }
+                    }
+                }
+                
+                // Treat the inner nodes recursively
+                tune_task_synchronizations_rec( current->get_graph_entry_node( ) );
+            }
+            
+            // Treat the children recursively
+            ObjectList<Node*> children = current->get_children( );
+            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            {
+                tune_task_synchronizations_rec( *it );
+            }
+        }
+    }
+    
     /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
      * \param source_environ is the environment of the source task
      * \param target_environ is the environment of the target task
@@ -273,7 +325,7 @@ namespace {
      * - The edge cannot be determined to be 'static'.
      *   In this case, the return value is the condition that has to be fulfilled to determine a dependency between the two tasks
      */
-    Nodecl::NodeclBase match_dependencies( Node* source, Node* target )
+    Nodecl::NodeclBase TaskSyncTunning::match_dependencies( Node* source, Node* target )
     {
         Nodecl::NodeclBase condition;
         
@@ -283,7 +335,6 @@ namespace {
         Nodecl::List target_environ = target->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
         
         // For the source task we are interested only in out or inout dependencies
-        // FIXME cannot call to a generic function because ObjectList<X> cannot be converted into ObjectList<Y>
         ObjectList<Nodecl::NodeclBase> source_out_deps = source_environ.find_all<Nodecl::OpenMP::DepOut>( )
                 .map( functor( &Nodecl::OpenMP::DepOut::get_out_deps ) )                // ObjectList<Nodecl::NodeclBase>
                 .map( functor( &Nodecl::NodeclBase::as<Nodecl::List> ) )                // ObjectList<Nodecl::List>
@@ -323,62 +374,41 @@ namespace {
         
         for( ObjectList<Nodecl::NodeclBase>::iterator its = source_deps.begin( ); its != source_deps.end( ); ++its )
             for( ObjectList<Nodecl::NodeclBase>::iterator itt = target_deps.begin( ); itt != target_deps.end( ); ++itt )
-                match_dependence( source, target, *its, *itt, condition );
-        
-        return condition;
-    }
-    
-}
-    
-    TaskSyncTunning::TaskSyncTunning( ExtensibleGraph* pcfg )
-        : _pcfg( pcfg )
-    {}
-    
-    void TaskSyncTunning::tune_task_synchronizations( )
-    {
-        Node* entry = _pcfg->get_graph( )->get_graph_entry_node( );
-        tune_task_synchronizations_rec( entry );
-        ExtensibleGraph::clear_visits( entry );
-    }
-
-    void TaskSyncTunning::tune_task_synchronizations_rec( Node* current )
-    {
-        if( !current->is_visited( ) )
-        {
-            current->set_visited( true );
-            
-            // Treat the current node
-            if( current->is_graph_node( ) )
             {
-                if( current->is_omp_task_node( ) )
+                SyncModification modification_type = match_dependence( source, target, *its, *itt, condition );
+                switch( modification_type )
                 {
-                    // Tune the synchronizations with its children, if possible
-                    ObjectList<Edge*> exits = current->get_exit_edges( );
-                    for( ObjectList<Edge*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
-                    {
-                        std::string label = ( *it )->get_label( );
-                        if( label == "maybe" )
-                        {   // Can we tune this edge to make it static
-                            // if so, remove the rest of the edges
-                            Nodecl::NodeclBase target_task_environ = ( *it )->get_target( )->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( );
-                            Nodecl::NodeclBase condition = match_dependencies( current, ( *it )->get_target( ) );
-                            // TODO Shall the 'condition' be stored in the linked data associated to the edge??
-                            // This information will be used when building the Task Dependency Graph
+                    default:
+                    case Keep:          break;
+                    case MaybeToStatic: {
+                        if( VERBOSE )
+                            DEBUG_MESSAGE( "Dependency between %d and %d changes from maybe to static", source->get_id( ), target->get_id( ) );
+                        // Transform the type of the edge from "maybe" to "static"
+                        Edge* e = ExtensibleGraph::get_edge_between_nodes( source, target );
+                        e->set_label( "static" );
+                        // Remove any other "strict" synchronization, since now it is synchronized here for sure
+                        ObjectList<Edge*> sexits = source->get_exit_edges( );
+                        for( ObjectList<Edge*>::iterator it = sexits.begin( ); it != sexits.end( ); ++it )
+                        {
+                            if( ( ( *it )->get_target( ) != target ) && ( ( *it )->get_label( ) == "strict" ) )
+                            {
+                                if( VERBOSE )
+                                    DEBUG_MESSAGE( "Removing unnecessary strict edge between %d and %d", source->get_id( ), target->get_id( ) );
+                                _pcfg->disconnect_nodes( source, ( *it )->get_target( ) );
+                            }
                         }
+                        break;
+                    }
+                    case Remove:        {
+                        if( VERBOSE )
+                            DEBUG_MESSAGE( "Dependency between %d and %d is being removed", source->get_id( ), target->get_id( ) );
+                        _pcfg->disconnect_nodes( source, target );
+                        break;
                     }
                 }
-                
-                // Treat the inner nodes recursively
-                tune_task_synchronizations_rec( current->get_graph_entry_node( ) );
             }
-            
-            // Treat the children recursively
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                tune_task_synchronizations_rec( *it );
-            }
-        }
+        
+        return condition;
     }
     
 }   

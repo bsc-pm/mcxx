@@ -40,6 +40,7 @@ namespace TaskAnalysis{
         ExtensibleGraph* _pcfg;                     /*!< PCFG being tuned */
         
         void tune_task_synchronizations_rec( Node* current );
+        Nodecl::NodeclBase match_dependencies( Node* source, Node* target );
         
     public:
         // *** Constructor *** //

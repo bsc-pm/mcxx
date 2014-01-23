@@ -254,6 +254,12 @@ namespace Analysis {
      */
     #define _EDGE_LABEL                     "edge_label"
     
+    /*! \def _CONDITION
+     * Nodecl containing the condition that must fulfill to have a real dependency 
+     * between the two tasks connected with the edge
+     */
+    #define _CONDITION                      "condition"
+    
     /*! \def _IS_TASK_EDGE
      * Boolean indicating whether an edge connects a target being a Task
      * Available and mandatory in all edges.

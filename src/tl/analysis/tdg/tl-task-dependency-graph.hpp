@@ -61,15 +61,22 @@ namespace Analysis {
         friend class TaskDependencyGraph;
     };
     
+    enum TDGEdgeType {
+        Strict,
+        Static,
+        Maybe,
+        Post
+    };
+    
     struct TDG_Edge {
         TDG_Node* _source;
         TDG_Node* _target;
-        std::string _type;
+        TDGEdgeType _type;
         ObjectList<Nodecl::NodeclBase> _source_clauses;
         ObjectList<Nodecl::NodeclBase> _target_clauses;
         Nodecl::NodeclBase _condition;
         
-        TDG_Edge( TDG_Node* source, TDG_Node* target, std::string type );
+        TDG_Edge( TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition );
         TDG_Node* get_source( );
         TDG_Node* get_target( );
         
@@ -88,7 +95,8 @@ namespace Analysis {
         TaskDependencyGraph( const TaskDependencyGraph& n );
         TaskDependencyGraph& operator=( const TaskDependencyGraph& );
         
-        void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, std::string type );
+        void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, 
+                                std::string type, const Nodecl::NodeclBase& condition );
         
         TDG_Node* find_task_from_tdg_nodes_list( Node* task );
         void create_tdg_nodes_from_pcfg( Node* current );

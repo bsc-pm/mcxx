@@ -390,7 +390,7 @@ namespace Analysis {
                 label = case_val.prettyprint( );
             else
                 label = "default";
-            e->set_label( label );
+            e->add_label( label );
 
             if( case_stmts.back( )->get_type( ) != __Break )
                 _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
@@ -839,7 +839,7 @@ namespace Analysis {
             if( catch_edge != NULL )
             {
                 catch_edge->set_catch_edge( );
-                catch_edge->set_label( label );
+                catch_edge->add_label( label );
             }
         }
 

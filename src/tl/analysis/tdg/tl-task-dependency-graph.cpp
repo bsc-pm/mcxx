@@ -115,50 +115,20 @@ namespace Analysis {
         return result;
     }
     
-    TDG_Edge::TDG_Edge( TDG_Node* source, TDG_Node* target, std::string type )
+    TDG_Edge::TDG_Edge( TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition )
         : _source( source ), _target( target ), _type( type ), 
-          _source_clauses( ), _target_clauses( ), _condition( Nodecl::NodeclBase::null( ) )
+          _source_clauses( ), _target_clauses( ), _condition( condition )
     {
-        bool connecting_tasks = true;
         // Fill source and target lists with the corresponding clauses
         if( source->_pcfg_node->is_omp_task_node( ) )
         {
             Nodecl::OpenMP::Task task = source->_pcfg_node->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
             _source_clauses = get_task_dependency_clauses( task );
         }
-        else
-            connecting_tasks = false;
         if( target->_pcfg_node->is_omp_task_node( ) )
         {
             Nodecl::OpenMP::Task task = target->_pcfg_node->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
             _target_clauses = get_task_dependency_clauses( task );
-        }
-        else
-            connecting_tasks = false;
-        
-        // Calculate the condition of the edge (only when connecting tasks, otherwise there is no condition)
-        if( connecting_tasks )
-        {
-            for( ObjectList<Nodecl::NodeclBase>::iterator its = _source_clauses.begin( ); 
-                 its != _source_clauses.end( ); ++its )
-            {
-                if( its->is<Nodecl::OpenMP::DepOut>( ) || its->is<Nodecl::OpenMP::DepInout>( ) )
-                {
-                    // We abuse here the structure of Nodecl::OpenMP::DepXXX. Since all are the same, we use Inout generically
-                    Nodecl::List sargs = its->as<Nodecl::OpenMP::DepInout>( ).get_inout_deps( ).as<Nodecl::List>( );
-                    for( ObjectList<Nodecl::NodeclBase>::iterator itt = _target_clauses.begin( ); 
-                         itt != _target_clauses.end( ); ++itt )
-                    {
-                        if( itt->is<Nodecl::OpenMP::DepIn>( ) || itt->is<Nodecl::OpenMP::DepInout>( ) )
-                        {
-                            Nodecl::List targs = its->as<Nodecl::OpenMP::DepInout>( ).get_inout_deps( ).as<Nodecl::List>( );
-                            
-                            // TODO
-                            
-                        }
-                    }
-                }
-            }
         }
     }
     
@@ -192,9 +162,29 @@ namespace Analysis {
         return name;
     }
     
-    void TaskDependencyGraph::connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, std::string type )
+    static TDGEdgeType get_tdg_edge_type_from_pcfg_edge_type( std::string pcfg_edge_type )
     {
-        TDG_Edge* edge = new TDG_Edge( parent, child, type );
+        TDGEdgeType result;
+        if( pcfg_edge_type == "strict" )
+            result = Strict;
+        else if( pcfg_edge_type == "static" )
+            result = Static;
+        else if( pcfg_edge_type == "maybe" )
+            result = Maybe;
+        else if( pcfg_edge_type == "post" )
+            result = Post;
+        else
+        {
+            internal_error( "Unexpected type of synchronization edge '%s' from PCFG. "
+                            "Expected strict|static|maybe|post.", pcfg_edge_type.c_str( ) );
+        }
+        return result;
+    }
+    
+    void TaskDependencyGraph::connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, 
+                                                 std::string type, const Nodecl::NodeclBase& condition )
+    {    
+        TDG_Edge* edge = new TDG_Edge( parent, child, get_tdg_edge_type_from_pcfg_edge_type( type ), condition );
         parent->set_exit( edge );
         child->set_entry( edge );
     }
@@ -280,7 +270,7 @@ namespace Analysis {
                             if( true )
                             {   // Connect the task
                                 TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list( child );
-                                connect_tdg_nodes( tdg_task, tdg_child_task, ( *it )->get_label( ) );
+                                connect_tdg_nodes( tdg_task, tdg_child_task, ( *it )->get_label( ), ( *it )->get_condition( ) );
                             }
                         }
                     }
@@ -299,7 +289,7 @@ namespace Analysis {
                     if( child->is_omp_task_node( ) || child->is_omp_taskwait_node( ) || child->is_omp_barrier_node( ) )
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list( child );
-                        connect_tdg_nodes( tdg_sync, tdg_child_task, ( *it )->get_label( ) );
+                        connect_tdg_nodes( tdg_sync, tdg_child_task, ( *it )->get_label( ), ( *it )->get_condition( ) );
                     }
                 }
             }
@@ -311,49 +301,49 @@ namespace Analysis {
         }
     }
     
-    static std::string prettyprint_clauses( Nodecl_list clauses )
-    {
-        std::string result;
-        
-        for( Nodecl_list::iterator it = clauses.begin( ); it != clauses.end( ); )
-        {
-            // Note: there is no codegen for OpenMP nodecls, 
-            // that is why we print it manually instead of calling prettyprint
-            std::string clause_name;
-            std::string clause_args;
-            Nodecl::List args;
-            if( it->is<Nodecl::OpenMP::DepIn>( ) )
-            {
-                clause_name = "in";
-                args =  it->as<Nodecl::OpenMP::DepIn>( ).get_in_deps( ).as<Nodecl::List>( );
-            }
-            else if( it->is<Nodecl::OpenMP::DepOut>( ) )
-            {
-                clause_name = "out";
-                args =  it->as<Nodecl::OpenMP::DepOut>( ).get_out_deps( ).as<Nodecl::List>( );
-            }
-            else if( it->is<Nodecl::OpenMP::DepInout>( ) )
-            {
-                clause_name = "inout";
-                args =  it->as<Nodecl::OpenMP::DepInout>( ).get_inout_deps( ).as<Nodecl::List>( );
-            }
-            
-            for( Nodecl::List::iterator it_a = args.begin( ); it_a != args.end( ); )
-            {
-                clause_args += it_a->prettyprint( );
-                ++it_a;
-                if( it_a != args.end( ) )
-                    clause_args += ", ";
-            }
-            result += clause_name + "(" + clause_args + ")";
-            
-            ++it;
-            if( it != clauses.end( ) )
-                result += ", ";
-        }
-        
-        return result;
-    }
+//     static std::string prettyprint_clauses( Nodecl_list clauses )
+//     {
+//         std::string result;
+//         
+//         for( Nodecl_list::iterator it = clauses.begin( ); it != clauses.end( ); )
+//         {
+//             // Note: there is no codegen for OpenMP nodecls, 
+//             // that is why we print it manually instead of calling prettyprint
+//             std::string clause_name;
+//             std::string clause_args;
+//             Nodecl::List args;
+//             if( it->is<Nodecl::OpenMP::DepIn>( ) )
+//             {
+//                 clause_name = "in";
+//                 args =  it->as<Nodecl::OpenMP::DepIn>( ).get_in_deps( ).as<Nodecl::List>( );
+//             }
+//             else if( it->is<Nodecl::OpenMP::DepOut>( ) )
+//             {
+//                 clause_name = "out";
+//                 args =  it->as<Nodecl::OpenMP::DepOut>( ).get_out_deps( ).as<Nodecl::List>( );
+//             }
+//             else if( it->is<Nodecl::OpenMP::DepInout>( ) )
+//             {
+//                 clause_name = "inout";
+//                 args =  it->as<Nodecl::OpenMP::DepInout>( ).get_inout_deps( ).as<Nodecl::List>( );
+//             }
+//             
+//             for( Nodecl::List::iterator it_a = args.begin( ); it_a != args.end( ); )
+//             {
+//                 clause_args += it_a->prettyprint( );
+//                 ++it_a;
+//                 if( it_a != args.end( ) )
+//                     clause_args += ", ";
+//             }
+//             result += clause_name + "(" + clause_args + ")";
+//             
+//             ++it;
+//             if( it != clauses.end( ) )
+//                 result += ", ";
+//         }
+//         
+//         return result;
+//     }
     
     void TaskDependencyGraph::print_tdg_node_to_dot( TDG_Node* current, std::ofstream& dot_tdg )
     {
@@ -362,12 +352,12 @@ namespace Analysis {
         
         // Create the node
         std::string task_label = "";
-        TDGNodeType type = current->_type;
-        if( type == Task )
+        TDGNodeType ntype = current->_type;
+        if( ntype == Task )
         {
             // Get the name of the task
             Nodecl::OpenMP::Task task = current->_pcfg_node->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( );
-            task_label = task.get_locus_str( );
+            task_label = "Task :: " + task.get_locus_str( );
             Nodecl::List environ = task.get_environment( ).as<Nodecl::List>( );
             for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
                 if( it->is<Nodecl::OpenMP::TaskLabel>( ) )
@@ -376,37 +366,37 @@ namespace Analysis {
                     break;
                 }
         }
-        else if( type == Taskwait )
+        else if( ntype == Taskwait )
         {
-            task_label = "Taskwait";
+            Nodecl::NodeclBase tw_stmt = current->_pcfg_node->get_statements( )[0];
+            task_label = "Taskwait :: " + tw_stmt.get_locus_str( );
         }
-        else if( type == Barrier )
+        else if( ntype == Barrier )
         {
-            task_label = "Barrier";
+            Nodecl::NodeclBase barrier_stmt = current->_pcfg_node->get_statements( )[0];
+            task_label = "Barrier :: " + barrier_stmt.get_locus_str( );
         }
         else
         {
-            WARNING_MESSAGE( "Unexpected TDG node type %d. Ignoring it.", type );
+            WARNING_MESSAGE( "Unexpected TDG node type %d. Ignoring it.", ntype );
         }
         dot_tdg << "\t" + current_id + " [label=\"" + task_label + "\"];\n";
         
         // Create the connections from the current node to its children
-        std::string headlabel, taillabel, style;
+        std::string headlabel, taillabel, style, condition;
         for( TDG_Edge_list::iterator it = current->_exits.begin( ); it != current->_exits.end( ); ++it )
         {
             // Get the edge info in a string
-            headlabel = "headlabel=\"" + prettyprint_clauses( ( *it )->_target_clauses ) + "\"";
-            taillabel = "taillabel=\"" + prettyprint_clauses( ( *it )->_source_clauses ) + "\"";
-            std::string edge_type = ( *it )->_type;
-            style = "style=\""
-                  + std::string( ( edge_type == "strict" || edge_type == "static" ) ? "solid" 
-                                                                                    : "dashed" )
-                  + "\"";
-            
+//             headlabel = "headlabel=\"" + prettyprint_clauses( ( *it )->_target_clauses ) + "\"";
+//             taillabel = "taillabel=\"" + prettyprint_clauses( ( *it )->_source_clauses ) + "\"";
+            TDGEdgeType etype = ( *it )->_type;
+            style = "style=\"" + std::string( ( etype == Strict || etype == Static ) ? "solid" : "dashed" ) + "\"";
+            if( !( *it )->_condition.is_null( ) )
+                condition = ", label=\"" + ( *it )->_condition.prettyprint( ) + "\"";
             // Create the dot edge
             std::stringstream child_id; child_id << ( *it )->_target->_id;
             dot_tdg << "\t" << current_id << " -> " << child_id.str( ) 
-                    << "[" << style << ", " << headlabel << ", " << taillabel << "];\n";
+                    << "[" << style << condition /*<< headlabel << ", " << taillabel*/ << "];\n";
         }
     }
     
