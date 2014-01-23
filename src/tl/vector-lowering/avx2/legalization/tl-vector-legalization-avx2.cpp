@@ -27,8 +27,11 @@
 #include "tl-vector-legalization-avx2.hpp"
 #include "tl-source.hpp"
 
-#define NUM_8B_ELEMENTS 8
-#define NUM_4B_ELEMENTS 16
+#define NUM_8B_ELEMENTS 4
+#define NUM_4B_ELEMENTS 8
+
+#define AVX2_MASK_BIT_SIZE 0
+#define AVX2_VECTOR_LENGTH 32
 
 namespace TL 
 {

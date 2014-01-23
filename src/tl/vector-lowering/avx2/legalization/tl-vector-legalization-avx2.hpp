@@ -31,9 +31,6 @@
 #include "tl-nodecl-visitor.hpp"
 #include <list>
 
-#define MASK_BIT_SIZE 16
-#define AVX2_VECTOR_LENGTH 64
-
 namespace TL
 {
     namespace Vectorization

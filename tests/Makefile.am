@@ -44,6 +44,8 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-parallel-simd
 	chmod +x config/mercurium-serial-simd-mic
 	chmod +x config/mercurium-parallel-simd-mic
+	chmod +x config/mercurium-serial-simd-avx2
+	chmod +x config/mercurium-parallel-simd-avx2
 	chmod +x config/mercurium-cuda
 	chmod +x config/mercurium-opencl
 	chmod +x config/mercurium-run

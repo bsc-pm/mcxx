@@ -453,22 +453,22 @@ namespace TL
                 // Add SVML math function as vector version of the scalar one
                 add_vector_function_version("expf", 
                         global_scope.get_symbol_from_name("__svml_expf8").make_nodecl(true),
-                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                            "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sqrtf", 
                             global_scope.get_symbol_from_name("__svml_sqrtf8").make_nodecl(true),
-                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                            "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("logf", 
                             global_scope.get_symbol_from_name("__svml_logf8").make_nodecl(true),
-                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                            "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sinf",
                             global_scope.get_symbol_from_name("__svml_sinf8").make_nodecl(true),
-                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                            "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("sincosf",
                             global_scope.get_symbol_from_name("__svml_sincosf8").make_nodecl(true),
-                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                            "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
                 add_vector_function_version("floorf",
                             global_scope.get_symbol_from_name("__svml_floorf8").make_nodecl(true),
-                            "smp", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
+                            "avx2", 32, TL::Type::get_float_type(), false, DEFAULT_FUNC_PRIORITY, true);
             }
         }
 

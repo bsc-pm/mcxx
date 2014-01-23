@@ -80,6 +80,7 @@ namespace TL
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
+                std::string get_casting_to_scalar_pointer(const TL::Type& type_to);
                 std::string get_undef_intrinsic(const TL::Type& type);
 
                 void process_mask_component(const Nodecl::NodeclBase& mask,

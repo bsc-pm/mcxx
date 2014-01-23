@@ -235,7 +235,7 @@ namespace TL
         return type_specifier + " :: " + symbol_name + array_specifier;
     }
 
-    Type Type::get_pointer_to()
+    Type Type::get_pointer_to() const
     {
         type_t* work_type = this->_type_info;
 

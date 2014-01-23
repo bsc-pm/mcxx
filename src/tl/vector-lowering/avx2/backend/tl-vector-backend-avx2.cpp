@@ -82,6 +82,18 @@ namespace TL
             return result.str(); 
         }
 
+        std::string AVX2VectorLowering::get_casting_to_scalar_pointer(const TL::Type& type_to)
+        {
+            std::stringstream result;
+
+            result << "(" 
+                << print_type_str(
+                        type_to.get_pointer_to().get_internal_type(),
+                        CURRENT_COMPILED_FILE->global_decl_context)
+                << ")";
+
+            return result.str(); 
+        }
 
         std::string AVX2VectorLowering::get_undef_intrinsic(const TL::Type& type)
         {
@@ -89,18 +101,16 @@ namespace TL
 
             if (type.is_float()) 
             { 
-                result << AVX2_INTRIN_PREFIX << "_undefined()";
+                result << AVX2_INTRIN_PREFIX << "_undefined_ps()";
             } 
             else if (type.is_double()) 
             { 
-                result << get_casting_intrinsic(TL::Type::get_float_type(), type) << "(" 
-                    << AVX2_INTRIN_PREFIX << "_undefined()";
+                result << AVX2_INTRIN_PREFIX << "_undefined_pd()";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                result << get_casting_intrinsic(TL::Type::get_float_type(), type) 
-                    << "(" << AVX2_INTRIN_PREFIX << "_undefined())";
+                result << AVX2_INTRIN_PREFIX << "_undefined_si" << AVX2_VECTOR_BIT_SIZE << "()";
             }
             else
             {
@@ -298,7 +308,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32"; 
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else
             {
@@ -354,7 +364,7 @@ namespace TL
 
             if (type.is_float()) 
             { 
-                intrin_type_suffix << "epi32"; 
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else if (type.is_double()) 
             { 
@@ -363,7 +373,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32"; 
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else
             {
@@ -467,7 +477,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32"; 
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else
             {
@@ -514,7 +524,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
                 cmp_flavor << "_MM_CMPINT_LT";
             } 
             else
@@ -559,7 +569,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
                 cmp_flavor << "_MM_CMPINT_LE";
             } 
             else
@@ -604,7 +614,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
                 cmp_flavor << "_MM_CMPINT_NLE";
             } 
             else
@@ -650,7 +660,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
                 cmp_flavor << "_MM_CMPINT_NLT";
             } 
             else
@@ -695,7 +705,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
                 cmp_flavor << "_MM_CMPINT_EQ";
             } 
             else
@@ -741,7 +751,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_epi32"; 
+                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
                 cmp_flavor << "_MM_CMPINT_NE";
             } 
             else
@@ -816,7 +826,7 @@ namespace TL
             if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32"; 
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else
             {
@@ -954,7 +964,7 @@ namespace TL
             if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32"; 
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else
             {
@@ -1027,7 +1037,7 @@ namespace TL
                 ;
 
             intrin_op_name << "alignr";
-            intrin_type_suffix << "epi32"; 
+            intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
 
             process_mask_component(mask, mask_prefix, mask_args, type);
 
@@ -1232,7 +1242,7 @@ namespace TL
                         dst_type.is_signed_int()) 
                 { 
                     // C/C++ requires truncated conversion
-                    intrin_op_name << "cvtfxpnt_round_adjustps_epi32";
+                    intrin_op_name << "cvtfxpnt_round_adjustps_si" << AVX2_VECTOR_BIT_SIZE;
                 }
                 else if (src_type.is_float() &&
                         dst_type.is_unsigned_int()) 
@@ -1292,7 +1302,7 @@ namespace TL
             const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
             const TL::Type& src_type = rhs.get_type().basic_type().get_unqualified_type();
 
-            TL::Source intrin_src, cast_type, args;
+            TL::Source intrin_src, args;
 
             walk(rhs);
 
@@ -1443,7 +1453,7 @@ namespace TL
             else if (true_type.is_integral_type()
                     && false_type.is_integral_type())
             {
-                intrin_src << AVX2_INTRIN_PREFIX << "_mask_swizzle_epi32";
+                intrin_src << AVX2_INTRIN_PREFIX << "_mask_swizzle_si" << AVX2_VECTOR_BIT_SIZE;
                 swizzle << ", _MM_SWIZ_REG_NONE";
             }
             else
@@ -1547,7 +1557,7 @@ namespace TL
                     else if (type.is_integral_type()) 
                     { 
                         intrin_op_name << "blend";
-                        intrin_type_suffix << "epi32";
+                        intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
                     }
                 }
                 else
@@ -1567,10 +1577,11 @@ namespace TL
             Nodecl::NodeclBase rhs = node.get_rhs();
             Nodecl::NodeclBase mask = node.get_mask();
 
-            TL::Type type = node.get_type().basic_type();
+            TL::Type vtype = node.get_type();
+            TL::Type type = vtype.basic_type();
 
             TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
-                mask_prefix, args, mask_args, extra_args;
+                mask_prefix, casting_args, args, mask_args, extra_args;
 
             intrin_src << intrin_name
                 << "("
@@ -1599,8 +1610,9 @@ namespace TL
                 intrin_type_suffix << "pd";
             } 
             else if (type.is_integral_type()) 
-            { 
-                intrin_type_suffix << "epi32"; 
+            {
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
+                casting_args << get_casting_to_scalar_pointer(vtype);
             } 
             else
             {
@@ -1612,6 +1624,7 @@ namespace TL
             walk(rhs);
 
             args << mask_args
+                << casting_args
                 << as_expression(rhs)
                 << extra_args
                 ;
@@ -1623,59 +1636,46 @@ namespace TL
         }
 
         void AVX2VectorLowering::visit(const Nodecl::UnalignedVectorLoad& node) 
-        { 
+        {
             Nodecl::NodeclBase rhs = node.get_rhs();
             Nodecl::NodeclBase mask = node.get_mask();
 
-            TL::Type type = node.get_type().basic_type();
+            TL::Type vtype = node.get_type();
+            TL::Type type = vtype.basic_type();
 
-            TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
-                mask_prefix, mask_args, args_lo, args_hi, extra_args;
+            TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
+                mask_prefix, casting_args, args, mask_args, extra_args;
 
-            intrin_src << intrin_name_hi
+            intrin_src << intrin_name
                 << "("
-                << intrin_name_lo
-                << "("
-                << args_lo
-                << ")"
-                << ", "
-                << args_hi
+                << args
                 << ")"
                 ;
 
-            intrin_name_hi << AVX2_INTRIN_PREFIX
+            intrin_name << AVX2_INTRIN_PREFIX
                 << mask_prefix
                 << "_"
-                << "extloadunpackhi"
+                << intrin_op_name
                 << "_"
                 << intrin_type_suffix
                 ;
 
-            intrin_name_lo << AVX2_INTRIN_PREFIX
-                << mask_prefix
-                << "_"
-                << "extloadunpacklo"
-                << "_"
-                << intrin_type_suffix
-                ;
+            process_mask_component(mask, mask_prefix, mask_args, type);
 
-            process_mask_component(mask, mask_prefix, mask_args, type,
-                    AVX2ConfigMaskProcessing::ALWAYS_OLD);
+            intrin_op_name << "loadu";
 
             if (type.is_float()) 
             { 
                 intrin_type_suffix << "ps"; 
-                extra_args << "_MM_UPCONV_PS_NONE";
             } 
             else if (type.is_double()) 
             { 
-                intrin_type_suffix << "pd"; 
-                extra_args << "_MM_UPCONV_PD_NONE";
+                intrin_type_suffix << "pd";
             } 
             else if (type.is_integral_type()) 
             { 
-                intrin_type_suffix << "epi32"; 
-                extra_args << "_MM_UPCONV_EPI32_NONE";
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
+                casting_args << get_casting_to_scalar_pointer(vtype);
             } 
             else
             {
@@ -1684,24 +1684,12 @@ namespace TL
                         locus_to_str(node.get_locus()));
             }
 
-            args_lo << mask_args
-                << as_expression(rhs)
-                << ", "
-                << extra_args
-                << ", "
-                << _MM_HINT_NONE
-                ;
+            walk(rhs);
 
-            args_hi = (!mask.is_null()) ?  as_expression(mask) + ", " : "";
-            args_hi
-                << "("
-                << "(void *)" << as_expression(rhs)
-                << ") + "
-                << _vector_length
-                << ", "
+            args << mask_args
+                << casting_args
+                << as_expression(rhs)
                 << extra_args
-                << ", "
-                << _MM_HINT_NONE
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -1751,12 +1739,9 @@ namespace TL
             } 
             else if (type.is_integral_type()) 
             { 
-                intrin_type_suffix << "epi32";
-                casting_args << "(" 
-                    << print_type_str(
-                            TL::Type::get_void_type().get_pointer_to().get_internal_type(),
-                            node.retrieve_context().get_decl_context()) 
-                    << ")";
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
+                casting_args << get_casting_to_scalar_pointer( 
+                        TL::Type::get_void_type());
             } 
             else
             {
@@ -1784,67 +1769,49 @@ namespace TL
         }
 
         void AVX2VectorLowering::visit(const Nodecl::UnalignedVectorStore& node) 
-        { 
+        {
             Nodecl::NodeclBase lhs = node.get_lhs();
             Nodecl::NodeclBase rhs = node.get_rhs();
             Nodecl::NodeclBase mask = node.get_mask();
 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
-                mask_prefix, mask_args, args_lo, args_hi, extra_args, tmp_var, 
-                tmp_var_type, tmp_var_name, tmp_var_init;
+            TL::Source intrin_src, intrin_name, intrin_op_name, args,
+                intrin_type_suffix, mask_prefix, mask_args, casting_args;
 
-            intrin_src 
-                << "({"
-                << tmp_var << ";"
-                << intrin_name_lo << "(" << args_lo << ");"
-                << intrin_name_hi << "(" << args_hi << ");"
-                << "})"
+
+            intrin_src << intrin_name
+                << "("
+                << args
+                << ")"
                 ;
 
-            intrin_name_hi << AVX2_INTRIN_PREFIX
+            intrin_name << AVX2_INTRIN_PREFIX
                 << mask_prefix
                 << "_"
-                << "extpackstorehi"
+                << intrin_op_name
                 << "_"
                 << intrin_type_suffix
                 ;
-
-            intrin_name_lo << AVX2_INTRIN_PREFIX
-                << mask_prefix
-                << "_"
-                << "extpackstorelo"
-                << "_"
-                << intrin_type_suffix
-                ;
-
-            tmp_var << tmp_var_type
-                << " "
-                << tmp_var_name
-                << tmp_var_init;
 
             process_mask_component(mask, mask_prefix, mask_args, type, 
-                    AVX2ConfigMaskProcessing::ONLY_MASK);
+                    AVX2ConfigMaskProcessing::ONLY_MASK );
 
+            intrin_op_name << "storeu";
 
             if (type.is_float()) 
             { 
                 intrin_type_suffix << "ps"; 
-                extra_args << "_MM_DOWNCONV_PS_NONE";
-                tmp_var_type << "__m512";
             } 
             else if (type.is_double()) 
             { 
                 intrin_type_suffix << "pd"; 
-                extra_args << "_MM_DOWNCONV_PD_NONE";
-                tmp_var_type << "__m512d";
             } 
             else if (type.is_integral_type()) 
-            { 
-                intrin_type_suffix << "epi32"; 
-                extra_args << "_MM_DOWNCONV_EPI32_NONE";
-                tmp_var_type << "__m512i";
+            {
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
+                casting_args << get_casting_to_scalar_pointer( 
+                        TL::Type::get_void_type());
             } 
             else
             {
@@ -1856,37 +1823,18 @@ namespace TL
             walk(lhs);
             walk(rhs);
 
-            tmp_var_name << "__vtmp";
-
-            tmp_var_init << " = "
-                << as_expression(rhs);
-
-            args_lo << as_expression(lhs)
+            args << "(" 
+                << casting_args
+                << as_expression(lhs)
+                << ")"
                 << ", "
                 << mask_args
-                << tmp_var_name
-                << ", "
-                << extra_args
-                << ", "
-                << _MM_HINT_NONE
-                ;
-
-            args_hi << "("
-                << "(void *)" << as_expression(lhs)
-                << ") + "
-                << _vector_length
-                << ", "
-                << mask_args
-                << tmp_var_name
-                << ", "
-                << extra_args
-                << ", "
-                << _MM_HINT_NONE
+                << as_expression(rhs)
                 ;
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
-            
+
             node.replace(function_call);
         }
 
@@ -1928,7 +1876,7 @@ namespace TL
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32";
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
                 extra_args << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
@@ -2016,7 +1964,7 @@ namespace TL
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
-                intrin_type_suffix << "epi32";
+                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
                 extra_args << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
@@ -2168,7 +2116,7 @@ namespace TL
             if (type.is_float()) 
             { 
                 intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type) << "("
-                    << AVX2_INTRIN_PREFIX << mask_prefix << "_and_epi32("
+                    << AVX2_INTRIN_PREFIX << mask_prefix << "_and_si" << AVX2_VECTOR_BIT_SIZE << "("
                     << mask_args  
                     << get_casting_intrinsic(type, TL::Type::get_int_type()) << "("
                     << as_expression(argument)
@@ -2177,7 +2125,7 @@ namespace TL
             else if (type.is_double()) 
             {
                 intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type) << "("
-                    << AVX2_INTRIN_PREFIX << mask_prefix << "_and_epi64("
+                    << AVX2_INTRIN_PREFIX << mask_prefix << "_and_si" << AVX2_VECTOR_BIT_SIZE << "("
                     << mask_args
                     << get_casting_intrinsic(type, TL::Type::get_int_type()) << "("
                     << as_expression(argument)
@@ -2283,7 +2231,7 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
+                intrin_name << "_si" << AVX2_VECTOR_BIT_SIZE; 
             } 
             else
             {

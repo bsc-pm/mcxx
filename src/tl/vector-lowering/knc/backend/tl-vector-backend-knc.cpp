@@ -82,6 +82,18 @@ namespace TL
             return result.str(); 
         }
 
+        std::string KNCVectorLowering::get_casting_to_scalar_pointer(const TL::Type& type_to)
+        {
+            std::stringstream result;
+
+            result << "(" 
+                << print_type_str(
+                        type_to.get_pointer_to().get_internal_type(),
+                        CURRENT_COMPILED_FILE->global_decl_context)
+                << ")";
+
+            return result.str(); 
+        }
 
         std::string KNCVectorLowering::get_undef_intrinsic(const TL::Type& type)
         {
@@ -1292,7 +1304,7 @@ namespace TL
             const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
             const TL::Type& src_type = rhs.get_type().basic_type().get_unqualified_type();
 
-            TL::Source intrin_src, cast_type, args;
+            TL::Source intrin_src, args;
 
             walk(rhs);
 
@@ -1752,11 +1764,8 @@ namespace TL
             else if (type.is_integral_type()) 
             { 
                 intrin_type_suffix << "epi32";
-                casting_args << "(" 
-                    << print_type_str(
-                            TL::Type::get_void_type().get_pointer_to().get_internal_type(),
-                            node.retrieve_context().get_decl_context()) 
-                    << ")";
+                casting_args << get_casting_to_scalar_pointer(
+                        TL::Type::get_void_type());
             } 
             else
             {
