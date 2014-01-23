@@ -98,11 +98,6 @@ namespace TL { namespace Nanox {
         if (t.is_any_reference())
             t = t.references_to();
 
-        bool assumed_shape = ((!sym.is_valid() 
-                    || !sym.is_allocatable())
-                && t.is_array()
-                && t.array_requires_descriptor());
-
         TL::Type return_type = TL::Type::get_void_type().get_pointer_to();
 
         ObjectList<std::string> parameter_names;
@@ -138,29 +133,11 @@ namespace TL { namespace Nanox {
         parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
 
         Source src;
-        if (!assumed_shape)
-        {
-            src << "extern void* " << ss.str() << "_ (void*p)"
-                << "{"
-                << "   return p;"
-                << "}"
-                ;
-        }
-        else
-        {
-            // Copy the descriptor
-            size_t size_of_array_descriptor = type_get_size(t.get_internal_type());
-            src
-                << "extern void* " << ss.str() << "_(void *p) "
-                << "{"
-                << "    void* result;"
-                << "    nanos_err_t v = nanos_malloc(&result, " << size_of_array_descriptor << ", \"\", 0);"
-                << "    if (v != NANOS_OK) nanos_handle_error(v);"
-                << "    nanos_memcpy(result, p, " <<  size_of_array_descriptor << " );"
-                << "    return result;"
-                << "}"
-                ;
-        }
+        src << "extern void* " << ss.str() << "_ (void*p)"
+            << "{"
+            << "   return p;"
+            << "}"
+            ;
 
         // Parse as C
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
