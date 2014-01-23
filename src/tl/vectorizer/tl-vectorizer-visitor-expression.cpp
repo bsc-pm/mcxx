@@ -691,7 +691,9 @@ namespace TL
  
                 }
                 // ArraySubscript indexed by nested IV, nothing to do
-                else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, lhs))
+                else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, lhs) &&
+                    !Vectorizer::_analysis_info->is_induction_variable_dependent_access(
+                        _environment._analysis_simd_scope, lhs))
                 {
                     std::cerr << "Nested IV dependent store: " << lhs.prettyprint() << std::endl;
                     running_error("Vectorizer: Extract operation is not supported yet (%s).",
@@ -715,7 +717,7 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._unroll_factor * assignment_type.get_size()))
                     {
-                        DEBUG_CODE()
+                        //DEBUG_CODE()
                         {
                             fprintf(stderr, "VECTORIZER: Store access '%s' is ALIGNED\n",
                                 lhs.prettyprint().c_str());
@@ -916,7 +918,7 @@ namespace TL
                         _environment._analysis_simd_scope,
                         n))
             {
-//                std::cerr << "Constant load: " << n.prettyprint() << "\n";
+                std::cerr << "Constant load: " << n.prettyprint() << "\n";
 
                 Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
@@ -967,7 +969,7 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._vector_length))
                 {
-                    DEBUG_CODE()
+                    //DEBUG_CODE()
                     {
                         fprintf(stderr, "VECTORIZER: Load access '%s' is ALIGNED\n",
                             n.prettyprint().c_str());
