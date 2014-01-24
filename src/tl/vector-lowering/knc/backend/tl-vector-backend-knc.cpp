@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "tl-vector-backend-knc.hpp"
 #include "tl-source.hpp"
 

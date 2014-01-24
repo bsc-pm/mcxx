@@ -7,6 +7,9 @@ linker_name = @ICC@
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+{avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
+{avx2} linker_options = -march=core-avx2 -mtune=core-avx2
+{avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
 
 [intel-mcxx : intel-omp-base]
@@ -20,6 +23,9 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builti
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+{avx2} preprocessor_options = -march=core-avx2 -mtune=core-avx2
+{avx2} linker_options = -march=core-avx2 -mtune=core-avx2
+{avx2} compiler_options = -march=core-avx2 -mtune=core-avx2
 
 # Not supported yet
 # 

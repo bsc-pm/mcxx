@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "tl-omp-simd.hpp"
 #include "tl-omp.hpp"
 #include "tl-nodecl-utils.hpp"

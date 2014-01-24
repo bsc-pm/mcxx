@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "tl-vectorizer.hpp"
 #include "tl-vectorizer-utils.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
