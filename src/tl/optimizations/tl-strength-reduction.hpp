@@ -27,8 +27,8 @@
 #ifndef TL_STRENGTH_REDUCE_HPP
 #define TL_STRENGTH_REDUCE_HPP
 
-#include<tl-nodecl.hpp>
-#include<tl-nodecl-visitor.hpp>
+#include "tl-nodecl.hpp"
+#include "tl-nodecl-visitor.hpp"
 
 namespace TL
 {

@@ -339,6 +339,12 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         Source update_lastprivates(OutlineInfo& outline_info, const std::string& loop_descriptor_name);
 
         Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
+
+        Symbol get_function_modify_array_descriptor(
+                std::string name,
+                TL::Type field_type,
+                TL::Scope original_scope);
+
         Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
         Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
 

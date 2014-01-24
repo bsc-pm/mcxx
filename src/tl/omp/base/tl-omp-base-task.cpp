@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"

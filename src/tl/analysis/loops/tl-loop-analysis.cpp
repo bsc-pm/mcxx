@@ -29,6 +29,7 @@
 #include "cxx-process.h"
 #include "cxx-utils.h"
 
+#include "tl-expression-reduction.hpp"
 #include "tl-renaming-visitor.hpp"
 #include "tl-loop-analysis.hpp"
 
@@ -133,7 +134,7 @@ namespace Analysis {
 
     void LoopAnalysis::get_loop_limits( Nodecl::NodeclBase cond, int loop_id )
     {
-        Nodecl::Utils::ReduceExpressionVisitor v;
+        Optimizations::ReduceExpressionVisitor v;
 
         if( cond.is<Nodecl::Symbol>( ) )
         {   // No limits to be computed

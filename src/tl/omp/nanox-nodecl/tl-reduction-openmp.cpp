@@ -24,13 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
+#include "cxx-diagnostic.h"
 
 #include "tl-lowering-visitor.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-nanos.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
-#include "cxx-diagnostic.h"
 #include "fortran03-typeutils.h"
 
 namespace TL { namespace Nanox {
