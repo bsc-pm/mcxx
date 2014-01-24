@@ -357,15 +357,6 @@ namespace TL
         return Type(array_to);
     }
 
-    Type Type::get_array_to(const std::string& str)
-    {
-        type_t* result_type = this->_type_info;
-
-        type_t* array_to = get_array_type_str(result_type, uniquestr(str.c_str()));
-
-        return Type(array_to);
-    }
-
     Type Type::get_function_returning(const ObjectList<Type>& type_list,
             const ObjectList<Type>& nonadjusted_type_list,
             bool has_ellipsis,

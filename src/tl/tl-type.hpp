@@ -270,14 +270,6 @@ namespace TL
              */
             Type get_array_to();
 
-            //! Convenience function that returns an array type built after a dimension string
-            /*!
-              The frontend never creates this kind of array types. They exist
-              to ease array type creation in TL. They should be only used for
-              types that are going to be prettyprinted.
-              */
-            Type get_array_to(const std::string& str);
-
             //! Returns a ranged array to the current type
             /*!
              * \param lower_bound The lower bound expression of the array.

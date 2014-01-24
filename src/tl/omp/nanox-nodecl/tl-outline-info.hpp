@@ -172,6 +172,12 @@ namespace TL
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
+                // Code run prior capturing some variable
+                Nodecl::NodeclBase _prepare_capture_code;
+
+                // Descriptor
+                OutlineDataItem* _copy_of_array_descriptor;
+
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
                 // If not null, used to capture a value only under some conditions
@@ -370,6 +376,16 @@ namespace TL
                     _shared_symbol_in_outline = sym;
                 }
 
+                void set_prepare_capture_code(Nodecl::NodeclBase prepare_capture_code)
+                {
+                    _prepare_capture_code = prepare_capture_code;
+                }
+
+                Nodecl::NodeclBase get_prepare_capture_code() const
+                {
+                    return _prepare_capture_code;
+                }
+
                 void set_captured_value(Nodecl::NodeclBase captured_value)
                 {
                     _captured_value = captured_value;
@@ -442,6 +458,16 @@ namespace TL
                 bool get_is_cxx_this() const
                 {
                     return _is_cxx_this;
+                }
+
+                void set_copy_of_array_descriptor(OutlineDataItem* copy_of_array_descriptor)
+                {
+                    _copy_of_array_descriptor = copy_of_array_descriptor;
+                }
+
+                OutlineDataItem* get_copy_of_array_descriptor() const
+                {
+                    return _copy_of_array_descriptor;
                 }
         };
 
@@ -543,6 +569,7 @@ namespace TL
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
+                void add_shared_opaque_and_captured_array_descriptor(Symbol sym);
                 void add_shared_with_capture(Symbol sym);
                 void add_shared_alloca(Symbol sym);
                 void add_alloca(Symbol sym, TL::DataReference& data_ref);

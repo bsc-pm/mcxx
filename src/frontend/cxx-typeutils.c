@@ -3003,15 +3003,6 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
     }
 }
 
-type_t* get_array_type_str(type_t* element_type UNUSED_PARAMETER, 
-        const char* dim UNUSED_PARAMETER)
-{
-    internal_error("Not yet implemented", 0);
-    return NULL;
-    // AST expr = ASTLeaf(AST_DIMENSION_STR, NULL, 0, dim);
-    // return get_array_type(element_type, expr, CURRENT_COMPILED_FILE->global_decl_context);
-}
-
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
