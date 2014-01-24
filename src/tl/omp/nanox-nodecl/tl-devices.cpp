@@ -501,7 +501,6 @@ namespace TL { namespace Nanox {
                     && (*it)->get_is_cxx_this())
                 continue;
 
-            bool already_mapped = false;
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_ALLOCA:
@@ -570,10 +569,8 @@ namespace TL { namespace Nanox {
                             private_sym->entity_specs.is_optional = sym.is_optional();
                             private_sym->entity_specs.is_allocatable =
                                 !sym.is_member() && sym.is_allocatable();
-                            if (!already_mapped)
-                            {
-                                symbol_map->add_map(sym, private_sym);
-                            }
+                            
+                            symbol_map->add_map(sym, private_sym);
                         }
 
                         private_sym->entity_specs.is_allocatable =
@@ -778,7 +775,7 @@ namespace TL { namespace Nanox {
                 }
             }
         };
-
+        
         // Update types of parameters (this is needed by VLAs)
         UpdateTypesVLA update_vla(function_context, symbol_map);
         update_vla.update(parameter_symbols);

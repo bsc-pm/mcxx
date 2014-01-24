@@ -208,6 +208,7 @@ namespace TL
                     _basic_reduction_function(),
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
+                    _copy_of_array_descriptor(NULL),
                     _base_symbol_of_argument(),
                     _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),

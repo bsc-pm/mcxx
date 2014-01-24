@@ -2304,7 +2304,7 @@ void LoweringVisitor::emit_translation_function_region(
             ERROR_CONDITION((*it)->get_copy_of_array_descriptor() == NULL, "This needs a copy of the array descriptor", 0);
 
             translations
-                <<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
+                //<<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
                 <<  new_function.get_name() << "(arg." <<
                         (*it)->get_copy_of_array_descriptor()->get_field_name() << ", device_base_address);"
                 << "}"

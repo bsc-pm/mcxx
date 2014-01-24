@@ -178,18 +178,14 @@ void DeviceMPI::generate_additional_mpi_code(
         device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
 
         for (int i = 0; i < num_params; ++i) { 
-            //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
             std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
-            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
-                --count_params;
-                continue;
-            }
-            //if (!IS_FORTRAN_LANGUAGE){
-            //    displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
-            //} else {
-            //This seems to work correctly in both "languages"
+            //TODO: Check if this is not needed
+//            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
+//                --count_params;
+//                continue;
+//            }
+            
             displ_src.append_with_separator("(( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
-            //}
             if (parameters_called[i].get_type().is_pointer()) {
                 typelist_src.append_with_separator(ompss_get_mpi_type  + "(\"__mpitype_ompss_unsigned_long_long\")", ",");
 
@@ -454,7 +450,16 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 {  
                     //If is from module(fort)/common (fort)/global (C) and is sharing ca or sharing shared (no sharing capture)
                     //copy address and data
-                    if (!(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                    if ((*it)->get_symbol().is_allocatable() && (*it)->get_copy_of_array_descriptor()!=NULL){  
+                        std::string symbol_name=(*it)->get_symbol().get_name();
+                        std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
+                        
+                        data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
+                        //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
+                        //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
+                    }
+                    
+                    if ((*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
                             ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
                         data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
@@ -1140,6 +1145,7 @@ void DeviceMPI::run(DTO& dto) {
 
 std::string DeviceMPI::get_ompss_mpi_type(Type type) {
     std::string result = "ompss_get_mpi_type(\"__mpitype_ompss_";
+    type=type.basic_type();
     if (type.is_char()) {
         result += "char";
     } else if (type.is_signed_short_int()) {

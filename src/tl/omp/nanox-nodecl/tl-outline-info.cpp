@@ -192,7 +192,8 @@ namespace TL { namespace Nanox {
                         const_value_to_nodecl(const_value_get_signed_int(1)),
                         const_value_to_nodecl(const_value_get_signed_int(num_items)),
                         _sc.get_decl_context());
-
+            //captured_array_descriptor
+            //        .get_internal_symbol()->entity_specs.is_allocatable = sym.is_allocatable();
 
             TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
 
@@ -216,6 +217,7 @@ namespace TL { namespace Nanox {
             this->add_capture(captured_array_descriptor);
             OutlineDataItem &captured_array_descriptor_info = _outline_info.get_entity_for_symbol(captured_array_descriptor);
             captured_array_descriptor_info.set_prepare_capture_code(prepare_capture);
+            captured_array_descriptor_info.set_in_outline_type(outline_info.get_in_outline_type());
 
             outline_info.set_copy_of_array_descriptor(&captured_array_descriptor_info);
         }
