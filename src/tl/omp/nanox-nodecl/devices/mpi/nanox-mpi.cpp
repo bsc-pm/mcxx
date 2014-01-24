@@ -72,38 +72,38 @@ static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items)
 //            if (*it2!="mpi" || *it2!="MPI") check_for_incompatibility=true;
 //        }
 //    }
-    if (IS_FORTRAN_LANGUAGE){
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
-        {
-            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
-                continue;
-            }
-             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
-            if ((*it)->get_symbol().is_allocatable()){
-                if ((*it)->get_symbol().is_from_module()){  
-//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_ALLOCA);
-                    (*it)->get_copies().clear();
-                } else {
-//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-                    (*it)->get_copies().clear();
-                }
-            } else {
-               if ((*it)->get_symbol().is_from_module()) {
-//                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
-               } else {            
-                    if ((*it)->get_copies().empty()){
-//                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-                    }
-               }
-            }
-        }
-    }
+//    if (IS_FORTRAN_LANGUAGE){
+//        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//                it != data_items.end();
+//                it++)
+//        {
+//            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
+//                continue;
+//            }
+//             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
+//            if ((*it)->get_symbol().is_allocatable()){
+//                if ((*it)->get_symbol().is_from_module()){  
+////                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
+//                    (*it)->set_sharing(OutlineDataItem::SHARING_ALLOCA);
+//                    (*it)->get_copies().clear();
+//                } else {
+////                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
+//                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
+//                    (*it)->get_copies().clear();
+//                }
+//            } else {
+//               if ((*it)->get_symbol().is_from_module()) {
+////                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
+//                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
+//               } else {            
+//                    if ((*it)->get_copies().empty()){
+////                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
+//                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
+//                    }
+//               }
+//            }
+//        }
+//    }
         
 //    if (is_incompatible) std::cerr << "warning: error in MPI task, do not mix MPI device tasks with other devices (implements or multi-device)"
 //            " in this situation " << std::endl;
