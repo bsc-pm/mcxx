@@ -30,6 +30,7 @@
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
+#include "tl-nanox-ptr.hpp"
 
 #include "cxx-profile.h"
 #include "codegen-phase.hpp"
@@ -457,9 +458,16 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                         data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
                         //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
                         //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
+                        if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                            ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                            TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                    info._original_statements.retrieve_context());
+
+                            data_input_global << "offload_err =  nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
+                        }
                     }
                     
-                    if ((*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                    if (!(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
                             ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
                         data_input_global << "void* " << symbol_name << "_BACKUP =  args." << symbol_name <<";";   
