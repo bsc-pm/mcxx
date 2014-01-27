@@ -69,7 +69,7 @@ namespace TL { namespace Nanox {
 
         TL::Source new_src;
         new_src
-            << "extern void* " << result.get_name() << "_(void **p, void* p_new) "
+            << "extern void " << result.get_name() << "_(void **p, void* p_new) "
             << "{"
             <<      "*p = p_new;"
             << "}"
