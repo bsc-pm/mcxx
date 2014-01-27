@@ -178,6 +178,10 @@ namespace TL
                 // Descriptor
                 OutlineDataItem* _copy_of_array_descriptor;
 
+                // This is a copy_of_array_descriptor
+                // referring to refers to an ALLOCATABLE array
+                bool _is_copy_of_array_descriptor_allocatable;
+
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
                 // If not null, used to capture a value only under some conditions
@@ -209,6 +213,7 @@ namespace TL
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
                     _copy_of_array_descriptor(NULL),
+                    _is_copy_of_array_descriptor_allocatable(false),
                     _base_symbol_of_argument(),
                     _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
@@ -469,6 +474,16 @@ namespace TL
                 OutlineDataItem* get_copy_of_array_descriptor() const
                 {
                     return _copy_of_array_descriptor;
+                }
+
+                bool is_copy_of_array_descriptor_allocatable() const
+                {
+                    return _is_copy_of_array_descriptor_allocatable;
+                }
+
+                void set_is_copy_of_array_descriptor_allocatable(bool b)
+                {
+                    _is_copy_of_array_descriptor_allocatable = b;
                 }
         };
 
