@@ -120,16 +120,6 @@ namespace TL
                 return NULL;
             }
 
-            static std::string get_type_name_str(type_t* type, const std::string& symbol_name);
-            static void get_type_name_str_internal(type_t* type_info,
-                    const std::string &symbol_name, std::string& left, std::string& right);
-            static std::string get_cv_qualifier_str(type_t* type_info);
-            static std::string get_simple_type_name_str_internal(type_t* simple_type);
-            static std::string get_simple_type_name_str(type_t* simple_type);
-            static bool declarator_needs_parentheses(type_t* type_info);
-            static std::string get_declaration_str_internal(type_t* type_info,
-                    const std::string& symbol_name, const std::string& initializer, bool semicolon);
-
             Type fix_references_();
         public:
 
