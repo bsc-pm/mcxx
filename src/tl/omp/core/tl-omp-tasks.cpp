@@ -1100,6 +1100,11 @@ namespace TL
                     target_ctx_copy_in.append(input_arguments);
                     target_ctx_copy_out.append(output_arguments);
                     target_ctx_copy_inout.append(inout_arguments);
+
+                    // Concurrent/Commutative deps with target attribute 'copy_deps'
+                    // should generate copy_inout information
+                    target_ctx_copy_inout.append(concurrent_arguments);
+                    target_ctx_copy_inout.append(commutative_arguments);
                 }
 
                 ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(FunctionCopyItemGenerator(
