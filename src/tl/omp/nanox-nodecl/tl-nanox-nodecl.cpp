@@ -205,6 +205,8 @@ namespace TL { namespace Nanox {
         return _ancillary_file;
     }
 
+    Nodecl::List Lowering::_extra_c_code;
+
     void Lowering::phase_cleanup(DTO& data_flow)
     {
         if (_ancillary_file != NULL)

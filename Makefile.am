@@ -1634,6 +1634,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-loop-spawn-slicer.cpp \
 								 src/tl/omp/nanox-nodecl/tl-reduction-openmp.cpp \
 								 src/tl/omp/nanox-nodecl/tl-reduction-ompss.cpp \
+								 src/tl/omp/nanox-nodecl/tl-nanox-ptr.hpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-ptr.cpp \
 								 src/tl/omp/nanox-nodecl/tl-nanox-array-descriptor.cpp \
 								 src/tl/omp/nanox-nodecl/tl-devices.cpp \

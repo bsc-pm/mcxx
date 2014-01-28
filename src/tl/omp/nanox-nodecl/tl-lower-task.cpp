@@ -38,6 +38,7 @@
 #include "tl-compilerpipeline.hpp"
 
 #include "tl-lower-task-common.hpp"
+#include "tl-nanox-ptr.hpp"
 
 using TL::Source;
 
@@ -1307,6 +1308,13 @@ void LoweringVisitor::fill_arguments(
                         if (t.is_any_reference())
                             t = t.references_to();
 
+                        if (!(*it)->get_prepare_capture_code().is_null())
+                        {
+                            Nodecl::NodeclBase capture_code = (*it)->get_prepare_capture_code();
+                            fill_outline_arguments << as_statement(capture_code.shallow_copy());
+                            fill_immediate_arguments << as_statement(capture_code.shallow_copy());
+                        }
+
                         if ((*it)->get_captured_value().is_null())
                         {
                             if (t.is_pointer())
@@ -2293,8 +2301,12 @@ void LoweringVisitor::emit_translation_function_region(
                     (*it)->get_field_type(),
                     ctr.retrieve_context());
 
+            ERROR_CONDITION((*it)->get_copy_of_array_descriptor() == NULL, "This needs a copy of the array descriptor", 0);
+
             translations
-                <<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
+                //<<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
+                <<  new_function.get_name() << "(arg." <<
+                        (*it)->get_copy_of_array_descriptor()->get_field_name() << ", device_base_address);"
                 << "}"
                 ;
         }
