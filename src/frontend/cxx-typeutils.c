@@ -8557,8 +8557,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 }
 
                 (*left) = strappend((*left), "*");
-                (*left) = strappend((*left), get_gcc_attributes_string(type_info));
                 (*left) = strappend((*left), get_cv_qualifier_string(type_info));
+                (*left) = strappend((*left), get_gcc_attributes_string(type_info));
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -8587,8 +8587,8 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
 
                 (*left) = strappend((*left), "::");
                 (*left) = strappend((*left), "*");
-                (*left) = strappend((*left), get_gcc_attributes_string(type_info));
                 (*left) = strappend((*left), get_cv_qualifier_string(type_info));
+                (*left) = strappend((*left), get_gcc_attributes_string(type_info));
 
                 if (needs_parentheses)
                 {
