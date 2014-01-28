@@ -9105,7 +9105,8 @@ static void set_array_type(type_t** declarator_type,
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
         AST cv_qualifier_seq UNUSED_PARAMETER,
         gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        const locus_t* locus)
 {
     type_t* element_type = *declarator_type;
 
@@ -9172,7 +9173,31 @@ static void set_array_type(type_t** declarator_type,
         }
     }
 
-    *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
+    if (!is_dependent_type(element_type)
+            && is_incomplete_type(element_type))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid array of incomplete type '%s'\n",
+                    locus_to_str(locus),
+                    print_type_str(element_type, decl_context));
+        }
+        *declarator_type = get_error_type();
+    }
+    else if (is_void_type(element_type))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid array of void type '%s'\n",
+                    locus_to_str(locus),
+                    print_type_str(element_type, decl_context));
+        }
+        *declarator_type = get_error_type();
+    }
+    else
+    {
+        *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
+    }
 }
 
 // Returns a fake symbol used only to keep track of variables in declarators
@@ -9835,7 +9860,8 @@ static void build_scope_declarator_rec(
                         /* (C99)static_qualif */ ASTSon3(a),
                         /* (C99)cv_qualifier_seq */ ASTSon2(a),
                         gather_info,
-                        entity_context);
+                        entity_context,
+                        ast_get_locus(a));
                 if (is_error_type(*declarator_type))
                 {
                     return;
@@ -13663,6 +13689,17 @@ static scope_entry_t* build_scope_function_definition_declarator(
     // block-context will be updated for qualified-id to reflect the exact context
     build_scope_declarator_with_parameter_context(function_declarator, gather_info, type_info, &declarator_type,
             new_decl_context, block_context, nodecl_output);
+
+    if (is_error_type(declarator_type))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: error: discarding function definition due to errors in the declarator\n",
+                    ast_location(function_header));
+        }
+        return NULL;
+    }
+
     entry = build_scope_declarator_name(function_declarator, declarator_type, gather_info, new_decl_context);
 
     if (entry == NULL)
