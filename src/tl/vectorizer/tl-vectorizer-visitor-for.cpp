@@ -87,8 +87,10 @@ namespace TL
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
+            std::cerr << "ANTES: " << loop_control.get_cond().prettyprint() << std::endl;
             VectorizerVisitorLoopCond visitor_loop_cond(_environment);
             visitor_loop_cond.walk(loop_control.get_cond());
+            std::cerr << "DESPUES: " << loop_control.get_cond().prettyprint() << std::endl;
 
             // Next
             VectorizerVisitorLoopNext visitor_loop_next(_environment);

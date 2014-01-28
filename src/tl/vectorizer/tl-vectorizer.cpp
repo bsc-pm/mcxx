@@ -249,8 +249,8 @@ namespace TL
                     }
                     else if (lb_vector_size_module != -1) // Is not suitable but is constant in some way
                     {
-                        printf("VECTOR MODULE LB EPILOG %d\n", lb_vector_size_module);
-                        const_ub = lb_vector_size_module;
+                        const_lb = lb_vector_size_module / environment._target_type.get_size();
+                        printf("VECTOR MODULE LB EPILOG %ld\n", const_lb);
                     }
                     else // We cannot say anything about the number of iterations of the epilog
                     {
@@ -291,11 +291,12 @@ namespace TL
                     }
                     else if (ub_vector_size_module != -1) // Is not suitable but is constant in some way
                     {
-                        printf("VECTOR MODULE EPILOG %d\n", ub_vector_size_module);
-                        const_ub = ub_vector_size_module;
+                        const_ub = ub_vector_size_module / environment._target_type.get_size();
 
                         if (const_lb > const_ub) 
                             const_ub += environment._unroll_factor;
+
+                        printf("VECTOR MODULE EPILOG %ld\n", const_ub);
                     }
                     else // We cannot say anything about the number of iterations of the epilog
                     {
