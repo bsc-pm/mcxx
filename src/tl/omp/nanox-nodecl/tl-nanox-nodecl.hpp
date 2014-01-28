@@ -42,7 +42,7 @@ namespace TL { namespace Nanox {
             virtual void run(DTO& dto);
             virtual void pre_run(DTO& dto);
 
-            Nodecl::List& get_extra_c_code();
+            static Nodecl::List& get_extra_c_code();
 
             bool in_ompss_mode() const;
             bool instrumentation_enabled() const;
@@ -51,7 +51,7 @@ namespace TL { namespace Nanox {
         private:
             void load_headers(DTO& dto);
 
-            Nodecl::List _extra_c_code;
+            static Nodecl::List _extra_c_code;
 
             FILE* _ancillary_file;
             FILE* get_ancillary_file();

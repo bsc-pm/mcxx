@@ -1448,6 +1448,9 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
+        // Do not forget the ALLOCATABLE attributes
+        new_parameter_symbol->entity_specs.is_allocatable = it->get_internal_symbol()->entity_specs.is_allocatable;
+
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
     }
