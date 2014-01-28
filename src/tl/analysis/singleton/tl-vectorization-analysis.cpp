@@ -189,7 +189,7 @@ namespace Analysis {
         int subscript_alignment = sa_v.walk( n );
 
         // Remove me!
-        printf("SUBSCRIPT ALIGNMENT %d\n", subscript_alignment);
+        printf("ALIGNMENT align %d uf %d: %d\n", alignment, unroll_factor, subscript_alignment);
         printf("SUITABLE LIST: ");
         if (suitable_expressions != NULL)
         {
@@ -241,8 +241,9 @@ namespace Analysis {
     bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
         /*
-        std::cerr << &n << " of " << n.prettyprint() << " and " << &(_suitable_expressions->front()) << " of " << _suitable_expressions->front().prettyprint() 
-            << Nodecl::Utils::equal_nodecls(n, _suitable_expressions->front(), true) << std::endl;
+        std::cerr << &n << " of " << n.prettyprint() << " and " 
+            << &(_suitable_expressions->front()) << " of " << _suitable_expressions->front().prettyprint() 
+            << ". Equals? " << Nodecl::Utils::equal_nodecls(n, _suitable_expressions->front(), true) << std::endl;
         */
         bool result = true;
         if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
@@ -262,13 +263,13 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
         
-        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+        if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
             return lhs_mod + rhs_mod;
         
         return -1;
@@ -329,15 +330,12 @@ namespace Analysis {
                 int dimension_size = -1;
                 if( dimension_size_node.is_constant( ) )
                 {
-                    dimension_size = const_value_cast_to_signed_int( dimension_size_node.get_constant( ) );
-                    
-                    if( is_suitable_constant( dimension_size * _type_size ) )
-                        dimension_size = 0;
+                    dimension_size = const_value_cast_to_signed_int( dimension_size_node.get_constant( ) ) * _type_size;
                 }
                 // If dimension size is suitable
                 else if( is_suitable_expression( dimension_size_node ) )
                 {
-                    dimension_size = 0;
+                    dimension_size = _alignment;
                 }
                 if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
@@ -358,11 +356,14 @@ namespace Analysis {
                 // a[i][j][k] -> i -> i*J*K
                 for( int j = i; j < (num_subscripts-1); j++ )
                 {
-                    if( ( dimension_sizes[j] == 0 ) || ( it_alignment == 0 ) )
+/*
+                    if( ( is_suitable_constant( dimension_sizes[j] ) ) || is_suitable_constant( it_alignment ) )
                     {
                         it_alignment = 0;
                     }
-                    else if( ( dimension_sizes[j] < 0 ) || ( it_alignment < 0 ) )
+                    else
+*/                    
+                    if( ( dimension_sizes[j] == -1 ) || ( it_alignment == -1 ) )
                     {
                         it_alignment = -1;
                     }
@@ -372,7 +373,7 @@ namespace Analysis {
                     }
                 }
                 
-                if( it_alignment < 0 )
+                if( it_alignment == -1 )
                 {
                     return -1;
                 }
@@ -380,7 +381,7 @@ namespace Analysis {
                 alignment += it_alignment;
             }
             
-            if( it_alignment < 0 )
+            if( it_alignment == -1 )
             {
                 return -1;
             }
@@ -399,7 +400,7 @@ namespace Analysis {
         {
             if (is_suitable_expression(n))
             {
-                return 0;
+                return _alignment;
             }
             
             return -1;
@@ -410,7 +411,7 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         
         int lhs_mod = walk( n.get_lhs( ) );
@@ -422,7 +423,7 @@ namespace Analysis {
             // Because a << const is: a * (1 << const)
             if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(1 << rhs_mod) )) 
                 return 0;
-            else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            else if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
                 return lhs_mod << rhs_mod;
         }
 
@@ -433,7 +434,7 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         
         int lhs_mod = walk( n.get_lhs( ) );
@@ -456,7 +457,7 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         
         return walk(n.get_nest());
@@ -464,22 +465,21 @@ namespace Analysis {
     
     int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
-        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+        return const_value_cast_to_signed_int( n.get_constant( ) ) * _type_size;
     }
-    
-    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::Neg& n ) 
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
-        int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
         
-        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+        if( rhs_mod != -1 )
         {
-            int result = lhs_mod - rhs_mod;
+            int result = rhs_mod;
             if (result < 0)
                 result = _alignment + result;
 
@@ -489,11 +489,29 @@ namespace Analysis {
         return -1;
     }
 
+    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
+    {
+        if (is_suitable_expression(n))
+        {
+            return _alignment;
+        }
+
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+        
+        if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
+        {
+            return lhs_mod - rhs_mod;
+        }
+        
+        return -1;
+    }
+
     int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n ) 
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
         int lhs_mod = walk( n.get_lhs( ) );
@@ -501,8 +519,8 @@ namespace Analysis {
 
        // Something suitable multiplied by anything is suitable
         if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
-            return 0;
-        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            return _alignment;
+        else if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
             return lhs_mod * rhs_mod;
 
         return -1;
@@ -512,7 +530,7 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
         return walk(n.get_nest());
@@ -522,16 +540,11 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         else if( n.is_constant( ) )
         {
-            int value = const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
-
-            if(is_suitable_constant(value))
-                return 0;
-            else
-                return value;
+            return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
