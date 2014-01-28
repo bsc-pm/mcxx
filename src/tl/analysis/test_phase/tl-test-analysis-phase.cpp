@@ -169,6 +169,16 @@ namespace Analysis {
             if( VERBOSE )
                 std::cerr << "===============  Printing TDG to dot file done  ===============" << std::endl;
         }
+        
+        if( CURRENT_CONFIGURATION->debug_options.tdg_to_json )
+        {
+            if( VERBOSE )
+                std::cerr << "==================  Printing TDG to dot file  =================" << std::endl;
+            for( ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin( ); it != tdgs.end( ); ++it )
+                analysis.tdg_to_json( memento, (*it)->get_name( ) );
+            if( VERBOSE )
+                std::cerr << "===============  Printing TDG to dot file done  ===============" << std::endl;
+        }
     }
 
     void TestAnalysisPhase::set_pcfg( const std::string& pcfg_enabled_str )

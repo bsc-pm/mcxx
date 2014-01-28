@@ -697,8 +697,14 @@ namespace Analysis {
             printf( "Printing TDG '%s' to DOT\n", tdg_name.c_str( ) );
         TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );
         tdg->print_tdg_to_dot( );
-        tdg->print_tdg_to_json( );
     }
     
+    void AnalysisSingleton::tdg_to_json( PCFGAnalysis_memento& memento, std::string tdg_name )
+    {
+        if( VERBOSE )
+            printf( "Printing TDG '%s' to JSON\n", tdg_name.c_str( ) );
+        TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );        
+        tdg->print_tdg_to_json( );
+    }
 }
 }

@@ -56,6 +56,7 @@ struct debug_flags_list_t;
 "analysis_verbose", DEBUG_OPTION_REF(analysis_verbose), "Prints the results of the static analysis"
 "print_pcfg", DEBUG_OPTION_REF(print_pcfg), "Prints PCFG in graphviz format"
 "print_tdg", DEBUG_OPTION_REF(print_tdg), "Prints TDG in graphviz format"
+"tdg_to_json", DEBUG_OPTION_REF(tdg_to_json), "Prints TDG in a predefined JSON format"
 "do_not_codegen", DEBUG_OPTION_REF(do_not_codegen), "Does not perform codegen step"
 "show_template_packs", DEBUG_OPTION_REF(show_template_packs), "Adds a marker to show the extent of a template pack expansion"
 %%

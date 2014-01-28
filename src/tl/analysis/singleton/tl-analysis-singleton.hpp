@@ -227,6 +227,8 @@ namespace Analysis {
         void print_all_pcfg( PCFGAnalysis_memento& memento );
         
         void print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name );
+        
+        void tdg_to_json( PCFGAnalysis_memento& memento, std::string tdg_name );
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //
