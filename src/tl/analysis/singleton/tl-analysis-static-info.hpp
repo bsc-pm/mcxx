@@ -334,6 +334,7 @@ namespace Analysis {
         Ret visit( const Nodecl::BitwiseShr& n );
         Ret visit( const Nodecl::Conversion& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::Neg& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::Mul& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
