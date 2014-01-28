@@ -47,15 +47,7 @@ namespace Analysis {
         ObjectList<TDG_Edge*> _entries;
         ObjectList<TDG_Edge*> _exits;
         
-        bool _visited;
-        
-        TDG_Node( Node* n );
-        
-        void set_entry( TDG_Edge* entry );
-        void set_exit( TDG_Edge* exit );
-        ObjectList<TDG_Node*> get_children( );
-        
-        static void clear_visits( TDG_Node* current );
+        TDG_Node( Node* n, TDGNodeType type );
         
         friend class TDG_Edge;
         friend class TaskDependencyGraph;
@@ -91,21 +83,27 @@ namespace Analysis {
         ExtensibleGraph* _pcfg;                 /*!< PCFG corresponding to the graph */
         ObjectList<TDG_Node*> _tdg_nodes;       /*!< List of nodes in the TDG */
         
+        std::set<Nodecl::Symbol> _syms;     /*!< Set of symbols appearing in the TDG */
+        
         // *** Not allowed construction methods *** //
         TaskDependencyGraph( const TaskDependencyGraph& n );
         TaskDependencyGraph& operator=( const TaskDependencyGraph& );
         
+        // *** Private methods *** //
         void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, 
                                 std::string type, const Nodecl::NodeclBase& condition );
         
         TDG_Node* find_task_from_tdg_nodes_list( Node* task );
         void create_tdg_nodes_from_pcfg( Node* current );
         void connect_tdg_nodes_from_pcfg( Node* current );
+        void store_condition_list_of_symbols( const Nodecl::NodeclBase& condition );
         
         void taskify_graph( Node* current );
         void create_tdg( Node* current );
         
         void print_tdg_node_to_dot( TDG_Node* current, std::ofstream& dot_tdg );
+        void print_tdg_syms_to_json( std::ofstream& json_tdg );
+        void print_tdg_nodes_to_json( std::ofstream& json_tdg );
         
     public:
         // *** Constructor *** //
@@ -114,8 +112,9 @@ namespace Analysis {
         // *** Getters and Setters *** //
         std::string get_name( ) const;
         
-        // *** Printing method *** //
+        // *** Printing methods *** //
         void print_tdg_to_dot( );
+        void print_tdg_to_json( );
     };
 
 }

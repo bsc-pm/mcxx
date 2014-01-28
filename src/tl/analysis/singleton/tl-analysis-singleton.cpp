@@ -697,6 +697,7 @@ namespace Analysis {
             printf( "Printing TDG '%s' to DOT\n", tdg_name.c_str( ) );
         TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );
         tdg->print_tdg_to_dot( );
+        tdg->print_tdg_to_json( );
     }
     
 }

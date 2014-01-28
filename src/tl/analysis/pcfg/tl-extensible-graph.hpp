@@ -54,7 +54,7 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
-        Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
+        const Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
 
         /*!Graph scope (This variable is used when the variables are tagged as global)
          * If the graph contains a function code, the scope is the function's scope.

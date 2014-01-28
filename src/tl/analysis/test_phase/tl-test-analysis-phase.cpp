@@ -35,7 +35,7 @@ namespace Analysis {
     TestAnalysisPhase::TestAnalysisPhase( )
         : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ), 
           _reaching_defs_enabled( false ), _induction_vars_enabled( false ), 
-          _task_sync_tune_enabled(false ), _tdg_enabled( false )
+          _task_sync_tune_enabled( false ), _tdg_enabled( false )
     {
         set_phase_name("Experimental phase for testing compiler analysis");
         set_phase_description("This is a temporal phase called with code testing purposes.");
@@ -65,7 +65,7 @@ namespace Analysis {
                             _induction_vars_enabled_str,
                             "0" ).connect( functor( &TestAnalysisPhase::set_induction_vars, *this ) );
                             
-        register_parameter( "task_sync_tune", 
+        register_parameter( "task_sync_tune_enabled", 
                             "If set to '1' enables task synchronizations tunning in the PCFG", 
                             _task_sync_tune_enabled_str, 
                             "0" ).connect( functor( &TestAnalysisPhase::set_task_sync_tune, *this ) );

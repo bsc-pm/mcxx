@@ -41,49 +41,9 @@ namespace Analysis {
     
     static int id = 0;
     
-    TDG_Node::TDG_Node( Node* n )
-    {
-        _id = ++id;
-        if( n->is_omp_task_node( ) )
-        {
-            _pcfg_node = n;
-            _type = Task;
-        }
-        else if( n->is_omp_taskwait_node( ) )
-        {
-            _pcfg_node = n;
-            _type = Taskwait;
-        }
-        else if( n->is_omp_barrier_node( ) )
-        {
-            _pcfg_node = n;
-            _type = Barrier;
-        }
-        else
-        {
-            internal_error( "Unexpected node type %s when creating a TDG node", 
-                            n->get_type_as_string( ).c_str( ) );
-        }
-        _visited = false;
-    }
-    
-    void TDG_Node::set_entry( TDG_Edge* entry )
-    {
-        _entries.insert( entry );
-    }
-    
-    void TDG_Node::set_exit( TDG_Edge* exit )
-    {
-        _exits.insert( exit );
-    }
-    
-    TDG_Node_list TDG_Node::get_children( )
-    {
-        TDG_Node_list result;
-        for( TDG_Edge_list::iterator it = _exits.begin( ); it != _exits.end( ); ++it )
-            result.insert( ( *it )->get_target( ) );
-        return result;
-    }
+    TDG_Node::TDG_Node( Node* n, TDGNodeType type )
+        : _id( ++id ), _pcfg_node( n ), _type( type ), _entries( ), _exits( )
+    {}
     
     static Nodecl_list get_task_dependency_clauses( const Nodecl::OpenMP::Task& task )
     {
@@ -143,7 +103,7 @@ namespace Analysis {
     }
     
     TaskDependencyGraph::TaskDependencyGraph( ExtensibleGraph* pcfg )
-        : _pcfg( pcfg ), _tdg_nodes( )
+        : _pcfg( pcfg ), _tdg_nodes( ), _syms( )
     {
         Node* pcfg_node = _pcfg->get_graph( );
         
@@ -185,21 +145,19 @@ namespace Analysis {
                                                  std::string type, const Nodecl::NodeclBase& condition )
     {    
         TDG_Edge* edge = new TDG_Edge( parent, child, get_tdg_edge_type_from_pcfg_edge_type( type ), condition );
-        parent->set_exit( edge );
-        child->set_entry( edge );
+        parent->_exits.insert( edge );
+        child->_entries.insert( edge );
     }
     
     TDG_Node* TaskDependencyGraph::find_task_from_tdg_nodes_list( Node* task )
     {
         TDG_Node* result = NULL;
         for( TDG_Node_list::iterator it = _tdg_nodes.begin( ); it != _tdg_nodes.end( ); ++it )
-        {
             if( ( *it )->_pcfg_node == task )
             {
                 result = *it;
                 break;
             }
-        }
         return result;
     }
     
@@ -222,29 +180,34 @@ namespace Analysis {
         {
             current->set_visited( true );
             
+            // Call recursively with inner nodes if applies
             if( current->is_graph_node( ) )
-            {
-                // Create the TDG task node if we traverse a PCFG task node
-                if( current->is_omp_task_node( ) )
-                {
-                    TDG_Node* tdg_current = new TDG_Node( current );
-                    _tdg_nodes.insert( tdg_current );
-                }
-                
-                // Call recursively with task inner nodes
                 create_tdg_nodes_from_pcfg( current->get_graph_entry_node( ) );
-            }
-            else if( current->is_omp_taskwait_node( ) || current->is_omp_barrier_node( ) )
-            {
-                TDG_Node* tdg_current = new TDG_Node( current );
+            
+            // Create the TDG task node
+            TDG_Node* tdg_current = NULL;
+            if( current->is_omp_task_node( ) )
+                tdg_current = new TDG_Node( current, Task );
+            else if( current->is_omp_taskwait_node( ) )
+                tdg_current = new TDG_Node( current, Taskwait );
+            else if( current->is_omp_barrier_node( ) )
+                tdg_current = new TDG_Node( current, Barrier );
+            
+            if( tdg_current != NULL )
                 _tdg_nodes.insert( tdg_current );
-            }
             
             // Iterate over the children
             Node_list children = current->get_children( );
             for( Node_list::iterator it = children.begin( ); it != children.end( ); ++it )
                 create_tdg_nodes_from_pcfg( *it );
         }
+    }
+    
+    void TaskDependencyGraph::store_condition_list_of_symbols( const Nodecl::NodeclBase& condition )
+    {
+        ObjectList<Nodecl::Symbol> cond_syms = Nodecl::Utils::get_all_symbols_first_occurrence( condition );
+        for( ObjectList<Nodecl::Symbol>::iterator it = cond_syms.begin( ); it != cond_syms.end( ); ++it )
+            _syms.insert( *it );
     }
     
     void TaskDependencyGraph::connect_tdg_nodes_from_pcfg( Node* current )
@@ -266,12 +229,9 @@ namespace Analysis {
                         Node* child = ( *it )->get_target( );
                         if( child->is_omp_task_node( ) || child->is_omp_taskwait_node( ) || child->is_omp_barrier_node( ) )
                         {
-                            // TODO: Check whether or not there is a dependence here
-                            if( true )
-                            {   // Connect the task
-                                TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list( child );
-                                connect_tdg_nodes( tdg_task, tdg_child_task, ( *it )->get_label( ), ( *it )->get_condition( ) );
-                            }
+                            TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list( child );
+                            connect_tdg_nodes( tdg_task, tdg_child_task, ( *it )->get_label( ), ( *it )->get_condition( ) );
+                            store_condition_list_of_symbols( ( *it )->get_condition( ) );
                         }
                     }
                 }
@@ -290,6 +250,7 @@ namespace Analysis {
                     {
                         TDG_Node* tdg_child_task = find_task_from_tdg_nodes_list( child );
                         connect_tdg_nodes( tdg_sync, tdg_child_task, ( *it )->get_label( ), ( *it )->get_condition( ) );
+                        store_condition_list_of_symbols( ( *it )->get_condition( ) );
                     }
                 }
             }
@@ -376,10 +337,6 @@ namespace Analysis {
             Nodecl::NodeclBase barrier_stmt = current->_pcfg_node->get_statements( )[0];
             task_label = "Barrier :: " + barrier_stmt.get_locus_str( );
         }
-        else
-        {
-            WARNING_MESSAGE( "Unexpected TDG node type %d. Ignoring it.", ntype );
-        }
         dot_tdg << "\t" + current_id + " [label=\"" + task_label + "\"];\n";
         
         // Create the connections from the current node to its children
@@ -393,6 +350,8 @@ namespace Analysis {
             style = "style=\"" + std::string( ( etype == Strict || etype == Static ) ? "solid" : "dashed" ) + "\"";
             if( !( *it )->_condition.is_null( ) )
                 condition = ", label=\"" + ( *it )->_condition.prettyprint( ) + "\"";
+            else
+                condition = "true";
             // Create the dot edge
             std::stringstream child_id; child_id << ( *it )->_target->_id;
             dot_tdg << "\t" << current_id << " -> " << child_id.str( ) 
@@ -413,33 +372,219 @@ namespace Analysis {
         {
             int dot_directory = mkdir( directory_name.c_str( ), S_IRWXU );
             if( dot_directory != 0 )
-                internal_error ( "An error occurred while creating the dot files directory in '%s'", 
+                internal_error ( "An error occurred while creating the dot directory in '%s'", 
                                  directory_name.c_str( ) );
         }
         
+        // Create the file where we will store the DOT TDG
         std::string dot_file_name = directory_name + _pcfg->get_name( ) + "_tdg.dot";
-        
         std::ofstream dot_tdg;
         dot_tdg.open( dot_file_name.c_str( ) );
         if( !dot_tdg.good( ) )
-            internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
+            internal_error ("Unable to open the file '%s' to store the TDG.", dot_file_name.c_str( ) );
         
-        // Create the dot graphs
+        // Create the DOT graphs
         if( VERBOSE )
-            std::cerr << "- TDG File '" << dot_file_name << "'" << std::endl;
-        
+            std::cerr << "- TDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph TDG {\n";
             dot_tdg << "\tcompound=true;\n";
             for( TDG_Node_list::iterator it = _tdg_nodes.begin( ); it != _tdg_nodes.end( ); ++it )
                 print_tdg_node_to_dot( *it, dot_tdg );
         dot_tdg << "}\n";
-        
-        ExtensibleGraph::clear_visits( _pcfg->get_graph( ) );
-        
         dot_tdg.close( );
         if( !dot_tdg.good( ) )
             internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str( ) );
+        ExtensibleGraph::clear_visits( _pcfg->get_graph( ) );
     }
     
+    void TaskDependencyGraph::print_tdg_syms_to_json( std::ofstream& json_tdg )
+    {
+        if( !_syms.empty( ) )
+        {
+            json_tdg << "\t\t\"defvars\" : [\n" ;
+            int i = 1;
+            for( std::set<Nodecl::Symbol>::iterator it = _syms.begin( ); it != _syms.end( ); ++i )
+            {
+                TL::Symbol s = it->get_symbol( );
+                json_tdg << "\t\t\t{\n";
+                    json_tdg << "\t\t\t\t\"id\" : " << i << ",\n";
+                    json_tdg << "\t\t\t\t\"name\" : \"" << s.get_name( ) << "\",\n";
+                    json_tdg << "\t\t\t\t\"locus\" : \"" << s.get_locus_str( ) << "\",\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << s.get_type( ).get_declaration( s.get_scope( ), 
+                                    /*no name for the symbol, so we print only the type name*/"" ) << "\"\n";
+                ++it;
+                if( it != _syms.end( ) )
+                    json_tdg << "\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t}\n";
+            }
+            json_tdg << "\t\t],\n" ;
+        }
+    }
+    
+    // This method returns a string corresponding to the prettyprinted version of a nodecl
+    // where each symbol occurrence is replaced by a $id
+    // Example:
+    //     The expression :         'i == j'
+    //     Will return the string:  '$1 == $2'
+    static std::string transform_condition_into_json_expr( const Nodecl::NodeclBase& condition )
+    {
+        std::string result = condition.prettyprint( );
+        
+        // Get the name of each symbol and 
+        // store a map that represents the position of the last replacement
+        ObjectList<std::string> sym_names;
+        std::map<std::string, int> symbol_position_map;
+        ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( condition );
+        for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ); ++it )
+        {
+            std::string s_name = it->get_symbol( ).get_name( );
+            sym_names.append( s_name );
+            symbol_position_map[s_name] = 0;
+        }
+        
+        // Transform the condition expression into the json expression
+        int i = 1;
+        for( ObjectList<std::string>::iterator it = sym_names.begin( ); it != sym_names.end( ); ++it, ++i )
+        {
+            // Find the position to be replaced
+            int pos = result.find( *it, symbol_position_map[*it] );
+            // Replace it
+            std::stringstream id_str; id_str << "$" << i;
+            result.replace( pos, it->size( ), id_str.str( ) );
+            // Modify the base position
+            symbol_position_map[*it] = pos + (id_str.str( ).size( ) - 1);
+        }
+        
+        return result;
+    }
+    
+    void TaskDependencyGraph::print_tdg_nodes_to_json( std::ofstream& json_tdg )
+    {
+        json_tdg << "\t\t\"nodes\" : [\n";
+        for( TDG_Node_list::iterator it = _tdg_nodes.begin( ); it != _tdg_nodes.end( ); )
+        {
+            TDG_Node* n = ( *it );
+            json_tdg << "\t\t\t{\n";
+            // node identifier
+                json_tdg << "\t\t\t\t\"id\" : " << n->_id << ",\n";
+            // node locus and type
+            if( n->_type == Task ) 
+            {
+                json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_graph_related_ast( ).get_locus_str( ) << "\",\n";
+                json_tdg << "\t\t\t\t\"type\" : \"Task\"";
+            }
+            else
+            {
+                json_tdg << "\t\t\t\t\"locus\" : \"" << n->_pcfg_node->get_statements( )[0].get_locus_str( ) << "\",\n";
+                if( n->_type == Taskwait )
+                    json_tdg << "\t\t\t\t\"type\" : \"Taskwait\"";
+                else
+                    json_tdg << "\t\t\t\t\"type\" : \"Barrier\"";
+            }
+            // node exit edges
+            if( !n->_exits.empty( ) )
+            {
+                json_tdg << ",\n";
+                json_tdg << "\t\t\t\t\"edges\" : [\n";
+                for( ObjectList<TDG_Edge*>::iterator ite = n->_exits.begin( ); ite != n->_exits.end( ); )
+                {
+                    json_tdg << "\t\t\t\t\t{\n";
+                    // The target node
+                    json_tdg << "\t\t\t\t\t\t\"node\" : " << ( *ite )->_target->_id << ",\n";
+                    // The condition
+                    json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
+                    json_tdg << "\t\t\t\t\t\t\t\"expression\" : ";
+                    if( !(*ite)->_condition.is_null() )
+                    {   // Generate the condition
+                        ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( (*ite)->_condition );
+                        json_tdg << "\"" << transform_condition_into_json_expr( (*ite)->_condition ) << "\",\n";
+                        // Generate the list of involved variables
+                        if( syms.size( ) > 1 )
+                            json_tdg << "\t\t\t\t\t\t\t\"vars\" : [\n";
+                        else
+                            json_tdg << "\t\t\t\t\t\t\t\"vars\" : \n";
+                        int i = 1;
+                        for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); its != syms.end( ); ++i)
+                        {
+                            json_tdg << "\t\t\t\t\t\t\t\t{\n";
+                            json_tdg << "\t\t\t\t\t\t\t\t\t\"id\" : " << i << ",\n";
+                            json_tdg << "\t\t\t\t\t\t\t\t\t\"values\" : \"TODO\"\n";
+                            
+                            // TODO: values!
+                            
+                            ++its;
+                            if( its != syms.end( ) )
+                                json_tdg << "\t\t\t\t\t\t\t\t},\n";
+                            else
+                                json_tdg << "\t\t\t\t\t\t\t\t}\n";
+                        }
+                        if( syms.size( ) > 1 )
+                            json_tdg << "\t\t\t\t\t\t\t]\n";
+                    }
+                    else    // There is no condition => TRUE
+                        json_tdg << "true\n";
+                    json_tdg << "\t\t\t\t\t\t}\n";
+                        
+                    ++ite;
+                    if( ite != n->_exits.end( ) )
+                        json_tdg << "\t\t\t\t\t},\n";
+                    else
+                        json_tdg << "\t\t\t\t\t}\n";
+                }
+                json_tdg << "\t\t\t\t]\n";
+            }
+            else
+                json_tdg << "\n";
+            
+            ++it;
+            if( it != _tdg_nodes.end( ) )
+                json_tdg << "\t\t\t},\n";
+            else
+                json_tdg << "\t\t\t}\n";
+        }
+        json_tdg << "\t\t]\n";
+    }
+    
+    void TaskDependencyGraph::print_tdg_to_json( )
+    {
+        // Create the directory of json files if it has not been previously created
+        char buffer[1024];
+        char* err = getcwd(buffer, 1024);
+        if( err == NULL )
+            internal_error ( "An error occurred while getting the path of the current directory", 0 );
+        struct stat st;
+        std::string directory_name = std::string( buffer ) + "/json/";
+        if( stat( directory_name.c_str( ), &st ) != 0 )
+        {
+            int json_directory = mkdir( directory_name.c_str( ), S_IRWXU );
+            if( json_directory != 0 )
+                internal_error ( "An error occurred while creating the json directory in '%s'", 
+                                 directory_name.c_str( ) );
+        }
+        
+        // Create the file where we will store the JSON TDG
+        std::string json_file_name = directory_name + _pcfg->get_name( ) + "_tdg.json";
+        std::ofstream json_tdg;
+        json_tdg.open( json_file_name.c_str( ) );
+        if( !json_tdg.good( ) )
+            internal_error ("Unable to open the file '%s' to store the TDG.", json_file_name.c_str( ) );
+        
+        // Create the JSON graphs
+        if( VERBOSE )
+            std::cerr << "- TDG JSON file '" << json_file_name << "'" << std::endl;
+        json_tdg << "{\n";
+            json_tdg << "\t\"tdg\" : {\n";
+                json_tdg << "\t\t\"function\" : \"" << _pcfg->get_name( ) << "\",\n";
+                json_tdg << "\t\t\"locus\" : \"" << _pcfg->get_nodecl( ).get_locus_str( ) << "\",\n";
+                print_tdg_syms_to_json( json_tdg );
+                print_tdg_nodes_to_json( json_tdg );
+            json_tdg << "\t}\n";
+        json_tdg << "}\n";
+        json_tdg.close( );
+        if( !json_tdg.good( ) )
+            internal_error ("Unable to close the file '%s' where PCFG has been stored.", json_file_name.c_str( ) );
+        ExtensibleGraph::clear_visits( _pcfg->get_graph( ) );
+    }
 }
 }

@@ -296,7 +296,6 @@ namespace {
                             // if so, remove the rest of the edges
                             Nodecl::NodeclBase target_task_environ = ( *it )->get_target( )->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( );
                             Nodecl::NodeclBase condition = match_dependencies( current, ( *it )->get_target( ) );
-                            // TODO Shall the 'condition' be stored in the linked data associated to the edge??
                             // This information will be used when building the Task Dependency Graph
                             ( *it )->set_condition( condition );
                         }
