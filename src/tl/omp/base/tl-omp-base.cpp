@@ -1006,7 +1006,7 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    // SIMD For Statement
+    // SIMD Statement
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
     {
@@ -1039,7 +1039,6 @@ namespace TL { namespace OpenMP {
                             stmt.get_locus()));
             }
 
-
             // Unroll
             PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
             
@@ -1052,6 +1051,17 @@ namespace TL { namespace OpenMP {
                             stmt.get_locus()));
             }
 
+            // Unroll and Jam
+            PragmaCustomClause unroll_and_jam_clause = pragma_line.get_clause("unroll_and_jam");
+            
+            if (unroll_and_jam_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::UnrollAndJam::make(
+                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                unroll_and_jam_clause.get_arguments_as_expressions().front().get_constant()),
+                            stmt.get_locus()));
+            }
 
             // VectorLengthFor
             PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
@@ -1185,6 +1195,7 @@ namespace TL { namespace OpenMP {
 #endif
     }
 
+    // SIMD For Statement
     void Base::simd_for_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_for_handler_post(TL::PragmaCustomStatement stmt)
     {
@@ -1229,6 +1240,30 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::Cache::make(
                             Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
+                            stmt.get_locus()));
+            }
+
+            // Unroll
+            PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
+            
+            if (unroll_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::Unroll::make(
+                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                unroll_clause.get_arguments_as_expressions().front().get_constant()),
+                            stmt.get_locus()));
+            }
+
+            // Unroll and Jam
+            PragmaCustomClause unroll_and_jam_clause = pragma_line.get_clause("unroll_and_jam");
+            
+            if (unroll_and_jam_clause.is_defined())
+            {
+                environment.append(
+                        Nodecl::OpenMP::UnrollAndJam::make(
+                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                unroll_and_jam_clause.get_arguments_as_expressions().front().get_constant()),
                             stmt.get_locus()));
             }
 

@@ -417,6 +417,21 @@ namespace TL {
 
                     simd_node.prepend_sibling(unroll_pragma);
                 }
+
+                // Unroll and Jam clause
+                int unroll_and_jam_clause_arg = process_unroll_and_jam_clause(simd_environment);
+                if (unroll_and_jam_clause_arg > 0)
+                {
+                    std::stringstream unroll_and_jam_pragma_strm;
+                    unroll_and_jam_pragma_strm << "unroll_and_jam(";
+                    unroll_and_jam_pragma_strm << unroll_and_jam_clause_arg;
+                    unroll_and_jam_pragma_strm << ")";
+
+                    Nodecl::UnknownPragma unroll_and_jam_pragma =
+                        Nodecl::UnknownPragma::make(unroll_and_jam_pragma_strm.str());
+
+                    simd_node.prepend_sibling(unroll_and_jam_pragma);
+                }
             }
 
             // Free analysis
@@ -797,6 +812,24 @@ namespace TL {
         {
             Nodecl::OpenMP::Unroll omp_unroll = 
                 environment.find_first<Nodecl::OpenMP::Unroll>();
+
+            if(!omp_unroll.is_null())
+            {
+                Nodecl::NodeclBase unroll_factor = omp_unroll.get_unroll_factor();
+
+                if (unroll_factor.is_constant())
+                {
+                    return const_value_cast_to_4(unroll_factor.get_constant());
+                }
+            }
+
+            return 0;
+        }
+
+        int SimdVisitor::process_unroll_and_jam_clause(const Nodecl::List& environment)
+        {
+            Nodecl::OpenMP::UnrollAndJam omp_unroll = 
+                environment.find_first<Nodecl::OpenMP::UnrollAndJam>();
 
             if(!omp_unroll.is_null())
             {
