@@ -48,6 +48,7 @@
 #include "cxx-limits.h"
 #include "cxx-diagnostic.h"
 #include "cxx-codegen.h"
+#include "cxx-instantiation.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -6049,6 +6050,22 @@ static void check_unary_expression_(node_t node_kind,
             decl_context, 
             locus,
             nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+    {
+        if (!checking_ambiguity())
+        {
+            type_t* t_op = nodecl_get_type(*op);
+            C_LANGUAGE()
+            {
+                t_op = no_ref(t_op);
+            }
+            error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
+                    locus_to_str(locus),
+                    get_operation_function_name(node_kind), 
+                    codegen_to_str(*op, decl_context), print_type_str(t_op, decl_context));
+        }
+    }
 }
 
 static void check_binary_expression_(node_t node_kind,
@@ -6063,7 +6080,27 @@ static void check_binary_expression_(node_t node_kind,
             decl_context, 
             locus,
             nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+    {
+        if(!checking_ambiguity())
+        {
+            type_t* lhs_type = nodecl_get_type(*nodecl_lhs);
+            type_t* rhs_type = nodecl_get_type(*nodecl_rhs);
+            C_LANGUAGE()
+            {
+                lhs_type = no_ref(lhs_type);
+                rhs_type = no_ref(rhs_type);
+            }
+            error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
+                    locus_to_str(locus),
+                    get_operation_function_name(node_kind),
+                    codegen_to_str(*nodecl_lhs, decl_context), print_type_str(lhs_type, decl_context),
+                    codegen_to_str(*nodecl_rhs, decl_context), print_type_str(rhs_type, decl_context));
+        }
+    }
 }
+
 
 static void check_binary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -6090,25 +6127,6 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
             decl_context,
             ast_get_locus(expression),
             nodecl_output);
-
-    if (nodecl_is_err_expr(*nodecl_output))
-    {
-        if(!checking_ambiguity())
-        {
-            type_t* lhs_type = nodecl_get_type(nodecl_lhs);
-            type_t* rhs_type = nodecl_get_type(nodecl_rhs);
-            C_LANGUAGE()
-            {
-                lhs_type = no_ref(lhs_type);
-                rhs_type = no_ref(rhs_type);
-            }
-            error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
-                    ast_location(expression),
-                    get_operation_function_name(expression), 
-                    prettyprint_in_buffer(lhs), print_type_str(lhs_type, decl_context),
-                    prettyprint_in_buffer(rhs), print_type_str(rhs_type, decl_context));
-        }
-    }
 }
 
 static void check_unary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -6131,22 +6149,6 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
             decl_context, 
             ast_get_locus(expression),
             nodecl_output);
-
-    if (nodecl_is_err_expr(*nodecl_output))
-    {
-        if (!checking_ambiguity())
-        {
-            type_t* t_op = nodecl_get_type(nodecl_op);
-            C_LANGUAGE()
-            {
-                t_op = no_ref(t_op);
-            }
-            error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
-                    ast_location(expression),
-                    get_operation_function_name(expression), 
-                    prettyprint_in_buffer(op), print_type_str(t_op, decl_context));
-        }
-    }
 }
 
 static void check_throw_expression_nodecl(nodecl_t nodecl_thrown, const locus_t* locus,
@@ -17694,14 +17696,104 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
     return result;
 }
 
-static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry UNUSED_PARAMETER,
-        nodecl_t converted_arg_list UNUSED_PARAMETER,
+static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_function_code)
+{
+    ERROR_CONDITION(nodecl_is_null(nodecl_function_code)
+            || nodecl_get_kind(nodecl_function_code) == NODECL_FUNCTION_CODE, "Invalid function code", 0);
+
+    nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
+    ERROR_CONDITION(nodecl_is_null(nodecl_context), "Invalid node", 0);
+    ERROR_CONDITION(nodecl_get_kind(nodecl_context) != NODECL_CONTEXT, "Unexpected node", 0);
+
+    nodecl_t nodecl_statements = nodecl_get_child(nodecl_context, 0);
+    ERROR_CONDITION(nodecl_is_null(nodecl_statements) || !nodecl_is_list(nodecl_statements),
+            "Invalid node", 0);
+
+    nodecl_t nodecl_return_statement = nodecl_null();
+
+    int i, N = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_statements, &N);
+    for (i = 0; i < N; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_RETURN_STATEMENT)
+        {
+            nodecl_return_statement = list[i];
+            break;
+        }
+    }
+    xfree(list);
+
+    ERROR_CONDITION(nodecl_is_null(nodecl_return_statement), "Return statement not found", 0);
+
+    nodecl_t nodecl_returned_expression = nodecl_get_child(nodecl_return_statement, 0);
+
+    ERROR_CONDITION(nodecl_is_null(nodecl_returned_expression), "Invalid returned expression", 0);
+
+    return nodecl_returned_expression;
+}
+
+static const_value_t** constexpr_function_get_constants_of_arguments(
+        nodecl_t converted_arg_list)
+{
+    int i, N = 0;
+    nodecl_t* list = nodecl_unpack_list(converted_arg_list, &N);
+    const_value_t** argument_values = xcalloc(N, sizeof(*argument_values));
+    for (i = 0; i < N; i++)
+    {
+        argument_values[i] = nodecl_get_constant(list[i]);
+
+        if (argument_values[i] == NULL)
+        {
+            xfree(list);
+            xfree(argument_values);
+            return NULL;
+        }
+
+    }
+    xfree(list);
+
+    return argument_values;
+}
+
+static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry,
+        nodecl_t converted_arg_list,
         const locus_t* locus)
 {
-    if (!checking_ambiguity())
+    const_value_t** constants_of_arguments = constexpr_function_get_constants_of_arguments(converted_arg_list);
+    if (constants_of_arguments == NULL)
+        return NULL;
+
+    if (is_template_specialized_type(entry->type_information))
     {
-        warn_printf("%s: warning: call to constexpr function not yet implemented\n", locus_to_str(locus));
+        return NULL;
     }
+
+    if (!entry->defined)
+    {
+        return NULL;
+    }
+
+    nodecl_t nodecl_function_code = entry->entity_specs.function_code;
+
+    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "A defined function must have a body", 0);
+
+    // Standard conversions go here
+
+    if (entry->entity_specs.is_constructor)
+    {
+        if (!checking_ambiguity())
+        {
+            warn_printf("%s: warning: call to constexpr constructor not implemented yet\n", locus_to_str(locus));
+        }
+        return NULL;
+    }
+    else
+    {
+        nodecl_t nodecl_returned_expression =
+            nodecl_shallow_copy(constexpr_function_get_returned_expression(nodecl_function_code));
+
+    }
+
     return NULL;
 }
 
@@ -17828,7 +17920,8 @@ nodecl_t cxx_nodecl_make_function_call(
                 {
                     nodecl_t new_noexception = instantiate_expression(
                             called_symbol->entity_specs.noexception,
-                            called_symbol->decl_context);
+                            called_symbol->decl_context,
+                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_noexception))
                     {
@@ -17863,6 +17956,7 @@ nodecl_t cxx_nodecl_make_function_call(
                                     called_symbol->entity_specs.exceptions[idx_exception],
                                     called_symbol->decl_context,
                                     locus,
+                                    /* instantiation_symbol_map */ NULL,
                                     /* pack_index */ -1);
 
                             if (is_sequence_of_types(updated_exception))
@@ -17911,7 +18005,8 @@ nodecl_t cxx_nodecl_make_function_call(
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,
-                            called_symbol->decl_context);
+                            called_symbol->decl_context,
+                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
                     {
@@ -18164,6 +18259,9 @@ struct nodecl_instantiate_expr_visitor_tag
 
     // Index of pack expansion
     int pack_index;
+
+    // Instantiation map
+    instantiation_symbol_map_t* instantiation_symbol_map;
 } nodecl_instantiate_expr_visitor_t;
 
 typedef void (*nodecl_instantiate_expr_visitor_fun_t)(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node);
@@ -18201,23 +18299,21 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
 
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, decl_context_t);
 
-
-nodecl_t instantiate_expression_with_pack_index(nodecl_t nodecl_expr, decl_context_t decl_context, int pack_index)
+nodecl_t instantiate_expression(
+        nodecl_t nodecl_expr, decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
     v.pack_index = pack_index;
+    v.instantiation_symbol_map = instantiation_symbol_map;
 
     instantiate_expr_init_visitor(&v, decl_context);
 
     nodecl_t n = instantiate_expr_walk(&v, nodecl_expr);
 
     return n;
-}
-
-nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context)
-{
-    return instantiate_expression_with_pack_index(nodecl_expr, decl_context, -1);
 }
 
 static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor_t* v UNUSED_PARAMETER,
@@ -18232,6 +18328,7 @@ static void instantiate_type(nodecl_instantiate_expr_visitor_t* v, nodecl_t node
     t = update_type_for_instantiation(t,
             v->decl_context,
             nodecl_get_locus(node),
+            v->instantiation_symbol_map,
             v->pack_index);
 
     v->nodecl_result = nodecl_make_type(t, nodecl_get_locus(node));
@@ -18479,7 +18576,23 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else
     {
-        result = nodecl_shallow_copy(node);
+        scope_entry_t* mapped_symbol = instantiation_symbol_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
+
+        if (mapped_symbol == NULL)
+        {
+            result = nodecl_shallow_copy(node);
+        }
+        else
+        {
+            // FIXME - Can this name be other than a qualified thing?
+            nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
+
+            scope_entry_list_t* entry_list = entry_list_new(mapped_symbol);
+
+            cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, &result);
+
+            entry_list_free(entry_list);
+        }
     }
 
     v->nodecl_result = result;
@@ -18508,6 +18621,7 @@ static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     }
 
     v->nodecl_result = result;
+
 }
 
 static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -18539,6 +18653,7 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
     t = update_type_for_instantiation(t, 
             v->decl_context,
             nodecl_get_locus(node),
+            v->instantiation_symbol_map,
             v->pack_index);
 
     int num_items = 0;
@@ -18827,6 +18942,7 @@ static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, node
     t = update_type_for_instantiation(t, 
             v->decl_context,
             nodecl_get_locus(node),
+            v->instantiation_symbol_map,
             v->pack_index);
 
     nodecl_t result = nodecl_null();
@@ -18849,6 +18965,7 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
     t = update_type_for_instantiation(t,
             v->decl_context,
             nodecl_get_locus(node),
+            v->instantiation_symbol_map,
             v->pack_index);
 
     nodecl_t result = nodecl_null();
@@ -18876,6 +18993,7 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
     t = update_type_for_instantiation(t,
             v->decl_context,
             nodecl_get_locus(node),
+            v->instantiation_symbol_map,
             v->pack_index);
 
     nodecl_t nodecl_new_list = nodecl_null();
@@ -19125,6 +19243,7 @@ static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node
     type_t* declarator_type = update_type_for_instantiation(nodecl_get_type(node),
             v->decl_context,
             nodecl_get_locus(node),
+            v->instantiation_symbol_map,
             v->pack_index);
 
     const char* cast_kind = nodecl_get_text(node);

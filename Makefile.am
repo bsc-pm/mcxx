@@ -283,6 +283,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-printscope.c \
   src/frontend/cxx-printscope.h \
   src/frontend/cxx-instantiation.h \
+  src/frontend/cxx-instantiation-decls.h \
   src/frontend/cxx-instantiation.c \
   src/frontend/cxx-dyninit.c \
   src/frontend/cxx-dyninit.h \
