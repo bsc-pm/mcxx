@@ -17801,10 +17801,77 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
     char is_value_dep = nodecl_expr_is_value_dependent(expr);
     const_value_t* val = nodecl_get_constant(expr);
 
+    if (val != NULL)
+    {
+        // Convert the value
+        standard_conversion_t scs;
+
+        // There may not be a standard conversion sequence
+        // (but a user-defined sequence, this is not an error)
+        char there_is_a_scs = standard_conversion_between_types(
+                &scs,
+                get_unqualified_type(no_ref(nodecl_get_type(expr))),
+                get_unqualified_type(no_ref(dest_type)));
+        if (there_is_a_scs)
+        {
+            // The conversions involving values are in scs.conv[1]
+            switch (scs.conv[1])
+            {
+                case SCI_NO_CONVERSION:
+                    // We can fall here for cases like const int -> int
+                    break;
+                case SCI_FLOATING_PROMOTION:
+                case SCI_FLOATING_CONVERSION:
+                case SCI_INTEGRAL_FLOATING_CONVERSION:
+                    val = const_value_cast_to_floating_type_value(
+                            val,
+                            get_unqualified_type(no_ref(dest_type)));
+                    break;
+                case SCI_INTEGRAL_PROMOTION:
+                case SCI_INTEGRAL_CONVERSION:
+                case SCI_FLOATING_INTEGRAL_CONVERSION:
+                    val = const_value_cast_to_bytes(
+                            val,
+                            type_get_size(get_unqualified_type(no_ref(dest_type))),
+                            is_signed_integral_type(get_unqualified_type(no_ref(dest_type))));
+                    break;
+                    break;
+                case SCI_BOOLEAN_CONVERSION:
+                    val = const_value_get_integer(
+                            const_value_is_nonzero(val),
+                            type_get_size(get_bool_type()),
+                            /* signed */ 1);
+                    break;
+                case SCI_POINTER_CONVERSION:
+                    val = const_value_cast_to_bytes(
+                            val,
+                            type_get_size(get_unqualified_type(no_ref(dest_type))),
+                            /* sign */ 0);
+                    break;
+                case SCI_FLOAT_TO_COMPLEX_CONVERSION:
+                case SCI_FLOAT_TO_COMPLEX_PROMOTION:
+                    val = const_value_make_complex(
+                            // cast real part (might do a no-op)
+                            const_value_cast_to_floating_type_value(
+                                val,
+                                complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))),
+                            // imag part is set to zero
+                            const_value_cast_to_floating_type_value(
+                                const_value_get_signed_int(0),
+                                complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))));
+                    break;
+                default:
+                    internal_error("Do not know how to handle conversion '%s'\n",
+                            sci_conversion_to_str(scs.conv[1]));
+            }
+        }
+    }
+
     nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
 
     nodecl_set_constant(result, val);
     nodecl_expr_set_is_value_dependent(result, is_value_dep);
+
 
     return result;
 }
@@ -17921,50 +17988,6 @@ constexpr_function_get_constants_of_arguments(
             parameter_type = get_pointer_type(parameter_type);
         }
         parameter_type = get_unqualified_type(parameter_type);
-
-        // Get the type of the argument
-        type_t* argument_type = nodecl_get_type(list[i]);
-        ERROR_CONDITION(argument_type == NULL, "Invalid type", 0);
-
-        standard_conversion_t scs;
-        if (!standard_conversion_between_types(&scs, argument_type, parameter_type))
-        {
-            internal_error("Invalid type '%s' not convertible to '%s' using a SCS\n",
-                    print_declarator(argument_type),
-                    print_declarator(parameter_type));
-        }
-
-        // The interesting conversion is in [1]
-        switch (scs.conv[1])
-        {
-            case SCI_NO_CONVERSION:
-                break;
-            case SCI_FLOATING_PROMOTION:
-            case SCI_FLOATING_CONVERSION:
-            case SCI_INTEGRAL_FLOATING_CONVERSION:
-                argument_value = const_value_cast_to_floating_type_value(
-                        argument_value,
-                        get_unqualified_type(no_ref(parameter_type)));
-                break;
-            case SCI_INTEGRAL_PROMOTION:
-            case SCI_INTEGRAL_CONVERSION:
-            case SCI_FLOATING_INTEGRAL_CONVERSION:
-                argument_value = const_value_cast_to_bytes(
-                        argument_value,
-                        type_get_size(get_unqualified_type(no_ref(parameter_type))),
-                        is_signed_integral_type(get_unqualified_type(no_ref(parameter_type))));
-                break;
-                break;
-            case SCI_BOOLEAN_CONVERSION:
-                argument_value = const_value_get_integer(
-                        const_value_is_nonzero(argument_value),
-                        type_get_size(get_bool_type()),
-                        /* signed */ 1);
-                break;
-            default:
-                internal_error("Do not know how to handle conversion '%s'\n",
-                        sci_conversion_to_str(scs.conv[1]));
-        }
 
         result[i].parameter = parameter;
         result[i].value = argument_value;
