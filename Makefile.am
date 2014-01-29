@@ -2660,8 +2660,8 @@ config_edit += $(foreach profile, $(profiles), \
 BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 
 # This is valid in parallel make since we are generating one goal file at a time
-config/% : config/template.$(notdir %)
-	$(AM_V_GEN)( $(config_edit) "$^" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+config/% : config/template.$(notdir %) Makefile
+	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 config-install-data-hook:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
