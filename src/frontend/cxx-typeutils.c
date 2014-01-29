@@ -10342,8 +10342,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-        else if (is_integer_type(orig)
-                && is_floating_type(dest))
+        else if (is_floating_type(dest)
+                && is_integer_type(orig))
         {
             DEBUG_CODE()
             {
