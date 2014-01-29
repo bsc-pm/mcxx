@@ -259,6 +259,23 @@ case _bytes:  \
         break; \
     }
 
+#ifdef HAVE_INT128
+#define CAST_TO_INT128(_field) \
+case 128: \
+    { \
+        if (sign) \
+        { \
+            return const_value_get_integer((signed __int128)val->value._field, 16, 1); \
+        } \
+        else \
+        { \
+            return const_value_get_integer((unsigned __int128)val->value._field, 16, 0); \
+        } \
+        break; \
+    }
+#else
+#define CAST_TO_INT128(_field)
+#endif
 
 #define CAST_FLOAT_POINT_TO_INT(_field) \
 { \
@@ -269,6 +286,7 @@ case _bytes:  \
         CAST_TO_INTX(16, _field) \
         CAST_TO_INTX(32, _field) \
         CAST_TO_INTX(64, _field) \
+        CAST_TO_INT128(_field) \
         default: { internal_error("Cannot perform conversion of floating point to integer of %d bytes\n", bytes); } \
     } \
 }
