@@ -243,7 +243,13 @@ static void add_associated_class(koenig_lookup_info_t* koenig_info, scope_entry_
         class_symbol = named_type_get_symbol(advanced_type);
     }
 
-    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Symbol must be a class", 0);
+    if (class_symbol->kind == SK_TEMPLATE_ALIAS)
+    {
+        class_symbol = named_type_get_symbol(class_symbol->type_information);
+    }
+
+    ERROR_CONDITION(class_symbol == NULL
+            || class_symbol->kind != SK_CLASS, "Symbol must be a class", 0);
 
     int i;
     for (i = 0; i < koenig_info->num_associated_classes; i++)

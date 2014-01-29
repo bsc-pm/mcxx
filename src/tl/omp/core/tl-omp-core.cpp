@@ -225,14 +225,14 @@ namespace TL
                                 && !base_sym.is_static())
                         {
                             std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                                << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
+                                << "' since nonstatic data members cannot appear in data-sharing clauses" << std::endl;
                             continue;
                         }
 
                         if (base_sym.is_cray_pointee())
                         {
                             std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                                << "' since a cray pointee cannot appear un data-sharing clauses" << std::endl;
+                                << "' since a cray pointee cannot appear in data-sharing clauses" << std::endl;
                             continue;
                         }
 

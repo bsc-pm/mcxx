@@ -1917,7 +1917,9 @@ static char is_promoteable_integral_type(type_t* t)
             || is_unsigned_short_int_type(t)
             || is_bool_type(t)
             || is_enum_type(t)
-            || is_wchar_t_type(t));
+            || is_wchar_t_type(t)
+            || is_char16_t_type(t)
+            || is_char32_t_type(t));
 }
 
 static type_t* promote_integral_type(type_t* t)
@@ -2145,6 +2147,30 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         }
 
         return result;
+    }
+
+    // char16_t -> uint_least16_t
+    if (is_char16_t_type(lhs_type))
+    {
+        // FIXME - Should be uint_least16_t
+        lhs_type = get_unsigned_short_int_type();
+    }
+    if (is_char16_t_type(rhs_type))
+    {
+        // FIXME - Should be uint_least16_t
+        rhs_type = get_unsigned_short_int_type();
+    }
+
+    // char32_t -> uint_least32_t
+    if (is_char32_t_type(lhs_type))
+    {
+        // FIXME - Should be uint_least32_t
+        lhs_type = get_unsigned_int_type();
+    }
+    if (is_char32_t_type(rhs_type))
+    {
+        // FIXME - Should be uint_least32_t
+        rhs_type = get_unsigned_int_type();
     }
 
     // Perform integral promotions
@@ -8657,10 +8683,18 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
 {
     AST id_expression = ASTSon0(expr);
 
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
+    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression,
+            // Do not examine uninstantiated templates
+            DF_DEPENDENT_TYPENAME);
 
     if (entry_list == NULL)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: 'typename %s' not found in the current scope\n",
+                    ast_location(id_expression),
+                    prettyprint_in_buffer(id_expression));
+        }
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
@@ -9306,11 +9340,9 @@ static char any_is_member_function(scope_entry_list_t* candidates)
     return is_member;
 }
 
-UNUSED_PARAMETER
-static char any_is_member_function_of_class_or_derived(scope_entry_list_t* candidates, scope_entry_t* this_symbol)
+static char any_is_member_function_of_a_dependent_class(scope_entry_list_t* candidates)
 {
     char result = 0;
-    type_t* class_type = get_unqualified_type(pointer_type_get_pointee_type(this_symbol->type_information));
 
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(candidates);
@@ -9319,7 +9351,7 @@ static char any_is_member_function_of_class_or_derived(scope_entry_list_t* candi
     {
         scope_entry_t* current_function = entry_list_iterator_current(it);
         result = (current_function->entity_specs.is_member
-                && class_type_is_derived(class_type, current_function->entity_specs.class_type));
+                && is_dependent_type(current_function->entity_specs.class_type));
     }
     entry_list_iterator_free(it);
 
@@ -9557,15 +9589,15 @@ static void check_nodecl_function_call_cxx(
     }
 
     // If any in the expression list is type dependent this call is all dependent
-    char any_arg_is_dependent = 0;
+    char any_arg_is_type_dependent = 0;
     int i, num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
-    for (i = 0; i < num_items && !any_arg_is_dependent; i++)
+    for (i = 0; i < num_items && !any_arg_is_type_dependent; i++)
     {
         nodecl_t argument = list[i];
         if (nodecl_expr_is_type_dependent(argument))
         {
-            any_arg_is_dependent = 1;
+            any_arg_is_type_dependent = 1;
         }
     }
     xfree(list);
@@ -9588,7 +9620,7 @@ static void check_nodecl_function_call_cxx(
         char can_succeed = 1;
         // If can_succeed becomes zero, this call is not possible at all (e.g.
         // we are "calling" a typedef-name or class-name)
-        if (!any_arg_is_dependent)
+        if (!any_arg_is_type_dependent)
         {
             candidates = do_koenig_lookup(nodecl_called, nodecl_argument_list, decl_context, &can_succeed);
         }
@@ -9600,7 +9632,7 @@ static void check_nodecl_function_call_cxx(
         }
 
         if (candidates == NULL
-                && !any_arg_is_dependent)
+                && !any_arg_is_type_dependent)
         {
             if (!checking_ambiguity())
             {
@@ -9639,11 +9671,24 @@ static void check_nodecl_function_call_cxx(
         // function then we have to act as if (*this).F(X) (or
         // (*this).A::F(X)). This implies that if 'this' is dependent the whole
         // call is dependent
-        any_arg_is_dependent = 1;
+        any_arg_is_type_dependent = 1;
     }
 
+    if (this_symbol == NULL
+            && nodecl_get_kind(nodecl_called_name) != NODECL_CXX_DEP_NAME_SIMPLE
+            && any_is_member_function_of_a_dependent_class(candidates))
+    {
+        // If 'this' is not available and we are doing a call A::F(X) and A::F
+        // is a member of a dependent class assume the whole call is dependent.
+        // Note that F(X) is not considered for this case
+        any_arg_is_type_dependent = 1;
+    }
+
+    if (nodecl_expr_is_type_dependent(nodecl_called))
+        any_arg_is_type_dependent = 1;
+
     if (!nodecl_is_err_expr(nodecl_called)
-            && (any_arg_is_dependent
+            && (any_arg_is_type_dependent
                 || nodecl_expr_is_type_dependent(nodecl_called)
                 || nodecl_expr_is_value_dependent(nodecl_called)))
     {
@@ -10139,6 +10184,12 @@ static void check_nodecl_function_call_cxx(
                     *nodecl_output = nodecl_make_err_expr(locus);
                     return;
                 }
+            }
+
+            if (nodecl_is_err_expr(nodecl_arg))
+            {
+                *nodecl_output = nodecl_make_err_expr(locus);
+                return;
             }
 
             nodecl_argument_list_output = nodecl_append_to_list(nodecl_argument_list_output, nodecl_arg);
@@ -18052,7 +18103,8 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
 static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
         dependent_entry, 
         nodecl_t list_of_dependent_parts,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        int pack_index)
 {
     nodecl_t nodecl_extended_parts = nodecl_null();
 
@@ -18071,13 +18123,33 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
                     decl_context,
                     template_specialized_type_get_template_arguments(dependent_entry->type_information),
                     make_locus("", 0, 0),
-                    /* pack_index */ -1),
+                    pack_index),
                 make_locus("", 0, 0));
     }
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
 
-    // Concat with the existing parts
-    nodecl_extended_parts = nodecl_concat_lists(nodecl_extended_parts, nodecl_shallow_copy(list_of_dependent_parts));
+    // Concat with the existing parts but make sure we update the template arguments as well
+    int i;
+    int num_rest_of_parts = 0;
+    nodecl_t* rest_of_parts = nodecl_unpack_list(list_of_dependent_parts, &num_rest_of_parts);
+    for (i = 0; i < num_rest_of_parts; i++)
+    {
+        nodecl_t copied_part = nodecl_shallow_copy(rest_of_parts[i]);
+
+        if (nodecl_get_kind(copied_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            nodecl_set_template_parameters(
+                    copied_part,
+                    update_template_argument_list(
+                        decl_context,
+                        nodecl_get_template_parameters(copied_part),
+                        make_locus("", 0, 0),
+                        pack_index));
+        }
+
+        nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, copied_part);
+    }
+    xfree(rest_of_parts);
 
     nodecl_t result =
         nodecl_make_cxx_dep_global_name_nested(nodecl_extended_parts, make_locus("", 0, 0));
@@ -18175,7 +18247,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry, list_of_dependent_parts, v->decl_context);
+        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
+                list_of_dependent_parts,
+                v->decl_context,
+                v->pack_index);
 
         cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, &result);
     }
