@@ -5906,6 +5906,138 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
 #undef OPERATOR_FUNCT_INIT
 #undef OPERATOR_FUNCT_INIT_PRE
 
+// Gives a name to an operation node
+// 'a + b' will return 'operator+'
+static const char *get_operation_function_name(node_t operation_tree)
+{
+    switch (operation_tree)
+    {
+        case AST_ADD :
+        case NODECL_ADD:
+            return STR_OPERATOR_ADD;
+        case AST_MUL :
+        case NODECL_MUL:
+            return STR_OPERATOR_MULT;
+        case AST_DIV :
+        case NODECL_DIV:
+            return STR_OPERATOR_DIV;
+        case AST_MOD :
+        case NODECL_MOD :
+            return STR_OPERATOR_MOD;
+        case AST_MINUS :
+        case NODECL_MINUS :
+            return STR_OPERATOR_MINUS;
+        case AST_BITWISE_SHL :
+        case NODECL_BITWISE_SHL :
+            return STR_OPERATOR_SHIFT_LEFT;
+        case AST_SHR :
+        case NODECL_ARITHMETIC_SHR:
+        case NODECL_BITWISE_SHR:
+            return STR_OPERATOR_SHIFT_RIGHT;
+        case AST_LOWER_THAN :
+        case NODECL_LOWER_THAN:
+            return STR_OPERATOR_LOWER_THAN;
+        case AST_GREATER_THAN :
+        case NODECL_GREATER_THAN:
+            return STR_OPERATOR_GREATER_THAN;
+        case AST_GREATER_OR_EQUAL_THAN :
+        case NODECL_GREATER_OR_EQUAL_THAN:
+            return STR_OPERATOR_GREATER_EQUAL;
+        case AST_LOWER_OR_EQUAL_THAN :
+        case NODECL_LOWER_OR_EQUAL_THAN:
+            return STR_OPERATOR_LOWER_EQUAL;
+        case AST_EQUAL :
+        case NODECL_EQUAL:
+            return STR_OPERATOR_EQUAL;
+        case AST_DIFFERENT :
+        case NODECL_DIFFERENT:
+            return STR_OPERATOR_DIFFERENT;
+        case AST_BITWISE_AND :
+        case NODECL_BITWISE_AND:
+            return STR_OPERATOR_BIT_AND;
+        case AST_BITWISE_XOR :
+        case NODECL_BITWISE_XOR:
+            return STR_OPERATOR_BIT_XOR;
+        case AST_BITWISE_OR :
+        case NODECL_BITWISE_OR:
+            return STR_OPERATOR_BIT_OR;
+        case AST_LOGICAL_AND :
+        case NODECL_LOGICAL_AND:
+            return STR_OPERATOR_LOGIC_AND;
+        case AST_LOGICAL_OR :
+        case NODECL_LOGICAL_OR:
+            return STR_OPERATOR_LOGIC_OR;
+        case AST_DERREFERENCE :
+        case NODECL_DEREFERENCE:
+            return STR_OPERATOR_DERREF;
+        case AST_REFERENCE : 
+        case NODECL_REFERENCE:
+            return STR_OPERATOR_REFERENCE;
+        case AST_PLUS :
+        case NODECL_PLUS:
+            return STR_OPERATOR_UNARY_PLUS;
+        case AST_NEG :
+        case NODECL_NEG:
+            return STR_OPERATOR_UNARY_NEG;
+        case AST_LOGICAL_NOT :
+        case NODECL_LOGICAL_NOT:
+            return STR_OPERATOR_LOGIC_NOT;
+        case AST_BITWISE_NOT :
+        case NODECL_BITWISE_NOT:
+            return STR_OPERATOR_BIT_NOT;
+        case AST_ASSIGNMENT :
+        case NODECL_ASSIGNMENT:
+            return STR_OPERATOR_ASSIGNMENT;
+        case AST_MUL_ASSIGNMENT :
+        case NODECL_MUL_ASSIGNMENT :
+            return STR_OPERATOR_MUL_ASSIGNMENT;
+        case AST_DIV_ASSIGNMENT :
+        case NODECL_DIV_ASSIGNMENT :
+            return STR_OPERATOR_DIV_ASSIGNMENT;
+        case AST_ADD_ASSIGNMENT :
+        case NODECL_ADD_ASSIGNMENT :
+            return STR_OPERATOR_ADD_ASSIGNMENT;
+        case AST_SUB_ASSIGNMENT :
+        case NODECL_MINUS_ASSIGNMENT :
+            return STR_OPERATOR_MINUS_ASSIGNMENT;
+        case AST_BITWISE_SHL_ASSIGNMENT :
+        case NODECL_BITWISE_SHL_ASSIGNMENT :
+            return STR_OPERATOR_SHL_ASSIGNMENT;
+        case AST_SHR_ASSIGNMENT :
+        case NODECL_ARITHMETIC_SHR_ASSIGNMENT:
+        case NODECL_BITWISE_SHR_ASSIGNMENT:
+            return STR_OPERATOR_SHR_ASSIGNMENT;
+        case AST_BITWISE_AND_ASSIGNMENT :
+        case NODECL_BITWISE_AND_ASSIGNMENT :
+            return STR_OPERATOR_AND_ASSIGNMENT;
+        case AST_BITWISE_OR_ASSIGNMENT :
+        case NODECL_BITWISE_OR_ASSIGNMENT :
+            return STR_OPERATOR_OR_ASSIGNMENT;
+        case AST_BITWISE_XOR_ASSIGNMENT :
+        case NODECL_BITWISE_XOR_ASSIGNMENT :
+            return STR_OPERATOR_XOR_ASSIGNMENT;
+        case AST_MOD_ASSIGNMENT :
+        case NODECL_MOD_ASSIGNMENT :
+            return STR_OPERATOR_MOD_ASSIGNMENT;
+        case AST_PREINCREMENT :
+        case NODECL_PREINCREMENT :
+            return STR_OPERATOR_PREINCREMENT;
+        case AST_POSTINCREMENT :
+        case NODECL_POSTINCREMENT :
+            return STR_OPERATOR_POSTINCREMENT;
+        case AST_PREDECREMENT :
+        case NODECL_PREDECREMENT :
+            return STR_OPERATOR_PREDECREMENT;
+        case AST_POSTDECREMENT :
+        case NODECL_POSTDECREMENT :
+            return STR_OPERATOR_POSTDECREMENT;
+        default:
+            internal_error("Invalid operation node %s", ast_print_node_type(operation_tree));
+    }
+}
+
+
+
 static void check_unary_expression_(node_t node_kind,
         nodecl_t* op,
         decl_context_t decl_context,
