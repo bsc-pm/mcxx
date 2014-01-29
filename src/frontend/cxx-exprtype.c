@@ -17941,18 +17941,26 @@ constexpr_function_get_constants_of_arguments(
                 break;
             case SCI_FLOATING_PROMOTION:
             case SCI_FLOATING_CONVERSION:
+            case SCI_INTEGRAL_FLOATING_CONVERSION:
                 argument_value = const_value_cast_to_floating_type_value(
                         argument_value,
                         get_unqualified_type(no_ref(parameter_type)));
                 break;
             case SCI_INTEGRAL_PROMOTION:
             case SCI_INTEGRAL_CONVERSION:
+            case SCI_FLOATING_INTEGRAL_CONVERSION:
                 argument_value = const_value_cast_to_bytes(
                         argument_value,
                         type_get_size(get_unqualified_type(no_ref(parameter_type))),
                         is_signed_integral_type(get_unqualified_type(no_ref(parameter_type))));
                 break;
-                // FIXME - Boolean conversions are still missing here
+                break;
+            case SCI_BOOLEAN_CONVERSION:
+                argument_value = const_value_get_integer(
+                        const_value_is_nonzero(argument_value),
+                        type_get_size(get_bool_type()),
+                        /* signed */ 1);
+                break;
             default:
                 internal_error("Do not know how to handle conversion '%s'\n",
                         sci_conversion_to_str(scs.conv[1]));
@@ -19031,7 +19039,7 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
 {
     type_t* t = nodecl_get_type(node);
 
-    t = update_type_for_instantiation(t, 
+    t = update_type_for_instantiation(t,
             v->decl_context,
             nodecl_get_locus(node),
             v->instantiation_symbol_map,
