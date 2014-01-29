@@ -36,6 +36,7 @@
 #include "cxx-type-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-instantiation-decls.h"
 #include "cxx-nodecl-output.h"
 
 MCXX_BEGIN_DECLS
@@ -161,6 +162,7 @@ LIBMCXX_EXTERN type_t* update_type_for_auto(type_t* orig_type,
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
         const locus_t* locus,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 
 LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
