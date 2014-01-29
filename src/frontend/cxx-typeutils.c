@@ -9687,6 +9687,17 @@ static standard_conversion_t identity_scs(type_t* t_orig, type_t* t_dest)
     return result;
 }
 
+const char* sci_conversion_to_str(standard_conversion_item_t e)
+{
+    switch (e)
+    {
+#define SCI_CONVERSION_ID(X) case X : return #X;
+        SCI_LIST
+#undef SCI_CONVERSION_ID
+        default: return "<<<unknown standard conversion item kind>>>";
+    }
+}
+
 char standard_conversion_is_identity(standard_conversion_t scs)
 {
     return (scs.conv[0] == SCI_IDENTITY);
