@@ -10331,16 +10331,25 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-        else if ((is_floating_type(orig)
+        else if (is_floating_type(orig)
                     && is_integer_type(dest))
-                || (is_integer_type(orig)
-                    && is_floating_type(dest)))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying floating-integral conversion\n");
             }
             (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_integer_type(orig)
+                && is_floating_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating-integral conversion\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_FLOATING_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10351,7 +10360,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying floating-integral conversion from bool\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_FLOATING_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10362,7 +10371,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying floating-integral conversion from enum\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_FLOATING_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
