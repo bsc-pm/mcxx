@@ -78,10 +78,15 @@ struct builtin_operators_set_tag
 typedef
 struct check_expr_flags_tag
 {
+    /*
+     * This is a rough approach to limit evaluation
+     * for nonstrict operators like ?, && and ||
+     */
+    char do_not_evaluate:1;
     /* It will be true if the expression is non_executable.
      * Examples of non-executable expressions contains:
      * sizeof, alignof, typeof, decltype
-     * 
+     *
      * Otherwise it will be false.
      */
     char is_non_executable:1;
@@ -3044,6 +3049,7 @@ void compute_bin_operator_generic(
                 computed_type, locus);
 
         if (const_value_bin_fun != NULL
+                && !check_expr_flags.do_not_evaluate
                 && types_allow_constant_evaluation(lhs_type, rhs_type)
                 && nodecl_is_constant(*lhs)
                 && nodecl_is_constant(*rhs))
@@ -3087,6 +3093,7 @@ void compute_bin_operator_generic(
         if (selected_operator->entity_specs.is_builtin)
         {
             if (const_value_bin_fun != NULL
+                    && !check_expr_flags.do_not_evaluate
                     && types_allow_constant_evaluation(lhs_type, rhs_type)
                     && nodecl_is_constant(*lhs)
                     && nodecl_is_constant(*rhs))
@@ -5037,6 +5044,7 @@ static void compute_unary_operator_generic(
         const_value_t* val = NULL;
 
         if (const_value_unary_fun != NULL
+                && !check_expr_flags.do_not_evaluate
                 && types_allow_constant_evaluation(op_type)
                 && nodecl_is_constant(*op))
         {
@@ -5098,6 +5106,7 @@ static void compute_unary_operator_generic(
             const_value_t* val = NULL;
 
             if (const_value_unary_fun != NULL
+                    && !check_expr_flags.do_not_evaluate
                     && types_allow_constant_evaluation(op_type)
                     && nodecl_is_constant(*op))
             {
@@ -5797,10 +5806,89 @@ static void compute_operator_reference_type(nodecl_t* op,
 
 struct bin_operator_funct_type_t
 {
-    void (*pre_lhs)(AST op, decl_context_t, nodecl_t*);
-    void (*pre_rhs)(AST op, decl_context_t, nodecl_t*);
+    void (*pre_lhs)(AST lhs, decl_context_t, nodecl_t*);
+    void (*pre_rhs)(nodecl_t lhs, AST rhs, decl_context_t, nodecl_t*);
     void (*func)(nodecl_t* lhs, nodecl_t* rhs, decl_context_t, const locus_t*, nodecl_t*);
 };
+
+static void check_expression_strict_operator(
+        nodecl_t lhs UNUSED_PARAMETER,
+        AST rhs, decl_context_t decl_context, nodecl_t* output)
+{
+    check_expression_impl_(rhs, decl_context, output);
+}
+
+// e1 || e2
+static void check_expression_eval_rhs_if_lhs_is_zero(
+        nodecl_t lhs,
+        AST rhs, decl_context_t decl_context, nodecl_t* output)
+{
+    if (nodecl_is_constant(lhs)
+            && const_value_is_zero(nodecl_get_constant(lhs)))
+    {
+        // 0 || e2
+        // We evaluate e2 normally
+        check_expression_impl_(rhs, decl_context, output);
+    }
+    else
+    {
+        // e1 || e2 but we do not evaluate e2
+        // because either e1 is not constant
+        // or it is a nonzero constant
+        char do_not_evaluate = check_expr_flags.do_not_evaluate;
+        check_expr_flags.do_not_evaluate = 1;
+
+        check_expression_impl_(rhs, decl_context, output);
+
+        check_expr_flags.do_not_evaluate = do_not_evaluate;
+
+        if (nodecl_is_constant(lhs) // !const_value_is_zero(lhs)
+                && !nodecl_is_constant(*output))
+        {
+            // 1 || e2
+            //
+            // Absorb the rhs as well, so constant evaluation routines
+            // see two constant nonzero values and believe everything is constant
+            nodecl_set_constant(*output, nodecl_get_constant(lhs));
+        }
+    }
+}
+
+
+// e1 && e2
+static void check_expression_eval_rhs_if_lhs_is_nonzero(
+        nodecl_t lhs,
+        AST rhs, decl_context_t decl_context, nodecl_t* output)
+{
+    if (nodecl_is_constant(lhs)
+            && const_value_is_nonzero(nodecl_get_constant(lhs)))
+    {
+        // 1 && e2
+        // We evaluate e2 normally
+        check_expression_impl_(rhs, decl_context, output);
+    }
+    else
+    {
+        // e1 && e2 but we do not evaluate e2 because
+        // either e1 is not constant or it as a zero constant
+        char do_not_evaluate = check_expr_flags.do_not_evaluate;
+        check_expr_flags.do_not_evaluate = 1;
+
+        check_expression_impl_(rhs, decl_context, output);
+
+        check_expr_flags.do_not_evaluate = do_not_evaluate;
+
+        if (nodecl_is_constant(lhs)
+                && !nodecl_is_constant(*output))
+        {
+            // 0 && e2
+            //
+            // Nullify the rhs as well, so constant evaluation routines
+            // see two constant zero values and believe everything is constant
+            nodecl_set_constant(*output, nodecl_get_constant(lhs));
+        }
+    }
+}
 
 struct unary_operator_funct_type_t
 {
@@ -5810,7 +5898,7 @@ struct unary_operator_funct_type_t
 #undef OPERATOR_FUNCT_INIT
 #undef OPERATOR_FUNCT_INIT_PRE
 
-#define OPERATOR_FUNCT_INIT(_x) { .pre_lhs = check_expression_impl_, .pre_rhs = check_expression_impl_, .func = _x }
+#define OPERATOR_FUNCT_INIT(_x) { .pre_lhs = check_expression_impl_, .pre_rhs = check_expression_strict_operator, .func = _x }
 #define OPERATOR_FUNCT_INIT_PRE(pre_lhs_, pre_rhs_, _x) { .pre_lhs = pre_lhs_, .pre_rhs = pre_rhs_, .func = _x }
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
@@ -5821,7 +5909,9 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
     [AST_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
     [AST_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
-    [AST_LOWER_THAN]            = OPERATOR_FUNCT_INIT_PRE(parse_lhs_lower_than, check_expression_impl_, compute_bin_operator_lower_than_type),
+    [AST_LOWER_THAN]            = OPERATOR_FUNCT_INIT_PRE(parse_lhs_lower_than,
+                                                     check_expression_strict_operator,
+                                                     compute_bin_operator_lower_than_type),
     [AST_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
     [AST_GREATER_OR_EQUAL_THAN] = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_equal_type),
     [AST_LOWER_OR_EQUAL_THAN]   = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_equal_type),
@@ -5831,8 +5921,16 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_BITWISE_XOR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_type),
     [AST_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [AST_BITWISE_SHL]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_shl_type),
-    [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
-    [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
+
+    [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT_PRE(
+            check_expression_impl_,
+            check_expression_eval_rhs_if_lhs_is_nonzero,
+            compute_bin_operator_logical_and_type),
+    [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT_PRE(
+            check_expression_impl_,
+            check_expression_eval_rhs_if_lhs_is_zero,
+            compute_bin_operator_logical_or_type),
+
     [AST_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
     [AST_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
     [AST_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
@@ -6112,7 +6210,9 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
 
     node_t node_kind = ASTType(expression);
     (binary_expression_fun[node_kind].pre_lhs)(lhs, decl_context, &nodecl_lhs);
-    (binary_expression_fun[node_kind].pre_rhs)(rhs, decl_context, &nodecl_rhs);
+    // We pass nodecl_lhs because some C/C++ operators are non-strict based on
+    // the lhs
+    (binary_expression_fun[node_kind].pre_rhs)(nodecl_lhs, rhs, decl_context, &nodecl_rhs);
 
     if (nodecl_is_err_expr(nodecl_lhs)
             || nodecl_is_err_expr(nodecl_rhs))
@@ -6121,7 +6221,7 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
         return;
     }
 
-    check_binary_expression_(ASTType(expression), 
+    check_binary_expression_(ASTType(expression),
             &nodecl_lhs,
             &nodecl_rhs,
             decl_context,
@@ -8000,9 +8100,7 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
     }
     else
     {
-        if (nodecl_is_constant(first_op)
-                && nodecl_is_constant(second_op)
-                && nodecl_is_constant(third_op))
+        if (nodecl_is_constant(first_op))
         {
             if (const_value_is_nonzero(nodecl_get_constant(first_op)))
             {
@@ -8034,12 +8132,27 @@ static void check_conditional_expression_impl(AST expression UNUSED_PARAMETER,
 
     nodecl_t nodecl_first_op = nodecl_null();
     check_expression_impl_(first_op, decl_context, &nodecl_first_op);
+
+    char do_not_evaluate = check_expr_flags.do_not_evaluate;
+    // We do not attempt to evaluat the second expression if it is not constant
+    // or (if it is constant) if it is zero
+    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_first_op)
+        || const_value_is_zero(nodecl_get_constant(nodecl_first_op));
+
     nodecl_t nodecl_second_op = nodecl_null();
     check_expression_impl_(second_op, decl_context, &nodecl_second_op);
+
+    // We do not attempt to evaluate the third expression if it is not constant
+    // or (if it is constant) if it is nonzero
+    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_first_op)
+        || const_value_is_nonzero(nodecl_get_constant(nodecl_first_op));
+
     nodecl_t nodecl_third_op = nodecl_null();
     check_expression_impl_(third_op, decl_context, &nodecl_third_op);
 
-    check_conditional_expression_impl_nodecl(nodecl_first_op, nodecl_second_op, nodecl_third_op, 
+    check_expr_flags.do_not_evaluate = do_not_evaluate;
+
+    check_conditional_expression_impl_nodecl(nodecl_first_op, nodecl_second_op, nodecl_third_op,
             decl_context, nodecl_output);
 }
 
@@ -17699,15 +17812,21 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_function_code)
 {
     ERROR_CONDITION(nodecl_is_null(nodecl_function_code)
-            || nodecl_get_kind(nodecl_function_code) == NODECL_FUNCTION_CODE, "Invalid function code", 0);
+            || nodecl_get_kind(nodecl_function_code) != NODECL_FUNCTION_CODE, "Invalid function code", 0);
 
     nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
     ERROR_CONDITION(nodecl_is_null(nodecl_context), "Invalid node", 0);
     ERROR_CONDITION(nodecl_get_kind(nodecl_context) != NODECL_CONTEXT, "Unexpected node", 0);
 
-    nodecl_t nodecl_statements = nodecl_get_child(nodecl_context, 0);
-    ERROR_CONDITION(nodecl_is_null(nodecl_statements) || !nodecl_is_list(nodecl_statements),
+    nodecl_t nodecl_body = nodecl_get_child(nodecl_context, 0);
+    ERROR_CONDITION(nodecl_is_null(nodecl_body) || !nodecl_is_list(nodecl_body),
             "Invalid node", 0);
+
+    nodecl_t nodecl_compound_statement = nodecl_list_head(nodecl_body);
+
+    nodecl_t nodecl_statements = nodecl_get_child(nodecl_compound_statement, 0);
+    ERROR_CONDITION(nodecl_is_null(nodecl_statements)
+            || !nodecl_is_list(nodecl_statements), "Invalid node", 0);
 
     nodecl_t nodecl_return_statement = nodecl_null();
 
@@ -17732,52 +17851,209 @@ static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_funct
     return nodecl_returned_expression;
 }
 
-static const_value_t** constexpr_function_get_constants_of_arguments(
-        nodecl_t converted_arg_list)
+typedef
+struct map_of_parameters_with_their_arguments_tag
+{
+    scope_entry_t* parameter;
+    const_value_t* value;
+} map_of_parameters_with_their_arguments_t;
+
+static map_of_parameters_with_their_arguments_t*
+constexpr_function_get_constants_of_arguments(
+        nodecl_t converted_arg_list,
+        scope_entry_t* entry)
 {
     int i, N = 0;
     nodecl_t* list = nodecl_unpack_list(converted_arg_list, &N);
-    const_value_t** argument_values = xcalloc(N, sizeof(*argument_values));
+    map_of_parameters_with_their_arguments_t* result = xcalloc(N, sizeof(*result));
+
     for (i = 0; i < N; i++)
     {
-        argument_values[i] = nodecl_get_constant(list[i]);
+        const_value_t* argument_value = nodecl_get_constant(list[i]);
 
-        if (argument_values[i] == NULL)
+        if (argument_value == NULL)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Argument at position %d is not constant, giving up evaluation\n", i);
+            }
             xfree(list);
-            xfree(argument_values);
+            xfree(result);
             return NULL;
         }
 
+        // Perform the conversion. Here all the conversions should involve
+        // only standard conversions and no user defined conversions
+        scope_entry_t* parameter = NULL;
+        if (!entry->entity_specs.is_member
+                || entry->entity_specs.is_static)
+        {
+            ERROR_CONDITION(i >= entry->entity_specs.num_related_symbols,
+                    "Too many arguments", 0);
+            parameter = entry->entity_specs.related_symbols[i];
+        }
+        else
+        {
+            if (i == 0)
+            {
+                internal_error("Not yet implemented: 'this'", 0);
+            }
+            else
+            {
+                ERROR_CONDITION((i - 1) >= entry->entity_specs.num_related_symbols,
+                        "Too many arguments", 0);
+                parameter = entry->entity_specs.related_symbols[i - 1];
+            }
+        }
+
+        type_t* parameter_type = parameter->type_information;
+
+        // Lvalue-conversions
+        // function to pointer-to-function standard conversion
+        if (is_function_type(parameter_type))
+        {
+            parameter_type = get_pointer_type(parameter_type);
+        }
+        // Array to pointer standard conversion
+        else if (is_array_type(parameter_type))
+        {
+            parameter_type = array_type_get_element_type(parameter_type);
+            parameter_type = get_pointer_type(parameter_type);
+        }
+        parameter_type = get_unqualified_type(parameter_type);
+
+        // Get the type of the argument
+        type_t* argument_type = nodecl_get_type(list[i]);
+        ERROR_CONDITION(argument_type == NULL, "Invalid type", 0);
+
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs, argument_type, parameter_type))
+        {
+            internal_error("Invalid type '%s' not convertible to '%s' using a SCS\n",
+                    print_declarator(argument_type),
+                    print_declarator(parameter_type));
+        }
+
+        // The interesting conversion is in [1]
+        switch (scs.conv[1])
+        {
+            case SCI_NO_CONVERSION:
+                break;
+            case SCI_FLOATING_PROMOTION:
+            case SCI_FLOATING_CONVERSION:
+                argument_value = const_value_cast_to_floating_type_value(
+                        argument_value,
+                        get_unqualified_type(no_ref(parameter_type)));
+                break;
+            case SCI_INTEGRAL_PROMOTION:
+            case SCI_INTEGRAL_CONVERSION:
+                argument_value = const_value_cast_to_bytes(
+                        argument_value,
+                        type_get_size(get_unqualified_type(no_ref(parameter_type))),
+                        is_signed_integral_type(get_unqualified_type(no_ref(parameter_type))));
+                break;
+                // FIXME - Boolean conversions are still missing here
+            default:
+                internal_error("Do not know how to handle conversion '%s'\n",
+                        sci_conversion_to_str(scs.conv[1]));
+        }
+
+        result[i].parameter = parameter;
+        result[i].value = argument_value;
     }
     xfree(list);
 
-    return argument_values;
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Arguments properly converted to their parameters in constexpr evaluation\n");
+    }
+
+    return result;
+}
+
+static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
+        int num_map_items,
+        map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
+{
+    if (nodecl_is_null(n))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        constexpr_replace_parameters_with_values_rec(nodecl_get_child(n, i),
+                num_map_items,
+                map_of_parameters_and_values);
+    }
+
+    if (nodecl_get_kind(n) == NODECL_SYMBOL)
+    {
+        scope_entry_t* entry = nodecl_get_symbol(n);
+        for (i = 0; i < num_map_items; i++)
+        {
+            if (entry == map_of_parameters_and_values[i].parameter)
+            {
+                nodecl_t nodecl_value
+                    = const_value_to_nodecl(map_of_parameters_and_values[i].value);
+
+                nodecl_replace(n, nodecl_value);
+            }
+        }
+    }
+}
+
+static nodecl_t constexpr_replace_parameters_with_values(nodecl_t n,
+    int num_map_items,
+    map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
+{
+    nodecl_t nodecl_result = nodecl_shallow_copy(n);
+
+    constexpr_replace_parameters_with_values_rec(nodecl_result,
+        num_map_items,
+        map_of_parameters_and_values);
+
+    return nodecl_result;
 }
 
 static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry,
         nodecl_t converted_arg_list,
         const locus_t* locus)
 {
-    const_value_t** constants_of_arguments = constexpr_function_get_constants_of_arguments(converted_arg_list);
-    if (constants_of_arguments == NULL)
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call\n");
+    }
+    map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
+        constexpr_function_get_constants_of_arguments(converted_arg_list, entry);
+    if (map_of_parameters_and_values == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: When creating the map of parameters to symbols, "
+                    "constexpr call did not yield a constant value\n");
+        }
         return NULL;
+    }
+    int num_map_items = nodecl_list_length(converted_arg_list);
 
     if (is_template_specialized_type(entry->type_information))
     {
+        warn_printf("%s: calls to constexpr template functions not yet implemented", locus_to_str(locus));
         return NULL;
     }
 
     if (!entry->defined)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr fails because the function has not been defined");
+        }
         return NULL;
     }
 
     nodecl_t nodecl_function_code = entry->entity_specs.function_code;
 
     ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "A defined function must have a body", 0);
-
-    // Standard conversions go here
 
     if (entry->entity_specs.is_constructor)
     {
@@ -17790,9 +18066,23 @@ static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry,
     else
     {
         nodecl_t nodecl_returned_expression =
-            nodecl_shallow_copy(constexpr_function_get_returned_expression(nodecl_function_code));
+            constexpr_function_get_returned_expression(nodecl_function_code);
 
+        // Replace parameter ocurrences with values
+        nodecl_t nodecl_replace_parameters = constexpr_replace_parameters_with_values(
+                nodecl_returned_expression,
+                num_map_items,
+                map_of_parameters_and_values);
+        xfree(map_of_parameters_and_values);
+
+        // Now review the expression again in order to evaluate it
+        nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_replace_parameters,
+                nodecl_retrieve_context(nodecl_function_code),
+                /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+
+        return nodecl_get_constant(nodecl_evaluated_expr);
     }
+
 
     return NULL;
 }
@@ -18052,9 +18342,11 @@ nodecl_t cxx_nodecl_make_function_call(
                         function_form, t,
                         locus);
 
-                if (called_symbol->entity_specs.is_constexpr)
+                if (called_symbol->entity_specs.is_constexpr
+                        && !check_expr_flags.do_not_evaluate)
                 {
-                    const_value_t* const_value = evaluate_constexpr_function_call(called_symbol,
+                    const_value_t* const_value = evaluate_constexpr_function_call(
+                            called_symbol,
                             converted_arg_list,
                             locus);
 
@@ -18206,7 +18498,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: nontype template argument '%s' is not constant\n",
+            error_printf("%s: error: nontype template argument '%s' is not constant\n",
                     nodecl_locus_to_str(nodecl_expr),
                     codegen_to_str(nodecl_expr, decl_context));
         }
@@ -18277,15 +18569,18 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     visitor->nodecl_result = nodecl_null();
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s'\n",
-                codegen_to_str(node, visitor->decl_context));
+        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s'. Constant evaluation is %s\n",
+                codegen_to_str(node, visitor->decl_context),
+                check_expr_flags.do_not_evaluate ? "OFF" : "ON");
+
     }
     NODECL_WALK(visitor, node);
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Expression '%s' instantiated to expression '%s'\n",
+        fprintf(stderr, "EXPRTYPE: Expression '%s' instantiated to expression '%s'. Constant evaluation is %s\n",
                 codegen_to_str(node, visitor->decl_context),
-                codegen_to_str(visitor->nodecl_result, visitor->decl_context));
+                codegen_to_str(visitor->nodecl_result, visitor->decl_context),
+                check_expr_flags.do_not_evaluate ? "OFF" : "ON");
         if (nodecl_is_constant(visitor->nodecl_result))
         {
             fprintf(stderr, "EXPRTYPE: Instantiated expression '%s' has constant value '%s'\n",
@@ -18309,9 +18604,14 @@ nodecl_t instantiate_expression(
     v.pack_index = pack_index;
     v.instantiation_symbol_map = instantiation_symbol_map;
 
+    char do_not_evaluate = check_expr_flags.do_not_evaluate;
+    check_expr_flags.do_not_evaluate = 0;
+
     instantiate_expr_init_visitor(&v, decl_context);
 
     nodecl_t n = instantiate_expr_walk(&v, nodecl_expr);
+
+    check_expr_flags.do_not_evaluate = do_not_evaluate;
 
     return n;
 }
@@ -18621,7 +18921,88 @@ static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     }
 
     v->nodecl_result = result;
+}
 
+static void instantiate_logical_and(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    char do_not_evaluate = check_expr_flags.do_not_evaluate;
+    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_lhs)
+            || const_value_is_zero(nodecl_get_constant(nodecl_lhs));
+
+    nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+
+    check_expr_flags.do_not_evaluate = do_not_evaluate;
+
+    if (nodecl_is_constant(nodecl_lhs)
+            && const_value_is_zero(nodecl_get_constant(nodecl_lhs))
+            && !nodecl_is_constant(nodecl_rhs))
+    {
+        // Propagate the constant to the RHS so the whole expression evaluates
+        // as a constant
+        nodecl_set_constant(nodecl_rhs, nodecl_get_constant(nodecl_lhs));
+    }
+
+    nodecl_t result = nodecl_null();
+
+    if (nodecl_is_err_expr(nodecl_lhs)
+            || nodecl_is_err_expr(nodecl_rhs))
+    {
+        result = nodecl_make_err_expr(nodecl_get_locus(node));
+    }
+    else
+    {
+        check_binary_expression_(nodecl_get_kind(node),
+                &nodecl_lhs,
+                &nodecl_rhs,
+                v->decl_context,
+                nodecl_get_locus(node),
+                &result);
+    }
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_logical_or(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    char do_not_evaluate = check_expr_flags.do_not_evaluate;
+    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_lhs)
+            || const_value_is_nonzero(nodecl_get_constant(nodecl_lhs));
+
+    nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+
+    check_expr_flags.do_not_evaluate = do_not_evaluate;
+
+    if (nodecl_is_constant(nodecl_lhs) &&
+            const_value_is_nonzero(nodecl_get_constant(nodecl_lhs))
+            && !nodecl_is_constant(nodecl_rhs))
+    {
+        // Propagate the constant to the rhs so the whole expression evaluates
+        // as a constant
+        nodecl_set_constant(nodecl_rhs, nodecl_get_constant(nodecl_lhs));
+    }
+
+    nodecl_t result = nodecl_null();
+
+    if (nodecl_is_err_expr(nodecl_lhs)
+            || nodecl_is_err_expr(nodecl_rhs))
+    {
+        result = nodecl_make_err_expr(nodecl_get_locus(node));
+    }
+    else
+    {
+        check_binary_expression_(nodecl_get_kind(node),
+                &nodecl_lhs,
+                &nodecl_rhs,
+                v->decl_context,
+                nodecl_get_locus(node),
+                &result);
+    }
+
+    v->nodecl_result = result;
 }
 
 static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -18767,9 +19148,10 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
         nodecl_set_template_parameters(function_form, template_args);
     }
 
-    v->nodecl_result =  nodecl_make_function_call(nodecl_called,
+    v->nodecl_result = cxx_nodecl_make_function_call(
+            nodecl_called,
+            /* called_name */ nodecl_null(),
             new_list,
-            /* alternate_name */ nodecl_null(),
             function_form,
             nodecl_get_type(node),
             nodecl_get_locus(node));
@@ -19268,6 +19650,10 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
         return;
     }
 
+    char do_not_evaluate = check_expr_flags.do_not_evaluate;
+    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_cond)
+        || const_value_is_zero(nodecl_get_constant(nodecl_cond));
+
     nodecl_t nodecl_true = instantiate_expr_walk(v, nodecl_get_child(node, 1));
     if (nodecl_is_err_expr(nodecl_true))
     {
@@ -19275,12 +19661,17 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
         return;
     }
 
-    nodecl_t nodecl_false = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+    check_expr_flags.do_not_evaluate = !nodecl_is_constant(nodecl_cond)
+        || const_value_is_nonzero(nodecl_get_constant(nodecl_cond));
+
+    nodecl_t nodecl_false = instantiate_expr_walk(v, nodecl_get_child(node, 2));
     if (nodecl_is_err_expr(nodecl_false))
     {
         v->nodecl_result = nodecl_true;
         return;
     }
+
+    check_expr_flags.do_not_evaluate = do_not_evaluate;
 
     check_conditional_expression_impl_nodecl(nodecl_cond, nodecl_true, nodecl_false, v->decl_context, &v->nodecl_result);
 }
@@ -19359,8 +19750,10 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_bitwise_and = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_xor = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_or = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_logical_and = instantiate_expr_visitor_fun(instantiate_binary_op);
-    NODECL_VISITOR(v)->visit_logical_or = instantiate_expr_visitor_fun(instantiate_binary_op);
+
+    NODECL_VISITOR(v)->visit_logical_and = instantiate_expr_visitor_fun(instantiate_logical_and);
+    NODECL_VISITOR(v)->visit_logical_or = instantiate_expr_visitor_fun(instantiate_logical_or);
+
     NODECL_VISITOR(v)->visit_power = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_mul_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
