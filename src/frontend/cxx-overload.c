@@ -1145,6 +1145,7 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
     if (scs.conv[1] == SCI_INTEGRAL_CONVERSION
             || scs.conv[1] == SCI_FLOATING_CONVERSION
             || scs.conv[1] == SCI_FLOATING_INTEGRAL_CONVERSION
+            || scs.conv[1] == SCI_INTEGRAL_FLOATING_CONVERSION
             || scs.conv[1] == SCI_POINTER_CONVERSION
             || scs.conv[1] == SCI_POINTER_TO_MEMBER_CONVERSION
             || scs.conv[1] == SCI_BOOLEAN_CONVERSION)
