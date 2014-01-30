@@ -52,27 +52,34 @@ namespace TL
 
             if (type_from.is_float())
             {
-                if (type_to.is_double())
+                if(!type_to.is_float())
                 {
-                    result << AVX2_INTRIN_PREFIX << "_castps_pd";
-                }
-                else if (type_to.is_signed_int() || type_to.is_unsigned_int())
-                {
-                    result << AVX2_INTRIN_PREFIX << "_castps_si" << 
-                        AVX2_VECTOR_BIT_SIZE;
+                    if (type_to.is_double())
+                    {
+                        result << AVX2_INTRIN_PREFIX << "_castps_pd";
+                    }
+                    else if (type_to.is_signed_int() || type_to.is_unsigned_int())
+                    {
+                        result << AVX2_INTRIN_PREFIX << "_castps_si" << 
+                            AVX2_VECTOR_BIT_SIZE;
+                    }
                 }
             }
             else if (type_from.is_signed_int() || type_from.is_unsigned_int())
             {
-                if (type_to.is_float())
+                if ((!type_to.is_signed_int()) && (!type_to.is_unsigned_int()))
                 {
-                    result << AVX2_INTRIN_PREFIX << "_castsi" << 
-                        AVX2_VECTOR_BIT_SIZE << "_ps";
-                }
-                else if (type_to.is_double())
-                {
-                    result << AVX2_INTRIN_PREFIX << "_castsi" <<
-                        AVX2_VECTOR_BIT_SIZE << "_pd";
+
+                    if (type_to.is_float())
+                    {
+                        result << AVX2_INTRIN_PREFIX << "_castsi" << 
+                            AVX2_VECTOR_BIT_SIZE << "_ps";
+                    }
+                    else if (type_to.is_double())
+                    {
+                        result << AVX2_INTRIN_PREFIX << "_castsi" <<
+                            AVX2_VECTOR_BIT_SIZE << "_pd";
+                    }
                 }
             }
             else
@@ -1017,6 +1024,24 @@ namespace TL
 
         void AVX2VectorLowering::visit(const Nodecl::VectorShiftRight2& node) 
         { 
+
+            //ALIGNR_256 macro works with arbitrary offset, eg ALIGNR_256(ret, a, b, 1, 4)
+            // r: result. (v0, v1): array. offs: offset of 1st element. size: element size in bytes.
+#define ALIGNR_256(r, v0, v1, offs, size) \
+            if (offs == 0) \
+            r = v0; \
+            else if (offs == 32 / size) \
+            r = v1; \
+            else \
+            { \
+                r = _mm256_permute2x128_si256(v0, v1, 0x21); \
+                \
+                if (offs > 16 / size) \
+                r = _mm256_alignr_epi8(v1, r, offs * size & ~16); \
+                else if (offs < 16 / size) \
+                r = _mm256_alignr_epi8(r, v0, offs * size); \
+            }
+
             const Nodecl::NodeclBase left_vector = node.get_left_vector();
             const Nodecl::NodeclBase right_vector = node.get_right_vector();
             const Nodecl::NodeclBase num_elements = node.get_num_elements();
@@ -2230,13 +2255,15 @@ namespace TL
         { 
             TL::Type type = node.get_type().basic_type();
 
-            TL::Source intrin_src, intrin_name;
+            TL::Source intrin_src, intrin_name, extract_src;
 
-            intrin_name << AVX2_INTRIN_PREFIX << "_reduce_add";
+            intrin_name << "_mm256_hadd";
 
+            // Postfix
             if (type.is_float()) 
             { 
                 intrin_name << "_ps"; 
+                extract_src << "_mm_extract_ps";
             } 
             else if (type.is_double()) 
             { 
@@ -2245,29 +2272,23 @@ namespace TL
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_si" << AVX2_VECTOR_BIT_SIZE; 
+                intrin_name << "_epi32"; 
+                extract_src << "_mm_extract_epi32";
+            } 
+            else if (type.is_signed_short_int() ||
+                    type.is_unsigned_short_int()) 
+            { 
+                intrin_name << "_epi16"; 
+                extract_src << "_mm_extract_epi16";
             } 
             else
             {
-                internal_error("AVX2 Lowering: Node %s at %s has an unsupported type.", 
+                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
+            //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
 
-            walk(node.get_scalar_dst());
-            walk(node.get_vector_src());
-
-            intrin_src << as_expression(node.get_scalar_dst())
-                << " += "
-                << intrin_name 
-                << "("
-                << as_expression(node.get_vector_src())
-                << ")";
-
-            Nodecl::NodeclBase function_call = 
-                    intrin_src.parse_expression(node.retrieve_context());
-
-            node.replace(function_call);
         }
 
         void AVX2VectorLowering::visit(const Nodecl::VectorReductionMinus& node) 

@@ -73,8 +73,8 @@ namespace TL
                         const VectorizerEnvironment& environment);
                 
                 Nodecl::List get_init_statements(VectorizerEnvironment& environment) const;
-                Nodecl::List get_iteration_update(VectorizerEnvironment& environment) const;
-
+                Nodecl::List get_iteration_update_pre(VectorizerEnvironment& environment) const;
+                Nodecl::List get_iteration_update_post(VectorizerEnvironment& environment) const;
 
                 bool is_cached_access(const ArraySubscript& n) const;
                 NodeclBase get_load_access(const ArraySubscript& n) const;

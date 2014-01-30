@@ -47,6 +47,11 @@ namespace TL
                     "If set to '1' enables compilation for AVX2 architecture, otherwise it is disabled",
                     _avx2_enabled_str,
                     "0").connect(functor(&VectorLoweringPhase::set_avx2, *this));
+
+            register_parameter("intel_compiler_profile",
+                    "If set to '1' enable the Intel Compiler profile, otherwise GNU is assumed",
+                    _intel_compiler_profile_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_intel_compiler_profile, *this));
         }
 
         void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
@@ -62,6 +67,15 @@ namespace TL
             if (avx2_enabled_str == "1")
             {
                 _avx2_enabled = true;
+            }
+        }
+
+        void VectorLoweringPhase::set_intel_compiler_profile(
+                const std::string intel_compiler_profile_str)
+        {
+            if (intel_compiler_profile_str == "1")
+            {
+                _intel_compiler_profile = true;
             }
         }
 
@@ -96,7 +110,7 @@ namespace TL
             }
             else
             {
-                SSEVectorLowering sse_vector_lowering;
+                SSEVectorLowering sse_vector_lowering(_intel_compiler_profile);
                 sse_vector_lowering.walk(translation_unit);
             }
         }

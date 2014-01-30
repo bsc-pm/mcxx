@@ -26,7 +26,7 @@
 
 #include "cxx-cexpr.h"
 #include "tl-vectorizer-cache.hpp"
-#include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-vectorizer-visitor-expression.hpp"
 
 namespace TL 
 {
@@ -112,22 +112,39 @@ namespace TL
                 const int size = register_list.size();
 
                 //TODO: different strategies
-                for(int i=1; i < size; i++)
+                for(int i=0; i < size-1; i++)
                 {
                     // __cache_X_1 = a[i];
-                    ExpressionStatement exp_stmt = 
-                        ExpressionStatement::make(
-                                Assignment::make(
-                                    register_list[i].make_nodecl(/* type = */ true), 
-                                    ArraySubscript::make(
-                                        it->first.make_nodecl(/* type = */true),
-                                        Nodecl::List::make( //TODO: + VL*(i-1)
-                                            it->second._lower_bound.shallow_copy()),
-                                        it->first.get_type().basic_type()),
-                                    register_list[i].get_type().basic_type()));
 
-                    VectorizerVisitorStatement stmt_vectorizer(environment, /* cached disabled */ false);
-                    stmt_vectorizer.walk(exp_stmt);
+                    TL::Source src;
+
+                    src << as_expression(register_list[i].make_nodecl(/* type = */ true))
+                        << " = "
+                        << as_expression(it->first.make_nodecl(/* type = */true))
+                        << "["
+                        << as_expression(it->second._lower_bound.shallow_copy())
+                        << "]"
+                        ;
+
+                    Nodecl::NodeclBase assignment = 
+                        src.parse_expression(TL::Scope(CURRENT_COMPILED_FILE->global_decl_context));
+
+#if 0
+                        Assignment::make(
+                                register_list[i].make_nodecl(/* type = */ true), 
+                                ArraySubscript::make(
+                                    it->first.make_nodecl(/* type = */true),
+                                    Nodecl::List::make( //TODO: + VL*(i-1)
+                                        it->second._lower_bound.shallow_copy()),
+                                    it->first.get_type().basic_type()),
+                                register_list[i].get_type().basic_type());
+#endif
+//TODO
+//                    VectorizerVisitorExpression expr_vectorizer(environment, /* cached disabled */ false);
+//                    expr_vectorizer.walk(assignment.as<Nodecl::Assignment>().get_rhs());
+
+                   ExpressionStatement exp_stmt = 
+                        ExpressionStatement::make(assignment);
 
                     result_list.prepend(exp_stmt);
                 } 
@@ -136,7 +153,44 @@ namespace TL
             return result_list;
         } 
 
-        Nodecl::List VectorizerCache::get_iteration_update(VectorizerEnvironment& environment) const
+        Nodecl::List VectorizerCache::get_iteration_update_pre(VectorizerEnvironment& environment) const
+        {
+            Nodecl::List result_list;
+
+            for(cache_map_t::const_iterator it = _cache_map.begin();
+                    it != _cache_map.end();
+                    it++)
+            {
+                const std::vector<TL::Symbol>& register_list = it->second._register_list;
+                const int size = register_list.size();
+
+                // __cache_X_1 = load(a[i + VL]) // TODO: VL*;
+                Nodecl::Assignment assignment = 
+                    Assignment::make(
+                            register_list[size-1].make_nodecl(/* type = */ true), 
+                            ArraySubscript::make(
+                                it->first.make_nodecl(/* type = */true),
+                                Nodecl::List::make(
+                                    Add::make(
+                                        it->second._lower_bound.shallow_copy(),
+                                        const_value_to_nodecl(const_value_get_signed_int(environment._unroll_factor)),
+                                        TL::Type::get_int_type())),
+                                it->first.get_type().basic_type()),
+                            register_list[size-1].get_type().basic_type());
+
+//                VectorizerVisitorExpression stmt_vectorizer(environment, /* cache disabled */ false);
+//                stmt_vectorizer.walk(assignment.get_rhs());
+
+                ExpressionStatement exp_stmt = 
+                    ExpressionStatement::make(assignment);
+ 
+                result_list.prepend(exp_stmt);
+            }
+            
+            return result_list;
+        } 
+
+        Nodecl::List VectorizerCache::get_iteration_update_post(VectorizerEnvironment& environment) const
         {
             Nodecl::List result_list;
 
@@ -161,27 +215,6 @@ namespace TL
 
                     result_list.prepend(exp_stmt);
                 } 
-
-                // __cache_X_0 = load(a[i + VL]) // TODO: VL*;
-                ExpressionStatement exp_stmt = 
-                    ExpressionStatement::make(
-                            Assignment::make(
-                                register_list[i].make_nodecl(/* type = */ true), 
-                                ArraySubscript::make(
-                                    it->first.make_nodecl(/* type = */true),
-                                    Nodecl::List::make(
-                                        Add::make(
-                                            it->second._lower_bound.shallow_copy(),
-                                            const_value_to_nodecl(const_value_get_signed_int(environment._unroll_factor)),
-                                            TL::Type::get_int_type())),
-                                    it->first.get_type().basic_type()),
-                                register_list[i].get_type().basic_type()));
-
-                VectorizerVisitorStatement stmt_vectorizer(environment, /* cache disabled */ false);
-                stmt_vectorizer.walk(exp_stmt);
-
-                result_list.prepend(exp_stmt);
-
             }
             
             return result_list;

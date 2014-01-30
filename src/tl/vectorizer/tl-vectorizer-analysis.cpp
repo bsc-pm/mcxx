@@ -182,14 +182,19 @@ namespace TL
                 const Nodecl::NodeclBase& n,
                 Nodecl::Utils::NodeclDeepCopyMap& map)
         {
+//            std::cerr << "Find equal for " << n.prettyprint() << ":";
             for (Nodecl::Utils::NodeclDeepCopyMap::iterator it = map.begin();
                     it != map.end();
                     it ++)
             {
                 if(Nodecl::Utils::equal_nodecls(n, it->first, false /*Do no skip conversions*/))
+                {
+//                    std::cerr << " true" << std::endl;
                     return it;
+                }
             }
 
+//            std::cerr << " false" << std::endl;
             return map.end();
         }
         
@@ -227,7 +232,6 @@ namespace TL
             if (_orig_to_copy_nodes.find(n) != _orig_to_copy_nodes.end())
                  internal_error("VectorizerAnalysis: Node already registered", 0);
 
-            
             Nodecl::Utils::NodeclDeepCopyMap::iterator it = 
                 find_equal_nodecl(n, _orig_to_copy_nodes);
 
@@ -241,7 +245,6 @@ namespace TL
 
                 _orig_to_copy_nodes.insert(
                         std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(n, sc_copy));
-
                 _copy_to_orig_nodes.insert(
                         std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(sc_copy, n));
             }
@@ -254,10 +257,8 @@ namespace TL
 
                 _orig_to_copy_nodes.insert(
                         std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(n, translated_n));
-
                 _copy_to_orig_nodes.insert(
                         std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(translated_n, n));
-
             }
 
             _registered_nodes.push_back(n);

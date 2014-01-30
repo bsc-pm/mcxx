@@ -27,12 +27,63 @@
 #include "tl-vector-lowering-sse.hpp"
 #include "tl-source.hpp"
 
+#define SSE_VECTOR_BIT_SIZE 128
+#define SSE_VECTOR_BYTE_SIZE 16
+#define SSE_INTRIN_PREFIX "_mm"
+#define SSE_MASK_BIT_SIZE 0
+
+
 namespace TL 
 {
     namespace Vectorization
     {
-        SSEVectorLowering::SSEVectorLowering() 
+        SSEVectorLowering::SSEVectorLowering(bool intel_compiler_profile)
+           : _intel_compiler_profile(intel_compiler_profile) 
         {
+        }
+
+        std::string SSEVectorLowering::get_casting_intrinsic(const TL::Type& type_from,
+                const TL::Type& type_to)
+        {
+            std::stringstream result;
+
+            if (type_from.is_float())
+            {
+                if(!type_to.is_float())
+                {
+                    if (type_to.is_double())
+                    {
+                        result << SSE_INTRIN_PREFIX << "_castps_pd";
+                    }
+                    else if (type_to.is_signed_int() || type_to.is_unsigned_int())
+                    {
+                        result << SSE_INTRIN_PREFIX << "_castps_si" << 
+                            SSE_VECTOR_BIT_SIZE;
+                    }
+                }
+            }
+            else if (type_from.is_signed_int() || type_from.is_unsigned_int())
+            {
+                if ((!type_to.is_signed_int()) && (!type_to.is_unsigned_int()))
+                {
+                    if (type_to.is_float())
+                    {
+                        result << SSE_INTRIN_PREFIX << "_castsi" << 
+                            SSE_VECTOR_BIT_SIZE << "_ps";
+                    }
+                    else if (type_to.is_double())
+                    {
+                        result << SSE_INTRIN_PREFIX << "_castsi" <<
+                            SSE_VECTOR_BIT_SIZE << "_pd";
+                    }
+                }
+            }
+            else
+            {            
+                running_error("SSE Lowering: casting intrinsic not supported");
+            }
+
+            return result.str(); 
         }
 
         void SSEVectorLowering::visit(const Nodecl::ObjectInit& node) 
@@ -770,7 +821,6 @@ namespace TL
                 << ", "
                 << as_expression(num_elements) << "* 4"
                 ;
-#warning  
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1626,33 +1676,40 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
         { 
-            TL::Type type = node.get_type().basic_type();
+            Nodecl::NodeclBase vector_src = node.get_vector_src();
+            Nodecl::NodeclBase scalar_dst = node.get_scalar_dst();
 
-            TL::Source intrin_src, intrin_name, extract_src;
+            TL::Type vtype = vector_src.get_type().no_ref();
+            TL::Type type = scalar_dst.get_type().basic_type();
+            
+            walk(scalar_dst);
+            walk(vector_src);
 
-            intrin_name << "_mm_hadd";
+            TL::Source intrin_src, horizontal_op_src, horizontal_intrin_src, extract_op_src, extract_intrin_src;
+
+            intrin_src << as_expression(scalar_dst)
+                << " = ({"
+                << horizontal_op_src
+                << horizontal_op_src
+                << extract_op_src
+                << "})";
 
             // Postfix
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
-                extract_src << "_mm_extract_ps";
+                horizontal_intrin_src << "_mm_hadd_ps"; 
+                extract_intrin_src << "_mm_cvtss_f32";
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                horizontal_intrin_src << "_mm_hadd_pd"; 
+                extract_intrin_src << "_mm_cvtsd_f64";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
-                extract_src << "_mm_extract_epi32";
-            } 
-            else if (type.is_signed_short_int() ||
-                    type.is_unsigned_short_int()) 
-            { 
-                intrin_name << "_epi16"; 
-                extract_src << "_mm_extract_epi16";
+                horizontal_intrin_src << "_mm_hadd_epi32"; 
+                extract_intrin_src << "_mm_cvtsi128_si32";
             } 
             else
             {
@@ -1662,39 +1719,21 @@ namespace TL
             }      
             //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
 
-            Nodecl::NodeclBase vector_src =
-                node.get_vector_src();
-
-            Nodecl::NodeclBase scalar_dst =
-                node.get_scalar_dst();
-
-            walk(scalar_dst);
-            walk(vector_src);
-
-            intrin_src << as_expression(scalar_dst) 
+            horizontal_op_src
+                << as_expression(vector_src)
                 << " = "
-                << "({"
-                    << as_expression(vector_src) 
-                    << " = "
-                    << intrin_name
-                    << "(" 
-                        << as_expression(vector_src)
-                        << ", "
-                        << as_expression(vector_src)
-                    << ");";
+                << horizontal_intrin_src
+                << "(" 
+                << as_expression(vector_src)
+                << ", "
+                << as_expression(vector_src)
+                << ");";
 
-            intrin_src
-                << extract_src
-                << "("
-                    << intrin_name
-                    << "(" 
-                        << as_expression(vector_src)
-                        << ", "
-                        << as_expression(vector_src)
-                    << ")"
-                    << ", 0"
-                << ");})";
- 
+            extract_op_src
+                << extract_intrin_src
+                << "(" 
+                << as_expression(vector_src)
+                << ");";
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());

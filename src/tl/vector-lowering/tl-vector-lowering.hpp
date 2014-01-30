@@ -38,12 +38,15 @@ namespace TL
             private:
                 bool _knc_enabled;
                 bool _avx2_enabled;
+                bool _intel_compiler_profile;
 
                 std::string _knc_enabled_str;
                 std::string _avx2_enabled_str;
+                std::string _intel_compiler_profile_str;
 
                 void set_knc(const std::string knc_enabled_str);
                 void set_avx2(const std::string avx2_enabled_str);
+                void set_intel_compiler_profile(const std::string intel_compiler_profile_str);
 
             public:
                 VectorLoweringPhase();

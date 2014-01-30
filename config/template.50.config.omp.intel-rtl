@@ -1,6 +1,6 @@
 [intel-mcc : intel-omp-base]
 language = C
-options = --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+options = --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99 --variable=intel_compiler_profile:1
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
@@ -15,7 +15,7 @@ linker_name = @ICC@
 [intel-mcxx : intel-omp-base]
 language = C++
 {openmp} preprocessor_options = -include new 
-options = --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types 
+options = --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types --variable=intel_compiler_profile:1
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@

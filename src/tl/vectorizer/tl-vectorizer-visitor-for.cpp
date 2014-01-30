@@ -44,6 +44,10 @@ namespace TL
 
         void VectorizerVisitorFor::visit(const Nodecl::ForStatement& for_statement)
         {
+            // CACHE: Before vectorizing!
+            Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
+            Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
+ 
             // Vectorize Loop Header
             VectorizerVisitorLoopHeader visitor_loop_header(_environment);
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
@@ -52,17 +56,24 @@ namespace TL
             VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
             visitor_stmt.walk(for_statement.get_statement());
 
-            // CACHE
-            Nodecl::List cache_it_update = _environment._vectorizer_cache.get_iteration_update(_environment);
-   
+  
             // Add cache it update to Compound Statement 
-            if (!cache_it_update.empty())
+            if (!cache_it_update_pre.empty())
             {
                 // TODO: Function to do this in Nodecl::Utils
                 for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
                     .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                    .prepend(cache_it_update);
+                    .prepend(cache_it_update_pre);
             }
+
+            if (!cache_it_update_post.empty())
+            {
+                // TODO: Function to do this in Nodecl::Utils
+                for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
+                    .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
+                    .append(cache_it_update_post);
+            }
+
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
@@ -87,10 +98,8 @@ namespace TL
             visitor_loop_init.walk(loop_control.get_init());
 
             // Cond
-            std::cerr << "ANTES: " << loop_control.get_cond().prettyprint() << std::endl;
             VectorizerVisitorLoopCond visitor_loop_cond(_environment);
             visitor_loop_cond.walk(loop_control.get_cond());
-            std::cerr << "DESPUES: " << loop_control.get_cond().prettyprint() << std::endl;
 
             // Next
             VectorizerVisitorLoopNext visitor_loop_next(_environment);
