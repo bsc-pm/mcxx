@@ -17846,6 +17846,18 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
                             type_get_size(get_unqualified_type(no_ref(dest_type))),
                             /* sign */ 0);
                     break;
+                case SCI_COMPLEX_TO_FLOAT_CONVERSION:
+                    val = const_value_cast_to_floating_type_value(
+                            const_value_complex_get_real_part(val),
+                            get_unqualified_type(no_ref(dest_type)));
+                    break;
+                case SCI_COMPLEX_TO_INTEGRAL_CONVERSION:
+                    val = const_value_cast_to_bytes(
+                            const_value_complex_get_real_part(val),
+                            type_get_size(get_unqualified_type(no_ref(dest_type))),
+                            is_signed_integral_type(get_unqualified_type(no_ref(dest_type))));
+                    break;
+                case SCI_INTEGRAL_TO_COMPLEX_CONVERSION:
                 case SCI_FLOAT_TO_COMPLEX_CONVERSION:
                 case SCI_FLOAT_TO_COMPLEX_PROMOTION:
                     val = const_value_make_complex(
