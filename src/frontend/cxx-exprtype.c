@@ -17842,9 +17842,9 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
                             type_get_size(get_bool_type()),
                             /* signed */ 1);
                     break;
-                case SCI_POINTER_CONVERSION:
-                    val = const_value_cast_to_bytes(
-                            val,
+                case SCI_ZERO_TO_POINTER_CONVERSION:
+                case SCI_NULLPTR_TO_POINTER_CONVERSION:
+                    val = const_value_get_zero(
                             type_get_size(get_unqualified_type(no_ref(dest_type))),
                             /* sign */ 0);
                     break;
@@ -17859,6 +17859,18 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
                             const_value_cast_to_floating_type_value(
                                 const_value_get_signed_int(0),
                                 complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))));
+                    break;
+                case SCI_INTEGRAL_TO_POINTER_CONVERSION:
+                    val = const_value_cast_to_bytes(
+                            val,
+                            type_get_size(get_unqualified_type(no_ref(dest_type))),
+                            /* sign */ 0);
+                    break;
+                case SCI_POINTER_TO_INTEGRAL_CONVERSION:
+                case SCI_POINTER_TO_VOID_CONVERSION:
+                case SCI_VOID_TO_POINTER_CONVERSION:
+                    // Leave these untouched as pointers have values not defined
+                    // at compile time
                     break;
                 default:
                     internal_error("Do not know how to handle conversion '%s'\n",
