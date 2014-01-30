@@ -2830,12 +2830,22 @@ OPERATOR_TABLE
         return ss.str();
     }
 
+    bool is_numerical_label(std::string str)
+    {
+        for (unsigned int i = 0; i < str.size(); ++i)
+        {
+            if (str[i] < '0' || str[i] > '9')
+                return false;
+        }
+        return true;
+    }
+
     std::string FortranBase::rename(TL::Symbol sym)
     {
         if (_name_set_stack.empty())
             return sym.get_name();
 
-        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(),
                 "Mismatch between rename map stack and name set stack", 0);
 
         name_set_t& name_set = _name_set_stack.back();
@@ -2848,7 +2858,8 @@ OPERATOR_TABLE
         // There are several cases where we do not allow renaming at all
         if (sym.is_intrinsic()
                 || sym.is_member()
-                || sym.is_from_module())
+                || sym.is_from_module()
+                || (sym.is_label() && is_numerical_label(sym.get_name())))
         {
             result = sym.get_name();
         }
