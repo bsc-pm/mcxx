@@ -131,6 +131,54 @@ namespace TL { namespace Nanox {
             // Propagate ALLOCATABLE attribute
             parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
 
+            // Make sure we have a proper module info in the context of the parameter
+            scope_entry_t* new_used_modules_info =
+                ::get_or_create_used_modules_symbol_info(parameters[0].get_scope().get_decl_context());
+
+            type_t* basic_type = no_ref(parameters[0].get_internal_symbol()->type_information);
+
+            while (is_pointer_type(basic_type)
+                    || fortran_is_array_type(basic_type))
+            {
+                if (is_pointer_type(basic_type))
+                    basic_type = pointer_type_get_pointee_type(basic_type);
+                else if (fortran_is_array_type(basic_type))
+                    basic_type = array_type_get_element_type(basic_type);
+            }
+
+            // The type may come from a module, emit a USE
+            if (is_named_class_type(basic_type)
+                    && !named_type_get_symbol(basic_type)->entity_specs.from_module
+                    && named_type_get_symbol(basic_type)->entity_specs.in_module)
+            {
+                scope_entry_t* orig_symbol =
+                        named_type_get_symbol(basic_type);
+
+                // Insert the symbol from the module in the local scope
+                scope_entry_t* used_symbol = insert_symbol_from_module(
+                        orig_symbol,
+                        parameters[0].get_scope().get_decl_context(),
+                        orig_symbol->symbol_name,
+                        orig_symbol->entity_specs.in_module,
+                        NULL);
+
+                // Update the type to refer to the USEd one and not the original
+                // from the module
+                parameters[0].get_internal_symbol()->type_information =
+                    fortran_update_basic_type_with_type(
+                            parameters[0].get_internal_symbol()->type_information,
+                            get_user_defined_type(used_symbol));
+
+                // Add an explicit USE statement
+                new_used_modules_info->value = nodecl_make_list_1(
+                        nodecl_make_fortran_use_only(
+                            nodecl_make_symbol(orig_symbol->entity_specs.in_module, NULL),
+                            nodecl_make_list_1(
+                                nodecl_make_symbol(used_symbol, NULL)),
+                            NULL));
+
+            }
+
             Source src;
             src << "extern void* " << ss.str() << "_ (void*p)"
                 << "{"
@@ -146,6 +194,7 @@ namespace TL { namespace Nanox {
             Nodecl::List& extra_c_code = Lowering::get_extra_c_code();
 
             extra_c_code.append(n);
+
 
             return result;
         }
