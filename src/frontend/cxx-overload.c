@@ -2119,7 +2119,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             fprintf(stderr, "OVERLOAD: List of called conversors\n");
         }
         int i;
-        for (i = 0; i < best_viable->candidate->num_args; i++)
+        for (i = 0; i < best_viable->num_ics_arguments; i++)
         {
             if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
             {
