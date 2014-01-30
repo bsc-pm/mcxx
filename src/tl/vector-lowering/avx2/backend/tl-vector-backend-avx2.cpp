@@ -1192,47 +1192,16 @@ namespace TL
 
         void AVX2VectorLowering::visit(const Nodecl::VectorConversion& node) 
         {
-            const Nodecl::NodeclBase nest = node.get_nest();
-            const Nodecl::NodeclBase mask = node.get_mask();
+            const TL::Type& src_type = node.get_nest().get_type().basic_type().get_unqualified_type();
+            const TL::Type& dst_type = node.get_type().basic_type().get_unqualified_type();
 
-            const TL::Type& src_vector_type = nest.get_type().get_unqualified_type().no_ref();
-            const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
-            const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
-            const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
-            const int src_type_size = src_type.get_size();
-            const int dst_type_size = dst_type.get_size();
-/*
-            printf("Conversion from %s(%s) to %s(%s)\n",
-                    src_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
-*/
-            //const unsigned int src_num_elements = src_vector_type.vector_num_elements();
-            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
+            TL::Source intrin_src;
 
-            TL::Source intrin_src, intrin_name, intrin_op_name,
-                mask_prefix, args, mask_args, extra_args;
-
-            intrin_src << intrin_name
-                << "("
-                << args
-                << ")"
-                ;
-
-            intrin_name << AVX2_INTRIN_PREFIX
-                << mask_prefix
-                << "_"
-                << intrin_op_name
-                ;
-
-            process_mask_component(mask, mask_prefix, mask_args, dst_type);
-
-            walk(nest);
+            walk(node.get_nest());
 
             if (src_type.is_same_type(dst_type))
             {
-                node.replace(nest);
+                node.replace(node.get_nest());
                 return;
             }
             else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
@@ -1248,79 +1217,36 @@ namespace TL
                     (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
                     (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
             {
-                node.replace(nest);
+                node.replace(node.get_nest());
                 return;
             }
-            // SIZE_DST == SIZE_SRC
-            else if (src_type_size == dst_type_size)
-            {
-                extra_args << ", "
-                    << "_MM_ROUND_MODE_NEAREST"
-                    << ", "
-                    << "_MM_EXPADJ_NONE"
-                    ;
-
-                if (src_type.is_signed_int() &&
-                        dst_type.is_float()) 
-                { 
-                    intrin_op_name << "cvtfxpnt_round_adjustepi32_ps";
-                } 
-                else if (src_type.is_unsigned_int() &&
-                        dst_type.is_float()) 
-                { 
-                    intrin_op_name << "cvtfxpnt_round_adjustepu32_ps";
-                } 
-                else if (src_type.is_float() &&
-                        dst_type.is_signed_int()) 
-                { 
-                    // C/C++ requires truncated conversion
-                    intrin_op_name << "cvtfxpnt_round_adjustps_si" << AVX2_VECTOR_BIT_SIZE;
-                }
-                else if (src_type.is_float() &&
-                        dst_type.is_unsigned_int()) 
-                { 
-                    // C/C++ requires truncated conversion
-                    intrin_op_name << "cvtfxpnt_round_adjustps_epu32";
-                }
+            else if (src_type.is_signed_int() &&
+                    dst_type.is_float()) 
+            { 
+                intrin_src << AVX2_INTRIN_PREFIX << "_cvtepi32_ps"
+                    << "("
+                    << as_expression(node.get_nest())
+                    << intrin_src 
+                    << ")"; 
+            } 
+            else if (src_type.is_float() &&
+                    dst_type.is_signed_int()) 
+            { 
+                // C/C++ requires truncated conversion
+                intrin_src << AVX2_INTRIN_PREFIX << "_cvttps_epi32"
+                    << "("
+                    << as_expression(node.get_nest())
+                    << intrin_src 
+                    << ")"; 
             }
-            // SIZE_DST > SIZE_SRC
-            else if (src_type_size < dst_type_size)
+            else
             {
-                // From float8 to double8
-                if (src_type.is_float() && dst_type.is_double() && (dst_num_elements == 8))
-                {
-                    intrin_op_name << "cvtpslo_pd";
-                }
-                // From int8 to double8
-                else if (src_type.is_signed_int() && dst_type.is_double() && (dst_num_elements == 8))
-                {
-                    intrin_op_name << "cvtepi32lo_pd";
-                }
-                else if (src_type.is_unsigned_int() && dst_type.is_double() && (dst_num_elements == 8))
-                {
-                    intrin_op_name << "cvtepu32lo_pd";
-                }
-            }
-            // SIZE_DST < SIZE_SRC
-            else if (src_type_size > dst_type_size)
-            {
-            }
-
-            if (intrin_op_name.empty())
-            {
-                fprintf(stderr, "AVX2 Lowering: Masked conversion from '%s' to '%s' at '%s' is not supported yet: %s\n",
-                        src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                        dst_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
+                fprintf(stderr, "SSE Lowering: Conversion at '%s' is not supported yet: %s\n", 
                         locus_to_str(node.get_locus()),
-                        nest.prettyprint().c_str());
+                        node.get_nest().prettyprint().c_str());
             }   
 
-            args << mask_args
-                << as_expression(nest)
-                << extra_args
-                ;
-
-            Nodecl::NodeclBase function_call = 
+            Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
@@ -1911,12 +1837,10 @@ namespace TL
             if (type.is_float()) 
             { 
                 intrin_type_suffix << "ps";
-                extra_args << "_MM_DOWNCONV_PS_NONE";
             } 
             else if (type.is_signed_int() || type.is_unsigned_int()) 
             { 
                 intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-                extra_args << "_MM_DOWNCONV_EPI32_NONE";
             }
             else
             {
@@ -1936,15 +1860,13 @@ namespace TL
             walk(strides);
 
             args << mask_args
+                << as_expression(base) 
+                << ", "
                 << as_expression(strides)
                 << ", "
-                << as_expression(base) 
-                << ", " 
                 << extra_args
                 << ", "
                 << type.get_size()
-                << ", "
-                << _MM_HINT_NONE
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -1955,86 +1877,7 @@ namespace TL
 
         void AVX2VectorLowering::visit(const Nodecl::VectorScatter& node) 
         { 
-            const Nodecl::NodeclBase base = node.get_base();
-            const Nodecl::NodeclBase strides = node.get_strides();
-            const Nodecl::NodeclBase source = node.get_source();
-            const Nodecl::NodeclBase mask = node.get_mask();
-
-            TL::Type type = source.get_type().basic_type();
-            TL::Type index_type = strides.get_type().basic_type();
-
-            TL::Source intrin_src, intrin_name, intrin_op_name, intrin_type_suffix,
-                mask_prefix, args, mask_args, extra_args;
-
-            intrin_src << intrin_name
-                << "("
-                << args
-                << ")"
-                ;
-
-            intrin_name << AVX2_INTRIN_PREFIX
-                << mask_prefix
-                << "_"
-                << intrin_op_name
-                << "_"
-                << intrin_type_suffix
-                ;
-
-            process_mask_component(mask, mask_prefix, mask_args, type,
-                    AVX2ConfigMaskProcessing::ONLY_MASK);
-
-            intrin_op_name << "i32extscatter";
-
-
-            // Indexes
-            if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()) &&
-                  (!index_type.is_signed_long_int()) && (!index_type.is_unsigned_long_int())) 
-            { 
-                internal_error("AVX2 Lowering: Node %s at %s has an unsupported index type.", 
-                        ast_print_node_type(node.get_kind()),
-                        locus_to_str(node.get_locus()));
-            }
-
-            // Source
-            if (type.is_float()) 
-            { 
-                intrin_type_suffix << "ps";
-                extra_args << "_MM_DOWNCONV_PS_NONE";
-            } 
-            else if (type.is_signed_int() || type.is_unsigned_int()) 
-            { 
-                intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-                extra_args << "_MM_DOWNCONV_EPI32_NONE";
-            }
-            else
-            {
-                internal_error("AVX2 Lowering: Node %s at %s has an unsupported source type.", 
-                        ast_print_node_type(node.get_kind()),
-                        locus_to_str(node.get_locus()));
-            }
-
-            walk(base);
-            walk(strides);
-            walk(source);
-
-            args << as_expression(base)
-                << ", "
-                << mask_args
-                << as_expression(strides)
-                << ", "
-                << as_expression(source)
-                << ", "
-                << extra_args
-                << ", "
-                << type.get_size()
-                << ", "
-                << _MM_HINT_NONE
-                ;
-
-            Nodecl::NodeclBase function_call =
-                intrin_src.parse_expression(node.retrieve_context());
-
-            node.replace(function_call);
+            internal_error("AVX2 Lowering: Scatter operations are not supported", 0);
         }
  
         void AVX2VectorLowering::visit(const Nodecl::VectorFunctionCall& node) 

@@ -898,6 +898,14 @@ namespace TL
             }
             else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
                     (dst_type.is_signed_int() && src_type.is_unsigned_int()) ||
+                    (src_type.is_signed_int() && dst_type.is_signed_long_int()) ||
+                    (src_type.is_signed_int() && dst_type.is_unsigned_long_int()) ||
+                    (src_type.is_unsigned_int() && dst_type.is_signed_long_int()) ||
+                    (src_type.is_unsigned_int() && dst_type.is_unsigned_long_int()) ||
+                    (src_type.is_signed_int() && src_type.is_signed_long_int()) ||
+                    (src_type.is_signed_int() && src_type.is_unsigned_long_int()) ||
+                    (src_type.is_unsigned_int() && src_type.is_signed_long_int()) ||
+                    (src_type.is_unsigned_int() && src_type.is_unsigned_long_int()) ||
                     (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
                     (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
             {
