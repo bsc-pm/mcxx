@@ -1153,6 +1153,8 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
     if (scs.conv[1] == SCI_INTEGRAL_CONVERSION
             || scs.conv[1] == SCI_FLOATING_CONVERSION
             || scs.conv[1] == SCI_FLOATING_INTEGRAL_CONVERSION
+            || scs.conv[1] == SCI_INTEGRAL_TO_COMPLEX_CONVERSION
+            || scs.conv[1] == SCI_COMPLEX_TO_INTEGRAL_CONVERSION
             || scs.conv[1] == SCI_INTEGRAL_FLOATING_CONVERSION
             || is_pointer_conversion(scs.conv[1])
             || scs.conv[1] == SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION

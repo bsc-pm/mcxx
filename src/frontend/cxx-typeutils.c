@@ -10536,7 +10536,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying integer to (complex-)floating-integral conversion\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_TO_COMPLEX_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10550,7 +10550,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying complex-float to integral conversion\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_COMPLEX_TO_INTEGRAL_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
