@@ -17867,8 +17867,9 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
                 case SCI_POINTER_TO_INTEGRAL_CONVERSION:
                 case SCI_POINTER_TO_VOID_CONVERSION:
                 case SCI_VOID_TO_POINTER_CONVERSION:
-                    // Leave these untouched as pointers have values not defined
-                    // at compile time
+                case SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION:
+                case SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION:
+                    // Leave these untouched
                     break;
                 default:
                     internal_error("Do not know how to handle conversion '%s'\n",
