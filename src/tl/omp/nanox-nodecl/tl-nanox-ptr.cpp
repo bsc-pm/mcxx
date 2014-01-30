@@ -148,11 +148,16 @@ namespace TL { namespace Nanox {
 
             // The type may come from a module, emit a USE
             if (is_named_class_type(basic_type)
-                    && !named_type_get_symbol(basic_type)->entity_specs.from_module
-                    && named_type_get_symbol(basic_type)->entity_specs.in_module)
+                    && (named_type_get_symbol(basic_type)->entity_specs.in_module
+                        || named_type_get_symbol(basic_type)->entity_specs.from_module))
             {
                 scope_entry_t* orig_symbol =
                         named_type_get_symbol(basic_type);
+
+                scope_entry_t* module =
+                    orig_symbol->entity_specs.from_module;
+                if (module == NULL)
+                    module = orig_symbol->entity_specs.in_module;
 
                 // Insert the symbol from the module in the local scope
                 scope_entry_t* used_symbol = insert_symbol_from_module(
