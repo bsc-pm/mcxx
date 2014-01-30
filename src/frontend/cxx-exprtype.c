@@ -17801,17 +17801,15 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
     char is_value_dep = nodecl_expr_is_value_dependent(expr);
     const_value_t* val = nodecl_get_constant(expr);
 
+    standard_conversion_t scs;
+    char there_is_a_scs = standard_conversion_between_types(
+            &scs,
+            get_unqualified_type(no_ref(nodecl_get_type(expr))),
+            get_unqualified_type(no_ref(dest_type)));
     if (val != NULL)
     {
-        // Convert the value
-        standard_conversion_t scs;
-
         // There may not be a standard conversion sequence
         // (but a user-defined sequence, this is not an error)
-        char there_is_a_scs = standard_conversion_between_types(
-                &scs,
-                get_unqualified_type(no_ref(nodecl_get_type(expr))),
-                get_unqualified_type(no_ref(dest_type)));
         if (there_is_a_scs)
         {
             // The conversions involving values are in scs.conv[1]
@@ -17875,6 +17873,24 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
                 default:
                     internal_error("Do not know how to handle conversion '%s'\n",
                             sci_conversion_to_str(scs.conv[1]));
+            }
+        }
+    }
+
+    if (!checking_ambiguity())
+    {
+        if (there_is_a_scs)
+        {
+            // Emit a warning for some common cases
+            if (scs.conv[1] == SCI_INTEGRAL_TO_POINTER_CONVERSION)
+            {
+                warn_printf("%s: warning: conversion from integer type to pointer type\n",
+                        locus_to_str(locus));
+            }
+            else if (scs.conv[2] == SCI_POINTER_TO_INTEGRAL_CONVERSION)
+            {
+                warn_printf("%s: warning: conversion from pointer type to integer\n",
+                        locus_to_str(locus));
             }
         }
     }
