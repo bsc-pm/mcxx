@@ -2253,33 +2253,45 @@ namespace TL
 
         void AVX2VectorLowering::visit(const Nodecl::VectorReductionAdd& node) 
         { 
-            TL::Type type = node.get_type().basic_type();
+            Nodecl::NodeclBase vector_src = node.get_vector_src();
+            Nodecl::NodeclBase scalar_dst = node.get_scalar_dst();
 
-            TL::Source intrin_src, intrin_name, extract_src;
+            TL::Type vtype = vector_src.get_type().no_ref();
+            TL::Type type = scalar_dst.get_type().basic_type();
+            
+            walk(scalar_dst);
+            walk(vector_src);
 
-            intrin_name << "_mm256_hadd";
+            TL::Source intrin_src, horizontal_256_op_src, horizontal_128_op_src, 
+                horizontal_128_intrin_src, extract_op_src, extract_intrin_src, 
+                sse_suffix_elem, avx_suffix_type;
 
-            // Postfix
+            intrin_src << as_expression(scalar_dst)
+                << " = ({"
+                << horizontal_256_op_src
+                << horizontal_128_op_src
+                << horizontal_128_op_src
+                << extract_op_src
+                << "})";
+
             if (type.is_float()) 
             { 
-                intrin_name << "_ps"; 
-                extract_src << "_mm_extract_ps";
+                extract_intrin_src << "_mm_cvtss_f32";
+                sse_suffix_elem << "ps";
+                avx_suffix_type << "ps";
             } 
             else if (type.is_double()) 
             { 
-                intrin_name << "_pd"; 
+                extract_intrin_src << "_mm_cvtsd_f64";
+                sse_suffix_elem << "pd";
+                avx_suffix_type << "pd";
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_name << "_epi32"; 
-                extract_src << "_mm_extract_epi32";
-            } 
-            else if (type.is_signed_short_int() ||
-                    type.is_unsigned_short_int()) 
-            { 
-                intrin_name << "_epi16"; 
-                extract_src << "_mm_extract_epi16";
+                extract_intrin_src << "_mm_cvtsi128_si32";
+                sse_suffix_elem << "epi32";
+                avx_suffix_type << "si256";
             } 
             else
             {
@@ -2289,7 +2301,53 @@ namespace TL
             }      
             //std::cerr << node.get_lhs().prettyprint() << " " << node.get_rhs().prettyprint();
 
-        }
+            horizontal_128_intrin_src 
+                << "_mm_hadd_"
+                << sse_suffix_elem
+                ; 
+
+            horizontal_256_op_src
+                << print_type_str(vtype.basic_type().get_vector_of_elements(
+                            vtype.vector_num_elements()/2).get_internal_type(), 
+                        node.retrieve_context().get_decl_context())
+                << " __rtmp0"
+                << " = "
+                << "_mm_add_" << sse_suffix_elem
+                << "("
+                << "_mm256_extractf128_" << avx_suffix_type
+                << "("
+                << as_expression(vector_src)
+                << ", "
+                << "0"
+                << "),"
+                << "_mm256_extractf128_" << avx_suffix_type
+                << "("
+                << as_expression(vector_src)
+                << ", "
+                << "1"
+                << "));";
+                ;
+
+            horizontal_128_op_src
+                << "__rtmp0 = "
+                << horizontal_128_intrin_src
+                << "(" 
+                << "__rtmp0"
+                << ", "
+                << "__rtmp0"
+                << ");";
+
+            extract_op_src
+                << extract_intrin_src
+                << "(" 
+                << "__rtmp0"
+                << ");";
+
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }                                                 
 
         void AVX2VectorLowering::visit(const Nodecl::VectorReductionMinus& node) 
         {
