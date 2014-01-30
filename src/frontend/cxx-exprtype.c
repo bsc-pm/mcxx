@@ -13060,8 +13060,30 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     if (array_type_is_unknown_size(declared_type))
                         type_stack[type_stack_idx].num_items = -1;
                     else
+                    {
+                        if (nodecl_is_null(array_type_get_array_size_expr(declared_type)))
+                        {
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s: error: initialization not allowed for arrays of undefined size\n",
+                                        nodecl_locus_to_str(braced_initializer));
+                            }
+                            *nodecl_output = nodecl_make_err_expr(locus);
+                            return;
+                        }
+                        if (!nodecl_is_constant(array_type_get_array_size_expr(declared_type)))
+                        {
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s: error: initialization not allowed for variable-length arrays\n",
+                                        nodecl_locus_to_str(braced_initializer));
+                            }
+                            *nodecl_output = nodecl_make_err_expr(locus);
+                            return;
+                        }
                         type_stack[type_stack_idx].num_items =
                             const_value_cast_to_signed_int(nodecl_get_constant(array_type_get_array_size_expr(declared_type)));
+                    }
                 }
                 else if (is_vector_type(declared_type))
                 {
