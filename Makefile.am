@@ -1094,6 +1094,30 @@ ANALYSIS_CFLAGS=-I$(top_srcdir)/src/tl/analysis/common -I$(top_srcdir)/src/tl/an
 		-I$(top_srcdir)/src/tl/optimizations
 ANALYSIS_LIBADD=src/tl/analysis/common/libanalysis_utils.la src/tl/analysis/pcfg/libpcfg.la
 
+##########################################################################
+# src/tl/optimizations
+##########################################################################
+
+if BUILD_OPTIMIZATIONS
+lib_LTLIBRARIES += src/tl/optimizations/libtloptimizations.la
+
+src_tl_optimizations_libtloptimizations_la_CFLAGS = $(tl_cflags) 
+src_tl_optimizations_libtloptimizations_la_CXXFLAGS = $(tl_cflags)
+
+src_tl_optimizations_libtloptimizations_la_LDFLAGS = $(tl_ldflagss)
+src_tl_optimizations_libtloptimizations_la_LIBADD = $(tl_libadd)
+
+src_tl_optimizations_libtloptimizations_la_SOURCES = \
+                           src/tl/optimizations/tl-optimizations.hpp \
+                           src/tl/optimizations/tl-expression-reduction.hpp \
+                           src/tl/optimizations/tl-expression-reduction.cpp \
+                           src/tl/optimizations/tl-nodecl-calc.hpp \
+                           src/tl/optimizations/tl-nodecl-calc.cpp \
+                           src/tl/optimizations/tl-strength-reduction.hpp \
+                           src/tl/optimizations/tl-strength-reduction.cpp \
+                           $(END)
+endif
+
 if BUILD_ANALYSIS
 
 ##########################################################################
@@ -2215,30 +2239,6 @@ src_tl_codegen_gpu_cuda_libcodegen_cuda_la_SOURCES = \
 	 src/tl/codegen/gpu/cuda/codegen-cuda.hpp \
 	 src/tl/codegen/gpu/cuda/codegen-cuda.cpp \
   	 $(END)
-
-##########################################################################
-# src/tl/optimizations
-##########################################################################
-
-if BUILD_OPTIMIZATIONS
-lib_LTLIBRARIES += src/tl/optimizations/libtloptimizations.la
-
-src_tl_optimizations_libtloptimizations_la_CFLAGS = $(tl_cflags) 
-src_tl_optimizations_libtloptimizations_la_CXXFLAGS = $(tl_cflags)
-
-src_tl_optimizations_libtloptimizations_la_LDFLAGS = $(tl_ldflagss)
-src_tl_optimizations_libtloptimizations_la_LIBADD = $(tl_libadd)
-
-src_tl_optimizations_libtloptimizations_la_SOURCES = \
-                           src/tl/optimizations/tl-optimizations.hpp \
-                           src/tl/optimizations/tl-expression-reduction.hpp \
-                           src/tl/optimizations/tl-expression-reduction.cpp \
-                           src/tl/optimizations/tl-nodecl-calc.hpp \
-                           src/tl/optimizations/tl-nodecl-calc.cpp \
-                           src/tl/optimizations/tl-strength-reduction.hpp \
-                           src/tl/optimizations/tl-strength-reduction.cpp \
-                           $(END)
-endif
 
 ##########################################################################
 # src/mcxx_tl
