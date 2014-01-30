@@ -10057,7 +10057,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             // std::nullptr_t&& -> null pointer value is already a rvalue
             // null pointer value -> c2 T2*&&
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
             if (is_more_cv_qualified_type(ref_dest, ref_orig))
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
@@ -10385,7 +10385,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying pointer-conversion from 0 to pointer\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_ZERO_TO_POINTER_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10399,7 +10399,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying pointer-conversion from std::nullptr_t to pointer\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10410,7 +10410,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying pointer-conversion to void*\n");
             }
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_POINTER_TO_VOID_CONVERSION;
 
             // We need to keep the cv-qualification of the original pointer
             // e.g.: 'const int*' -> 'void*'
@@ -10420,7 +10420,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                         get_cv_qualifier(pointer_type_get_pointee_type(orig))));
         }
         else if (IS_C_LANGUAGE
-                && is_pointer_type(dest) 
+                && is_pointer_type(dest)
                 && !is_pointer_to_void_type(dest)
                 && is_pointer_to_void_type(orig))
         {
@@ -10433,7 +10433,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying pointer-conversion from void* to another pointer type\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_VOID_TO_POINTER_CONVERSION;
             dest = get_unqualified_type(orig);
         }
         else if (IS_C_LANGUAGE
@@ -10452,7 +10452,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_TO_POINTER_CONVERSION;
             dest = get_unqualified_type(orig);
         }
         else if (IS_C_LANGUAGE
@@ -10472,7 +10472,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_POINTER_TO_INTEGRAL_CONVERSION;
             dest = get_unqualified_type(orig);
         }
         else if (is_pointer_to_class_type(orig)
@@ -10483,7 +10483,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying pointer conversion to pointer to base class\n");
             }
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION;
             // Note that we make orig to be the dest class pointer, because we want
             // to state qualification conversion later
             orig = get_pointer_type(
@@ -10502,7 +10502,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying pointer-to-member conversion to pointer-to-member of derived class\n");
             }
-            (*result).conv[1] = SCI_POINTER_TO_MEMBER_CONVERSION;
+            (*result).conv[1] = SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION;
             // Note that orig is converted to an unqualified version of the dest type.
             // Given dest as 'cv1 T (A::* cv2)' we will set orig to 'T (A::*)'
             orig = get_pointer_to_member_type(
