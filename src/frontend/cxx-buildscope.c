@@ -9304,7 +9304,7 @@ static void set_array_type(type_t** declarator_type,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: declaratio of array type of an unbounded array type '%s'\n",
+                error_printf("%s: error: declaration of array type of an unbounded array type '%s'\n",
                         locus_to_str(locus),
                         print_type_str(element_type, decl_context));
             }
