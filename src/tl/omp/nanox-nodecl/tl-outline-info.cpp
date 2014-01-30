@@ -718,7 +718,6 @@ namespace TL { namespace Nanox {
                                     sym.get_name().c_str());
                         }
                     }
-                    make_allocatable = false;
                 }
             }
             else if (upper.is<Nodecl::Symbol>()
@@ -737,6 +736,14 @@ namespace TL { namespace Nanox {
             }
 
             TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable, conditional_bound);
+
+            if (upper.is_null()
+                    && !t.array_requires_descriptor())
+            {
+                // This array is an assumed size, do not use a descriptor for it
+                make_allocatable = false;
+            }
+
             if (make_allocatable)
             {
                 res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
