@@ -1143,7 +1143,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
             {
                 nodecl_t list = nodecl_null();
 
-                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(basic_type);
+                type_t* t = v->value.m->struct_type;
+
+                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(t);
 
                 int i;
                 scope_entry_list_iterator_t* it_member = NULL;
@@ -1160,8 +1162,6 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 entry_list_iterator_free(it_member);
 
                 entry_list_free(data_members);
-
-                type_t* t = v->value.m->struct_type;
 
                 nodecl_t result = nodecl_make_structured_value(
                         list, t,
