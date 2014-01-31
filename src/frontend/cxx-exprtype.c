@@ -1042,30 +1042,31 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             if (nodecl_is_constant(*nodecl_output))
             {
                 const_value_t* v = nodecl_get_constant(*nodecl_output);
-                fprintf(stderr, " with a constant value of ");
-                if (const_value_is_integer(v))
-                {
-                    if (const_value_is_signed(v))
-                    {
-                        fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
-                    }
-                    else
-                    {
-                        fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
-                    }
-                }
-                else if (const_value_is_float(v))
-                {
-                    fprintf(stderr, " '%f'", const_value_cast_to_float(v));
-                }
-                else if (const_value_is_double(v))
-                {
-                    fprintf(stderr, " '%f'", const_value_cast_to_double(v));
-                }
-                else if (const_value_is_long_double(v))
-                {
-                    fprintf(stderr, " '%Lf'", const_value_cast_to_long_double(v));
-                }
+                fprintf(stderr, " with a constant value of '%s'\n",
+                        codegen_to_str(const_value_to_nodecl(v), decl_context));
+                // if (const_value_is_integer(v))
+                // {
+                //     if (const_value_is_signed(v))
+                //     {
+                //         fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                //     }
+                //     else
+                //     {
+                //         fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                //     }
+                // }
+                // else if (const_value_is_float(v))
+                // {
+                //     fprintf(stderr, " '%f'", const_value_cast_to_float(v));
+                // }
+                // else if (const_value_is_double(v))
+                // {
+                //     fprintf(stderr, " '%f'", const_value_cast_to_double(v));
+                // }
+                // else if (const_value_is_long_double(v))
+                // {
+                //     fprintf(stderr, " '%Lf'", const_value_cast_to_long_double(v));
+                // }
             }
 
             if (nodecl_expr_is_value_dependent(*nodecl_output))
@@ -17994,7 +17995,8 @@ constexpr_function_get_constants_of_arguments(
         // only standard conversions and no user defined conversions
         scope_entry_t* parameter = NULL;
         if (!entry->entity_specs.is_member
-                || entry->entity_specs.is_static)
+                || entry->entity_specs.is_static
+                || entry->entity_specs.is_constructor)
         {
             ERROR_CONDITION(i >= entry->entity_specs.num_related_symbols,
                     "Too many arguments", 0);
@@ -18087,7 +18089,88 @@ static nodecl_t constexpr_replace_parameters_with_values(nodecl_t n,
     return nodecl_result;
 }
 
-static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry,
+static const_value_t* evaluate_constexpr_constructor(
+        scope_entry_t* entry,
+        nodecl_t nodecl_function_code,
+        int num_map_items,
+        map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
+{
+    nodecl_t nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
+
+    type_t* class_type = entry->entity_specs.class_type;
+
+    scope_entry_t** data_members = NULL;
+    int num_data_members = 0;
+
+    scope_entry_list_t* data_members_list = class_type_get_nonstatic_data_members(class_type);
+    entry_list_to_symbol_array(data_members_list, &data_members, &num_data_members);
+    entry_list_free(data_members_list);
+
+    const_value_t** values = xcalloc(num_data_members, sizeof(*values));
+
+    int i, N = 0;
+    nodecl_t *nodecl_list = nodecl_unpack_list(nodecl_initializers, &N);
+
+    for (i = 0; i < N; i++)
+    {
+        // scope_entry_t* symbol = nodecl_get_symbol(nodecl_list[i]);
+        nodecl_t nodecl_expr = nodecl_get_child(nodecl_list[i], 0);
+
+        nodecl_t nodecl_replaced_expr = constexpr_replace_parameters_with_values(
+                nodecl_expr,
+                num_map_items,
+                map_of_parameters_and_values);
+
+        nodecl_t nodecl_evaluated_expr = instantiate_expression(
+                nodecl_replaced_expr,
+                nodecl_retrieve_context(nodecl_function_code),
+                /* instantiation_symbol_map */ NULL,
+                /* pack_index */ -1);
+        
+        values[i] = nodecl_get_constant(nodecl_evaluated_expr);
+
+        if (values[i] == NULL)
+        {
+            xfree(data_members);
+            xfree(values);
+            return NULL;
+        }
+    }
+
+    const_value_t* structured_value =
+        const_value_make_struct(num_data_members, values, class_type);
+
+    xfree(data_members);
+    xfree(values);
+
+    return structured_value;
+}
+
+static const_value_t* evaluate_constexpr_regular_function_call(
+        scope_entry_t* entry UNUSED_PARAMETER,
+        nodecl_t nodecl_function_code,
+        int num_map_items,
+        map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
+{
+    nodecl_t nodecl_returned_expression =
+        constexpr_function_get_returned_expression(nodecl_function_code);
+
+    // Replace parameter ocurrences with values
+    nodecl_t nodecl_replace_parameters = constexpr_replace_parameters_with_values(
+            nodecl_returned_expression,
+            num_map_items,
+            map_of_parameters_and_values);
+
+    // Now review the expression again in order to evaluate it
+    nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_replace_parameters,
+            nodecl_retrieve_context(nodecl_function_code),
+            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+
+    return nodecl_get_constant(nodecl_evaluated_expr);
+}
+
+static const_value_t* evaluate_constexpr_function_call(
+        scope_entry_t* entry,
         nodecl_t converted_arg_list,
         const locus_t* locus)
 {
@@ -18127,36 +18210,27 @@ static const_value_t* evaluate_constexpr_function_call(scope_entry_t* entry,
 
     ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "A defined function must have a body", 0);
 
+    const_value_t* value = NULL;
     if (entry->entity_specs.is_constructor)
     {
-        if (!checking_ambiguity())
-        {
-            warn_printf("%s: warning: call to constexpr constructor not implemented yet\n", locus_to_str(locus));
-        }
-        return NULL;
+        value = evaluate_constexpr_constructor(
+                entry,
+                nodecl_function_code,
+                num_map_items,
+                map_of_parameters_and_values);
     }
     else
     {
-        nodecl_t nodecl_returned_expression =
-            constexpr_function_get_returned_expression(nodecl_function_code);
-
-        // Replace parameter ocurrences with values
-        nodecl_t nodecl_replace_parameters = constexpr_replace_parameters_with_values(
-                nodecl_returned_expression,
+        value = evaluate_constexpr_regular_function_call(
+                entry,
+                nodecl_function_code,
                 num_map_items,
                 map_of_parameters_and_values);
-        xfree(map_of_parameters_and_values);
-
-        // Now review the expression again in order to evaluate it
-        nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_replace_parameters,
-                nodecl_retrieve_context(nodecl_function_code),
-                /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
-
-        return nodecl_get_constant(nodecl_evaluated_expr);
     }
 
+    xfree(map_of_parameters_and_values);
 
-    return NULL;
+    return value;
 }
 
 nodecl_t cxx_nodecl_make_function_call(
