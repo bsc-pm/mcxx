@@ -84,7 +84,9 @@ namespace TL
             }
             else
             {            
-                running_error("AVX2 Lowering: casting intrinsic not supported");
+                running_error("AVX2 Lowering: casting from %s to %s is not supported",
+                        print_type_str(type_from.get_internal_type(), CURRENT_COMPILED_FILE->global_decl_context),
+                        print_type_str(type_to.get_internal_type(), CURRENT_COMPILED_FILE->global_decl_context));
             }
 
             return result.str(); 
@@ -1327,7 +1329,7 @@ namespace TL
             }
             else
             {
-                fprintf(stderr, "SSE Lowering: Conversion at '%s' is not supported yet: %s\n", 
+                fprintf(stderr, "AVX2 Lowering: Conversion at '%s' is not supported yet: %s\n", 
                         locus_to_str(node.get_locus()),
                         node.get_nest().prettyprint().c_str());
             }   
@@ -1482,7 +1484,7 @@ namespace TL
 
             TL::Type true_type = true_node.get_type().basic_type();
             TL::Type false_type = false_node.get_type().basic_type();
-            TL::Type condiition_type = condition_node.get_type();
+            TL::Type condition_type = condition_node.get_type();
 
             std::string casting;
 
@@ -1524,8 +1526,11 @@ namespace TL
                 << ", "
                 << as_expression(true_node)
                 << ", "
+                << get_casting_intrinsic(TL::Type::get_int_type(),
+                        true_type.basic_type())
+                << "("
                 << as_expression(condition_node)
-                << ")"; 
+                << "))"; 
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
@@ -1554,67 +1559,10 @@ namespace TL
 
             walk(lhs);
 
-            if (mask.is_null())
+//            if (mask.is_null())
             {
                 walk(rhs);
                 args << as_expression(rhs);
-            }
-            else
-            {
-                // LHS has old_value of rhs
-                _old_m512.push_back(lhs);
-
-                // Visit RHS with lhs as old
-                walk(rhs);
-
-                // Nodes that needs implicit blending
-                if (!_old_m512.empty())
-                {
-                    if (lhs != _old_m512.back())
-                    {
-                        internal_error("AVX2 Lowering: Different old value and lhs in assignment with blend. LHS node '%s'. Old '%s'. At %s", 
-                                lhs.prettyprint().c_str(),
-                                _old_m512.back().prettyprint().c_str(),
-                                locus_to_str(node.get_locus()));
-                    }
-
-                    process_mask_component(mask, mask_prefix, mask_args, type,
-                            Vectorization::AVX2ConfigMaskProcessing::ONLY_MASK);
-
-                    intrin_name << AVX2_INTRIN_PREFIX
-                        << mask_prefix
-                        << "_"
-                        << intrin_op_name
-                        << "_"
-                        << intrin_type_suffix
-                        ;
-
-                    args << mask_args
-                        << as_expression(lhs)
-                        << ", "
-                        << as_expression(rhs)
-                        ;
-
-                    if (type.is_float()) 
-                    {
-                        intrin_op_name << "blend";
-                        intrin_type_suffix << "ps";
-                    } 
-                    else if (type.is_double()) 
-                    { 
-                        intrin_op_name << "blend";
-                        intrin_type_suffix << "pd";
-                    } 
-                    else if (type.is_integral_type()) 
-                    { 
-                        intrin_op_name << "blend";
-                        intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE;
-                    }
-                }
-                else
-                {
-                    args << as_expression(rhs);
-                }
             }
 
             Nodecl::NodeclBase function_call =
@@ -1899,7 +1847,7 @@ namespace TL
             TL::Type index_type = strides.get_type().basic_type();
 
             TL::Source intrin_src, intrin_name, intrin_op_name, intrin_type_suffix,
-                mask_prefix, args, mask_args, extra_args;
+                mask_prefix, args, mask_args;
 
             intrin_src << intrin_name
                 << "("
@@ -1918,7 +1866,7 @@ namespace TL
             process_mask_component(mask, mask_prefix, mask_args, type);
 
 
-            intrin_op_name << "i32extgather";
+            intrin_op_name << "i32gather";
 
             if (type.is_float()) 
             { 
@@ -1949,8 +1897,6 @@ namespace TL
                 << as_expression(base) 
                 << ", "
                 << as_expression(strides)
-                << ", "
-                << extra_args
                 << ", "
                 << type.get_size()
                 ;
@@ -2224,7 +2170,7 @@ namespace TL
             } 
             else
             {
-                running_error("SSE Lowering: Node %s at %s has an unsupported type.", 
+                running_error("AVX2 Lowering: Node %s at %s has an unsupported type.", 
                         ast_print_node_type(node.get_kind()),
                         locus_to_str(node.get_locus()));
             }      
