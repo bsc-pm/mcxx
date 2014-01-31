@@ -653,7 +653,6 @@ namespace TL
 
             // Intrinsic name
             intrin_src << KNC_INTRIN_PREFIX << "_cmp";
-            cmp_flavor << _CMP_GE_OS;
 
             if (type.is_float()) 
             { 

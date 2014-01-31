@@ -131,8 +131,8 @@ namespace TL
 
         void VectorizerVisitorPreprocessor::visit(const Nodecl::ArraySubscript& n)
         {
-            Nodecl::NodeclBase new_array_subscript = Nodecl::Utils::linearize_array_subscript(n);
-            n.replace(new_array_subscript);
+//            Nodecl::NodeclBase new_array_subscript = Nodecl::Utils::linearize_array_subscript(n);
+//            n.replace(new_array_subscript);
         }
 
     }

@@ -517,23 +517,25 @@ namespace TL
         void AVX2VectorLowering::visit(const Nodecl::VectorLowerThan& node) 
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();
+            bool turn;
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, intrin_name;
             TL::Source cmp_flavor;
             
             // Intrinsic name
-            intrin_src << AVX2_INTRIN_PREFIX << "_cmp";
+            intrin_name << AVX2_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
-                cmp_flavor << _CMP_LT_OS;
+                intrin_name << "_ps"; 
+                cmp_flavor << ", " << _CMP_LT_OS;
+                turn = false;
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
-                cmp_flavor << "_MM_CMPINT_LT";
+                intrin_name << "gt_epi32"; 
+                turn = true;
             } 
             else
             {
@@ -545,14 +547,30 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src 
-                << "("
-                << as_expression(node.get_lhs())
-                << ", "
-                << as_expression(node.get_rhs())
-                << ", "
-                << cmp_flavor
-                << ")";
+            if (turn)
+            {
+                intrin_src 
+                    << intrin_name
+                    << "("
+                    << as_expression(node.get_rhs())
+                    << ", "
+                    << as_expression(node.get_lhs())
+                    << cmp_flavor
+                    << ")";
+            }
+            else
+            {
+                intrin_src 
+                    << get_casting_intrinsic(type, TL::Type::get_int_type())
+                    << "("
+                    << intrin_name
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << cmp_flavor
+                    << "))";
+            }
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -564,22 +582,21 @@ namespace TL
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, cmp_intrin_suffix;
             TL::Source cmp_flavor;
-
-            // Intrinsic name
-            intrin_src << AVX2_INTRIN_PREFIX << "_cmp";
+            bool turn;
 
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
-                cmp_flavor << _CMP_LE_OS;
+                cmp_intrin_suffix << "_ps"; 
+                cmp_flavor << ", " << _CMP_LE_OS;
+                turn = false;
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
-                cmp_flavor << "_MM_CMPINT_LE";
+                cmp_intrin_suffix << "_epi32"; 
+                turn = true;
             } 
             else
             {
@@ -591,14 +608,38 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src 
-                << "("
-                << as_expression(node.get_lhs())
-                << ", "
-                << as_expression(node.get_rhs())
-                << ", "
-                << cmp_flavor
-                << ")";
+            if (turn)
+            {
+                intrin_src 
+                    << AVX2_INTRIN_PREFIX << "_or_si" << AVX2_VECTOR_BIT_SIZE 
+                    << "("
+                    << AVX2_INTRIN_PREFIX << "_cmpgt" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_rhs())
+                    << ", "
+                    << as_expression(node.get_lhs())
+                    << "),"
+                    << AVX2_INTRIN_PREFIX << "_cmpeq" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << "))"
+                    ;
+            } 
+            else
+            {
+                intrin_src 
+                    << get_casting_intrinsic(type, TL::Type::get_int_type())
+                    << "("
+                    << AVX2_INTRIN_PREFIX << "_cmp" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << cmp_flavor
+                    << "))";
+            }
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -610,22 +651,21 @@ namespace TL
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, intrin_name;
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << AVX2_INTRIN_PREFIX << "_cmp";
+            intrin_name << AVX2_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
-                cmp_flavor << _CMP_GT_OS;
+                intrin_name << "_ps"; 
+                cmp_flavor << ", " << _CMP_GT_OS;
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
-                cmp_flavor << "_MM_CMPINT_NLE";
+                intrin_name << "gt_epi32"; 
             } 
             else
             {
@@ -638,13 +678,15 @@ namespace TL
             walk(node.get_rhs());
 
             intrin_src 
+                << get_casting_intrinsic(type, TL::Type::get_int_type())
+                << "("
+                << intrin_name
                 << "("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
-                << ", "
                 << cmp_flavor
-                << ")";
+                << "))";
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -656,23 +698,22 @@ namespace TL
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, cmp_intrin_suffix;
             TL::Source cmp_flavor;
+            bool turn;
 
             // Intrinsic name
-            intrin_src << AVX2_INTRIN_PREFIX << "_cmp";
-            cmp_flavor << _CMP_GE_OS;
-
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
-                cmp_flavor << _CMP_GE_OS;
+                cmp_intrin_suffix << "_ps"; 
+                cmp_flavor << ", " << _CMP_GE_OS;
+                turn = false;
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
-                cmp_flavor << "_MM_CMPINT_NLT";
+                cmp_intrin_suffix << "_epi32"; 
+                turn = true;
             } 
             else
             {
@@ -684,14 +725,38 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src 
-                << "("
-                << as_expression(node.get_lhs())
-                << ", "
-                << as_expression(node.get_rhs())
-                << ", "
-                << cmp_flavor
-                << ")";
+            if (turn)
+            {
+                intrin_src 
+                    << AVX2_INTRIN_PREFIX << "_or_si" << AVX2_VECTOR_BIT_SIZE 
+                    << "("
+                    << AVX2_INTRIN_PREFIX << "_cmpgt" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << "),"
+                    << AVX2_INTRIN_PREFIX << "_cmpeq" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << "))"
+                    ;
+            } 
+            else
+            {
+                intrin_src 
+                    << get_casting_intrinsic(type, TL::Type::get_int_type())
+                    << "("
+                    << AVX2_INTRIN_PREFIX << "_cmp" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << cmp_flavor
+                    << "))";
+            }
 
             Nodecl::NodeclBase function_call = 
                     intrin_src.parse_expression(node.retrieve_context());
@@ -703,22 +768,21 @@ namespace TL
         { 
             const TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, intrin_name;
             TL::Source cmp_flavor;
 
             // Intrinsic name
-            intrin_src << AVX2_INTRIN_PREFIX << "_cmp";
+            intrin_name << AVX2_INTRIN_PREFIX << "_cmp";
 
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
-                cmp_flavor << _CMP_EQ_OQ;
+                intrin_name << "_ps"; 
+                cmp_flavor << ", " << _CMP_EQ_OQ;
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
-                cmp_flavor << "_MM_CMPINT_EQ";
+                intrin_name << "eq_epi32"; 
             } 
             else
             {
@@ -731,13 +795,15 @@ namespace TL
             walk(node.get_rhs());
 
             intrin_src  
+                << get_casting_intrinsic(type, TL::Type::get_int_type())
+                << "("
+                << intrin_name
                 << "("
                 << as_expression(node.get_lhs())
                 << ", "
                 << as_expression(node.get_rhs())
-                << ", "
                 << cmp_flavor
-                << ")"
+                << "))"
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -747,25 +813,24 @@ namespace TL
         }                                                 
 
         void AVX2VectorLowering::visit(const Nodecl::VectorDifferent& node)
-        { 
+        {
             const TL::Type type = node.get_lhs().get_type().basic_type();
 
-            TL::Source intrin_src;
+            TL::Source intrin_src, cmp_intrin_suffix;
             TL::Source cmp_flavor;
-
-            // Intrinsic name
-            intrin_src << AVX2_INTRIN_PREFIX << "_cmp";
+            bool turn;
 
             if (type.is_float()) 
             { 
-                intrin_src << "_ps"; 
-                cmp_flavor << _CMP_NEQ_UQ;
+                cmp_intrin_suffix << "_ps"; 
+                cmp_flavor << ", " << _CMP_NEQ_UQ;
+                turn = false;
             } 
             else if (type.is_signed_int() ||
                     type.is_unsigned_int()) 
             { 
-                intrin_src << "_si" << AVX2_VECTOR_BIT_SIZE; 
-                cmp_flavor << "_MM_CMPINT_NE";
+                cmp_intrin_suffix << "_epi32"; 
+                turn = true;
             } 
             else
             {
@@ -777,18 +842,41 @@ namespace TL
             walk(node.get_lhs());
             walk(node.get_rhs());
 
-            intrin_src 
-                << "("
-                << as_expression(node.get_lhs())
-                << ", "
-                << as_expression(node.get_rhs())
-                << ", "
-                << cmp_flavor
-                << ")"
-                ;
+            if (turn)
+            {
+                intrin_src 
+                    << AVX2_INTRIN_PREFIX << "_xor_si" << AVX2_VECTOR_BIT_SIZE 
+                    << "("
+                    << AVX2_INTRIN_PREFIX << "_cmpeq" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << "),"
+                    << AVX2_INTRIN_PREFIX << "_cmpeq" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_lhs())
+                    << "))"
+                    ;
+            } 
+            else
+            {
+                intrin_src 
+                    << get_casting_intrinsic(type, TL::Type::get_int_type())
+                    << "("
+                    << AVX2_INTRIN_PREFIX << "_cmp" << cmp_intrin_suffix
+                    << "("
+                    << as_expression(node.get_lhs())
+                    << ", "
+                    << as_expression(node.get_rhs())
+                    << cmp_flavor
+                    << "))";
+            }
 
-            Nodecl::NodeclBase function_call =
-                intrin_src.parse_expression(node.retrieve_context());
+            Nodecl::NodeclBase function_call = 
+                    intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
         }                                                 
@@ -1226,7 +1314,6 @@ namespace TL
                 intrin_src << AVX2_INTRIN_PREFIX << "_cvtepi32_ps"
                     << "("
                     << as_expression(node.get_nest())
-                    << intrin_src 
                     << ")"; 
             } 
             else if (src_type.is_float() &&
@@ -1236,7 +1323,6 @@ namespace TL
                 intrin_src << AVX2_INTRIN_PREFIX << "_cvttps_epi32"
                     << "("
                     << as_expression(node.get_nest())
-                    << intrin_src 
                     << ")"; 
             }
             else
@@ -2110,7 +2196,7 @@ namespace TL
                 sse_suffix_elem, avx_suffix_type;
 
             intrin_src << as_expression(scalar_dst)
-                << " = ({"
+                << " += ({"
                 << horizontal_256_op_src
                 << horizontal_128_op_src
                 << horizontal_128_op_src

@@ -1328,6 +1328,7 @@ namespace Nodecl
             }
             else
             {
+                /*
                 new_linearized_subscript = Nodecl::Add::make(
                         Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
@@ -1335,6 +1336,14 @@ namespace Nodecl
                                 Nodecl::ParenthesizedExpression::make(new_linearized_subscript, new_linearized_subscript.get_type()),
                                 get_ptrdiff_t_type()), get_ptrdiff_t_type()),
                         Nodecl::ParenthesizedExpression::make(it_indexes->shallow_copy(), it_indexes->get_type()),
+                        get_ptrdiff_t_type());
+                 */
+                new_linearized_subscript = Nodecl::Add::make(
+                        Nodecl::Mul::make(
+                            it_sizes->shallow_copy(),
+                            new_linearized_subscript,
+                            get_ptrdiff_t_type()),
+                        it_indexes->shallow_copy(),
                         get_ptrdiff_t_type());
             }
 

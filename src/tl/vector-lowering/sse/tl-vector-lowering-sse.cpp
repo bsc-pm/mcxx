@@ -1696,7 +1696,7 @@ namespace TL
             TL::Source intrin_src, horizontal_op_src, horizontal_intrin_src, extract_op_src, extract_intrin_src;
 
             intrin_src << as_expression(scalar_dst)
-                << " = ({"
+                << " += ({"
                 << horizontal_op_src
                 << horizontal_op_src
                 << extract_op_src
