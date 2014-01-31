@@ -2496,9 +2496,9 @@ OPERATOR_TABLE
         {
             *(file) << ", INTRINSIC ::";
         }
-        *(file) << " " << module.get_name();
+        *(file) << " " << module.get_name() << ", ";
         if (is_only)
-            *(file) <<  ", ONLY: ";
+            *(file) << "ONLY: ";
 
         emit_only_list(items);
         *(file) << "\n";
