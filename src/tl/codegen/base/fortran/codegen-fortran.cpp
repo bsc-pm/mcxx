@@ -2496,9 +2496,14 @@ OPERATOR_TABLE
         {
             *(file) << ", INTRINSIC ::";
         }
-        *(file) << " " << module.get_name() << ", ";
-        if (is_only)
-            *(file) << "ONLY: ";
+        *(file) << " " << module.get_name();
+
+        if (!items.is_null())
+        {
+            *(file) << ", ";
+            if (is_only)
+                *(file) << "ONLY: ";
+        }
 
         emit_only_list(items);
         *(file) << "\n";
