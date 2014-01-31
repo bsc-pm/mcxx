@@ -5226,6 +5226,10 @@ OPERATOR_TABLE
                     entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
             return;
 
+        // Do not bring variables in
+        if (entry.is_variable())
+            return;
+
         TL::Symbol module = entry.from_module();
 
         // Is this a module actually used in this program unit?
