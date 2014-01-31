@@ -2453,11 +2453,19 @@ OPERATOR_TABLE
 
     void FortranBase::emit_only_list(Nodecl::List only_items)
     {
+        int i = 0;
         for (Nodecl::List::iterator it = only_items.begin();
                 it != only_items.end();
                 it++)
         {
+            if (i > 0)
+            {
+                *(file) << ", ";
+            }
+
             TL::Symbol sym = it->get_symbol();
+
+            set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
 
             if (!sym.get_internal_symbol()->entity_specs.is_renamed)
             {
@@ -2471,45 +2479,45 @@ OPERATOR_TABLE
                 ;
             }
 
-            if ((it + 1) != only_items.end())
-            {
-                *(file) << ", ";
-            }
+            i++;
         }
+    }
+
+    void FortranBase::emit_explicit_use_statement(TL::Symbol &module,
+            Nodecl::List items,
+            bool is_only)
+    {
+        if (module == this->get_current_declaring_module())
+            return;
+
+        indent();
+        *(file) << "USE";
+        if (module.is_builtin())
+        {
+            *(file) << ", INTRINSIC ::";
+        }
+        *(file) << " " << module.get_name();
+        if (is_only)
+            *(file) <<  ", ONLY: ";
+
+        emit_only_list(items);
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranUse& node)
     {
-        indent();
-        *(file) << "USE";
-        if (node.get_module().get_symbol().is_builtin())
-        {
-            *(file) << ", INTRINSIC ::";
-        }
-        *(file) << " " << node.get_module().get_symbol().get_name();
-
-        if (!node.get_renamed_items().is_null())
-        {
-            *(file) << ", ";
-            Nodecl::List only_items = node.get_renamed_items().as<Nodecl::List>();
-            // We can use the same code since all will be renamed
-            emit_only_list(only_items);
-        }
-        *(file) << "\n";
+        TL::Symbol module = node.get_module().get_symbol();
+        this->emit_explicit_use_statement(module, 
+                node.get_renamed_items().as<Nodecl::List>(),
+                /* is_only */ false);
     }
 
     void FortranBase::visit(const Nodecl::FortranUseOnly& node)
     {
-        indent();
-        *(file) << "USE";
-        if (node.get_module().get_symbol().is_builtin())
-        {
-            *(file) << ", INTRINSIC ::";
-        }
-        *(file) << " " << node.get_module().get_symbol().get_name() << ", ONLY: ";
-        Nodecl::List only_items = node.get_only_items().as<Nodecl::List>();
-        emit_only_list(only_items);
-        *(file) << "\n";
+        TL::Symbol module = node.get_module().get_symbol();
+        this->emit_explicit_use_statement(module, 
+                node.get_only_items().as<Nodecl::List>(),
+                /* is_only */ true);
     }
 
     void FortranBase::visit(const Nodecl::FieldDesignator& node)
@@ -3191,7 +3199,47 @@ OPERATOR_TABLE
         }
 
         // Import statements
-        std::set<TL::Symbol> already_imported;
+        TL::ObjectList<TL::Symbol> imported_symbols;
+
+        Nodecl::List list_of_explicit_modules;
+        if (used_modules.is_valid())
+            list_of_explicit_modules = used_modules.get_value().as<Nodecl::List>();
+        // Review all explicitly used symbols because maybe we have to IMPORT them
+        for (Nodecl::List::iterator it = list_of_explicit_modules.begin();
+                it != list_of_explicit_modules.end();
+                it++)
+        {
+            Nodecl::NodeclBase module;
+            Nodecl::List l;
+            if (it->is<Nodecl::FortranUse>())
+            {
+                module = it->as<Nodecl::FortranUse>().get_module();
+                l = it->as<Nodecl::FortranUse>().get_renamed_items().as<Nodecl::List>();
+            }
+            else if (it->is<Nodecl::FortranUseOnly>())
+            {
+                module = it->as<Nodecl::FortranUseOnly>().get_module();
+                l = it->as<Nodecl::FortranUseOnly>().get_only_items().as<Nodecl::List>();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            if (module.get_symbol() == get_current_declaring_module())
+            {
+                // We did not emit a USE for these, try to use IMPORT instead
+                for (Nodecl::List::iterator it2 = l.begin();
+                        it2 != l.end();
+                        it2++)
+                {
+                    imported_symbols.insert(it2->get_symbol());
+                }
+            }
+        }
+
+        // Check the parameters of the function of this INTERFACE.
+        // If they are TYPE(T), T might have to be IMPORTed too
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
@@ -3221,20 +3269,22 @@ OPERATOR_TABLE
                         // The symbol should not come from a module unless at this point
                         // has not been emitted yet
                         (!class_type.is_from_module()
-                            || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
+                         || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
                         // And its related entry should not be ours
                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
-                    if (already_imported.find(class_type) == already_imported.end())
-                    {
-                        // We will need an IMPORT as this type comes from an enclosing scope
-                        indent();
-                        *(file) << "IMPORT :: " << fix_class_name(class_type.get_name()) << "\n";
-                        already_imported.insert(class_type);
-                        set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
-                    }
+                    imported_symbols.insert(class_type);
                 }
             }
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = imported_symbols.begin();
+                it != imported_symbols.end();
+                it++)
+        {
+            indent();
+            *(file) << "IMPORT :: " << fix_class_name(it->get_name()) << "\n";
+            set_codegen_status(*it, CODEGEN_STATUS_DEFINED);
         }
 
         indent();
