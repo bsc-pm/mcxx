@@ -1117,6 +1117,7 @@ namespace TL
 
             //ALIGNR_256 macro works with arbitrary offset, eg ALIGNR_256(ret, a, b, 1, 4)
             // r: result. (v0, v1): array. offs: offset of 1st element. size: element size in bytes.
+/*
 #define ALIGNR_256(r, v0, v1, offs, size) \
             if (offs == 0) \
             r = v0; \
@@ -1131,7 +1132,7 @@ namespace TL
                 else if (offs < 16 / size) \
                 r = _mm256_alignr_epi8(r, v0, offs * size); \
             }
-
+*/
             const Nodecl::NodeclBase left_vector = node.get_left_vector();
             const Nodecl::NodeclBase right_vector = node.get_right_vector();
             const Nodecl::NodeclBase num_elements = node.get_num_elements();
@@ -1159,7 +1160,7 @@ namespace TL
                 ;
 
             intrin_op_name << "alignr";
-            intrin_type_suffix << "si" << AVX2_VECTOR_BIT_SIZE; 
+            intrin_type_suffix << "epi8"; 
 
             process_mask_component(mask, mask_prefix, mask_args, type);
 
@@ -1174,7 +1175,6 @@ namespace TL
                 << ", "
                 << as_expression(num_elements)
                 ;
-//#warning  
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
