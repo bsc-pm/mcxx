@@ -67,6 +67,27 @@ namespace Optimizations {
     * R11 :  %         %
     *      /   \  ,  /   \   =>  0
     *     t    1    t    t
+    * 
+    * 
+    * R20a : <                                      R20b:  <
+    *      /   \                 <                       /    \             <
+    *     +    c2         =>   /    \                   c1     +    =>    /   \
+    *   /   \               c1-c2   -t                       /   \     c1-c2  t
+    *  c1   t                                               c2   t
+    * 
+    * R20c : <=                                     R20d:  <=
+    *      /    \                <=                      /    \            <=
+    *     +     c2        =>   /    \                   c1     +    =>   /    \
+    *   /   \               c1-c2   -t                       /   \    c1-c2   t
+    *  c1   t                                               c2   t
+    * 
+    * R21 : <|<=                <|<= 
+    *      /    \               /   \ 
+    *     +     +         => c1-c2  -
+    *   /  \   /  \                / \
+    *  c1  t1 c2  t2              t2 t1
+    * 
+    * 
     */
     class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -81,6 +102,7 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::Add& n );
         Ret visit_post( const Nodecl::Div& n );
         Ret visit_post( const Nodecl::LowerOrEqualThan& n );
+        Ret visit_post( const Nodecl::LowerThan& n );
         Ret visit_post( const Nodecl::Minus& n );
         Ret visit_post( const Nodecl::Mod& n );
         Ret visit_post( const Nodecl::Mul& n );
@@ -88,6 +110,7 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::VectorAdd& n );
         Ret visit_post( const Nodecl::VectorDiv& n );
         Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
+        Ret visit_post( const Nodecl::VectorLowerThan& n );
         Ret visit_post( const Nodecl::VectorMinus& n );
         Ret visit_post( const Nodecl::VectorMod& n );
         Ret visit_post( const Nodecl::VectorMul& n );
