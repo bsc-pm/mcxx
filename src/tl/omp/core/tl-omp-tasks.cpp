@@ -910,7 +910,8 @@ namespace TL
                     it++)
             {
                 Nodecl::NodeclBase input_argument = *it;
-                if (input_argument.is<Nodecl::Symbol>())
+                if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                        && input_argument.is<Nodecl::Symbol>())
                 {
                     Symbol sym = input_argument.get_symbol();
                     if (sym.is_parameter()
