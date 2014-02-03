@@ -29,6 +29,7 @@
 
 #include "tl-omp-target.hpp"
 #include "tl-omp-core.hpp"
+#include "cxx-diagnostic.h"
 
 namespace TL
 {
@@ -42,7 +43,7 @@ namespace TL
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
             {
-                target_ctx.device_list = device.get_tokenized_arguments();
+                target_ctx.device_list.insert(device.get_tokenized_arguments());
             }
             else
             {
@@ -143,31 +144,46 @@ namespace TL
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             PragmaCustomClause no_copy_deps = pragma_line.get_clause("no_copy_deps");
 
-            if (this->in_ompss_mode())
-            {
-                if (!copy_deps.is_defined()
-                        && !no_copy_deps.is_defined())
-                {
-                    target_ctx.copy_deps = true;
+            target_ctx.copy_deps = false;
 
-                    // Warn only if copy_in, copy_inout and copy_out are unspecified
-                }
-                else if (copy_deps.is_defined())
+            if (!copy_deps.is_defined()
+                    && !no_copy_deps.is_defined())
+            {
+                if (this->in_ompss_mode())
                 {
-                    target_ctx.copy_deps = true;
+                    // Copy deps is true only if there is no copy_in, copy_out
+                    // or copy_inout
+                    if ( !copy_in.is_defined()
+                            && !copy_out.is_defined()
+                            && !copy_inout.is_defined())
+                    {
+                        target_ctx.copy_deps = true;
+
+                        if (!_already_informed_new_ompss_copy_deps)
+                        {
+                            info_printf("%s: info: unless 'no_copy_deps' is specified, "
+                                    "the default in OmpSs is now 'copy_deps'\n",
+                                    pragma_line.get_locus_str().c_str());
+                            info_printf("%s: info: this diagnostic is only shown for the "
+                                    "first task found\n",
+                                    pragma_line.get_locus_str().c_str());
+
+                            _already_informed_new_ompss_copy_deps = true;
+                        }
+                    }
                 }
-                else if (no_copy_deps.is_defined())
-                {
-                    target_ctx.copy_deps = false;
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
-                }
+            }
+            else if (copy_deps.is_defined())
+            {
+                target_ctx.copy_deps = true;
+            }
+            else if (no_copy_deps.is_defined())
+            {
+                target_ctx.copy_deps = false;
             }
             else
             {
-                target_ctx.copy_deps = false;
+                internal_error("Code unreachable", 0);
             }
 
 
@@ -540,9 +556,9 @@ namespace TL
                         target_info);
             }
 
-            if (!_allow_shared_without_copies)
+            if (this->in_ompss_mode()
+                    && !_allow_shared_without_copies)
             {
-
                 ObjectList<CopyItem> all_copies;
                 all_copies.append(target_info.get_copy_in());
                 all_copies.append(target_info.get_copy_out());

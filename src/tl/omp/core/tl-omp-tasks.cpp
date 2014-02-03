@@ -1087,7 +1087,7 @@ namespace TL
             {
                 _target_context.push(TargetContext());
             }
-            ERROR_CONDITION(!_target_context.empty(), "This cannot be empty", 0);
+            ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
             common_target_handler_pre(pragma_line, _target_context.top(), scope,
                     /* is_pragma_task */ true);
