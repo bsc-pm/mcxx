@@ -137,21 +137,113 @@ namespace Optimizations {
         if( rhs.is_constant( ) )
         {
             if( lhs.is<Nodecl::Add>( ) )
-            {   // R20
+            {   // R20c
                 Nodecl::Add lhs_add = lhs.as<Nodecl::Add>( );
                 Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
                 Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
                 if( lhs_lhs.is_constant( ) )
                 {
-                    Nodecl::NodeclBase c = Nodecl::Minus::make( rhs, lhs_lhs, rhs.get_type( ) );
+                    Nodecl::NodeclBase c = Nodecl::Minus::make( lhs_lhs, rhs, rhs.get_type( ) );
                     const_value_t* c_value = _calc.compute_const_value( c );
-                    Nodecl::Utils::replace( n, Nodecl::LowerOrEqualThan::make( lhs_rhs, const_value_to_nodecl( c_value ),
-                                rhs.get_type( ), n.get_locus( ) ) );
+                    Nodecl::NodeclBase new_rhs = Nodecl::Minus::make( const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ), 
+                                                                      lhs_rhs, lhs_rhs.get_type( ) );
+                    Nodecl::Utils::replace( n, Nodecl::LowerOrEqualThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                               rhs.get_type( ), n.get_locus( ) ) );
                 }
+            }
+        }
+        else if( lhs.is_constant( ) )
+        {
+            if( rhs.is<Nodecl::Add>( ) )
+            {   // R20d
+                Nodecl::Add rhs_add = rhs.as<Nodecl::Add>( );
+                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+                if( rhs_lhs.is_constant( ) )
+                {
+                    Nodecl::NodeclBase c = Nodecl::Minus::make( lhs, rhs_lhs, rhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    Nodecl::Utils::replace( n, Nodecl::LowerOrEqualThan::make( const_value_to_nodecl( c_value ), rhs_rhs,
+                                                                               rhs.get_type( ), n.get_locus( ) ) );
+                }
+            }
+        }
+        else if( lhs.is<Nodecl::Add>( ) && rhs.is<Nodecl::Add>( ) )
+        {   // R21
+            Nodecl::Add lhs_add = lhs.as<Nodecl::Add>( );
+            Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
+            Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
+            Nodecl::Add rhs_add = rhs.as<Nodecl::Add>( );
+            Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+            Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+            if( lhs_lhs.is_constant( ) && rhs_lhs.is_constant( ) )
+            {
+                Nodecl::NodeclBase c = Nodecl::Minus::make( lhs_lhs, rhs_lhs, rhs.get_type( ) );
+                const_value_t* c_value = _calc.compute_const_value( c );
+                Nodecl::NodeclBase new_rhs = Nodecl::Minus::make( rhs_rhs, lhs_rhs, rhs_rhs.get_type( ) );
+                Nodecl::Utils::replace( n, Nodecl::LowerOrEqualThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                           new_rhs.get_type( ), n.get_locus( ) ) );
             }
         }
     }
 
+    void ReduceExpressionVisitor::visit_post( const Nodecl::LowerThan& n )
+    {
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        if( rhs.is_constant( ) )
+        {
+            if( lhs.is<Nodecl::Add>( ) )
+            {   // R20a
+                Nodecl::Add lhs_add = lhs.as<Nodecl::Add>( );
+                Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
+                Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
+                if( lhs_lhs.is_constant( ) )
+                {
+                    Nodecl::NodeclBase c = Nodecl::Minus::make( lhs_lhs, rhs, rhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    Nodecl::NodeclBase new_rhs = Nodecl::Minus::make( const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ), 
+                                                                      lhs_rhs, lhs_rhs.get_type( ) );
+                    Nodecl::Utils::replace( n, Nodecl::LowerThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                        rhs.get_type( ), n.get_locus( ) ) );
+                }
+            }
+        }
+        else if( lhs.is_constant( ) )
+        {
+            if( rhs.is<Nodecl::Add>( ) )
+            {   // R20b
+                Nodecl::Add rhs_add = rhs.as<Nodecl::Add>( );
+                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+                if( rhs_lhs.is_constant( ) )
+                {
+                    Nodecl::NodeclBase c = Nodecl::Minus::make( lhs, rhs_lhs, rhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    Nodecl::Utils::replace( n, Nodecl::LowerThan::make( const_value_to_nodecl( c_value ), rhs_rhs,
+                                                                        rhs.get_type( ), n.get_locus( ) ) );
+                }
+            }
+        }
+        else if( lhs.is<Nodecl::Add>( ) && rhs.is<Nodecl::Add>( ) )
+        {   // R21
+            Nodecl::Add lhs_add = lhs.as<Nodecl::Add>( );
+            Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
+            Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
+            Nodecl::Add rhs_add = rhs.as<Nodecl::Add>( );
+            Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+            Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+            if( lhs_lhs.is_constant( ) && rhs_lhs.is_constant( ) )
+            {
+                Nodecl::NodeclBase c = Nodecl::Minus::make( lhs_lhs, rhs_lhs, rhs.get_type( ) );
+                const_value_t* c_value = _calc.compute_const_value( c );
+                Nodecl::NodeclBase new_rhs = Nodecl::Minus::make( rhs_rhs, lhs_rhs, rhs_rhs.get_type( ) );
+                Nodecl::Utils::replace( n, Nodecl::LowerThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                    new_rhs.get_type( ), n.get_locus( ) ) );
+            }
+        }
+    }
+    
     void ReduceExpressionVisitor::visit_post( const Nodecl::Minus& n )
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
@@ -468,7 +560,7 @@ namespace Optimizations {
                             const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ) ) );
         }
     }
-
+    
     void ReduceExpressionVisitor::visit_post( const Nodecl::VectorLowerOrEqualThan& n )
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
@@ -476,21 +568,114 @@ namespace Optimizations {
         if( rhs.is_constant( ) )
         {
             if( lhs.is<Nodecl::VectorAdd>( ) )
-            {   // R20
+            {   // R20c
                 Nodecl::VectorAdd lhs_add = lhs.as<Nodecl::VectorAdd>( );
                 Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
                 Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
                 if( lhs_lhs.is_constant( ) )
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make( rhs, lhs_lhs, n.get_mask(), rhs.get_type( ) );
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make( lhs_lhs, rhs, n.get_mask( ), rhs.get_type( ) );
                     const_value_t* c_value = _calc.compute_const_value( c );
-                    Nodecl::Utils::replace( n, Nodecl::VectorLowerOrEqualThan::make( lhs_rhs, const_value_to_nodecl( c_value ),
-                                n.get_mask(), rhs.get_type( ), n.get_locus( ) ) );
+                    Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make( const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ), 
+                                                                            lhs_rhs, n.get_mask( ), lhs_rhs.get_type( ) );
+                    Nodecl::Utils::replace( n, Nodecl::VectorLowerOrEqualThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                n.get_mask( ), rhs.get_type( ), n.get_locus( ) ) );
                 }
+            }
+        }
+        else if( lhs.is_constant( ) )
+        {
+            if( rhs.is<Nodecl::VectorAdd>( ) )
+            {   // R20d
+                Nodecl::VectorAdd rhs_add = rhs.as<Nodecl::VectorAdd>( );
+                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+                if( rhs_lhs.is_constant( ) )
+                {
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make( lhs, rhs_lhs, n.get_mask( ), rhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    Nodecl::Utils::replace( n, Nodecl::VectorLowerOrEqualThan::make( const_value_to_nodecl( c_value ), rhs_rhs,
+                                n.get_mask( ), rhs.get_type( ), n.get_locus( ) ) );
+                }
+            }
+        }
+        else if( lhs.is<Nodecl::VectorAdd>( ) && rhs.is<Nodecl::VectorAdd>( ) )
+        {   // R21
+            Nodecl::VectorAdd lhs_add = lhs.as<Nodecl::VectorAdd>( );
+            Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
+            Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
+            Nodecl::VectorAdd rhs_add = rhs.as<Nodecl::VectorAdd>( );
+            Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+            Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+            if( lhs_lhs.is_constant( ) && rhs_lhs.is_constant( ) )
+            {
+                Nodecl::NodeclBase c = Nodecl::VectorMinus::make( lhs_lhs, rhs_lhs, n.get_mask( ), rhs.get_type( ) );
+                const_value_t* c_value = _calc.compute_const_value( c );
+                Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make( rhs_rhs, lhs_rhs, n.get_mask( ), rhs_rhs.get_type( ) );
+                Nodecl::Utils::replace( n, Nodecl::VectorLowerOrEqualThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                                 n.get_mask( ), new_rhs.get_type( ), n.get_locus( ) ) );
             }
         }
     }
 
+
+    void ReduceExpressionVisitor::visit_post( const Nodecl::VectorLowerThan& n )
+    {
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        if( rhs.is_constant( ) )
+        {
+            if( lhs.is<Nodecl::VectorAdd>( ) )
+            {   // R20a
+                Nodecl::VectorAdd lhs_add = lhs.as<Nodecl::VectorAdd>( );
+                Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
+                Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
+                if( lhs_lhs.is_constant( ) )
+                {
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make( lhs_lhs, rhs, n.get_mask(), rhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make( const_value_to_nodecl( const_value_get_zero( /*num_bytes*/ 4, /*sign*/1 ) ), 
+                                                                            lhs_rhs, n.get_mask( ), lhs_rhs.get_type( ) );
+                    Nodecl::Utils::replace( n, Nodecl::VectorLowerThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                              n.get_mask(), rhs.get_type( ), n.get_locus( ) ) );
+                }
+            }
+        }
+        else if( lhs.is_constant( ) )
+        {
+            if( rhs.is<Nodecl::VectorAdd>( ) )
+            {   // R20b
+                Nodecl::VectorAdd rhs_add = rhs.as<Nodecl::VectorAdd>( );
+                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+                if( rhs_lhs.is_constant( ) )
+                {
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make( lhs, rhs_lhs, n.get_mask( ), rhs.get_type( ) );
+                    const_value_t* c_value = _calc.compute_const_value( c );
+                    Nodecl::Utils::replace( n, Nodecl::VectorLowerThan::make( const_value_to_nodecl( c_value ), rhs_rhs,
+                                                                              n.get_mask( ), rhs.get_type( ), n.get_locus( ) ) );
+                }
+            }
+        }
+        else if( lhs.is<Nodecl::VectorAdd>( ) && rhs.is<Nodecl::VectorAdd>( ) )
+        {   // R21
+            Nodecl::VectorAdd lhs_add = lhs.as<Nodecl::VectorAdd>( );
+            Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs( );
+            Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs( );
+            Nodecl::VectorAdd rhs_add = rhs.as<Nodecl::VectorAdd>( );
+            Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs( );
+            Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs( );
+            if( lhs_lhs.is_constant( ) && rhs_lhs.is_constant( ) )
+            {
+                Nodecl::NodeclBase c = Nodecl::VectorMinus::make( lhs_lhs, rhs_lhs, n.get_mask( ), rhs.get_type( ) );
+                const_value_t* c_value = _calc.compute_const_value( c );
+                Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make( rhs_rhs, lhs_rhs, n.get_mask( ), rhs_rhs.get_type( ) );
+                Nodecl::Utils::replace( n, Nodecl::VectorLowerThan::make( const_value_to_nodecl( c_value ), new_rhs,
+                                                                          n.get_mask( ), new_rhs.get_type( ), n.get_locus( ) ) );
+            }
+        }
+    }
+    
     void ReduceExpressionVisitor::visit_post( const Nodecl::VectorMinus& n )
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
