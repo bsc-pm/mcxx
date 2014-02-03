@@ -79,14 +79,27 @@ static int nonblock_do_stack_idx = 0;
 
 static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
-static char check_continued_sentinel_line(const char* line, const char** sentinel, int continuation_kind);
+
+enum continuation_kind_tag
+{
+    INVALID_CONTINUATION = 0,
+    SINGLE_CONTINUATION,
+    SINGLE_CONTINUATION_UNENDED_STRING_LITERAL,
+    DOUBLE_CONTINUATION
+};
+
+static char check_continued_sentinel_line(const char* line,
+        const char** sentinel,
+        enum continuation_kind_tag continuation_kind);
 static char is_valid_pragma_custom_prefix(const char* sentinel);
 static const char* get_real_second_line(const char* second_line, 
         const char** filename, 
         int* new_line, 
         int* num_joined_lines, 
         bool ignore_comments);
-static void reintroduce_continued_line(char* split_line, char double_continuation, const char *sentinel);
+static void reintroduce_continued_line(char* split_line,
+        enum continuation_kind_tag continuation_kind,
+        const char *sentinel);
 static char end_of_file(void);
 static void trim_inline_comment(char* line);
 
@@ -134,8 +147,6 @@ static int count_hollerith_constant = 0;
 #define RETURN_EOS { if (!last_eos) { last_eos = 1; return (EOS); } }
 #define RETURN_PRAGMA_EOS { if (!last_eos) { last_eos = 1; return (PRAGMA_CUSTOM_NEWLINE); } }
 
-#define DOUBLE_CONTINUATION  1
-#define SINGLE_CONTINUATION  0
 
 %}
 
@@ -383,24 +394,36 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	}
 }
 
-^(([^\n\r!'"])|{FORTRAN_STRING})+&{pad_continuation}{next_line_single_continued}{newline} |
-^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&{pad_continuation_str}{next_line_single_continued}{newline} {
-	// The first regex allows comments because all strings are closed
-    // The second one does not allows them because the last string is opened
-    // This recognizes continued lines with continuation mark at the end
+^(([^\n\r!'"])|{FORTRAN_STRING})+&{pad_continuation}{next_line_single_continued}{newline} {
+	// This regex allows comments at the end because all strings are closed
     //
+    // SUBROUTINE&
+    // S
     // INTEGER &
     // :: A = 3
 
-	// Note that we do not handle the forbidden continuation of END statements
 	reintroduce_continued_line(yytext, SINGLE_CONTINUATION, NULL);
+}
+^(([^\n\r!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&{pad_continuation_str}{next_line_single_continued}{newline} {
+    // This regex does not allow comments at the end them because the last
+    // string is opened
+    //
+    // CHARACTER :: C (10) = "A&
+    //         B"
+    //
+    // The above statement is equivalent to
+    //
+    // CHARACTER :: C (10) = "A&
+    //         B"
+
+	reintroduce_continued_line(yytext, SINGLE_CONTINUATION_UNENDED_STRING_LITERAL, NULL);
 }
 
 [0-9]+[[:blank:]]+format([^'"\n\r;]|([']([^'\n\r]|(['][']))*['])|(["]([^"\n\r]|(["]["]))*["]))*([;]|{newline})  {
 	// Format preanalisis
 	// Format must be scanned different and we must recognize it first
 
-/* 
+/*
 	scanning_format = is_format_statement(yytext);
 	DEBUG_CODE() DEBUG_MESSAGE("Test if '%s' is FORMAT = %d", yytext, scanning_format);
 	if (scanning_format)
@@ -2371,7 +2394,9 @@ UNUSED_PARAMETER static void parse_token_text_str(const char* c)
     FLEX_LVAL.token_atrib.token_text = uniquestr(c);
 }
 
-static void reintroduce_continued_line(char* continued_line, char double_continuation, const char* sentinel)
+static void reintroduce_continued_line(char* continued_line,
+        enum continuation_kind_tag continuation_kind,
+        const char* sentinel)
 {
     char* temporal = NULL;
     int new_line_number = 0;
@@ -2462,7 +2487,7 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
     const char* second_line = get_real_second_line(newline + 1, 
             &filename, &new_line_number, &num_joined_lines , /* ignore_comments */ false);
 
-    if (double_continuation)
+    if (continuation_kind == DOUBLE_CONTINUATION)
     {
         // Look for the leftmost "&"
         limit_second_line = strchr(second_line, '&');
@@ -2490,6 +2515,13 @@ static void reintroduce_continued_line(char* continued_line, char double_continu
             {
                 unput(*last_character);
                 last_character--;
+            }
+
+            if (continuation_kind == SINGLE_CONTINUATION)
+            {
+                // Add an extra blank to separate tokens because this
+                // continuation does not end with an open string literal
+                unput(' ');
             }
         }
 
@@ -2805,7 +2837,8 @@ static void trim_inline_comment(char* line)
 	}
 }
 
-static char check_continued_sentinel_line(const char* line, const char** sentinel, int continuation_kind)
+static char check_continued_sentinel_line(const char* line, const char** sentinel,
+        enum continuation_kind_tag continuation_kind)
 {
     *sentinel = NULL;
 

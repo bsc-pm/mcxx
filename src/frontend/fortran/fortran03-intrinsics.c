@@ -5447,13 +5447,13 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1)
-            && (t2 == NULL || is_bool_type(t1))
+            && (t2 == NULL || is_bool_type(t2))
             && opt_valid_kind_expr(argument_expressions[3], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL(symbol, "scan", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "scan",
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
-                t1, 
+                t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2,
                 fortran_get_default_integer_type());
     }

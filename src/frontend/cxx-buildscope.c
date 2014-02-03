@@ -9217,18 +9217,7 @@ static void set_array_type(type_t** declarator_type,
         }
     }
 
-    if (!is_dependent_type(element_type)
-            && is_incomplete_type(element_type))
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid array of incomplete type '%s'\n",
-                    locus_to_str(locus),
-                    print_type_str(element_type, decl_context));
-        }
-        *declarator_type = get_error_type();
-    }
-    else if (is_void_type(element_type))
+    if (is_void_type(element_type))
     {
         if (!checking_ambiguity())
         {
@@ -9237,11 +9226,39 @@ static void set_array_type(type_t** declarator_type,
                     print_type_str(element_type, decl_context));
         }
         *declarator_type = get_error_type();
+        return;
     }
-    else
+
+    C_LANGUAGE()
     {
-        *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
+        if (is_incomplete_type(element_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid array of incomplete type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(element_type, decl_context));
+            }
+            *declarator_type = get_error_type();
+            return;
+        }
     }
+    CXX_LANGUAGE()
+    {
+        if (is_array_type(element_type)
+                && array_type_is_unknown_size(element_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: declaratio of array type of an unbounded array type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(element_type, decl_context));
+            }
+            *declarator_type = get_error_type();
+            return;
+        }
+    }
+    *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
 }
 
 // Returns a fake symbol used only to keep track of variables in declarators
