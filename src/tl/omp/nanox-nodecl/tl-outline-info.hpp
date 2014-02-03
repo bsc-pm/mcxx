@@ -519,6 +519,8 @@ namespace TL
 
                 ~OutlineInfo();
 
+                void reset_array_counters();
+
                 //! Get new or retrieve existing OutlineDataItem for symbol
                 /*!
                  * Note that this function retrieves an OutlineDataItem for
