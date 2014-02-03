@@ -458,8 +458,7 @@ namespace TL {
 
             // Cache clause
             TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
-            process_cache_clause(omp_for_environment, cached_expressions);
-
+            process_cache_clause(omp_simd_for_environment, cached_expressions);
             VectorizerCache vectorizer_cache(cached_expressions);
 
             // Vectorlengthfor clause
@@ -682,7 +681,6 @@ namespace TL {
             // Cache clause
             TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
             process_cache_clause(omp_environment, cached_expressions);
-
             VectorizerCache vectorizer_cache(cached_expressions);
 
             // Vectorlengthfor clause

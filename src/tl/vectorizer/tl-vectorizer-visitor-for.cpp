@@ -73,7 +73,6 @@ namespace TL
                     .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
                     .append(cache_it_update_post);
             }
-
         }
 
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFor::unhandled_node(const Nodecl::NodeclBase& n)
