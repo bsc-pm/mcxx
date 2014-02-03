@@ -11202,7 +11202,7 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
 //      2.2 no non-trivial move constructor,
 //      2.3 a trivial destructor,
 //      2.4 a trivial default constructor or at least one constexpr constructor
-//          other than the copy or move constructor  FIXME: THIS IS NOT SUPPORTED YET
+//          other than the copy or move constructor
 //      2.5 all non-static data members and base classes of literal types
 //  3. an array of literal type
 //
