@@ -1082,11 +1082,21 @@ namespace TL
                     .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
+            // Target-style clauses
+            if (_target_context.empty())
+            {
+                _target_context.push(TargetContext());
+            }
+            ERROR_CONDITION(!_target_context.empty(), "This cannot be empty", 0);
+
+            common_target_handler_pre(pragma_line, _target_context.top(), scope,
+                    /* is_pragma_task */ true);
+
             FunctionTaskInfo task_info(function_sym, dependence_list);
 
             // Now gather target information
             TargetInfo target_info;
-            if (!_target_context.empty())
+
             {
                 target_info.set_target_symbol(function_sym);
                 TargetContext& target_context = _target_context.top();
@@ -1252,6 +1262,14 @@ namespace TL
             get_dependences_info(pragma_line, data_sharing, default_data_attr);
 
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            if (_target_context.empty())
+            {
+                // Create a fake target for this one
+                _target_context.push(TargetContext());
+            }
+            common_target_handler_pre(pragma_line, _target_context.top(), scope,
+                    /* is_pragma_task */ true);
 
             // Target info applies after
             get_target_info(pragma_line, data_sharing);

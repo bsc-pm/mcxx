@@ -92,7 +92,8 @@ namespace TL
 
                 void common_target_handler_pre(TL::PragmaCustomLine pragma_line, 
                         TargetContext& target_ctx,
-                        TL::Scope scope);
+                        TL::Scope scope,
+                        bool is_pragma_task);
 
                 void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);

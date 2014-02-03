@@ -36,7 +36,8 @@ namespace TL
     {
         void Core::common_target_handler_pre(TL::PragmaCustomLine pragma_line,
                 TargetContext& target_ctx,
-                TL::Scope scope)
+                TL::Scope scope,
+                bool is_pragma_task)
         {
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
@@ -45,13 +46,26 @@ namespace TL
             }
             else
             {
-                // Default is smp
-             std::cerr << pragma_line.get_locus_str() << ": "
-                    << "warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'"
-                    << std::endl;
+                // In #pragma omp target a device is mandatory, for #pragma omp task
+                // add it only if not empty
+                bool set_smp_device = false;
+                if (!is_pragma_task)
+                {
+                    std::cerr << pragma_line.get_locus_str() << ": "
+                        << "warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'"
+                        << std::endl;
+                    set_smp_device = true;
+                }
+                else if (target_ctx.device_list.empty())
+                {
+                    set_smp_device = true;
+                }
 
-                target_ctx.device_list.clear();
-                target_ctx.device_list.append("smp");
+                if (set_smp_device)
+                {
+                    target_ctx.device_list.clear();
+                    target_ctx.device_list.append("smp");
+                }
             }
 
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
@@ -127,10 +141,35 @@ namespace TL
             }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
-            if (copy_deps.is_defined())
+            PragmaCustomClause no_copy_deps = pragma_line.get_clause("no_copy_deps");
+
+            if (this->in_ompss_mode())
             {
-                target_ctx.copy_deps = true;
+                if (!copy_deps.is_defined()
+                        && !no_copy_deps.is_defined())
+                {
+                    target_ctx.copy_deps = true;
+
+                    // Warn only if copy_in, copy_inout and copy_out are unspecified
+                }
+                else if (copy_deps.is_defined())
+                {
+                    target_ctx.copy_deps = true;
+                }
+                else if (no_copy_deps.is_defined())
+                {
+                    target_ctx.copy_deps = false;
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
             }
+            else
+            {
+                target_ctx.copy_deps = false;
+            }
+
 
             PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
@@ -208,7 +247,8 @@ namespace TL
             TargetContext target_ctx;
 
             common_target_handler_pre(pragma_line, target_ctx,
-                    ctr.get_context_of_parameters().retrieve_context());
+                    ctr.get_context_of_parameters().retrieve_context(),
+                    /* is_pragma_task */ false);
 
             if (target_ctx.has_implements)
             {
@@ -297,7 +337,8 @@ namespace TL
                 return;
             }
 
-            common_target_handler_pre(pragma_line, target_ctx, ctr.retrieve_context());
+            common_target_handler_pre(pragma_line, target_ctx, ctr.retrieve_context(),
+                    /* is_pragma_task */ false);
 
             _target_context.push(target_ctx);
         }
