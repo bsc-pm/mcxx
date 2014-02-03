@@ -1,6 +1,7 @@
 #include "tl-cache-rtl-calls.hpp"
 #include "tl-counters.hpp"
 #include "tl-source.hpp"
+#include "tl-nodecl-utils.hpp"
 
 namespace TL { namespace Intel {
 
@@ -17,6 +18,8 @@ namespace TL { namespace Intel {
 
             virtual void visit(const Nodecl::FunctionCall& n)
             {
+                walk(n.get_arguments());
+
                 TL::Symbol called_sym = n.get_called().get_symbol();
                 if (called_sym.is_valid()
                         && _cacheable_set.contains(n.get_called().get_symbol()))
@@ -33,7 +36,6 @@ namespace TL { namespace Intel {
     CacheRTLCalls::~CacheRTLCalls()
     {
     }
-
 
     void CacheRTLCalls::add_cacheable_function(
             TL::ObjectList<TL::Symbol>& cacheable_set,
@@ -75,6 +77,13 @@ namespace TL { namespace Intel {
             ;
         Nodecl::NodeclBase new_decl = src_decl.parse_statement(context);
 
+        ERROR_CONDITION(IS_FORTRAN_LANGUAGE, "Fortran not supported", 0);
+        Nodecl::List statement_list = context.as<Nodecl::Context>().get_in_context().as<Nodecl::List>();
+        Nodecl::CompoundStatement compound = statement_list[0].as<Nodecl::CompoundStatement>();
+        Nodecl::List statements = compound.get_statements().as<Nodecl::List>();
+
+        Nodecl::Utils::prepend_items_before(statements[0], new_decl);
+
         Source src_cached_expr;
         src_cached_expr << cached_name.str();
 
@@ -94,7 +103,7 @@ namespace TL { namespace Intel {
         std::map<TL::Symbol, CacheRTLCallsHandler> cacheable_handler_set;
 
         add_cacheable_function(cacheable_set,
-                "__kmpc_global_thread",
+                "__kmpc_global_thread_num",
                 cacheable_handler_set,
                 &CacheRTLCalls::cache_kmpc_global_thread);
 
@@ -106,6 +115,8 @@ namespace TL { namespace Intel {
                 it != find_rtl_cacheable_calls.functions_found.end();
                 it++)
         {
+            std::cerr << "Intel OMP RTL: Caching calls to '" << it->get_name()
+                << "' in '" << function_code.get_symbol().get_name() << "'" << std::endl;
             CacheRTLCallsHandler handler = cacheable_handler_set[*it];
 
             (this->*handler)(*it,

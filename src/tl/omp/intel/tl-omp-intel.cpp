@@ -60,8 +60,8 @@ namespace TL { namespace Intel {
         LoweringVisitor lowering_visitor(this);
         lowering_visitor.walk(n);
 
-        // CacheRTLCalls cache_calls_visitor(this);
-        // cache_calls_visitor.walk(n);
+        CacheRTLCalls cache_calls_visitor(this);
+        cache_calls_visitor.walk(n);
     }
 
     void Lowering::set_instrumentation(const std::string& str)
