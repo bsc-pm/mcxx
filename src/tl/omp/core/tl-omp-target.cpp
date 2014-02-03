@@ -581,6 +581,15 @@ namespace TL
                         io_it != ds_syms.end(); 
                         io_it++)
                 {
+                    // Ignore 'this'
+                    if (IS_CXX_LANGUAGE
+                            && io_it->get_name() == "this")
+                    {
+                        warn_printf("%s: warning: not adding 'this' in the copy set\n",
+                                construct.get_locus_str().c_str());
+                        continue;
+                    }
+
                     if (!all_copied_syms.contains(*io_it))
                     {
                         // FIXME 
