@@ -28,6 +28,8 @@
 ! <testinfo>
 ! test_generator=config/mercurium-opencl
 ! compile_versions=ompss
+! test_compile_faulty=yes
+! test_compile_fail=yes
 ! </testinfo>
 
 MODULE M
