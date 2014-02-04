@@ -41,13 +41,6 @@ void consumer(int x)
 #pragma omp task out(*x)
 void producer(int*x)
 {
-    for (int i = 0; i < 1000; i++)
-    {
-        for(int j = 0; j < 1000; j++)
-        {
-        }
-    }
-
     *x = 1;
 }
 
@@ -58,12 +51,10 @@ int main()
 
     producer(&x);
 
-     for (int i = 0; i < 1000; ++i)
-     {
-         for (int j = 0; j < 1000; ++j)
-         {
-         }
-     }
+    // This taskwait is needed because the following task call introduces a
+    // dependence over v[x] and for compute this dependence Mercurium needs
+    // the right value of x.
+    #pragma omp taskwait on(x)
 
     consumer(v[x] + x);
 #pragma omp taskwait

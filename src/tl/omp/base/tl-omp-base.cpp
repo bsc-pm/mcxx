@@ -215,6 +215,7 @@ namespace TL { namespace OpenMP {
     void Base::set_ompss_mode(const std::string& str)
     {
         parse_boolean_option("ompss_mode", str, _ompss_mode, "Assuming false.");
+        _core.set_ompss_mode(_ompss_mode);
     }
 
     bool Base::in_ompss_mode() const

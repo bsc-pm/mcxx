@@ -28,6 +28,6 @@ linker_options = -Xlinker --add-needed
 {mmic} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5
-{openmp, simd} compiler_phase = libtlintel-omp-lowering.so
+{openmp} compiler_phase = libtlintel-omp-lowering.so
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1

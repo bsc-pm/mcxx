@@ -1815,6 +1815,8 @@ src_tl_omp_intel_libtlintel_omp_lowering_la_SOURCES=\
 								   src/tl/omp/intel/tl-lower-for.cpp \
 								   src/tl/omp/intel/tl-lower-reductions.hpp \
 								   src/tl/omp/intel/tl-lower-reductions.cpp \
+								   src/tl/omp/intel/tl-cache-rtl-calls.hpp \
+								   src/tl/omp/intel/tl-cache-rtl-calls.cpp \
 								   $(END)
 
 endif
@@ -2666,8 +2668,8 @@ config_edit += $(foreach profile, $(profiles), \
 BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 
 # This is valid in parallel make since we are generating one goal file at a time
-config/% : config/template.$(notdir %)
-	$(AM_V_GEN)( $(config_edit) "$^" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+config/% : config/template.$(notdir %) Makefile
+	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 config-install-data-hook:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
