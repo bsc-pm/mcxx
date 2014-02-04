@@ -558,6 +558,10 @@ namespace TL
             }
 
             if (this->in_ompss_mode()
+                    && (target_ctx.copy_deps
+                        || !target_ctx.copy_in.empty()
+                        || !target_ctx.copy_out.empty()
+                        || !target_ctx.copy_inout.empty())
                     && !_allow_shared_without_copies)
             {
                 ObjectList<CopyItem> all_copies;
