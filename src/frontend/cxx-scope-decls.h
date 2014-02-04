@@ -159,7 +159,7 @@ struct decl_context_tag
     SYMBOL_KIND(SK_TYPEDEF_PACK, "typedef name pack") \
     SYMBOL_KIND(SK_TEMPLATE, "template name") \
     SYMBOL_KIND(SK_TEMPLATE_PACK, "template name pack") \
-    SYMBOL_KIND(SK_TEMPLATE_ALIAS, "template alias") \
+    SYMBOL_KIND(SK_TEMPLATE_ALIAS, "alias template") \
     SYMBOL_KIND(SK_TEMPLATE_NONTYPE_PARAMETER, "nontype template parameter name") \
     SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER, "type template parameter name") \
     SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter name") \
@@ -172,6 +172,7 @@ struct decl_context_tag
     SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend class") \
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_USING_TYPENAME, "using typename declared name") \
+    SYMBOL_KIND(SK_LAMBDA, "lambda-expression") \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>")
 
 #define SYMBOL_KIND_TABLE_FORTRAN \
@@ -279,6 +280,9 @@ struct function_parameter_info_tag
 {
     scope_entry_t* function;
 
+    // Nesting in a nested function declarator
+    // (Usually only relevant in C++)
+    int nesting;
     // Position of the parameter
     int position;
 };

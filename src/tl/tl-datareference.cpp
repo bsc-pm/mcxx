@@ -114,7 +114,19 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = t;
-                _data_ref._base_address = derref.get_rhs().shallow_copy();
+
+                if (IS_FORTRAN_LANGUAGE
+                        && derref.get_rhs().get_type().no_ref().is_pointer()
+                        && derref.get_rhs().get_type().no_ref().points_to().is_fortran_array())
+                {
+                    _data_ref._base_address = Nodecl::Reference::make(
+                            derref.shallow_copy(), t.get_pointer_to(), derref.get_locus());
+                }
+                else
+                {
+                    _data_ref._base_address = derref.get_rhs().shallow_copy();
+                }
+
             }
 
             virtual void visit(const Nodecl::Reference& ref)
@@ -183,7 +195,7 @@ namespace TL
                         else
                         {
                             // A single element of this region
-                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_one(4, 1)));
+                            upper_bounds.push_back(const_value_to_nodecl(const_value_get_zero(4, 1)));
                         }
 
                         t = t.points_to();
@@ -676,7 +688,19 @@ namespace TL
         }
         else if (expr.is<Nodecl::Dereference>())
         {
-            return get_address_of_symbol_helper(expr.as<Nodecl::Dereference>().get_rhs(), /* reference */ false);
+            if (IS_FORTRAN_LANGUAGE
+                    && expr.as<Nodecl::Reference>().get_rhs().get_type().no_ref().is_pointer()
+                    && expr.as<Nodecl::Reference>().get_rhs().get_type().no_ref().points_to().is_fortran_array())
+            {
+                return Nodecl::Reference::make(
+                        expr.shallow_copy(),
+                        expr.get_type().no_ref().get_pointer_to(),
+                        expr.get_locus());
+            }
+            else
+            {
+                return get_address_of_symbol_helper(expr.as<Nodecl::Dereference>().get_rhs(), /* reference */ false);
+            }
         }
         else if (expr.is<Nodecl::ParenthesizedExpression>())
         {

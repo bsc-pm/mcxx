@@ -52,10 +52,6 @@ type_t* solve_class_template(type_t* template_type,
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus)
 {
-    template_parameter_list_t* specialized
-        = template_specialized_type_get_template_arguments(
-                get_actual_class_type(specialized_type));
-
     int i;
     int num_specializations = template_type_get_num_specializations(template_type);
 
@@ -111,13 +107,13 @@ type_t* solve_class_template(type_t* template_type,
             continue;
         }
 
-        template_parameter_list_t *arguments = 
-            template_specialized_type_get_template_arguments(
-                    get_actual_class_type(current_specialized_type));
+        // template_parameter_list_t *arguments =
+        //     template_specialized_type_get_template_arguments(
+        //             get_actual_class_type(current_specialized_type));
 
         // It is supposed that this will hold in correct code
-        ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
-            "Template argument lists are not of equal length", 0);
+        // ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
+        //     "Template argument lists are not of equal length", 0);
 
         template_parameter_list_t* current_deduced_template_arguments = NULL;
 
@@ -273,7 +269,7 @@ static type_t* determine_most_specialized_template_class(
                         locus_to_str(current->locus),
                         locus_to_str(minimum->locus));
             }
-            
+
             // Return the ambiguity as a list
             scope_entry_list_t* ambiguous_result = 
                 entry_list_new(named_type_get_symbol(current_most_specialized));
@@ -456,7 +452,7 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
         num_params = function_type_get_num_parameters(funct_type);
     }
 
-    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1);
+    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1, REF_QUALIFIER_NONE);
 
     if (is_template_specialized_type(funct_type))
     {

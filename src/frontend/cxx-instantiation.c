@@ -174,7 +174,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     decl_context_t new_context_for_template_parameters = context_of_being_instantiated;
     new_context_for_template_parameters.template_parameters = updated_template_parameters;
 
-        
     // Update the template parameters
     int i;
     for (i = 0; i < updated_template_parameters->num_parameters; i++)
@@ -211,17 +210,30 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 /* pack_index */ -1);
     }
 
-    scope_entry_t* new_member = new_symbol(new_context_for_template_parameters, 
+    scope_entry_t* new_member = new_symbol(new_context_for_template_parameters,
             new_context_for_template_parameters.current_scope,
             member_of_template->symbol_name);
 
     new_member->kind = SK_TEMPLATE;
-    new_member->type_information = 
-        get_new_template_type(updated_template_parameters,
-                base_type,
-                new_member->symbol_name,
-                new_context_for_template_parameters,
-                member_of_template->locus);
+
+    if (member_of_template->kind == SK_TEMPLATE_ALIAS)
+    {
+        new_member->type_information =
+            get_new_template_alias_type(updated_template_parameters,
+                    base_type,
+                    new_member->symbol_name,
+                    new_context_for_template_parameters,
+                    member_of_template->locus);
+    }
+    else
+    {
+        new_member->type_information =
+            get_new_template_type(updated_template_parameters,
+                    base_type,
+                    new_member->symbol_name,
+                    new_context_for_template_parameters,
+                    member_of_template->locus);
+    }
 
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.class_type = being_instantiated;
@@ -373,8 +385,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
                             || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
                     {
-                        check_nodecl_initialization(new_expr, context_of_being_instantiated,
-                                get_unqualified_type(new_member->type_information), &new_member->value);
+                        check_nodecl_initialization(
+                                new_expr,
+                                context_of_being_instantiated,
+                                new_member,
+                                get_unqualified_type(new_member->type_information),
+                                &new_member->value,
+                                /* is_auto */ 0);
                     }
                     else
                     {
@@ -636,8 +653,25 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 }
                 break;
             }
+        case SK_TEMPLATE_ALIAS:
+            {
+                type_t* template_type = template_specialized_type_get_related_template_type(member_of_template->type_information);
+                // type_t* primary_template = template_type_get_primary_type(template_type);
+
+                scope_entry_t* new_member = instantiate_template_type_member(template_type,
+                        context_of_being_instantiated,
+                        member_of_template,
+                        being_instantiated,
+                        /* is_class */ 0,
+                        locus,
+                        template_map, num_items_template_map);
+                if (new_member == NULL)
+                    return;
+                break;
+            }
         case SK_TEMPLATE:
             {
+                // We do not keep these as class members, always their specializations
                 internal_error("Code unreachable\n", 0);
                 break;
             }
@@ -872,7 +906,6 @@ static void instantiate_dependent_friend_function(
 
         if (candidates_list != NULL)
         {
-
             template_parameter_list_t* explicit_temp_params = NULL;
             nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
 

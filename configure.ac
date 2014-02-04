@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.0],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.1],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -112,8 +112,6 @@ AC_COMPILE_IFELSE(
 
 dnl --------------------- end check of old gcc ---
 
-TL_EXTRAS=""
-TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="00.config.plain"
 
 # plaincxx is always installed as a binary
@@ -168,6 +166,191 @@ AC_ARG_ENABLE([fortran-tests],
 FORTRAN_TESTS_ENABLED=$fortran_tests_enabled
 AC_SUBST([FORTRAN_TESTS_ENABLED])
 dnl -- End Fortran tests ---
+
+dnl -- Extra compilers ---
+
+disable_xlc=no
+AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
+AC_ARG_ENABLE([xlc],
+  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_xlf=no
+AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
+AC_ARG_ENABLE([xlf],
+  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_xlf="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_xlf="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_xlf="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_icc=no
+AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
+AC_ARG_ENABLE([icc],
+  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_icc="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_icc="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_icc="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+disable_ifort=no
+AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
+AC_ARG_ENABLE([ifort],
+  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        disable_ifort="no"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            disable_ifort="yes"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    disable_ifort="no"
+    AC_MSG_RESULT([no])
+  ]
+)
+
+mic_compilation="no"
+mic_testing="no"
+mic_testing_device="no"
+
+MIC_COMPILATION=$mic_compilation
+MIC_TESTING=$mic_testing
+MIC_TESTING_DEVICE=$mic_testing_device
+
+if test x$disable_icc = xno;
+then
+   dnl Check Intel Compiler C
+   AC_PATH_PROG([ICC], [icc], [$ICC])
+   if test x$ICC != x;
+   then
+      AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
+      AC_ARG_ENABLE([mic],
+             AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
+             [
+                 if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+                 then
+                     mic_compilation="yes"
+                     AC_MSG_RESULT([yes])
+                 else if test x"$enableval" = x"no";
+                      then
+                         AC_MSG_RESULT([no])
+                         mic_compilation="no"
+                      else
+                         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                      fi
+                 fi
+             ])
+
+      AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
+      AC_ARG_ENABLE([mic-testing],
+             AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
+             [
+                if test x$enableval != x;
+                then
+                   AC_MSG_RESULT([yes])
+                   mic_testing_device="$enableval"
+                else
+                   AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
+                fi
+             ])
+
+      MIC_COMPILATION=$mic_compilation
+      MIC_TESTING=$mic_testing
+      MIC_TESTING_DEVICE=$mic_testing_device
+
+      dnl end
+   fi
+   dnl Check Intel Compiler C++
+   AC_PATH_PROG([ICPC], [icpc], [$ICPC])
+else
+    ICC=
+    ICPC=
+fi
+
+if test x$disable_xlc = xno;
+then
+   dnl XL (gcc driver)
+   AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
+   dnl XL (g++ driver)
+   AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
+else
+    GXLC=
+    GXLCXX=
+fi
+
+dnl Check Intel Fortran
+if test x$disable_ifort = xno;
+then
+   AC_PATH_PROG([IFORT], [ifort], [$IFORT])
+else
+    IFORT=
+fi
+
+dnl IBM Fortran
+if test x$disable_xlf = xno;
+then
+    AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+else
+    XLF=
+fi
+
+dnl -- End of extra compiler checks ---
 
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
@@ -257,8 +440,10 @@ NANOX_INCLUDES=""
 NANOX_LIBS=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
-MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin"
-
+nanox_mic_enabled=no
+MIC_TOOLS="/usr/linux-k1om-4.7/x86_64-k1om-linux/bin/"
+show_mic_tools_warning=NO
+MIC_LIBS=""
 
 if test x$is_enabled_openmpt = xyes;
 then
@@ -299,6 +484,7 @@ then
            [
             nanox_mic_include="${withval}/include/nanox"
             nanox_mic_lib="${withval}/lib"
+            nanox_mic_enabled=yes
             if test -d "${withval}/lib64";
             then
              nanox_mic_lib="${withval}/lib64"
@@ -310,6 +496,7 @@ then
            AS_HELP_STRING([--with-nanox-mic-include=dir], [Directory of Nanos++ MIC headers]),
            [
             nanox_mic_include="${withval}"
+            nanox_mic_enabled=yes
            ]
    )
 
@@ -317,6 +504,7 @@ then
            AS_HELP_STRING([--with-nanox-mic-lib=dir], [Directory of Nanos++ MIC libraries]),
            [
             nanox_mic_lib="${withval}"
+            nanox_mic_enabled=yes
            ]
    )
 
@@ -327,14 +515,30 @@ then
    fi
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
+   
 
    AC_ARG_WITH([mic-tools],
            AS_HELP_STRING([--with-mic-tools=dir], [Directory where MIC (k1om arch) tools are located (objcopy,objdump & ar)]),
            [
-             MIC_TOOLS="${withval}"
+             MIC_TOOLS="${withval}/"
+             #some machines seem to add a prefix to objdump, ar...
+             AC_CHECK_FILE(${MIC_TOOLS}objdump, [], [MIC_TOOLS="${MIC_TOOLS}x86_64-k1om-linux-"])
+             if test x$NANOX_MIC_ENABLED = xyes;
+             then
+              AC_CHECK_FILE(${MIC_TOOLS}objdump, [], [show_mic_tools_warning=YES])
+             fi
            ]
    )
 
+   AC_ARG_WITH([mic-libs],
+   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
+   [
+      MIC_LIBS="${withval}"
+   ],
+   [
+      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
+   ])
+   
    if test x$nanox_include = x -o x$nanox_lib = x;
    then
       AC_MSG_ERROR([OpenMP support requires '--with-nanox=dir'. See --help.])
@@ -343,7 +547,6 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common nanox-nodecl"
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
@@ -354,6 +557,11 @@ then
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
 fi
+
+AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
+AM_CONDITIONAL([BUILD_NANOX_NODECL], test x$is_enabled_tl_omp_nanox = xyes)
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_SMP], test x$is_enabled_tl_omp_nanox = xyes)
+AM_CONDITIONAL([BUILD_NANOX_NANOSMAIN], test x$is_enabled_tl_omp_nanox = xyes)
 
 NANOX_INSTRUMENTATION=""
 NANOX_MIC_INSTRUMENTATION=""
@@ -383,7 +591,6 @@ AC_SUBST([NANOX_MIC_INCLUDES])
 AC_SUBST([NANOX_MIC_LIBS])
 AC_SUBST([NANOX_MIC_INSTRUMENTATION])
 AC_SUBST([MIC_TOOLS])
-
 
 dnl SIMD Support
 
@@ -489,41 +696,52 @@ then
    INTEL_OMP_INCLUDE=${intel_omp_include}
    INTEL_OMP_LIB=${intel_omp_lib}
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} intel"
+   if test x$ICC = x;
+   then
+       AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C (icc) has not been found or has been disabled])
+   fi
+
+   if test x$ICPC = x;
+   then
+       AC_MSG_WARN([Intel OpenMP RTL has been enabled but Intel C++ (icpc) has not been found or has been disabled])
+   fi
+
    COMPILER_NAMES="${COMPILER_NAMES} intel-mcc intel-mcxx intel-mfc intel-mf95"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.intel-omp-base 50.config.omp.intel-rtl"
 fi
+
+AM_CONDITIONAL([BUILD_OMP_INTEL], test x$is_enabled_tl_omp_intel = xyes)
 
 AC_SUBST([INTEL_OMP_INCLUDE])
 AC_SUBST([INTEL_OMP_LIB])
 
 dnl --------------------- End of Support for Intel OpenMP RTL ---------------------------
 
-dnl --------------------- Support for GPU tests in Nanox --------------------------------
-# Check if it has nVidia GPUs / CUDA is installed
-gpu_valid=no
-gpu_enabled=yes
+dnl --------------------- Support for CUDA devices in Nanox --------------------------------
+# Check if CUDA is installed
+cuda_valid=no
+cuda_enabled=yes
 CUDA=""
 
-AC_MSG_CHECKING([if the use of GPU devices was disabled])
-AC_ARG_ENABLE([nanox-gpu-device],
-  AS_HELP_STRING([--disable-nanox-gpu-device], [Disables the use of GPU devices]),
+AC_MSG_CHECKING([if the use of CUDA devices was disabled])
+AC_ARG_ENABLE([nanox-cuda-device],
+  AS_HELP_STRING([--disable-nanox-cuda-device], [Disables the support for CUDA devices]),
   [
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
-        gpu_enabled="yes"
+        cuda_enabled="yes"
         AC_MSG_RESULT([no])
     else if test x"$enableval" = x"no";
          then
             AC_MSG_RESULT([yes])
-            gpu_enabled="no"
+            cuda_enabled="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
     fi
   ],
   [
-    gpu_enabled="yes"
+    cuda_enabled="yes"
     AC_MSG_RESULT([no])
   ]
 )
@@ -540,13 +758,13 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$gpu_enabled = xyes ; then
+if test x$cuda_enabled = xyes ; then
     if test -d "$CUDADIR" ;
     then
         AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
         if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
-            gpu_valid=no
+            cuda_valid=no
         else
             CUDA_INCLUDES="$CUDADIR/include"
             CUDA_LIBS="$CUDADIR/lib"
@@ -554,11 +772,11 @@ if test x$gpu_enabled = xyes ; then
             then
                 CUDA_LIBS="$CUDADIR/lib64"
             fi
-            gpu_valid=yes
+            cuda_valid=yes
         fi
     else
          AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling GPU Support])
-	     gpu_valid=no
+	     cuda_valid=no
     fi
 fi
 
@@ -573,7 +791,7 @@ AC_SUBST([CUDA_LIBS])
 AC_SUBST([CUDA_RPATH])
 
 
-if test x$is_enabled_tl_omp_nanox = xyes -a x$gpu_valid = xyes;
+if test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvfc mnvcc mnvcxx"
@@ -582,22 +800,19 @@ then
 else
    DISABLE_CUDA="\#CUDA support disabled"
 fi
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_CUDA], test x$is_enabled_tl_omp_nanox = xyes -a x$cuda_valid = xyes)
+
 AC_SUBST([DISABLE_CUDA])
+AC_SUBST([cuda_valid])
 
-# Use this if we want to conditionally disable compilation of GPU
-# DeviceProvider
-AM_CONDITIONAL(NANOX_GPU_SUPPORT, test x$gpu_valid = xyes)
+dnl --------------------- End of Support for CUDA in Nanox --------------------------------
 
-AC_SUBST([gpu_valid])
-
-dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
-
-dnl --------------------- Support for FPGA tests in Nanox --------------------------------
+dnl --------------------- Support for FPGA in Nanox --------------------------------
 
 fpga_enabled=yes
 AC_MSG_CHECKING([if the use of FPGA devices was disabled])
 AC_ARG_ENABLE([nanox-fpga-device],
-  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the use of FPGA devices]),
+  AS_HELP_STRING([--disable-nanox-fpga-device], [Disables the support for FPGA devices]),
   [
     if test x"$enableval" = x"yes" -o x"$enableval" = x"";
     then
@@ -635,155 +850,209 @@ then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fpga"
     COMPILER_NAMES="${COMPILER_NAMES} fpgacc fpgacxx"
 fi
-dnl --------------------- End of Support for FPGA tests in Nanox --------------------------------
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_FPGA], test x$is_enabled_tl_omp_nanox = xyes -a x$fpga_enabled = xyes)
 
+dnl --------------------- End of Support for FPGA in Nanox --------------------------------
 
 dnl --------------------- Start OpenCL support in Mercurium --------------------------------
 
+opencl_enabled=yes
 opencl_valid=no
-DISABLE_OPENCL=""
-AC_MSG_CHECKING([if nanox has opencl header installed])
-#tests if opencl headers are usable and correct
-#backup vars before we do the tests
-CFLAGSBACKUP="$CFLAGS"
-CPPFLAGSBACKUP="$CPPFLAGS"
-CXXFLAGSBACKUP="$CXXFLAGS"
 
-CFLAGS="$CFLAGS -I$nanox_include"
-CPPFLAGS="$CPPFLAGS -I$nanox_include"
-CXXFLAGS="$CXXFLAGS -I$nanox_include"
+AC_MSG_CHECKING([if the use of OpenCL devices was disabled])
+AC_ARG_ENABLE([nanox-opencl-device],
+  AS_HELP_STRING([--disable-nanox-opencl-device], [Disables the support for OpenCL devices]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        opencl_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            opencl_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    opencl_enabled="yes"
+    AC_MSG_RESULT([no])
+  ]
+)
 
-AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes],[ opencl_valid=no])
 
-CFLAGS="$CFLAGSBACKUP"
-CPPFLAGS="$CPPFLAGSBACKUP"
-CXXFLAGS="$CXXFLAGSBACKUP"
+if test x$opencl_enabled = xyes;
+then
+   DISABLE_OPENCL=""
+   AC_MSG_CHECKING([if nanox has opencl header installed])
+   #tests if opencl headers are usable and correct
+   #backup vars before we do the tests
+   CFLAGSBACKUP="$CFLAGS"
+   CPPFLAGSBACKUP="$CPPFLAGS"
+   CXXFLAGSBACKUP="$CXXFLAGS"
+
+   CFLAGS="$CFLAGS -I$nanox_include"
+   CPPFLAGS="$CPPFLAGS -I$nanox_include"
+   CXXFLAGS="$CXXFLAGS -I$nanox_include"
+
+   AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes],[ opencl_valid=no])
+
+   CFLAGS="$CFLAGSBACKUP"
+   CPPFLAGS="$CPPFLAGSBACKUP"
+   CXXFLAGS="$CXXFLAGSBACKUP"
+fi
 
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
-   COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+    COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
-   DISABLE_OPENCL="\#OpenCL support disabled"
-fi 
+    DISABLE_OPENCL="\#OpenCL support disabled"
+fi
+
 AC_SUBST([opencl_valid])
 AC_SUBST([DISABLE_OPENCL])
 
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_OPENCL], test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes)
 
 dnl --------------------- End OpenCL support in Nanox --------------------------------
 
 dnl --------------------- Start MPI support in Mercurium --------------------------------
 
-mpi_found=no
-MPIMODULE=""
-MIC_LIBS=""
+mpi_enabled=yes
+mpi_valid=no
 
-AC_ARG_WITH([mic-libs],
-AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
-	[
-		MIC_LIBS="${withval}"
-	],
-	[
-		MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
-	])
-
-#check the directory and get the right compiler path and name
-AC_ARG_WITH([mpi],
-AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
-   [
-      MPIPATH="${withval}"
-      MPI_CNAME=mpiicc
-      MPI_CXXNAME=mpiicpc
-      MPI_FORTNAME=mpiifort
-      if test -f $MPIPATH/$MPI_CNAME; then
-                    mpi_found=yes 
-                    MPICC=$MPIPATH/$MPI_CNAME
-                    MPICXX=$MPIPATH/$MPI_CXXNAME
-                    MPIFORT=$MPIPATH/$MPI_FORTNAME
-                    MPIMODULE=mpich
-                    DISABLEMPI_GCC="\#do not uncomment"
-      else
-                    mpi_valid=no
-      fi
-      #search in the path without bin
-      if test x$mpi_found = xno; then		
-         mpi_found=no
-			if test -f $MPIPATH/bin/$MPI_CNAME; then 
-                      mpi_found=yes 
-                      MPICC=$MPIPATH/bin/$MPI_CNAME
-                      MPICXX=$MPIPATH/bin/$MPI_CXXNAME
-                      MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
-                      MPIMODULE=mpich
-                      DISABLEMPI_GCC="\#do not uncomment"
+AC_MSG_CHECKING([if the use of MPI devices was disabled])
+AC_ARG_ENABLE([nanox-mpi-device],
+  AS_HELP_STRING([--disable-nanox-mpi-device], [Disables the support for MPI devices]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        mpi_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            mpi_enabled="no"
          else
-                      mpi_valid=no
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
-       fi		
-       MPI_CNAME=mpicc
-       MPI_CXXNAME=mpicxx
-       MPI_FORTNAME=mpif90
-       if test -f $MPIPATH/$MPI_CNAME; then	
-            mpi_found=yes 
-            MPICC=$MPIPATH/$MPI_CNAME
-            MPICXX=$MPIPATH/$MPI_CXXNAME
-            MPIFORT=$MPIPATH/$MPI_FORTNAME                            
-            MPIMODULE=openmpi
-            DISABLEMPI_ICC="\#do not uncomment"
-       else
-            mpi_valid=no
-       fi
-       #search in the path without bin
-       if test x$mpi_found = xno; then		
-          mpi_found=no
-			 if test -f $MPIPATH/bin/$MPI_CNAME; then           
-            mpi_found=yes 
-            MPICC=$MPIPATH/bin/$MPI_CNAME
-            MPICXX=$MPIPATH/bin/$MPI_CXXNAME
-            MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
-            MPIMODULE=openmpi
-            DISABLEMPI_ICC="\#do not uncomment"
-          else
-            mpi_valid=no
-          fi
-       fi
-
-       if test x$mpi_found = xno; then
-          AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
-       fi
-	],
-	[
-		MPIPATH=""
-	]
+    fi
+  ],
+  [
+    mpi_enabled="yes"
+    AC_MSG_RESULT([no])
+  ]
 )
 
-mpi_valid=no
-DISABLE_MPI=""
-if test x$mpi_found = xyes; then
-    AC_MSG_CHECKING([if nanox has mpi enabled])
-    #tests if mpi headers are usable and correct
-    #backup vars before we do the tests
-    CFLAGSBACKUP="$CFLAGS"
-    CPPFLAGSBACKUP="$CPPFLAGS"
-    CXXFLAGSBACKUP="$CXXFLAGS"
-    CCBACKUP="$CC"
+if test x$mpi_enabled = xyes;
+then
 
-    CC=$MPICC
-    CFLAGS="$CFLAGS -I$nanox_include"
-    CPPFLAGS="$CPPFLAGS -I$nanox_include"
-    CXXFLAGS="$CXXFLAGS -I$nanox_include"
-    AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
+   mpi_found=no
+   MPIMODULE=""
 
-    CFLAGS="$CFLAGSBACKUP"
-    CPPFLAGS="$CPPFLAGSBACKUP"
-    CXXFLAGS="$CXXFLAGSBACKUP"
-    CC="$CCBACKUP"
+   #check the directory and get the right compiler path and name
+   AC_ARG_WITH([mpi],
+   AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
+      [
+         MPIPATH="${withval}"
+         MPI_CNAME=mpiicc
+         MPI_CXXNAME=mpiicpc
+         MPI_FORTNAME=mpiifort
+         if test -f $MPIPATH/$MPI_CNAME; then
+                       mpi_found=yes 
+                       MPICC=$MPIPATH/$MPI_CNAME
+                       MPICXX=$MPIPATH/$MPI_CXXNAME
+                       MPIFORT=$MPIPATH/$MPI_FORTNAME
+                       MPIMODULE=mpich
+                       DISABLEMPI_GCC="\#do not uncomment"
+         else
+                       mpi_valid=no
+         fi
+         #search in the path without bin
+         if test x$mpi_found = xno; then		
+            mpi_found=no
+   			if test -f $MPIPATH/bin/$MPI_CNAME; then 
+                         mpi_found=yes 
+                         MPICC=$MPIPATH/bin/$MPI_CNAME
+                         MPICXX=$MPIPATH/bin/$MPI_CXXNAME
+                         MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
+                         MPIMODULE=mpich
+                         DISABLEMPI_GCC="\#do not uncomment"
+            else
+                         mpi_valid=no
+            fi
+          fi		
+          MPI_CNAME=mpicc
+          MPI_CXXNAME=mpicxx
+          MPI_FORTNAME=mpif90
+          if test -f $MPIPATH/$MPI_CNAME; then	
+               mpi_found=yes 
+               MPICC=$MPIPATH/$MPI_CNAME
+               MPICXX=$MPIPATH/$MPI_CXXNAME
+               MPIFORT=$MPIPATH/$MPI_FORTNAME                            
+               MPIMODULE=openmpi
+               DISABLEMPI_ICC="\#do not uncomment"
+          else
+               mpi_valid=no
+          fi
+          #search in the path without bin
+          if test x$mpi_found = xno; then		
+             mpi_found=no
+   			 if test -f $MPIPATH/bin/$MPI_CNAME; then           
+               mpi_found=yes 
+               MPICC=$MPIPATH/bin/$MPI_CNAME
+               MPICXX=$MPIPATH/bin/$MPI_CXXNAME
+               MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
+               MPIMODULE=openmpi
+               DISABLEMPI_ICC="\#do not uncomment"
+             else
+               mpi_valid=no
+             fi
+          fi
+
+          if test x$mpi_found = xno; then
+             AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
+          fi
+   	],
+   	[
+   		MPIPATH=""
+   	]
+   )
+
+   DISABLE_MPI=""
+   if test x$mpi_found = xyes; then
+       AC_MSG_CHECKING([if nanox has mpi enabled])
+       #tests if mpi headers are usable and correct
+       #backup vars before we do the tests
+       CFLAGSBACKUP="$CFLAGS"
+       CPPFLAGSBACKUP="$CPPFLAGS"
+       CXXFLAGSBACKUP="$CXXFLAGS"
+       CCBACKUP="$CC"
+
+       CC=$MPICC
+       CFLAGS="$CFLAGS -I$nanox_include"
+       CPPFLAGS="$CPPFLAGS -I$nanox_include"
+       CXXFLAGS="$CXXFLAGS -I$nanox_include"
+       AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
+
+       CFLAGS="$CFLAGSBACKUP"
+       CPPFLAGS="$CPPFLAGSBACKUP"
+       CXXFLAGS="$CXXFLAGSBACKUP"
+       CC="$CCBACKUP"
+   fi
 fi
+
 if test x$mpi_valid = xyes;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
-   COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
+    COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
-   DISABLE_MPI="\#do not uncomment"
+    DISABLE_MPI="\#do not uncomment"
 fi
+AM_CONDITIONAL([BUILD_NANOX_DEVICE_MPI], test x$mpi_valid = xyes)
+
 AC_SUBST([DISABLEMPI_ICC])
 AC_SUBST([DISABLEMPI_GCC])
 AC_SUBST([MPICC])
@@ -824,112 +1093,8 @@ AC_ARG_ENABLE([tl-openmp-profile],
   ]
 )
 
-dnl -- Extra compilers ---
-disable_xlc=no
-AC_MSG_CHECKING([if support for IBM XL C/C++ was explicitly disabled])
-AC_ARG_ENABLE([xlc],
-  AS_HELP_STRING([--disable-xlc], [Disables support for IBM XL C/C++]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_xlc="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_xlc="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_xlc="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-disable_xlf=no
-AC_MSG_CHECKING([if support for IBM XL Fortran was explicitly disabled])
-AC_ARG_ENABLE([xlf],
-  AS_HELP_STRING([--disable-xlf], [Disables support for IBM XL Fortran]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_xlf="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_xlf="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_xlf="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-disable_icc=no
-AC_MSG_CHECKING([if support for Intel C/C++ was explicitly disabled])
-AC_ARG_ENABLE([icc],
-  AS_HELP_STRING([--disable-icc], [Disables support for Intel C/C++]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_icc="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_icc="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_icc="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
-disable_ifort=no
-AC_MSG_CHECKING([if support for Intel Fortran was explicitly disabled])
-AC_ARG_ENABLE([ifort],
-  AS_HELP_STRING([--disable-ifort], [Disables support for Intel Fortran]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        disable_ifort="no"
-        AC_MSG_RESULT([no])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([yes])
-            disable_ifort="yes"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-    disable_ifort="no"
-    AC_MSG_RESULT([no])
-  ]
-)
-
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-mic_compilation="no"
-mic_testing="no"
-mic_testing_device="no"
-
-MIC_COMPILATION=$mic_compilation
-MIC_TESTING=$mic_testing
-MIC_TESTING_DEVICE=$mic_testing_device
 
 if test x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes;
@@ -938,123 +1103,57 @@ then
 
    if test x$is_enabled_tl_omp_profile = xyes;
    then
-       TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
        COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   if test x$disable_icc = xno;
+   # Intel C/C++ + Nanos++
+   if test x$ICC != x;
    then
-      dnl Check Intel Compiler C
-      AC_PATH_PROG([ICC], [icc], [$ICC])
-      if test x$ICC != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} imcc"
-
-         AC_MSG_CHECKING([if support for Intel Xeon Phi was enabled])
-         AC_ARG_ENABLE([mic],
-                AS_HELP_STRING([--enable-mic], [Enables support for Intel Xeon Phi]),
-                [
-                    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-                    then
-                        mic_compilation="yes"
-                        AC_MSG_RESULT([yes])
-                    else if test x"$enableval" = x"no";
-                         then
-                            AC_MSG_RESULT([no])
-                            mic_compilation="no"
-                         else
-                            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-                         fi
-                    fi
-                ])
-
-         AC_MSG_CHECKING([if testing for Intel Xeon Phi was enabled])
-         AC_ARG_ENABLE([mic-testing],
-                AS_HELP_STRING([--enable-mic-testing=mic_dev], [Sets 'mic_dev' as the remote host used for Intel Xeon Phi testing]),
-                [
-                   if test x$enableval != x;
-                   then
-                      AC_MSG_RESULT([yes])
-                      mic_testing_device="$enableval"
-                   else
-                      AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
-                   fi
-                ])
-
-         MIC_COMPILATION=$mic_compilation
-         MIC_TESTING=$mic_testing
-         MIC_TESTING_DEVICE=$mic_testing_device
-
-         dnl end
-      fi
-      dnl Check Intel Compiler C++
-      AC_PATH_PROG([ICPC], [icpc], [$ICPC])
-      if test x$ICPC != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} imcxx"
-      fi
-
-      if test x$ICC != x -o x$ICPC != x;
-      then
-         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
-      fi
-   else
-       ICC=
-       ICPC=
+      COMPILER_NAMES="${COMPILER_NAMES} imcc"
    fi
 
-   if test x$disable_xlc = xno;
+   if test x$ICPC != x;
    then
-      dnl XL (gcc driver)
-      AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
-      if test x$GXLC != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
-      fi
-
-      dnl XL (g++ driver)
-      AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
-      if test x$GXLCXX != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
-      fi
-
-      if test x$GXLC != x -o x$GXLCXX != x;
-      then
-         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
-      fi
-   else
-       GXLC=
-       GXLCXX=
+      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
    fi
 
-   dnl Check Intel Fortran
-   if test x$disable_ifort = xno;
+   if test x$ICC != x -o x$ICPC != x;
    then
-      AC_PATH_PROG([IFORT], [ifort], [$IFORT])
-      if test x$IFORT != x;
-      then
-         COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
-         INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
-      fi
-   else
-       IFORT=
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
    fi
 
-   dnl IBM Fortran
-   if test x$disable_xlf = xno;
+   # Intel Fortran + Nanos++
+   if test x$IFORT != x;
    then
-       AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
-       if test x$XLF != x;
-       then
-          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
-          INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
-       fi
-   else
-       XLF=
+      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
+   fi
+
+   # IBM XL C/C++ + Nanos++
+   if test x$GXLC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+   fi
+   if test x$GXLCXX != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+   fi
+
+   if test x$GXLC != x -o x$GXLCXX != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+   fi
+
+   # IBM XL Fortran + Nanos++
+   if test x$XLF != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
    fi
 fi
+
+AM_CONDITIONAL([BUILD_OMP_PROFILE], test x$is_enabled_tl_omp_profile = xyes)
 
 AC_SUBST([MIC_COMPILATION])
 AC_SUBST([MIC_TESTING])
@@ -1087,7 +1186,7 @@ AC_ARG_ENABLE([pkgdir-install],
       AC_MSG_RESULT([no])
   ]
 )
-AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes")
+AM_CONDITIONAL([ENABLE_PKGLIB_INSTALL], test x"$is_enabled_pkgdir_install" = x"yes")
 
 dnl --------------------- End of Installation of binaries in pkgdir ---------------------
 
@@ -1113,10 +1212,7 @@ AC_ARG_ENABLE([tl-examples],
   ]
 )
 
-if test x$is_enabled_tl_examples = xyes;
-then
-   TL_EXTRAS="${TL_EXTRAS} examples"
-fi
+AM_CONDITIONAL([BUILD_TL_EXAMPLES], test x$is_enabled_tl_examples = xyes)
 
 dnl ------------------------------------
 
@@ -1142,10 +1238,7 @@ AC_ARG_ENABLE([tl-tests],
   ]
 )
 
-if test x$is_enabled_tl_tests = xyes;
-then
-   TL_EXTRAS="${TL_EXTRAS} testing"
-fi
+AM_CONDITIONAL([BUILD_TL_TESTS], test x$is_enabled_tl_tests = xyes)
 
 dnl ------------------------------------
 
@@ -1154,19 +1247,19 @@ dnl ---------------------- TL Vectorization ----------------------------
 dnl DISABLED BY DEFAULT IN MASTER
 dnl It should be no
 disable_vectorization="yes"
-AC_MSG_CHECKING([if disabled Vectorization build and install])
+AC_MSG_CHECKING([if vectorization was disabled])
 AC_ARG_ENABLE([vectorization],
-  AS_HELP_STRING([--disable-vectorization], [Disables build and install Vectorization]),
+  AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler]),
   [
-    if test x$enableval = xyes -o x$enableval = x;
+    if test x$enableval = xno -o x$enableval = x;
     then
     dnl It should be no (both)
       disable_vectorization="yes"
       AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
+    else if test x$enableval = xyes;
       then
-        AC_MSG_RESULT([yes])
-        disable_vectorization="yes"
+        disable_vectorization="no"
+        AC_MSG_RESULT([no])
       else
         AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
       fi
@@ -1179,16 +1272,13 @@ AC_ARG_ENABLE([vectorization],
   ]
 )
 
-if test x$disable_vectorization = xno;
+if test x$disable_vectorization = xyes;
 then
-  TL_EXTRAS_PRE_OMP="${TL_EXTRAS_PRE_OMP} vectorizer vector-lowering"
-  TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} simd"
-else
-  VECTORIZATION_DISABLED=$disable_vectorization
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([VECTORIZATION_DISABLED], [test x$disable_vectorization = xyes])
+AM_CONDITIONAL([BUILD_VECTORIZER], [test x$disable_vectorization = xno])
+AM_CONDITIONAL([BUILD_VECTOR_LOWERING], [test x$disable_vectorization = xno])
 
 dnl ------------------------------------
 
@@ -1220,9 +1310,6 @@ AC_ARG_ENABLE([analysis],
 
 if test x$disable_analysis = xno;
 then
-  TL_EXTRAS_PRE_OMP="analysis optimizations ${TL_EXTRAS_PRE_OMP}"
-  TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} auto-scope lint"
-  TL_EXTRAS="${TL_EXTRAS} hlt"
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
 else
@@ -1232,7 +1319,11 @@ else
   fi
 fi
 
-ANALYSIS_DISABLED=$disable_analysis
+AM_CONDITIONAL([BUILD_ANALYSIS], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
 
 dnl ------------------------------------
 
@@ -1273,7 +1364,7 @@ AC_ARG_ENABLE([distcheck-processing],
     fi
   ]
 )
-AM_CONDITIONAL(RUNNING_DISTCHECK, test x$distcheck_processing = xyes)
+AM_CONDITIONAL([RUNNING_DISTCHECK], test x$distcheck_processing = xyes)
 
 # Make these variables precious
 AC_ARG_VAR([FLEX], [Flex])
@@ -1381,7 +1472,7 @@ then
     AC_MSG_CHECKING([bison version])
     bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
-       x2.@<:@34567@:>@*)
+       x2.@<:@34567@:>@*|x3.@<:@0@:>@*)
           AC_MSG_RESULT([${bison_ver}])
           if test x${bison_ver} = x2.4;
           then
@@ -1452,10 +1543,10 @@ then
 fi
 
 
-AM_CONDITIONAL(TPP_BUILDING, test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
-AM_CONDITIONAL(BISON_BUILDING, test x$bison_good = xyes)
-AM_CONDITIONAL(FLEX_BUILDING, test x$flex_good = xyes)
-AM_CONDITIONAL(GPERF_BUILDING, test x$gperf_good = xyes)
+AM_CONDITIONAL([TPP_BUILDING], test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
+AM_CONDITIONAL([BISON_BUILDING], test x$bison_good = xyes)
+AM_CONDITIONAL([FLEX_BUILDING], test x$flex_good = xyes)
+AM_CONDITIONAL([GPERF_BUILDING], test x$gperf_good = xyes)
 
 dnl --------------------- End of Regeneration files ---------------------
 
@@ -1551,9 +1642,15 @@ case "$host" in
 esac
 
 AC_SUBST([WIN32_NO_UNDEFINED])
-AM_CONDITIONAL(WINDOWS_BUILD, test x$windows_build = xyes)
+AM_CONDITIONAL([WINDOWS_BUILD], test x$windows_build = xyes)
 
 dnl ---------------------- End of test for Win32
+
+dnl --------------------- Debian release ----------------------
+AC_CHECK_PROG([DEB_RELEASE], [lsb_release], [$(lsb_release -sc)], [])
+AC_SUBST([DEB_RELEASE])
+dnl --------------------- End of Debian release ----------------------
+
 
 dnl C portability and compliance tests
 AC_HEADER_STDC
@@ -1715,89 +1812,11 @@ AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
 AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
-AC_SUBST([TL_EXTRAS_PRE_OMP])
-AC_SUBST([TL_EXTRAS])
-AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile
-           gnulib/Makefile
-           lib/Makefile
-           src/Makefile
-           src/driver/Makefile
-           src/driver/fortran/Makefile
-           src/frontend/Makefile
-           src/frontend/fortran/Makefile
-           src/mcxx_tl/Makefile
-           src/tl/Makefile
-           src/tl/analysis/Makefile
-           src/tl/analysis/common/Makefile
-           src/tl/analysis/pcfg/Makefile
-           src/tl/analysis/use_def/Makefile
-           src/tl/analysis/constants/Makefile
-           src/tl/analysis/liveness/Makefile
-           src/tl/analysis/reach_defs/Makefile
-           src/tl/analysis/loops/Makefile
-           src/tl/analysis/range/Makefile
-           src/tl/analysis/auto-scope/Makefile
-           src/tl/analysis/singleton/Makefile
-           src/tl/analysis/test_phase/Makefile
-           src/tl/analysis/checker/Makefile
-           src/tl/vectorizer/Makefile
-           src/tl/vector-lowering/Makefile
-           src/tl/vector-lowering/sse/Makefile
-           src/tl/vector-lowering/knc/Makefile
-           src/tl/optimizations/Makefile
-           src/tl/hlt/Makefile
-           src/tl/old_hlt/Makefile
-           src/tl/codegen/Makefile
-           src/tl/codegen/common/Makefile
-           src/tl/codegen/base/Makefile
-           src/tl/codegen/base/cxx/Makefile
-           src/tl/codegen/base/fortran/Makefile
-           src/tl/codegen/gpu/Makefile
-           src/tl/codegen/gpu/cuda/Makefile
-           src/tl/omp/Makefile
-           src/tl/omp/core/Makefile
-           src/tl/omp/base/Makefile
-           src/tl/omp/auto-scope/Makefile
-           src/tl/omp/simd/Makefile
-           src/tl/omp/profile/Makefile
-           src/tl/omp/lint/Makefile
-           src/tl/omp/ss2omp/Makefile
-           src/tl/omp/nanos-common/Makefile
-           src/tl/omp/nanox-nodecl/Makefile
-           src/tl/omp/nanox-nodecl/devices/Makefile
-           src/tl/omp/nanox-nodecl/devices/smp/Makefile
-           src/tl/omp/nanox-nodecl/devices/fpga/Makefile
-           src/tl/omp/nanox-nodecl/devices/cuda/Makefile
-           src/tl/omp/nanox-nodecl/devices/opencl/Makefile
-           src/tl/omp/nanox-nodecl/devices/mpi/Makefile
-           src/tl/omp/intel/Makefile
-           src/tl/instr/Makefile
-           src/tl/testing/Makefile
-           src/tl/testing/sizeof/Makefile
-           src/tl/examples/Makefile
-           src/tl/examples/01_basic_phase/Makefile
-           src/tl/examples/02_parameters/Makefile
-           src/tl/examples/03_visitor/Makefile
-           src/tl/old_examples/Makefile
-           src/tl/old_examples/basic_phase/Makefile
-           src/tl/old_examples/parameters/Makefile
-           src/tl/old_examples/mypragma/Makefile
-           src/tl/old_examples/decl_closure/Makefile
-           src/tl/old_examples/multifile_test/Makefile
-           support/Makefile
-           support/iso_fortran/Makefile
-           support/openmp/Makefile
-           support/openmp/fortran/Makefile
-           support/mpi/Makefile
-           support/mpi/openmpi/Makefile
-           support/mpi/mpich/Makefile
-           support/intel_omp/Makefile
-           config/Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
@@ -1822,9 +1841,17 @@ AC_CONFIG_FILES([Makefile
            tests/07_phases_hlt.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
-           scripts/Makefile
            ])
 AC_OUTPUT
+
+AS_MKDIR_P([scripts])
+AS_MKDIR_P([config])
+
+AS_MKDIR_P([support/iso_fortran])
+AS_MKDIR_P([support/openmp/fortran])
+AS_MKDIR_P([support/mpi/openmpi])
+AS_MKDIR_P([support/mpi/mpich])
+
 
 echo ""
 echo "Mercurium configuration summary"
@@ -1900,7 +1927,7 @@ then
 fi
 
 echo "   MPI testing enabled:" $mpi_valid
-echo "   GPU testing enabled:" $gpu_valid
+echo "   GPU testing enabled:" $cuda_valid
 echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
@@ -1924,6 +1951,12 @@ else
   echo "   Analysis build and install enabled"
 fi
 
+echo ""
+
+if test x$show_mic_tools_warning = xyes;
+then
+	AC_MSG_WARN([Fortran+MIC compiling requires k1om objdump/ar/objcpy binaries to be avaiable, configure folder with '--with-mic-tools=dir'. See --help.])
+fi
 
 if test x$flex_good = xno;
 then

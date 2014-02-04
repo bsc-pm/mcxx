@@ -24,14 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-strength-reduction.hpp"
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
+#include "tl-strength-reduction.hpp"
+#include "tl-expression-reduction.hpp"
 
 TL::Optimizations::StrengthReduction::StrengthReduction(bool fast_math)
- : _fast_math(fast_math)
-{
-}
+    : _fast_math(fast_math)
+{}
 
 void TL::Optimizations::StrengthReduction::visit(const Nodecl::ObjectInit& n)
 {
@@ -213,18 +213,23 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
     {
         if (rhs.is<Nodecl::VectorSqrt>())
         {
+            Nodecl::VectorSqrt vsqrt = rhs.as<Nodecl::VectorSqrt>();
+
             Nodecl::VectorMul mul = 
                 Nodecl::VectorMul::make(
                         lhs.shallow_copy(),
                         Nodecl::VectorRsqrt::make(
-                            rhs.shallow_copy(),
+                            vsqrt.get_rhs().shallow_copy(),
                             node.get_mask().shallow_copy(),
-                            rhs.get_type()),
+                            vsqrt.get_type()),
                         node.get_mask().shallow_copy(),
                         node.get_type(),
                         node.get_locus());
 
             node.replace(mul);
+
+            // Optimize 1 * rsqrt
+            walk(mul);
         }
         /*
         else
@@ -254,7 +259,7 @@ void TL::Optimizations::strength_reduce(Nodecl::NodeclBase& node, bool fast_math
 
 void TL::Optimizations::canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math)
 {
-    Nodecl::Utils::ReduceExpressionVisitor exp_reducer;
+    ReduceExpressionVisitor exp_reducer;
 
     exp_reducer.walk(node);
     strength_reduce(node, fast_math);

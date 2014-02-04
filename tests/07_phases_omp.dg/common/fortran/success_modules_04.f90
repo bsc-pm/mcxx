@@ -1,0 +1,34 @@
+! <testinfo>
+! test_generator=config/mercurium-omp
+! </testinfo>
+
+MODULE M1
+  IMPLICIT NONE
+  TYPE T1
+    INTEGER :: X
+  END TYPE T1
+END MODULE M1
+
+MODULE M2
+CONTAINS
+SUBROUTINE FOO
+   USE M1
+   IMPLICIT NONE
+   TYPE(T1) :: VAR
+
+   VAR % X = 0
+
+   !$OMP TASK SHARED(VAR)
+      VAR % X = 1
+   !$OMP END TASK
+   !$OMP TASKWAIT
+
+   IF (VAR % X /= 1) STOP 1
+END SUBROUTINE FOO
+END MODULE M2
+
+PROGRAM MAIN
+    USE M2, ONLY : FOO
+
+    CALL FOO
+END PROGRAM MAIN

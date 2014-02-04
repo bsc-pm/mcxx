@@ -30,6 +30,7 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl.hpp"
+#include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-symbol.hpp"
@@ -132,7 +133,7 @@ namespace Analysis {
         // Members convenient during visiting
         int _n_nested_conditionals;     /*!< Number of conditionals that contains the statement currently parsed */
 
-        Nodecl::Calculator _calc;
+        Optimizations::Calculator _calc;
 
         //! Resets the class members as if the partially computed IV was never an Induction Variable
         void undefine_induction_variable( );

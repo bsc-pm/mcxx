@@ -283,7 +283,7 @@ type_t* fortran_replace_return_type_of_function_type(type_t* function_type, type
             parameter_info[i].type_info = function_type_get_parameter_type_num(function_type, i);
         }
 
-        return get_new_function_type(new_return_type, parameter_info, num_parameters);
+        return get_new_function_type(new_return_type, parameter_info, num_parameters, REF_QUALIFIER_NONE);
     }
     else
     {
@@ -536,15 +536,14 @@ char fortran_is_intrinsic_type(type_t* t)
             || fortran_is_character_type(t));
 }
 
-char fortran_are_conformable_types(type_t* t1, type_t* t2)
+char fortran_type_is_conformable_to(type_t* t1, type_t* t2)
 {
     t1 = no_ref(t1);
     t2 = no_ref(t2);
 
     if (fortran_get_rank_of_type(t1) == fortran_get_rank_of_type(t2))
         return 1;
-    else if (fortran_get_rank_of_type(t1) == 1
-            || fortran_get_rank_of_type(t2) == 1)
+    else if (fortran_get_rank_of_type(t1) == 0)
         return 1;
     else
         return 0;

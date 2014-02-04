@@ -56,6 +56,10 @@ LIBMCXX_EXTERN char check_expression_non_executable(AST a, decl_context_t decl_c
 
 LIBMCXX_EXTERN char check_list_of_expressions(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN char check_list_of_initializer_clauses(AST initializer_clause_list,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 LIBMCXX_EXTERN char check_initialization(AST initializer, 
         decl_context_t decl_context, 
         scope_entry_t* initialized_entry, // May have its type_information updated
@@ -63,10 +67,13 @@ LIBMCXX_EXTERN char check_initialization(AST initializer,
         nodecl_t* nodecl_output,
         char is_auto_type);
 
-LIBMCXX_EXTERN void check_nodecl_initialization(nodecl_t nodecl_initializer,
+LIBMCXX_EXTERN void check_nodecl_initialization(
+        nodecl_t nodecl_initializer,
         decl_context_t decl_context,
+        scope_entry_t* initialized_entry, // May have its type_information updated
         type_t* declared_type,
-        nodecl_t* nodecl_output);
+        nodecl_t* nodecl_output,
+        char is_auto_type);
 
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
@@ -150,7 +157,12 @@ LIBMCXX_EXTERN nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t acc
 
 // Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c)
 void check_function_arguments(AST arguments, decl_context_t decl_context, nodecl_t* nodecl_output);
-void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument_list, decl_context_t decl_context, nodecl_t* nodecl_output);
+void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument_list,
+        decl_context_t decl_context, nodecl_t* nodecl_output);
+
+void get_packs_in_expression(nodecl_t nodecl,
+        scope_entry_t*** packs_to_expand,
+        int *num_packs_to_expand);
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context);

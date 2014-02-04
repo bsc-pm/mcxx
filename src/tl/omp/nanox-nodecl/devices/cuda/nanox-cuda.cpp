@@ -398,17 +398,31 @@ void DeviceCUDA::create_outline(CreateOutlineInfo &info,
     {
         if (_copied_cuda_functions.map(called_task) == called_task)
         {
-            if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE) &&
-                    !called_task.get_function_code().is_null())
+            if (IS_CXX_LANGUAGE || IS_C_LANGUAGE)
             {
-                TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
+                if (!called_task.get_function_code().is_null())
+                {
+                    TL::Symbol new_function = SymbolUtils::new_function_symbol(called_task, called_task.get_name() + "_moved");
 
-                _copied_cuda_functions.add_map(called_task, new_function);
+                    _copied_cuda_functions.add_map(called_task, new_function);
 
-                _cuda_file_code.append(Nodecl::Utils::deep_copy(
-                            called_task.get_function_code(),
-                            called_task.get_scope(),
-                            *symbol_map));
+                    _cuda_file_code.append(Nodecl::Utils::deep_copy(
+                                called_task.get_function_code(),
+                                called_task.get_scope(),
+                                *symbol_map));
+                }
+                else
+                {
+                    if (IS_CXX_LANGUAGE)
+                    {
+                        // Best effort: add a declaration for this function task to the intermediate file
+                        _cuda_file_code.append(Nodecl::CxxDecl::make(
+                                    /* optative context */ nodecl_null(),
+                                    called_task,
+                                    original_statements.get_locus()));
+                    }
+
+                }
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
@@ -975,12 +989,12 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         bool is_fortan = IS_FORTRAN_LANGUAGE;
         if (is_fortan)
-            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
+            Source::source_language = SourceLanguage::C;
 
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
 
         if (is_fortan)
-            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+            Source::source_language = SourceLanguage::Fortran;
 
         fclose(ancillary_file);
 

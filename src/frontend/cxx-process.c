@@ -30,6 +30,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include <unistd.h>
+
 #include "cxx-process.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
@@ -120,7 +122,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     {
         // Desperate message
         const char *oom_message = "allocation failure in vasprintf\n";
-        write(fileno(stderr), message, strlen(message));
+        write(fileno(stderr), oom_message, strlen(oom_message));
         abort();
     }
 

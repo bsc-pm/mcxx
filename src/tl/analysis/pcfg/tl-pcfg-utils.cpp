@@ -78,7 +78,7 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     PCFGClause::PCFGClause( )
-        : _clause( __undefined_clause ), _args( ObjectList<Nodecl::NodeclBase> ( 1, Nodecl::NodeclBase::null( ) ) )
+        : _clause( __undefined_clause ), _args( )
     {}
 
     PCFGClause::PCFGClause( Clause c )
@@ -88,16 +88,7 @@ namespace Analysis {
     PCFGClause::PCFGClause( Clause c, Nodecl::NodeclBase arg )
         : _clause( c ), _args( )
     {
-        if( arg.is<Nodecl::List>( ) )
-        {
-            Nodecl::List arg_list = arg.as<Nodecl::List>( );
-            for( Nodecl::List::iterator it = arg_list.begin( ); it != arg_list.end( ); ++it )
-                _args.append( *it );
-        }
-        else
-        {
-            _args.append( arg );
-        }
+        _args.append( arg.shallow_copy( ) );
     }
 
     PCFGClause::PCFGClause( const PCFGClause& c )
@@ -130,7 +121,7 @@ namespace Analysis {
         return clause_to_str( _clause );
     }
     
-    ObjectList<Nodecl::NodeclBase> PCFGClause::get_args( ) const
+    Nodecl::List PCFGClause::get_args( ) const
     {
         return _args;
     }
@@ -161,6 +152,20 @@ namespace Analysis {
         return false;
     }
 
+    PCFGClause PCFGPragmaInfo::get_clause( Clause clause ) const
+    {
+        PCFGClause pcfg_clause;
+        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
+        {
+            if ( it->_clause == clause )
+            {
+                pcfg_clause = *it;
+                break;
+            }
+        }
+        return pcfg_clause;
+    }
+    
     void PCFGPragmaInfo::add_clause( PCFGClause pcfg_clause )
     {
         _clauses.append( pcfg_clause );

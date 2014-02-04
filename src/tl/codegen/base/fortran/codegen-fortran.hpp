@@ -145,6 +145,10 @@ namespace Codegen
             void visit(const Nodecl::AddAssignment & node);
             void visit(const Nodecl::MinusAssignment & node);
 
+            void emit_explicit_use_statement(TL::Symbol &module,
+                    Nodecl::List items,
+                    bool is_only);
+
             void visit(const Nodecl::CxxDepNameSimple& node);
 
             void codegen_type(TL::Type t, 

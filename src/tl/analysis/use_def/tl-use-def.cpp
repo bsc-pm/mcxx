@@ -298,7 +298,7 @@ namespace Analysis {
                     || current->is_omp_parallel_node( ) || current->is_omp_task_node( ) )
                 {   // Take into account data-sharing clauses in Use-Def Task node computation
                     Nodecl::List environ =
-                            current->get_graph_label( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
+                            current->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
                     for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
                     {
                         if( it->is<Nodecl::OpenMP::Private>( ) )
@@ -484,7 +484,7 @@ namespace Analysis {
     void UsageVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         nodecl_t internal_n = n.get_internal_nodecl( );
-        WARNING_MESSAGE( "Unhandled node '%s' with type '%s 'during Use-Def Analysis'",
+        WARNING_MESSAGE( "Unhandled node '%s' with type '%s' during Use-Def Analysis",
                          codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ),
                          ast_print_node_type( n.get_kind( ) ) );
     }

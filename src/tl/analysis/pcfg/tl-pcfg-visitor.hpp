@@ -43,8 +43,10 @@ namespace Analysis {
 
         ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
 
-        PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
+        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
+        std::map<Symbol, Nodecl::NodeclBase> _asserted_funcs;  /*!< Map relating function symbols with 
+                                                                    its related pragma analysis_check assert directive, if exists */
 
         //! This method creates a list with the nodes in an specific subgraph
         /*!
@@ -206,8 +208,11 @@ namespace Analysis {
 
         /*!Generates one PCFG per each function of an AST
          * \param n AST containing the code used to generate the PCFG
+         * \param asserted_funcs Map containing the relation between functions and assert pragmas
+         *                       This parameter is used when calling this function from the Singleton interface
          */
-        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n );
+        ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n, 
+                const std::map<Symbol, Nodecl::NodeclBase>& asserted_funcs = std::map<Symbol, Nodecl::NodeclBase>( ) );
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 
@@ -243,11 +248,9 @@ namespace Analysis {
         Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );
-        Ret visit( const Nodecl::Analysis::InductionVarExpr& n );
         Ret visit( const Nodecl::Analysis::InductionVariable& n );
         Ret visit( const Nodecl::Analysis::LiveIn& n );
         Ret visit( const Nodecl::Analysis::LiveOut& n );
-        Ret visit( const Nodecl::Analysis::ReachDefExpr& n );
         Ret visit( const Nodecl::Analysis::ReachingDefinitionIn& n );
         Ret visit( const Nodecl::Analysis::ReachingDefinitionOut& n );
         Ret visit( const Nodecl::Analysis::UpperExposed& n );
@@ -335,6 +338,8 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::BarrierFull& n );
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
+        Ret visit( const Nodecl::OpenMP::Cache& n );
+        Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
         Ret visit( const Nodecl::OpenMP::Commutative& n );
         Ret visit( const Nodecl::OpenMP::Concurrent& n );
         Ret visit( const Nodecl::OpenMP::CopyIn& n );
@@ -357,7 +362,9 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::ForAppendix& n );
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Lastprivate& n );
+        Ret visit( const Nodecl::OpenMP::Mask& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
+        Ret visit( const Nodecl::OpenMP::NoMask& n );
         Ret visit( const Nodecl::OpenMP::Parallel& n );
         Ret visit( const Nodecl::OpenMP::ParallelSimdFor& n );
         Ret visit( const Nodecl::OpenMP::Priority& n );
@@ -372,17 +379,16 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
+        Ret visit( const Nodecl::OpenMP::Suitable& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
         Ret visit( const Nodecl::OpenMP::Task& n );
         Ret visit( const Nodecl::OpenMP::TaskCall& n );
         Ret visit( const Nodecl::OpenMP::TaskExpression& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
+        Ret visit( const Nodecl::OpenMP::Unroll& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
         Ret visit( const Nodecl::OpenMP::VectorLengthFor& n );
-        Ret visit( const Nodecl::OpenMP::Mask& n );
-        Ret visit( const Nodecl::OpenMP::NoMask& n );
-        Ret visit( const Nodecl::OpenMP::Suitable& n );
         Ret visit( const Nodecl::OpenMP::WaitOnDependences& n );
         Ret visit( const Nodecl::OpenMP::Workshare& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
@@ -391,8 +397,9 @@ namespace Analysis {
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
-        Ret visit( const Nodecl::PragmaCustomStatement& n );
+//         Ret visit( const Nodecl::PragmaCustomClause& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );
+        Ret visit( const Nodecl::PragmaCustomStatement& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
         Ret visit( const Nodecl::Range& n );

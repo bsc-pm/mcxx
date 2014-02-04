@@ -92,6 +92,7 @@ namespace Codegen
             Ret visit(const Nodecl::CxxDepNameSimple &);
             Ret visit(const Nodecl::CxxDepNew &);
             Ret visit(const Nodecl::CxxDepTemplateId &);
+            Ret visit(const Nodecl::CxxNoexcept &);
             Ret visit(const Nodecl::CxxInitializer &);
             Ret visit(const Nodecl::CxxEqualInitializer &);
             Ret visit(const Nodecl::CxxMemberInit &);
@@ -124,12 +125,14 @@ namespace Codegen
             Ret visit(const Nodecl::IfElseStatement &);
             Ret visit(const Nodecl::ImagPart &);
             Ret visit(const Nodecl::IndexDesignator &);
+            Ret visit(const Nodecl::Lambda &);
             Ret visit(const Nodecl::IntegerLiteral &);
             Ret visit(const Nodecl::LabeledStatement &);
             Ret visit(const Nodecl::LogicalAnd &);
             Ret visit(const Nodecl::LogicalNot &);
             Ret visit(const Nodecl::LogicalOr &);
             Ret visit(const Nodecl::LoopControl &);
+            Ret visit(const Nodecl::IteratorLoopControl &);
             Ret visit(const Nodecl::LowerOrEqualThan &);
             Ret visit(const Nodecl::LowerThan &);
             Ret visit(const Nodecl::MemberInit &);
@@ -333,7 +336,8 @@ namespace Codegen
                     void (CxxBase::*define_entities_fun)(const Nodecl::NodeclBase& node),
                     void (CxxBase::*define_entry_fun)(
                         const Nodecl::NodeclBase& node, TL::Symbol entry,
-                        void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol))
+                        void (CxxBase::*def_sym_fun_2)(TL::Symbol symbol)),
+                    std::set<TL::Symbol>& visited_symbols
                     );
 
             bool is_local_symbol(TL::Symbol entry);

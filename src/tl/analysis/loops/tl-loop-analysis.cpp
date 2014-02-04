@@ -29,6 +29,7 @@
 #include "cxx-process.h"
 #include "cxx-utils.h"
 
+#include "tl-expression-reduction.hpp"
 #include "tl-renaming-visitor.hpp"
 #include "tl-loop-analysis.hpp"
 
@@ -89,7 +90,7 @@ namespace Analysis {
                         if( current->is_for_loop( ) )
                         {
                             // Check whether the loop has a condition in the loop control
-                            Nodecl::ForStatement loop_stmt = current->get_graph_label( ).as<Nodecl::ForStatement>( );
+                            Nodecl::ForStatement loop_stmt = current->get_graph_related_ast( ).as<Nodecl::ForStatement>( );
                             Nodecl::LoopControl loop_control = loop_stmt.get_loop_header( ).as<Nodecl::LoopControl>( );
                             if( !loop_control.get_cond( ).is_null( ) )
                             {
@@ -109,7 +110,7 @@ namespace Analysis {
                             ObjectList<Nodecl::NodeclBase> stmts = condition_node->get_statements( );
                             if( stmts.empty( ) )
                             {   // The condition node is a composite node
-                                stmts.append( condition_node->get_graph_label( ) );
+                                stmts.append( condition_node->get_graph_related_ast( ) );
                             }
                             Nodecl::NodeclBase condition_stmt = stmts[0];
                             get_loop_limits( condition_stmt, current->get_id( ) );
@@ -133,7 +134,7 @@ namespace Analysis {
 
     void LoopAnalysis::get_loop_limits( Nodecl::NodeclBase cond, int loop_id )
     {
-        Nodecl::Utils::ReduceExpressionVisitor v;
+        Optimizations::ReduceExpressionVisitor v;
 
         if( cond.is<Nodecl::Symbol>( ) )
         {   // No limits to be computed
@@ -289,7 +290,7 @@ namespace Analysis {
 //             }
 //             else
 //             {
-//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
+//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_related_ast().prettyprint().c_str());
 //             }
 //         }
 //         else if (stride.is<Nodecl::Predecrement>() || stride.is<Nodecl::Postdecrement>())
@@ -315,7 +316,7 @@ namespace Analysis {
 //             }
 //             else
 //             {
-//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
+//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_related_ast().prettyprint().c_str());
 //             }
 //         }
 //         else if (stride.is<Nodecl::AddAssignment>())
@@ -331,7 +332,7 @@ namespace Analysis {
 //             }
 //             else
 //             {
-//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_label().prettyprint().c_str());
+//                 internal_error("The stride of loop '%s' do not correspond to the variable used in the initial and codition expressions. This is not yet supported", loop_node->get_graph_related_ast().prettyprint().c_str());
 //             }
 //         }
 //         else if (stride.is_null())
@@ -369,7 +370,7 @@ namespace Analysis {
 //         }
 //
 //         // Compute actual loop control info
-//         Nodecl::LoopControl loop_control = loop_node->get_graph_label().as<Nodecl::LoopControl>();
+//         Nodecl::LoopControl loop_control = loop_node->get_graph_related_ast().as<Nodecl::LoopControl>();
 //         traverse_loop_init(loop_node, loop_control.get_init());
 //         traverse_loop_cond(loop_node, loop_control.get_cond());
 //         traverse_loop_stride(loop_node, loop_control.get_next());
@@ -480,7 +481,7 @@ namespace Analysis {
 //             else
 //             {
 //                 internal_error("More than one nodecl returned while renaming variables to ranges within a loop [%d] '%s'",
-//                             loop_node->get_id(), loop_node->get_graph_label().prettyprint().c_str());
+//                             loop_node->get_id(), loop_node->get_graph_related_ast().prettyprint().c_str());
 //             }
 //         }
 //         else

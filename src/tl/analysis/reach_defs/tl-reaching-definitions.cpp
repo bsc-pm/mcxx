@@ -644,7 +644,7 @@ namespace Analysis {
 //                 int line;
 //                 if (node->get_graph_type() == LOOP)
 //                 {
-//                     Nodecl::NodeclBase label = node->get_graph_label();
+//                     Nodecl::NodeclBase label = node->get_graph_related_ast();
 //                     filename = label.get_filename().c_str();
 //                     line = label.get_line();
 //                 }

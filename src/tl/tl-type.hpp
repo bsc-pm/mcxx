@@ -120,16 +120,6 @@ namespace TL
                 return NULL;
             }
 
-            static std::string get_type_name_str(type_t* type, const std::string& symbol_name);
-            static void get_type_name_str_internal(type_t* type_info,
-                    const std::string &symbol_name, std::string& left, std::string& right);
-            static std::string get_cv_qualifier_str(type_t* type_info);
-            static std::string get_simple_type_name_str_internal(type_t* simple_type);
-            static std::string get_simple_type_name_str(type_t* simple_type);
-            static bool declarator_needs_parentheses(type_t* type_info);
-            static std::string get_declaration_str_internal(type_t* type_info,
-                    const std::string& symbol_name, const std::string& initializer, bool semicolon);
-
             Type fix_references_();
         public:
 
@@ -270,14 +260,6 @@ namespace TL
              */
             Type get_array_to();
 
-            //! Convenience function that returns an array type built after a dimension string
-            /*!
-              The frontend never creates this kind of array types. They exist
-              to ease array type creation in TL. They should be only used for
-              types that are going to be prettyprinted.
-              */
-            Type get_array_to(const std::string& str);
-
             //! Returns a ranged array to the current type
             /*!
              * \param lower_bound The lower bound expression of the array.
@@ -319,18 +301,29 @@ namespace TL
             /*!
              * \param type_list List of parameter types of the function.
              * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \param reference_qualifier Sets the ref-qualifier of the function. This is for C++2011
              */
-            Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
+            Type get_function_returning(const ObjectList<Type>& type_list,
+                    bool has_ellipsis = false,
+                    ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
+
+            //! Returns the reference qualifier
+            /*!
+             * This is only meaningful in C++2011
+             */
+            ref_qualifier_t get_reference_qualifier() const;
 
             //! Returns a function to the current list of parameter types
             /*!
              * \param type_list List of parameter types of the function.
              * \param nonadjusted_type_list List of nonadjusted parameter types of the function
              * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \param reference_qualifier Sets the ref-qualifier of the function. This is for C++2011
              */
             Type get_function_returning(const ObjectList<Type>& type_list,
                     const ObjectList<Type>& nonadjusted_type_list,
-                    bool has_ellipsis = false);
+                    bool has_ellipsis = false,
+                    ref_qualifier_t reference_qualifier = REF_QUALIFIER_NONE);
 
             //! If the type is a reference, it returns the referenced tye
             /*!
@@ -512,11 +505,14 @@ namespace TL
              */
             ObjectList<Type> nonadjusted_parameters(bool &has_ellipsis) const;
 
-            //! For a function type it states whether it has been declared with prototype
+            //! For a function type in C99, it states whether it has been declared with prototype
             /*!
              * This is only meaningful in C because in C++ all functions have prototype
              */
             bool lacks_prototype() const;
+
+            //! For a function type in C++2011, it states whether it has been declared with a trailing return
+            bool is_trailing_return() const;
 
             //! States whether current type is a pointer type
             bool is_pointer() const;
@@ -607,6 +603,9 @@ namespace TL
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type
             Type vector_element() const;
+
+            // ! States whether the current type is auto
+            bool is_auto() const;
 
             //! Returns the number of elements of a vector-type
             int vector_num_elements() const;
@@ -877,6 +876,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped vector mask
             static Type get_mask_type(unsigned int mask_size);
+
+            //! Concenience function that returns an 'auto' type specifier
+            static Type get_auto_type();
     };
 
     //! @}

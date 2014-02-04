@@ -117,7 +117,7 @@ namespace SymbolUtils
         type_t *function_type = get_new_function_type(
                 return_type.get_internal_type(),
                 p_types,
-                parameter_types.size());
+                parameter_types.size(), REF_QUALIFIER_NONE);
 
         delete[] p_types;
 
@@ -162,7 +162,9 @@ namespace SymbolUtils
         for (int i = 0; i < new_function_sym->entity_specs.num_related_symbols; ++i)
         {
             symbol_set_as_parameter_of_function(
-                    new_function_sym->entity_specs.related_symbols[i], new_function_sym, /* parameter position */ i);
+                    new_function_sym->entity_specs.related_symbols[i], new_function_sym,
+                    /* parameter nesting */ 0,
+                    /* parameter position */ i);
         }
 
         // Make it static
@@ -214,6 +216,100 @@ namespace SymbolUtils
         }
 
         return new_function_sym;
+    }
+
+    TL::Symbol new_function_symbol(
+            TL::Scope sc,
+            const std::string& name,
+            bool has_return,
+            const std::string& return_symbol_name,
+            TL::Type return_type,
+            TL::ObjectList<std::string> parameter_names,
+            TL::ObjectList<TL::Type> parameter_types)
+    {
+        decl_context_t decl_context = sc.get_decl_context();
+
+        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+        entry->entity_specs.is_user_declared = 1;
+
+        entry->kind = SK_FUNCTION;
+        entry->locus = make_locus("", 0, 0);
+
+        ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
+
+        decl_context_t function_context ;
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            function_context = new_program_unit_context(decl_context);
+        }
+        else
+        {
+            function_context = new_function_context(decl_context);
+            function_context = new_block_context(function_context);
+        }
+        function_context.function_scope->related_entry = entry;
+        function_context.block_scope->related_entry = entry;
+
+        entry->related_decl_context = function_context;
+
+        parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
+
+        parameter_info_t* it_ptypes = &(p_types[0]);
+        TL::ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
+        for (TL::ObjectList<std::string>::iterator it = parameter_names.begin();
+                it != parameter_names.end();
+                it++, it_ptypes++, type_it++)
+        {
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+            param->entity_specs.is_user_declared = 1;
+            param->kind = SK_VARIABLE;
+            param->locus = make_locus("", 0, 0);
+
+            param->defined = 1;
+
+            symbol_set_as_parameter_of_function(param, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
+
+            param->type_information = get_unqualified_type(type_it->get_internal_type());
+
+            P_LIST_ADD(entry->entity_specs.related_symbols,
+                    entry->entity_specs.num_related_symbols,
+                    param);
+
+            it_ptypes->is_ellipsis = 0;
+            it_ptypes->nonadjusted_type_info = NULL;
+            it_ptypes->type_info = get_indirect_type(param);
+        }
+
+        if (has_return)
+        {
+            // Return symbol
+            scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, return_symbol_name.c_str());
+            return_sym->entity_specs.is_user_declared = 1;
+            return_sym->kind = SK_VARIABLE;
+            return_sym->locus = make_locus("", 0, 0);
+
+            return_sym->defined = 1;
+
+            return_sym->entity_specs.is_result_var = 1;
+
+            return_sym->type_information = get_unqualified_type(return_type.get_internal_type());
+
+            entry->entity_specs.result_var = return_sym;
+        }
+
+        // Type of the function
+        type_t *function_type = get_new_function_type(
+                return_type.get_internal_type(),
+                p_types, parameter_types.size(),
+                REF_QUALIFIER_NONE);
+
+        entry->type_information = function_type;
+
+        delete[] p_types;
+
+        return entry;
     }
 
     void build_empty_body_for_function(

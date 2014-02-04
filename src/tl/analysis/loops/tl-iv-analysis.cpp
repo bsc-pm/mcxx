@@ -28,6 +28,7 @@
 
 #include "cxx-cexpr.h"
 #include "codegen-common.hpp"
+#include "tl-expression-reduction.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-node.hpp"
 
@@ -40,7 +41,7 @@ namespace {
     {
         bool is_iv = false;
 
-        Nodecl::Utils::ReduceExpressionVisitor v;
+        Optimizations::ReduceExpressionVisitor v;
         Nodecl::NodeclBase st = stmt.shallow_copy( );
         v.walk( st );
 

@@ -64,6 +64,7 @@ namespace Utils {
         // ******* Class attributes ******* //
         Nodecl::NodeclBase _main;
         ObjectList<Nodecl::NodeclBase> _functions;
+        std::map<Symbol, Nodecl::NodeclBase> _analysis_asserted_funcs;
         std::string _filename;
 
     public:
@@ -74,6 +75,7 @@ namespace Utils {
         // ****** Getters and setters ****** //
         Nodecl::NodeclBase get_main( ) const;
         ObjectList<Nodecl::NodeclBase> get_functions( ) const;
+        std::map<Symbol, Nodecl::NodeclBase> get_asserted_funcs( ) const;
 
         // ******** Visiting methods ******* //
 
@@ -94,6 +96,7 @@ namespace Utils {
          */
         Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret visit( const Nodecl::AsmDefinition& n );
+        Ret visit( const Nodecl::Analysis::AssertDecl& n );
         Ret visit( const Nodecl::GccAsmDefinition& n );
         Ret visit( const Nodecl::GccAsmSpec& n );
         Ret visit( const Nodecl::GccBuiltinVaArg& n );

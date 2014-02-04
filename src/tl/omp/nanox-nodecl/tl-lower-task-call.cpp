@@ -322,13 +322,13 @@ static TL::ObjectList<OutlineDataItem::DependencyItem> rewrite_dependences_c(
             it != deps.end();
             it++)
     {
-//         If the current outline data item has a parameter with an input value
-//         dependence, this parameter must be involved in another clause
-//         because the SHARING_SHARED_WITH_CAPTURE outline data items are not
-//         handled here (this kind of outline data item only has an input value
-//         dependence).
-//         The value of this parameter is needed during the task instantiation
-//         and, for this reason, the input value dependence is not added.
+        // If the current outline data item has a parameter with an input value
+        // dependence, this parameter must be involved in another clause
+        // because the SHARING_SHARED_WITH_CAPTURE outline data items are not
+        // handled here (this kind of outline data item only has an input value
+        // dependence).
+        // The value of this parameter is needed during the task instantiation
+        // and, for this reason, the input value dependence is not added.
         if (it->directionality == OutlineDataItem::DEP_IN_VALUE)
             continue;
 
@@ -440,97 +440,55 @@ namespace InputValueUtils
             TL::Scope new_block_context_sc,
             Nodecl::NodeclBase expr,
             Nodecl::NodeclBase update_expr,
-            OutlineDataItem::TaskwaitOnNode* enclosing_lvalue,
             TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >& toplevel_lvalue_subexpressions,
             TL::ObjectList<Nodecl::NodeclBase>& nontoplevel_lvalue_subexpressions)
     {
         if (expr.is_null())
             return;
 
-        bool traverse_expression = true;
-
         TL::Symbol new_symbol = TL::Symbol::invalid();
         if (expr.get_type().is_lvalue_reference())
         {
-            if (enclosing_lvalue == NULL)
+            // The expression is a top level lvalue
+            // Is it repeated?
+            bool create_new_outline_data_item = true;
+            for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
+                    it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
+                    it++)
             {
-                // The expression is a top level lvalue
-                // Is it repeated?
-                bool create_new_outline_data_item = true;
-                for (TL::ObjectList<std::pair<Nodecl::NodeclBase, TL::Symbol> >::iterator it = toplevel_lvalue_subexpressions.begin();
-                        it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
-                        it++)
+                create_new_outline_data_item = !Nodecl::Utils::equal_nodecls(it->first, expr);
+                if (!create_new_outline_data_item)
                 {
-                    create_new_outline_data_item = !Nodecl::Utils::equal_nodecls(it->first, expr);
-                    if (!create_new_outline_data_item)
-                    {
-                        new_symbol = it->second;
-                    }
-                }
-
-                traverse_expression = create_new_outline_data_item;
-
-                if (create_new_outline_data_item)
-                {
-                    Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
-
-                    // Create a new variable
-                    std::stringstream ss;
-                    ss << "mcc_arg_" << (int)arg_counter;
-                    new_symbol = new_block_context_sc.new_symbol(ss.str());
-                    arg_counter++;
-
-                    // FIXME - Wrap this sort of things
-                    new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                    new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
-                    new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-                    outline_register_entities.add_shared_with_capture(new_symbol);
-
-                    OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(expr);
-                    outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
-                    enclosing_lvalue = new_dependence;
-
-                    // Update the set of visited toplevel lvalue subexpressions
-                    toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
+                    new_symbol = it->second;
                 }
             }
-            else
+
+            if (create_new_outline_data_item)
             {
-                bool generate_new_dependence = true;
+                Counter& arg_counter = CounterManager::get_counter("nanos++-outline-arguments");
 
-                if (expr.get_type().no_ref().is_array())
-                {
-                    generate_new_dependence = false;
-                }
-                else
-                {
-                    // If the expression is in the nontoplevel_lvalue_subexpressions set then It is repeated!
-                    // We should not create a new TaskwaitOnNode
-                    for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = nontoplevel_lvalue_subexpressions.begin();
-                            it != nontoplevel_lvalue_subexpressions.end() && generate_new_dependence;
-                            it++)
-                    {
-                        generate_new_dependence = !Nodecl::Utils::equal_nodecls(*it, expr);
-                    }
+                // Create a new variable
+                std::stringstream ss;
+                ss << "mcc_arg_" << (int)arg_counter;
+                new_symbol = new_block_context_sc.new_symbol(ss.str());
+                arg_counter++;
 
-                    traverse_expression = generate_new_dependence;
-                }
+                // FIXME - Wrap this sort of things
+                new_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                new_symbol.get_internal_symbol()->type_information = expr.get_type().no_ref().get_pointer_to().get_internal_type();
+                new_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                new_symbol.get_internal_symbol()->value = Nodecl::Reference::make(
+                        expr.shallow_copy(),
+                        expr.get_type().no_ref().get_pointer_to(),
+                        expr.get_locus()).get_internal_nodecl();
 
-                if (generate_new_dependence)
-                {
-                    // New dependence for the enclosing lvalue
-                    OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(expr);
-                    enclosing_lvalue->depends_on.append(new_dependence);
-                    enclosing_lvalue = new_dependence;
+                outline_register_entities.add_shared_with_capture(new_symbol);
 
-                    // Update the set of visited nontoplevel lvalue subexpressions
-                    nontoplevel_lvalue_subexpressions.append(expr);
-                }
+                // Update the set of visited toplevel lvalue subexpressions
+                toplevel_lvalue_subexpressions.append(std::make_pair(expr, new_symbol));
             }
         }
-
-        if (traverse_expression)
+        else
         {
             if (expr.is<Nodecl::List>())
             {
@@ -543,7 +501,6 @@ namespace InputValueUtils
                             new_block_context_sc,
                             l_expr[i],
                             l_update_expr[i],
-                            enclosing_lvalue,
                             toplevel_lvalue_subexpressions,
                             nontoplevel_lvalue_subexpressions);
                 }
@@ -559,7 +516,6 @@ namespace InputValueUtils
                             new_block_context_sc,
                             expr_children[i],
                             update_expr_children[i],
-                            enclosing_lvalue,
                             toplevel_lvalue_subexpressions,
                             nontoplevel_lvalue_subexpressions);
                 }
@@ -591,7 +547,6 @@ namespace InputValueUtils
                 new_block_context_sc,
                 expr,
                 update_expr,
-                /* enclosing lvalue */ NULL,
                 toplevel_lvalue_subexpressions,
                 nontoplevel_lvalue_subexpressions);
 
@@ -610,64 +565,6 @@ namespace InputValueUtils
             }
         }
         return update_expr;
-    }
-
-    static bool any_dependence_depends_on_this_input_value_parameter(
-            const TL::ObjectList<OutlineDataItem*>& data_items,
-            const TaskEnvironmentVisitor& task_environment,
-            OutlineDataItem* current_item)
-    {
-        bool depended_by_other_dep = false;
-        TL::Symbol parameter = current_item->get_symbol();
-
-        if (!task_environment.priority.is_null())
-        {
-            TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.priority);
-            if (dep_expr_syms.contains(parameter))
-            {
-                std::cerr
-                    << task_environment.priority.get_locus_str()
-                    << ": warning: the argument of the 'priority' clause depends on an input value dependence, "
-                    << "It's value may be wrong computed"
-                    << std::endl;
-            }
-        }
-
-        if (!task_environment.if_condition.is_null())
-        {
-            TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(task_environment.if_condition);
-            if (dep_expr_syms.contains(parameter))
-            {
-                std::cerr
-                    << task_environment.if_condition.get_locus_str()
-                    << ": warning: the argument of the 'if' clause depends on an input value dependence, "
-                    << "It's value may be wrong computed"
-                    << std::endl;
-            }
-        }
-
-        for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
-                it != data_items.end() && !depended_by_other_dep;
-                it++)
-        {
-            bool is_current_item = current_item == *it;
-
-            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
-            for (ObjectList<OutlineDataItem::DependencyItem>::iterator dep_it = deps.begin();
-                    dep_it != deps.end() && !depended_by_other_dep;
-                    dep_it++)
-            {
-
-                if (is_current_item
-                        && dep_it->directionality == OutlineDataItem::DEP_IN_VALUE)
-                    continue;
-
-                TL::DataReference dep_expr(dep_it->expression);
-                TL::ObjectList<TL::Symbol> dep_expr_syms = Nodecl::Utils::get_all_symbols(dep_expr);
-                depended_by_other_dep = dep_expr_syms.contains(parameter);
-            }
-        }
-        return depended_by_other_dep;
     }
 }
 
@@ -882,11 +779,20 @@ void LoweringVisitor::visit_task_call_c(
 
     TL::Symbol called_sym = function_call.get_called().get_symbol();
 
-    std::cerr << construct.get_locus_str() << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
-
-    // Get parameters outline info
     Nodecl::NodeclBase parameters_environment = construct.get_environment();
 
+    Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+        = parameters_environment.as<Nodecl::List>()
+        .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+    ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
+    std::cerr << construct.get_locus_str()
+        << ": note: call to task function '" << called_sym.get_qualified_name() << "'" << std::endl;
+    std::cerr << function_parsing_context.get_locus_str()
+        << ": note: task function declared here"
+        << std::endl;
+
+    // Get parameters outline info
     OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
 
     TaskEnvironmentVisitor task_environment;
@@ -923,11 +829,6 @@ void LoweringVisitor::visit_task_call_c(
             && called_sym.is_member())
     {
         Nodecl::NodeclBase class_object = *(arguments.begin());
-
-        Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
-            = parameters_environment.as<Nodecl::List>()
-            .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
-        ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
 
         TL::Scope parse_scope = function_parsing_context.get_context().retrieve_context();
 
@@ -1007,28 +908,7 @@ void LoweringVisitor::visit_task_call_c(
 
         seen_parameters.insert(parameter);
 
-        bool depended_by_other_dep = false;
-        bool has_input_value_dep = current_item->has_an_input_value_dependence();
-        if (has_input_value_dep)
-        {
-            // The current parameter has an input value dependence. If this
-            // parameter appears in an other clause we need Its value
-            // during the creation of the task because It will be used to
-            // calculate this other dependence.
-            //
-            // Example:
-            //
-            //      #pragma omp task in(n) inout([n] v)
-            //      void foo(int n, int* v) { ... }
-            //
-            // We need the value of 'n' to calculate the inout dependence over the array 'v'.
-            depended_by_other_dep =
-                InputValueUtils::any_dependence_depends_on_this_input_value_parameter(data_items,
-                        task_environment, current_item);
-        }
-
-        if (has_input_value_dep
-                && !depended_by_other_dep)
+        if (current_item->has_an_input_value_dependence())
         {
             Nodecl::NodeclBase new_updated_argument = InputValueUtils::handle_input_value_dependence(
                     outline_register_entities,
@@ -1112,32 +992,6 @@ void LoweringVisitor::visit_task_call_c(
             {
                 outline_register_entities.add_capture_with_value(new_symbol, sym_ref);
             }
-
-            if (depended_by_other_dep)
-            {
-                // The current parameter has an input value dependence and It appears in another clause
-
-                //This code is a bit tricky
-                Nodecl::NodeclBase dummy_expr = Nodecl::Utils::deep_copy(argument, new_block_context_sc);
-                TL::ObjectList<Nodecl::NodeclBase> nontoplevel_lvalue_subexpressions;
-                TL::ObjectList< std::pair <Nodecl::NodeclBase, TL::Symbol> > toplevel_lvalue_subexpressions;
-
-                OutlineDataItem::TaskwaitOnNode* new_dependence = new OutlineDataItem::TaskwaitOnNode(argument);
-                outline_register_entities.set_taskwait_on_after_wd_creation(new_symbol, new_dependence);
-
-                InputValueUtils::generate_dependences_of_expression(outline_register_entities,
-                        new_block_context_sc,
-                        argument,
-                        dummy_expr,
-                        /* enclosing lvalue */ new_dependence,
-                        toplevel_lvalue_subexpressions,
-                        nontoplevel_lvalue_subexpressions);
-
-                // The new_symbol variable cannot be initialized at this point
-                // because It may have input value dependences!
-                new_symbol.get_internal_symbol()->value = nodecl_null();
-            }
-
             param_to_args_map.add_map(parameter, new_symbol);
         }
     }
@@ -1444,6 +1298,9 @@ static TL::Symbol new_function_symbol_adapter(
         new_parameter_symbol->kind = SK_VARIABLE;
         new_parameter_symbol->type_information = it->get_type().get_internal_type();
 
+        // Do not forget the ALLOCATABLE attributes
+        new_parameter_symbol->entity_specs.is_allocatable = it->get_internal_symbol()->entity_specs.is_allocatable;
+
         parameters_of_new_function.append(new_parameter_symbol);
         symbol_map.add_map(*it, new_parameter_symbol);
     }
@@ -1501,7 +1358,9 @@ static TL::Symbol new_function_symbol_adapter(
     {
         scope_entry_t* param = it->get_internal_symbol();
 
-        symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+        symbol_set_as_parameter_of_function(param, new_function_sym, 
+                /* nesting */ 0,
+                /* position */ new_function_sym->entity_specs.num_related_symbols);
 
         P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
                 new_function_sym->entity_specs.num_related_symbols,
@@ -1514,8 +1373,8 @@ static TL::Symbol new_function_symbol_adapter(
 
     type_t *function_type = get_new_function_type(
             get_void_type(),
-            p_types,
-            parameters_of_new_function.size());
+            p_types, parameters_of_new_function.size(),
+            REF_QUALIFIER_NONE);
 
     new_function_sym->type_information = function_type;
 
@@ -1766,8 +1625,18 @@ void LoweringVisitor::visit_task_call_fortran(
         return;
     }
 
+    Nodecl::NodeclBase parameters_environment = construct.get_environment();
+
+    Nodecl::OpenMP::FunctionTaskParsingContext function_parsing_context
+        = parameters_environment.as<Nodecl::List>()
+        .find_first<Nodecl::OpenMP::FunctionTaskParsingContext>();
+    ERROR_CONDITION(function_parsing_context.is_null(), "Invalid node", 0);
+
     std::cerr << construct.get_locus_str()
         << ": note: call to task function '" << called_task_function.get_qualified_name() << "'" << std::endl;
+    std::cerr << function_parsing_context.get_locus_str()
+        << ": note: task function declared here"
+        << std::endl;
 
     Counter& adapter_counter = CounterManager::get_counter("nanos++-task-adapter");
     std::stringstream ss;
@@ -1800,7 +1669,6 @@ void LoweringVisitor::visit_task_call_fortran(
     }
 
     // Get parameters outline info
-    Nodecl::NodeclBase parameters_environment = construct.get_environment();
     Nodecl::NodeclBase new_task_construct, new_statements, new_environment;
     Nodecl::NodeclBase adapter_function_code = fill_adapter_function(adapter_function,
             called_task_function,

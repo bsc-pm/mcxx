@@ -1427,6 +1427,17 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
+        Nodecl::NodeclBase n = node.get_rhs();
+        while (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
+        n = advance_parenthesized_expression(n);
+        while (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
+
         if (is_fortran_representable_pointer(t))
         {
             ptr_loc_map_t::iterator it = _ptr_loc_map.find(t);
@@ -1453,13 +1464,33 @@ OPERATOR_TABLE
             walk(node.get_rhs());
             *(file) << ")";
         }
+        else if (n.is<Nodecl::Symbol>()
+                && n.get_symbol().is_parameter()
+                && t.is_fortran_array()
+                && t.array_requires_descriptor())
+        {
+            *file << "LOC(";
+            walk(n);
+
+            *file << "(";
+
+            int r = t.fortran_rank();
+            for (int i = 1; i <= r; i++)
+            {
+                if (i > 1)
+                    *file << ", ";
+
+                *file << "LBOUND(";
+                walk(n);
+                *file << ", DIM = " << i << ")";
+            }
+
+            *file << ")";
+            *file << ")";
+        }
         else
         {
             *(file) << "LOC(";
-            Nodecl::NodeclBase n = node.get_rhs();
-
-            n = advance_parenthesized_expression(n);
-
             walk(n);
             *(file) << ")";
         }
@@ -2453,11 +2484,19 @@ OPERATOR_TABLE
 
     void FortranBase::emit_only_list(Nodecl::List only_items)
     {
+        int i = 0;
         for (Nodecl::List::iterator it = only_items.begin();
                 it != only_items.end();
                 it++)
         {
+            if (i > 0)
+            {
+                *(file) << ", ";
+            }
+
             TL::Symbol sym = it->get_symbol();
+
+            set_codegen_status(sym, CODEGEN_STATUS_DEFINED);
 
             if (!sym.get_internal_symbol()->entity_specs.is_renamed)
             {
@@ -2471,45 +2510,50 @@ OPERATOR_TABLE
                 ;
             }
 
-            if ((it + 1) != only_items.end())
-            {
-                *(file) << ", ";
-            }
+            i++;
         }
+    }
+
+    void FortranBase::emit_explicit_use_statement(TL::Symbol &module,
+            Nodecl::List items,
+            bool is_only)
+    {
+        if (module == this->get_current_declaring_module())
+            return;
+
+        indent();
+        *(file) << "USE";
+        if (module.is_builtin())
+        {
+            *(file) << ", INTRINSIC ::";
+        }
+        *(file) << " " << module.get_name();
+
+        if (!items.is_null())
+        {
+            *(file) << ", ";
+            if (is_only)
+                *(file) << "ONLY: ";
+        }
+
+        emit_only_list(items);
+        *(file) << "\n";
     }
 
     void FortranBase::visit(const Nodecl::FortranUse& node)
     {
-        indent();
-        *(file) << "USE";
-        if (node.get_module().get_symbol().is_builtin())
-        {
-            *(file) << ", INTRINSIC ::";
-        }
-        *(file) << " " << node.get_module().get_symbol().get_name();
-
-        if (!node.get_renamed_items().is_null())
-        {
-            *(file) << ", ";
-            Nodecl::List only_items = node.get_renamed_items().as<Nodecl::List>();
-            // We can use the same code since all will be renamed
-            emit_only_list(only_items);
-        }
-        *(file) << "\n";
+        TL::Symbol module = node.get_module().get_symbol();
+        this->emit_explicit_use_statement(module, 
+                node.get_renamed_items().as<Nodecl::List>(),
+                /* is_only */ false);
     }
 
     void FortranBase::visit(const Nodecl::FortranUseOnly& node)
     {
-        indent();
-        *(file) << "USE";
-        if (node.get_module().get_symbol().is_builtin())
-        {
-            *(file) << ", INTRINSIC ::";
-        }
-        *(file) << " " << node.get_module().get_symbol().get_name() << ", ONLY: ";
-        Nodecl::List only_items = node.get_only_items().as<Nodecl::List>();
-        emit_only_list(only_items);
-        *(file) << "\n";
+        TL::Symbol module = node.get_module().get_symbol();
+        this->emit_explicit_use_statement(module, 
+                node.get_only_items().as<Nodecl::List>(),
+                /* is_only */ true);
     }
 
     void FortranBase::visit(const Nodecl::FieldDesignator& node)
@@ -2716,7 +2760,31 @@ OPERATOR_TABLE
             // We need a LOC here
             *(file) << "LOC(";
             nest = advance_parenthesized_expression(nest);
+            while (nest.is<Nodecl::Conversion>())
+            {
+                nest = nest.as<Nodecl::Conversion>().get_nest();
+            }
             walk(nest);
+
+            if (nest.get_symbol().is_valid()
+                    && nest.get_symbol().is_parameter()
+                    && nest.get_symbol().get_type().no_ref().is_fortran_array()
+                    && nest.get_symbol().get_type().no_ref().array_requires_descriptor())
+            {
+                *file << "(";
+                int r = nest.get_symbol().get_type().no_ref().fortran_rank();
+                for (int i = 1; i <= r; i++)
+                {
+                    if (i > 1)
+                        *file << ", ";
+
+                    *file << "LBOUND(";
+                    walk(nest);
+                    *file << ", DIM = " << i << ")";
+                }
+                *file << ")";
+            }
+
             *(file) << ")";
         }
         else if (
@@ -2830,12 +2898,22 @@ OPERATOR_TABLE
         return ss.str();
     }
 
+    bool is_numerical_label(std::string str)
+    {
+        for (unsigned int i = 0; i < str.size(); ++i)
+        {
+            if (str[i] < '0' || str[i] > '9')
+                return false;
+        }
+        return true;
+    }
+
     std::string FortranBase::rename(TL::Symbol sym)
     {
         if (_name_set_stack.empty())
             return sym.get_name();
 
-        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(), 
+        ERROR_CONDITION(_name_set_stack.empty() != _rename_map_stack.empty(),
                 "Mismatch between rename map stack and name set stack", 0);
 
         name_set_t& name_set = _name_set_stack.back();
@@ -2848,7 +2926,8 @@ OPERATOR_TABLE
         // There are several cases where we do not allow renaming at all
         if (sym.is_intrinsic()
                 || sym.is_member()
-                || sym.is_from_module())
+                || sym.is_from_module()
+                || (sym.is_label() && is_numerical_label(sym.get_name())))
         {
             result = sym.get_name();
         }
@@ -3180,7 +3259,47 @@ OPERATOR_TABLE
         }
 
         // Import statements
-        std::set<TL::Symbol> already_imported;
+        TL::ObjectList<TL::Symbol> imported_symbols;
+
+        Nodecl::List list_of_explicit_modules;
+        if (used_modules.is_valid())
+            list_of_explicit_modules = used_modules.get_value().as<Nodecl::List>();
+        // Review all explicitly used symbols because maybe we have to IMPORT them
+        for (Nodecl::List::iterator it = list_of_explicit_modules.begin();
+                it != list_of_explicit_modules.end();
+                it++)
+        {
+            Nodecl::NodeclBase module;
+            Nodecl::List l;
+            if (it->is<Nodecl::FortranUse>())
+            {
+                module = it->as<Nodecl::FortranUse>().get_module();
+                l = it->as<Nodecl::FortranUse>().get_renamed_items().as<Nodecl::List>();
+            }
+            else if (it->is<Nodecl::FortranUseOnly>())
+            {
+                module = it->as<Nodecl::FortranUseOnly>().get_module();
+                l = it->as<Nodecl::FortranUseOnly>().get_only_items().as<Nodecl::List>();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            if (module.get_symbol() == get_current_declaring_module())
+            {
+                // We did not emit a USE for these, try to use IMPORT instead
+                for (Nodecl::List::iterator it2 = l.begin();
+                        it2 != l.end();
+                        it2++)
+                {
+                    imported_symbols.insert(it2->get_symbol());
+                }
+            }
+        }
+
+        // Check the parameters of the function of this INTERFACE.
+        // If they are TYPE(T), T might have to be IMPORTed too
         for (TL::ObjectList<TL::Symbol>::iterator it = related_symbols.begin();
                 it != related_symbols.end();
                 it++)
@@ -3210,20 +3329,22 @@ OPERATOR_TABLE
                         // The symbol should not come from a module unless at this point
                         // has not been emitted yet
                         (!class_type.is_from_module()
-                            || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
+                         || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
                         // And its related entry should not be ours
                         && (TL::Symbol(class_context.current_scope->related_entry) != entry))
                 {
-                    if (already_imported.find(class_type) == already_imported.end())
-                    {
-                        // We will need an IMPORT as this type comes from an enclosing scope
-                        indent();
-                        *(file) << "IMPORT :: " << fix_class_name(class_type.get_name()) << "\n";
-                        already_imported.insert(class_type);
-                        set_codegen_status(class_type, CODEGEN_STATUS_DEFINED);
-                    }
+                    imported_symbols.insert(class_type);
                 }
             }
+        }
+
+        for (TL::ObjectList<TL::Symbol>::iterator it = imported_symbols.begin();
+                it != imported_symbols.end();
+                it++)
+        {
+            indent();
+            *(file) << "IMPORT :: " << fix_class_name(it->get_name()) << "\n";
+            set_codegen_status(*it, CODEGEN_STATUS_DEFINED);
         }
 
         indent();
@@ -5163,6 +5284,10 @@ OPERATOR_TABLE
                 && first_scope_is_contained_in_second(
                     sc.get_related_symbol().get_scope().get_decl_context().current_scope,
                     entry.get_scope().get_related_symbol().get_scope().get_decl_context().current_scope))
+            return;
+
+        // Do not bring variables in
+        if (entry.is_variable())
             return;
 
         TL::Symbol module = entry.from_module();

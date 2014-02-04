@@ -309,8 +309,9 @@ namespace TL { namespace Nanox {
                         }
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-                        private_sym->entity_specs.is_allocatable = 
-                            (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE) 
+                        private_sym->entity_specs.is_allocatable =
+                            (((*it)->get_allocation_policy()
+                              & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                              == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
 
                         parameter_symbols.append(private_sym);
@@ -359,7 +360,9 @@ namespace TL { namespace Nanox {
         {
             scope_entry_t* param = it->get_internal_symbol();
 
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ new_function_sym->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols,
                     new_function_sym->entity_specs.num_related_symbols,
@@ -375,8 +378,8 @@ namespace TL { namespace Nanox {
 
         type_t *function_type = get_new_function_type(
                 get_void_type(),
-                p_types,
-                parameter_symbols.size());
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
 
         new_function_sym->type_information = function_type;
 
@@ -499,7 +502,6 @@ namespace TL { namespace Nanox {
                     && (*it)->get_is_cxx_this())
                 continue;
 
-            bool already_mapped = false;
             switch ((*it)->get_sharing())
             {
                 case OutlineDataItem::SHARING_ALLOCA:
@@ -519,7 +521,8 @@ namespace TL { namespace Nanox {
                             symbol_map->add_map(sym, private_sym);
 
                             // Copy attributes that must be preserved
-                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+                            private_sym->entity_specs.is_allocatable =
+                                (!sym.is_member() && sym.is_allocatable());
 
                             // Cray pointeers are handled a bit special
                             if (sym.is_cray_pointee())
@@ -562,21 +565,20 @@ namespace TL { namespace Nanox {
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
 
-
                         if (sym.is_valid())
                         {
                             private_sym->entity_specs.is_optional = sym.is_optional();
                             private_sym->entity_specs.is_allocatable =
-                                !sym.is_member() && sym.is_allocatable();
-                            if (!already_mapped)
-                            {
-                                symbol_map->add_map(sym, private_sym);
-                            }
+                                (!sym.is_member() && sym.is_allocatable())
+                                || (*it)->is_copy_of_array_descriptor_allocatable();
+
+                            symbol_map->add_map(sym, private_sym);
                         }
 
                         private_sym->entity_specs.is_allocatable =
-                            sym.is_allocatable() ||
-                            (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
+                            private_sym->entity_specs.is_allocatable ||
+                            (((*it)->get_allocation_policy()
+                              & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE)
                              == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
 
                         parameter_symbols.append(private_sym);
@@ -601,9 +603,10 @@ namespace TL { namespace Nanox {
                         shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
                         parameter_symbols.append(shared_reduction_sym);
 
-                        shared_reduction_sym->entity_specs.is_allocatable = sym.is_valid()
-                            && !sym.is_member()
-                            && sym.is_allocatable();
+                        shared_reduction_sym->entity_specs.is_allocatable = (sym.is_valid()
+                                && !sym.is_member()
+                                && sym.is_allocatable())
+                            || (*it)->is_copy_of_array_descriptor_allocatable();
 
                         (*it)->reduction_set_shared_symbol_in_outline(shared_reduction_sym);
 
@@ -662,7 +665,8 @@ namespace TL { namespace Nanox {
 
                         if (sym.is_valid())
                         {
-                            private_sym->entity_specs.is_allocatable = !sym.is_member() && sym.is_allocatable();
+                            private_sym->entity_specs.is_allocatable = (!sym.is_member() && sym.is_allocatable())
+                                || (*it)->is_copy_of_array_descriptor_allocatable();
 
                             if (private_sym->entity_specs.is_allocatable)
                             {
@@ -776,7 +780,7 @@ namespace TL { namespace Nanox {
                 }
             }
         };
-
+        
         // Update types of parameters (this is needed by VLAs)
         UpdateTypesVLA update_vla(function_context, symbol_map);
         update_vla.update(parameter_symbols);
@@ -802,7 +806,9 @@ namespace TL { namespace Nanox {
             it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
         }
 
-        type_t *function_type = get_new_function_type(get_void_type(), p_types, parameter_symbols.size());
+        type_t *function_type = get_new_function_type(get_void_type(),
+                p_types, parameter_symbols.size(),
+                REF_QUALIFIER_NONE);
         delete[] p_types;
 
         // Now everything is set to register the function
@@ -853,7 +859,9 @@ namespace TL { namespace Nanox {
                 it2++, it_ptypes++)
         {
             scope_entry_t* param = it2->get_internal_symbol();
-            symbol_set_as_parameter_of_function(param, new_function_sym, new_function_sym->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(param, new_function_sym,
+                    /* nesting */ 0,
+                    /* position */ new_function_sym->entity_specs.num_related_symbols);
             P_LIST_ADD(new_function_sym->entity_specs.related_symbols, new_function_sym->entity_specs.num_related_symbols, param);
         }
 

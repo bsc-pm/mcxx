@@ -801,10 +801,16 @@ int parse_arguments(int argc, const char* argv[],
     char linker_files_seen = 0;
 
     struct command_line_parameter_t parameter_info;
-    
-    // we need all translation units because the ouput value might be wrong
+
+    // we need to store every translation unit because the ouput file should be
+    // updated after parsing all the arguments
     int num_translation_units = 0;
     translation_unit_t ** list_translation_units = NULL;
+
+    // we need to store every compilation configuration because some flags
+    // should be updated after parsing all the arguments
+    int num_compilation_configs = 0;
+    compilation_configuration_t** list_compilation_configs = NULL;
 
     while (command_line_get_next_parameter(&parameter_index, 
                 &parameter_info,
@@ -900,7 +906,9 @@ int parse_arguments(int argc, const char* argv[],
                     translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
                         /* add to the global file process */ NULL, parameter_info.argument,
                         output_file, current_configuration);
+
                     P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
+                    P_LIST_ADD(list_compilation_configs, num_compilation_configs, current_configuration);
 
                     add_to_linker_command(uniquestr(parameter_info.argument), ptr_tr);
                 }
@@ -1590,13 +1598,26 @@ int parse_arguments(int argc, const char* argv[],
         num_input_files = 0;
         output_file = NULL;
     }
-   
-    //put the right output file in all translation units
+
+    // Update the output filename of every translation unit
     int i;
-    for (i = 0; i < num_translation_units; ++i) 
+    for (i = 0; i < num_translation_units; ++i)
     {
         list_translation_units[i]->output_filename = output_file;
     }
+
+    // Update some information of every compilation configuration
+    // (It should be done at this point, see #1886)
+    for (i = 0; i < num_compilation_configs; ++i)
+    {
+        list_compilation_configs[i]->verbose = CURRENT_CONFIGURATION->verbose;
+        list_compilation_configs[i]->do_not_link = CURRENT_CONFIGURATION->do_not_link;
+        list_compilation_configs[i]->do_not_compile = CURRENT_CONFIGURATION->do_not_compile;
+        list_compilation_configs[i]->do_not_prettyprint = CURRENT_CONFIGURATION->do_not_prettyprint;
+    }
+
+    xfree(list_translation_units);
+    xfree(list_compilation_configs);
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
     // then, this output is the overall compilation process output
@@ -4724,6 +4745,7 @@ static void print_memory_report(void)
         fprintf(stderr, "    - Size of type node (bytes): %zu\n", get_type_t_size());
         fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
         fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
+        fprintf(stderr, "    - Number of requested function types: %d\n", get_function_type_requested());
         fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
         fprintf(stderr, "    - Number of reused function types: %d\n", get_function_type_reused());
         fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());

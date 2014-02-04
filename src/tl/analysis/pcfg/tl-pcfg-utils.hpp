@@ -85,6 +85,7 @@ namespace Analysis {
     #define GRAPH_NODE_TYPE_LIST \
     GRAPH_TYPE(AsmDef) \
     GRAPH_TYPE(CondExpr) \
+    GRAPH_TYPE(Context) \
     GRAPH_TYPE(ExtensibleGraph) \
     GRAPH_TYPE(FunctionCallGraph) \
     GRAPH_TYPE(IfElse) \
@@ -634,37 +635,39 @@ namespace Analysis {
     CLAUSE(assert_upper_exposed) \
     CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
-    CLAUSE(in) \
-    CLAUSE(in_alloca) \
-    CLAUSE(in_value) \
-    CLAUSE(out) \
-    CLAUSE(inout) \
+    CLAUSE(cache) \
     CLAUSE(concurrent) \
     CLAUSE(commutative) \
     CLAUSE(copy_in) \
     CLAUSE(copy_out) \
     CLAUSE(copy_inout) \
+    CLAUSE(device) \
     CLAUSE(final) \
     CLAUSE(firstprivate) \
     CLAUSE(firstlastprivate) \
     CLAUSE(flushed_vars) \
     CLAUSE(if) \
+    CLAUSE(in) \
+    CLAUSE(in_alloca) \
+    CLAUSE(in_value) \
+    CLAUSE(inout) \
     CLAUSE(lastprivate) \
+    CLAUSE(length_for) \
+    CLAUSE(mask) \
     CLAUSE(name) \
+    CLAUSE(no_mask) \
     CLAUSE(nowait) \
+    CLAUSE(out) \
     CLAUSE(priority) \
     CLAUSE(private) \
     CLAUSE(reduction) \
     CLAUSE(schedule) \
     CLAUSE(shared) \
+    CLAUSE(suitable) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
+    CLAUSE(unroll) \
     CLAUSE(untied) \
-    CLAUSE(device) \
-    CLAUSE(length_for) \
-    CLAUSE(mask) \
-    CLAUSE(no_mask) \
-    CLAUSE(suitable) \
     CLAUSE(wait_on)
     
     enum Clause {
@@ -677,7 +680,7 @@ namespace Analysis {
     class PCFGClause {
     private:
         Clause _clause;
-        ObjectList<Nodecl::NodeclBase> _args;
+        Nodecl::List _args;
 
     public:
         //! Empty constructor
@@ -693,7 +696,7 @@ namespace Analysis {
         //! Getters
         Clause get_clause( ) const;
         std::string get_clause_as_string( ) const;
-        ObjectList<Nodecl::NodeclBase> get_args( ) const;
+        Nodecl::List get_args( ) const;
         
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
@@ -719,6 +722,7 @@ namespace Analysis {
         ~PCFGPragmaInfo( );
 
         bool has_clause( Clause clause ) const;
+        PCFGClause get_clause( Clause clause ) const;
 
         void add_clause( PCFGClause pcfg_clause );
         

@@ -384,6 +384,16 @@ namespace TL
             return _sym;
         }
 
+        void FunctionTaskInfo::set_locus(const locus_t* locus)
+        {
+            _locus = locus;
+        }
+
+        const locus_t* FunctionTaskInfo::get_locus() const
+        {
+            return _locus;
+        }
+
         void FunctionTaskInfo::set_parsing_scope(TL::Scope sc)
         {
             _parsing_scope = sc;
@@ -575,6 +585,7 @@ namespace TL
             mw.write(_untied);
             mw.write(_task_label);
             mw.write(_parsing_scope);
+            mw.write(_locus);
         }
 
         void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -589,6 +600,7 @@ namespace TL
             mr.read(_untied);
             mr.read(_task_label);
             mr.read(_parsing_scope);
+            mr.read(_locus);
         }
 
         void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
@@ -898,7 +910,8 @@ namespace TL
                     it++)
             {
                 Nodecl::NodeclBase input_argument = *it;
-                if (input_argument.is<Nodecl::Symbol>())
+                if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                        && input_argument.is<Nodecl::Symbol>())
                 {
                     Symbol sym = input_argument.get_symbol();
                     if (sym.is_parameter()
@@ -1069,11 +1082,21 @@ namespace TL
                     .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
+            // Target-style clauses
+            if (_target_context.empty())
+            {
+                _target_context.push(TargetContext());
+            }
+            ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
+
+            common_target_handler_pre(pragma_line, _target_context.top(), scope,
+                    /* is_pragma_task */ true);
+
             FunctionTaskInfo task_info(function_sym, dependence_list);
 
             // Now gather target information
             TargetInfo target_info;
-            if (!_target_context.empty())
+
             {
                 target_info.set_target_symbol(function_sym);
                 TargetContext& target_context = _target_context.top();
@@ -1088,6 +1111,11 @@ namespace TL
                     target_ctx_copy_in.append(input_arguments);
                     target_ctx_copy_out.append(output_arguments);
                     target_ctx_copy_inout.append(inout_arguments);
+
+                    // Concurrent/Commutative deps with target attribute 'copy_deps'
+                    // should generate copy_inout information
+                    target_ctx_copy_inout.append(concurrent_arguments);
+                    target_ctx_copy_inout.append(commutative_arguments);
                 }
 
                 ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(FunctionCopyItemGenerator(
@@ -1180,6 +1208,7 @@ namespace TL
             }
 
             task_info.set_parsing_scope(parsing_scope);
+            task_info.set_locus(construct.get_locus());
 
             std::cerr << construct.get_locus_str()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
@@ -1233,6 +1262,14 @@ namespace TL
             get_dependences_info(pragma_line, data_sharing, default_data_attr);
 
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            if (_target_context.empty())
+            {
+                // Create a fake target for this one
+                _target_context.push(TargetContext());
+            }
+            common_target_handler_pre(pragma_line, _target_context.top(), scope,
+                    /* is_pragma_task */ true);
 
             // Target info applies after
             get_target_info(pragma_line, data_sharing);

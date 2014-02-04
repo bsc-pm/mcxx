@@ -449,7 +449,10 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
             new_keyword_sym->do_not_print = 1;
 
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(new_keyword_sym, 
+                    entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -468,7 +471,9 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
-            symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+            symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                    /* nesting */ 0,
+                    /* position */ entry->entity_specs.num_related_symbols);
 
             new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
@@ -1183,7 +1188,7 @@ static scope_entry_t* get_intrinsic_symbol_(
             ERROR_CONDITION((types[i] == NULL), "Invalid description of builtin", 0);
             param_info[i].type_info = types[i];
         }
-        type_t* function_type = get_new_function_type(result_type, param_info, num_types);
+        type_t* function_type = get_new_function_type(result_type, param_info, num_types, REF_QUALIFIER_NONE);
 
         // We do not want it be signed in the scope
         scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
@@ -1389,7 +1394,9 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
         new_keyword_sym->decl_context = entry->decl_context;
         new_keyword_sym->type_information = dummy_arg->type_information;
 
-        symbol_set_as_parameter_of_function(new_keyword_sym, entry, entry->entity_specs.num_related_symbols);
+        symbol_set_as_parameter_of_function(new_keyword_sym, entry,
+                /* nesting */ 0,
+                /* position */ entry->entity_specs.num_related_symbols);
 
         new_keyword_sym->entity_specs.is_optional = dummy_arg->entity_specs.is_optional;
 
@@ -1500,7 +1507,8 @@ static scope_entry_t* register_specific_intrinsic_name(
             symbol_set_as_parameter_of_function(
                     specific_entry->entity_specs.related_symbols[i],
                     new_specific_entry,
-                    new_specific_entry->entity_specs.num_related_symbols);
+                    /* nesting */ 0,
+                    /* position */ new_specific_entry->entity_specs.num_related_symbols);
 
             P_LIST_ADD(new_specific_entry->entity_specs.related_symbols,
                     new_specific_entry->entity_specs.num_related_symbols,
@@ -2932,7 +2940,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
             && (fortran_get_rank_of_type(t1) == 0)
             && (common_type_of_equality_operation(fortran_get_rank0_type(t0), t1) != NULL)
             && (t2 == NULL || is_integer_type(t2))
-            && (t3 == NULL || (is_bool_type(fortran_get_rank0_type(t3)) && fortran_are_conformable_types(t0, t3)))
+            && (t3 == NULL || (is_bool_type(fortran_get_rank0_type(t3)) && fortran_type_is_conformable_to(t3, t0)))
             && opt_valid_kind_expr(kind, &di)
             && (t5 == NULL || is_bool_type(t5)))
     {
@@ -3307,7 +3315,7 @@ scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(fortran_get_rank0_type(t0))
             && is_integer_type(t1)
             && (t2 == NULL
-                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -3376,7 +3384,7 @@ scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(fortran_get_rank0_type(t0))
             && is_integer_type(t1)
             && (t2 == NULL
-                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -3596,7 +3604,7 @@ scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETE
             && is_integer_type(fortran_get_rank0_type(t0))
             && is_integer_type(t1)
             && (t2 == NULL
-                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -4265,7 +4273,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_integer_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0)))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0)))
             && opt_valid_kind_expr(kind, &di)
             && (t4 == NULL || is_bool_type(t4)))
     {
@@ -4323,7 +4331,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_floating_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         if (t1 == NULL)
         {
@@ -4504,7 +4512,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_integer_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0)))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0)))
             && opt_valid_kind_expr(kind, &di)
             && (t4 == NULL || is_bool_type(t4)))
     {
@@ -4562,7 +4570,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_floating_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         if (t1 == NULL)
         {
@@ -4828,14 +4836,14 @@ scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t2 = no_ref(argument_types[2]);
 
     if (fortran_is_array_type(t0)
-            && is_bool_type(fortran_get_rank0_type(t1)) 
-            && fortran_are_conformable_types(t0, t1)
-            && (t2 == NULL || 
+                    && is_bool_type(fortran_get_rank0_type(t1))
+                    && fortran_type_is_conformable_to(t1, t0)
+            && (t2 == NULL ||
                 (equivalent_types(get_unqualified_type(fortran_get_rank0_type(t0)),
                                   get_unqualified_type(fortran_get_rank0_type(t2)))
                  && fortran_get_rank_of_type(t2) == 1)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "pack", 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "pack",
                 t2 == NULL ? fortran_get_n_ranked_type(fortran_get_rank0_type(t0), 1, symbol->decl_context) : t2,
                 t0,
                 t1,
@@ -4947,7 +4955,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
                 || is_floating_type(fortran_get_rank0_type(t0)) 
                 || is_complex_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -5439,13 +5447,13 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1)
-            && (t2 == NULL || is_bool_type(t1))
+            && (t2 == NULL || is_bool_type(t2))
             && opt_valid_kind_expr(argument_expressions[3], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL(symbol, "scan", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "scan",
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
-                t1, 
+                t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2,
                 fortran_get_default_integer_type());
     }
@@ -5795,7 +5803,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_floating_type(fortran_get_rank0_type(t0)) 
                 || is_complex_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -6085,9 +6093,9 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
             && fortran_is_array_type(t1)
             && is_bool_type(fortran_get_rank0_type(t1))
             && equivalent_types(
-                get_unqualified_type(fortran_get_rank0_type(t2)), 
+                get_unqualified_type(fortran_get_rank0_type(t2)),
                 get_unqualified_type(fortran_get_rank0_type(t0)))
-            && fortran_are_conformable_types(t2, t0))
+            && fortran_type_is_conformable_to(t2, t0))
     {
         type_t* result = fortran_get_n_ranked_type(fortran_get_rank0_type(t0),
                 fortran_get_rank_of_type(t1), CURRENT_COMPILED_FILE->global_decl_context);
@@ -7000,7 +7008,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq_class_type->type_information =
             get_new_function_type(
                     fortran_get_default_logical_type(),
-                    eq_class_type_parameter_info, 2);
+                    eq_class_type_parameter_info, 2, REF_QUALIFIER_NONE);
         new_operator_eq_class_type->entity_specs.in_module = ieee_arithmetic;
         new_operator_eq_class_type->entity_specs.access = AS_PRIVATE;
 
@@ -7018,7 +7026,7 @@ static void fortran_init_intrinsic_module_ieee_arithmetic(decl_context_t decl_co
         new_operator_eq_round_type->type_information =
             get_new_function_type(
                     fortran_get_default_logical_type(),
-                    eq_round_type_parameter_info, 2);
+                    eq_round_type_parameter_info, 2, REF_QUALIFIER_NONE);
         new_operator_eq_round_type->entity_specs.in_module = ieee_arithmetic;
         new_operator_eq_round_type->entity_specs.access = AS_PRIVATE;
 
