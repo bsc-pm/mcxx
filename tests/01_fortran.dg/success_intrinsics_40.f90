@@ -26,32 +26,14 @@
 
 
 ! <testinfo>
-! test_generator=config/mercurium-opencl
-! compile_versions=ompss
-! test_compile_faulty=yes
-! test_compile_fail=yes
+! test_generator=config/mercurium-fortran
 ! </testinfo>
-
-MODULE M
-    IMPLICIT NONE
-    INTEGER :: GLOBAL
-    INTEGER :: LOCAL
-END MODULE M
-
 
 PROGRAM P
     IMPLICIT NONE
-    INTEGER :: Y(1:10)
-    INTERFACE
-        !$OMP TARGET DEVICE(OPENCL) NDRANGE(1, GLOBAL, LOCAL) FILE(dummy.cl) COPY_DEPS
-        !$OMP TASK INOUT(X)
-        SUBROUTINE FOO(X)
-            USE M, ONLY: GLOBAL, LOCAL
-            IMPLICIT NONE
-            INTEGER :: X(1:10)
-        END SUBROUTINE FOO
-    END INTERFACE
 
-   CALL FOO(Y)
-   !$OMP TASKWAIT
-END PROGRAM P
+    INTEGER :: M(6, 5)
+    INTEGER :: RES(30)
+    M = 1
+    RES = pack(M, .TRUE.)
+END PROGRAM

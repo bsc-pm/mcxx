@@ -798,6 +798,9 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
 
     scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
 
+    if (class_in_scope->kind == SK_ENUM)
+        return 0;
+
     if (class_symbol_get_canonical_symbol(class_symbol) 
             == class_symbol_get_canonical_symbol(class_in_scope))
     {
@@ -950,7 +953,11 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
             fprintf(stderr, "SCOPE: Found in current class, hides any symbol in base classes\n");
         }
     }
-    else
+    else if (is_enum_type(current_class_type))
+    {
+        // All done for enums
+    }
+    else if (is_class_type(current_class_type))
     {
         // Check bases if not found in the current class
         int num_all_bases = class_type_get_num_bases(current_class_type);
@@ -1225,6 +1232,10 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
             }
         }
     }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name)
@@ -1393,7 +1404,7 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
             for (i = 0; i < result.path_length; i++)
             {
                 fprintf(stderr, "%s%s", 
-                        class_type_get_inner_context(result.path[i]).current_scope->related_entry->symbol_name,
+                        class_or_enum_type_get_inner_context(result.path[i]).current_scope->related_entry->symbol_name,
                         ((i+1) < result.path_length) ? "::" : "");
             }
             fprintf(stderr, "'\n");
@@ -2208,6 +2219,10 @@ static type_t* update_dependent_typename(
     {
         return get_user_defined_type(member);
     }
+    else if (member->kind == SK_TEMPLATE_ALIAS)
+    {
+        return member->type_information;
+    }
     else if (member->kind == SK_DEPENDENT_ENTITY)
     {
         return member->type_information;
@@ -2589,8 +2604,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 // A type template parameter pack replaced by another template
                 // type parameter pack
-                ERROR_CONDITION(!is_pack_type(argument->type_information),
-                        "This type should be a pack type but it is '%s'", print_declarator(argument->type_information));
                 // FIXME - Should we augment the qualifier of the packed type as well?
                 return get_user_defined_type(argument);
             }
@@ -3225,9 +3238,9 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         return updated_type;
     }
-    else if (is_gcc_typeof_expr(orig_type))
+    else if (is_typeof_expr(orig_type))
     {
-        nodecl_t nodecl_expr = gcc_typeof_expr_type_get_expression(orig_type);
+        nodecl_t nodecl_expr = typeof_expr_type_get_expression(orig_type);
 
         enter_test_expression();
         nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context);
@@ -3243,7 +3256,12 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else
         {
-            return nodecl_get_type(nodecl_new_expr);
+            type_t* result = nodecl_get_type(nodecl_new_expr);
+            if (typeof_expr_type_is_removed_reference(orig_type))
+            {
+                result = no_ref(result);
+            }
+            return result;
         }
     }
     else if (is_pack_type(orig_type))
@@ -3722,6 +3740,16 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 template_parameter_value_t* v = update_template_parameter_value_of_template_class(primary_template_parameters->arguments[i],
                         new_template_context,
                         locus, /* pack_index */ -1);
+
+                if (v == NULL)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
+                    }
+
+                    return NULL;
+                }
                 P_LIST_ADD(result->arguments, result->num_parameters, v);
             }
         }
@@ -5691,7 +5719,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             {
                 type_t* t = advance_over_typedefs(current_symbol->type_information);
 
-                if (is_dependent_typename_type(t))
+                if (is_dependent_typename_type(t)
+                        || is_typeof_expr(t))
                 {
                     scope_entry_t* dependent_symbol = create_new_dependent_entity(
                             decl_context,
@@ -5713,13 +5742,13 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         {
                             error_printf("%s: typedef name '%s' is not a namespace or class\n", 
                                     nodecl_locus_to_str(current_name),
-                                    nodecl_get_text(current_name));
+                                    codegen_to_str(current_name, decl_context));
                         }
                         CXX11_LANGUAGE()
                         {
                             error_printf("%s: typedef name '%s' is not a namespace, class or enum\n", 
                                     nodecl_locus_to_str(current_name),
-                                    nodecl_get_text(current_name));
+                                    codegen_to_str(current_name, decl_context));
                         }
                     }
                     return NULL;
@@ -5804,13 +5833,13 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 {
                     error_printf("%s: error: name '%s' is not a namespace or class\n", 
                             nodecl_locus_to_str(current_name),
-                            nodecl_get_text(current_name));
+                            codegen_to_str(current_name, decl_context));
                 }
                 CXX11_LANGUAGE()
                 {
                     error_printf("%s: error: name '%s' is not a namespace, class or enum\n", 
                             nodecl_locus_to_str(current_name),
-                            nodecl_get_text(current_name));
+                            codegen_to_str(current_name, decl_context));
                 }
             }
             return NULL;

@@ -1514,6 +1514,15 @@ static void build_scope_common_template_alias_declaration(AST a,
     ERROR_CONDITION(decl_context.template_parameters == NULL,
             "There must be template parameters", 0);
 
+    if (IS_CXX03_LANGUAGE)
+    {
+        if (!checking_ambiguity())
+        {
+            warn_printf("%s: warning: template-alias are only valid in C++11\n",
+                    ast_location(a));
+        }
+    }
+
     if (is_explicit_specialization)
     {
         if (!checking_ambiguity())
@@ -1603,7 +1612,13 @@ static void build_scope_common_template_alias_declaration(AST a,
         entry->entity_specs.is_member = 1;
         entry->entity_specs.class_type = class_info;
         entry->entity_specs.access = access_specifier;
-        class_type_add_member(class_info, entry);
+
+        scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+        primary_symbol->entity_specs.is_member = 1;
+        primary_symbol->entity_specs.class_type = class_info;
+        primary_symbol->entity_specs.access = access_specifier;
+
+        class_type_add_member(class_info, primary_symbol);
     }
 }
 
@@ -2832,12 +2847,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         }
                     }
 
-                    if (is_dependent_type(computed_type))
-                    {
-                        // The expression type is dependent, wrap it in a typeof
-                        computed_type = get_gcc_typeof_expr_dependent_type(nodecl_expr, decl_context);
-                    }
-
+                    char is_removed_reference = 0;
                     switch (ASTType(expression))
                     {
                         // id-expressions
@@ -2858,7 +2868,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                 // If the 'e' expression is an id-expression or class member
                                 // access, 'decltype(e)' is defined as the type of the entity
                                 // named by 'e'. We remove the reference type.
-                                *simple_type_info = no_ref(computed_type);
+                                is_removed_reference = 1;
                                 break;
                             }
                         default:
@@ -2866,10 +2876,23 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                 // Function calls or other expressions will
                                 // return 'lvalues' with form of 'reference to
                                 // type'. So, we do not need to update the type
-                                *simple_type_info = computed_type;
                                 break;
                             }
                     }
+
+                    if (is_dependent_type(computed_type))
+                    {
+                        // The expression type is dependent, wrap it in a typeof
+                        computed_type = get_typeof_expr_dependent_type(nodecl_expr, decl_context,
+                                /* is_decltype */ 1,
+                                is_removed_reference);
+                    }
+                    else if (is_removed_reference)
+                    {
+                        computed_type = no_ref(computed_type);
+                    }
+
+                    *simple_type_info = computed_type;
                 }
                 else
                 {
@@ -2938,7 +2961,9 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         else if (nodecl_expr_is_type_dependent(nodecl_expr))
                         {
                             // The expression type is dependent, so we will wrap in an typeof expression
-                            computed_type = get_gcc_typeof_expr_dependent_type(nodecl_expr, decl_context);
+                            computed_type = get_typeof_expr_dependent_type(nodecl_expr, decl_context,
+                                    /* is_decltype */ 0,
+                                    /* is_removed_reference */ 0);
                         }
                     }
 
@@ -7736,6 +7761,10 @@ static void build_scope_delayed_function_decl_clear_pending(void)
     _next_delayed_function_decl = 0;
 }
 
+static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER, 
+        AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 static void build_scope_delayed_function_decl(void)
 {
     int i;
@@ -7766,6 +7795,21 @@ static void build_scope_delayed_function_decl(void)
                 check_expression(tree, decl_context,
                         &(entry->entity_specs.default_argument_info[j]->argument));
             }
+        }
+
+        if (!nodecl_is_null(entry->entity_specs.noexception)
+                && nodecl_get_kind(entry->entity_specs.noexception) == NODECL_CXX_PARSE_LATER)
+        {
+            AST tree = nodecl_get_ast(nodecl_get_child(entry->entity_specs.noexception, 0));
+            ERROR_CONDITION(tree == NULL, "Invalid tree", 0);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "=== Delayed default argument parsing at '%s' ===\n",
+                        ast_location(tree));
+            }
+
+            build_noexcept_spec(entry->type_information, tree, entry->decl_context, &entry->entity_specs.noexception);
         }
     }
     build_scope_delayed_function_decl_clear_pending();
@@ -9105,7 +9149,8 @@ static void set_array_type(type_t** declarator_type,
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
         AST cv_qualifier_seq UNUSED_PARAMETER,
         gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        const locus_t* locus)
 {
     type_t* element_type = *declarator_type;
 
@@ -9172,6 +9217,47 @@ static void set_array_type(type_t** declarator_type,
         }
     }
 
+    if (is_void_type(element_type))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid array of void type '%s'\n",
+                    locus_to_str(locus),
+                    print_type_str(element_type, decl_context));
+        }
+        *declarator_type = get_error_type();
+        return;
+    }
+
+    C_LANGUAGE()
+    {
+        if (is_incomplete_type(element_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid array of incomplete type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(element_type, decl_context));
+            }
+            *declarator_type = get_error_type();
+            return;
+        }
+    }
+    CXX_LANGUAGE()
+    {
+        if (is_array_type(element_type)
+                && array_type_is_unknown_size(element_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: declaratio of array type of an unbounded array type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(element_type, decl_context));
+            }
+            *declarator_type = get_error_type();
+            return;
+        }
+    }
     *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
 }
 
@@ -9835,7 +9921,8 @@ static void build_scope_declarator_rec(
                         /* (C99)static_qualif */ ASTSon3(a),
                         /* (C99)cv_qualifier_seq */ ASTSon2(a),
                         gather_info,
-                        entity_context);
+                        entity_context,
+                        ast_get_locus(a));
                 if (is_error_type(*declarator_type))
                 {
                     return;
@@ -10927,6 +11014,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.exceptions = gather_info->exceptions;
         new_entry->entity_specs.noexception = gather_info->noexception;
 
+        char do_delay_function = 0;
+        if (!nodecl_is_null(new_entry->entity_specs.noexception)
+                && nodecl_get_kind(new_entry->entity_specs.noexception) == NODECL_CXX_PARSE_LATER)
+        {
+            do_delay_function = 1;
+        }
+
         new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
         new_entry->entity_specs.default_argument_info =
@@ -10947,7 +11041,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
 
         int i;
-        char already_delayed = 0;
         for (i = 0; i < gather_info->num_arguments_info; i++)
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
@@ -10960,15 +11053,18 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 new_entry->entity_specs.default_argument_info[i]->context = 
                     gather_info->arguments_info[i].context;
 
-                if (nodecl_get_kind(new_entry->entity_specs.default_argument_info[i]->argument) == NODECL_CXX_PARSE_LATER
-                        && !already_delayed)
+                if (nodecl_get_kind(new_entry->entity_specs.default_argument_info[i]->argument) == NODECL_CXX_PARSE_LATER)
                 {
-                    ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE,
-                            "Invalid parse later default argument", 0);
-                    build_scope_delayed_add_function_declaration(new_entry, decl_context);
-                    already_delayed = 1;
+                    do_delay_function = 1;
                 }
             }
+        }
+
+        if (do_delay_function)
+        {
+            ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE,
+                    "Invalid parse later default argument", 0);
+            build_scope_delayed_add_function_declaration(new_entry, decl_context);
         }
 
         if (is_named_type(new_entry->type_information))
@@ -13507,7 +13603,9 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
         for (i = 0; i < num_items; i++)
         {
             if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF)
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
+                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
             {
                 // These are declarations, ignore them
             }
@@ -13663,6 +13761,17 @@ static scope_entry_t* build_scope_function_definition_declarator(
     // block-context will be updated for qualified-id to reflect the exact context
     build_scope_declarator_with_parameter_context(function_declarator, gather_info, type_info, &declarator_type,
             new_decl_context, block_context, nodecl_output);
+
+    if (is_error_type(declarator_type))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: error: discarding function definition due to errors in the declarator\n",
+                    ast_location(function_header));
+        }
+        return NULL;
+    }
+
     entry = build_scope_declarator_name(function_declarator, declarator_type, gather_info, new_decl_context);
 
     if (entry == NULL)
@@ -15524,9 +15633,8 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
 }
 
 static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER, 
-        AST a, gather_decl_spec_t *gather_info, 
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        AST a, decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
     AST const_expr = ASTSon0(a);
 
@@ -15536,38 +15644,39 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
                 get_bool_type(),
                 const_value_get_one(type_get_size(get_bool_type()), 0),
                 ast_get_locus(a));
-        gather_info->noexception = true_expr;
+        *nodecl_output = true_expr;
     }
     else
     {
-        check_expression(const_expr, decl_context, &gather_info->noexception);
+        check_expression(const_expr, decl_context, nodecl_output);
 
-        if (!nodecl_is_err_expr(gather_info->noexception))
+        if (!nodecl_is_err_expr(*nodecl_output))
         {
-            if (!nodecl_is_constant(gather_info->noexception)
-                    && !nodecl_expr_is_value_dependent(gather_info->noexception))
+            if (!nodecl_is_constant(*nodecl_output)
+                    && !nodecl_expr_is_value_dependent(*nodecl_output)
+                    && !nodecl_expr_is_type_dependent(*nodecl_output))
             {
                 if (!checking_ambiguity())
                 {
                     error_printf("%s: error: noexcept must specify a constant expression\n",
-                            nodecl_locus_to_str(gather_info->noexception));
+                            nodecl_locus_to_str(*nodecl_output));
                 }
             }
-            if (!nodecl_expr_is_type_dependent(gather_info->noexception))
+            if (!nodecl_expr_is_type_dependent(*nodecl_output))
             {
                 scope_entry_t* conversor = NULL;
                 char ambiguous_conversion = 0;
-                if (!type_can_be_implicitly_converted_to(nodecl_get_type(gather_info->noexception),
+                if (!type_can_be_implicitly_converted_to(nodecl_get_type(*nodecl_output),
                             get_bool_type(), decl_context, 
                             &ambiguous_conversion,
                             &conversor,
-                            nodecl_get_locus(gather_info->noexception))
+                            nodecl_get_locus(*nodecl_output))
                         || ambiguous_conversion)
                 {
                     if (!checking_ambiguity())
                     {
                         error_printf("%s: error: noexcept expression must be convertible to bool\n",
-                                nodecl_locus_to_str(gather_info->noexception));
+                                nodecl_locus_to_str(*nodecl_output));
                     }
                 }
             }
@@ -15594,7 +15703,21 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
     else if (ASTType(a) == AST_NOEXCEPT_SPECIFICATION)
     {
-        build_noexcept_spec(function_type, a, gather_info, prototype_context, nodecl_output);
+        if (gather_info->inside_class_specifier)
+        {
+            // Parse noexcept(E) later
+            AST parent = ast_get_parent(a);
+
+            gather_info->noexception = nodecl_make_cxx_parse_later(ast_get_locus(a));
+            nodecl_set_child(gather_info->noexception, 0, _nodecl_wrap(a));
+
+            // Restore parent modified by nodecl_set_child
+            ast_set_parent(a, parent);
+        }
+        else
+        {
+            build_noexcept_spec(function_type, a, prototype_context, &gather_info->noexception);
+        }
     }
     else
     {

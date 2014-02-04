@@ -43,12 +43,14 @@ namespace TL
         bool Core::_constructs_already_registered(false);
         bool Core::_reductions_already_registered(false);
         bool Core::_silent_declare_reduction(false);
+        bool Core::_already_informed_new_ompss_copy_deps(false);
 
         Core::Core()
             : PragmaCustomCompilerPhase("omp"),
             _discard_unused_data_sharings(false),
             _allow_shared_without_copies(false),
-            _allow_array_reductions(true)
+            _allow_array_reductions(true),
+            _ompss_mode(false)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -182,6 +184,7 @@ namespace TL
         {
             _constructs_already_registered = false;
             _reductions_already_registered = false;
+            _already_informed_new_ompss_copy_deps = false;
         }
 
         void Core::get_clause_symbols(
@@ -225,14 +228,14 @@ namespace TL
                                 && !base_sym.is_static())
                         {
                             std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                                << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
+                                << "' since nonstatic data members cannot appear in data-sharing clauses" << std::endl;
                             continue;
                         }
 
                         if (base_sym.is_cray_pointee())
                         {
                             std::cerr << data_ref.get_locus_str() << ": warning: ignoring '" << data_ref.prettyprint()
-                                << "' since a cray pointee cannot appear un data-sharing clauses" << std::endl;
+                                << "' since a cray pointee cannot appear in data-sharing clauses" << std::endl;
                             continue;
                         }
 
