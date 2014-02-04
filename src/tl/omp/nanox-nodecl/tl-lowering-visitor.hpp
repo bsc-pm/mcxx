@@ -188,16 +188,6 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src
                 );
 
-        void check_pendant_writes_on_subexpressions(
-                OutlineDataItem::TaskwaitOnNode* c,
-                // out
-                TL::Source& code);
-
-        void generate_mandatory_taskwaits(
-                OutlineInfo& outline_info,
-                // out
-                TL::Source& taskwait_on_after_wd_creation_opt);
-
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
                 OutlineInfo& outline_info,

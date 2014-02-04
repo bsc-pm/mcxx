@@ -108,26 +108,6 @@ namespace TL
                         : expression(expr_), directionality(dir_) { }
                 };
 
-                // The first level of TaskwaitOnNode does not generate taskwaits!
-                struct TaskwaitOnNode
-                {
-                    Nodecl::NodeclBase expression;
-                    TL::ObjectList<TaskwaitOnNode*> depends_on;
-
-                    TaskwaitOnNode(Nodecl::NodeclBase expr_)
-                        : expression(expr_) { }
-
-                    ~TaskwaitOnNode()
-                    {
-                        for (TL::ObjectList<TaskwaitOnNode*>::iterator it = depends_on.begin();
-                                it != depends_on.end();
-                                it++)
-                        {
-                            delete (*it);
-                        }
-                    }
-                };
-
                 enum AllocationPolicyFlags
                 {
                     // Allocation is automatic in the language constructs
@@ -190,8 +170,6 @@ namespace TL
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
 
-                TaskwaitOnNode* _taskwait_on_after_wd_creation;
-
                 bool _is_lastprivate;
 
                 // This outline data item represents the C++ this object
@@ -215,15 +193,9 @@ namespace TL
                     _copy_of_array_descriptor(NULL),
                     _is_copy_of_array_descriptor_allocatable(false),
                     _base_symbol_of_argument(),
-                    _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
                 {
-                }
-
-                ~OutlineDataItem()
-                {
-                    delete _taskwait_on_after_wd_creation;
                 }
 
                 //! Returns the symbol of this item
@@ -446,16 +418,6 @@ namespace TL
                     return has_input_value;
                 }
 
-                TaskwaitOnNode* get_taskwait_on_after_wd_creation() const
-                {
-                    return _taskwait_on_after_wd_creation;
-                }
-
-                void set_taskwait_on_after_wd_creation(TaskwaitOnNode* taskwait_on)
-                {
-                    _taskwait_on_after_wd_creation = taskwait_on;
-                }
-
                 void set_is_cxx_this(bool b)
                 {
                     _is_cxx_this = b;
@@ -606,8 +568,6 @@ namespace TL
                         OutlineDataItem* outline_data_item,
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
-
-                void set_taskwait_on_after_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
 
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };
