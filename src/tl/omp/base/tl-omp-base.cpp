@@ -1789,6 +1789,18 @@ namespace TL { namespace OpenMP {
                     );
         }
 
+        TL::ObjectList<ReductionSymbol> simd_reductions;
+        data_sharing_env.get_all_simd_reduction_symbols(simd_reductions);
+        if (!simd_reductions.empty())
+        {
+            TL::ObjectList<Nodecl::NodeclBase> simd_reduction_nodes = simd_reductions.map(ReductionSymbolBuilder(locus));
+
+            result_list.append(
+                    Nodecl::OpenMP::SimdReduction::make(Nodecl::List::make(simd_reduction_nodes),
+                        locus)
+                    );
+        }
+
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_sharing_env.get_all_dependences(dependences);
 

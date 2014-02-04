@@ -316,7 +316,10 @@ namespace TL
 
                 void operator()(ReductionSymbol red_sym)
                 {
-                    _data_sharing.set_reduction(red_sym);
+                    if(_data_attrib == DS_SIMD_REDUCTION)
+                        _data_sharing.set_simd_reduction(red_sym);
+                    else
+                        _data_sharing.set_reduction(red_sym);
                 }
         };
 
@@ -390,6 +393,12 @@ namespace TL
                     nonlocal_symbols, data_sharing, reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
+
+            ObjectList<OpenMP::ReductionSymbol> simd_reduction_references;
+            get_reduction_symbols(construct, construct.get_clause("simd_reduction"),
+                    nonlocal_symbols, data_sharing, simd_reduction_references);
+            std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(), 
+                    DataSharingEnvironmentSetterReduction(data_sharing, DS_SIMD_REDUCTION));
 
             ObjectList<DataReference> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), nonlocal_symbols, copyin_references);
