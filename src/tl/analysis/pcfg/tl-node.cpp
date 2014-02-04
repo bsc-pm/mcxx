@@ -1476,6 +1476,17 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
+    ObjectList<Utils::Constraint> Node::get_constraints( const Nodecl::NodeclBase& var )
+    {
+        Utils::ConstraintMap constraints;
+        if( has_key( _CONSTRAINTS ) )
+            constraints = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
+        ObjectList<Utils::Constraint> var_constraints;
+        if( constraints.find( var ) != constraints.end( ) )
+            var_constraints = constraints[var];
+        return var_constraints;
+    }
+    
     Utils::RangeValuesMap Node::get_ranges_in( )
     {
         Utils::RangeValuesMap ranges_in;

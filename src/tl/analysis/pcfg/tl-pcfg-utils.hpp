@@ -382,6 +382,12 @@ namespace Analysis {
     
     // Range Analysis
     /////////////////
+    /*! \def _CONSTRAINTS
+     * Map of variables and the related constraints computed during Range Analysis
+     * Available in all nodes (Mandatory after Range Analysis is performed)
+     */
+    #define _CONSTRAINTS                    "constraints"
+    
     /*! \def _RANGES_IN
      * Map containing range of values assigned to a value at the entry point of a node
      * Available in all nodes (Mandatory after Range Analysis is performed).

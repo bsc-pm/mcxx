@@ -28,8 +28,8 @@
 #define TL_ANALYSIS_UTILS_HPP
 
 #include "tl-extended-symbol.hpp"
-#include "tl-induction-variables-data.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-range-analysis-utils.hpp"
 
 #define VERBOSE ( CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
                   CURRENT_CONFIGURATION->debug_options.enable_debug_code )
@@ -156,25 +156,6 @@ namespace Utils {
     };
     
     // ************************** END class defining the types of usage ************************** //
-    // ******************************************************************************************* //
-    
-    
-    
-    // ******************************************************************************************* //
-    // ************************ Class defining the range analysis values ************************* //
-    
-    union RangeValue_tag {
-        Nodecl::NodeclBase* n;
-        InductionVariableData* iv;
-    };
-    
-    typedef std::pair<Nodecl::NodeclBase, ObjectList<RangeValue_tag> > RangeValuesMapEntry;
-    typedef std::map<Nodecl::NodeclBase, ObjectList<RangeValue_tag> > RangeValuesMap;
-    
-    bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1, 
-                           std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair2 );
-
-    // ********************** END class defining the range analysis values *********************** //
     // ******************************************************************************************* //
     
     

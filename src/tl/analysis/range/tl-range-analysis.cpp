@@ -175,7 +175,6 @@ namespace
                     while( Nodecl::Utils::equal_nodecls( var, it->first.get_nodecl( ) ) )
                     {
                         Nodecl::NodeclBase* value = new Nodecl::NodeclBase( it->second.get_internal_nodecl( ) );
-                        std::cerr << "Set as " << current->get_id( ) << " range_in value " << value->prettyprint( ) << std::endl;
                         Utils::RangeValue_tag rv; rv.n = value;
                         values.append( rv );
                         ++it;
@@ -193,7 +192,6 @@ namespace
                     {
                         Nodecl::NodeclBase* value = new Nodecl::NodeclBase( it->second.get_internal_nodecl( ) );
 //                         dpv.walk( *value );
-                        std::cerr << "Set as " << current->get_id( ) << " range_out value " << value->prettyprint( ) << std::endl;
                         Utils::RangeValue_tag rv; rv.n = value;
                         values.append( rv );
                         ++it;
