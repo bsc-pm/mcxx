@@ -62,7 +62,7 @@ namespace OpenMP {
             TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
             
             if (CURRENT_CONFIGURATION->debug_options.print_pcfg)
-                graph->print_graph_to_dot(false, false, false, false, false, false, false);
+                graph->print_graph_to_dot( );
             
             // Get all task nodes
             PCFG_Node_list tasks = graph->get_tasks_list();
