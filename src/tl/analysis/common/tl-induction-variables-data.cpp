@@ -46,7 +46,7 @@ namespace Utils {
                                                   InductionVarType type, Nodecl::NodeclBase family )
         : _var( var ), _lb( Nodecl::NodeclBase::null( ) ), _ub( Nodecl::NodeclBase::null( ) ),
           _incr( Nodecl::NodeclBase::null( ) ), _incrs( ),
-          _type( type ), _family( family ), _is_linear( false )
+          _type( type ), _family( family )
     {}
 
     ExtendedSymbol InductionVariableData::get_variable() const
@@ -129,12 +129,7 @@ namespace Utils {
     {
         return _family;
     }
-
-    bool InductionVariableData::is_linear( ) const
-    {
-        return _is_linear;
-    }
-
+    
     bool InductionVariableData::operator==( const InductionVariableData& rhs ) const
     {
         return ( Nodecl::Utils::equal_nodecls( _var.get_nodecl( ), rhs._var.get_nodecl( ) )
