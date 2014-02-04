@@ -256,7 +256,7 @@ namespace TL {
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
-            // Reduction clause
+            // Reduction and simd_reduction clauses
             TL::ObjectList<TL::Symbol> reductions;
 
             Nodecl::List omp_reduction_list = process_reduction_clause(simd_environment, 
@@ -876,34 +876,40 @@ namespace TL {
                 std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
                 const Nodecl::ForStatement& for_statement)
         {
-            Nodecl::OpenMP::Reduction omp_reductions = 
-                environment.find_first<Nodecl::OpenMP::Reduction>();
-
             Nodecl::List omp_reduction_list;
 
-            if(!omp_reductions.is_null())
+            for(Nodecl::List::const_iterator it = environment.begin();
+                    it != environment.end();
+                    it++)
             {
-                // Extract reduced Nodecl::Symbol from ReductionItems
-                omp_reduction_list = omp_reductions.get_reductions().as<Nodecl::List>();
-                for(Nodecl::List::iterator it = omp_reduction_list.begin();
-                        it != omp_reduction_list.end();
-                        it++ )
+                if(it->is<Nodecl::OpenMP::Reduction>() ||
+                        it->is<Nodecl::OpenMP::SimdReduction>())
                 {
-                    TL::Symbol red_sym = (*it).as<Nodecl::OpenMP::ReductionItem>().
-                        get_reduced_symbol().as<Nodecl::Symbol>().get_symbol();
+                    Nodecl::OpenMP::Reduction omp_reductions = 
+                        it->as<Nodecl::OpenMP::Reduction>();
 
-                    reductions.append(red_sym);
+                    // Extract reduced Nodecl::Symbol from ReductionItems
+                    omp_reduction_list = omp_reductions.get_reductions().as<Nodecl::List>();
+                    for(Nodecl::List::iterator it2 = omp_reduction_list.begin();
+                            it2 != omp_reduction_list.end();
+                            it2++ )
+                    {
+                        TL::Symbol red_sym = it2->as<Nodecl::OpenMP::ReductionItem>().
+                            get_reduced_symbol().as<Nodecl::Symbol>().get_symbol();
 
-                    // Add new vector TL::Symbol in the enclosing context
-                    TL::Symbol new_red_sym =
-                        for_statement.retrieve_context().new_symbol("__vred_" + red_sym.get_name());
-                    new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                    new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                    new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
+                        reductions.append(red_sym);
 
-                    // Add new TL::Symbol to map
-                    new_external_vector_symbol_map.insert(std::pair<TL::Symbol, TL::Symbol>(
-                                red_sym, new_red_sym));
+                        // Add new vector TL::Symbol in the enclosing context
+                        TL::Symbol new_red_sym =
+                            for_statement.retrieve_context().new_symbol("__vred_" + red_sym.get_name());
+                        new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                        new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                        new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));
+
+                        // Add new TL::Symbol to map
+                        new_external_vector_symbol_map.insert(std::pair<TL::Symbol, TL::Symbol>(
+                                    red_sym, new_red_sym));
+                    }
                 }
             }
 
