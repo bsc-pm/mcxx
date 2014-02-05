@@ -1109,6 +1109,7 @@ src_tl_optimizations_libtloptimizations_la_LIBADD = $(tl_libadd)
 
 src_tl_optimizations_libtloptimizations_la_SOURCES = \
                            src/tl/optimizations/tl-optimizations.hpp \
+                           src/tl/optimizations/tl-optimizations.cpp \
                            src/tl/optimizations/tl-expression-reduction.hpp \
                            src/tl/optimizations/tl-expression-reduction.cpp \
                            src/tl/optimizations/tl-nodecl-calc.hpp \
@@ -1547,6 +1548,7 @@ if BUILD_VECTORIZER
 phases_LTLIBRARIES += src/tl/omp/simd/libtlomp-simd.la
 
 src_tl_omp_simd_libtlomp_simd_la_CFLAGS = $(phases_cflags) \
+                          -I $(top_srcdir)/src/tl/optimizations \
                           -I $(top_srcdir)/src/tl/vectorizer \
                           -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
@@ -1555,6 +1557,7 @@ src_tl_omp_simd_libtlomp_simd_la_CFLAGS = $(phases_cflags) \
                           $(END)
 
 src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
+                          -I $(top_srcdir)/src/tl/optimizations \
                           -I $(top_srcdir)/src/tl/vectorizer \
                           -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
@@ -1564,6 +1567,7 @@ src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
 
 src_tl_omp_simd_libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
+                          $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
                           $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
                           $(END)
