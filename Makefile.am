@@ -2203,30 +2203,6 @@ src_tl_codegen_gpu_cuda_libcodegen_cuda_la_SOURCES = \
   	 $(END)
 
 ##########################################################################
-# src/tl/optimizations
-##########################################################################
-
-if BUILD_OPTIMIZATIONS
-phases_LTLIBRARIES += src/tl/optimizations/libtloptimizations.la
-
-src_tl_optimizations_libtloptimizations_la_CFLAGS = $(phases_cflags) -Wall
-src_tl_optimizations_libtloptimizations_la_CXXFLAGS = $(phases_cflags) -Wall
-
-src_tl_optimizations_libtloptimizations_la_LDFLAGS = $(phases_ldflags)
-src_tl_optimizations_libtloptimizations_la_LIBADD = $(phases_libadd)
-
-src_tl_optimizations_libtloptimizations_la_SOURCES = \
-                           src/tl/optimizations/tl-optimizations.hpp \
-                           src/tl/optimizations/tl-expression-reduction.hpp \
-                           src/tl/optimizations/tl-expression-reduction.cpp \
-                           src/tl/optimizations/tl-nodecl-calc.hpp \
-                           src/tl/optimizations/tl-nodecl-calc.cpp \
-                           src/tl/optimizations/tl-strength-reduction.hpp \
-                           src/tl/optimizations/tl-strength-reduction.cpp \
-                           $(END)
-endif
-
-##########################################################################
 # src/mcxx_tl
 ##########################################################################
 
