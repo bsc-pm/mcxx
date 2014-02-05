@@ -29,6 +29,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss
+test_compile_faulty=yes
+test_compile_fail=yes
 </testinfo>
 */
 #include<assert.h>

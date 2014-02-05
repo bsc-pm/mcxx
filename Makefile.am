@@ -1296,7 +1296,6 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/analysis/reach_defs \
 				-I$(srcdir)/src/tl/analysis/loops \
 				-I$(srcdir)/src/tl/analysis/auto-scope \
-				-I$(srcdir)/src/tl/analysis/task_analysis \
 				$(END)
 
 src_tl_analysis_singleton_libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)

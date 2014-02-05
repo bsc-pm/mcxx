@@ -1427,6 +1427,17 @@ OPERATOR_TABLE
         if (t.is_any_reference())
             t = t.references_to();
 
+        Nodecl::NodeclBase n = node.get_rhs();
+        while (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
+        n = advance_parenthesized_expression(n);
+        while (n.is<Nodecl::Conversion>())
+        {
+            n = n.as<Nodecl::Conversion>().get_nest();
+        }
+
         if (is_fortran_representable_pointer(t))
         {
             ptr_loc_map_t::iterator it = _ptr_loc_map.find(t);
@@ -1453,13 +1464,33 @@ OPERATOR_TABLE
             walk(node.get_rhs());
             *(file) << ")";
         }
+        else if (n.is<Nodecl::Symbol>()
+                && n.get_symbol().is_parameter()
+                && t.is_fortran_array()
+                && t.array_requires_descriptor())
+        {
+            *file << "LOC(";
+            walk(n);
+
+            *file << "(";
+
+            int r = t.fortran_rank();
+            for (int i = 1; i <= r; i++)
+            {
+                if (i > 1)
+                    *file << ", ";
+
+                *file << "LBOUND(";
+                walk(n);
+                *file << ", DIM = " << i << ")";
+            }
+
+            *file << ")";
+            *file << ")";
+        }
         else
         {
             *(file) << "LOC(";
-            Nodecl::NodeclBase n = node.get_rhs();
-
-            n = advance_parenthesized_expression(n);
-
             walk(n);
             *(file) << ")";
         }
@@ -2729,7 +2760,31 @@ OPERATOR_TABLE
             // We need a LOC here
             *(file) << "LOC(";
             nest = advance_parenthesized_expression(nest);
+            while (nest.is<Nodecl::Conversion>())
+            {
+                nest = nest.as<Nodecl::Conversion>().get_nest();
+            }
             walk(nest);
+
+            if (nest.get_symbol().is_valid()
+                    && nest.get_symbol().is_parameter()
+                    && nest.get_symbol().get_type().no_ref().is_fortran_array()
+                    && nest.get_symbol().get_type().no_ref().array_requires_descriptor())
+            {
+                *file << "(";
+                int r = nest.get_symbol().get_type().no_ref().fortran_rank();
+                for (int i = 1; i <= r; i++)
+                {
+                    if (i > 1)
+                        *file << ", ";
+
+                    *file << "LBOUND(";
+                    walk(nest);
+                    *file << ", DIM = " << i << ")";
+                }
+                *file << ")";
+            }
+
             *(file) << ")";
         }
         else if (

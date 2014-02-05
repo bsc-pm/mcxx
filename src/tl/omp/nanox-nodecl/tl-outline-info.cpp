@@ -974,13 +974,6 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(reduction_type);
     }
 
-    void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
-            OutlineDataItem::TaskwaitOnNode* taskwait_on)
-    {
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-        outline_info.set_taskwait_on_after_wd_creation(taskwait_on);
-    }
-
     void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
     {
         _outline_info.add_copy_of_outline_data_item(data_item);
@@ -1247,6 +1240,18 @@ namespace TL { namespace Nanox {
 
         OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
+
+        reset_array_counters();
+    }
+
+    void OutlineInfo::reset_array_counters()
+    {
+        Counter& counter_allocatable = CounterManager::get_counter("array-allocatable");
+        counter_allocatable = 0;
+        Counter& counter_upper_boundaries = CounterManager::get_counter("array-upper-boundaries");
+        counter_upper_boundaries = 0;
+        Counter& counter_lower_boundaries = CounterManager::get_counter("array-lower-boundaries");
+        counter_lower_boundaries = 0;
     }
 
     ObjectList<OutlineDataItem*> OutlineInfo::get_data_items()
