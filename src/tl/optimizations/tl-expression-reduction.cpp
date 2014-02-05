@@ -15,11 +15,11 @@ namespace Optimizations {
         Nodecl::NodeclBase rhs = n.get_rhs();
         if(lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
         {   // 0 + t = t
-            Nodecl::Utils::replace(n, rhs);
+            Nodecl::Utils::replace(n, rhs.shallow_copy());
         }
         else if(rhs.is_constant() && const_value_is_zero(rhs.get_constant()))
         {   // t + 0 = t
-            Nodecl::Utils::replace(n, lhs);
+            Nodecl::Utils::replace(n, lhs.shallow_copy());
         }
         else if(lhs.is_constant() && rhs.is_constant())
         {   // R1
@@ -45,7 +45,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }
                 }
             }
@@ -65,7 +65,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }
                 }
             }
@@ -93,7 +93,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }                    
                 }
             }
@@ -113,7 +113,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }                    
                 }
             }
@@ -272,7 +272,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -293,7 +293,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -303,7 +303,7 @@ namespace Optimizations {
         {   // R4
             if(const_value_is_zero(rhs.get_constant()))
             {
-                Nodecl::Utils::replace(n, lhs);
+                Nodecl::Utils::replace(n, lhs.shallow_copy());
             }
             else if(lhs.is<Nodecl::Add>())
             {
@@ -321,7 +321,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -342,7 +342,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -381,11 +381,11 @@ namespace Optimizations {
         }
         else if((lhs.is_constant() && const_value_is_one(lhs.get_constant())))
         {   // 1 * t = t
-            Nodecl::Utils::replace(n, rhs);
+            Nodecl::Utils::replace(n, rhs.shallow_copy());
         }
         else if((rhs.is_constant() && const_value_is_one(rhs.get_constant())))
         {   // t * 1 = t
-            Nodecl::Utils::replace(n, lhs);
+            Nodecl::Utils::replace(n, lhs.shallow_copy());
         }
         else if(lhs.is_constant() && rhs.is_constant())
         {   // R7
@@ -446,11 +446,11 @@ namespace Optimizations {
         Nodecl::NodeclBase mask = mask.shallow_copy();
         if(lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
         {   // 0 + t = t
-            Nodecl::Utils::replace(n, rhs);
+            Nodecl::Utils::replace(n, rhs.shallow_copy());
         }
         else if(rhs.is_constant() && const_value_is_zero(rhs.get_constant()))
         {   // t + 0 = t
-            Nodecl::Utils::replace(n, lhs);
+            Nodecl::Utils::replace(n, lhs.shallow_copy());
         }
         else if(lhs.is_constant() && rhs.is_constant())
         {   // R1
@@ -476,7 +476,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }
                 }
             }
@@ -496,7 +496,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }
                 }
             }
@@ -523,7 +523,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }                    
                 }
             }
@@ -543,7 +543,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }                    
                 }
             }
@@ -708,7 +708,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }   
                 }
             }
@@ -728,7 +728,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, rhs_rhs);
+                        Nodecl::Utils::replace(n, rhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -756,7 +756,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -777,7 +777,7 @@ namespace Optimizations {
                     }
                     else
                     {
-                        Nodecl::Utils::replace(n, lhs_rhs);
+                        Nodecl::Utils::replace(n, lhs_rhs.shallow_copy());
                     }   
                     
                 }
@@ -823,11 +823,11 @@ namespace Optimizations {
         }
         else if((lhs.is_constant() && const_value_is_one(lhs.get_constant())))
         {   // 1 * t = t
-            Nodecl::Utils::replace(n, rhs);
+            Nodecl::Utils::replace(n, rhs.shallow_copy());
         }
         else if((rhs.is_constant() && const_value_is_one(rhs.get_constant())))
         {   // t * 1 = t
-            Nodecl::Utils::replace(n, lhs);
+            Nodecl::Utils::replace(n, lhs.shallow_copy());
         }
         else if(lhs.is_constant() && rhs.is_constant())
         {   // R7

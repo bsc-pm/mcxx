@@ -24,36 +24,25 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_STRENGTH_REDUCE_HPP
-#define TL_STRENGTH_REDUCE_HPP
+#include "tl-optimizations.hpp"
+#include "tl-strength-reduction.hpp"
+#include "tl-expression-reduction.hpp"
 
-#include "tl-nodecl.hpp"
-#include "tl-nodecl-visitor.hpp"
 
-namespace TL
+void TL::Optimizations::strength_reduce(Nodecl::NodeclBase& node, bool fast_math)
 {
-    namespace Optimizations
-    {
-        class StrengthReduction : public Nodecl::ExhaustiveVisitor<void>
-        {
-            private:
-                bool _fast_math;
-
-            public:
-                StrengthReduction(bool fast_math);
-
-                virtual void visit(const Nodecl::ObjectInit& n);
-
-                virtual void visit(const Nodecl::Mul& n);
-                virtual void visit(const Nodecl::Div& n);
-                virtual void visit(const Nodecl::Mod& n);
-                virtual void visit(const Nodecl::VectorAdd& n);
-                virtual void visit(const Nodecl::VectorMinus& n);
-                virtual void visit(const Nodecl::VectorMul& n);
-                virtual void visit(const Nodecl::VectorDiv& n);
-                virtual void visit(const Nodecl::VectorMod& n);
-        };
-    }
+    StrengthReduction strength_reduction(fast_math);
+    strength_reduction.walk(node);
+    strength_reduction.walk(node);
 }
 
-#endif // TL_STRENGTH_REDUCE_HPP
+void TL::Optimizations::canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math)
+{
+    ReduceExpressionVisitor exp_reducer;
+
+    exp_reducer.walk(node);
+    strength_reduce(node, fast_math);
+    strength_reduce(node, fast_math);
+    exp_reducer.walk(node);
+}
+
