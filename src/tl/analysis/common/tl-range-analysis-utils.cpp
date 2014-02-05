@@ -36,10 +36,12 @@ namespace Analysis {
 namespace Utils {
 
     Optimizations::Calculator calc;
+    const long double Min = std::numeric_limits<double>::min( );
+    const long double Max = std::numeric_limits<double>::max( );
     
     Range::Range( )
-        : _lb( const_value_to_nodecl( const_value_get_double( std::numeric_limits<double>::min( ) ) ) ), 
-          _ub( const_value_to_nodecl( const_value_get_double( std::numeric_limits<double>::max( ) ) ) ),
+        : _lb( const_value_to_nodecl( const_value_get_long_double( Min ) ) ), 
+          _ub( const_value_to_nodecl( const_value_get_long_double( Max ) ) ),
           _type( Empty )
     {}
     
@@ -69,10 +71,11 @@ namespace Utils {
         this->_ub = new_ub;
     }
     
+    // _type==Empty || ub < lb
     bool Range::is_empty( ) const
     {
         return ( ( _lb.is_constant( ) && _ub.is_constant( ) && 
-                   const_value_is_negative( calc.compute_const_value( Nodecl::Minus::make( _ub, _lb, _ub.get_type( ) ) ) ) ) 
+                   const_value_is_negative( const_value_sub( _ub.get_constant( ), _lb.get_constant( ) ) ) ) 
                  || ( _type == Empty ) );
     }
     
@@ -109,13 +112,9 @@ namespace Utils {
             
             int i;
             for( i=1; i<4; ++i ) {
-                if( const_value_is_positive( calc.compute_const_value( Nodecl::Minus::make( const_value_to_nodecl( min ), 
-                                                                                            const_value_to_nodecl( candidates[i] ), 
-                                                                                            _lb.get_type( ) ) ) ) )
+                if( const_value_is_positive( const_value_sub( min, candidates[i] ) ) )
                     min = candidates[i];
-                if( const_value_is_negative( calc.compute_const_value( Nodecl::Minus::make( const_value_to_nodecl( max ), 
-                                                                                            const_value_to_nodecl( candidates[i] ), 
-                                                                                            _lb.get_type( ) ) ) ) )
+                if( const_value_is_negative( const_value_sub( max, candidates[i] ) ) )
                     max = candidates[i];
             }
                 
@@ -130,22 +129,22 @@ namespace Utils {
         Range result;
         if( _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) ) 
         {   // Having constant values we can apply the arithmetic
+            const_value_t* lb = _lb.get_constant( );
+            const_value_t* ub = _ub.get_constant( );
+            const_value_t* rlb = r._lb.get_constant( );
+            const_value_t* rub = r._ub.get_constant( );
             const_value_t* candidates[4] = {
-                calc.compute_const_value( Nodecl::Div::make( _lb, r._lb, _lb.get_type( ) ) ),
-                calc.compute_const_value( Nodecl::Div::make( _lb, r._ub, _lb.get_type( ) ) ),
-                calc.compute_const_value( Nodecl::Div::make( _ub, r._lb, _lb.get_type( ) ) ),
-                calc.compute_const_value( Nodecl::Div::make( _ub, r._ub, _lb.get_type( ) ) ) 
+                const_value_div( lb, rlb ),
+                const_value_div( lb, rub ),
+                const_value_div( ub, rlb ),
+                const_value_div( ub, rub )
             };
             const_value_t* min = candidates[0];
             const_value_t* max = candidates[0];
             for( int i=1; i<4; ++i ) {
-                if( const_value_is_positive( calc.compute_const_value( Nodecl::Minus::make( const_value_to_nodecl( min ), 
-                                                                                            const_value_to_nodecl( candidates[i] ), 
-                                                                                            _lb.get_type( ) ) ) ) )
+                if( const_value_is_positive( const_value_sub( min, candidates[i] ) ) )
                     min = candidates[i];
-                if( const_value_is_negative( calc.compute_const_value( Nodecl::Minus::make( const_value_to_nodecl( max ), 
-                                                                                            const_value_to_nodecl( candidates[i] ), 
-                                                                                            _lb.get_type( ) ) ) ) )
+                if( const_value_is_negative( const_value_sub( max, candidates[i] ) ) )
                     max = candidates[i];
             }
             
@@ -170,11 +169,11 @@ namespace Utils {
             _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) )
         {
             Nodecl::NodeclBase lb, ub;
-            if( const_value_is_positive( calc.compute_const_value( Nodecl::Minus::make( _lb, r._lb, _lb.get_type( ) ) ) ) )
+            if( const_value_is_positive( const_value_sub( _lb.get_constant( ), r._lb.get_constant( ) ) ) )
                 lb = _lb;
             else
                 lb = r._lb;
-            if( const_value_is_positive( calc.compute_const_value( Nodecl::Minus::make( _ub, r._ub, _ub.get_type( ) ) ) ) )
+            if( const_value_is_positive( const_value_sub( _ub.get_constant( ), r._ub.get_constant( ) ) ) )
                 lb = r._ub;
             else
                 lb = _ub;
@@ -183,7 +182,7 @@ namespace Utils {
         return result;
     }
     
-    // [a, b] ∩ [c, d] = [min(a, c), max(b, d)]
+    // [a, b] ∪ [c, d] = [min(a, c), max(b, d)]
     Range Range::range_union( const Range& r ) const
     {
         Range result;
@@ -191,11 +190,11 @@ namespace Utils {
             _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) )
         {
             Nodecl::NodeclBase lb, ub;
-            if( const_value_is_positive( calc.compute_const_value( Nodecl::Minus::make( _lb, r._lb, _lb.get_type( ) ) ) ) )
+            if( const_value_is_positive( const_value_sub( _lb.get_constant( ), r._lb.get_constant( ) ) ) )
                 lb = r._lb;
             else
                 lb = _lb;
-            if( const_value_is_positive( calc.compute_const_value( Nodecl::Minus::make( _ub, r._ub, _ub.get_type( ) ) ) ) )
+            if( const_value_is_positive( const_value_sub( _ub.get_constant( ), r._ub.get_constant( ) ) ) )
                 lb = _ub;
             else
                 lb = r._ub;
