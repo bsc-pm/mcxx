@@ -28,6 +28,7 @@
 #include "tl-omp-simd.hpp"
 #include "tl-omp.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-optimizations.hpp"
 
 using namespace TL::Vectorization;
 
@@ -436,6 +437,10 @@ namespace TL {
 
             // Free analysis
             _vectorizer.finalize_analysis();
+
+            // Final optimisation step
+//            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
+//            TL::Optimizations::strength_reduce(for_statement, _fast_math_enabled);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
@@ -662,6 +667,10 @@ namespace TL {
 
             // Free analysis
             _vectorizer.finalize_analysis();
+
+            // Final optimisation step
+//            TL::Optimizations::canonicalize_and_fold(for_epilog, _fast_math_enabled);
+//            TL::Optimizations::strength_reduce(for_epilog, _fast_math_enabled);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
@@ -791,6 +800,10 @@ namespace TL {
 
             // Free analysis
             _vectorizer.finalize_analysis();
+
+            // Final optimisation step
+//            TL::Optimizations::canonicalize_and_fold(vector_func_code, _fast_math_enabled);
+//            TL::Optimizations::strength_reduce(vector_func_code, _fast_math_enabled);
         }
 
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,

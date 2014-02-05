@@ -760,7 +760,7 @@ namespace TL
             node.replace(function_call);
         }   
 
-        void SSEVectorLowering::visit(const Nodecl::VectorShiftRight2& node) 
+        void SSEVectorLowering::visit(const Nodecl::VectorAlignRight& node) 
         { 
             const Nodecl::NodeclBase left_vector = node.get_left_vector();
             const Nodecl::NodeclBase right_vector = node.get_right_vector();

@@ -1112,7 +1112,7 @@ namespace TL
                     locus_to_str(node.get_locus()));
         }                                                 
 
-        void AVX2VectorLowering::visit(const Nodecl::VectorShiftRight2& node) 
+        void AVX2VectorLowering::visit(const Nodecl::VectorAlignRight& node) 
         { 
 
             //ALIGNR_256 macro works with arbitrary offset, eg ALIGNR_256(ret, a, b, 1, 4)

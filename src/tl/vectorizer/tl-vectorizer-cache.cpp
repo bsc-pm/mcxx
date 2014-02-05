@@ -260,7 +260,7 @@ namespace TL
                     }
                     else
                     {
-                        return Nodecl::VectorShiftRight2::make(
+                        return Nodecl::VectorAlignRight::make(
                                 cache._register_list[1].make_nodecl(true),
                                 cache._register_list[0].make_nodecl(true),
                                 const_value_to_nodecl(const_value_get_one(4, 1)),

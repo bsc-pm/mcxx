@@ -1010,7 +1010,7 @@ namespace TL
                     locus_to_str(node.get_locus()));
         }                                                 
 
-        void KNCVectorLowering::visit(const Nodecl::VectorShiftRight2& node) 
+        void KNCVectorLowering::visit(const Nodecl::VectorAlignRight& node) 
         { 
             const Nodecl::NodeclBase left_vector = node.get_left_vector();
             const Nodecl::NodeclBase right_vector = node.get_right_vector();

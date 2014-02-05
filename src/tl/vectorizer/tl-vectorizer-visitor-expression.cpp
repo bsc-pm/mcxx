@@ -861,10 +861,10 @@ namespace TL
             // Therefore do nothing, I'm no longer a Conversion!!
             if (n.is<Nodecl::Conversion>())
             {
-                TL::Type src_type = n.get_nest().get_type().no_ref();
+                TL::Type src_post_type = n.get_nest().get_type().no_ref();
 //                TL::Type dst_type = n.get_nest().get_type().no_ref();
 
-                if (src_type.is_vector())
+                if (src_post_type.is_vector())
                 {
                     // Remove rvalue conversions. In a vector code they are
                     // explicit loads ops.
@@ -930,16 +930,25 @@ namespace TL
             {
                 std::cerr << "Constant load: " << n.prettyprint() << "\n";
 
+                // Deal with Nodecl::Conversions
+                Nodecl::NodeclBase encapsulated_symbol = n;
+                while (!encapsulated_symbol.get_parent().is_null() && 
+                        encapsulated_symbol.get_parent().is<Nodecl::Conversion>())
+                    encapsulated_symbol = encapsulated_symbol.get_parent();
+
+                TL::Type encapsulated_symbol_type = encapsulated_symbol.get_type();
+
                 Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
-                            n.shallow_copy(),
+                            encapsulated_symbol.shallow_copy(),
                             mask,
-                            vector_type,
+                            Utils::get_qualified_vector_to(encapsulated_symbol_type, 
+                                _environment._unroll_factor),
                             n.get_locus());
 
                 vector_prom.set_constant(const_value);
 
-                n.replace(vector_prom);
+                encapsulated_symbol.replace(vector_prom);
             }
             // Vector promotion from ArraySubscript indexed by nested IV
             else if (Vectorization::Utils::is_nested_induction_variable_dependent_access(_environment, n) &&
@@ -948,16 +957,25 @@ namespace TL
             {
                 std::cerr << "Nested IV dependent load: " << n.prettyprint() << "\n";
 
+                // Deal with Nodecl::Conversions
+                Nodecl::NodeclBase encapsulated_symbol = n;
+                while (!encapsulated_symbol.get_parent().is_null() && 
+                        encapsulated_symbol.get_parent().is<Nodecl::Conversion>())
+                    encapsulated_symbol = encapsulated_symbol.get_parent();
+
+                TL::Type encapsulated_symbol_type = encapsulated_symbol.get_type();
+
                 Nodecl::VectorPromotion vector_prom =
                     Nodecl::VectorPromotion::make(
-                            n.shallow_copy(),
+                            encapsulated_symbol.shallow_copy(),
                             mask,
-                            vector_type,
+                            Utils::get_qualified_vector_to(encapsulated_symbol_type,
+                                _environment._unroll_factor),
                             n.get_locus());
 
                 vector_prom.set_constant(const_value);
 
-                n.replace(vector_prom);
+                encapsulated_symbol.replace(vector_prom);
             }
             // Cached access
             else if (_cache_enabled && _environment._vectorizer_cache.is_cached_access(n))
@@ -1212,6 +1230,14 @@ namespace TL
             TL::Symbol tl_sym = n.get_symbol();
             TL::Type tl_sym_type = tl_sym.get_type().no_ref();
 
+            // Deal with Nodecl::Conversions
+            Nodecl::NodeclBase encapsulated_symbol = n;
+            while ((!encapsulated_symbol.get_parent().is_null()) && 
+                    encapsulated_symbol.get_parent().is<Nodecl::Conversion>())
+                encapsulated_symbol = encapsulated_symbol.get_parent();
+
+            TL::Type encapsulated_symbol_type = encapsulated_symbol.get_type();
+
             //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
             if (!sym_type.is_vector())
@@ -1236,13 +1262,13 @@ namespace TL
 
                     const Nodecl::VectorPromotion vector_prom =
                         Nodecl::VectorPromotion::make(
-                                n.shallow_copy(),
+                                encapsulated_symbol.shallow_copy(),
                                 Utils::get_null_mask(),
-                                Utils::get_qualified_vector_to(sym_type, 
+                                Utils::get_qualified_vector_to(encapsulated_symbol_type, 
                                     _environment._unroll_factor),
                                 n.get_locus());
 
-                    n.replace(vector_prom);
+                    encapsulated_symbol.replace(vector_prom);
                 }
                 // Vectorize symbols declared in the SIMD scope
                 else if (Utils::is_declared_in_inner_scope(
@@ -1308,18 +1334,18 @@ namespace TL
 
                     Nodecl::VectorPromotion vector_prom =
                         Nodecl::VectorPromotion::make(
-                                n.shallow_copy(),
+                                encapsulated_symbol.shallow_copy(),
                                 Utils::get_null_mask(),
-                                Utils::get_qualified_vector_to(sym_type, 
+                                Utils::get_qualified_vector_to(encapsulated_symbol_type, 
                                     _environment._unroll_factor),
                                 n.get_locus());
 
-                    if(n.is_constant())
+                    if(encapsulated_symbol.is_constant())
                         vector_prom.set_constant(const_value_make_vector_from_scalar(
                                     _environment._unroll_factor,
-                                    n.get_constant()));
+                                    encapsulated_symbol.get_constant()));
 
-                    n.replace(vector_prom);
+                    encapsulated_symbol.replace(vector_prom);
                 }
                 else if(_environment._reduction_list != NULL)
                 {

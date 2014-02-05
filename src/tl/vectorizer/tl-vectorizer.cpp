@@ -31,6 +31,7 @@
 #include "tl-vectorizer-vector-reduction.hpp"
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL 
 {
