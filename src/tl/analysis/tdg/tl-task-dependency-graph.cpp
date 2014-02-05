@@ -208,7 +208,7 @@ namespace Analysis {
     {
         ObjectList<Nodecl::Symbol> cond_syms = Nodecl::Utils::get_all_symbols_first_occurrence( condition );
         for( ObjectList<Nodecl::Symbol>::iterator it = cond_syms.begin( ); it != cond_syms.end( ); ++it )
-            _syms.insert( *it );
+            _syms.insert( std::pair<Symbol, unsigned int>( it->get_symbol( ), 0 ) );
     }
     
     void TaskDependencyGraph::connect_tdg_nodes_from_pcfg( Node* current )
@@ -403,16 +403,17 @@ namespace Analysis {
         if( !_syms.empty( ) )
         {
             json_tdg << "\t\t\"defvars\" : [\n" ;
-            int i = 1;
-            for( std::set<Nodecl::Symbol>::iterator it = _syms.begin( ); it != _syms.end( ); ++i )
+            unsigned int i = 1;
+            for( std::map<Symbol, unsigned int>::iterator it = _syms.begin( ); it != _syms.end( ); ++i )
             {
-                TL::Symbol s = it->get_symbol( );
+                TL::Symbol s = it->first;
                 json_tdg << "\t\t\t{\n";
                     json_tdg << "\t\t\t\t\"id\" : " << i << ",\n";
                     json_tdg << "\t\t\t\t\"name\" : \"" << s.get_name( ) << "\",\n";
                     json_tdg << "\t\t\t\t\"locus\" : \"" << s.get_locus_str( ) << "\",\n";
                     json_tdg << "\t\t\t\t\"type\" : \"" << s.get_type( ).get_declaration( s.get_scope( ), 
                                     /*no name for the symbol, so we print only the type name*/"" ) << "\"\n";
+                _syms[it->first] = i;
                 ++it;
                 if( it != _syms.end( ) )
                     json_tdg << "\t\t\t},\n";
@@ -505,11 +506,16 @@ namespace Analysis {
                             json_tdg << "\t\t\t\t\t\t\t\"vars\" : [\n";
                         else
                             json_tdg << "\t\t\t\t\t\t\t\"vars\" : \n";
-                        int i = 1;
-                        for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); its != syms.end( ); ++i)
+                        for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); its != syms.end( ); )
                         {
+                            if( _syms.find( its->get_symbol( ) ) == _syms.end( ) )
+                            {
+                                internal_error( "Variable %s, found in condition %s, "
+                                                "has not been found during the phase of gathering the variables", 
+                                                its->prettyprint( ).c_str( ), (*ite)->_condition.prettyprint( ).c_str( ) );
+                            }
                             json_tdg << "\t\t\t\t\t\t\t\t{\n";
-                            json_tdg << "\t\t\t\t\t\t\t\t\t\"id\" : " << i << ",\n";
+                            json_tdg << "\t\t\t\t\t\t\t\t\t\"id\" : " << _syms[its->get_symbol( )] << ",\n";
                             json_tdg << "\t\t\t\t\t\t\t\t\t\"values\" : \"TODO\"\n";
                             
                             // TODO: values!
@@ -576,7 +582,8 @@ namespace Analysis {
             std::cerr << "- TDG JSON file '" << json_file_name << "'" << std::endl;
         json_tdg << "{\n";
             json_tdg << "\t\"tdg\" : {\n";
-                json_tdg << "\t\t\"function\" : \"" << _pcfg->get_name( ) << "\",\n";
+                TL::Symbol sym = _pcfg->get_function_symbol( );
+                json_tdg << "\t\t\"function\" : \"" << ( sym.is_valid( ) ? sym.get_name( ) : "" ) << "\",\n";
                 json_tdg << "\t\t\"locus\" : \"" << _pcfg->get_nodecl( ).get_locus_str( ) << "\",\n";
                 print_tdg_syms_to_json( json_tdg );
                 print_tdg_nodes_to_json( json_tdg );

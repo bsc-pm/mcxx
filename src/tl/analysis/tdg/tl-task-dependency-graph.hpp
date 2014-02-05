@@ -83,7 +83,7 @@ namespace Analysis {
         ExtensibleGraph* _pcfg;                 /*!< PCFG corresponding to the graph */
         ObjectList<TDG_Node*> _tdg_nodes;       /*!< List of nodes in the TDG */
         
-        std::set<Nodecl::Symbol> _syms;     /*!< Set of symbols appearing in the TDG */
+        std::map<Symbol, unsigned int> _syms;   /*!< Map of symbols appearing in the TDG associated to their identifier */
         
         // *** Not allowed construction methods *** //
         TaskDependencyGraph( const TaskDependencyGraph& n );
