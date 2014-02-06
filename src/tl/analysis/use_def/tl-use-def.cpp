@@ -533,7 +533,7 @@ namespace Analysis {
                 if( !s.is_valid( ) )
                 {   // ArraySubscript and ClassMemberAccess are memory accesses but do not have a symbol associated
                     // In these cases, we need to get the nodecl base
-                    s = Utils::ExtendedSymbol::get_nodecl_base( *it_o ).get_symbol( );
+                    s = Utils::get_nodecl_base( *it_o ).get_symbol( );
                     ERROR_CONDITION( !s.is_valid( ), 
                                      "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint( ).c_str( ) );
                 }
@@ -699,7 +699,7 @@ namespace Analysis {
         for( Utils::ext_sym_set::iterator it = list.begin( ); it != list.end( ); ++it )
         {
             Nodecl::NodeclBase it_nodecl = it->get_nodecl( );
-            Nodecl::NodeclBase var = Utils::ExtendedSymbol::get_nodecl_base( it_nodecl );
+            Nodecl::NodeclBase var = Utils::get_nodecl_base( it_nodecl );
             Symbol s( var.get_symbol( ) );
             ERROR_CONDITION( !s.is_valid( ), 
                              "The base nodecl of an extended symbol must have a symbol associated, but %s does not have one", 

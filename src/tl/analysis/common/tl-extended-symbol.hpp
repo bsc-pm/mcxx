@@ -38,6 +38,12 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
+    //! Returns all nodecl bases of a given nodecl
+    ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
+    
+    //!Returns the nodecl base of a nodecl when it only has one ( a nodecl base has always a related symbol)
+    Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
+    
     /*!This class is used to store l-values
         * It can express:
         * - the accessed member of an structure.
@@ -76,12 +82,6 @@ namespace Utils {
 
             //! Returns the nodecl associated with the wrapped symbol.
             Nodecl::NodeclBase get_nodecl( ) const;
-
-            //! Returns all nodecl bases of a given nodecl
-            static ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
-
-            //!Returns the nodecl base of a nodecl when it only has one ( a nodecl base has always a related symbol)
-            static Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
 
             //! Returns true when the extensible symbol contains a symbols which do not represents
             //! neither an array access nor a member access, but a symbol.
