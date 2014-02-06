@@ -241,17 +241,22 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             TL::Symbol reduced_symbol = current.get_reduced_symbol().get_symbol();
 
             TL::Symbol private_symbol = symbol_map.map(reduced_symbol);
+
+            // The reduction must be performed onto the shared variable. We have it in
+            // the parameters, rather than in reduced_symbol that it is only the private copy
+            TL::Symbol parameter_symbol = block_scope.get_symbol_from_name(reduced_symbol.get_name());
+            ERROR_CONDITION (!parameter_symbol.is_valid(), "Reduction shared symbol not found", 0);
+
             // FIXME - We should actually update the initializer for omp_orig and omp_priv
             private_symbol.set_value(omp_reduction->get_initializer().shallow_copy());
             outline_function_stmt.prepend_sibling(
                     Nodecl::ObjectInit::make(private_symbol)
                     );
 
-#warning for_reduction?
             TL::Symbol callback = emit_callback_for_reduction(omp_reduction, construct, enclosing_function);
 
             Nodecl::Utils::SimpleSymbolMap combiner_map;
-            combiner_map.add_map(omp_reduction->get_omp_out(), reduced_symbol);
+            combiner_map.add_map(omp_reduction->get_omp_out(), parameter_symbol);
             combiner_map.add_map(omp_reduction->get_omp_in(), private_symbol);
 
             Source master_combiner;
