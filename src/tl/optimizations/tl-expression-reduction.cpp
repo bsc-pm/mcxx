@@ -146,8 +146,7 @@ namespace Optimizations {
                 {
                     Nodecl::NodeclBase c = Nodecl::Minus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
-                    Nodecl::NodeclBase new_rhs = Nodecl::Minus::make(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)), 
-                                                                     lhs_rhs.shallow_copy(), lhs_rhs.get_type());
+                    Nodecl::NodeclBase new_rhs = Nodecl::Neg::make(lhs_rhs.shallow_copy(), lhs_rhs.get_type());
                     Nodecl::Utils::replace(n, Nodecl::LowerOrEqualThan::make(const_value_to_nodecl(c_value), new_rhs,
                                                                              rhs.get_type(), n.get_locus()));
                 }
@@ -203,8 +202,7 @@ namespace Optimizations {
                 {
                     Nodecl::NodeclBase c = Nodecl::Minus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
-                    Nodecl::NodeclBase new_rhs = Nodecl::Minus::make(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)), 
-                                                                     lhs_rhs.shallow_copy(), lhs_rhs.get_type());
+                    Nodecl::NodeclBase new_rhs = Nodecl::Neg::make(lhs_rhs.shallow_copy(), lhs_rhs.get_type());
                     Nodecl::Utils::replace(n, Nodecl::LowerThan::make(const_value_to_nodecl(c_value), new_rhs,
                                                                       rhs.get_type(), n.get_locus()));
                 }
@@ -443,7 +441,7 @@ namespace Optimizations {
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase mask = mask.shallow_copy();
+        Nodecl::NodeclBase mask = n.get_mask();
         if(lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
         {   // 0 + t = t
             Nodecl::Utils::replace(n, rhs.shallow_copy());
@@ -467,11 +465,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
                 if(lhs_lhs.is_constant())
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask, rhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                rhs.get_type(), n.get_locus()));
                     }
                     else
@@ -487,11 +485,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase lhs_rhs = lhs_minus.get_rhs();
                 if(lhs_lhs.is_constant())
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask, rhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                             lhs_lhs.get_type(), n.get_locus()));
                     }
                     else
@@ -502,7 +500,7 @@ namespace Optimizations {
             }
             else
             {   // R2
-                Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(rhs.shallow_copy(), lhs.shallow_copy(), mask, lhs.get_type(), n.get_locus()));
+                Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(rhs.shallow_copy(), lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
             }
         }
         else if(lhs.is_constant())
@@ -514,11 +512,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
                 if(rhs_lhs.is_constant())
                 {   // R6b
-                    Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, lhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorAdd::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                           rhs.get_type(), n.get_locus()));
                     }
                     else
@@ -534,11 +532,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase rhs_rhs = rhs_minus.get_rhs();
                 if(rhs_lhs.is_constant())
                 {   // R6d
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, lhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                             lhs.get_type(), n.get_locus()));
                     }
                     else
@@ -567,7 +565,7 @@ namespace Optimizations {
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase mask = mask.shallow_copy();
+        Nodecl::NodeclBase mask = n.get_mask();
         if(rhs.is_constant())
         {
             if(lhs.is<Nodecl::VectorAdd>())
@@ -577,12 +575,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
                 if(lhs_lhs.is_constant())
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask, rhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
-                    Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)), 
-                                                                           lhs_rhs.shallow_copy(), mask, lhs_rhs.get_type());
+                    Nodecl::NodeclBase new_rhs = Nodecl::VectorNeg::make(lhs_rhs.shallow_copy(), mask.shallow_copy(), lhs_rhs.get_type());
                     Nodecl::Utils::replace(n, Nodecl::VectorLowerOrEqualThan::make(const_value_to_nodecl(c_value), new_rhs,
-                                                                                   mask, rhs.get_type(), n.get_locus()));
+                                                                                   mask.shallow_copy(), rhs.get_type(), n.get_locus()));
                 }
             }
         }
@@ -595,10 +592,10 @@ namespace Optimizations {
                 Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
                 if(rhs_lhs.is_constant())
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, rhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     Nodecl::Utils::replace(n, Nodecl::VectorLowerOrEqualThan::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(),
-                                                                                   mask, rhs.get_type(), n.get_locus()));
+                                                                                   mask.shallow_copy(), rhs.get_type(), n.get_locus()));
                 }
             }
         }
@@ -612,11 +609,11 @@ namespace Optimizations {
             Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
             if(lhs_lhs.is_constant() && rhs_lhs.is_constant())
             {
-                Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, rhs.get_type());
+                Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                 const_value_t* c_value = _calc.compute_const_value(c);
-                Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make(rhs_rhs.shallow_copy(), lhs_rhs.shallow_copy(), mask, rhs_rhs.get_type());
+                Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make(rhs_rhs.shallow_copy(), lhs_rhs.shallow_copy(), mask.shallow_copy(), rhs_rhs.get_type());
                 Nodecl::Utils::replace(n, Nodecl::VectorLowerOrEqualThan::make(const_value_to_nodecl(c_value), new_rhs,
-                                                                               mask, new_rhs.get_type(), n.get_locus()));
+                                                                               mask.shallow_copy(), new_rhs.get_type(), n.get_locus()));
             }
         }
     }
@@ -626,7 +623,8 @@ namespace Optimizations {
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase mask = mask.shallow_copy();
+        Nodecl::NodeclBase mask = n.get_mask();
+
         if(rhs.is_constant())
         {
             if(lhs.is<Nodecl::VectorAdd>())
@@ -636,12 +634,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
                 if(lhs_lhs.is_constant())
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask, rhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
-                    Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)), 
-                                                                           lhs_rhs.shallow_copy(), mask, lhs_rhs.get_type());
+                    Nodecl::NodeclBase new_rhs = Nodecl::VectorNeg::make(lhs_rhs.shallow_copy(), mask.shallow_copy(), lhs_rhs.get_type());
                     Nodecl::Utils::replace(n, Nodecl::VectorLowerThan::make(const_value_to_nodecl(c_value), new_rhs,
-                                                                            mask, rhs.get_type(), n.get_locus()));
+                                                                            mask.shallow_copy(), rhs.get_type(), n.get_locus()));
                 }
             }
         }
@@ -654,10 +651,10 @@ namespace Optimizations {
                 Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
                 if(rhs_lhs.is_constant())
                 {
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, rhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     Nodecl::Utils::replace(n, Nodecl::VectorLowerThan::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(),
-                                                                            mask, rhs.get_type(), n.get_locus()));
+                                                                            mask.shallow_copy(), rhs.get_type(), n.get_locus()));
                 }
             }
         }
@@ -671,20 +668,21 @@ namespace Optimizations {
             Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
             if(lhs_lhs.is_constant() && rhs_lhs.is_constant())
             {
-                Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, rhs.get_type());
+                Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), rhs.get_type());
                 const_value_t* c_value = _calc.compute_const_value(c);
-                Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make(rhs_rhs.shallow_copy(), lhs_rhs.shallow_copy(), mask, rhs_rhs.get_type());
+                Nodecl::NodeclBase new_rhs = Nodecl::VectorMinus::make(rhs_rhs.shallow_copy(), lhs_rhs.shallow_copy(), mask.shallow_copy(), rhs_rhs.get_type());
                 Nodecl::Utils::replace(n, Nodecl::VectorLowerThan::make(const_value_to_nodecl(c_value), new_rhs,
-                                                                        mask, new_rhs.get_type(), n.get_locus()));
+                                                                        mask.shallow_copy(), new_rhs.get_type(), n.get_locus()));
             }
         }
+
     }
     
     void ReduceExpressionVisitor::visit_post(const Nodecl::VectorMinus& n)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase mask = mask.shallow_copy();
+        Nodecl::NodeclBase mask = n.get_mask();
         if(lhs.is_constant() && rhs.is_constant())
         {   // R3
             const_value_t* c_value = _calc.compute_const_value(n);
@@ -699,11 +697,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
                 if(rhs_lhs.is_constant())
                 {   // R6f
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, lhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask, 
+                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask.shallow_copy(), 
                                                                           rhs.get_type(), n.get_locus()));
                     }
                     else
@@ -719,11 +717,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase rhs_rhs = rhs_minus.get_rhs();
                 if(rhs_lhs.is_constant())
                 {   // R6h
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask, lhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs.shallow_copy(), rhs_lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                             rhs.get_type(), n.get_locus()));
                     }
                     else
@@ -738,7 +736,7 @@ namespace Optimizations {
         {   // R4
             if(const_value_is_zero(rhs.get_constant()))
             {
-                Nodecl::Utils::replace(n, lhs);
+                Nodecl::Utils::replace(n, lhs.shallow_copy());
             }
             else if(lhs.is<Nodecl::VectorAdd>())
             {
@@ -747,11 +745,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
                 if(lhs_lhs.is_constant())
                 {   // R6e
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask, lhs_lhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(), lhs_lhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                           rhs.get_type(), n.get_locus()));
                     }
                     else
@@ -768,11 +766,11 @@ namespace Optimizations {
                 Nodecl::NodeclBase lhs_rhs = lhs_minus.get_rhs();
                 if(lhs_lhs.is_constant())
                 {   // R6g
-                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask, lhs_lhs.get_type());
+                    Nodecl::NodeclBase c = Nodecl::VectorMinus::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(), lhs_lhs.get_type());
                     const_value_t* c_value = _calc.compute_const_value(c);
                     if(!const_value_is_zero(c_value))
                     {
-                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask,
+                        Nodecl::Utils::replace(n, Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                             rhs.get_type(), n.get_locus()));
                     }
                     else
@@ -785,7 +783,7 @@ namespace Optimizations {
             else
             {
                 Nodecl::NodeclBase neg_rhs = const_value_to_nodecl(const_value_neg(rhs.get_constant()));
-                Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(neg_rhs, lhs.shallow_copy(), mask, lhs.get_type(), n.get_locus()));
+                Nodecl::Utils::replace(n, Nodecl::VectorAdd::make(neg_rhs, lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
             }
         }
         else if(Nodecl::Utils::equal_nodecls(lhs, rhs))
@@ -813,7 +811,7 @@ namespace Optimizations {
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase mask = mask.shallow_copy();
+        Nodecl::NodeclBase mask = n.get_mask();
         if((lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
             || (rhs.is_constant() && const_value_is_zero(rhs.get_constant())))
         {   // 0 * t = t , t * 0 = t
@@ -859,16 +857,16 @@ namespace Optimizations {
                         }
                         else
                         {
-                            Nodecl::NodeclBase c = Nodecl::VectorMul::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask,  rhs.get_type());
+                            Nodecl::NodeclBase c = Nodecl::VectorMul::make(lhs_lhs.shallow_copy(), rhs.shallow_copy(), mask.shallow_copy(),  rhs.get_type());
                             const_value_t* c_value = _calc.compute_const_value(c);
-                            Nodecl::Utils::replace(n, Nodecl::VectorMul::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask,
+                            Nodecl::Utils::replace(n, Nodecl::VectorMul::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                               rhs.get_type(), n.get_locus()));
                         }
                     }
                 }
                 else
                 {   // R8
-                    Nodecl::Utils::replace(n, Nodecl::VectorMul::make(rhs.shallow_copy(), lhs.shallow_copy(), mask, lhs.get_type(), n.get_locus()));
+                    Nodecl::Utils::replace(n, Nodecl::VectorMul::make(rhs.shallow_copy(), lhs.shallow_copy(), mask.shallow_copy(), lhs.get_type(), n.get_locus()));
                 }
             }
         }
