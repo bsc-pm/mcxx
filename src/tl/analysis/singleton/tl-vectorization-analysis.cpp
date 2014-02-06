@@ -659,7 +659,7 @@ namespace Analysis {
     
     bool ArrayAccessInfoVisitor::definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node )
     {
-        bool result;
+        bool result = false;
         for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
              it != _induction_variables.end( ) && !result; ++it )
         {   // Check whether the expression used to modify it depends on an induction variable
@@ -703,7 +703,6 @@ namespace Analysis {
             
             if( visit_node )
             {
-            
                 // Treat the current node
                 Utils::ext_sym_set killed = current->get_killed_vars( );
                 if( killed.find( n ) != killed.end( ) )
