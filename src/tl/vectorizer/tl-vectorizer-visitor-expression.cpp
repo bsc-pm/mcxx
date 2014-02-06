@@ -824,7 +824,7 @@ namespace TL
                     const Nodecl::VectorScatter vector_scatter =
                         Nodecl::VectorScatter::make(
                                 base.shallow_copy(),
-                                strides,
+                                strides.shallow_copy(),
                                 rhs.shallow_copy(),
                                 mask,
                                 vector_type,
@@ -1091,7 +1091,7 @@ namespace TL
                 Nodecl::VectorGather vector_gather =
                     Nodecl::VectorGather::make(
                             base.shallow_copy(),
-                            strides,
+                            strides.shallow_copy(),
                             mask,
                             vector_type,
                             n.get_locus());
