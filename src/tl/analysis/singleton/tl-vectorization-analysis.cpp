@@ -308,12 +308,14 @@ namespace Analysis {
                 else
                 {
                     WARNING_MESSAGE( "Array subscript does not have array type or pointer to array type", 0 );
+                    free( dimension_sizes );
                     return -1;
                 }
                 
                 if( !element_type.array_has_size( ) )
                 {
                     WARNING_MESSAGE( "Array type does not have size", 0 );
+                    free( dimension_sizes );
                     return -1;
                 }
                 
@@ -375,6 +377,7 @@ namespace Analysis {
                 
                 if( it_alignment == -1 )
                 {
+                    free( dimension_sizes );
                     return -1;
                 }
                 
@@ -383,6 +386,7 @@ namespace Analysis {
             
             if( it_alignment == -1 )
             {
+                free( dimension_sizes );
                 return -1;
             }
 
@@ -393,6 +397,7 @@ namespace Analysis {
             
             _nesting_level--;
             
+            free( dimension_sizes );
             return alignment;
         }
         // Nested array subscript
@@ -400,9 +405,11 @@ namespace Analysis {
         {
             if (is_suitable_expression(n))
             {
+                free( dimension_sizes );
                 return _alignment;
             }
             
+            free( dimension_sizes );
             return -1;
         }
     }
