@@ -537,7 +537,7 @@ then
       MIC_LIBS="${withval}"
    ],
    [
-      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
+      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.1.106/compiler/lib/mic/
    ])
    
    if test x$nanox_include = x -o x$nanox_lib = x;

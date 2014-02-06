@@ -39,7 +39,13 @@ namespace TL
                 TargetContext& target_ctx,
                 TL::Scope scope,
                 bool is_pragma_task)
-        {
+        {            
+            PragmaCustomClause onto = pragma_line.get_clause("onto");
+            if (onto.is_defined())
+            {
+                target_ctx.onto = onto.get_arguments_as_expressions(scope);
+            }
+            
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
             {
@@ -49,23 +55,26 @@ namespace TL
             {
                 // In #pragma omp target a device is mandatory, for #pragma omp task
                 // add it only if not empty
-                bool set_smp_device = false;
+                std::string default_device = "smp";
+                bool set_default_device = false;
                 if (!is_pragma_task)
                 {
                     warn_printf("%s: warning: '#pragma omp target' without 'device' clause. Assuming 'device(smp)'\n",
                             pragma_line.get_locus_str().c_str());
-                    set_smp_device = true;
+                    set_default_device = true;
                 }
                 else if (target_ctx.device_list.empty())
                 {
-                    set_smp_device = true;
+                    set_default_device = true;
+                    //If onto is defined and there is no device, default device is MPI
+                    if (onto.is_defined()) default_device="mpi";
                 }
 
-                if (set_smp_device)
+                if (set_default_device)
                 {
                     target_ctx.device_list.clear();
-                    target_ctx.device_list.append("smp");
-                }
+                    target_ctx.device_list.append(default_device);
+                } 
             }
 
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
@@ -104,12 +113,6 @@ namespace TL
                     warn_printf("%s: warning: 'shmem' clause cannot be used without the 'ndrange' clause, skipping\n",
                             pragma_line.get_locus_str().c_str());
                 }
-            }
-
-            PragmaCustomClause onto = pragma_line.get_clause("onto");
-            if (onto.is_defined())
-            {
-                target_ctx.onto = onto.get_arguments_as_expressions(scope);
             }
 
             PragmaCustomClause file = pragma_line.get_clause("file");
