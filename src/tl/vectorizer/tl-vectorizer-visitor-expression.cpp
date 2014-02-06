@@ -1114,12 +1114,22 @@ namespace TL
 
             Nodecl::Symbol called_sym = called.as<Nodecl::Symbol>();
             TL::Type call_type = n.get_type();
+            std::string func_name = called_sym.get_symbol().get_name(); 
+
+            if (func_name == "_mm_prefetch" || func_name == "_mm_prefetche")
+            {
+                std::cerr << "Warning: preventing prefetch function call from being vectorized: "
+                    << n.get_locus() << std::endl;
+                return;
+            }
+
 
             // Vectorizing arguments
             walk(n.get_arguments());
-
-            if (called_sym.get_symbol().get_name() == "fabsf" ||
-                    called_sym.get_symbol().get_name() == "fabs")
+  
+            
+            if (func_name == "fabsf" ||
+                    func_name == "fabs")
             {
                 const Nodecl::VectorFabs vector_fabs_call =
                     Nodecl::VectorFabs::make(
@@ -1130,8 +1140,8 @@ namespace TL
 
                 n.replace(vector_fabs_call);
             }
-            else if (called_sym.get_symbol().get_name() == "sqrtf" ||
-                    called_sym.get_symbol().get_name() == "sqrt")
+            else if (func_name == "sqrtf" ||
+                    func_name == "sqrt")
             {
                 const Nodecl::VectorSqrt vector_sqrt_call =
                     Nodecl::VectorSqrt::make(
@@ -1142,7 +1152,7 @@ namespace TL
 
                 n.replace(vector_sqrt_call);
             }
-            else if (called_sym.get_symbol().get_name() == "sincosf")
+            else if (func_name == "sincosf")
             {
                 Nodecl::List::iterator args = n.get_arguments().as<Nodecl::List>().begin();
 
@@ -1179,14 +1189,14 @@ namespace TL
                 // Get the best vector version of the function available
                 Nodecl::NodeclBase best_version =
                     TL::Vectorization::Vectorizer::_function_versioning.get_best_version(
-                            called_sym.get_symbol().get_name(), 
+                            func_name, 
                             _environment._device, 
                             _environment._unroll_factor * call_type.get_size(), 
                             function_target_type,
                             !mask.is_null());
 
                 ERROR_CONDITION(best_version.is_null(), "Vectorizer: the best vector function for '%s' is null",
-                        called_sym.get_symbol().get_name().c_str());
+                        func_name.c_str());
 
                 // Create new called symbol
                 Nodecl::Symbol new_called;
