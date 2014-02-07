@@ -490,9 +490,5 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMod& node)
                     node.get_type(),
                     node.get_locus()));
     }
-    else if(rhs.is_constant() && rhs_type.is_integral_type())
-    {
-        internal_error("VECTOR MOD OPERATION COULD BE OPTIMIZED!!", 0);
-    }
 }
  

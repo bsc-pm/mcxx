@@ -512,7 +512,8 @@ namespace TL
                 Nodecl::NodeclBase result;
 
                 // UB is normalized. < --> <=
-                if (loop_condition.is<Nodecl::LowerThan>())
+                if (loop_condition.is<Nodecl::LowerThan>() ||
+                     loop_condition.is<Nodecl::LowerOrEqualThan>())
                 { 
                     result = Nodecl::Add::make(ub.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
