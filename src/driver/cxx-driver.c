@@ -2328,7 +2328,44 @@ static void parse_subcommand_arguments(const char* arguments)
     p++;
 
     int num_parameters = 0;
-    const char** parameters = comma_separate_values(p, &num_parameters);
+    const char** parameters = NULL;
+    if (*p == '"' || *p == '\'')
+    {
+        char delimiter = *p;
+        // --Wx:profile:n,"literal text"
+        char* literal_text = xstrdup(p + 1);
+        char* q = literal_text;
+        char delim_found = 0;
+        while (*q != '\0')
+        {
+            if (*q == delimiter)
+            {
+                *q = '\0';
+                delim_found = 1;
+                q++;
+                break;
+            }
+            q++;
+        }
+
+        if (delim_found && *q != '\0')
+        {
+            fprintf(stderr, "Warning: Ignoring trailing '%s' in parameter '--W%s'\n",
+                    q, arguments);
+        }
+        else if (!delim_found)
+        {
+            fprintf(stderr, "Warning: Parameter '--W%s' is missing a delimiter\n",
+                    arguments);
+        }
+
+        num_parameters = 1;
+        parameters = (const char**)&literal_text;
+    }
+    else
+    {
+        parameters = comma_separate_values(p, &num_parameters);
+    }
 
     if (prepro_flag)
     {

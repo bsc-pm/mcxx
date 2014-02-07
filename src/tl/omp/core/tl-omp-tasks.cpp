@@ -1085,7 +1085,9 @@ namespace TL
             // Target-style clauses
             if (_target_context.empty())
             {
+                // Create an implicit target for this one
                 _target_context.push(TargetContext());
+                _target_context.top().is_implicit = true;
             }
             ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
@@ -1265,8 +1267,9 @@ namespace TL
 
             if (_target_context.empty())
             {
-                // Create a fake target for this one
+                // Create an implicit target for this one
                 _target_context.push(TargetContext());
+                _target_context.top().is_implicit = true;
             }
             common_target_handler_pre(pragma_line, _target_context.top(), scope,
                     /* is_pragma_task */ true);

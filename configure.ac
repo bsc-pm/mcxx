@@ -761,7 +761,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 if test x$cuda_enabled = xyes ; then
     if test -d "$CUDADIR" ;
     then
-        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
+        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
         if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
             cuda_valid=no
