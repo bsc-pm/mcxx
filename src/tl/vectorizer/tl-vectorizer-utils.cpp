@@ -529,7 +529,7 @@ namespace TL
                 }
                 else
                 {
-                    result = ub.shallow_copy();
+                    internal_error("Vectorizer: get_denormalize_ub. Unsupported condition", 0);
                 }
 
                 return result;
