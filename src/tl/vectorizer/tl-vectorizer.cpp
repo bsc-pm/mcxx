@@ -209,8 +209,9 @@ namespace TL
             TL::ForStatement tl_for(for_statement);
 
             Nodecl::NodeclBase lb = tl_for.get_lower_bound();
-            Nodecl::NodeclBase ub = tl_for.get_upper_bound();
+            Nodecl::NodeclBase ub = TL::Vectorization::Utils::get_denormalize_ub(for_statement);
             Nodecl::NodeclBase step = tl_for.get_step();
+
 
             if(step.is_constant())
             {
@@ -262,7 +263,7 @@ namespace TL
 
                 if (ub.is_constant())
                 {
-                    const_ub = const_value_cast_to_8(ub.get_constant()) + 1;
+                    const_ub = const_value_cast_to_8(ub.get_constant());
                 }
                 else
                 {
@@ -271,14 +272,7 @@ namespace TL
                     environment._analysis_scopes.push_back(for_statement);
 
                     // Suitable UB
-                    Nodecl::NodeclBase ub_plus_one =
-                        Nodecl::Add::make(ub.shallow_copy(),
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_one(4, 1)),
-                                ub.get_type());
-
-                    ub_is_suitable = _analysis_info->is_suitable_expression(for_statement, ub_plus_one,
+                    ub_is_suitable = _analysis_info->is_suitable_expression(for_statement, ub,
                             environment._suitable_expr_list, environment._unroll_factor,
                             environment._vector_length, ub_vector_size_module);
 

@@ -500,6 +500,39 @@ namespace TL
 
                 return result;
             }
+
+            Nodecl::NodeclBase get_denormalize_ub(Nodecl::ForStatement for_statement)
+            {
+                Nodecl::NodeclBase loop_condition = for_statement.get_loop_header().
+                    as<Nodecl::LoopControl>().get_cond();
+
+                TL::ForStatement tl_for(for_statement);
+                Nodecl::NodeclBase ub = tl_for.get_upper_bound();
+
+                Nodecl::NodeclBase result;
+
+                // UB is normalized. < --> <=
+                if (loop_condition.is<Nodecl::LowerThan>())
+                { 
+                    result = Nodecl::Add::make(ub.shallow_copy(),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_one(4, 1)),
+                            ub.get_type());
+
+                    if (ub.is_constant())
+                    {
+                        result.set_constant(const_value_add(ub.get_constant(),
+                                   const_value_get_one(4, 1)));
+                    }
+                }
+                else
+                {
+                    result = ub.shallow_copy();
+                }
+
+                return result;
+            }
         }
     }
 }

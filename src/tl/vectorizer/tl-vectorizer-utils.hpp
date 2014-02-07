@@ -124,7 +124,8 @@ namespace TL
             Nodecl::List get_vector_offset_list(const int start_value, const int increment,
                     const int vector_size);
             const_value_t * get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list);
- 
+
+            Nodecl::NodeclBase get_denormalize_ub(Nodecl::ForStatement for_statement);
         }
     }
 }

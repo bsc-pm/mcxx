@@ -130,8 +130,8 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
             int ctz = __builtin_ctz(integer_value);
 
             // lhs << (cv>>ctz)
-            Nodecl::BitwiseShr shr = 
-                Nodecl::BitwiseShr::make(
+            Nodecl::ArithmeticShr shr = 
+                Nodecl::ArithmeticShr::make(
                         lhs.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(ctz)),
                         node.get_type(),
@@ -156,7 +156,8 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mod& node)
     TL::Type lhs_type = lhs.get_type();
     TL::Type rhs_type = rhs.get_type();
 
-    if(rhs.is_constant() && rhs_type.is_integral_type())
+    if(rhs.is_constant() && rhs_type.is_integral_type()
+            && lhs_type.is_unsigned_int())
     {
         //TODO: It could be a different type than int
         const_value_t * cv = rhs.get_constant(); 
@@ -365,8 +366,8 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
                 int ctz = __builtin_ctz(integer_value);
 
                 // lhs >> (cv>>ctz)
-                Nodecl::VectorBitwiseShrI shl = 
-                    Nodecl::VectorBitwiseShrI::make(
+                Nodecl::VectorArithmeticShrI shl = 
+                    Nodecl::VectorArithmeticShrI::make(
                             lhs.shallow_copy(),
                             const_value_to_nodecl(const_value_get_signed_int(ctz)),
                             node.get_mask().shallow_copy(),
@@ -410,8 +411,8 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
             if (all_pow2)
             {
                 // lhs >> (cv>>ctz)
-                Nodecl::VectorBitwiseShr shl = 
-                    Nodecl::VectorBitwiseShr::make(
+                Nodecl::VectorArithmeticShr shl = 
+                    Nodecl::VectorArithmeticShr::make(
                             lhs.shallow_copy(),
                             Nodecl::VectorLiteral::make(result_list,
                                 node.get_mask().shallow_copy(),
