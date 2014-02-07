@@ -2605,6 +2605,7 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOX_LDFLAGS[@]|$(NANOX_LDFLAGS)|g' \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
