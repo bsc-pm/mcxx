@@ -318,54 +318,66 @@ namespace {
             
             // Connect the current node and the possible inner nodes (when current is a graph) 
             // with the nodes in the current nesting level
+            bool connect_current = true;
             std::stringstream ss_source_id;
-            if( current->is_graph_node( ) )
-                ss_source_id << current->get_graph_exit_node( )->get_id( );
-            else
+            if( current->is_graph_node( ) ) {
+                // It may happen that the exit of a graph node has no entry edges 
+                // when there is a break point inside the graph that avoid reaching the exit of the graph.
+                // In these cases, we do not need to print this edge because it will never occur
+                Node* exit = current->get_graph_exit_node( );
+                if( exit->get_entry_edges( ).empty( ) )
+                    connect_current = false;
+                
+                ss_source_id << exit->get_id( );
+            } else {
                 ss_source_id << current->get_id( );
-            
-            // Connect current children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                std::stringstream ss_target_id;
-                if( ( *it )->is_graph_node( ) )
-                    ss_target_id << ( *it )->get_graph_entry_node( )->get_id( );
-                else
-                    ss_target_id << ( *it )->get_id( );
-                
-                std::string direction = "";
-                if( ss_source_id.str( ) == ss_target_id.str( ) )
-                    direction = ", headport=n, tailport=s";
-                
-                std::string extra_edge_attrs = "";
-                Edge* current_edge = ExtensibleGraph::get_edge_between_nodes( current, *it );
-                if( current_edge->is_task_edge( ) )
-                    extra_edge_attrs = ", style=dashed";
-                
-                std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
-                                    + " [label=\"" + current_edge->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
-                Node* source_outer = current->get_outer_node( );
-                Node* target_outer = ( *it )->get_outer_node( );
-                if( source_outer == target_outer )
-                {   // The edge has to be printed now
-                    dot_graph += indent + edge;
-                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                }
-                else
-                {
-                    int nest = outer_edges.size( );
-                    while( source_outer != target_outer && source_outer != NULL )
-                    {
-                        source_outer = source_outer->get_outer_node( );
-                        nest--;
-                    }
-                    ERROR_CONDITION( nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0 );
-                    outer_edges[nest-1].push_back( edge );
-                    outer_nodes[nest-1].push_back( *it );
-                }
             }
                 
+            // Connect current children
+            if( connect_current )
+            {
+                ObjectList<Node*> children = current->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                {
+                    std::stringstream ss_target_id;
+                    if( ( *it )->is_graph_node( ) )
+                        ss_target_id << ( *it )->get_graph_entry_node( )->get_id( );
+                    else
+                        ss_target_id << ( *it )->get_id( );
+                    
+                    std::string direction = "";
+                    if( ss_source_id.str( ) == ss_target_id.str( ) )
+                        direction = ", headport=n, tailport=s";
+                    
+                    std::string extra_edge_attrs = "";
+                    Edge* current_edge = ExtensibleGraph::get_edge_between_nodes( current, *it );
+                    if( current_edge->is_task_edge( ) )
+                        extra_edge_attrs = ", style=dashed";
+                    
+                    std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
+                                        + " [label=\"" + current_edge->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                    Node* source_outer = current->get_outer_node( );
+                    Node* target_outer = ( *it )->get_outer_node( );
+                    if( source_outer == target_outer )
+                    {   // The edge has to be printed now
+                        dot_graph += indent + edge;
+                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                    }
+                    else
+                    {
+                        int nest = outer_edges.size( );
+                        while( source_outer != target_outer && source_outer != NULL )
+                        {
+                            source_outer = source_outer->get_outer_node( );
+                            nest--;
+                        }
+                        ERROR_CONDITION( nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0 );
+                        outer_edges[nest-1].push_back( edge );
+                        outer_nodes[nest-1].push_back( *it );
+                    }
+                }
+            }
+            
             // Connect all edges and nodes corresponding to the current level of nesting
             if( current->is_graph_node( ) && !outer_edges.empty( ) )
             {
