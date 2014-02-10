@@ -27,6 +27,7 @@
 #include "cxx-process.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
+#include "tl-expression-reduction.hpp"
 #include "tl-use-def.hpp"
 
 namespace TL  {
@@ -348,6 +349,10 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
+    AnalysisStaticInfo::AnalysisStaticInfo( )
+        : _node( Nodecl::NodeclBase::null( ) ), _static_info_map( )
+    {}
+    
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                             WhereAnalysis nested_analysis_mask, int nesting_level )
     {
@@ -589,6 +594,50 @@ namespace Analysis {
 
         return result;
     }                                                                          
+    
+    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n )
+    {
+        bool result = false;
+        ObjectList<Nodecl::NodeclBase> children = n.children( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        {
+            if( n.is<Nodecl::OpenMP::TaskCall>( ) )
+            {
+                result = true;
+                break;
+            }
+            
+            result = nodecl_calls_outline_task( *it );
+        }
+        return result;
+    }
+    
+    bool AnalysisStaticInfo::is_ompss_reduction( const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+        
+        if( n.is<Nodecl::Assignment>( ) || 
+            n.is<Nodecl::AddAssignment>( ) || n.is<Nodecl::MinusAssignment>( ) || 
+            n.is<Nodecl::DivAssignment>( ) || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( ) ||
+            n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( ) || n.is<Nodecl::ArithmeticShrAssignment>( ) || 
+            n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
+        {
+            Nodecl::Assignment n_assig = n.as<Nodecl::Assignment>( );
+            result = nodecl_calls_outline_task( n_assig.get_rhs( ) );
+            
+            if( result && n.is<Nodecl::Assignment>( ) )
+            {   // Check also if the LHS also contains the RHS
+                Nodecl::NodeclBase rhs_c = n_assig.get_rhs( ).shallow_copy( );
+                Optimizations::ReduceExpressionVisitor rev;
+                // FIXME This is not an Add but I cannot call visit with a NodeclBase
+                rev.visit( rhs_c.as<Nodecl::Add>( ) );
+                if( !Nodecl::Utils::stmtexpr_contains_nodecl( rhs_c, n_assig.get_lhs( ) ) )
+                    result = false;
+            }
+        }
+        
+        return result;
+    }
     
     bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
