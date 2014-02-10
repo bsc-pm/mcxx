@@ -68,6 +68,8 @@ namespace Analysis {
         //! Returns a pointer the the target node of the edge
         Node* get_target( ) const;
 
+        void set_type( Edge_type type );
+        
         //! Returns the type of the edge
         Edge_type get_type( );
 

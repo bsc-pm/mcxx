@@ -27,7 +27,14 @@
 #ifndef TL_OPTIMIZATIONS_HPP
 #define TL_OPTIMIZATIONS_HPP
 
-#include "tl-strength-reduction.hpp"
+#include "tl-nodecl.hpp"
 
-
+namespace TL
+{
+    namespace Optimizations
+    {
+        void strength_reduce(Nodecl::NodeclBase& node, bool fast_math);
+        void canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math);
+    }
+}
 #endif // TL_OPTIMIZATIONS_HPP

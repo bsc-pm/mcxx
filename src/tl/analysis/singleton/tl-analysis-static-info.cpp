@@ -604,7 +604,16 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.is_adjacent_access( n );
+            Node* scope_node = current_info.find_node_from_nodecl( scope );
+            if( scope_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                                 scope.prettyprint( ).c_str( ) );
+            Node* n_node = current_info.find_node_from_nodecl( n );
+            if( n_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                                 n.prettyprint( ).c_str( ) );
+                
+            result = current_info.is_adjacent_access( n, scope_node, n_node );
         }
 
         return result;
@@ -624,7 +633,17 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.contains_induction_variable( n );
+            Node* scope_node = current_info.find_node_from_nodecl( scope );
+            if( scope_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                                 scope.prettyprint( ).c_str( ) );
+            Node* n_node = current_info.find_node_from_nodecl( n );
+            if( n_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                                 n.prettyprint( ).c_str( ) );
+            
+            result = current_info.contains_induction_variable( n, scope_node, n_node ) || 
+                     current_info.var_is_iv_dependent_in_scope( n, scope_node, n_node );
         }
 
         return result;
@@ -667,16 +686,7 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
 
-            // An access will be aligned only if it is an adjacent access
-            if(this->is_adjacent_access(scope, n))
-            {
-                result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
-            }
-            else
-            {
-                internal_error( "Using 'is_simd_aligned_access' in access '%s' which is not adjacent",
-                        n.prettyprint( ).c_str( ) );
-            }
+            result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
         }
         
         return result;

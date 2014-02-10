@@ -44,6 +44,11 @@ namespace Analysis {
         return _source;
     }
 
+    void Edge::set_type( Edge_type type )
+    {
+        set_data( _EDGE_TYPE, type );
+    }
+    
     Node* Edge::get_target( ) const
     {
         return _target;

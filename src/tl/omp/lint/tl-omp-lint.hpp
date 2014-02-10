@@ -27,26 +27,29 @@
 #ifndef TL_OMP_LINT_HPP
 #define TL_OMP_LINT_HPP
 
+#include "tl-analysis-singleton.hpp"
 #include "tl-compilerphase.hpp"
+#include "tl-nodecl-visitor.hpp"
 
-namespace TL
-{
-    namespace OpenMP
+namespace TL {
+namespace OpenMP {
+    
+    //! This class transforms OpenMP pragmas to the Nodecl representation of parallelism
+    class Lint : public TL::CompilerPhase
     {
-        //! This class transforms OpenMP pragmas to the Nodecl representation of parallelism
-        class Lint : public TL::CompilerPhase
-        {
-            private:
-                std::string _disable_phase;
-            public:
-                Lint();
+    private:
+        std::string _disable_phase;
+        
+    public:
+        Lint();
 
-                virtual void run(TL::DTO& dto);
-                virtual void pre_run(TL::DTO& dto);
+        virtual void run(TL::DTO& dto);
+        virtual void pre_run(TL::DTO& dto);
 
-                virtual ~Lint() { }
-        };
-    }
+        virtual ~Lint() { }
+    };
+    
+}
 }
 
 #endif // TL_OMP_LINT_HPP

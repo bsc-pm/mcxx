@@ -30,8 +30,9 @@
 #include "cxx-cexpr.h"
 #include "tl-nodecl-visitor.hpp"
 
-namespace Nodecl
-{
+namespace TL {
+namespace Optimizations {
+    
     class LIBTL_CLASS Calculator : public Nodecl::NodeclVisitor<TL::ObjectList<const_value_t*> >
     {
     private:
@@ -95,6 +96,8 @@ namespace Nodecl
         
         const_value_t* compute_const_value(Nodecl::NodeclBase val);
     };
+    
+}
 }
 
 #endif // TL_CALCULATOR_HPP

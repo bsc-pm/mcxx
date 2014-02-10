@@ -29,40 +29,20 @@
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
+ test_nolink=yes
  </testinfo>
 */
 
-#include <stdlib.h>
+int x = 0;
 
-int foo(int p)
-{
-    #pragma analysis_check assert upper_exposed(p)
-    return p;
-}
-
-int bar(int p)
-{
-    #pragma analysis_check assert upper_exposed(p)
-    return p;
-}
-
-int function(int (*fun)(int), int p)
-{
-    #pragma analysis_check assert undefined(p)
-    return (*fun)(p);
-}
-
+#pragma analysis_check assert_decl live_in(x) defined(x) upper_exposed(x)
 int main(int argc, char *argv[])
 {
-    int a, b;
+    int a;
+    //     #pragma analysis_check assert defined(a)
+    a = 0;
     
-    #pragma analysis_check assert upper_exposed(argc) defined(argc)
-    a = function((int (*)(int))foo, argc++);
-    #pragma analysis_check assert upper_exposed(argc) defined(argc)
-    b = function((int (*)(int))bar, argc++);
+    x++;
     
-    #pragma analysis_check assert upper_exposed(a, b)
-    if( a != 1 || b != 2 )
-        exit( 1 );
     return 0;
 }
