@@ -36,76 +36,53 @@ namespace Analysis {
 namespace Utils {
 
     Optimizations::Calculator calc;
-    const long double Min = std::numeric_limits<double>::min( );
-    const long double Max = std::numeric_limits<double>::max( );
     
-    Range::Range( )
-        : _lb( const_value_to_nodecl( const_value_get_long_double( Min ) ) ), 
-          _ub( const_value_to_nodecl( const_value_get_long_double( Max ) ) ),
-          _type( Empty )
-    {}
-    
-    Range::Range( Nodecl::NodeclBase lb, Nodecl::NodeclBase ub, RangeType type )
-        : _lb( lb ), _ub( ub ), _type( type )
-    {}
-
-    Range::~Range( );
-
-    Nodecl::NodeclBase Range::get_lower( ) const 
+    /*! When the lower and upper bounds of both ranges is not a constant value,
+     * we cannot tell whether the range is empty or not.
+     * Being conservative, we answer false when we don't know the accurate answer
+     */
+    bool empty_interval( const Nodecl::Analysis::ClosedInterval& c )
     {
-        return _lb;
-    }
-    
-    Nodecl::NodeclBase Range::get_upper( ) const 
-    {
-        return _ub;
-    }
-    
-    void Range::set_lower( const Nodecl::NodeclBase& new_lb ) 
-    { 
-        this->_lb = new_lb; 
-    }
-    
-    void Range::set_upper( const Nodecl::NodeclBase& new_ub ) 
-    { 
-        this->_ub = new_ub;
-    }
-    
-    // _type==Empty || ub < lb
-    bool Range::is_empty( ) const
-    {
-        return ( ( _lb.is_constant( ) && _ub.is_constant( ) && 
-                   const_value_is_negative( const_value_sub( _ub.get_constant( ), _lb.get_constant( ) ) ) ) 
-                 || ( _type == Empty ) );
+        bool result = false;
+        if ( c.get_lower( ).is_constant( ) && c.get_upper( ).is_constant( ) )
+        {
+            result = const_value_is_negative( const_value_sub( c.get_upper( ).get_constant( ), c.get_lower( ).get_constant( ) ) );
+        }
+        return result;
     }
     
     // [a, b] + [c, d] = [a+d, b+c]
-    Range Range::range_add( const Range& r )
+    Nodecl::NodeclBase interval_add( const Nodecl::Analysis::ClosedInterval& c1, const Nodecl::Analysis::ClosedInterval& c2 )
     {
-        Nodecl::NodeclBase lb = Nodecl::Add::make( _lb, r._lb, _lb.get_type( ) );
-        Nodecl::NodeclBase ub = Nodecl::Add::make( _ub, r._ub, _ub.get_type( ) );
-        return Range( lb, ub );
+        Nodecl::NodeclBase lb = Nodecl::Add::make( c1.get_lower( ).shallow_copy( ), c2.get_lower( ).shallow_copy( ), c1.get_type( ) );
+        Nodecl::NodeclBase ub = Nodecl::Add::make( c1.get_upper( ).shallow_copy( ), c2.get_upper( ).shallow_copy( ), c1.get_type( ) );
+        return Nodecl::Analysis::ClosedInterval::make( lb, ub, c1.get_type( ) );
     }
     
     // [a, b] − [c, d] = [a-d, b-c]
-    Range Range::range_sub( const Range& r )
+    Nodecl::NodeclBase interval_sub( const Nodecl::Analysis::ClosedInterval& c1, const Nodecl::Analysis::ClosedInterval& c2 )
     {
-        Nodecl::NodeclBase lb = Nodecl::Minus::make( _lb, r._ub, _lb.get_type( ) );
-        Nodecl::NodeclBase ub = Nodecl::Minus::make( _ub, r._lb, _ub.get_type( ) );
-        return Range( lb, ub );
+        Nodecl::NodeclBase lb = Nodecl::Minus::make( c1.get_lower( ).shallow_copy( ), c2.get_upper( ).shallow_copy( ), c1.get_type( ) );
+        Nodecl::NodeclBase ub = Nodecl::Minus::make( c1.get_upper( ).shallow_copy( ), c2.get_lower( ).shallow_copy( ), c1.get_type( ) );
+        return Nodecl::Analysis::ClosedInterval::make( lb, ub, c1.get_type( ) );
     }
     
     // [a, b] * [c, d] = [min(a*c, a*d, b*c, b*d), max(a*c, a*d, b*c, b*d)]
-    Range Range::range_mul( const Range& r )
+    Nodecl::NodeclBase range_mul( const Nodecl::Analysis::ClosedInterval& c1, const Nodecl::Analysis::ClosedInterval& c2 )
     {
-        Range result;
-        if( _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) )
+        Nodecl::NodeclBase result;
+        
+        Nodecl::NodeclBase c1_lb = c1.get_lower( );   Nodecl::NodeclBase c1_ub = c1.get_upper( );
+        Nodecl::NodeclBase c2_lb = c2.get_lower( );   Nodecl::NodeclBase c2_ub = c2.get_upper( );
+        TL::Type t = c1_lb.get_type( );
+        
+        if( c1_lb.is_constant( ) && c1_ub.is_constant( ) && c2_lb.is_constant( ) && c2_ub.is_constant( ) )
         {   // Having constant values we can apply the arithmetic
+            const_value_t* c1_lb_c = c1_lb.get_constant( );   const_value_t* c1_ub_c = c1_ub.get_constant( );
+            const_value_t* c2_lb_c = c2_lb.get_constant( );   const_value_t* c2_ub_c = c2_ub.get_constant( );
             const_value_t* candidates[4] = {
-                calc.compute_const_value( Nodecl::Mul::make( _lb, r._lb, _lb.get_type( ) ) ),
-                calc.compute_const_value( Nodecl::Mul::make( _lb, r._ub, _lb.get_type( ) ) ),
-                calc.compute_const_value( Nodecl::Mul::make( _ub, r._lb, _lb.get_type( ) ) ),
-                calc.compute_const_value( Nodecl::Mul::make( _ub, r._ub, _lb.get_type( ) ) ) 
+                const_value_mul( c1_lb_c, c2_lb_c ), const_value_mul( c1_lb_c, c2_ub_c ),
+                const_value_mul( c1_ub_c, c2_lb_c ), const_value_mul( c1_ub_c, c2_ub_c ) 
             };
             const_value_t* min = candidates[0];
             const_value_t* max = candidates[0];
@@ -118,26 +95,39 @@ namespace Utils {
                     max = candidates[i];
             }
                 
-            result = Range( const_value_to_nodecl( min ), const_value_to_nodecl( max ) );
+            result = Nodecl::Analysis::ClosedInterval::make( const_value_to_nodecl( min ), const_value_to_nodecl( max ), t );
         }
+        else
+        {   // Otherwise, we represent the operations with Nodecl operations
+            Nodecl::List expr_list = Nodecl::List::make( 
+                    Nodecl::Mul::make( c1_lb.shallow_copy( ), c2_lb.shallow_copy( ), t ), 
+                    Nodecl::Mul::make( c1_lb.shallow_copy( ), c2_ub.shallow_copy( ), t ), 
+                    Nodecl::Mul::make( c1_ub.shallow_copy( ), c2_lb.shallow_copy( ), t ), 
+                    Nodecl::Mul::make( c1_ub.shallow_copy( ), c2_ub.shallow_copy( ), t ) );
+            Nodecl::Analysis::Minimum lhs = Nodecl::Analysis::Minimum::make( expr_list, t );
+            Nodecl::Analysis::Maximum rhs = Nodecl::Analysis::Maximum::make( expr_list.shallow_copy( ), t );
+            result = Nodecl::Analysis::ClosedInterval::make( lhs, rhs, t );
+        }
+        
         return result;
     }
     
     // [a, b] / [c, d] = [min(a/c, a/d, b/c, b/d), max(a/c, a/d, b/c, b/d)]
-    Range Range::range_div( const Range& r )
+    Nodecl::NodeclBase range_div( const Nodecl::Analysis::ClosedInterval& c1, const Nodecl::Analysis::ClosedInterval& c2 )
     {
-        Range result;
-        if( _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) ) 
+        Nodecl::NodeclBase result;
+        
+        Nodecl::NodeclBase c1_lb = c1.get_lower( );   Nodecl::NodeclBase c1_ub = c1.get_upper( );
+        Nodecl::NodeclBase c2_lb = c2.get_lower( );   Nodecl::NodeclBase c2_ub = c2.get_upper( );
+        TL::Type t = c1_lb.get_type( );
+        
+        if( c1_lb.is_constant( ) && c1_ub.is_constant( ) &&  c2_lb.is_constant( ) && c2_ub.is_constant( ) ) 
         {   // Having constant values we can apply the arithmetic
-            const_value_t* lb = _lb.get_constant( );
-            const_value_t* ub = _ub.get_constant( );
-            const_value_t* rlb = r._lb.get_constant( );
-            const_value_t* rub = r._ub.get_constant( );
+            const_value_t* c1_lb_c = c1_lb.get_constant( );   const_value_t* c1_ub_c = c1_ub.get_constant( );
+            const_value_t* c2_lb_c = c2_lb.get_constant( );   const_value_t* c2_ub_c = c2_ub.get_constant( );
             const_value_t* candidates[4] = {
-                const_value_div( lb, rlb ),
-                const_value_div( lb, rub ),
-                const_value_div( ub, rlb ),
-                const_value_div( ub, rub )
+                const_value_div( c1_lb_c, c2_lb_c ), const_value_div( c1_lb_c, c2_ub_c ),
+                const_value_div( c1_ub_c, c2_lb_c ), const_value_div( c1_ub_c, c2_ub_c )
             };
             const_value_t* min = candidates[0];
             const_value_t* max = candidates[0];
@@ -148,13 +138,26 @@ namespace Utils {
                     max = candidates[i];
             }
             
-            result = Range( const_value_to_nodecl( min ), const_value_to_nodecl( max ) );
+            result = Nodecl::Analysis::ClosedInterval::make( const_value_to_nodecl( min ), const_value_to_nodecl( max ), t );
             
         } else {
-            if( ( r._lb.is_constant( ) && const_value_is_zero( r._lb.get_constant( ) ) ) || 
-                ( r._ub.is_constant( ) && const_value_is_zero( r._ub.get_constant( ) ) ) ) {
+            if( ( c2_lb.is_constant( ) && const_value_is_zero( c2_lb.get_constant( ) ) ) || 
+                ( c2_ub.is_constant( ) && const_value_is_zero( c2_ub.get_constant( ) ) ) ) 
+            {
                 WARNING_MESSAGE( "Division by an interval containing zero is not defined under the basic interval arithmetic." 
                                  "As a result of this division we return the maximum interval\n", 0 );
+                result = Nodecl::Analysis::OpenInterval::make( Nodecl::Analysis::MinusInfinity::make( ), Nodecl::Analysis::PlusInfinity::make( ), t );
+            }
+            else
+            {
+                Nodecl::List expr_list = Nodecl::List::make( 
+                        Nodecl::Div::make( c1_lb.shallow_copy( ), c2_lb.shallow_copy( ), t ), 
+                        Nodecl::Div::make( c1_lb.shallow_copy( ), c2_ub.shallow_copy( ), t ), 
+                        Nodecl::Div::make( c1_ub.shallow_copy( ), c2_lb.shallow_copy( ), t ), 
+                        Nodecl::Div::make( c1_ub.shallow_copy( ), c2_ub.shallow_copy( ), t ) );
+                Nodecl::Analysis::Minimum lhs = Nodecl::Analysis::Minimum::make( expr_list, t );
+                Nodecl::Analysis::Maximum rhs = Nodecl::Analysis::Maximum::make( expr_list.shallow_copy( ), t );
+                result = Nodecl::Analysis::ClosedInterval::make( lhs, rhs, t );
             }
         }
         
@@ -162,61 +165,63 @@ namespace Utils {
     }
     
     // [a, b] ∩ [c, d] = [max(a, c), min(b, d)]
-    Range Range::range_intersection( const Range& r ) const
+    Nodecl::NodeclBase range_intersection( const Nodecl::Analysis::ClosedInterval& c1, const Nodecl::Analysis::ClosedInterval& c2 )
     {
-        Range result;
-        if( !is_empty( ) && !r.is_empty( ) && 
-            _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) )
+        Nodecl::NodeclBase result;
+        
+        Nodecl::NodeclBase c1_lb = c1.get_lower( );   Nodecl::NodeclBase c1_ub = c1.get_upper( );
+        Nodecl::NodeclBase c2_lb = c2.get_lower( );   Nodecl::NodeclBase c2_ub = c2.get_upper( );
+        TL::Type t = c1_lb.get_type( );
+        
+        if( !empty_interval( c1 ) && !empty_interval( c2 ) && 
+            c1_lb.is_constant( ) && c1_ub.is_constant( ) && c2_lb.is_constant( ) && c2_ub.is_constant( ) )
         {
             Nodecl::NodeclBase lb, ub;
-            if( const_value_is_positive( const_value_sub( _lb.get_constant( ), r._lb.get_constant( ) ) ) )
-                lb = _lb;
+            if( const_value_is_positive( const_value_sub( c1_lb.get_constant( ), c2_lb.get_constant( ) ) ) )
+                lb = c1_lb;
             else
-                lb = r._lb;
-            if( const_value_is_positive( const_value_sub( _ub.get_constant( ), r._ub.get_constant( ) ) ) )
-                lb = r._ub;
+                lb = c2_lb;
+            if( const_value_is_positive( const_value_sub( c1_ub.get_constant( ), c2_ub.get_constant( ) ) ) )
+                ub = c2_ub;
             else
-                lb = _ub;
-            
+                lb = c1_ub;
+            result = Nodecl::Analysis::ClosedInterval::make( lb, ub, t );
         }
+        else
+        {
+            Nodecl::Analysis::Maximum lb = Nodecl::Analysis::Maximum::make( Nodecl::List::make( c1_lb.shallow_copy( ), c2_lb.shallow_copy( ) ), t );
+            Nodecl::Analysis::Minimum ub = Nodecl::Analysis::Minimum::make( Nodecl::List::make( c1_ub.shallow_copy( ), c2_ub.shallow_copy( ) ), t );
+            result = Nodecl::Analysis::ClosedInterval::make( lb, ub, t );
+        }
+        
         return result;
     }
     
     // [a, b] ∪ [c, d] = [min(a, c), max(b, d)]
-    Range Range::range_union( const Range& r ) const
+    Nodecl::NodeclBase range_union( const Nodecl::Analysis::ClosedInterval& c1, const Nodecl::Analysis::ClosedInterval& c2 )
     {
-        Range result;
-        if( !is_empty( ) && !r.is_empty( ) && 
-            _lb.is_constant( ) && _ub.is_constant( ) && r._lb.is_constant( ) && r._ub.is_constant( ) )
+        Nodecl::Analysis::ClosedInterval result;
+        
+        Nodecl::NodeclBase c1_lb = c1.get_lower( ).shallow_copy( );   Nodecl::NodeclBase c1_ub = c1.get_upper( ).shallow_copy( );
+        Nodecl::NodeclBase c2_lb = c2.get_lower( ).shallow_copy( );   Nodecl::NodeclBase c2_ub = c2.get_upper( ).shallow_copy( );
+        TL::Type t = c1_lb.get_type( );
+        
+        if( !empty_interval( c1 ) && !empty_interval( c2 ) && 
+            c1_lb.is_constant( ) && c1_ub.is_constant( ) && c2_lb.is_constant( ) && c2_ub.is_constant( ) )
         {
-            Nodecl::NodeclBase lb, ub;
-            if( const_value_is_positive( const_value_sub( _lb.get_constant( ), r._lb.get_constant( ) ) ) )
-                lb = r._lb;
-            else
-                lb = _lb;
-            if( const_value_is_positive( const_value_sub( _ub.get_constant( ), r._ub.get_constant( ) ) ) )
-                lb = _ub;
-            else
-                lb = r._ub;
-            
+            Nodecl::NodeclBase lb = ( const_value_is_positive( const_value_sub( c1_lb.get_constant( ), c2_lb.get_constant( ) ) ) ? c2_lb : c1_lb );
+            Nodecl::NodeclBase ub = ( const_value_is_positive( const_value_sub( c1_ub.get_constant( ), c2_ub.get_constant( ) ) ) ? c1_ub : c2_ub );
+            result = Nodecl::Analysis::ClosedInterval::make( lb, ub, t );
+        }
+        else
+        {
+            Nodecl::Analysis::Minimum lb = Nodecl::Analysis::Minimum::make( Nodecl::List::make( c1_lb.shallow_copy( ), c2_lb.shallow_copy( ) ), t );
+            Nodecl::Analysis::Maximum ub = Nodecl::Analysis::Maximum::make( Nodecl::List::make( c1_ub.shallow_copy( ), c2_ub.shallow_copy( ) ), t );
+            result = Nodecl::Analysis::ClosedInterval::make( lb, ub, t );
         }
         return result;
     }
-    
-    
-    bool Range::operator==( const Range& r ) const
-    {
-        return ( Nodecl::Utils::equal_nodecls( _lb, r._lb, /*skip conversion*/ true ) && 
-                 Nodecl::Utils::equal_nodecls( _ub, r._ub, /*skip conversion*/ true ) && 
-                 _type == r._type );
-    }
-    
-    bool Range::operator!=( const Range& r ) const
-    {
-        return ( !Nodecl::Utils::equal_nodecls( _lb, r._lb, /*skip conversion*/ true ) || 
-                 !Nodecl::Utils::equal_nodecls( _ub, r._ub, /*skip conversion*/ true ) || 
-                 _type != r._type );
-    }
+
 }
 }
 }

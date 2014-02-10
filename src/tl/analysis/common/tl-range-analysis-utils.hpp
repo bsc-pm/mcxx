@@ -35,47 +35,48 @@
 namespace TL {
 namespace Analysis {
 namespace Utils {
-
+    
     // ******************************************************************************************* //
     // ********************************** Intervals arithmetic *********************************** //
     
-    enum RangeType {Regular, Empty};
-
-    class Range {
-    private:
-        Nodecl::NodeclBase _lb;     // The lower bound of the range.
-        Nodecl::NodeclBase _ub;     // The upper bound of the range.
-        RangeType _type;
-        
-    public:
-        
-        // *** Constructors and destructor *** //
-        Range( );
-        Range( Nodecl::NodeclBase lb, Nodecl::NodeclBase ub, RangeType type = Regular );
-        ~Range( ) {};
-
-        // *** Getters and setters *** //
-        Nodecl::NodeclBase get_lower( ) const;
-        Nodecl::NodeclBase get_upper( ) const;
-        void set_lower( const Nodecl::NodeclBase& new_lb );
-        void set_upper( const Nodecl::NodeclBase& new_ub );
-        bool is_empty( ) const;
-        
-        // *** Interval operations *** //
-        Range range_add( const Range& r );
-        Range range_sub( const Range& r );
-        Range range_mul( const Range& r );
-        Range range_div( const Range& r );
-        Range range_intersection( const Range& r ) const;
-        Range range_union( const Range& r ) const;
-        bool operator==( const Range& r ) const;
-        bool operator!=( const Range& r ) const;
-    };
+    Nodecl::NodeclBase interval_add( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
+    Nodecl::NodeclBase interval_sub( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
+    Nodecl::NodeclBase range_mul( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
+    Nodecl::NodeclBase range_div( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
+    Nodecl::NodeclBase range_intersection( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
+    Nodecl::NodeclBase range_union( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
 
     // ******************************** END Intervals arithmetic ********************************* //
     // ******************************************************************************************* //
     
-
+    
+    
+    // ******************************************************************************************* //
+    // ******************************* Range Analysis Constraints ******************************** //
+    
+    /*! The possible constraints are:
+     *  - Y = [lb, ub]
+     *  - Y = expr | c
+     *  - Y = phi(X1, X2)
+     *  - Y = X ∩ [lb, ub]
+     */
+    struct Constraint {
+        Nodecl::NodeclBase _original_var;     /*!< variable from the program to whom this constraint applies */
+        TL::Symbol _constr_sym;               /*!< symbol associated to a given variable at this point of the program */
+        Nodecl::NodeclBase _constraint;       /*!< actual constraint applying to the variable */
+        
+        Constraint( const Nodecl::NodeclBase orig_var, const TL::Symbol constr_sym, 
+                    const Nodecl::NodeclBase& constraint )
+            : _original_var( orig_var ), _constr_sym( constr_sym ), _constraint( constraint )
+        {}
+    };
+    
+    typedef std::map<Nodecl::NodeclBase, ObjectList<Constraint> > ConstraintMap;
+    
+    // ***************************** END Range Analysis Constraints ****************************** //
+    // ******************************************************************************************* //
+    
+    
     
     // ******************************************************************************************* //
     // ************************* Range analysis methods and definitions ************************** //
@@ -97,12 +98,6 @@ namespace Utils {
     
     bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1, 
                            std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair2 );
-
-    struct Constraint {
-        // TODO
-    };
-    
-    typedef std::map<Nodecl::NodeclBase, ObjectList<Constraint> > ConstraintMap;
     
     // *********************** END Range analysis methods and definitions ************************ //
     // ******************************************************************************************* //
