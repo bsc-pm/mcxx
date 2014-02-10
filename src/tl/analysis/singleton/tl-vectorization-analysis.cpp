@@ -405,11 +405,9 @@ namespace Analysis {
         {
             if (is_suitable_expression(n))
             {
-                free( dimension_sizes );
                 return _alignment;
             }
             
-            free( dimension_sizes );
             return -1;
         }
     }
