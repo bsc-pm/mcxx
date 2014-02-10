@@ -12373,6 +12373,14 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 &simple_type_info, decl_context, nodecl_output);
     }
 
+    // If the type specifier defined a type, add it to the declared symbols
+    if (gather_info.defined_type != NULL
+            && declared_symbols != NULL)
+    {
+        *declared_symbols = entry_list_add(*declared_symbols, gather_info.defined_type);
+        P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, gather_info);
+    }
+
     // There can be just one declarator here if this is not a class specifier nor a function declaration
     // otherwise no declarator can appear
     //
