@@ -2456,6 +2456,12 @@ namespace Analysis {
         return walk( n.get_statement( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdReduction& n )
+    {
+        walk( n.get_reductions( ) );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Single& n )
     {
         // Create the new graph node containing the single
