@@ -18126,7 +18126,7 @@ static const_value_t* evaluate_constexpr_constructor(
                 nodecl_retrieve_context(nodecl_function_code),
                 /* instantiation_symbol_map */ NULL,
                 /* pack_index */ -1);
-        
+
         values[i] = nodecl_get_constant(nodecl_evaluated_expr);
 
         if (values[i] == NULL)

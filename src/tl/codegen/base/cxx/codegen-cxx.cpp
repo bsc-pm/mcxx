@@ -2597,7 +2597,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         indent();
         *(file) << ": ";
 
-        walk_list(initializers.as<Nodecl::List>(), ", ");
+        Nodecl::List initializer_list = initializers.as<Nodecl::List>();
+
+        int i = 0;
+        for (Nodecl::List::iterator it = initializer_list.begin();
+                it != initializer_list.end();
+                it++)
+        {
+            // Skip implicit member initializers
+            if (it->is<Nodecl::ImplicitMemberInit>())
+                continue;
+
+            if (i > 0)
+                *(file) << ", ";
+
+            walk(*it);
+
+            i++;
+        }
 
         dec_indent();
 

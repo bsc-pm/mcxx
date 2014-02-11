@@ -5849,7 +5849,24 @@ static void build_scope_ctor_initializer(
             continue;
 
         scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, locus, &constructor);
+        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+        if (valid)
+        {
+            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(constructor, locus),
+                    /* called_name */ nodecl_null(),
+                    /* args */ nodecl_null(),
+                    nodecl_make_cxx_function_form_implicit(locus),
+                    constructor->entity_specs.class_type,
+                    locus);
+
+            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                    nodecl_call_to_ctor,
+                    entry,
+                    locus);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+        }
     }
     entry_list_iterator_free(it);
 
@@ -5866,7 +5883,24 @@ static void build_scope_ctor_initializer(
             continue;
 
         scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, locus, &constructor);
+        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+        if (valid)
+        {
+            nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(constructor, locus),
+                    /* called_name */ nodecl_null(),
+                    /* args */ nodecl_null(),
+                    nodecl_make_cxx_function_form_implicit(locus),
+                    constructor->entity_specs.class_type,
+                    locus);
+
+            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                    nodecl_call_to_ctor,
+                    entry,
+                    locus);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+        }
     }
     entry_list_iterator_free(it);
 
@@ -5879,7 +5913,40 @@ static void build_scope_ctor_initializer(
             continue;
 
         scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, locus, &constructor);
+        char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
+
+        if (valid)
+        {
+            type_t* t = entry->type_information;
+
+            if (is_array_type(t))
+                t = array_type_get_element_type(t);
+
+            if (is_pod_type(t))
+            {
+                // No initialization for POD-types
+            }
+            else if (is_class_type(t))
+            {
+                nodecl_t nodecl_call_to_ctor = cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, locus),
+                        /* called_name */ nodecl_null(),
+                        /* args */ nodecl_null(),
+                        nodecl_make_cxx_function_form_implicit(locus),
+                        constructor->entity_specs.class_type,
+                        locus);
+
+                nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                        nodecl_call_to_ctor,
+                        entry,
+                        locus);
+                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
     }
     entry_list_iterator_free(it);
 }
