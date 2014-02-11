@@ -77,7 +77,7 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        scope_entry_list_t* entry_list = query_name_str(_decl_context, const_cast<char*>(str.c_str()));
+        scope_entry_list_t* entry_list = query_name_str(_decl_context, const_cast<char*>(str.c_str()), NULL);
 
         convert_to_vector(entry_list, result);
 
@@ -180,7 +180,7 @@ namespace TL
         scope_entry_t* sym_res = NULL;
         if (reuse_symbol)
         {
-            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
+            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str(), NULL);
 
             if (sym_res_list != NULL)
             {

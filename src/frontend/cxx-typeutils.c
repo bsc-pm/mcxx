@@ -5658,7 +5658,8 @@ static type_t* advance_dependent_typename_aux(
         scope_entry_list_t* member_list = query_nodecl_name_in_class(
                 class_context,  // unused
                 current_member,
-                nodecl_simple_name);
+                nodecl_simple_name,
+                NULL);
 
         if (member_list == NULL)
         {
@@ -5844,7 +5845,8 @@ static type_t* advance_dependent_typename_aux(
     scope_entry_list_t* member_list = query_nodecl_name_in_class(
             class_context,  // unused
             current_member,
-            nodecl_simple_name);
+            nodecl_simple_name,
+            NULL);
 
     if (member_list == NULL)
     {
@@ -7422,7 +7424,7 @@ static const char* get_simple_type_name_string_internal_common(scope_entry_t* en
             || entry->kind == SK_ENUM)
     {
         // It may happen that a function is hiding our typename in this scope
-        scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name);
+        scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name, NULL);
         entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name_or_extern_variable, NULL);
 
         // It seems somebody is hiding our name in this scope

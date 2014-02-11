@@ -3494,7 +3494,7 @@ OPERATOR_TABLE
                 current_context.current_scope = sc_scope;
                 current_context.block_scope = sc_scope;
 
-                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str());
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str(), NULL);
 
                 if (query != NULL
                         && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3512,7 +3512,7 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
+        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str(), NULL);
 
         if (query != NULL
                 && entry_list_contains(query, entry.get_internal_symbol()))

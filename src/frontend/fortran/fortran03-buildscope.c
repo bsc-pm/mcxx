@@ -198,7 +198,7 @@ static scope_entry_t* get_special_symbol(decl_context_t decl_context, const char
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.function_scope;
 
-    scope_entry_list_t* entry_list = query_in_scope_str_flags(global_context, name, DF_ONLY_CURRENT_SCOPE);
+    scope_entry_list_t* entry_list = query_in_scope_str_flags(global_context, name, NULL, DF_ONLY_CURRENT_SCOPE);
     if (entry_list == NULL)
     {
         return NULL;
@@ -626,7 +626,7 @@ static scope_entry_t* create_fortran_symbol_for_name_(decl_context_t decl_contex
 static scope_entry_list_t* get_symbols_for_name(decl_context_t decl_context, 
         AST location, const char* name)
 {
-    scope_entry_list_t* result = query_in_scope_str_flags(decl_context, strtolower(name), DF_ONLY_CURRENT_SCOPE);
+    scope_entry_list_t* result = query_in_scope_str_flags(decl_context, strtolower(name), NULL, DF_ONLY_CURRENT_SCOPE);
     if (result == NULL)
     {
         result = entry_list_new(create_fortran_symbol_for_name_(decl_context, location, name, /* no_implicit */ 0));
@@ -1482,7 +1482,7 @@ static scope_entry_t* new_procedure_symbol(
 
     if (decl_context.current_scope != decl_context.global_scope)
     {
-        scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, strtolower(ASTText(name)), DF_ONLY_CURRENT_SCOPE);
+        scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, strtolower(ASTText(name)), NULL, DF_ONLY_CURRENT_SCOPE);
         if (entry_list != NULL)
         {
             entry = entry_list_head(entry_list);
@@ -4549,7 +4549,7 @@ scope_entry_t* fortran_query_label_str_(const char* label,
     const char* label_text = strappend(".label_", label);
     decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
 
-    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, label_text, DF_ONLY_CURRENT_SCOPE);
+    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, label_text, NULL, DF_ONLY_CURRENT_SCOPE);
 
     scope_entry_t* new_label = NULL;
     if (entry_list == NULL)
@@ -4607,7 +4607,7 @@ scope_entry_t* fortran_query_construct_name_str(
     construct_name = strtolower(construct_name);
     decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
 
-    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, construct_name, DF_ONLY_CURRENT_SCOPE);
+    scope_entry_list_t* entry_list = query_name_str_flags(program_unit_context, construct_name, NULL, DF_ONLY_CURRENT_SCOPE);
 
     scope_entry_t* new_label = NULL;
 
@@ -6212,7 +6212,7 @@ static scope_entry_list_t* build_scope_single_interface_specification(
 
                 scope_entry_t* entry = NULL;
                 scope_entry_list_t* entry_list = query_in_scope_str_flags(
-                        decl_context, strtolower(ASTText(procedure_name)), DF_ONLY_CURRENT_SCOPE);
+                        decl_context, strtolower(ASTText(procedure_name)), NULL, DF_ONLY_CURRENT_SCOPE);
 
                 if (entry_list != NULL)
                 {
@@ -6383,7 +6383,7 @@ static void build_scope_interface_block(AST a,
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
-        scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, name, DF_ONLY_CURRENT_SCOPE);
+        scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, name, NULL, DF_ONLY_CURRENT_SCOPE);
         scope_entry_t* previous_generic_spec_sym = NULL;
 
         if (entry_list != NULL)
@@ -6527,7 +6527,7 @@ static void build_scope_intrinsic_stmt(AST a,
         // Query for a local INTRINSIC only in this program unit
         scope_entry_t* entry = NULL;
         scope_entry_list_t* entry_list = 
-            query_in_scope_str_flags(current_program_unit->related_decl_context, strtolower(ASTText(name)), DF_ONLY_CURRENT_SCOPE);
+            query_in_scope_str_flags(current_program_unit->related_decl_context, strtolower(ASTText(name)), NULL, DF_ONLY_CURRENT_SCOPE);
         if (entry_list != NULL)
         {
             entry = entry_list_head(entry_list);
@@ -8164,7 +8164,7 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 {
     ERROR_CONDITION(local_name == NULL, "Invalid alias name", 0);
 
-    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, DF_ONLY_CURRENT_SCOPE); 
+    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, NULL, DF_ONLY_CURRENT_SCOPE); 
 
     if (check_repeated_name != NULL)
     {

@@ -335,7 +335,7 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
         enter_test_expression();
 
         AST id_expr = ASTSon0(declaration);
-        scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expr, DF_DEPENDENT_TYPENAME);
+        scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expr, NULL, DF_DEPENDENT_TYPENAME);
         current_valid = (entry_list != NULL);
         entry_list_free(entry_list);
 
@@ -371,7 +371,7 @@ static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_conte
     {
         AST identifier = ASTSon1(iter);
 
-        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(identifier));
+        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(identifier), NULL);
 
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(entry_list);
@@ -508,7 +508,7 @@ static char check_simple_type_spec(AST type_spec,
 
     AST type_id_expr = ASTSon0(type_spec);
 
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr, NULL);
 
     if (entry_list == NULL)
     {
@@ -817,7 +817,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                     && ASTType(declarator_id_expression) == AST_DECLARATOR_ID_EXPR)
             {
                 AST id_expression = ASTSon0(declarator_id_expression);
-                scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
+                scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression, NULL);
 
                 // T names a type
                 if (entry_list != NULL)
@@ -836,7 +836,7 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                         {
                             AST type_id_expr = ASTSon0(type_spec);
 
-                            scope_entry_list_t* type_id_list = query_id_expression(decl_context, type_id_expr);
+                            scope_entry_list_t* type_id_list = query_id_expression(decl_context, type_id_expr, NULL);
 
                             if (type_id_list != NULL)
                             {
@@ -1009,7 +1009,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                 }
                 
                 scope_entry_list_t* result_list = query_nested_name(decl_context, 
-                        global_scope, nested_name_spec, symbol);
+                        global_scope, nested_name_spec, symbol, NULL);
 
                 enum cxx_symbol_kind filter_classes[] = {
                     SK_CLASS, 
@@ -1056,7 +1056,7 @@ static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_co
                 //      ~A(); <-- valid
                 //   };
                 //
-                scope_entry_list_t* result = query_in_scope_str(decl_context, class_name);
+                scope_entry_list_t* result = query_in_scope_str(decl_context, class_name, NULL);
 
                 if (result == NULL
                         || (entry_list_head(result)->kind != SK_CLASS))
@@ -2175,7 +2175,7 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
 
     if (ASTType(a) == AST_SYMBOL)
     {
-        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(a));
+        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(a), NULL);
         if (entry_list != NULL)
         {
             scope_entry_t* entry = entry_list_head(entry_list);
