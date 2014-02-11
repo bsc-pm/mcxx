@@ -49,6 +49,7 @@ template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [init
 object-init : NODECL_OBJECT_INIT() symbol
 
 mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
+          | NODECL_IMPLICIT_MEMBER_INIT([init_expr]expression) symbol
           | cxx-mem-init
 
 
