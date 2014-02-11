@@ -630,3 +630,27 @@ scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** 
     }
     return result;
 }
+
+scope_entry_list_t* entry_list_concat(const scope_entry_list_t* a, const scope_entry_list_t* b)
+{
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(a);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        result = entry_list_add(result, entry_list_iterator_current(it));
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(b);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        result = entry_list_add(result, entry_list_iterator_current(it));
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
