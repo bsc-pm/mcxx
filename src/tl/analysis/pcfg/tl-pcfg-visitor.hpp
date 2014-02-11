@@ -378,6 +378,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Simd& n );
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
+        Ret visit( const Nodecl::OpenMP::SimdReduction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
         Ret visit( const Nodecl::OpenMP::Suitable& n );
         Ret visit( const Nodecl::OpenMP::Target& n );
