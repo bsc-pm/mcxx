@@ -563,9 +563,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
-    Nodecl::NodeclBase member_form = node.get_member_form();
+    Nodecl::NodeclBase member_literal = node.get_member_literal();
 
-    TL::Symbol sym = rhs.get_symbol();
+    // If this class member access sports a member literal, make sure we skip
+    // all classes in the lhs
+    if (!member_literal.is_null())
+    {
+        while (lhs.is<Nodecl::ClassMemberAccess>()
+                && lhs.as<Nodecl::ClassMemberAccess>().get_member().is<Nodecl::Symbol>()
+                && lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol().is_class())
+            lhs = lhs.as<Nodecl::ClassMemberAccess>().get_lhs();
+    }
+
+    TL::Symbol rhs_sym = rhs.get_symbol();
 
     /*
      *     .
@@ -577,13 +587,13 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
      * We want a.<<anon>>.c become a.c
      */
 
-    bool is_anonymous_union_accessor = sym.is_valid()
-        && sym.get_type().is_named_class()
-        && sym.get_type().get_symbol().is_anonymous_union();
+    bool is_anonymous_union_accessor = rhs_sym.is_valid()
+        && rhs_sym.get_type().is_named_class()
+        && rhs_sym.get_type().get_symbol().is_anonymous_union();
 
-    bool must_derref_all = (sym.is_valid()
-            && is_non_language_reference_variable(sym)
-            && !sym.get_type().references_to().is_array()
+    bool must_derref_all = (rhs_sym.is_valid()
+            && is_non_language_reference_variable(rhs_sym)
+            && !rhs_sym.get_type().references_to().is_array()
             && !state.do_not_derref_rebindable_reference);
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
@@ -611,8 +621,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
         // Right part can be a reference but we do not want to derref it
         state.do_not_derref_rebindable_reference = true;
 
-        *(file) << "."
-            << /* template tag if needed */ node.get_text();
+        if (member_literal.is_null()
+                && lhs.is<Nodecl::ClassMemberAccess>()
+                && lhs.as<Nodecl::ClassMemberAccess>().get_member().is<Nodecl::Symbol>()
+                && lhs.as<Nodecl::ClassMemberAccess>().get_member().get_symbol().is_class())
+        {
+            *(file) << "::";
+        }
+        else
+        {
+            *(file) << ".";
+        }
 
         needs_parentheses = operand_has_lower_priority(node, rhs);
         if (needs_parentheses)
@@ -620,23 +639,36 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
             *(file) << "(";
         }
 
-        // This will only emit the unqualified name
-        TL::Symbol rhs_symbol = rhs.get_symbol();
-        if (!rhs_symbol.is_valid()
-                || (!member_form.is_null()
-                    && member_form.is<Nodecl::CxxMemberFormQualified>()))
+        if (!member_literal.is_null())
         {
-            // This will print the qualified name
-            walk(rhs);
+            // Use the literal member-name
+            walk(member_literal);
         }
         else
         {
-
+            ERROR_CONDITION(!rhs_sym.is_valid(), "Invalid symbol", 0);
             // Simply print the name
-            *(file) << rhs_symbol.get_name();
+
+            if (rhs_sym.is_class())
+            {
+                *(file) << rhs_sym.get_name();
+                if (rhs_sym.get_type().is_template_specialized_type())
+                {
+                    *(file) << get_template_arguments_str(rhs_sym.get_internal_symbol(), rhs_sym.get_scope().get_decl_context());
+                }
+            }
+            else if (rhs_sym.is_variable())
+            {
+                *(file) << rhs_sym.get_name();
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
 
-        if (node.get_type().is_unresolved_overload())
+        if (member_literal.is_null()
+                && node.get_type().is_unresolved_overload())
         {
             TL::TemplateParameters template_arguments =
                 node.get_type().unresolved_overloaded_type_get_explicit_template_arguments();
@@ -875,6 +907,40 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxArrow& node)
     }
 
     *(file) << "->"
+         << /* template tag if needed */ node.get_text();
+
+
+    needs_parentheses = operand_has_lower_priority(node, rhs);
+    if (needs_parentheses)
+    {
+        *(file) << "(";
+    }
+    walk(rhs);
+
+    if (needs_parentheses)
+    {
+        *(file) << ")";
+    }
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxClassMemberAccess& node)
+{
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_member();
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs);
+    if (needs_parentheses)
+    {
+        *(file) << "(";
+    }
+    walk(lhs);
+
+    if (needs_parentheses)
+    {
+        *(file) << ")";
+    }
+
+    *(file) << "."
          << /* template tag if needed */ node.get_text();
 
 
@@ -7034,6 +7100,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
         case NODECL_POSTINCREMENT:
         case NODECL_POSTDECREMENT:
 
+        case NODECL_CXX_CLASS_MEMBER_ACCESS:
         case NODECL_CXX_ARROW:
         case NODECL_CXX_POSTFIX_INITIALIZER:
         case NODECL_CXX_ARRAY_SECTION_RANGE:
@@ -7781,7 +7848,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
         {
 
             // It may happen that a function is hiding our typename in this scope
-            scope_entry_list_t* entry_list = query_in_scope_str(sym->decl_context, sym->symbol_name);
+            scope_entry_list_t* entry_list = query_in_scope_str(sym->decl_context, sym->symbol_name, NULL);
             entry_list = filter_symbol_using_predicate(entry_list,
                     is_function_or_template_function_name_or_extern_variable, NULL);
 

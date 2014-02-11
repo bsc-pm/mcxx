@@ -772,6 +772,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     entry_list = query_dependent_entity_in_context(context_of_being_instantiated,
                             entry,
+                            NULL,
                             member_of_template->locus);
                 }
 
@@ -900,7 +901,7 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                        context_of_being_instantiated, sym, locus);
+                        context_of_being_instantiated, sym, NULL, locus);
             }
         }
 
@@ -980,7 +981,7 @@ static void instantiate_dependent_friend_function(
         lookup_context.current_scope = lookup_context.namespace_scope;
 
         scope_entry_list_t* candidates_list =
-            query_nodecl_name_flags(lookup_context, friend->value, decl_flags);
+            query_nodecl_name_flags(lookup_context, friend->value, NULL, decl_flags);
 
         // Does candidates list contain a SK_DEPENDENT_ENTITY?
         if (candidates_list != NULL)
@@ -993,7 +994,7 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                            context_of_being_instantiated, sym, locus);
+                            context_of_being_instantiated, sym, NULL, locus);
             }
         }
 

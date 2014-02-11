@@ -1077,7 +1077,7 @@ static void build_scope_explicit_instantiation(AST a,
         AST id_expr = get_declarator_id_expression(declarator, current_decl_context);
         compute_nodecl_name_from_id_expression(ASTSon0(id_expr), current_decl_context, &declarator_name_opt);
         // We do this to fix the declarator_name_opt
-        query_nodecl_name_flags(current_decl_context, declarator_name_opt, DF_DEPENDENT_TYPENAME);
+        query_nodecl_name_flags(current_decl_context, declarator_name_opt, NULL, DF_DEPENDENT_TYPENAME);
 
         if (entry == NULL
                 || (entry->kind != SK_FUNCTION
@@ -1171,7 +1171,7 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
     }
 
     scope_entry_list_t* result_list = query_id_expression(decl_context, 
-            id_expression);
+            id_expression, NULL);
 
     if (result_list == NULL)
     {
@@ -1236,7 +1236,7 @@ void introduce_using_entities(
         const locus_t* locus)
 {
     scope_entry_list_t* existing_usings =
-        query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name);
+        query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name, NULL);
 
     enum cxx_symbol_kind filter_usings[] = { SK_USING, SK_USING_TYPENAME };
 
@@ -1360,6 +1360,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 {
     scope_entry_list_t* used_entities = query_nodecl_name_flags(decl_context,
             nodecl_name,
+            NULL,
             // Do not examine uninstantiated templates
             DF_DEPENDENT_TYPENAME);
 
@@ -1543,7 +1544,7 @@ static void build_scope_common_template_alias_declaration(AST a,
 
     scope_entry_t* entry = NULL;
     scope_entry_list_t* entry_list = query_in_scope_str_flags(
-            decl_context, ASTText(identifier), DF_ONLY_CURRENT_SCOPE);
+            decl_context, ASTText(identifier), NULL, DF_ONLY_CURRENT_SCOPE);
 
     if (entry_list != NULL)
     {
@@ -2076,8 +2077,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         && nodecl_is_null(array_type_get_array_size_expr(entry->type_information)))
                 {
                     // Perform a query in the global scope
-                    scope_entry_list_t* extern_scope_entry_list = query_in_scope_str(CURRENT_COMPILED_FILE->global_decl_context,
-                            entry->symbol_name);
+                    scope_entry_list_t* extern_scope_entry_list = query_in_scope_str(
+                            CURRENT_COMPILED_FILE->global_decl_context,
+                            entry->symbol_name,
+                            NULL);
 
                     if (extern_scope_entry_list != NULL)
                     {
@@ -3333,13 +3336,13 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     CXX_LANGUAGE()
     {
         result_list = query_id_expression_flags(decl_context_query,
-                id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
+                id_expression, NULL, decl_flags | DF_DEPENDENT_TYPENAME);
     }
     C_LANGUAGE()
     {
         const char* class_name = ASTText(id_expression);
         class_name = strappend(class_kind_name, strappend(" ", class_name));
-        result_list = query_name_str(decl_context_query, class_name);
+        result_list = query_name_str(decl_context_query, class_name, NULL);
     }
 
     enum cxx_symbol_kind filter_classes[] =
@@ -3782,18 +3785,18 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             if (is_unqualified_id_expression(id_expression))
             {
-                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
+                result_list = query_in_scope_flags(decl_context, id_expression, NULL, decl_flags);
             }
             else
             {
                 result_list = query_id_expression_flags(decl_context,
-                        id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
+                        id_expression, NULL, decl_flags | DF_DEPENDENT_TYPENAME);
             }
         }
         else
         {
             result_list = query_id_expression_flags(decl_context,
-                    id_expression, decl_flags | DF_DEPENDENT_TYPENAME);
+                    id_expression, NULL, decl_flags | DF_DEPENDENT_TYPENAME);
         }
     }
 
@@ -3802,7 +3805,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         const char* class_name = ASTText(id_expression);
         class_name = strappend(class_kind_name, strappend(" ", class_name));
 
-        result_list = query_name_str(decl_context, class_name);
+        result_list = query_name_str(decl_context, class_name, NULL);
     }
 
     // Now look for a type
@@ -4187,16 +4190,16 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         {
             if (is_unqualified_id_expression(id_expression))
             {
-                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
+                result_list = query_in_scope_flags(decl_context, id_expression, NULL, decl_flags);
             }
             else
             {
-                result_list = query_id_expression_flags(decl_context, id_expression, decl_flags);
-            };
+                result_list = query_id_expression_flags(decl_context, id_expression, NULL, decl_flags);
+            }
         }
         else
         {
-            result_list = query_id_expression_flags(decl_context, id_expression, decl_flags);
+            result_list = query_id_expression_flags(decl_context, id_expression, NULL, decl_flags);
         }
     }
 
@@ -4205,7 +4208,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         const char* enum_name = ASTText(id_expression);
 
         enum_name = strappend("enum ", enum_name);
-        result_list = query_name_str(decl_context, enum_name);
+        result_list = query_name_str(decl_context, enum_name, NULL);
     }
 
     // Look for an enum name
@@ -4450,6 +4453,7 @@ static void gather_type_spec_from_dependent_typename(AST a,
     scope_entry_list_t* result = NULL;
     result = query_id_expression_flags(decl_context, 
             id_expression,
+            NULL,
             // We do not want to use uninstantiated 
             // templates when looking up
             DF_DEPENDENT_TYPENAME);
@@ -4631,7 +4635,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_inf
 {
     AST id_expression = ASTSon0(a);
     decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
-    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression, flags);
+    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression, NULL, flags);
 
     common_gather_type_spec_from_simple_type_specifier(a, decl_context, type_info, gather_info, entry_list);
 }
@@ -4640,7 +4644,7 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     decl_flags_t flags = DF_IGNORE_FRIEND_DECL;
-    scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, a, flags);
+    scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, a, NULL, flags);
 
     common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), decl_context, type_info, gather_info, entry_list);
 }
@@ -4762,7 +4766,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enum_name_str = strappend("enum ", enum_name_str);
         }
 
-        scope_entry_list_t* enum_entry_list = query_in_scope_str(decl_context, enum_name_str);
+        scope_entry_list_t* enum_entry_list = query_in_scope_str(decl_context, enum_name_str, NULL);
 
         if (enum_entry_list != NULL
                 && entry_list_size(enum_entry_list) == 1
@@ -5260,7 +5264,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
         // We do not want to examine uninstantiated typenames
         scope_entry_list_t* result_list = query_id_expression_flags(decl_context, 
-                class_name, DF_DEPENDENT_TYPENAME);
+                class_name, NULL, DF_DEPENDENT_TYPENAME);
 
         scope_entry_list_t* filtered_result_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter), filter);
 
@@ -5700,7 +5704,7 @@ static void build_scope_ctor_initializer(
             scope_entry_list_t* result_list = NULL;
             decl_context_t class_context = class_type_get_inner_context(class_sym->type_information);
             class_context.template_parameters = decl_context.template_parameters;
-            result_list = query_id_expression(class_context, id_expression);
+            result_list = query_id_expression(class_context, id_expression, NULL);
 
             if (result_list == NULL)
             {
@@ -8196,14 +8200,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             if (is_unqualified_id_expression(class_id_expression))
             {
                 class_entry_list = query_in_scope(decl_context,
-                        class_id_expression);
+                        class_id_expression, NULL);
             }
             else
             {
                 // If the template specialization was already declared
                 // we want to update its template arguments properly
                 class_entry_list = query_id_expression(decl_context,
-                        class_id_expression);
+                        class_id_expression, NULL);
             }
         }
 
@@ -8213,7 +8217,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             const char* class_name = ASTText(class_id_expression);
             class_name = strappend(class_kind_name, strappend(" ", class_name));
 
-            class_entry_list = query_name_str(decl_context, class_name);
+            class_entry_list = query_name_str(decl_context, class_name, NULL);
         }
 
         enum cxx_symbol_kind filter_classes[] = 
@@ -8975,7 +8979,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 }
 
                 scope_entry_list_t* symbols = query_nested_name_flags(decl_context, 
-                        global_op, nested_name, name, decl_flags);
+                        global_op, nested_name, name, NULL, decl_flags);
 
                 if (symbols == NULL)
                 {
@@ -9097,7 +9101,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 
                     AST id_type_expr = ASTSon0(pointer_tree);
 
-                    entry_list = query_id_expression(decl_context, id_type_expr);
+                    entry_list = query_id_expression(decl_context, id_type_expr, NULL);
 
                     if (entry_list != NULL)
                     {
@@ -10326,7 +10330,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 {
                     scope_entry_list_t* entry_list = query_nested_name(decl_context,
                             NULL, NULL,
-                            declarator_id);
+                            declarator_id,
+                            NULL);
 
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
@@ -10440,7 +10445,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     scope_entry_list_t* entry_list = query_nested_name(decl_context,
                             ASTSon0(declarator_id),
                             ASTSon1(declarator_id),
-                            ASTSon2(declarator_id));
+                            ASTSon2(declarator_id),
+                            NULL);
 
                     if (entry_list == NULL)
                     {
@@ -10509,7 +10515,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     // First query for an existing entry in this scope
-    scope_entry_list_t* list = query_in_scope(decl_context, declarator_id);
+    scope_entry_list_t* list = query_in_scope(decl_context, declarator_id, NULL);
 
     // Only enum or classes can exist, otherwise this is an error
     if (list != NULL)
@@ -10744,7 +10750,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
     {
         decl_flags_t decl_flags = DF_NONE;
         // Check for existence of this symbol in this scope
-        scope_entry_list_t* entry_list = query_in_scope_flags(decl_context, declarator_id, decl_flags);
+        scope_entry_list_t* entry_list = query_in_scope_flags(decl_context, declarator_id, NULL, decl_flags);
 
         scope_entry_list_t* check_list = filter_symbol_kind(entry_list, SK_VARIABLE);
 
@@ -11206,7 +11212,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     lookup_context.current_scope = lookup_context.namespace_scope;
 
     scope_entry_list_t* entry_list
-        = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
+        = query_id_expression_flags(lookup_context, declarator_id, NULL, decl_flags);
 
     // Summary:
     //  1. The declaration is not a template function
@@ -11592,7 +11598,7 @@ static char find_function_declaration(AST declarator_id,
     }
 
     scope_entry_list_t* entry_list
-        = query_id_expression_flags(lookup_context, declarator_id, decl_flags);
+        = query_id_expression_flags(lookup_context, declarator_id, NULL, decl_flags);
 
     type_t* function_type_being_declared = declarator_type;
 
@@ -12684,7 +12690,7 @@ static void build_scope_template_template_parameter(AST a,
         // This might be ambiguous
         // check_expression(id_expr, template_context);
 
-        scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr);
+        scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr, NULL);
 
         enum cxx_symbol_kind valid_templates_arguments[] = 
         { 
@@ -13011,7 +13017,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
     AST alias_ident = ASTSon0(a);
     AST id_expression = ASTSon1(a);
 
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression, NULL);
 
     if (entry_list == NULL
             || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -13063,7 +13069,7 @@ static void build_scope_namespace_definition(AST a,
                 "Incorrect scope, it should be a namespace scope", 0);
 
         // Register this namespace if it does not exist in this scope
-        scope_entry_list_t* list = query_in_scope_str_flags(decl_context, ASTText(namespace_name), DF_ONLY_CURRENT_SCOPE);
+        scope_entry_list_t* list = query_in_scope_str_flags(decl_context, ASTText(namespace_name), NULL, DF_ONLY_CURRENT_SCOPE);
 
         scope_entry_list_t* check_list = filter_symbol_non_kind(list, SK_NAMESPACE);
 
@@ -13142,7 +13148,7 @@ static void build_scope_namespace_definition(AST a,
     {
         // Register this namespace if it does not exist in this scope
         const char* unnamed_namespace = uniquestr("(unnamed)");
-        scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, DF_ONLY_CURRENT_SCOPE);
+        scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, NULL, DF_ONLY_CURRENT_SCOPE);
 
         decl_context_t namespace_context;
         if (list != NULL &&
@@ -13748,7 +13754,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
                 if (decl_context.current_scope->kind == CLASS_SCOPE
                         && ASTType(declarator_name) == AST_TEMPLATE_ID)
                 {
-                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
+                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name, NULL);
                     if (entry_list == NULL
                             || entry_list_head(entry_list)->kind != SK_CLASS
                             || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
@@ -14736,7 +14742,7 @@ void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declar
 {
     decl_context_t class_context = class_type_get_inner_context(class_info);
 
-    scope_entry_list_t* member_functions = query_in_scope_str(class_context, currently_declared->symbol_name);
+    scope_entry_list_t* member_functions = query_in_scope_str(class_context, currently_declared->symbol_name, NULL);
 
     scope_entry_t* hidden = NULL;
 
@@ -15324,7 +15330,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             {
                                 if (ASTType(declarator_name) == AST_TEMPLATE_ID)
                                 {
-                                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
+                                    scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name, NULL);
                                     if (entry_list == NULL
                                             || entry_list_head(entry_list)->kind != SK_CLASS
                                             || (class_symbol_get_canonical_symbol(entry_list_head(entry_list))
@@ -16628,7 +16634,7 @@ static void build_scope_for_statement_range(AST a,
             // For the purpose of this lookup, std is an associated namespace
             decl_context_t global_context = decl_context;
             global_context.current_scope = global_context.global_scope;
-            scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+            scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
 
 
             scope_entry_t* std_namespace = NULL;
@@ -16852,7 +16858,7 @@ static void build_scope_switch_statement(AST a,
 scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
 {
     const char* label_text = ASTText(label);
-    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, label_text, DF_LABEL);
+    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, label_text, NULL, DF_LABEL);
 
     scope_entry_t* sym_label = NULL;
     if (entry_list == NULL)

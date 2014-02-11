@@ -318,29 +318,55 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
     return overload_set;
 }
 
+static void print_field_path(field_path_t* field_path)
+{
+    if (field_path != NULL)
+    {
+        fprintf(stderr, "EXPRTYPE: Field path: ");
+        int i;
+        for (i = 0; i < field_path->length; i++)
+        {
+            if (i > 0)
+                fprintf(stderr, " => ");
+            fprintf(stderr, "%s", field_path->path[i]->symbol_name);
+        }
+        fprintf(stderr, "\n");
+    }
+}
 
 static
 scope_entry_list_t* get_member_of_class_type_nodecl(
         decl_context_t decl_context,
         type_t* class_type,
-        nodecl_t nodecl_name)
+        nodecl_t nodecl_name,
+        field_path_t* field_path)
 {
-    return query_nodecl_name_in_class(
+    scope_entry_list_t *entry_list = query_nodecl_name_in_class(
             decl_context,
             named_type_get_symbol(advance_over_typedefs(class_type)), 
-            nodecl_name);
+            nodecl_name,
+            field_path);
+
+    DEBUG_CODE()
+    {
+        print_field_path(field_path);
+    }
+
+    return entry_list;
 }
 
 // Remove this function in a future
 static scope_entry_list_t* get_member_of_class_type(type_t* class_type,
-        AST id_expression, decl_context_t decl_context)
+        AST id_expression, decl_context_t decl_context,
+        field_path_t* field_path)
 {
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
 
     return get_member_of_class_type_nodecl(decl_context,
             class_type,
-            nodecl_name);
+            nodecl_name,
+            field_path);
 }
 
 static void decimal_literal_type(AST expr, nodecl_t* nodecl_output);
@@ -566,7 +592,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_THIS_VARIABLE :
             {
-                scope_entry_list_t* entry_list = query_name_str(decl_context, "this");
+                scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
 
                 if (entry_list != NULL)
                 {
@@ -1828,7 +1854,7 @@ static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.global_scope;
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, ".nullptr");
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, ".nullptr", NULL);
 
     if (entry_list == NULL)
     {
@@ -2398,7 +2424,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     if (is_class_type(no_ref(lhs_type)))
     {
         scope_entry_list_t* operator_entry_list = get_member_of_class_type(no_ref(lhs_type), 
-                operator_name, decl_context);
+                operator_name, decl_context, NULL);
 
         operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
                 NULL, argument_types + 1, num_arguments - 1,
@@ -2627,7 +2653,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     if (is_class_type(no_ref(op_type)))
     {
         scope_entry_list_t* operator_entry_list = get_member_of_class_type(no_ref(op_type), 
-                operator_name, decl_context);
+                operator_name, decl_context, NULL);
 
         scope_entry_list_iterator_t *it = NULL;
         for (it = entry_list_iterator_begin(operator_entry_list);
@@ -5643,7 +5669,9 @@ static void parse_reference(AST op,
                 return;
             }
 
-            scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, op_name, DF_DEPENDENT_TYPENAME);
+            field_path_t field_path;
+            field_path_init(&field_path);
+            scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, op_name, &field_path, DF_DEPENDENT_TYPENAME);
 
             if (entry_list == NULL)
             {
@@ -5697,7 +5725,7 @@ static void compute_operator_reference_type(nodecl_t* op,
     if (nodecl_get_kind(*op) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
             || nodecl_get_kind(*op) == NODECL_CXX_DEP_NAME_NESTED)
     {
-        scope_entry_list_t* entry_list = query_nodecl_name(decl_context, *op);
+        scope_entry_list_t* entry_list = query_nodecl_name(decl_context, *op, NULL);
 
         ERROR_CONDITION(entry_list == NULL, "Invalid list", 0);
 
@@ -6040,7 +6068,7 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
             *nodecl_output = nodecl_make_class_member_access(
                     accessor,
                     *nodecl_output,
-                    /* member form */ nodecl_null(),
+                    /* member literal */ nodecl_null(),
                     entry->type_information,
                     locus);
         }
@@ -6078,7 +6106,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
     }
 
     scope_entry_list_t* result = NULL;
-    result = query_nested_name(decl_context, NULL, NULL, expr); 
+    result = query_nested_name(decl_context, NULL, NULL, expr, NULL); 
 
     if (result == NULL)
     {
@@ -6113,7 +6141,7 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
         return nodecl_make_class_member_access(
                 integrated_nodecl,
                 nodecl_shallow_copy(accessor_symbol),
-                /* member form */ nodecl_null(),
+                /* member literal */ nodecl_null(),
                 lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
                 nodecl_get_locus(integrated_nodecl));
     }
@@ -6122,7 +6150,7 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
         return nodecl_make_class_member_access(
                 nodecl_shallow_copy(base),
                 nodecl_shallow_copy(accessor),
-                /* member form */ nodecl_null(),
+                /* member literal */ nodecl_null(),
                 lvalue_ref(nodecl_get_symbol(accessor)->type_information),
                 nodecl_get_locus(base));
     }
@@ -6135,6 +6163,7 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
 static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
         scope_entry_list_t* entry_list, 
         decl_context_t decl_context,
+        field_path_t* field_path,
         nodecl_t* nodecl_output)
 {
     if (entry_list != NULL
@@ -6233,27 +6262,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         nodecl_set_type(nodecl_access_to_symbol, lvalue_ref(entry->type_information));
 
         scope_entry_t* accessing_symbol = entry;
-        if (entry->entity_specs.is_member_of_anonymous)
-        {
-            nodecl_t accessor = nodecl_shallow_copy(entry->entity_specs.anonymous_accessor);
-
-            // Find the accessing symbol
-            nodecl_t nodecl_symbol_of_accessor = accessor;
-            while (nodecl_get_kind(nodecl_symbol_of_accessor) == NODECL_CLASS_MEMBER_ACCESS)
-            {
-                nodecl_symbol_of_accessor = nodecl_get_child(nodecl_symbol_of_accessor, 0);
-            }
-
-            accessing_symbol = nodecl_get_symbol(nodecl_symbol_of_accessor);
-            ERROR_CONDITION(accessing_symbol == NULL, "Symbol of accessor not found", 0);
-
-            nodecl_access_to_symbol = nodecl_make_class_member_access(
-                    accessor,
-                    nodecl_access_to_symbol,
-                    /* member form */ nodecl_null(),
-                    lvalue_ref(entry->type_information),
-                    nodecl_get_locus(nodecl_name));
-        }
 
         if (!accessing_symbol->entity_specs.is_member
                 || accessing_symbol->entity_specs.is_static
@@ -6263,10 +6271,15 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
         else
         {
+            DEBUG_CODE()
+            {
+                print_field_path(field_path);
+            }
+
             type_t* this_type = NULL;
             scope_entry_t* this_symbol = NULL;
 
-            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, "this");
+            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, "this", NULL);
             if (this_symbol_list != NULL)
             {
                 this_symbol =  entry_list_head(this_symbol_list);
@@ -6274,16 +6287,23 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 this_type = pointer_type_get_pointee_type(this_symbol->type_information);
             }
 
+            scope_entry_t* accessed_class = named_type_get_symbol(accessing_symbol->entity_specs.class_type);
+            while (accessed_class->entity_specs.is_anonymous_union
+                    && accessed_class->entity_specs.is_member)
+            {
+                accessed_class = named_type_get_symbol(accessed_class->entity_specs.class_type);
+            }
+
             if (this_symbol != NULL
-                    && class_type_is_base(accessing_symbol->entity_specs.class_type, this_type))
+                    && class_type_is_base(accessed_class->type_information, this_type))
             {
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
 
                 nodecl_t nodecl_this_symbol =
                     nodecl_make_symbol(
-                        this_symbol,
-                        nodecl_get_locus(nodecl_name));
+                            this_symbol,
+                            nodecl_get_locus(nodecl_name));
 
                 nodecl_set_type(nodecl_this_symbol, this_symbol->type_information);
 
@@ -6300,11 +6320,36 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
                 }
                 qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-                *nodecl_output = cxx_integrate_field_accesses(
-                        nodecl_this_derref,
-                        nodecl_access_to_symbol);
-                nodecl_set_type(*nodecl_output, qualified_data_member_type);
-                nodecl_set_locus_as(*nodecl_output, nodecl_name);
+                nodecl_t nodecl_base_access = nodecl_this_derref;
+
+                // Now integrate every item in the field_path skipping the first
+                // (which is the class type itself) and the last (the accessed subobject
+                if (field_path != NULL)
+                {
+                    int i;
+                    for (i = 1; i < field_path->length - 1; i++)
+                    {
+                        nodecl_base_access = nodecl_make_class_member_access(
+                                nodecl_base_access,
+                                nodecl_make_symbol(field_path->path[i], nodecl_get_locus(nodecl_name)),
+                                /* member_literal */ nodecl_null(),
+                                field_path->path[i]->type_information,
+                                nodecl_get_locus(nodecl_name));
+                    }
+                }
+
+                if (entry->entity_specs.is_member_of_anonymous)
+                {
+                    nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+                    nodecl_base_access = cxx_integrate_field_accesses(nodecl_base_access, accessor);
+                }
+
+                *nodecl_output = nodecl_make_class_member_access(
+                        nodecl_base_access,
+                        nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name)),
+                        /* member literal */ nodecl_shallow_copy(nodecl_name),
+                        qualified_data_member_type,
+                        nodecl_get_locus(nodecl_name));
             }
             else
             {
@@ -6488,14 +6533,18 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
     if (is_cxx_special_identifier(nodecl_name, nodecl_output))
         return;
 
+    field_path_t field_path;
+    field_path_init(&field_path);
+
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             decl_context,
             nodecl_name,
+            &field_path,
             DF_DEPENDENT_TYPENAME |
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
 
-    cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, &field_path, nodecl_output);
 }
 
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, 
@@ -6523,7 +6572,7 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
         nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(entry->symbol_name,
                 ast_get_locus(expression));
 
-        cxx_compute_name_from_entry_list(nodecl_name, entry_list, decl_context, nodecl_output);
+        cxx_compute_name_from_entry_list(nodecl_name, entry_list, decl_context, NULL, nodecl_output);
     }
     else
     {
@@ -6734,7 +6783,7 @@ static void check_nodecl_array_subscript_expression_cxx(
         scope_entry_list_t* operator_subscript_list = get_member_of_class_type(
                 no_ref(subscripted_type),
                 operator_subscript_tree,
-                decl_context);
+                decl_context, NULL);
 
         // Solve operator[]. It is always a member operator
         int num_arguments = 2;
@@ -8072,7 +8121,7 @@ static void check_new_expression_impl(
         called_operation_new_tree = operation_new_array_tree;
     }
 
-    scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
+    scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree, NULL);
 
     if (operator_new_list == NULL)
     {
@@ -8684,6 +8733,7 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
     AST id_expression = ASTSon0(expr);
 
     scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expression,
+            NULL,
             // Do not examine uninstantiated templates
             DF_DEPENDENT_TYPENAME);
 
@@ -8813,7 +8863,9 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
 
     // First try to do a normal lookup
     scope_entry_list_t* entry_list = query_name_str_flags(decl_context, 
-            nodecl_get_text(nodecl_simple_name), DF_IGNORE_FRIEND_DECL);
+            nodecl_get_text(nodecl_simple_name),
+            NULL,
+            DF_IGNORE_FRIEND_DECL);
 
     if (entry_list != NULL)
     {
@@ -9602,7 +9654,7 @@ static void check_nodecl_function_call_cxx(
     }
     xfree(list);
 
-    scope_entry_list_t* this_query = query_name_str(decl_context, "this");
+    scope_entry_list_t* this_query = query_name_str(decl_context, "this", NULL);
     scope_entry_t* this_symbol = NULL;
 
     if (this_query != NULL)
@@ -9628,7 +9680,9 @@ static void check_nodecl_function_call_cxx(
         if (candidates == NULL && can_succeed)
         {
             // Try a plain lookup
-            candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
+            candidates = query_nodecl_name_flags(decl_context, nodecl_called,
+                    NULL,
+                    DF_DEPENDENT_TYPENAME | DF_IGNORE_FRIEND_DECL);
         }
 
         if (candidates == NULL
@@ -9645,7 +9699,7 @@ static void check_nodecl_function_call_cxx(
         }
         else if (candidates != NULL)
         {
-            cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, &nodecl_called);
+            cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, NULL, &nodecl_called);
         }
     }
 
@@ -9801,7 +9855,7 @@ static void check_nodecl_function_call_cxx(
                         ASTLeaf(AST_FUNCTION_CALL_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
             }
 
-            scope_entry_list_t* first_set_candidates = get_member_of_class_type(class_type, operator, decl_context);
+            scope_entry_list_t* first_set_candidates = get_member_of_class_type(class_type, operator, decl_context, NULL);
             candidates = unfold_and_mix_candidate_functions(first_set_candidates,
                     /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                     decl_context,
@@ -10295,7 +10349,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
 
         if (ASTType(advanced_called_expression) == AST_SYMBOL)
         {
-            scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, advanced_called_expression);
+            scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, advanced_called_expression, NULL);
 
             scope_entry_t* entry = NULL;
             if (result == NULL)
@@ -10681,7 +10735,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                     case AST_LAMBDA_CAPTURE_VALUE:
                     case AST_LAMBDA_CAPTURE_ADDRESS:
                         {
-                            scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(capture));
+                            scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(capture), NULL);
                             if (entry_list == NULL)
                             {
                                 if (!checking_ambiguity())
@@ -10735,7 +10789,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                         }
                     case AST_LAMBDA_CAPTURE_THIS:
                         {
-                            scope_entry_list_t* entry_list = query_name_str(decl_context, "this");
+                            scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
                             if (entry_list == NULL)
                             {
                                 if (!checking_ambiguity())
@@ -11369,7 +11423,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
     }
 
     scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, 
-            nodecl_new_nested_name, DF_DEPENDENT_TYPENAME);
+            nodecl_new_nested_name, NULL, DF_DEPENDENT_TYPENAME);
 
     if (entry_list == NULL)
     {
@@ -11411,7 +11465,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
 
     // Now check that type-name2 names the same type we have found so far
 
-    entry_list = query_name_str(entry->decl_context, last_name);
+    entry_list = query_name_str(entry->decl_context, last_name, NULL);
 
     if (entry_list == NULL)
     {
@@ -11458,7 +11512,6 @@ static void check_nodecl_member_access(
         decl_context_t decl_context, 
         char is_arrow,
         char has_template_tag,
-        char member_is_qualified,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
@@ -11474,10 +11527,9 @@ static void check_nodecl_member_access(
     {
         if (!is_arrow)
         {
-            *nodecl_output = nodecl_make_class_member_access(
+            *nodecl_output = nodecl_make_cxx_class_member_access(
                     nodecl_accessed,
                     nodecl_member,
-                    /* member form */ nodecl_null(),
                     get_unknown_dependent_type(),
                     locus);
 
@@ -11630,7 +11682,7 @@ static void check_nodecl_member_access(
         accessed_type = get_cv_qualified_type(accessed_type, cv_qualif);
 
         scope_entry_list_t* operator_arrow_list = get_member_of_class_type(accessed_type,
-                arrow_operator_tree, decl_context);
+                arrow_operator_tree, decl_context, NULL);
 
         if (operator_arrow_list == NULL)
         {
@@ -11755,12 +11807,13 @@ static void check_nodecl_member_access(
     // Advance over all typedefs the accessed type
     accessed_type = advance_over_typedefs(no_ref(accessed_type));
 
-    // This need not to be a member function but 'get_member_of_class_type' works
-    // also for data members
+    field_path_t field_path;
+    field_path_init(&field_path);
     scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
             decl_context,
             accessed_type,
-            nodecl_member);
+            nodecl_member,
+            &field_path);
 
     if (entry_list == NULL)
     {
@@ -11802,23 +11855,9 @@ static void check_nodecl_member_access(
 
     CXX_LANGUAGE()
     {
-        nodecl_t nodecl_member_form = nodecl_null();
-
-        if (member_is_qualified)
-        {
-            nodecl_member_form = nodecl_make_cxx_member_form_qualified(nodecl_get_locus(nodecl_accessed));
-        }
-
         if (entry->kind == SK_VARIABLE)
         {
             ok = 1;
-
-            nodecl_t nodecl_field = nodecl_accessed_out;
-            if (entry->entity_specs.is_member_of_anonymous)
-            {
-                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-                nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
-            }
 
             type_t* type_of_class_member_access = entry->type_information;
             if (is_lvalue_reference_type(entry->type_information))
@@ -11858,10 +11897,32 @@ static void check_nodecl_member_access(
                 }
             }
 
+            // Now integrate every item in the field_path skipping the first
+            // (which is the class type itself) and the last (the accessed subobject
+            nodecl_t nodecl_base_access = nodecl_accessed_out;
+
+            int i;
+            for (i = 1; i < field_path.length - 1; i++)
+            {
+                nodecl_base_access = nodecl_make_class_member_access(
+                        nodecl_base_access,
+                        nodecl_make_symbol(field_path.path[i], nodecl_get_locus(nodecl_accessed)),
+                        nodecl_null(),
+                        field_path.path[i]->type_information,
+                        nodecl_get_locus(nodecl_accessed));
+            }
+
+            // Integrate also the anonymous accesses
+            if (entry->entity_specs.is_member_of_anonymous)
+            {
+                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+                nodecl_base_access = cxx_integrate_field_accesses(nodecl_base_access, accessor);
+            }
+
             *nodecl_output = nodecl_make_class_member_access(
-                    nodecl_field,
+                    nodecl_base_access,
                     nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
-                    nodecl_member_form,
+                    /* member literal */ nodecl_shallow_copy(nodecl_member),
                     type_of_class_member_access,
                     nodecl_get_locus(nodecl_accessed));
         }
@@ -11906,7 +11967,7 @@ static void check_nodecl_member_access(
                     nodecl_accessed_out,
                     /* This symbol goes unused when we see that its type is already an overload */
                     nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
-                    nodecl_member_form,
+                    /* member literal */ nodecl_shallow_copy(nodecl_member),
                     t,
                     nodecl_get_locus(nodecl_accessed));
         }
@@ -11944,7 +12005,6 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     }
 
     check_nodecl_member_access(nodecl_accessed, nodecl_name, decl_context, is_arrow, has_template_tag,
-            is_qualified_id_expression(id_expression),
             ast_get_locus(member_access),
             nodecl_output);
 }
@@ -11983,7 +12043,7 @@ static void check_postoperator_user_defined(
     if (is_class_type(no_ref(incremented_type)))
     {
         scope_entry_list_t *operator_entry_list = get_member_of_class_type(no_ref(incremented_type),
-                operator, decl_context);
+                operator, decl_context, NULL);
 
         operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
                 NULL, argument_types + 1, num_arguments - 1,
@@ -12135,7 +12195,7 @@ static void check_preoperator_user_defined(AST operator,
     if (is_class_type(no_ref(incremented_type)))
     {
         scope_entry_list_t *operator_entry_list = get_member_of_class_type(no_ref(incremented_type),
-                operator, decl_context);
+                operator, decl_context, NULL);
 
         operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
                 NULL, argument_types + 1, num_arguments - 1,
@@ -12590,7 +12650,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
         decl_context_t global_context = decl_context;
         global_context.current_scope = global_context.global_scope;
 
-        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
 
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -12606,7 +12666,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
 
         decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
         entry_list_free(entry_list);
-        entry_list = query_in_scope_str(std_context, "type_info");
+        entry_list = query_in_scope_str(std_context, "type_info", NULL);
 
         if (entry_list == NULL
                 || (entry_list_head(entry_list)->kind != SK_CLASS
@@ -12638,7 +12698,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.global_scope;
 
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
 
     if (entry_list == NULL 
             || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -12660,7 +12720,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
     entry_list_free(entry_list);
 
-    entry_list = query_in_scope_str(std_context, "initializer_list");
+    entry_list = query_in_scope_str(std_context, "initializer_list", NULL);
 
     if (entry_list == NULL
             || entry_list_head(entry_list)->kind != SK_TEMPLATE)
@@ -12926,7 +12986,9 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
         scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
                 nodecl_retrieve_context(designators[current_designator]),
                 designated_type,
-                nodecl_name);
+                nodecl_name,
+                // A field_path_t should not be necessary here in C99
+                NULL);
         ERROR_CONDITION(entry_list == NULL, "Invalid designator", 0);
         scope_entry_t* entry = entry_list_head(entry_list);
         designated_type  = entry->type_information;
@@ -13838,7 +13900,9 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                         scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
                                 decl_context,
                                 *designated_type,
-                                nodecl_name);
+                                nodecl_name,
+                                // A field_path_t should not be necessary here
+                                NULL);
                         if (entry_list == NULL)
                         {
                             ok = 0;
@@ -15791,6 +15855,7 @@ static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* n
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             decl_context,
             nodecl_name,
+            NULL,
             DF_DEPENDENT_TYPENAME |
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
@@ -17736,8 +17801,10 @@ nodecl_t cxx_nodecl_make_function_call(
                             && nodecl_get_kind(called_name) != NODECL_CLASS_MEMBER_ACCESS)
                         || (nodecl_get_kind(called_name) == NODECL_CLASS_MEMBER_ACCESS // x.y()
                             && (nodecl_is_null(nodecl_get_child(called_name, 2))
-                                || (nodecl_get_kind(nodecl_get_child(called_name, 2))
-                                    != NODECL_CXX_MEMBER_FORM_QUALIFIED))))) // x.A::f(), x.::A::f()
+                                || ((nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                        != NODECL_CXX_DEP_NAME_NESTED) // x.A::f()
+                                    && (nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                        != NODECL_CXX_DEP_GLOBAL_NAME_NESTED )  ))) )) // x.::A::f()
             {
                 return nodecl_make_virtual_function_call(called,
                         converted_arg_list,
@@ -18262,7 +18329,9 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
-        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym, nodecl_get_locus(node));
+        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym,
+                NULL,
+                nodecl_get_locus(node));
 
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
@@ -18274,7 +18343,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
                 v->decl_context,
                 v->pack_index);
 
-        cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, &result);
+        cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, NULL, &result);
     }
     else
     {
@@ -18725,13 +18794,17 @@ static void instantiate_dep_name_simple(nodecl_instantiate_expr_visitor_t* v, no
         nodecl_make_cxx_dep_name_simple(nodecl_get_text(node),
         nodecl_get_locus(node));
 
+    field_path_t field_path;
+    field_path_init(&field_path);
+
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             v->decl_context,
             nodecl_name,
+            &field_path,
             DF_DEPENDENT_TYPENAME |
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
-    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &v->nodecl_result);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &field_path, &v->nodecl_result);
 }
 
 static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -18753,10 +18826,11 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             v->decl_context,
             nodecl_name,
+            NULL,
             DF_DEPENDENT_TYPENAME |
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
-    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &v->nodecl_result);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, NULL, &v->nodecl_result);
 }
 
 static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
@@ -18793,13 +18867,17 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
 
     nodecl_t nodecl_name = (*func)(nodecl_result_list, nodecl_get_locus(node));
 
+    field_path_t field_path;
+    field_path_init(&field_path);
+
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             v->decl_context,
             nodecl_name,
+            &field_path,
             DF_DEPENDENT_TYPENAME |
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
-    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &v->nodecl_result);
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &field_path, &v->nodecl_result);
 }
 
 static void instantiate_dep_global_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

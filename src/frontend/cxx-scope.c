@@ -67,8 +67,44 @@ unsigned long long symbols_used_memory(void)
 // Lookup of a simple name within a given declaration context
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
         const char* name, 
+        field_path_t* field_path,
         decl_flags_t decl_flags,
         const locus_t* locus);
+
+void field_path_init(field_path_t* field_path)
+{
+    ERROR_CONDITION(field_path == NULL, "Invalid field path", 0);
+
+    field_path->length = 0;
+}
+
+static void field_path_add(field_path_t* field_path, scope_entry_t* symbol)
+{
+    if (field_path == NULL)
+        return;
+
+    ERROR_CONDITION(field_path->length == MCXX_MAX_SCOPES_NESTING, "Too many symbols in field path", 0);
+
+    field_path->path[field_path->length] = symbol;
+    field_path->length++;
+}
+
+static void field_path_prepend(field_path_t* field_path, scope_entry_t* symbol)
+{
+    if (field_path == NULL)
+        return;
+
+    ERROR_CONDITION(field_path->length == MCXX_MAX_SCOPES_NESTING, "Too many symbols in field path", 0);
+
+    // Shift right
+    int i;
+    for (i = field_path->length - 1; i >= 0; i--)
+    {
+        field_path->path[i+1] = field_path->path[i];
+    }
+    field_path->path[0] = symbol;
+    field_path->length++;
+}
 
 template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters)
 {
@@ -633,7 +669,9 @@ static scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list
 static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
-        AST id_expression, decl_flags_t decl_flags)
+        AST id_expression,
+        field_path_t* field_path,
+        decl_flags_t decl_flags)
 {
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
@@ -641,7 +679,7 @@ scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
     if (nodecl_is_err_expr(nodecl_name))
         return NULL;
 
-    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
+    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, field_path, decl_flags);
 
     nodecl_free(nodecl_name);
 
@@ -655,6 +693,7 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
         AST global_op, 
         AST nested_name, 
         AST unqualified_name,
+        field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     nodecl_t nodecl_name = nodecl_null();
@@ -663,7 +702,7 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     if (nodecl_is_err_expr(nodecl_name))
         return NULL;
 
-    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
+    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, field_path, decl_flags);
 
     nodecl_free(nodecl_name);
 
@@ -671,7 +710,9 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
 }
 
 scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
-        AST unqualified_name, decl_flags_t decl_flags)
+        AST unqualified_name,
+        field_path_t *field_path,
+        decl_flags_t decl_flags)
 {
     decl_flags |= DF_ONLY_CURRENT_SCOPE;
 
@@ -681,7 +722,7 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
     if (nodecl_is_err_expr(nodecl_name))
         return NULL;
 
-    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
+    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, field_path, decl_flags);
 
     nodecl_free(nodecl_name);
 
@@ -689,11 +730,13 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
 }
 
 scope_entry_list_t* query_name_str_flags(decl_context_t decl_context,
-        const char* unqualified_name, decl_flags_t decl_flags)
+        const char* unqualified_name,
+        field_path_t* field_path,
+        decl_flags_t decl_flags)
 {
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(unqualified_name, make_locus("", 0, 0));
 
-    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
+    scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, field_path, decl_flags);
 
     nodecl_free(nodecl_name);
 
@@ -701,9 +744,10 @@ scope_entry_list_t* query_name_str_flags(decl_context_t decl_context,
 }
 
 scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
-        const char* name, decl_flags_t decl_flags)
+        const char* name, field_path_t* field_path,
+        decl_flags_t decl_flags)
 {
-    return query_name_str_flags(decl_context, name, decl_flags | DF_ONLY_CURRENT_SCOPE);
+    return query_name_str_flags(decl_context, name, field_path, decl_flags | DF_ONLY_CURRENT_SCOPE);
 }
 
 
@@ -711,7 +755,9 @@ static scope_entry_list_t* qualified_query_in_namespace(scope_entry_t* namespace
         const char* name, decl_flags_t decl_flags,
         const locus_t* locus);
 static scope_entry_list_t* query_in_class(scope_t* current_class_scope, 
-        const char* name, decl_flags_t decl_flags,
+        const char* name,
+        field_path_t* field_path,
+        decl_flags_t decl_flags,
         const locus_t* locus);
 
 static void build_dependent_parts_for_symbol_rec(
@@ -1208,7 +1254,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                                     || entry->kind == SK_FUNCTION
                                     /* || entry->kind == SK_TEMPLATE_FUNCTION */)
                             {
-                                valid = (entry->entity_specs.is_static);
+                                valid = valid && (entry->entity_specs.is_static);
                                 DEBUG_CODE()
                                 {
                                     if (!valid)
@@ -1217,6 +1263,15 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                                                 "so lookup of '%s' is not valid\n", 
                                                 name);
                                     }
+                                }
+                            }
+                            else if (entry->kind == SK_CLASS)
+                            {
+                                valid = 0;
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "SCOPE: Ambiguous base name %s\n",
+                                            name);
                                 }
                             }
                         }
@@ -1383,7 +1438,8 @@ type_t* build_dependent_typename_for_entry(
 }
 
 static scope_entry_list_t* query_in_class(scope_t* current_class_scope, 
-        const char* name, 
+        const char* name,
+        field_path_t* field_path,
         decl_flags_t decl_flags,
         const locus_t* locus)
 {
@@ -1394,10 +1450,9 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
 
     if (result.entry_list != NULL)
     {
+        int i;
         DEBUG_CODE()
         {
-            int i;
-
             fprintf(stderr, "SCOPE: Class scope lookup started in class '%s' found name '%s' in '", 
                     current_class_scope->related_entry->symbol_name,
                     name);
@@ -1408,6 +1463,22 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
                         ((i+1) < result.path_length) ? "::" : "");
             }
             fprintf(stderr, "'\n");
+        }
+
+        scope_entry_t* looked_up_symbol = entry_list_head(result.entry_list);
+
+        if (looked_up_symbol->entity_specs.is_injected_class_name)
+        {
+            looked_up_symbol = named_type_get_symbol(looked_up_symbol->entity_specs.class_type);
+        }
+
+        for (i = 0; i < result.path_length; i++)
+        {
+            scope_entry_t* class_symbol = class_or_enum_type_get_inner_context(result.path[i]).current_scope->related_entry;
+            if (class_symbol == looked_up_symbol)
+                break;
+
+            field_path_add(field_path, class_symbol);
         }
     }
     else
@@ -1776,6 +1847,7 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
 
 static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         const char* name,
+        field_path_t* field_path,
         decl_flags_t decl_flags,
         const locus_t* locus)
 {
@@ -1835,7 +1907,9 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         {
             if (!BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
             {
-                result = query_in_class(current_scope, name, decl_flags, 
+                result = query_in_class(current_scope, name,
+                        field_path,
+                        decl_flags, 
                         locus);
             }
             else
@@ -2199,9 +2273,12 @@ static type_t* update_dependent_typename(
     nodecl_t new_dependent_parts = update_dependent_typename_dependent_parts(dependent_parts, decl_context, locus,
             pack_index);
 
+    field_path_t field_path;
+    field_path_init(&field_path);
+
     scope_entry_list_t* entry_list = query_nodecl_name(
             class_type_get_inner_context(current_member->type_information),
-            new_dependent_parts);
+            new_dependent_parts, &field_path);
 
     if (entry_list == NULL)
         return NULL;
@@ -5072,12 +5149,13 @@ void print_template_parameter_list(template_parameter_list_t* template_parameter
 }
 
 scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
-        nodecl_t nodecl_name, decl_flags_t decl_flags);
+        nodecl_t nodecl_name, field_path_t* field_path, decl_flags_t decl_flags);
 
 static scope_entry_list_t* query_nodecl_simple_name(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
+        field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_SIMPLE, "Invalid nodecl", 0);
@@ -5095,7 +5173,8 @@ static scope_entry_list_t* query_nodecl_simple_name(
         name = strappend("constructor ", name);
     }
 
-    scope_entry_list_t* result = name_lookup(decl_context, name, decl_flags, locus);
+    scope_entry_list_t* result = name_lookup(decl_context, name,
+            field_path, decl_flags, locus);
 
     if (result != NULL)
     {
@@ -5160,6 +5239,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
+        field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     if (decl_context.current_scope->kind != CLASS_SCOPE)
@@ -5184,6 +5264,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         scope_entry_list_t* entry_list = query_in_class(
                 decl_context.current_scope,
                 name,
+                field_path,
                 decl_flags,
                 locus);
 
@@ -5193,6 +5274,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
             entry_list = name_lookup(
                     top_level_decl_context,
                     name,
+                    NULL,
                     decl_flags,
                     locus);
         }
@@ -5204,7 +5286,9 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         scope_entry_t* current_class = decl_context.current_scope->related_entry;
         if (equivalent_types(get_user_defined_type(current_class), get_user_defined_type(entry)))
         {
-            return entry_list_new(class_type_get_destructor(current_class->type_information));
+            scope_entry_t* destructor = class_type_get_destructor(current_class->type_information);
+            field_path_add(field_path, destructor);
+            return entry_list_new(destructor);
         }
         else
         {
@@ -5231,11 +5315,13 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
                 nodecl_name, 
                 locus);
 
+        field_path_add(field_path, new_sym);
         return entry_list_new(new_sym);
     }
 
-    return query_in_class(decl_context.current_scope, 
-            name, 
+    return query_in_class(decl_context.current_scope,
+            name,
+            field_path,
             decl_flags,
             locus);
 }
@@ -5244,6 +5330,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_namespace(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context UNUSED_PARAMETER,
         nodecl_t nodecl_name,
+        field_path_t* field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags)
 {
     const locus_t* locus = nodecl_get_locus(nodecl_name);
@@ -5259,11 +5346,13 @@ scope_entry_list_t* query_nodecl_template_id(
         decl_context_t decl_context, 
         decl_context_t top_level_decl_context, 
         nodecl_t nodecl_name, 
+        field_path_t* field_path,
         decl_flags_t decl_flags,
         scope_entry_list_t* (*query_fun_nodecl)(
             decl_context_t current_context, 
             decl_context_t top_level_decl_context, 
             nodecl_t, 
+            field_path_t*,
             decl_flags_t)
         )
 {
@@ -5278,6 +5367,7 @@ scope_entry_list_t* query_nodecl_template_id(
             decl_context, 
             top_level_decl_context,
             simple_name, 
+            field_path,
             decl_flags);
 
     // Ignore injected class name
@@ -5479,6 +5569,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
+        field_path_t *field_path,
         decl_flags_t decl_flags UNUSED_PARAMETER)
 {
     // We need a class scope around that we will check first
@@ -5590,7 +5681,14 @@ static scope_entry_list_t* query_nodecl_conversion_name(
             nodecl_name, 1,
             nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
 
-    return query_conversion_function_info(class_context, t);
+    scope_entry_list_t* result = query_conversion_function_info(class_context, t);
+
+    if (result != NULL)
+    {
+        field_path_add(field_path, entry_list_head(result));
+    }
+
+    return result;
 }
 
 static scope_entry_list_t* query_nodecl_qualified_name_internal(
@@ -5599,13 +5697,24 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         scope_entry_t* previous_symbol,
         char allow_namespaces,
         nodecl_t nodecl_name,
+        field_path_t* field_path,
         decl_flags_t decl_flags,
-        char check_symbol_in_nest(scope_entry_t* previous_sym, 
-            scope_entry_t* current_sym, 
-            char is_last, 
+        char is_global,
+        scope_entry_list_t* query_first_name(decl_context_t,
+            nodecl_t,
+            field_path_t*,
+            decl_flags_t,
+            char is_global,
+            void *data),
+        char check_symbol_in_nest(
+            // Checks a given A::B::C::x
+            // (note that A::B::C might be NULL when the qualified name is ::x)
+            scope_entry_t* nested_name_spec_symbol,  // A::B::C
+            scope_entry_t* current_sym,              // x looked up inside A::B::C
             const locus_t* locus,
+            field_path_t* field_path,
             void* data),
-        void *check_symbol_data)
+        void *extra_data)
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_NESTED
             && nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
@@ -5630,7 +5739,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
 
         if (previous_symbol == NULL)
         {
-            current_entry_list = query_nodecl_name_flags(current_context, current_name, nested_flags);
+            current_entry_list = query_first_name(current_context, current_name, NULL, nested_flags, is_global, extra_data);
         }
         else if (previous_symbol->kind == SK_CLASS)
         {
@@ -5640,6 +5749,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         current_context,
                         decl_context,
                         current_name,
+                        NULL,
                         nested_flags);
             }
             else
@@ -5647,7 +5757,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 current_entry_list = query_nodecl_template_id(
                         current_context,
                         decl_context,
-                        current_name, nested_flags,
+                        current_name,
+                        NULL,
+                        nested_flags,
                         query_nodecl_simple_name_in_class);
             }
         }
@@ -5659,6 +5771,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         current_context,
                         decl_context,
                         current_name,
+                        NULL,
                         nested_flags);
             }
             else
@@ -5666,7 +5779,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 current_entry_list = query_nodecl_template_id(
                         current_context,
                         decl_context,
-                        current_name, nested_flags,
+                        current_name,
+                        NULL,
+                        nested_flags,
                         query_nodecl_simple_name_in_namespace);
             }
         }
@@ -5853,7 +5968,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
 
     if (previous_symbol == NULL)
     {
-        result = query_nodecl_name_flags(current_context, last_name, decl_flags);
+        // Note that previous_symbol can be NULL if this qualified-id is of the
+        // form ::Name (without a nested-name-specifier)
+        result = query_nodecl_name_flags(current_context, last_name, NULL, decl_flags);
     }
     else if (previous_symbol->kind == SK_NAMESPACE)
     {
@@ -5863,6 +5980,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                     current_context,
                     decl_context,
                     last_name,
+                    NULL,
                     decl_flags);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_TEMPLATE_ID)
@@ -5870,7 +5988,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             result = query_nodecl_template_id(
                     current_context,
                     decl_context,
-                    last_name, decl_flags,
+                    last_name,
+                    NULL,
+                    decl_flags,
                     query_nodecl_simple_name_in_namespace);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_CONVERSION)
@@ -5895,6 +6015,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                     current_context,
                     decl_context,
                     last_name,
+                    field_path,
                     decl_flags);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_TEMPLATE_ID)
@@ -5903,13 +6024,14 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                     current_context,
                     decl_context,
                     last_name, 
+                    field_path,
                     decl_flags,
                     query_nodecl_simple_name_in_class);
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_CONVERSION)
         {
             result = query_nodecl_conversion_name(current_context, decl_context,
-                    last_name, decl_flags);
+                    last_name, field_path, decl_flags);
         }
         else
         {
@@ -5941,11 +6063,12 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
 
     if (result != NULL
             && check_symbol_in_nest != NULL
-            && !check_symbol_in_nest(previous_symbol, 
+            && !check_symbol_in_nest(
+                previous_symbol,
                 entry_list_head(result),
-                /* is_last */ 1,
                 nodecl_get_locus(last_name),
-                check_symbol_data))
+                field_path,
+                extra_data))
     {
         xfree(result);
         return NULL;
@@ -5956,16 +6079,197 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
     return result;
 }
 
+static scope_entry_list_t* query_nodecl_name_first(decl_context_t current_context,
+        nodecl_t current_name,
+        field_path_t* field_path,
+        decl_flags_t decl_flags,
+        char is_global UNUSED_PARAMETER,
+        void *extra_info UNUSED_PARAMETER)
+{
+    return query_nodecl_name_flags(current_context, current_name, field_path, decl_flags);
+}
+
+static scope_entry_list_t* query_nodecl_name_first_in_class(
+        decl_context_t current_context,
+        nodecl_t current_name,
+        field_path_t* field_path UNUSED_PARAMETER,
+        decl_flags_t decl_flags,
+        char is_global,
+        void *extra_info)
+{
+    scope_entry_t* class_symbol = (scope_entry_t*)extra_info;
+
+    scope_entry_list_t* entry_list_postfix =
+        query_nodecl_name_flags(current_context, current_name, NULL, decl_flags);
+
+    scope_entry_list_t* entry_list_in_class = NULL;
+    if (!is_global)
+    {
+        if (nodecl_get_kind(current_name) != NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            entry_list_in_class = query_nodecl_simple_name_in_class(
+                    class_type_get_inner_context(class_symbol->type_information),
+                    current_context,
+                    current_name,
+                    NULL,
+                    decl_flags);
+        }
+        else
+        {
+            entry_list_in_class = query_nodecl_template_id(
+                    class_type_get_inner_context(class_symbol->type_information),
+                    current_context,
+                    current_name,
+                    NULL,
+                    decl_flags,
+                    query_nodecl_simple_name_in_class);
+        }
+    }
+
+    /*
+       If the id-expression in a class member access is a qualified-id of the
+       form
+
+           class-name-or-namespace-name::...
+
+       the class-name-or-namespace-name following the . or -> operator is
+       looked up both in the context of the entire postfix-expression and in
+       the scope of the class of the object expression. If the name is found
+       only in the scope of the class of the object expression, the name shall
+       refer to a class-name. If the name is found only in the context of the
+       entire postfix-expression, the name shall refer to a class-name or
+       namespace-name.  If the name is found in both contexts, the
+       class-name-or-namespace-name shall refer to the same entity.
+    */
+
+    if (entry_list_postfix != NULL
+            && entry_list_in_class != NULL)
+    {
+        scope_entry_t* entry1 = entry_list_head(entry_list_postfix);
+        scope_entry_t* entry2 = entry_list_head(entry_list_in_class);
+
+        if (entry1->entity_specs.is_injected_class_name)
+        {
+            entry1 = class_symbol = named_type_get_symbol(entry1->entity_specs.class_type);
+        }
+        if (entry2->entity_specs.is_injected_class_name)
+        {
+            entry2 = class_symbol = named_type_get_symbol(entry2->entity_specs.class_type);
+        }
+
+        if (entry1 != entry2)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: When looking up the first part of the id-expression "
+                        "of a class-member-access the two lookups do not match\n");
+            }
+            return NULL;
+        }
+
+        entry_list_free(entry_list_in_class);
+
+        return entry_list_postfix;
+    }
+    else if (entry_list_postfix != NULL)
+    {
+        scope_entry_t* entry = entry_list_head(entry_list_postfix);
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            type_t* t = advance_over_typedefs(entry->type_information);
+
+            if (!is_named_type(t))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: When looking up the first part of the "
+                            "id-expression we found it as a typedef-name in the context of the postfix "
+                            "expression but it is not a class\n");
+                }
+                return NULL;
+            }
+
+            entry = named_type_get_symbol(t);
+        }
+
+        if (entry->kind != SK_NAMESPACE
+                && entry->kind != SK_CLASS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: When looking up the first part of the "
+                        "id-expression we only found it in the context of the postfix "
+                        "expression but it is not a namespace nor a class\n");
+            }
+            return NULL;
+        }
+
+        return entry_list_postfix;
+    }
+    else if (entry_list_in_class != NULL)
+    {
+        scope_entry_t* entry = entry_list_head(entry_list_in_class);
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            type_t* t = advance_over_typedefs(entry->type_information);
+
+            if (!is_named_type(t))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: When looking up the first part of the "
+                            "id-expression we only found it in the context of the class "
+                            "as a typedef-name but it is not a class\n");
+                }
+                return NULL;
+            }
+
+            entry = named_type_get_symbol(t);
+        }
+
+        if (entry->kind != SK_CLASS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: When looking up the first part of the "
+                        "id-expression we only found it in the context of the class "
+                        "but it is not a class\n");
+            }
+            return NULL;
+        }
+
+        return entry_list_in_class;
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: When looking up the first part of the "
+                    "id-expression we did not find it anywhere\n");
+        }
+        return NULL;
+    }
+}
+
 static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t decl_context,
         nodecl_t nodecl_name,
+        field_path_t *field_path,
         decl_flags_t decl_flags,
         char allow_namespaces,
+        scope_entry_list_t* query_first_name(decl_context_t,
+            nodecl_t,
+            field_path_t*,
+            decl_flags_t,
+            char is_global,
+            void *data),
         char check_symbol_in_nest(scope_entry_t* previous_sym,
             scope_entry_t* current_sym,
-            char is_last,
             const locus_t* locus,
+            field_path_t* field_path,
             void* data),
-        void *check_symbol_data)
+        void *extra_data)
 {
     scope_entry_t* previous_symbol = NULL;
     char is_global = (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
@@ -5984,36 +6288,130 @@ static scope_entry_list_t* query_nodecl_qualified_name_common(decl_context_t dec
             previous_symbol,
             allow_namespaces,
             nodecl_name,
+            field_path,
             decl_flags,
+            is_global,
+            query_first_name,
             check_symbol_in_nest,
-            check_symbol_data);
+            extra_data);
 }
 
 static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_context,
         nodecl_t nodecl_name,
+        field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     return query_nodecl_qualified_name_common(decl_context,
             nodecl_name,
+            field_path,
             decl_flags,
             /* allow_namespaces */ 1,
+            query_nodecl_name_first,
             NULL, NULL);
-
 }
 
+static void is_ambiguous_base_of_class_aux(scope_entry_t* class_symbol, scope_entry_t* base_class,
+        int *num_subobjects,
+        int *num_virtual_subobjects)
+{
+    int i;
+    int num_bases = class_type_get_num_bases(class_symbol->type_information);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        char is_expansion = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* current_base = class_type_get_base_num(class_symbol->type_information, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
 
-static char check_symbol_is_base_or_member(scope_entry_t* previous_symbol, 
+        // Should not happen, ignore them
+        if (is_dependent || is_expansion)
+            continue;
+
+        if (equivalent_types(current_base->type_information,
+                    base_class->type_information))
+        {
+            if (is_virtual)
+                (*num_virtual_subobjects) = 1; // Only one
+            else
+                (*num_subobjects)++;
+        }
+        else
+        {
+            is_ambiguous_base_of_class_aux(current_base, base_class, num_subobjects, num_virtual_subobjects);
+        }
+    }
+}
+
+static char is_ambiguous_base_of_class(scope_entry_t* class_symbol, scope_entry_t* base_class)
+{
+    int num_subobjects = 0;
+    int num_virtual_subobjects = 0;
+
+    is_ambiguous_base_of_class_aux(class_symbol, base_class, &num_subobjects, &num_virtual_subobjects);
+
+    return (num_subobjects > 1)
+        || (num_subobjects == 1 && num_virtual_subobjects != 0);
+}
+
+static char field_path_prepend_with_subobject_path(
+        field_path_t* field_path,
+        scope_entry_t* first_base_path,
+        scope_entry_t* class_symbol)
+{
+    if (equivalent_types(first_base_path->type_information,
+                class_symbol->type_information))
+    {
+        // This is the class we were looking for
+        return 1;
+    }
+    else
+    {
+        // Walk upwards
+        int i;
+        int num_bases = class_type_get_num_bases(class_symbol->type_information);
+        for (i = 0; i < num_bases; i++)
+        {
+            char is_virtual = 0;
+            char is_dependent = 0;
+            char is_expansion = 0;
+            access_specifier_t access_specifier = AS_UNKNOWN;
+            scope_entry_t* current_base = class_type_get_base_num(class_symbol->type_information, i,
+                    &is_virtual,
+                    &is_dependent,
+                    &is_expansion,
+                    &access_specifier);
+
+            // Should not happen, ignore them
+            if (is_dependent || is_expansion)
+                continue;
+
+            if (field_path_prepend_with_subobject_path(field_path,
+                        first_base_path,
+                        current_base))
+            {
+                field_path_prepend(field_path, class_symbol);
+
+                // There is no need to check anything else because we know this base is not ambiguous
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+static char check_symbol_is_base_or_member(
+        scope_entry_t* nested_name_spec_symbol,
         scope_entry_t* current_symbol, 
-        char is_last, 
         const locus_t* locus,
+        field_path_t* field_path,
         void* data)
 {
     scope_entry_t* class_symbol = (scope_entry_t*)data;
-
-    if (previous_symbol != NULL)
-    {
-        class_symbol = previous_symbol;
-    }
 
     if (class_symbol->entity_specs.is_injected_class_name)
     {
@@ -6031,61 +6429,89 @@ static char check_symbol_is_base_or_member(scope_entry_t* previous_symbol,
         return 0;
     }
 
-    if (is_last)
+    if (nested_name_spec_symbol != NULL)
     {
-        // If we are the last component we must be a member of class_symbol
-        if (!(current_symbol->entity_specs.is_member
-                    && class_type_is_base(
-                        current_symbol->entity_specs.class_type,
-                        get_user_defined_type(class_symbol))))
+        if (nested_name_spec_symbol->kind != SK_CLASS)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: '%s' is not a member of '%s'\n",
+                error_printf("%s: error: '%s' must be a class\n",
                         locus_to_str(locus),
-                        current_symbol->symbol_name,
-                        get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+                        nested_name_spec_symbol->symbol_name);
             }
             return 0;
         }
-    }
-    else
-    {
-        if (current_symbol->kind == SK_TYPEDEF)
-        {
-            if (is_named_type(advance_over_typedefs(current_symbol->type_information)))
-            {
-                current_symbol = named_type_get_symbol(advance_over_typedefs(current_symbol->type_information));
-            }
-        }
-        // If we are not the last component we must be a base class
-        if (current_symbol->kind != SK_CLASS
-                || !class_type_is_base(
-                    get_user_defined_type(current_symbol),
-                    get_user_defined_type(class_symbol)))
+        else if (!class_type_is_base(nested_name_spec_symbol->type_information,
+                    class_symbol->type_information))
         {
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: '%s' is not a base of '%s'\n",
                         locus_to_str(locus),
-                        current_symbol->symbol_name,
+                        get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                        get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+            }
+            return 0;
+        }
+        else if (is_ambiguous_base_of_class(class_symbol, nested_name_spec_symbol))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: '%s' is an ambiguous base of '%s'\n",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
                         get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             }
             return 0;
         }
     }
+
+    // If we are the last component we must be a member of class_symbol
+    if (!(current_symbol->entity_specs.is_member
+                && class_type_is_base(
+                    current_symbol->entity_specs.class_type,
+                    get_user_defined_type(class_symbol))))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: '%s' is not a member of '%s'\n",
+                    locus_to_str(locus),
+                    current_symbol->symbol_name,
+                    get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+        }
+        return 0;
+    }
+
+    if (field_path != NULL)
+    {
+        // We know this is not an ambiguous base, so it might happen that the
+        // first item in field_path is not the current class symbol but a non
+        // ambiguous base
+        ERROR_CONDITION(field_path->length == 0, "Should not happen", 0);
+
+        if (field_path->path[0]->kind == SK_CLASS
+                && !equivalent_types(field_path->path[0]->type_information, class_symbol->type_information))
+        {
+            int found = field_path_prepend_with_subobject_path(field_path, field_path->path[0], class_symbol);
+            ERROR_CONDITION(!found, "Should not happen", 0);
+        }
+    }
+
     return 1;
 }
 
 static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t decl_context,
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name,
+        field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     return query_nodecl_qualified_name_common(decl_context,
             nodecl_name,
+            field_path,
             decl_flags,
             /* allow_namespaces */ 0,
+            query_nodecl_name_first_in_class,
             check_symbol_is_base_or_member,
             class_symbol);
 }
@@ -6094,6 +6520,7 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
         decl_context_t decl_context,
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name, 
+        field_path_t* field_path,
         decl_flags_t decl_flags)
 {
     switch (nodecl_get_kind(nodecl_name))
@@ -6104,6 +6531,7 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
                         class_type_get_inner_context(class_symbol->type_information), 
                         decl_context,
                         nodecl_name, 
+                        field_path,
                         decl_flags);
                 break;
             }
@@ -6113,6 +6541,7 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
                         class_type_get_inner_context(class_symbol->type_information), 
                         decl_context,
                         nodecl_name, 
+                        field_path,
                         decl_flags, 
                         query_nodecl_simple_name_in_class);
                 break;
@@ -6122,13 +6551,15 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
                 return query_nodecl_conversion_name(
                         class_type_get_inner_context(class_symbol->type_information), 
                         decl_context,
-                        nodecl_name, decl_flags);
+                        nodecl_name,
+                        field_path,
+                        decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
             {
-                return query_nodecl_qualified_name_in_class(decl_context, class_symbol, nodecl_name, decl_flags);
+                return query_nodecl_qualified_name_in_class(decl_context, class_symbol, nodecl_name, field_path, decl_flags);
                 break;
             }
         default:
@@ -6139,23 +6570,19 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(
     return NULL;
 }
 
-static scope_entry_list_t* query_nodecl_name_in_class_aux(
-        decl_context_t decl_context,
-        scope_entry_t* class_symbol,
-        nodecl_t nodecl_name, 
-        decl_flags_t decl_flags);
-
 scope_entry_list_t* query_nodecl_name_in_class_flags(
         decl_context_t decl_context,
         scope_entry_t* class_symbol,
-        nodecl_t nodecl_name, decl_flags_t decl_flags)
+        nodecl_t nodecl_name,
+        field_path_t* field_path,
+        decl_flags_t decl_flags)
 {
-    ERROR_CONDITION(class_symbol == NULL 
+    ERROR_CONDITION(class_symbol == NULL
             || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
 
     type_t* class_type = class_symbol->type_information;
 
-    instantiate_template_class_if_needed(class_symbol, class_symbol->decl_context, 
+    instantiate_template_class_if_needed(class_symbol, class_symbol->decl_context,
             nodecl_get_locus(nodecl_name));
 
     decl_context_t inner_class_context = class_type_get_inner_context(class_type);
@@ -6165,34 +6592,44 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
         return NULL;
     }
 
-    return query_nodecl_name_in_class_aux(decl_context, class_symbol, nodecl_name, decl_flags);
+    scope_entry_list_t* entry_list = query_nodecl_name_in_class_aux(decl_context, class_symbol, nodecl_name, field_path, decl_flags);
+
+    if (entry_list != NULL
+            && field_path != NULL)
+    {
+        field_path_add(field_path, entry_list_head(entry_list));
+    }
+
+    return entry_list;
 }
 
 scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
-        nodecl_t nodecl_name, decl_flags_t decl_flags)
+        nodecl_t nodecl_name,
+        field_path_t* field_path,
+        decl_flags_t decl_flags)
 {
     switch (nodecl_get_kind(nodecl_name))
     {
         case NODECL_CXX_DEP_NAME_SIMPLE:
             {
-                return query_nodecl_simple_name(decl_context, decl_context, nodecl_name, decl_flags);
+                return query_nodecl_simple_name(decl_context, decl_context, nodecl_name, field_path, decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_TEMPLATE_ID:
             {
-                return query_nodecl_template_id(decl_context, decl_context, nodecl_name, decl_flags, 
+                return query_nodecl_template_id(decl_context, decl_context, nodecl_name, field_path, decl_flags, 
                         query_nodecl_simple_name);
                 break;
             }
         case NODECL_CXX_DEP_NAME_CONVERSION:
             {
-                return query_nodecl_conversion_name(decl_context, decl_context, nodecl_name, decl_flags);
+                return query_nodecl_conversion_name(decl_context, decl_context, nodecl_name, field_path, decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
             {
-                return query_nodecl_qualified_name(decl_context, nodecl_name, decl_flags);
+                return query_nodecl_qualified_name(decl_context, nodecl_name, field_path, decl_flags);
                 break;
             }
         default:
@@ -6481,15 +6918,19 @@ void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t de
 }
 
 scope_entry_list_t* class_context_lookup(decl_context_t decl_context, 
-        decl_flags_t decl_flags, const char* name)
+        field_path_t* field_path,
+        decl_flags_t decl_flags,
+        const char* name)
 {
     ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE, "This is not a class scope", 0);
 
-    return query_in_class(decl_context.current_scope, name, decl_flags, make_locus("", 0, 0));
+    return query_in_class(decl_context.current_scope, name, field_path, decl_flags, make_locus("", 0, 0));
 }
 
-scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_context,
+scope_entry_list_t* query_dependent_entity_in_context(
+        decl_context_t decl_context,
         scope_entry_t* dependent_entity,
+        field_path_t* field_path,
         const locus_t* locus)
 {
     ERROR_CONDITION(dependent_entity->kind != SK_DEPENDENT_ENTITY, "Invalid symbol", 0);
@@ -6551,7 +6992,9 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                         {
                             return query_nodecl_name_flags(
                                     class_type_get_inner_context(class_sym->type_information),
-                                    update_dependent_parts, DF_DEPENDENT_TYPENAME);
+                                    update_dependent_parts,
+                                    field_path,
+                                    DF_DEPENDENT_TYPENAME);
                         }
                         else
                         {
@@ -6561,9 +7004,12 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                                     class_sym,
                                     /* allow_namespaces */ 0,
                                     update_dependent_parts,
+                                    field_path,
                                     DF_DEPENDENT_TYPENAME,
-                                    check_symbol_is_base_or_member,
-                                    class_sym);
+                                    /* is_global */ 0,
+                                    query_nodecl_name_first,
+                                    NULL,
+                                    NULL);
                         }
                     }
                     else
