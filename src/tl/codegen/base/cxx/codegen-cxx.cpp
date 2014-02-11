@@ -2591,35 +2591,49 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
     if (!initializers.is_null())
     {
-        push_scope(symbol_scope);
-        inc_indent();
-
-        indent();
-        *(file) << ": ";
-
         Nodecl::List initializer_list = initializers.as<Nodecl::List>();
 
+        // Count explicit member initializers
         int i = 0;
         for (Nodecl::List::iterator it = initializer_list.begin();
                 it != initializer_list.end();
                 it++)
         {
-            // Skip implicit member initializers
             if (it->is<Nodecl::ImplicitMemberInit>())
                 continue;
-
-            if (i > 0)
-                *(file) << ", ";
-
-            walk(*it);
-
             i++;
         }
 
-        dec_indent();
+        if (i > 0)
+        {
+            push_scope(symbol_scope);
+            inc_indent();
 
-        *(file) << "\n";
-        pop_scope();
+            indent();
+            *(file) << ": ";
+
+            i = 0;
+            for (Nodecl::List::iterator it = initializer_list.begin();
+                    it != initializer_list.end();
+                    it++)
+            {
+                // Skip implicit member initializers
+                if (it->is<Nodecl::ImplicitMemberInit>())
+                    continue;
+
+                if (i > 0)
+                    *(file) << ", ";
+
+                walk(*it);
+
+                i++;
+            }
+
+            dec_indent();
+
+            *(file) << "\n";
+            pop_scope();
+        }
     }
 
     this->walk(context);

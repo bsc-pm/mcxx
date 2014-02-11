@@ -3684,3 +3684,218 @@ static const_value_t* reduce_different_values_or_length(
 
     return const_value_get_signed_int(0);
 }
+
+#ifdef HAVE_INT128
+#define MAX_DIGITS 41
+static char digits[] = "0123456789";
+
+// AFAIK there is no library support for int128
+const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
+{
+    // No number will have more than 40 decimal digits
+    char result[MAX_DIGITS];
+    int len = 0;
+
+    if (i == 0)
+    {
+        result[len] = '0';
+        len++;
+    }
+    else
+    {
+        if (neg)
+        {
+            result[len] = '-';
+            len++;
+        }
+
+        while (i > 0)
+        {
+            result[len] = digits[i % 10];
+            len++;
+            i /= 10;
+        }
+
+        // Now reverse the string
+        int begin, end;
+        for (begin = 0, end = len - 1;
+             begin < (len / 2);
+             begin++, end--)
+        {
+            char t = result[begin];
+            result[begin] = result[end];
+            result[end] = t;
+        }
+    }
+
+    ERROR_CONDITION(len >= MAX_DIGITS, "Too many digits", 0);
+    result[len] = '\0';
+
+    return uniquestr(result);
+}
+
+const char* signed_int128_to_str(signed __int128 i)
+{
+    if (i < 0)
+    {
+        return unsigned_int128_to_str(-i, 1);
+    }
+    else
+    {
+        return unsigned_int128_to_str(i, 0);
+    }
+}
+#endif
+
+const char* const_value_to_str(const_value_t* cval)
+{
+    const char* result = NULL;
+    switch (cval->kind)
+    {
+        case CVK_INTEGER:
+            {
+#ifdef HAVE_INT128
+                if (cval->sign)
+                {
+                    result = signed_int128_to_str(cval->value.si);
+                }
+                else
+                {
+                    result = unsigned_int128_to_str(cval->value.i, 0);
+                }
+#else
+                if (cval->sign)
+                {
+                    uniquestr_sprintf(&result, "%lld", cval->value.si);
+                }
+                else
+                {
+                    uniquestr_sprintf(&result, "%llu", cval->value.i);
+                }
+#endif
+                break;
+            }
+        case CVK_FLOAT:
+            {
+                uniquestr_sprintf(&result, "%f", cval->value.f);
+                break;
+            }
+        case CVK_DOUBLE:
+            {
+                uniquestr_sprintf(&result, "%f", cval->value.d);
+                break;
+            }
+        case CVK_LONG_DOUBLE:
+            {
+                uniquestr_sprintf(&result, "%Lf", cval->value.ld);
+                break;
+            }
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            {
+                char c[256];
+                quadmath_snprintf (c, 256, "%Q", cval->value.f128);
+                c[255] = '\0';
+                result = uniquestr(c);
+                break;
+            }
+#endif
+        case CVK_ARRAY:
+            {
+                result = "{array: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_VECTOR:
+            {
+                result = "{vector: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_STRUCT:
+            {
+                uniquestr_sprintf(&result, "{struct:%s: [",
+                        cval->value.m->struct_type != NULL ?
+                        named_type_get_symbol(cval->value.m->struct_type)->symbol_name
+                        : "<<unknown-struct>>");
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_STRING:
+            {
+                result = "{string: [";
+
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_RANGE:
+            {
+                result = "{range: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_MASK:
+            {
+                uniquestr_sprintf(&result, "{mask%d: %llx}",
+                        cval->num_bytes,
+                        (unsigned long long)cval->value.i);
+                break;
+            }
+        default:
+            internal_error("Unexpected constant kind %d", cval->kind);
+            break;
+    }
+
+    return result;
+}
