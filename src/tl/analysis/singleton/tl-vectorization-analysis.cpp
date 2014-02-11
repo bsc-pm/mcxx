@@ -261,6 +261,7 @@ namespace Analysis {
  
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
+        std::cerr << "Add " << n.prettyprint() << std::endl;
         if (is_suitable_expression(n))
         {
             return _alignment;
@@ -365,13 +366,17 @@ namespace Analysis {
                     }
                     else
 */                    
-                    if( ( dimension_sizes[j] == -1 ) || ( it_alignment == -1 ) )
+//                    if( ( dimension_sizes[j] == -1 ) || ( it_alignment == -1 ) )
+                    if( ( dimension_sizes[j] != -1 ) )
                     {
-                        it_alignment = -1;
+                        if (it_alignment == -1)
+                            it_alignment = dimension_sizes[j];
+                        else
+                            it_alignment *= dimension_sizes[j];
                     }
                     else
                     {
-                        it_alignment *= dimension_sizes[j];
+                        it_alignment = -1;
                     }
                 }
                 
