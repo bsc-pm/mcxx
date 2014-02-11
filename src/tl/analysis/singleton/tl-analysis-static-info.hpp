@@ -130,6 +130,7 @@ namespace Analysis {
 
             ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
             
+            
             // *** Queries for Vectorization *** //
             
             bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
@@ -171,15 +172,19 @@ namespace Analysis {
     class AnalysisStaticInfo
     {
         private:
+            Nodecl::NodeclBase _node;
             static_info_map_t _static_info_map;
 
-            Nodecl::NodeclBase _node;
-
         public:
+            // *** Constructors *** //
+            //! Constructor useful to make queries that do not require previous analyses
+            AnalysisStaticInfo( );
+            
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
 
             virtual ~AnalysisStaticInfo(){};
+
 
             // *** Getters and Setters *** //
 
@@ -197,6 +202,7 @@ namespace Analysis {
             virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                                    const Nodecl::NodeclBase& s ) const;
 
+
             // *** Queries about induction variables *** //
 
             //! Returns true when an object is an induction variable in a given scope
@@ -213,15 +219,23 @@ namespace Analysis {
 
             //! Returns the list of const_values containing the increments of an induction variable in a given scope
             virtual ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
-                                                                                  const Nodecl::NodeclBase& n ) const;
+                                                                                          const Nodecl::NodeclBase& n ) const;
                                                              
             //! Returns true when the increment of a given induction variable is constant and equal to 1
             virtual bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             //! Returns a list with the induction variables of a given scope
             virtual ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& scope,
-                                                                               const Nodecl::NodeclBase& n ) const;
+                                                                                       const Nodecl::NodeclBase& n ) const;
 
+
+            // *** Queries about OmpSs *** //
+            
+            virtual bool is_ompss_reduction( const Nodecl::NodeclBase& n ) const;
+
+
+            // *** Queries for Vectorization *** //
+        
             //! Returns true if the given nodecl is an array accessed by adjacent positions
             virtual bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
@@ -240,7 +254,8 @@ namespace Analysis {
             virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                                          const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
                                          int unroll_factor, int alignment, int& vector_size_module ) const;
- 
+
+
             // *** Queries about Auto-Scoping *** //
 
             virtual void print_auto_scoping_results( const Nodecl::NodeclBase& scope );

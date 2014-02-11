@@ -49,6 +49,7 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> shmem; // shared memory
             ObjectList<Nodecl::NodeclBase> onto;
 
+            bool is_implicit;
             bool has_implements;
             Symbol implements;
 
@@ -62,8 +63,8 @@ namespace TL
 
             TargetContext()
                 : device_list(), copy_in(), copy_out(), copy_inout(),
-                ndrange(), shmem(), onto(), has_implements(), implements(),
-                file(), name(), copy_deps()
+                ndrange(), shmem(), onto(), is_implicit(),
+                has_implements(), implements(), file(), name(), copy_deps()
             {
             }
         };

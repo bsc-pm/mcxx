@@ -1576,6 +1576,11 @@ namespace TL
         }
         void Core::task_handler_post(TL::PragmaCustomStatement construct)
         {
+            if (!_target_context.empty()
+                    && _target_context.top().is_implicit)
+            {
+                _target_context.pop();
+            }
             _openmp_info->pop_current_data_sharing();
         }
 
@@ -1588,6 +1593,11 @@ namespace TL
         void Core::task_handler_post(TL::PragmaCustomDeclaration construct)
         {
             // Do nothing
+            if (!_target_context.empty()
+                    && _target_context.top().is_implicit)
+            {
+                _target_context.pop();
+            }
         }
 
         void Core::taskwait_handler_pre(TL::PragmaCustomDirective construct)

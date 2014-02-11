@@ -292,7 +292,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> logical_or_expression
 %type<ast> member_declaration
 %type<ast> member_declarator
+%type<ast> member_declarator_first
 %type<ast> member_declarator_list
+%type<ast> member_declarator_list_nonempty
 %type<ast> member_specification_seq
 %type<ast> multiplicative_expression
 %type<ast> if_statement
@@ -1690,13 +1692,44 @@ member_declaration : decl_specifier_seq member_declarator_list ';'  %merge<ambig
 }
 ;
 
-member_declarator_list : member_declarator
+member_declarator_list : member_declarator_first
 {
 	$$ = ASTListLeaf($1);
 }
-| member_declarator_list ',' member_declarator
+| member_declarator_first ',' member_declarator_list_nonempty
 {
-	$$ = ASTList($1, $3);
+    $$ = ast_list_concat(ASTListLeaf($1), $3);
+}
+;
+
+member_declarator_list_nonempty : member_declarator
+{
+    $$ = ASTListLeaf($1);
+}
+| member_declarator_list_nonempty ',' member_declarator
+{
+    $$ = ASTList($1, $3);
+}
+;
+
+member_declarator_first : declarator_not_started_with_attributes attribute_specifier_seq_opt
+{
+    $$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, NULL, $2, ast_get_locus($1), NULL);
+}
+| declarator_not_started_with_attributes attribute_specifier_seq_opt constant_initializer
+{
+    $$ = ASTMake3(AST_MEMBER_DECLARATOR, $1, $3, $2, ast_get_locus($1), NULL);
+}
+| ':' constant_expression
+{
+    $$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| IDENTIFIER attribute_specifier_seq_opt ':' constant_expression
+{
+    AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+    AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
+
+    $$ = ASTMake3(AST_BITFIELD_DECLARATOR, declarator_id_expr, $4, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 

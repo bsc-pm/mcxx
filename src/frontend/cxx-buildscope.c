@@ -2322,7 +2322,7 @@ void build_scope_decl_specifier_seq(AST a,
         {
             AST spec = ASTSon1(iter);
             // GCC attributes (previous to type_spec) must be ignored at this point
-            // Reason: this attributes refer to declarator_list
+            // Reason: these attributes refer to declarator_list
             if (ASTType(spec) != AST_GCC_ATTRIBUTE)
             {
                 gather_decl_spec_information(spec, gather_info, decl_context);
@@ -2330,18 +2330,51 @@ void build_scope_decl_specifier_seq(AST a,
         }
     }
 
+    AST type_spec = ASTSon1(a);
+
+    AST attributes_of_class_type_specifier = NULL;
+
     // Gather decl specifier sequence information after type_spec
     list = ASTSon2(a);
     if (list != NULL)
     {
+        char only_seen_attributes = 1;
         for_each_element(list, iter)
         {
             AST spec = ASTSon1(iter);
-            gather_decl_spec_information(spec, gather_info, decl_context);
+
+            if (only_seen_attributes
+                    && ASTType(spec) == AST_GCC_ATTRIBUTE
+                    && type_spec != NULL
+                    && ASTType(type_spec) == AST_CLASS_SPECIFIER)
+            {
+                // This attribute must be applied to the type not to
+                // the declaration
+                //
+                // Example
+                //
+                // struct A { int x; } __attribute__((packed)) a;
+                //
+                // This 'packed' goes to 'struct A' not to 'a'
+                //
+                // Note that
+                //
+                // struct A { int x; } const __attribute__((packed)) a;
+                //
+                // The attribut does not go to struct A because it does not
+                // follow the closing bracket of the class specifier
+                //
+                // We keep these attribute in a special list that we handle later
+                // once we have processed the type specifier
+                attributes_of_class_type_specifier = iter;
+            }
+            else
+            {
+                gather_decl_spec_information(spec, gather_info, decl_context);
+                only_seen_attributes = 0;
+            }
         }
     }
-
-    AST type_spec = ASTSon1(a);
 
     // Now gather information of the type_spec
     if (type_spec != NULL
@@ -2386,7 +2419,20 @@ void build_scope_decl_specifier_seq(AST a,
         gather_decl_spec_t local_gather_info;
         copy_gather_info(&local_gather_info, gather_info);
 
+        // Now apply the trailing attributes (if any) of this class specifier
+        // to the class specifier itself
+        list = attributes_of_class_type_specifier;
+        if (list != NULL)
+        {
+            for_each_element(list, iter)
+            {
+                AST spec = ASTSon1(iter);
+
+                gather_decl_spec_information(spec, &local_gather_info, decl_context);
+            }
+        }
         gather_type_spec_information(type_spec, type_info, &local_gather_info, decl_context, nodecl_output);
+
 
         // Now, we are safe to gather the information of GCC attributes,
         // skipped in the first loop of this function
@@ -12325,6 +12371,14 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
         build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info,
                 &simple_type_info, decl_context, nodecl_output);
+    }
+
+    // If the type specifier defined a type, add it to the declared symbols
+    if (gather_info.defined_type != NULL
+            && declared_symbols != NULL)
+    {
+        *declared_symbols = entry_list_add(*declared_symbols, gather_info.defined_type);
+        P_LIST_ADD(gather_decl_spec_list->items, gather_decl_spec_list->num_items, gather_info);
     }
 
     // There can be just one declarator here if this is not a class specifier nor a function declaration

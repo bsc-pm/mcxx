@@ -47,6 +47,7 @@ linker_options = -Xlinker --enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),debug,(instrument|instrumentation),mmic} linker_options = -L@NANOX_MIC_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_MIC_LIBS@/instrumentation-debug
 {openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
+{(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_LDFLAGS@
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so
 {openmp} compiler_phase = libtlnanox-nanosmain.so
