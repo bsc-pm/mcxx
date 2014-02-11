@@ -1297,6 +1297,7 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/analysis/reach_defs \
 				-I$(srcdir)/src/tl/analysis/loops \
 				-I$(srcdir)/src/tl/analysis/auto-scope \
+				-I$(srcdir)/src/tl/omp/core \
 				$(END)
 
 src_tl_analysis_singleton_libanalysis_singleton_la_LDFLAGS= $(tl_ldflags)
@@ -1489,6 +1490,10 @@ src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
 src_tl_omp_base_libtlomp_base_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_base_libtlomp_base_la_LIBADD = $(phases_libadd) src/tl/omp/core/libtlomp-core.la
 
+if BUILD_ANALYSIS
+src_tl_omp_base_libtlomp_base_la_LIBADD += $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la
+endif
+
 if BUILD_VECTORIZER
 src_tl_omp_base_libtlomp_base_la_LIBADD += src/tl/vectorizer/libtlvectorizer.la
 endif
@@ -1513,12 +1518,14 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/singleton \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
+                          -I$(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/singleton \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
+                          -I$(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_LDFLAGS = $(tl_ldflags)

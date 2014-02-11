@@ -595,24 +595,54 @@ namespace Analysis {
         return result;
     }                                                                          
     
-    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n )
+    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
     {
+        if( n.is_null( ) )
+            return false;
+        
+        bool result = false;
+        
+        // Check the current node
+        if( n.is<Nodecl::FunctionCall>( ) )
+        {
+            Symbol s( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) );
+            if( s.is_valid( ) && function_tasks->is_function_task( s ) )
+                result = true;
+        }
+        
+        // Check its children
+        ObjectList<Nodecl::NodeclBase> children = n.children( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        {
+            result = nodecl_calls_outline_task( *it, function_tasks );
+        }
+        
+        return result;
+    }
+    
+    static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs, 
+                                              RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    {
+        if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) || 
+            ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) || 
+                                                 !function_tasks->is_function_task( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) ) ) ) )
+            return false;
+        
+        // Check the current node
+        if( Nodecl::Utils::equal_nodecls( n, lhs, /*skip conversion nodes*/ true ) )
+            return true;
+        
+        // Check the children
         bool result = false;
         ObjectList<Nodecl::NodeclBase> children = n.children( );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
-            if( n.is<Nodecl::OpenMP::TaskCall>( ) )
-            {
-                result = true;
-                break;
-            }
-            
-            result = nodecl_calls_outline_task( *it );
+            result = ompss_reduction_rhs_uses_lhs( *it, lhs, function_tasks );
         }
         return result;
     }
     
-    bool AnalysisStaticInfo::is_ompss_reduction( const Nodecl::NodeclBase& n ) const
+    bool AnalysisStaticInfo::is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const
     {
         bool result = false;
         
@@ -623,15 +653,14 @@ namespace Analysis {
             n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
         {
             Nodecl::Assignment n_assig = n.as<Nodecl::Assignment>( );
-            result = nodecl_calls_outline_task( n_assig.get_rhs( ) );
+            result = nodecl_calls_outline_task( n_assig.get_rhs( ), function_tasks );
             
             if( result && n.is<Nodecl::Assignment>( ) )
             {   // Check also if the LHS also contains the RHS
                 Nodecl::NodeclBase rhs_c = n_assig.get_rhs( ).shallow_copy( );
                 Optimizations::ReduceExpressionVisitor rev;
-                // FIXME This is not an Add but I cannot call visit with a NodeclBase
-                rev.visit( rhs_c.as<Nodecl::Add>( ) );
-                if( !Nodecl::Utils::stmtexpr_contains_nodecl( rhs_c, n_assig.get_lhs( ) ) )
+                rev.walk( rhs_c );
+                if( !ompss_reduction_rhs_uses_lhs( rhs_c, n_assig.get_lhs( ), function_tasks ) )
                     result = false;
             }
         }
