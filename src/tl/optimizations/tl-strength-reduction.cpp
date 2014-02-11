@@ -156,7 +156,6 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mod& node)
     TL::Type lhs_type = lhs.get_type();
     TL::Type rhs_type = rhs.get_type();
 
-<<<<<<< HEAD
     if(rhs.is_constant() && rhs_type.is_integral_type()
             && lhs_type.is_unsigned_int())
     {
@@ -328,160 +327,6 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
         }
     }
 }
-=======
-        }
-    }
-}
- 
-
-
-void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorAdd& node)
-{
-    Nodecl::NodeclBase lhs = node.get_lhs();
-    Nodecl::NodeclBase rhs = node.get_rhs();
-
-    walk(lhs);
-    walk(rhs);
-
-    TL::Type lhs_type = lhs.get_type().basic_type();
-    TL::Type rhs_type = rhs.get_type().basic_type();
-
-    // Scalarize ops between vector promotions
-    if(lhs.is<Nodecl::VectorPromotion>() && rhs.is<Nodecl::VectorPromotion>())
-    {
-        node.replace(Nodecl::VectorPromotion::make(
-                    Nodecl::Add::make(lhs.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        rhs.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        node.get_type().vector_element(),
-                        node.get_locus()),
-                    node.get_mask().shallow_copy(),
-                    node.get_type(),
-                    node.get_locus()));
-    }
-}
-
-void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMinus& node)
-{
-    Nodecl::NodeclBase lhs = node.get_lhs();
-    Nodecl::NodeclBase rhs = node.get_rhs();
-
-    walk(lhs);
-    walk(rhs);
-
-    // Scalarize ops between vector promotions
-    if(lhs.is<Nodecl::VectorPromotion>() && rhs.is<Nodecl::VectorPromotion>())
-    {
-        node.replace(Nodecl::VectorPromotion::make(
-                    Nodecl::Minus::make(lhs.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        rhs.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        node.get_type().vector_element(),
-                        node.get_locus()),
-                    node.get_mask().shallow_copy(),
-                    node.get_type(),
-                    node.get_locus()));
-    }
-}
-
-void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
-{
-    Nodecl::NodeclBase lhs = node.get_lhs();
-    Nodecl::NodeclBase rhs = node.get_rhs();
-
-    walk(lhs);
-    walk(rhs);
-
-    TL::Type lhs_type = lhs.get_type().basic_type();
-    TL::Type rhs_type = rhs.get_type().basic_type();
-
-    // Scalarize ops between vector promotions
-    if(lhs.is<Nodecl::VectorPromotion>() && rhs.is<Nodecl::VectorPromotion>())
-    {
-        node.replace(Nodecl::VectorPromotion::make(
-                    Nodecl::Mul::make(lhs.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        rhs.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        node.get_type().vector_element(),
-                        node.get_locus()),
-                    node.get_mask().shallow_copy(),
-                    node.get_type(),
-                    node.get_locus()));
-    }
-    else if(lhs.is_constant() && lhs_type.is_integral_type())
-    {
-        if (lhs.is<Nodecl::VectorPromotion>())
-        {
-            //TODO: It could be a different type than int
-            const_value_t * cv = lhs.as<Nodecl::VectorPromotion>().get_rhs().get_constant(); 
-            int integer_value = const_value_cast_to_signed_int(cv);
-
-            // C * V, C == Pow2
-            if (__builtin_popcount(integer_value) == 1) //Pow2
-            {
-                int ctz = __builtin_ctz(integer_value);
-
-                // lhs << (cv>>ctz)
-                Nodecl::VectorBitwiseShlI shl = 
-                    Nodecl::VectorBitwiseShlI::make(
-                            rhs.shallow_copy(),
-                            const_value_to_nodecl(const_value_get_signed_int(ctz)),
-                            node.get_mask().shallow_copy(),
-                            node.get_type(),
-                            node.get_locus());
-
-                node.replace(shl);
-            }
-        }
-        else if (lhs.is<Nodecl::VectorLiteral>())
-        {
-            //TODO: It could be a different type than int
-            Nodecl::List const_list = lhs.as<Nodecl::VectorLiteral>().get_scalar_values().as<Nodecl::List>();
-            Nodecl::List result_list;
-
-            bool all_pow2 = true;
-
-            for(Nodecl::List::const_iterator it = const_list.begin();
-                    it != const_list.end();
-                    it++)
-            {
-                int integer_value = const_value_cast_to_signed_int(it->as<Nodecl::IntegerLiteral>().get_constant());
-
-                // C * V, C == Pow2
-                if (__builtin_popcount(integer_value) == 1) //Pow2
-                {
-                    int ctz = __builtin_ctz(integer_value);
-
-                    result_list.prepend(Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(ctz),
-                                it->get_locus()));
-                }
-                else
-                {
-                    all_pow2 = false;
-                    break;
-                }
-            }
-
-            if (all_pow2)
-            {
-                // lhs << (cv>>ctz)
-                Nodecl::VectorBitwiseShl shl = 
-                    Nodecl::VectorBitwiseShl::make(
-                            rhs.shallow_copy(),
-                            Nodecl::VectorLiteral::make(result_list,
-                                node.get_mask().shallow_copy(),
-                                node.get_type()),
-                            node.get_mask().shallow_copy(),
-                            node.get_type(),
-                            node.get_locus());
-
-                node.replace(shl);
-            }
-
-        }
-    }
-}
->>>>>>> analysis
-
 
 void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
 {
@@ -565,7 +410,6 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
             if (all_pow2)
             {
                 // lhs >> (cv>>ctz)
-<<<<<<< HEAD
                 Nodecl::VectorArithmeticShr shl = 
                     Nodecl::VectorArithmeticShr::make(
                             lhs.shallow_copy(),
