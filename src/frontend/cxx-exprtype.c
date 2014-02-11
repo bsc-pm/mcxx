@@ -1042,31 +1042,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             if (nodecl_is_constant(*nodecl_output))
             {
                 const_value_t* v = nodecl_get_constant(*nodecl_output);
-                fprintf(stderr, " with a constant value of '%s'\n",
-                        codegen_to_str(const_value_to_nodecl(v), decl_context));
-                // if (const_value_is_integer(v))
-                // {
-                //     if (const_value_is_signed(v))
-                //     {
-                //         fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
-                //     }
-                //     else
-                //     {
-                //         fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
-                //     }
-                // }
-                // else if (const_value_is_float(v))
-                // {
-                //     fprintf(stderr, " '%f'", const_value_cast_to_float(v));
-                // }
-                // else if (const_value_is_double(v))
-                // {
-                //     fprintf(stderr, " '%f'", const_value_cast_to_double(v));
-                // }
-                // else if (const_value_is_long_double(v))
-                // {
-                //     fprintf(stderr, " '%Lf'", const_value_cast_to_long_double(v));
-                // }
+                fprintf(stderr, " with a constant value of '%s'",
+                        const_value_to_str(v));
             }
 
             if (nodecl_expr_is_value_dependent(*nodecl_output))
@@ -18099,22 +18076,46 @@ static const_value_t* evaluate_constexpr_constructor(
 
     type_t* class_type = entry->entity_specs.class_type;
 
-    scope_entry_t** data_members = NULL;
-    int num_data_members = 0;
+    int num_all_members = 0;
+    scope_entry_t** all_members = NULL;
+    {
+        scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(class_type);
+        scope_entry_list_t* data_members_list = class_type_get_nonstatic_data_members(class_type);
 
-    scope_entry_list_t* data_members_list = class_type_get_nonstatic_data_members(class_type);
-    entry_list_to_symbol_array(data_members_list, &data_members, &num_data_members);
-    entry_list_free(data_members_list);
+        scope_entry_list_t* all_members_list = entry_list_concat(direct_base_classes, data_members_list);
 
-    const_value_t** values = xcalloc(num_data_members, sizeof(*values));
+        entry_list_free(data_members_list);
+        entry_list_free(direct_base_classes);
+
+        entry_list_to_symbol_array(all_members_list, &all_members, &num_all_members);
+        entry_list_free(all_members_list);
+    }
+
+    const_value_t** values = xcalloc(num_all_members, sizeof(*values));
 
     int i, N = 0;
     nodecl_t *nodecl_list = nodecl_unpack_list(nodecl_initializers, &N);
 
     for (i = 0; i < N; i++)
     {
-        // scope_entry_t* symbol = nodecl_get_symbol(nodecl_list[i]);
+        scope_entry_t* current_member = nodecl_get_symbol(nodecl_list[i]);
         nodecl_t nodecl_expr = nodecl_get_child(nodecl_list[i], 0);
+
+        int member_pos = -1;
+        // Find the symbol in the all_members array
+        int j;
+        for (j = 0; j < num_all_members; j++)
+        {
+            if (all_members[j] == current_member)
+            {
+                member_pos = j;
+                break;
+            }
+        }
+
+        ERROR_CONDITION(member_pos < 0,
+                "Symbol '%s' not found in the initializer set. Maybe it has not been initialized\n",
+                current_member->symbol_name);
 
         nodecl_t nodecl_replaced_expr = constexpr_replace_parameters_with_values(
                 nodecl_expr,
@@ -18127,20 +18128,30 @@ static const_value_t* evaluate_constexpr_constructor(
                 /* instantiation_symbol_map */ NULL,
                 /* pack_index */ -1);
 
-        values[i] = nodecl_get_constant(nodecl_evaluated_expr);
+        values[member_pos] = nodecl_get_constant(nodecl_evaluated_expr);
+        if (values[member_pos] == NULL)
+        {
+            xfree(all_members);
+            xfree(values);
+            return NULL;
+        }
+    }
 
+    // Check that all members have constant values
+    for (i = 0; i < num_all_members; i++)
+    {
         if (values[i] == NULL)
         {
-            xfree(data_members);
+            xfree(all_members);
             xfree(values);
             return NULL;
         }
     }
 
     const_value_t* structured_value =
-        const_value_make_struct(num_data_members, values, class_type);
+        const_value_make_struct(num_all_members, values, class_type);
 
-    xfree(data_members);
+    xfree(all_members);
     xfree(values);
 
     return structured_value;
