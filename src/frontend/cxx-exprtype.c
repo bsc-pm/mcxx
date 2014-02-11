@@ -19035,7 +19035,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
 
             scope_entry_list_t* entry_list = entry_list_new(mapped_symbol);
 
-            cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, &result);
+            cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
 
             entry_list_free(entry_list);
         }
