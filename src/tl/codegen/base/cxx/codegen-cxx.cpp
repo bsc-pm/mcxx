@@ -1518,11 +1518,27 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         *(file) << end_inline_comment();
 }
 
+/* Adapters used in visit_function_call */
+template <typename Node> Nodecl::NodeclBase get_alternate_name(const Node&)
+{
+    return Nodecl::NodeclBase::null();
+}
+template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
+{
+    return n.get_alternate_name();
+}
+
 template <typename Node>
 void CxxBase::visit_function_call_form_template_id(const Node& node)
 {
     Nodecl::NodeclBase function_form = node.get_function_form();
     TL::Symbol called_symbol = node.get_called().get_symbol();
+
+    Nodecl::NodeclBase alternate_name = get_alternate_name(node);
+    if (!alternate_name.is_null()
+            && (alternate_name.is<Nodecl::CxxDepNameNested>()
+                || alternate_name.is<Nodecl::CxxDepGlobalNameNested>()))
+        return;
 
     if (!function_form.is_null()
             && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
@@ -1672,16 +1688,6 @@ bool CxxBase::is_operator_function_call(const Node& node)
     return (is_unary_prefix_operator_function_call(node)
             || is_unary_postfix_operator_function_call(node)
             || is_binary_infix_operator_function_call(node));
-}
-
-/* Adapters used in visit_function_call */
-template <typename Node> Nodecl::NodeclBase get_alternate_name(const Node&)
-{
-    return Nodecl::NodeclBase::null();
-}
-template <> Nodecl::NodeclBase get_alternate_name(const Nodecl::FunctionCall& n)
-{
-    return n.get_alternate_name();
 }
 
 bool CxxBase::is_assignment_operator(const std::string& operator_name)

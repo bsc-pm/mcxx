@@ -131,7 +131,7 @@ string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
