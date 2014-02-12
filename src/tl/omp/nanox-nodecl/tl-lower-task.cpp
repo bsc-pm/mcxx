@@ -496,8 +496,19 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
-    std::string wd_description  = (is_function_task) ?
-        called_task.get_name() : current_function.get_name();
+    std::string wd_description;
+    if (!task_label.is_null())
+    {
+        wd_description = task_label.get_text();
+    }
+    else if (is_function_task)
+    {
+        wd_description = called_task.get_name();
+    }
+    else
+    {
+        wd_description = current_function.get_name();
+    }
 
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
