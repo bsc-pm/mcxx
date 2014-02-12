@@ -224,21 +224,18 @@ Source LoweringVisitor::fill_const_wd_info(
 
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        if (_lowering->instrumentation_enabled()
+                && (IS_C_LANGUAGE || IS_CXX_LANGUAGE))
         {
             result
                 << /* ".description = " */ "\"" << wd_description << "\",\n"
                 ;
         }
-        else if (IS_FORTRAN_LANGUAGE)
+        else
         {
             result
                 << /* ".description = " */ "0,\n"
                 ;
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
         }
     }
 
