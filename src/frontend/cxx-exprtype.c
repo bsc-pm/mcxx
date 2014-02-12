@@ -18492,6 +18492,15 @@ nodecl_t cxx_nodecl_make_function_call(
                 {
                     alternate_name = orig_called;
                 }
+                else if (!nodecl_is_null(called_name)
+                        && !nodecl_is_null(nodecl_get_child(called_name, 2))
+                        && ((nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                == NODECL_CXX_DEP_NAME_NESTED) // x.A::f()
+                            || (nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                == NODECL_CXX_DEP_GLOBAL_NAME_NESTED )  )) // x.::A::f
+                {
+                    alternate_name = nodecl_get_child(called_name, 2);
+                }
 
                 nodecl_t result = nodecl_make_function_call(called,
                         converted_arg_list,
