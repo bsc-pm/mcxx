@@ -15748,19 +15748,12 @@ char check_initialization(AST initializer,
             if (nodecl_is_constant(*nodecl_output))
             {
                 const_value_t* v = nodecl_get_constant(*nodecl_output);
-                fprintf(stderr, " with a constant value ");
-                if (const_value_is_integer(v)
-                        || const_value_is_floating(v))
-                {
-                    if (const_value_is_signed(v))
-                    {
-                        fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
-                    }
-                    else
-                    {
-                        fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
-                    }
-                }
+                fprintf(stderr, " with a constant value '%s'",
+                        const_value_to_str(v));
+            }
+            if (nodecl_expr_is_value_dependent(*nodecl_output))
+            {
+                fprintf(stderr, " [VALUE DEPENDENT]");
             }
             fprintf(stderr, "\n");
         }
