@@ -10009,7 +10009,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)))
+                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -10036,7 +10037,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)))
+                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -10077,7 +10079,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if (is_class_type(no_ref(orig))
                 && is_class_type(no_ref(dest))
                 && class_type_is_base(no_ref(dest),
-                    get_unqualified_type(no_ref(orig))))
+                    get_unqualified_type(no_ref(orig)))
+                && !class_type_is_ambiguous_base_of_derived_class(
+                    no_ref(dest),
+                    no_ref(orig)))
         {
             ok = 1;
         }
@@ -10477,7 +10482,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_pointer_to_class_type(orig)
                 && is_pointer_to_class_type(dest)
-                && pointer_to_class_type_is_base_strict(dest, orig))
+                && pointer_to_class_type_is_base_strict(dest, orig)
+                && !class_type_is_ambiguous_base_of_derived_class(
+                        pointer_type_get_pointee_type(dest),
+                        pointer_type_get_pointee_type(orig)))
         {
             DEBUG_CODE()
             {
@@ -10496,7 +10504,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 && is_pointer_to_member_type(dest)
                 // Note: we will check that they are valid pointer-to-members later, in qualification conversion
                 // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
-                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest)))
+                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest))
+                && !class_type_is_ambiguous_base_of_derived_class(pointer_to_member_type_get_class_type(orig),
+                    pointer_to_member_type_get_class_type(dest)))
         {
             DEBUG_CODE()
             {
@@ -13479,4 +13489,57 @@ void get_packs_in_type(type_t* pack_type,
             get_packs_in_type(sequence_of_types_get_type_num(pack_type, i), packs_to_expand, num_packs_to_expand);
         }
     }
+}
+
+static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
+        type_t* base_class,
+        int *num_subobjects,
+        int *num_virtual_subobjects)
+{
+    int i;
+    int num_bases = class_type_get_num_bases(derived_class);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        char is_expansion = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* current_base = class_type_get_base_num(derived_class, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
+
+        // Should not happen, ignore them
+        if (is_dependent || is_expansion)
+            continue;
+
+        if (equivalent_types(get_actual_class_type(current_base->type_information),
+                    get_actual_class_type(base_class)))
+        {
+            if (is_virtual)
+                (*num_virtual_subobjects) = 1; // Only one
+            else
+                (*num_subobjects)++;
+        }
+        else
+        {
+            class_type_is_ambiguous_base_of_class_aux(current_base->type_information,
+                    base_class, num_subobjects, num_virtual_subobjects);
+        }
+    }
+}
+
+char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class)
+{
+    ERROR_CONDITION(!is_class_type(base_class), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(derived_class), "This is not a class type", 0);
+
+    int num_subobjects = 0;
+    int num_virtual_subobjects = 0;
+
+    class_type_is_ambiguous_base_of_class_aux(derived_class, base_class, &num_subobjects, &num_virtual_subobjects);
+
+    return (num_subobjects > 1)
+        || (num_subobjects == 1 && num_virtual_subobjects != 0);
 }

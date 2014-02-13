@@ -6335,54 +6335,6 @@ static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_conte
             NULL, NULL);
 }
 
-static void is_ambiguous_base_of_class_aux(scope_entry_t* class_symbol, scope_entry_t* base_class,
-        int *num_subobjects,
-        int *num_virtual_subobjects)
-{
-    int i;
-    int num_bases = class_type_get_num_bases(class_symbol->type_information);
-    for (i = 0; i < num_bases; i++)
-    {
-        char is_virtual = 0;
-        char is_dependent = 0;
-        char is_expansion = 0;
-        access_specifier_t access_specifier = AS_UNKNOWN;
-        scope_entry_t* current_base = class_type_get_base_num(class_symbol->type_information, i,
-                &is_virtual,
-                &is_dependent,
-                &is_expansion,
-                &access_specifier);
-
-        // Should not happen, ignore them
-        if (is_dependent || is_expansion)
-            continue;
-
-        if (equivalent_types(current_base->type_information,
-                    base_class->type_information))
-        {
-            if (is_virtual)
-                (*num_virtual_subobjects) = 1; // Only one
-            else
-                (*num_subobjects)++;
-        }
-        else
-        {
-            is_ambiguous_base_of_class_aux(current_base, base_class, num_subobjects, num_virtual_subobjects);
-        }
-    }
-}
-
-static char is_ambiguous_base_of_class(scope_entry_t* class_symbol, scope_entry_t* base_class)
-{
-    int num_subobjects = 0;
-    int num_virtual_subobjects = 0;
-
-    is_ambiguous_base_of_class_aux(class_symbol, base_class, &num_subobjects, &num_virtual_subobjects);
-
-    return (num_subobjects > 1)
-        || (num_subobjects == 1 && num_virtual_subobjects != 0);
-}
-
 static char field_path_prepend_with_subobject_path(
         field_path_t* field_path,
         scope_entry_t* first_base_path,
@@ -6478,7 +6430,9 @@ static char check_symbol_is_base_or_member(
             }
             return 0;
         }
-        else if (is_ambiguous_base_of_class(class_symbol, nested_name_spec_symbol))
+        else if (class_type_is_ambiguous_base_of_derived_class(
+                    nested_name_spec_symbol->type_information,
+                    class_symbol->type_information))
         {
             if (!checking_ambiguity())
             {
