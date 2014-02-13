@@ -531,12 +531,13 @@ then
    )
 
    AC_ARG_WITH([mic-libs],
-   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
+   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, the ones located in current icc installation will be used,
+    if not found/valid LD_LIBRARY_PATH will have to be passed to the spawned processes]),
    [
       MIC_LIBS="${withval}"
    ],
    [
-      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.1.106/compiler/lib/mic/
+      MIC_LIBS=$ICC/../../compiler/lib/mic/
    ])
    
    if test x$nanox_include = x -o x$nanox_lib = x;
