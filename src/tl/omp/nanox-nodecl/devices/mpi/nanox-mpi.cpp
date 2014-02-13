@@ -173,7 +173,7 @@ void DeviceMPI::generate_additional_mpi_code(
         host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
         host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
-        host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        //host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
 
         //Recv datastruct from parent (rank will be ignored by nanox)
         device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
@@ -217,7 +217,7 @@ void DeviceMPI::generate_additional_mpi_code(
     } else {
         code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
         code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        //code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
     
     if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
@@ -270,6 +270,14 @@ void DeviceMPI::generate_additional_mpi_code(
             }
         }
     }
+    //Insert implicit #taskwait noflush after task
+    code_device_post << "nanos_err_t tskwait_err;"
+                     << " nanos_wd_t nanos_wd_ = nanos_current_wd(); "
+                     << " tskwait_err = nanos_wg_wait_completion(nanos_wd_, 1); "
+                     << " if (tskwait_err != NANOS_OK) "
+                     << "  { "
+                     << "    nanos_handle_error(tskwait_err); "
+                     << "  } ";
     code_device_post << "int ompss_id_func=" << _currTaskId << ";";
     //Send taskEnd to parent (rank will be ignored by nanox)
     code_device_post << "offload_err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
@@ -815,14 +823,14 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     
     if (instrumentation_enabled())
     {
-//        get_instrumentation_code(
-//                info._called_task,
-//                device_function,
-//                device_function_body,
-//                info._task_label,
-//                original_statements.get_locus(),
-//                instrument_before_dev,
-//                instrument_after_dev); 
+        get_instrumentation_code(
+                info._called_task,
+                device_function,
+                device_function_body,
+                info._task_label,
+                original_statements.get_locus(),
+                instrument_before_dev,
+                instrument_after_dev); 
     } 
     
     Nodecl::NodeclBase new_device_body;
