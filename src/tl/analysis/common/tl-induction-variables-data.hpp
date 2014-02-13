@@ -57,8 +57,6 @@ namespace Utils {
         InductionVarType _type;         /*!< Type of iv: '1' = basic, '2' = derived */
         Nodecl::NodeclBase _family;     /*!< Family of the IV. For basic IVs, the family is the IV itself */
 
-        bool _is_linear;                /*!< Boolean indicating whether the IV increments by a linear function */
-
     public:
 
         // *** Constructors *** //
@@ -88,8 +86,6 @@ namespace Utils {
         std::string get_type_as_string( ) const;
 
         Nodecl::NodeclBase get_family( ) const;
-
-        bool is_linear( ) const;
 
         bool is_basic( );
 

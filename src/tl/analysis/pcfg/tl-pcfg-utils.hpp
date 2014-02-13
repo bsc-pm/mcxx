@@ -85,6 +85,7 @@ namespace Analysis {
     #define GRAPH_NODE_TYPE_LIST \
     GRAPH_TYPE(AsmDef) \
     GRAPH_TYPE(CondExpr) \
+    GRAPH_TYPE(Context) \
     GRAPH_TYPE(ExtensibleGraph) \
     GRAPH_TYPE(FunctionCallGraph) \
     GRAPH_TYPE(IfElse) \
@@ -476,6 +477,11 @@ namespace Analysis {
      * Set of expressions marked by the user as defined in a given point of the program
      */
     #define _ASSERT_KILLED                  "assert_killed"
+
+    /*! \def _ASSERT_UNDEFINED
+     * Set of expressions marked by the user as undefined behavior in a given point of the program
+     */
+    #define _ASSERT_UNDEFINED               "assert_undefined"
     
     /*! \def _ASSERT_LIVE_IN
      * Set of expressions marked by the user as live in in a given point of the program
@@ -601,6 +607,9 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     #define CLAUSE_LIST \
+    CLAUSE(assert_autosc_firstprivate) \
+    CLAUSE(assert_autosc_private) \
+    CLAUSE(assert_autosc_shared) \
     CLAUSE(assert_dead) \
     CLAUSE(assert_defined) \
     CLAUSE(assert_induction_var) \
@@ -609,41 +618,41 @@ namespace Analysis {
     CLAUSE(assert_reach_in) \
     CLAUSE(assert_reach_out) \
     CLAUSE(assert_upper_exposed) \
-    CLAUSE(assert_autosc_firstprivate) \
-    CLAUSE(assert_autosc_private) \
-    CLAUSE(assert_autosc_shared) \
+    CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
-    CLAUSE(in) \
-    CLAUSE(in_alloca) \
-    CLAUSE(in_value) \
-    CLAUSE(out) \
-    CLAUSE(inout) \
+    CLAUSE(cache) \
     CLAUSE(concurrent) \
     CLAUSE(commutative) \
     CLAUSE(copy_in) \
     CLAUSE(copy_out) \
     CLAUSE(copy_inout) \
+    CLAUSE(device) \
     CLAUSE(final) \
     CLAUSE(firstprivate) \
     CLAUSE(firstlastprivate) \
     CLAUSE(flushed_vars) \
     CLAUSE(if) \
+    CLAUSE(in) \
+    CLAUSE(in_alloca) \
+    CLAUSE(in_value) \
+    CLAUSE(inout) \
     CLAUSE(lastprivate) \
+    CLAUSE(length_for) \
+    CLAUSE(mask) \
     CLAUSE(name) \
+    CLAUSE(no_mask) \
     CLAUSE(nowait) \
+    CLAUSE(out) \
     CLAUSE(priority) \
     CLAUSE(private) \
     CLAUSE(reduction) \
     CLAUSE(schedule) \
     CLAUSE(shared) \
+    CLAUSE(suitable) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
+    CLAUSE(unroll) \
     CLAUSE(untied) \
-    CLAUSE(device) \
-    CLAUSE(length_for) \
-    CLAUSE(mask) \
-    CLAUSE(no_mask) \
-    CLAUSE(suitable) \
     CLAUSE(wait_on)
     
     enum Clause {
@@ -656,7 +665,7 @@ namespace Analysis {
     class PCFGClause {
     private:
         Clause _clause;
-        ObjectList<Nodecl::NodeclBase> _args;
+        Nodecl::List _args;
 
     public:
         //! Empty constructor
@@ -672,7 +681,7 @@ namespace Analysis {
         //! Getters
         Clause get_clause( ) const;
         std::string get_clause_as_string( ) const;
-        ObjectList<Nodecl::NodeclBase> get_args( ) const;
+        Nodecl::List get_args( ) const;
         
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
@@ -698,6 +707,7 @@ namespace Analysis {
         ~PCFGPragmaInfo( );
 
         bool has_clause( Clause clause ) const;
+        PCFGClause get_clause( Clause clause ) const;
 
         void add_clause( PCFGClause pcfg_clause );
         

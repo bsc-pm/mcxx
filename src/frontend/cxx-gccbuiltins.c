@@ -2389,7 +2389,7 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(
     {
         snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_byte_size);
         name[255] = '\0';
-        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name);
+        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name, NULL);
 
         // Let's assume no more overloads have been defined
         if (entry_list == NULL)
@@ -2582,7 +2582,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             // plain lookups to find them
             const char* builtin_name = strappend(".", overloaded_function->symbol_name);
             scope_entry_list_t* entry_list = query_name_str(overloaded_function->decl_context,
-                    builtin_name);
+                    builtin_name, NULL);
 
             scope_entry_t* matching_entry = NULL;
             scope_entry_list_iterator_t* it;

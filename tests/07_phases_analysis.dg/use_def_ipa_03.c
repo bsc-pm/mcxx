@@ -40,10 +40,11 @@ int fib( int n )
     if( n == 1 || n == 2)
         return 1;
 
+    int x, y;
     #pragma analysis_check assert defined(x) upper_exposed(n)
-    int x = fib( n );
+    x = fib( n );
     #pragma analysis_check assert defined(y) upper_exposed(n)
-    int y = fib( n - 1 );
+    y = fib( n - 1 );
 
     return x + y;
 }

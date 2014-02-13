@@ -255,6 +255,8 @@ LIBMCXX_EXTERN const_value_t* const_value_sqrt(const_value_t* val);
 LIBMCXX_EXTERN size_t const_value_get_raw_data_size(void);
 LIBMCXX_EXTERN const_value_t* const_value_build_from_raw_data(const char*);
 
+LIBMCXX_EXTERN const char* const_value_to_str(const_value_t*);
+
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H

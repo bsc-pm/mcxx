@@ -224,21 +224,18 @@ Source LoweringVisitor::fill_const_wd_info(
 
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        if (_lowering->instrumentation_enabled()
+                && (IS_C_LANGUAGE || IS_CXX_LANGUAGE))
         {
             result
                 << /* ".description = " */ "\"" << wd_description << "\",\n"
                 ;
         }
-        else if (IS_FORTRAN_LANGUAGE)
+        else
         {
             result
                 << /* ".description = " */ "0,\n"
                 ;
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
         }
     }
 
@@ -496,8 +493,19 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
-    std::string wd_description  = (is_function_task) ?
-        called_task.get_name() : current_function.get_name();
+    std::string wd_description;
+    if (!task_label.is_null())
+    {
+        wd_description = task_label.get_text();
+    }
+    else if (is_function_task)
+    {
+        wd_description = called_task.get_name();
+    }
+    else
+    {
+        wd_description = current_function.get_name();
+    }
 
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,

@@ -218,8 +218,7 @@ char multifile_object_has_extended_info(const char* filename)
 
     while (fgets(line, 255, stdout_file) != NULL)
     {
-        if ((strlen(line) > 1)
-                && line[0] == ' ')
+        if ((strlen(line) > 1))
         {
             const char *q = line;
 

@@ -72,6 +72,8 @@ struct rb_red_blk_tree_tag {
   rb_red_blk_node* nil;              
 };
 
+static void null_dtor_func(const void* v) { }
+
 /***********************************************************************/
 /*  FUNCTION:  RBTreeCreate */
 /**/
@@ -101,8 +103,8 @@ rb_red_blk_tree* rb_tree_create( int (*comp_func) (const void*,const void*),
 
   newTree=(rb_red_blk_tree*) xmalloc(sizeof(rb_red_blk_tree));
   newTree->comp_func=  comp_func;
-  newTree->key_dtor_func= key_dtor_func;
-  newTree->info_dtor_func= info_dtor_func;
+  newTree->key_dtor_func= key_dtor_func != NULL ? key_dtor_func : null_dtor_func;
+  newTree->info_dtor_func= info_dtor_func != NULL ? info_dtor_func : null_dtor_func;
 
   /*  see the comment in the rb_red_blk_tree structure in red_black_tree.h */
   /*  for information on nil and root */

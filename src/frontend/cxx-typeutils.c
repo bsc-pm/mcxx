@@ -5658,7 +5658,8 @@ static type_t* advance_dependent_typename_aux(
         scope_entry_list_t* member_list = query_nodecl_name_in_class(
                 class_context,  // unused
                 current_member,
-                nodecl_simple_name);
+                nodecl_simple_name,
+                NULL);
 
         if (member_list == NULL)
         {
@@ -5844,7 +5845,8 @@ static type_t* advance_dependent_typename_aux(
     scope_entry_list_t* member_list = query_nodecl_name_in_class(
             class_context,  // unused
             current_member,
-            nodecl_simple_name);
+            nodecl_simple_name,
+            NULL);
 
     if (member_list == NULL)
     {
@@ -7422,7 +7424,7 @@ static const char* get_simple_type_name_string_internal_common(scope_entry_t* en
             || entry->kind == SK_ENUM)
     {
         // It may happen that a function is hiding our typename in this scope
-        scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name);
+        scope_entry_list_t* entry_list = query_in_scope_str(entry->decl_context, entry->symbol_name, NULL);
         entry_list = filter_symbol_using_predicate(entry_list, is_function_or_template_function_name_or_extern_variable, NULL);
 
         // It seems somebody is hiding our name in this scope
@@ -9685,6 +9687,17 @@ static standard_conversion_t identity_scs(type_t* t_orig, type_t* t_dest)
     return result;
 }
 
+const char* sci_conversion_to_str(standard_conversion_item_t e)
+{
+    switch (e)
+    {
+#define SCI_CONVERSION_ID(X) case X : return #X;
+        SCI_LIST
+#undef SCI_CONVERSION_ID
+        default: return "<<<unknown standard conversion item kind>>>";
+    }
+}
+
 char standard_conversion_is_identity(standard_conversion_t scs)
 {
     return (scs.conv[0] == SCI_IDENTITY);
@@ -9996,7 +10009,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)))
+                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -10023,7 +10037,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)))
+                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
             (*result) = identity_scs(t_orig, t_dest);
@@ -10044,7 +10059,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
             // std::nullptr_t&& -> null pointer value is already a rvalue
             // null pointer value -> c2 T2*&&
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
             if (is_more_cv_qualified_type(ref_dest, ref_orig))
                 (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
@@ -10064,7 +10079,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if (is_class_type(no_ref(orig))
                 && is_class_type(no_ref(dest))
                 && class_type_is_base(no_ref(dest),
-                    get_unqualified_type(no_ref(orig))))
+                    get_unqualified_type(no_ref(orig)))
+                && !class_type_is_ambiguous_base_of_derived_class(
+                    no_ref(dest),
+                    no_ref(orig)))
         {
             ok = 1;
         }
@@ -10318,10 +10336,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-        else if ((is_floating_type(orig)
+        else if (is_floating_type(orig)
                     && is_integer_type(dest))
-                || (is_integer_type(orig)
-                    && is_floating_type(dest)))
         {
             DEBUG_CODE()
             {
@@ -10332,13 +10348,24 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_floating_type(dest)
+                && is_integer_type(orig))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating-integral conversion\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_FLOATING_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_floating_type(dest)
                 && is_bool_type(orig))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying floating-integral conversion from bool\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_FLOATING_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10349,12 +10376,11 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying floating-integral conversion from enum\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_FLOATING_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-        else if (IS_CXX_LANGUAGE
-                && is_zero_type(orig)
+        else if (is_zero_type(orig)
                 && (is_pointer_type(dest)
                     || is_pointer_to_member_type(dest)))
         {
@@ -10363,7 +10389,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying pointer-conversion from 0 to pointer\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_ZERO_TO_POINTER_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10377,7 +10403,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying pointer-conversion from std::nullptr_t to pointer\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10388,7 +10414,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying pointer-conversion to void*\n");
             }
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_POINTER_TO_VOID_CONVERSION;
 
             // We need to keep the cv-qualification of the original pointer
             // e.g.: 'const int*' -> 'void*'
@@ -10398,7 +10424,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                         get_cv_qualifier(pointer_type_get_pointee_type(orig))));
         }
         else if (IS_C_LANGUAGE
-                && is_pointer_type(dest) 
+                && is_pointer_type(dest)
                 && !is_pointer_to_void_type(dest)
                 && is_pointer_to_void_type(orig))
         {
@@ -10411,7 +10437,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying pointer-conversion from void* to another pointer type\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_VOID_TO_POINTER_CONVERSION;
             dest = get_unqualified_type(orig);
         }
         else if (IS_C_LANGUAGE
@@ -10430,7 +10456,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_TO_POINTER_CONVERSION;
             dest = get_unqualified_type(orig);
         }
         else if (IS_C_LANGUAGE
@@ -10450,18 +10476,21 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
             }
 
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_POINTER_TO_INTEGRAL_CONVERSION;
             dest = get_unqualified_type(orig);
         }
         else if (is_pointer_to_class_type(orig)
                 && is_pointer_to_class_type(dest)
-                && pointer_to_class_type_is_base_strict(dest, orig))
+                && pointer_to_class_type_is_base_strict(dest, orig)
+                && !class_type_is_ambiguous_base_of_derived_class(
+                        pointer_type_get_pointee_type(dest),
+                        pointer_type_get_pointee_type(orig)))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying pointer conversion to pointer to base class\n");
             }
-            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            (*result).conv[1] = SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION;
             // Note that we make orig to be the dest class pointer, because we want
             // to state qualification conversion later
             orig = get_pointer_type(
@@ -10474,13 +10503,15 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 && is_pointer_to_member_type(dest)
                 // Note: we will check that they are valid pointer-to-members later, in qualification conversion
                 // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
-                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest)))
+                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest))
+                && !class_type_is_ambiguous_base_of_derived_class(pointer_to_member_type_get_class_type(orig),
+                    pointer_to_member_type_get_class_type(dest)))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Applying pointer-to-member conversion to pointer-to-member of derived class\n");
             }
-            (*result).conv[1] = SCI_POINTER_TO_MEMBER_CONVERSION;
+            (*result).conv[1] = SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION;
             // Note that orig is converted to an unqualified version of the dest type.
             // Given dest as 'cv1 T (A::* cv2)' we will set orig to 'T (A::*)'
             orig = get_pointer_to_member_type(
@@ -10514,7 +10545,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying integer to (complex-)floating-integral conversion\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_INTEGRAL_TO_COMPLEX_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -10528,7 +10559,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying complex-float to integral conversion\n");
             }
-            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            (*result).conv[1] = SCI_COMPLEX_TO_INTEGRAL_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -11180,7 +11211,7 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
 //      2.2 no non-trivial move constructor,
 //      2.3 a trivial destructor,
 //      2.4 a trivial default constructor or at least one constexpr constructor
-//          other than the copy or move constructor  FIXME: THIS IS NOT SUPPORTED YET
+//          other than the copy or move constructor
 //      2.5 all non-static data members and base classes of literal types
 //  3. an array of literal type
 //
@@ -11492,11 +11523,12 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
         && covariant_return(potential_overrider, function_type);
 }
 
-char function_type_same_parameter_types(type_t* t1, type_t* t2)
+char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2)
 {
     return compatible_parameters(t1->function, t2->function, 
             // FIXME - May we need the proper context?
-            CURRENT_COMPILED_FILE->global_decl_context);
+            CURRENT_COMPILED_FILE->global_decl_context)
+        && get_cv_qualifier(t1) == get_cv_qualifier(t2);
 }
 
 char class_type_is_trivially_copiable(type_t* t)
@@ -13457,4 +13489,57 @@ void get_packs_in_type(type_t* pack_type,
             get_packs_in_type(sequence_of_types_get_type_num(pack_type, i), packs_to_expand, num_packs_to_expand);
         }
     }
+}
+
+static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
+        type_t* base_class,
+        int *num_subobjects,
+        int *num_virtual_subobjects)
+{
+    int i;
+    int num_bases = class_type_get_num_bases(derived_class);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        char is_expansion = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* current_base = class_type_get_base_num(derived_class, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
+
+        // Should not happen, ignore them
+        if (is_dependent || is_expansion)
+            continue;
+
+        if (equivalent_types(get_actual_class_type(current_base->type_information),
+                    get_actual_class_type(base_class)))
+        {
+            if (is_virtual)
+                (*num_virtual_subobjects) = 1; // Only one
+            else
+                (*num_subobjects)++;
+        }
+        else
+        {
+            class_type_is_ambiguous_base_of_class_aux(current_base->type_information,
+                    base_class, num_subobjects, num_virtual_subobjects);
+        }
+    }
+}
+
+char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class)
+{
+    ERROR_CONDITION(!is_class_type(base_class), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(derived_class), "This is not a class type", 0);
+
+    int num_subobjects = 0;
+    int num_virtual_subobjects = 0;
+
+    class_type_is_ambiguous_base_of_class_aux(derived_class, base_class, &num_subobjects, &num_virtual_subobjects);
+
+    return (num_subobjects > 1)
+        || (num_subobjects == 1 && num_virtual_subobjects != 0);
 }

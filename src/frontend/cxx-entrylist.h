@@ -89,6 +89,8 @@ LIBMCXX_EXTERN void entry_list_to_symbol_array(scope_entry_list_t*, scope_entry_
 
 LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t**);
 
+LIBMCXX_EXTERN WARN_UNUSED scope_entry_list_t* entry_list_concat(const scope_entry_list_t*, const scope_entry_list_t*);
+
 MCXX_END_DECLS
 
 #endif // CXX_ENTRYLIST_H

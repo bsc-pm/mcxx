@@ -492,7 +492,7 @@ LIBMCXX_EXTERN ref_qualifier_t function_type_get_ref_qualifier(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
-LIBMCXX_EXTERN char function_type_same_parameter_types(type_t* t1, type_t* t2);
+LIBMCXX_EXTERN char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2);
 
 LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_return);
 LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
@@ -636,6 +636,8 @@ LIBMCXX_EXTERN char class_type_is_base_strict(type_t* possible_base, type_t* pos
 LIBMCXX_EXTERN char class_type_is_derived(type_t* possible_derived, type_t* possible_base);
 LIBMCXX_EXTERN char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base);
 
+LIBMCXX_EXTERN char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class);
+
 LIBMCXX_EXTERN char is_pointer_to_void_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);
 
@@ -746,6 +748,8 @@ LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);
 LIBMCXX_EXTERN long long unsigned int type_system_used_memory(void);
+
+LIBMCXX_EXTERN const char* sci_conversion_to_str(standard_conversion_item_t e);
 
 /* Only for type environment routines in cxx-typeenviron.c. 
    Do not use them anywhere else */

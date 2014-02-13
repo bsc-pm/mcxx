@@ -438,6 +438,7 @@ nanox_mic_include=""
 nanox__mic_lib=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
+NANOX_LDFLAGS=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
 nanox_mic_enabled=no
@@ -587,6 +588,7 @@ fi
 
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
+AC_SUBST([NANOX_LDFLAGS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 AC_SUBST([NANOX_MIC_INCLUDES])
 AC_SUBST([NANOX_MIC_LIBS])
@@ -1582,6 +1584,11 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc-*-linux*)
            default_type_environ="linux-ppc32"
            ;;
+       powerpc64-bgq-linux)
+           # BlueGeneQ requires extra flags at link time
+           default_type_environ="linux-ppc64"
+           NANOX_LDFLAGS="-Wl,-dynamic"
+           ;;
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"
            ;;
@@ -1593,8 +1600,8 @@ dnl We try to figure a sensible default environment based on the configure envir
            default_type_environ="linux-ia64"
            ;;
        sparc-sun-solaris*)
-            RPATH_PARAMETER="-R"
             default_type_environ="solaris-sparcv9"
+            RPATH_PARAMETER="-R"
             ;;
        arm*-*-linux-gnueabi|arm*-*-linux-gnueabihf)
             default_type_environ="linux-arm"

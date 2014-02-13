@@ -7761,7 +7761,7 @@ decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
     decl_context_t global_context = decl_context;
     global_context.current_scope = decl_context.global_scope;
 
-    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics");
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics", NULL);
 
     ERROR_CONDITION(global_list == NULL, "Fortran intrinsics context was requested but it is missing", 0);
 

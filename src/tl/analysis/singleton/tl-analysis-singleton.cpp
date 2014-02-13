@@ -184,7 +184,7 @@ namespace Analysis {
                 // When calling to analysis with a non-TopLevel node, both the EXTENSIBLE_GRAPH and
                 // the non-TopLevel node, have the same label, so we have to look for the one that
                 // is not the EXTENSIBLE_GRAPH node.
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_label( ), n, /* skip conversion nodes */ true )
+                if( Nodecl::Utils::equal_nodecls( current->get_graph_related_ast( ), n, /* skip conversion nodes */ true )
                     && ( n.is<Nodecl::FunctionCode>( )
                          || n.is<Nodecl::OpenMP::SimdFunction>( )
                          || ( !n.is<Nodecl::FunctionCode>() && !current->is_extended_graph_node( ) ) ) )
@@ -354,6 +354,7 @@ namespace Analysis {
     {
         ObjectList<ExtensibleGraph*> result;
         ObjectList<Nodecl::NodeclBase> unique_asts;
+        std::map<Symbol, Nodecl::NodeclBase> asserted_funcs;
 
         // Get all unique ASTs embedded in 'ast'
         if( !ast.is<Nodecl::TopLevel>( ) )
@@ -366,6 +367,7 @@ namespace Analysis {
             Utils::TopLevelVisitor tlv;
             tlv.walk_functions( ast );
             unique_asts = tlv.get_functions( );
+            asserted_funcs = tlv.get_asserted_funcs( );
         }
 
         // Compute the PCFG corresponding to each AST
@@ -381,7 +383,7 @@ namespace Analysis {
                 if( VERBOSE )
                     printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
                 PCFGVisitor v( pcfg_name, *it );
-                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it );
+                ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it, asserted_funcs );
 
                 // Synchronize the tasks, if applies
                 if( VERBOSE )
