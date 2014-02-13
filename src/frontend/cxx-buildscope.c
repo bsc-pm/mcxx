@@ -1299,7 +1299,7 @@ void introduce_using_entities(
                     scope_entry_t* current_member = entry_list_iterator_current(it2);
 
                     if ((strcmp(current_member->symbol_name, entry->symbol_name) == 0)
-                            && function_type_same_parameter_types(current_member->type_information, entry->type_information))
+                            && function_type_same_parameter_types_and_cv_qualif(current_member->type_information, entry->type_information))
                     {
                         // This one is being hidden by a member function of the current class
                         is_hidden = 1;
@@ -14828,7 +14828,7 @@ void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declar
         {
             scope_entry_t* entry = entry_advance_aliases(orig_entry);
             if (entry->kind == SK_FUNCTION
-                    && function_type_same_parameter_types(entry->type_information, 
+                    && function_type_same_parameter_types_and_cv_qualif(entry->type_information, 
                         currently_declared->type_information))
             {
                 hidden = orig_entry;
