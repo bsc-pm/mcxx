@@ -7929,7 +7929,18 @@ static void build_scope_delayed_function_decl(void)
                         ast_location(tree));
             }
 
-            build_noexcept_spec(entry->type_information, tree, entry->decl_context, &entry->entity_specs.noexception);
+            decl_context_t relevant_context = entry->decl_context;
+
+            if (entry->entity_specs.num_related_symbols > 0)
+            {
+                // Use the context of the parameters if possible
+                relevant_context = entry->entity_specs.related_symbols[0]->decl_context;
+            }
+
+            build_noexcept_spec(entry->type_information,
+                    tree,
+                    relevant_context,
+                    &entry->entity_specs.noexception);
         }
     }
     build_scope_delayed_function_decl_clear_pending();
