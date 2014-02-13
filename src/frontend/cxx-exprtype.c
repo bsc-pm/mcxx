@@ -18825,15 +18825,35 @@ nodecl_t cxx_nodecl_make_function_call(
                         function_form, t,
                         locus);
 
-                if (called_symbol->entity_specs.is_constexpr
-                        && !check_expr_flags.do_not_evaluate)
+                if (!check_expr_flags.do_not_evaluate)
                 {
-                    const_value_t* const_value = evaluate_constexpr_function_call(
-                            called_symbol,
-                            converted_arg_list,
-                            locus);
+                    if (called_symbol->entity_specs.is_constexpr)
+                    {
+                        const_value_t* const_value = evaluate_constexpr_function_call(
+                                called_symbol,
+                                converted_arg_list,
+                                locus);
 
-                    nodecl_set_constant(result, const_value);
+                        nodecl_set_constant(result, const_value);
+                    }
+                    // Attempt to evaluate a builtin as well
+                    else if (called_symbol->entity_specs.is_builtin
+                            && called_symbol->entity_specs.simplify_function != NULL)
+                    {
+                        int num_simplify_args = 0;
+                        nodecl_t* simplify_args = nodecl_unpack_list(converted_arg_list, &num_simplify_args);
+
+                        nodecl_t simplified_value = (called_symbol->entity_specs.simplify_function)
+                            (called_symbol, num_simplify_args, simplify_args);
+
+                        xfree(simplify_args);
+
+                        if (!nodecl_is_null(simplified_value)
+                                && nodecl_is_constant(simplified_value))
+                        {
+                            nodecl_set_constant(result, nodecl_get_constant(simplified_value));
+                        }
+                    }
                 }
 
                 return result;
