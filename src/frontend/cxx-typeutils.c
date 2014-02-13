@@ -10380,8 +10380,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-        else if (IS_CXX_LANGUAGE
-                && is_zero_type(orig)
+        else if (is_zero_type(orig)
                 && (is_pointer_type(dest)
                     || is_pointer_to_member_type(dest)))
         {
