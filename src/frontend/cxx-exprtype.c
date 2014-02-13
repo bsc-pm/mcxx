@@ -18276,22 +18276,6 @@ constexpr_function_get_constants_of_arguments(
             }
         }
 
-        type_t* parameter_type = parameter->type_information;
-
-        // Lvalue-conversions
-        // function to pointer-to-function standard conversion
-        if (is_function_type(parameter_type))
-        {
-            parameter_type = get_pointer_type(parameter_type);
-        }
-        // Array to pointer standard conversion
-        else if (is_array_type(parameter_type))
-        {
-            parameter_type = array_type_get_element_type(parameter_type);
-            parameter_type = get_pointer_type(parameter_type);
-        }
-        parameter_type = get_unqualified_type(parameter_type);
-
         result[i].parameter = parameter;
         result[i].value = argument_value;
     }
