@@ -18266,7 +18266,17 @@ constexpr_function_get_constants_of_arguments(
         {
             if (i == 0)
             {
-                internal_error("Not yet implemented: 'this'", 0);
+                decl_context_t body_context =  nodecl_retrieve_context(
+                        nodecl_get_child(entry->entity_specs.function_code, 0)
+                        );
+                scope_entry_list_t* this_list =
+                    query_name_str(body_context, "this", NULL);
+
+                ERROR_CONDITION(this_list == NULL, "There should be a 'this'", 0);
+
+                scope_entry_t* this_in_body = entry_list_head(this_list);
+
+                parameter = this_in_body;
             }
             else
             {
@@ -18289,6 +18299,21 @@ constexpr_function_get_constants_of_arguments(
     return result;
 }
 
+static const_value_t* lookup_value_in_map(map_of_parameters_with_their_arguments_t* map_of_parameters_and_values,
+        int num_map_items,
+        scope_entry_t* entry)
+{
+    int i;
+    for (i = 0; i < num_map_items; i++)
+    {
+        if (entry == map_of_parameters_and_values[i].parameter)
+        {
+            return map_of_parameters_and_values[i].value;
+        }
+    }
+    return NULL;
+}
+
 static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
         int num_map_items,
         map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
@@ -18307,13 +18332,35 @@ static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
     if (nodecl_get_kind(n) == NODECL_SYMBOL)
     {
         scope_entry_t* entry = nodecl_get_symbol(n);
-        for (i = 0; i < num_map_items; i++)
-        {
-            if (entry == map_of_parameters_and_values[i].parameter)
-            {
-                nodecl_t nodecl_value
-                    = const_value_to_nodecl(map_of_parameters_and_values[i].value);
 
+        if (entry->symbol_name != NULL
+                && strcmp(entry->symbol_name, "this") == 0)
+        {
+            // We cannot directly replace 'this' only its derreferences
+        }
+        else
+        {
+            const_value_t* value = lookup_value_in_map(map_of_parameters_and_values, num_map_items, entry);
+
+            if (value != NULL)
+            {
+                nodecl_t nodecl_value = const_value_to_nodecl(value);
+                nodecl_replace(n, nodecl_value);
+            }
+        }
+    }
+    else if (nodecl_get_kind(n) == NODECL_DEREFERENCE
+            && nodecl_get_kind(nodecl_get_child(n, 0)) == NODECL_SYMBOL)
+    {
+        scope_entry_t* entry = nodecl_get_symbol(nodecl_get_child(n, 0));
+        if (entry->symbol_name != NULL
+                && strcmp(entry->symbol_name, "this") == 0)
+        {
+            const_value_t* value = lookup_value_in_map(map_of_parameters_and_values, num_map_items, entry);
+
+            if (value != NULL)
+            {
+                nodecl_t nodecl_value = const_value_to_nodecl(value);
                 nodecl_replace(n, nodecl_value);
             }
         }
@@ -18454,7 +18501,7 @@ static const_value_t* evaluate_constexpr_function_call(
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call\n");
+        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n", get_qualified_symbol_name(entry, entry->decl_context));
     }
     map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
         constexpr_function_get_constants_of_arguments(converted_arg_list, entry);
@@ -19340,6 +19387,125 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     v->nodecl_result = result;
 }
 
+static void instantiate_class_member_access(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    // This node is not dependent but we have to compute the access to the subobject anyway
+    nodecl_t nodecl_accessed = nodecl_shallow_copy(nodecl_get_child(node, 0));
+    nodecl_t nodecl_member_literal = nodecl_get_child(node, 2);
+
+    ERROR_CONDITION(nodecl_is_null(nodecl_member_literal), "Cannot instantiate this tree", 0);
+
+    check_nodecl_member_access(
+            nodecl_accessed,
+            nodecl_member_literal,
+            v->decl_context,
+            /* is_arrow */ 0,
+            /* has_template_tag */ 0,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
+
+static nodecl_t update_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    template_parameter_list_t* template_args =
+        nodecl_get_template_parameters(node);
+    template_parameter_list_t* update_template_args =
+        update_template_argument_list(v->decl_context,
+                template_args,
+                nodecl_get_locus(node),
+                v->pack_index);
+
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_template_id(
+            nodecl_get_child(node, 0), // FIXME - We may have to update this as well!
+            nodecl_get_text(node),
+            update_template_args,
+            nodecl_get_locus(node));
+
+    return nodecl_name;
+}
+
+static nodecl_t update_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
+        nodecl_t (*func)(nodecl_t, const locus_t*))
+{
+    nodecl_t nodecl_result_list = nodecl_null();
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        nodecl_t expr = nodecl_shallow_copy(list[i]);
+        if (nodecl_get_kind(expr) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            template_parameter_list_t* template_args =
+                nodecl_get_template_parameters(expr);
+            template_parameter_list_t* updated_template_args =
+                update_template_argument_list(v->decl_context,
+                        template_args,
+                        nodecl_get_locus(expr),
+                        v->pack_index);
+
+            nodecl_set_template_parameters(expr, updated_template_args);
+        }
+        else if (nodecl_get_kind(expr) == NODECL_CXX_DEP_NAME_CONVERSION)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+
+        nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
+    }
+    xfree(list);
+
+    nodecl_t nodecl_name = (*func)(nodecl_result_list, nodecl_get_locus(node));
+
+    return nodecl_name;
+}
+
+static nodecl_t instantiate_id_expr_of_class_member_access(
+        nodecl_instantiate_expr_visitor_t* v,
+        nodecl_t node)
+{
+    if (nodecl_get_kind(node) == NODECL_CXX_DEP_NAME_SIMPLE)
+    {
+        return nodecl_shallow_copy(node);
+    }
+    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        return update_dep_template_id(v, node);
+    }
+    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_NAME_NESTED)
+    {
+        return update_common_dep_name_nested(v, node, nodecl_make_cxx_dep_name_nested);
+    }
+    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+    {
+        return update_common_dep_name_nested(v, node, nodecl_make_cxx_dep_global_name_nested);
+    }
+    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_NAME_CONVERSION)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else 
+    {
+        internal_error("Unexpected node '%s'\n", ast_print_node_type(nodecl_get_kind(node)));
+    }
+}
+
+static void instantiate_cxx_class_member_access(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_accessed = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_member = instantiate_id_expr_of_class_member_access(v, nodecl_get_child(node, 1));
+
+    check_nodecl_member_access(
+            nodecl_accessed,
+            nodecl_member,
+            v->decl_context,
+            /* is_arrow */ 0,
+            nodecl_get_text(node) != NULL,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
+
 static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
@@ -19471,6 +19637,14 @@ static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t 
 
 static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
+    // If this structured value represents a struct constant, handle it as if
+    // it were a literal
+    if (nodecl_is_constant(node))
+    {
+        v->nodecl_result = nodecl_shallow_copy(node);
+        return;
+    }
+
     type_t* t = nodecl_get_type(node);
 
     t = update_type_for_instantiation(t,
@@ -19881,21 +20055,10 @@ static void instantiate_dep_name_simple(nodecl_instantiate_expr_visitor_t* v, no
     cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &field_path, &v->nodecl_result);
 }
 
+
 static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
-    template_parameter_list_t* template_args =
-        nodecl_get_template_parameters(node);
-    template_parameter_list_t* update_template_args =
-        update_template_argument_list(v->decl_context,
-                template_args,
-                nodecl_get_locus(node),
-                v->pack_index);
-
-    nodecl_t nodecl_name = nodecl_make_cxx_dep_template_id(
-            nodecl_get_child(node, 0), // FIXME - We may have to update this as well!
-            nodecl_get_text(node),
-            update_template_args,
-            nodecl_get_locus(node));
+    nodecl_t nodecl_name = update_dep_template_id(v, node);
 
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             v->decl_context,
@@ -19910,36 +20073,7 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
 static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
         nodecl_t (*func)(nodecl_t, const locus_t*))
 {
-    nodecl_t nodecl_result_list = nodecl_null();
-    int num_items = 0;
-    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
-
-    int i;
-    for (i = 0; i < num_items; i++)
-    {
-        nodecl_t expr = list[i];
-        if (nodecl_get_kind(expr) == NODECL_CXX_DEP_TEMPLATE_ID)
-        {
-            template_parameter_list_t* template_args =
-                nodecl_get_template_parameters(expr);
-            template_parameter_list_t* updated_template_args =
-                update_template_argument_list(v->decl_context,
-                        template_args,
-                        nodecl_get_locus(expr),
-                        v->pack_index);
-
-            nodecl_set_template_parameters(expr, updated_template_args);
-        }
-        else if (nodecl_get_kind(expr) == NODECL_CXX_DEP_NAME_CONVERSION)
-        {
-            internal_error("Not yet implemented", 0);
-        }
-
-        nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
-    }
-    xfree(list);
-
-    nodecl_t nodecl_name = (*func)(nodecl_result_list, nodecl_get_locus(node));
+    nodecl_t nodecl_name = update_common_dep_name_nested(v, node, func);
 
     field_path_t field_path;
     field_path_init(&field_path);
@@ -20173,6 +20307,10 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Symbol
     NODECL_VISITOR(v)->visit_symbol = instantiate_expr_visitor_fun(instantiate_symbol);
+
+    // Class member access
+    NODECL_VISITOR(v)->visit_class_member_access = instantiate_expr_visitor_fun(instantiate_class_member_access);
+    NODECL_VISITOR(v)->visit_cxx_class_member_access = instantiate_expr_visitor_fun(instantiate_cxx_class_member_access);
 
     // Binary operations
     NODECL_VISITOR(v)->visit_add = instantiate_expr_visitor_fun(instantiate_binary_op);
