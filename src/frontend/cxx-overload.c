@@ -514,7 +514,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             if ((equivalent_types(no_ref(orig), no_ref(dest))
                         || (is_class_type(no_ref(orig))
                             && is_class_type(no_ref(dest))
-                            && class_type_is_base(no_ref(dest), no_ref(orig))))
+                            && class_type_is_base(no_ref(dest), no_ref(orig))
+                            && !class_type_is_ambiguous_base_of_derived_class(no_ref(dest), no_ref(orig))))
                     && (!is_const_qualified_type(no_ref(orig))
                         || is_const_qualified_type(no_ref(dest))))
             {

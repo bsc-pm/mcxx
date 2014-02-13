@@ -636,6 +636,8 @@ LIBMCXX_EXTERN char class_type_is_base_strict(type_t* possible_base, type_t* pos
 LIBMCXX_EXTERN char class_type_is_derived(type_t* possible_derived, type_t* possible_base);
 LIBMCXX_EXTERN char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base);
 
+LIBMCXX_EXTERN char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class);
+
 LIBMCXX_EXTERN char is_pointer_to_void_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);
 
