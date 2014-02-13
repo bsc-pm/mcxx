@@ -6534,18 +6534,17 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
 
                 nodecl_t nodecl_base_access = nodecl_this_derref;
 
-                // Now integrate every item in the field_path skipping the first
-                // (which is the class type itself) and the last (the accessed subobject
+                // Now integrate every item in the field_path
                 if (field_path != NULL)
                 {
-                    int i;
-                    for (i = 1; i < field_path->length - 1; i++)
+                    ERROR_CONDITION(field_path->length > 1, "Unexpected length for field path", 0);
+                    if (field_path->length == 1)
                     {
                         nodecl_base_access = nodecl_make_class_member_access(
                                 nodecl_base_access,
-                                nodecl_make_symbol(field_path->path[i], nodecl_get_locus(nodecl_name)),
+                                nodecl_make_symbol(field_path->path[0], nodecl_get_locus(nodecl_name)),
                                 /* member_literal */ nodecl_null(),
-                                field_path->path[i]->type_information,
+                                field_path->path[0]->type_information,
                                 nodecl_get_locus(nodecl_name));
                     }
                 }
@@ -12126,16 +12125,54 @@ static void check_nodecl_member_access(
             // (which is the class type itself) and the last (the accessed subobject
             nodecl_t nodecl_base_access = nodecl_accessed_out;
 
-            int i;
-            for (i = 1; i < field_path.length - 1; i++)
+            // const_value_t* current_const_value = nodecl_get_constant(nodecl_base_access);
+            // type_t* current_const_value_type = accessed_type;
+
+            ERROR_CONDITION(field_path.length > 1, "Unexpected length for field path", 0);
+            if (field_path.length == 1)
             {
                 nodecl_base_access = nodecl_make_class_member_access(
                         nodecl_base_access,
-                        nodecl_make_symbol(field_path.path[i], nodecl_get_locus(nodecl_accessed)),
+                        nodecl_make_symbol(field_path.path[0], nodecl_get_locus(nodecl_accessed)),
                         nodecl_null(),
-                        field_path.path[i]->type_information,
+                        get_user_defined_type(field_path.path[0]),
                         nodecl_get_locus(nodecl_accessed));
             }
+
+            // if (current_const_value != NULL)
+            // {
+            //     // Determine the position of this base in the current_const_value_type
+            //     // and update the constant
+            //     scope_entry_list_t* direct_bases = class_type_get_direct_base_classes(current_const_value_type);
+
+            //     scope_entry_list_iterator_t* it = NULL;
+
+            //     int base_pos = -1;
+            //     int j = 0;
+            //     for (it = entry_list_iterator_begin(direct_bases);
+            //             !entry_list_iterator_end(it);
+            //             entry_list_iterator_next(it), j++)
+            //     {
+            //         if (entry_list_iterator_current(it) == field_path.path[i])
+            //         {
+            //             base_pos = j;
+            //             break;
+            //         }
+            //     }
+
+            //     entry_list_free(direct_bases);
+
+            //     if (base_pos >= 0
+            //             && (base_pos < const_value_get_num_elements(current_const_value)))
+            //     {
+            //         current_const_value = const_value_get_element_num(current_const_value, base_pos);
+            //         current_const_value_type = get_user_defined_type(field_path.path[i]);
+            //     }
+            //     else
+            //     {
+            //         current_const_value = NULL;
+            //     }
+            // }
 
             // Integrate also the anonymous accesses
             if (entry->entity_specs.is_member_of_anonymous)
@@ -12150,6 +12187,41 @@ static void check_nodecl_member_access(
                     /* member literal */ nodecl_shallow_copy(nodecl_member),
                     type_of_class_member_access,
                     nodecl_get_locus(nodecl_accessed));
+
+            // if (current_const_value != NULL)
+            // {
+            //     ERROR_CONDITION(!const_value_is_structured(current_const_value), "Invalid constant", 0);
+
+            //     // We need to skip all the bases
+            //     int num_bases = class_type_get_num_bases(current_const_value_type);
+
+            //     scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(current_const_value_type);
+
+            //     scope_entry_list_iterator_t* it = NULL;
+
+            //     int member_pos = -1;
+            //     i = 0;
+            //     for (it = entry_list_iterator_begin(nonstatic_data_members);
+            //             !entry_list_iterator_end(it);
+            //             entry_list_iterator_next(it), i++)
+            //     {
+            //         if (entry == entry_list_iterator_current(it))
+            //         {
+            //             member_pos = i;
+            //             break;
+            //         }
+            //     }
+
+            //     entry_list_iterator_free(it);
+            //     entry_list_free(nonstatic_data_members);
+
+            //     if (member_pos >= 0
+            //             && (member_pos < const_value_get_num_elements(current_const_value)))
+            //     {
+            //         const_value_t* subconst_value = const_value_get_element_num(current_const_value, num_bases + member_pos);
+            //         nodecl_set_constant(*nodecl_output, subconst_value);
+            //     }
+            // }
         }
         else if (entry->kind == SK_ENUMERATOR)
         {

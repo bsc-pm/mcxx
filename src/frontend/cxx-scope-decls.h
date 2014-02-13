@@ -386,11 +386,13 @@ struct scope_tag
 
 typedef const char* (*print_symbol_callback_t)(scope_entry_t*, decl_context_t, void*);
 
+enum { MCXX_MAX_FIELD_PATH = 1 };
+
 typedef
 struct field_path_tag
 {
     int length;
-    scope_entry_t* path[MCXX_MAX_SCOPES_NESTING];
+    scope_entry_t* path[MCXX_MAX_FIELD_PATH];
 } field_path_t;
 
 MCXX_END_DECLS
