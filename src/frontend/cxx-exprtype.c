@@ -6633,6 +6633,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     else if (entry->kind == SK_FUNCTION)
     {
         type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
+
         *nodecl_output = nodecl_name;
         nodecl_set_type(*nodecl_output, t);
 
@@ -9616,6 +9617,24 @@ static char any_is_member_function(scope_entry_list_t* candidates)
     return is_member;
 }
 
+static char any_is_nonstatic_member_function(scope_entry_list_t* candidates)
+{
+    char is_member = 0;
+
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it) && !is_member;
+            entry_list_iterator_next(it))
+    {
+        is_member |= entry_list_iterator_current(it)->entity_specs.is_member
+            && !entry_list_iterator_current(it)->entity_specs.is_static;
+    }
+    entry_list_iterator_free(it);
+
+    return is_member;
+}
+
+
 static char any_is_member_function_of_a_dependent_class(scope_entry_list_t* candidates)
 {
     char result = 0;
@@ -10210,6 +10229,45 @@ static void check_nodecl_function_call_cxx(
         {
             nodecl_implicit_argument = nodecl_get_child(nodecl_called, 0);
             argument_types[0] = nodecl_get_type(nodecl_implicit_argument);
+
+            if (!nodecl_is_null(nodecl_get_child(nodecl_called, 2)) 
+                    && (nodecl_get_kind(nodecl_get_child(nodecl_called, 2)) == NODECL_CXX_DEP_NAME_NESTED // a.B::f()
+                        || nodecl_get_kind(nodecl_get_child(nodecl_called, 2)) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)) // a.::B::f()
+            {
+                // We need to get the proper subobject otherwise overload may
+                // not allow derived to base conversions
+                field_path_t field_path;
+                field_path_init(&field_path);
+                scope_entry_list_t* extra_query = get_member_of_class_type_nodecl(
+                        decl_context,
+                        no_ref(get_unqualified_type(argument_types[0])),
+                        nodecl_get_child(nodecl_called, 2),
+                        &field_path);
+
+                ERROR_CONDITION(extra_query == NULL, "This should not happen", 0);
+                entry_list_free(extra_query);
+
+                ERROR_CONDITION(field_path.length > 1, "Unexpected length of field path", 0);
+                if (field_path.length == 1)
+                {
+                    type_t* subobject_type = 
+                        get_cv_qualified_type(
+                                get_user_defined_type(field_path.path[0]),
+                                get_cv_qualifier(argument_types[0]));
+
+                    if (is_lvalue_reference_type(argument_types[0]))
+                        subobject_type = get_lvalue_reference_type(subobject_type);
+                    else if (is_rvalue_reference_type(argument_types[0]))
+                        subobject_type = get_rvalue_reference_type(subobject_type);
+
+                    // Create a conversion to the proper subobject
+                    nodecl_implicit_argument = nodecl_make_conversion(
+                            nodecl_implicit_argument,
+                            subobject_type,
+                            nodecl_get_locus(nodecl_called));
+                    argument_types[0] = subobject_type;
+                }
+            }
         }
         else
         {
@@ -10229,6 +10287,47 @@ static void check_nodecl_function_call_cxx(
                             nodecl_sym,
                             get_lvalue_reference_type(class_type),
                             nodecl_get_locus(nodecl_called));
+
+                if (any_is_nonstatic_member_function(candidates)
+                        && (nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_NESTED // B::f()
+                            || nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)) // ::B::f()
+                {
+                    field_path_t field_path;
+                    field_path_init(&field_path);
+                    scope_entry_list_t* extra_query = get_member_of_class_type_nodecl(
+                            decl_context,
+                            no_ref(get_unqualified_type(class_type)),
+                            nodecl_called_name,
+                            &field_path);
+
+                    // This may not exist if we are calling a static member
+                    // function of another non-base class
+                    if (extra_query != NULL)
+                    {
+                        entry_list_free(extra_query);
+
+                        ERROR_CONDITION(field_path.length > 1, "Unexpected length of field path", 0);
+                        if (field_path.length == 1)
+                        {
+                            type_t* subobject_type = 
+                                get_cv_qualified_type(
+                                        get_user_defined_type(field_path.path[0]),
+                                        get_cv_qualifier(argument_types[0]));
+
+                            if (is_lvalue_reference_type(argument_types[0]))
+                                subobject_type = get_lvalue_reference_type(subobject_type);
+                            else if (is_rvalue_reference_type(argument_types[0]))
+                                subobject_type = get_rvalue_reference_type(subobject_type);
+
+                            // Create a conversion to the proper subobject
+                            nodecl_implicit_argument = nodecl_make_conversion(
+                                    nodecl_implicit_argument,
+                                    subobject_type,
+                                    nodecl_get_locus(nodecl_called));
+                            argument_types[0] = subobject_type;
+                        }
+                    }
+                }
             }
         }
     }
@@ -12258,8 +12357,9 @@ static void check_nodecl_member_access(
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
 
-            ok = 1;
-
+            // Note that we do not store anything from the field_path as we
+            // will have to reconstruct the accessed subobject when building the
+            // function call
             *nodecl_output = nodecl_make_class_member_access(
                     nodecl_accessed_out,
                     /* This symbol goes unused when we see that its type is already an overload */
@@ -12267,6 +12367,8 @@ static void check_nodecl_member_access(
                     /* member literal */ nodecl_shallow_copy(nodecl_member),
                     t,
                     nodecl_get_locus(nodecl_accessed));
+
+            ok = 1;
         }
     }
 
@@ -17805,7 +17907,7 @@ static void error_message_overload_failed(candidate_t* candidates,
 
     argument_types = strappend(argument_types, ")");
 
-    error_printf("%s: error: failed overload call to %s%s\n",
+    error_printf("%s: error: failed overload call to '%s%s'\n",
             locus_to_str(locus), name, argument_types);
 
     char there_are_nonstatic_members = 0;
@@ -18040,8 +18142,6 @@ constexpr_function_get_constants_of_arguments(
             return NULL;
         }
 
-        // Perform the conversion. Here all the conversions should involve
-        // only standard conversions and no user defined conversions
         scope_entry_t* parameter = NULL;
         if (!entry->entity_specs.is_member
                 || entry->entity_specs.is_static
@@ -18382,6 +18482,7 @@ nodecl_t cxx_nodecl_make_function_call(
     {
         // Ignore the first argument as we know it is 'this'
         i = 1;
+
         converted_arg_list = nodecl_append_to_list(converted_arg_list, list[0]);
         ignore_this = 1;
     }
@@ -18397,8 +18498,8 @@ nodecl_t cxx_nodecl_make_function_call(
                         get_unqualified_type(no_ref(param_type)),
                         get_unqualified_type(no_ref(arg_type))))
             {
-                list[i] = cxx_nodecl_make_conversion(list[i], 
-                        param_type, 
+                list[i] = cxx_nodecl_make_conversion(list[i],
+                        param_type,
                         nodecl_get_locus(list[i]));
             }
         }
@@ -18564,14 +18665,22 @@ nodecl_t cxx_nodecl_make_function_call(
                 {
                     alternate_name = orig_called;
                 }
-                else if (!nodecl_is_null(called_name)
-                        && !nodecl_is_null(nodecl_get_child(called_name, 2))
-                        && ((nodecl_get_kind(nodecl_get_child(called_name, 2))
-                                == NODECL_CXX_DEP_NAME_NESTED) // x.A::f()
-                            || (nodecl_get_kind(nodecl_get_child(called_name, 2))
-                                == NODECL_CXX_DEP_GLOBAL_NAME_NESTED )  )) // x.::A::f
+                else if (!nodecl_is_null(called_name))
                 {
-                    alternate_name = nodecl_get_child(called_name, 2);
+                    if (nodecl_get_kind(called_name) == NODECL_CLASS_MEMBER_ACCESS
+                            && !nodecl_is_null(nodecl_get_child(called_name, 2))
+                            && ((nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                    == NODECL_CXX_DEP_NAME_NESTED) // x.A::f()
+                                || (nodecl_get_kind(nodecl_get_child(called_name, 2))
+                                    == NODECL_CXX_DEP_GLOBAL_NAME_NESTED )  )) // x.::A::f
+                    {
+                        alternate_name = nodecl_get_child(called_name, 2);
+                    }
+                    else if (nodecl_get_kind(called_name) == NODECL_CXX_DEP_NAME_NESTED
+                            || nodecl_get_kind(called_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+                    {
+                        alternate_name = called_name;
+                    }
                 }
 
                 nodecl_t result = nodecl_make_function_call(called,
