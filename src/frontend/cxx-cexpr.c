@@ -1083,7 +1083,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 }
                 else
                 {
-                    return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
+                    if (const_value_is_zero(v)
+                            || const_value_is_positive(v))
+                    {
+                        return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
+                    }
+                    else
+                    {
+                        // We cannot directly represent a negative integer literal in nodecl,
+                        // so use a negated value instead
+                        nodecl_t nodecl_result = nodecl_make_neg(
+                                nodecl_make_integer_literal(t, const_value_neg(v), make_locus("", 0, 0)),
+                                t, make_locus("", 0, 0));
+                        nodecl_set_constant(nodecl_result, v);
+
+                        return nodecl_result;
+                    }
                 }
                 break;
             }
@@ -1094,7 +1109,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 type_t* t = basic_type;
                 if (t == NULL)
                     t = get_suitable_floating_type(v);
-                return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
+                if (const_value_is_zero(v)
+                        || const_value_is_positive(v))
+                {
+                    return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
+                }
+                else
+                {
+                    // We cannot directly represent a negative floating literal in nodecl,
+                    // so use a negated value instead
+                    nodecl_t nodecl_result = nodecl_make_neg(
+                            nodecl_make_floating_literal(t, const_value_neg(v), make_locus("", 0, 0)),
+                            t, make_locus("", 0, 0));
+                    nodecl_set_constant(nodecl_result, v);
+
+                    return nodecl_result;
+                }
                 break;
             }
         case CVK_STRING:
