@@ -11524,11 +11524,12 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
         && covariant_return(potential_overrider, function_type);
 }
 
-char function_type_same_parameter_types(type_t* t1, type_t* t2)
+char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2)
 {
     return compatible_parameters(t1->function, t2->function, 
             // FIXME - May we need the proper context?
-            CURRENT_COMPILED_FILE->global_decl_context);
+            CURRENT_COMPILED_FILE->global_decl_context)
+        && get_cv_qualifier(t1) == get_cv_qualifier(t2);
 }
 
 char class_type_is_trivially_copiable(type_t* t)

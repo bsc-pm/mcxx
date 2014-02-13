@@ -492,7 +492,7 @@ LIBMCXX_EXTERN ref_qualifier_t function_type_get_ref_qualifier(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
-LIBMCXX_EXTERN char function_type_same_parameter_types(type_t* t1, type_t* t2);
+LIBMCXX_EXTERN char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2);
 
 LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_return);
 LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
