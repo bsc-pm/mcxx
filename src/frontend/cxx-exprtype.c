@@ -6594,7 +6594,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         if (!nodecl_is_null(entry->value)
-                && nodecl_expr_is_value_dependent(entry->value))
+                && (nodecl_expr_is_value_dependent(entry->value)
+                    || nodecl_expr_is_type_dependent(entry->value)))
         {
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
