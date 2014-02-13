@@ -83,18 +83,19 @@ static void field_path_add(field_path_t* field_path, scope_entry_t* symbol)
     if (field_path == NULL)
         return;
 
-    ERROR_CONDITION(field_path->length == MCXX_MAX_SCOPES_NESTING, "Too many symbols in field path", 0);
+    ERROR_CONDITION(field_path->length == MCXX_MAX_FIELD_PATH, "Too many symbols in field path", 0);
 
     field_path->path[field_path->length] = symbol;
     field_path->length++;
 }
 
+#if 0
 static void field_path_prepend(field_path_t* field_path, scope_entry_t* symbol)
 {
     if (field_path == NULL)
         return;
 
-    ERROR_CONDITION(field_path->length == MCXX_MAX_SCOPES_NESTING, "Too many symbols in field path", 0);
+    ERROR_CONDITION(field_path->length == MCXX_MAX_FIELD_PATH, "Too many symbols in field path", 0);
 
     // Shift right
     int i;
@@ -105,6 +106,7 @@ static void field_path_prepend(field_path_t* field_path, scope_entry_t* symbol)
     field_path->path[0] = symbol;
     field_path->length++;
 }
+#endif
 
 template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters)
 {
@@ -1439,7 +1441,7 @@ type_t* build_dependent_typename_for_entry(
 
 static scope_entry_list_t* query_in_class(scope_t* current_class_scope, 
         const char* name,
-        field_path_t* field_path,
+        field_path_t* field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags,
         const locus_t* locus)
 {
@@ -1477,8 +1479,6 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
             scope_entry_t* class_symbol = class_or_enum_type_get_inner_context(result.path[i]).current_scope->related_entry;
             if (class_symbol == looked_up_symbol)
                 break;
-
-            field_path_add(field_path, class_symbol);
         }
     }
     else
@@ -5312,7 +5312,6 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         if (equivalent_types(get_user_defined_type(current_class), get_user_defined_type(entry)))
         {
             scope_entry_t* destructor = class_type_get_destructor(current_class->type_information);
-            field_path_add(field_path, destructor);
             return entry_list_new(destructor);
         }
         else
@@ -5340,7 +5339,6 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
                 nodecl_name, 
                 locus);
 
-        field_path_add(field_path, new_sym);
         return entry_list_new(new_sym);
     }
 
@@ -5594,7 +5592,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         decl_context_t decl_context,
         decl_context_t top_level_decl_context,
         nodecl_t nodecl_name,
-        field_path_t *field_path,
+        field_path_t *field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags UNUSED_PARAMETER)
 {
     // We need a class scope around that we will check first
@@ -5707,11 +5705,6 @@ static scope_entry_list_t* query_nodecl_conversion_name(
             nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
 
     scope_entry_list_t* result = query_conversion_function_info(class_context, t);
-
-    if (result != NULL)
-    {
-        field_path_add(field_path, entry_list_head(result));
-    }
 
     return result;
 }
@@ -6335,6 +6328,7 @@ static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_conte
             NULL, NULL);
 }
 
+#if 0
 static char field_path_prepend_with_subobject_path(
         field_path_t* field_path,
         scope_entry_t* first_base_path,
@@ -6380,6 +6374,7 @@ static char field_path_prepend_with_subobject_path(
     }
     return 0;
 }
+#endif
 
 static char check_symbol_is_base_or_member(
         scope_entry_t* nested_name_spec_symbol,
@@ -6461,20 +6456,9 @@ static char check_symbol_is_base_or_member(
         return 0;
     }
 
-    if (field_path != NULL)
-    {
-        // We know this is not an ambiguous base, so it might happen that the
-        // first item in field_path is not the current class symbol but a non
-        // ambiguous base
-        ERROR_CONDITION(field_path->length == 0, "Should not happen", 0);
 
-        if (field_path->path[0]->kind == SK_CLASS
-                && !equivalent_types(field_path->path[0]->type_information, class_symbol->type_information))
-        {
-            int found = field_path_prepend_with_subobject_path(field_path, field_path->path[0], class_symbol);
-            ERROR_CONDITION(!found, "Should not happen", 0);
-        }
-    }
+    // Remember this unambiguous base
+    field_path_add(field_path, nested_name_spec_symbol);
 
     return 1;
 }
@@ -6572,12 +6556,6 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
     }
 
     scope_entry_list_t* entry_list = query_nodecl_name_in_class_aux(decl_context, class_symbol, nodecl_name, field_path, decl_flags);
-
-    if (entry_list != NULL
-            && field_path != NULL)
-    {
-        field_path_add(field_path, entry_list_head(entry_list));
-    }
 
     return entry_list;
 }
