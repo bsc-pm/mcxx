@@ -241,6 +241,25 @@ namespace TL
                                 phase->get_phase_name().c_str());
                     }
                 }
+
+                // Run cleanup after the whole pipeline has been run
+                for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                        it != compiler_phases_list.end();
+                        it++)
+                {
+                    TL::CompilerPhase* phase = (*it);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "COMPILERPHASES: Running phase cleanup of phase '%s' at end of pipeline\n",
+                                phase->get_phase_name().c_str());
+                    }
+                    phase->phase_cleanup_end_of_pipeline(dto);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "COMPILERPHASES: Phase cleanup of phase '%s' at end of pipeline finished\n",
+                                phase->get_phase_name().c_str());
+                    }
+                }
             }
 
             static void unload_compiler_phases(void)
