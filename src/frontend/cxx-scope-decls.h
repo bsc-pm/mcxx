@@ -136,6 +136,7 @@ struct decl_context_tag
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
 
+    // Fortran IMPLICIT info
     implicit_info_t* implicit_info;
 
     // Scope of the declaration,
@@ -308,8 +309,14 @@ typedef fortran_modules_data_set_t *pfortran_modules_data_set_t;
 struct scope_entry_tag
 {
     // Kind of this symbol
-    enum cxx_symbol_kind kind;
-    
+    enum cxx_symbol_kind kind:8;
+    // This allows us to enforce the one-definition-rule within a translation unit
+    _Bool defined:1;
+    // Do not print this symbol (because of recursion, hiding, etc) Used
+    // specially for the injected class-name, where printing it in print scope
+    // routines would create an infinite recursion.
+    _Bool do_not_print:1;
+
     // Decl context when the symbol was declared it contains the scope where
     // the symbol was registered
     decl_context_t decl_context;
@@ -317,16 +324,13 @@ struct scope_entry_tag
     // The symbol name
     const char* symbol_name;
 
-    // This allows us to enforce the one-definition-rule within a translation unit
-    int defined;
-
     // Type information of this symbol
     struct type_tag* type_information;
 
     // Related decl_context of this symbol. Namespaces in C++ and all program
     // units in Fortran use this field
     decl_context_t related_decl_context;
-    
+
     // Initializations of several kind are saved here
     //  - initialization of const objects
     //  - enumerator values
@@ -334,11 +338,6 @@ struct scope_entry_tag
 
     // Locus where the symbol was registered
     const locus_t* locus;
-
-    // Do not print this symbol (because of recursion, hiding, etc) Used
-    // specially for the injected class-name, where printing it in print scope
-    // routines would create an infinite recursion.
-    char do_not_print;
 
     // All entity specifiers are in this structure
     entity_specifiers_t entity_specs;
