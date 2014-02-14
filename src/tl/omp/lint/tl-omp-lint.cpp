@@ -73,16 +73,16 @@ namespace OpenMP {
                     Nodecl::List local_vars;
                     if( task_is_locally_bound(*it, local_vars).is_true( ) )
                     {
-                        if( task_only_synchronizes_in_enclosing_scopes(*it).is_true( ) 
-                            || task_is_statically_determined_to_late_execution(*it).is_true( ) )
+                        if( task_only_synchronizes_in_enclosing_scopes(*it).is_false( ) )
                         {
-                            Nodecl::NodeclBase task = (*it)->get_graph_related_ast( );
+                            std::string task_locus = (*it)->get_graph_related_ast( ).get_locus_str();
+                            std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                             std::string local_vars_str = get_nodecl_list_str( local_vars );
-                            warn_printf( "%s: warning: OpenMP task defines as shared local data '%s'"
+                            warn_printf( "%s: warning: OpenMP task defines as shared local data '%s' "
                                          "whose lifetime may have ended when the task is executed.\n"
-                                         "Consider privatizing the variable or synchronizing "
-                                         "the task before the local data is deallocated.", 
-                                         task.get_locus_str().c_str(), local_vars_str.c_str( ) );
+                                         "%sConsider privatizing the variable or synchronizing "
+                                         "the task before the local data is deallocated.\n", 
+                                         task_locus.c_str(), local_vars_str.c_str(), tabulation.c_str() );
                         }
                     }
                 }
@@ -94,9 +94,10 @@ namespace OpenMP {
                     {
                         Nodecl::NodeclBase task = (*it)->get_graph_related_ast( );
                         std::string race_cond_vars_str = get_nodecl_list_str( race_cond_vars );
-                        warn_printf( "%s: warning: OpenMP task may have a race condition on '%s' "
-                                     "because other threads access concurrently to the same data.\n", 
-                                     task.get_locus_str().c_str(), race_cond_vars_str.c_str( ) );
+                        warn_printf( "%s: warning: OpenMP task uses data '%s' "
+                                     "which is in a race condition with another usage of the same variable\n",
+                                     task.get_locus_str().c_str(), race_cond_vars_str.c_str() );
+                        
                     }
                 }
             }
@@ -243,7 +244,7 @@ namespace OpenMP {
             return result;
         }
         
-        // Returns true when task may synchronize at some point 
+        // Returns false when task may synchronize at some point 
         // which is not enclosed in the scope where the task is created
         tribool task_only_synchronizes_in_enclosing_scopes( TL::Analysis::Node *n )
         {
@@ -251,7 +252,7 @@ namespace OpenMP {
             ERROR_CONDITION( children.empty( ), 
                              "We should have computed at least some exit edge for this task", 0 );
             
-            tribool result = false;
+            tribool result = true;
             
             ObjectList<TL::Analysis::Node*> task_parents = n->get_parents( );
             ERROR_CONDITION( task_parents.size( ) != 1, 
@@ -262,42 +263,18 @@ namespace OpenMP {
             ERROR_CONDITION( task_creation_sc == NULL, 
                              "The context of a task creation node cannot be NULL, but task's %d is NULL.", 
                              n->get_id( ) );
-            for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); 
-                 it != children.end( ); ++it )
+            for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             {
                 TL::Analysis::Node* sync_sc = TL::Analysis::ExtensibleGraph::get_enclosing_context( *it );
-                if( sync_sc == NULL )   // This a Post_Sync
-                    continue;
-                
-                if( !TL::Analysis::ExtensibleGraph::node_contains_node( task_creation_sc, sync_sc ) )
+                if( ( sync_sc == NULL ) ||                                  // This a Post_Sync
+                    ( task_creation_sc != sync_sc &&                        // Task synchronizes in an outbound scope 
+                      !TL::Analysis::ExtensibleGraph::node_contains_node( task_creation_sc, sync_sc ) ) )
                 {
-                    result = true;
+                    result = false;
                     break;
                 }
             }
             
-            return result;
-        }
-        
-        // Returns true when the task has a post synchronization, meaning that 
-        // it may be synchronized after the function where it is created ends
-        tribool task_is_statically_determined_to_late_execution( TL::Analysis::Node *n )
-        {
-            TL::ObjectList<TL::Analysis::Edge*> exit_edges = n->get_exit_edges( );            
-            ERROR_CONDITION( exit_edges.empty( ), 
-                             "We should have computed at least some exit edge for this task", 0 );
-            
-            tribool result = false;
-            for( TL::ObjectList<TL::Analysis::Edge*>::iterator it = exit_edges.begin( );
-                 it != exit_edges.end( ); it++ )
-            {
-                std::string exit_label = (*it)->get_label( );
-                if( exit_label == "post" )
-                {
-                    result = true;
-                    break;
-                }
-            }
             return result;
         }
         
@@ -455,21 +432,22 @@ namespace OpenMP {
                     node_defs.insert( node_kill.begin( ), node_kill.end( ) );
                     node_defs.insert( node_undef.begin( ), node_undef.end( ) );
                 }
-                if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, task_defs ) || 
-                    TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, task_defs ) || 
-                    TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, task_defs ) || 
-                    TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, node_defs ) || 
-                    TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, node_defs ) || 
-                    TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, node_defs ) )
+                if( ( !task_defs.empty( ) &&
+                      ( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, task_defs ) || 
+                        TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, task_defs ) || 
+                        TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, task_defs ) ) ) || 
+                    ( !node_defs.empty( ) &&
+                      ( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, node_defs ) || 
+                        TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, node_defs ) || 
+                        TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, node_defs ) ) ) )
                 {   // If all accesses are protected in a critical/atomic construct, then there is no race condition
                     // 1. Check accesses in the concurrent nodes
                     for( TL::ObjectList<TL::Analysis::Node*>::iterator it2 = it->second.begin( ); it2 != it->second.end( ); ++it2 )
                     {
                         if( !TL::Analysis::ExtensibleGraph::node_is_in_synchronous_construct( *it2 ) )
                         {
-                            warn_printf( "%s: warning: '#pragma omp task' uses data '%s' "
-                                         "which is in a race condition with another usage of the same variable\n",
-                                         task.get_locus_str().c_str(), it->first.prettyprint( ).c_str( ) );
+                            result = true;
+                            race_cond_vars.append( it->first );
                             var_warned = true;
                             break;
                         }
@@ -489,9 +467,8 @@ namespace OpenMP {
                             {
                                 if( !TL::Analysis::ExtensibleGraph::node_is_in_synchronous_construct( *it2 ) )
                                 {
-                                    warn_printf( "%s: warning: '#pragma omp task' uses data '%s' "
-                                                 "which is in a race condition with another usage of the same variable\n",
-                                                 task.get_locus_str().c_str(), it->first.prettyprint( ).c_str( ) );
+                                    result = true;
+                                    race_cond_vars.append( it->first );
                                     break;
                                 }
                             }
