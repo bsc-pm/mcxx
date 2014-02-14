@@ -189,6 +189,11 @@ namespace TL
             _already_informed_new_ompss_copy_deps = false;
         }
 
+        void Core::phase_cleanup_end_of_pipeline(DTO& data_flow)
+        {
+            Core::reduction_map_info.clear();
+        }
+
         void Core::get_clause_symbols(
                 PragmaCustomClause clause, 
                 const TL::ObjectList<TL::Symbol> &symbols_in_construct,

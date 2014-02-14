@@ -182,6 +182,7 @@ namespace TL
                 virtual void pre_run(TL::DTO& dto);
 
                 virtual void phase_cleanup(TL::DTO& data_flow);
+                virtual void phase_cleanup_end_of_pipeline(TL::DTO& dto);
 
                 virtual ~Core() { }
 

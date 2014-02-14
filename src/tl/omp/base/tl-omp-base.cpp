@@ -154,6 +154,10 @@ namespace TL { namespace OpenMP {
         _core.phase_cleanup(data_flow);
     }
 
+    void Base::phase_cleanup_end_of_pipeline(DTO& data_flow)
+    {
+        _core.phase_cleanup_end_of_pipeline(data_flow);
+    }
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
