@@ -182,7 +182,7 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation", 
+                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -194,7 +194,7 @@ namespace TL
 
                     if (there_were_errors)
                     {
-                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation", 
+                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
