@@ -431,8 +431,6 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     // its declaration scope but will be in .template_scope
     result->decl_context = decl_context;
 
-    result->extended_data = counted_xcalloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
-    extensible_struct_init(&result->extended_data);
     insert_alias(sc, result, result->symbol_name);
 
     return result;

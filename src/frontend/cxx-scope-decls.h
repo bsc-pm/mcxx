@@ -48,9 +48,6 @@
 
 #include "fortran/fortran03-scope-decls.h"
 
-// Extensible schema
-#include "extstruct.h"
-
 MCXX_BEGIN_DECLS
 
 /*
@@ -300,6 +297,9 @@ typedef nodecl_t (*simplify_function_t)(scope_entry_t* entry, int num_arguments,
 
 typedef void (*emission_handler_t)(scope_entry_t*, const locus_t* locus);
 
+typedef struct fortran_modules_data_set_tag fortran_modules_data_set_t;
+typedef fortran_modules_data_set_t *pfortran_modules_data_set_t;
+
 // Looking for struct entity_specifiers_tag?
 // Now it is declared in cxx-entity-specs.h in builddir
 #include "cxx-entity-specs.h"
@@ -342,10 +342,7 @@ struct scope_entry_tag
 
     // All entity specifiers are in this structure
     entity_specifiers_t entity_specs;
-
-    // Extensible information of a symbol
-    extensible_struct_t* extended_data;
-}; 
+};
 
 // Scope kind
 enum scope_kind

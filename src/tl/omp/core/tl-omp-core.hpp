@@ -58,6 +58,9 @@ namespace TL
 
         class Core : public TL::PragmaCustomCompilerPhase
         {
+            public:
+                typedef std::map<TL::Symbol, OpenMP::Reduction*> reduction_map_info_t;
+                static reduction_map_info_t reduction_map_info;
             private:
                 void parse_new_udr(const std::string& str);
 

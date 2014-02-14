@@ -45,6 +45,8 @@ namespace TL
         bool Core::_silent_declare_reduction(false);
         bool Core::_already_informed_new_ompss_copy_deps(false);
 
+        Core::reduction_map_info_t Core::reduction_map_info;
+
         Core::Core()
             : PragmaCustomCompilerPhase("omp"),
             _discard_unused_data_sharings(false),

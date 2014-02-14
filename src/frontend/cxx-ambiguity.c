@@ -29,7 +29,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "extstruct.h"
 #include "cxx-ast.h"
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"

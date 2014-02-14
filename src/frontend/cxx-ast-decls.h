@@ -27,9 +27,10 @@
 
 
 
-#ifndef CXX_AST_TYPES_H
-#define CXX_AST_TYPES_H
+#ifndef CXX_AST_DECLS_H
+#define CXX_AST_DECLS_H
 
 #include "cxx-ast-fwd.h"
+#include "cxx-asttype.h"
 
-#endif // CXX_AST_TYPES_H
+#endif // CXX_AST_DECLS_H

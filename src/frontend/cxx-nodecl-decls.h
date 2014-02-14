@@ -28,11 +28,13 @@
 #define CXX_NODECL_OUTPUT_DECLS_H
 
 #include "cxx-nodecl-fwd.h"
-#include "cxx-ast.h"
+#include "cxx-ast-decls.h"
 
 struct nodecl_tag
 {
     AST tree;
 };
+
+struct nodecl_expr_info_tag;
 
 #endif // CXX_NODECL_OUTPUT_DECLS_H

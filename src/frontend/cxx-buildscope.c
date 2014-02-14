@@ -30,7 +30,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
-#include "extstruct.h"
 #include "cxx-driver.h"
 #include "cxx-buildscope.h"
 #include "cxx-scope.h"

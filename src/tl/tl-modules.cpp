@@ -98,8 +98,7 @@ namespace TL
 
         scope_entry_t* entry = module.get_internal_symbol();
 
-        fortran_modules_data_set_t* extra_module_info 
-            = (fortran_modules_data_set_t*)extensible_struct_get_field(entry->extended_data, ".extra_module_info");
+        fortran_modules_data_set_t* extra_module_info = entry->entity_specs.module_extra_info;
 
         if (extra_module_info != NULL)
         {
