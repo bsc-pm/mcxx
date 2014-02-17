@@ -9513,6 +9513,8 @@ static char check_argument_types_of_call(
 
     int num_args_to_check = num_explicit_arguments;
 
+    char is_promoting_ellipsis = 0;
+
     if (!function_type_get_lacking_prototype(function_type))
     {
         if (!function_type_get_has_ellipsis(function_type))
@@ -9532,6 +9534,12 @@ static char check_argument_types_of_call(
         }
         else
         {
+            int num_parameters = function_type_get_num_parameters(function_type);
+            is_promoting_ellipsis =
+                is_ellipsis_type(
+                        function_type_get_parameter_type_num(function_type, num_parameters - 1)
+                        );
+
             int min_arguments = function_type_get_num_parameters(function_type) - 1;
             num_args_to_check = min_arguments;
 
@@ -9579,16 +9587,19 @@ static char check_argument_types_of_call(
                 }
                 else
                 {
-                    type_t* arg_type = nodecl_get_type(arg);
-
-                    type_t* default_conversion = compute_default_argument_conversion(
-                            arg_type,
-                            data->decl_context,
-                            nodecl_get_locus(arg),
-                            /* emit_diagnostic */ 1);
-                    if (is_error_type(default_conversion))
+                    if (is_promoting_ellipsis)
                     {
-                        no_arg_is_faulty = 0;
+                        type_t* arg_type = nodecl_get_type(arg);
+
+                        type_t* default_conversion = compute_default_argument_conversion(
+                                arg_type,
+                                data->decl_context,
+                                nodecl_get_locus(arg),
+                                /* emit_diagnostic */ 1);
+                        if (is_error_type(default_conversion))
+                        {
+                            no_arg_is_faulty = 0;
+                        }
                     }
                 }
             }
@@ -10495,10 +10506,14 @@ static void check_nodecl_function_call_cxx(
         // Set conversors of arguments if needed
         num_items = 0;
         list = nodecl_unpack_list(nodecl_argument_list, &num_items);
-        
+
+        char is_promoting_ellipsis = 0;
         int num_parameters = function_type_get_num_parameters(function_type_of_called);
         if (function_type_get_has_ellipsis(function_type_of_called))
         {
+            is_promoting_ellipsis = is_ellipsis_type(
+                    function_type_get_parameter_type_num(function_type_of_called, num_parameters - 1)
+                    );
             num_parameters--;
         }
 
@@ -10569,16 +10584,19 @@ static void check_nodecl_function_call_cxx(
             }
             else
             {
-                // Ellipsis
-                type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
-                        decl_context,
-                        nodecl_get_locus(nodecl_arg),
-                        /* emit_diagnostic */ 1);
-
-                if (is_error_type(default_argument_promoted_type))
+                if (is_promoting_ellipsis)
                 {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    return;
+                    // Ellipsis
+                    type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
+                            decl_context,
+                            nodecl_get_locus(nodecl_arg),
+                            /* emit_diagnostic */ 1);
+
+                    if (is_error_type(default_argument_promoted_type))
+                    {
+                        *nodecl_output = nodecl_make_err_expr(locus);
+                        return;
+                    }
                 }
             }
 
@@ -14590,6 +14608,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 }
                 else
                 {
+                    // Note that it should not be possible to create
+                    // constructors with non promoting ellipsis, so we do not
+                    // check it here as we do in some other places
                     type_t* default_argument_promoted_type = compute_default_argument_conversion(
                             nodecl_get_type(nodecl_arg),
                             decl_context,
@@ -18599,9 +18620,15 @@ nodecl_t cxx_nodecl_make_function_call(
     ERROR_CONDITION(!is_function_type(function_type), "%s is not a function type!", 
             function_type == NULL ? "<<NULL>>" : print_declarator(function_type));
 
+    char is_promoting_ellipsis = 0;
     int num_parameters = function_type_get_num_parameters(function_type);
     if (function_type_get_has_ellipsis(function_type))
+    {
+        is_promoting_ellipsis = is_ellipsis_type(
+                function_type_get_parameter_type_num(function_type, num_parameters - 1)
+                );
         num_parameters--;
+    }
 
     // j is used to index the types of the function type
     // i is used to index the arguments of the call (possibly ignoring the
@@ -18642,21 +18669,24 @@ nodecl_t cxx_nodecl_make_function_call(
         }
         else
         {
-            // We do not emit diagnostic here because it is too late to take any
-            // corrective measure, the caller code should have checked it earlier
-            type_t* default_conversion = compute_default_argument_conversion(
-                    arg_type,
-                    /* decl_context is not used since we do not request diagnostics*/
-                    CURRENT_COMPILED_FILE->global_decl_context,
-                    nodecl_get_locus(list[i]),
-                    /* emit diagnostic */ 0);
-            ERROR_CONDITION(is_error_type(default_conversion),
-                    "This default argument conversion is wrong, should have been checked earlier\n",
-                    0);
+            if (is_promoting_ellipsis)
+            {
+                // We do not emit diagnostic here because it is too late to take any
+                // corrective measure, the caller code should have checked it earlier
+                type_t* default_conversion = compute_default_argument_conversion(
+                        arg_type,
+                        /* decl_context is not used since we do not request diagnostics*/
+                        CURRENT_COMPILED_FILE->global_decl_context,
+                        nodecl_get_locus(list[i]),
+                        /* emit diagnostic */ 0);
+                ERROR_CONDITION(is_error_type(default_conversion),
+                        "This default argument conversion is wrong, should have been checked earlier\n",
+                        0);
 
-            list[i] = cxx_nodecl_make_conversion(list[i],
-                    default_conversion,
-                    nodecl_get_locus(list[i]));
+                list[i] = cxx_nodecl_make_conversion(list[i],
+                        default_conversion,
+                        nodecl_get_locus(list[i]));
+            }
         }
 
         converted_arg_list = nodecl_append_to_list(converted_arg_list, list[i]);
