@@ -799,25 +799,38 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     }
 }
 
-int const_value_cast_to_signed_int(const_value_t* val)
-{
-    switch (val->kind)
-    {
-        case CVK_INTEGER:
-            return val->value.i;
-        case CVK_FLOAT:
-            return val->value.f;
-        case CVK_DOUBLE:
-            return val->value.d;
-        case CVK_LONG_DOUBLE:
-            return val->value.ld;
-#ifdef HAVE_QUADMATH_H
-        case CVK_FLOAT128:
+#ifdef HAVE_QUADMATH_H 
+#define CONST_VALUE_CAST_FROM_FLOAT_128 \
+        case CVK_FLOAT128: \
             return val->value.f128;
+#else
+#define CONST_VALUE_CAST_FROM_FLOAT_128
 #endif
-        OTHER_KIND;
-    }
+
+#define CONST_VALUE_CAST_TO_TYPE(type, typename) \
+type const_value_cast_to_##typename(const_value_t* val) \
+{ \
+    switch (val->kind) \
+    { \
+        case CVK_INTEGER: \
+            return val->value.i; \
+        case CVK_FLOAT: \
+            return val->value.f; \
+        case CVK_DOUBLE: \
+            return val->value.d; \
+        case CVK_LONG_DOUBLE: \
+            return val->value.ld; \
+        CONST_VALUE_CAST_FROM_FLOAT_128 \
+        OTHER_KIND; \
+    } \
 }
+
+CONST_VALUE_CAST_TO_TYPE(int, signed_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned int, unsigned_int)
+CONST_VALUE_CAST_TO_TYPE(long int, signed_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long int, unsigned_long_int)
+CONST_VALUE_CAST_TO_TYPE(long long int, signed_long_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long long int, unsigned_long_long_int)
 
 #ifdef HAVE_QUADMATH_H
   #define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE || kind == CVK_FLOAT128)
