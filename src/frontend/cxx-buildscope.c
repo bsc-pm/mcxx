@@ -9564,6 +9564,7 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 // Nothing more to do
                 parameter_info[num_parameters].is_ellipsis = 1;
+                parameter_info[num_parameters].type_info = get_ellipsis_type();
                 num_parameters++;
                 continue;
             }
@@ -13307,6 +13308,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
     if (function_type_get_has_ellipsis(function_entry->type_information))
     {
         parameter_info[real_num_parameters - 1].is_ellipsis = 1;
+        parameter_info[real_num_parameters - 1].type_info = get_ellipsis_type();
     }
 
     if (kr_parameter_declaration != NULL)

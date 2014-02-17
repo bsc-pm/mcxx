@@ -10207,6 +10207,7 @@ static void check_nodecl_function_call_cxx(
                     if (function_type_get_has_ellipsis(conversion_functional_type))
                     {
                         parameter_info[k + 1].is_ellipsis = 1;
+                        parameter_info[k + 1].type_info = get_ellipsis_type();
                     }
 
                     // Get the type

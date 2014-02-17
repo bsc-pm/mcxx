@@ -3155,6 +3155,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             parameter_info_t parameter_info;
             memset(&parameter_info, 0, sizeof(parameter_info));
             parameter_info.is_ellipsis = 1;
+            parameter_info.type_info = get_ellipsis_type();
 
             P_LIST_ADD(unpacked_parameter_types, num_unpacked_parameter_types, parameter_info);
         }

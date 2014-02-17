@@ -4801,7 +4801,10 @@ static type_t* function_type_replace_return_type_(type_t* t, type_t* new_return,
     }
 
     if (has_ellipsis)
+    {
         param_info[num_parameters - 1].is_ellipsis = 1;
+        param_info[num_parameters - 1].type_info = get_ellipsis_type();
+    }
 
     return new_function_type(new_return, param_info, num_parameters, ref_qualifier);
 }
@@ -12845,9 +12848,8 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
 
             if (function_type_get_has_ellipsis(orig))
             {
-                //The last parameter is an ellipsis (It has not type)
                 param_info[N-1].is_ellipsis = 1;
-                param_info[N-1].type_info = NULL;
+                param_info[N-1].type_info = get_ellipsis_type();
                 param_info[N-1].nonadjusted_type_info = NULL;
                 N = N - 1;
             }
