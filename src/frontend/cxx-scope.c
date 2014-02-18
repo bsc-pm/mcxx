@@ -3513,8 +3513,12 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     if (result == NULL)
     {
-        running_error("%s: error: type '%s' rendered invalid during instantiation\n",
-                locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
+                    locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
+        }
+        result = get_error_type();
     }
 
     DEBUG_CODE()
@@ -4644,7 +4648,8 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         result = strappend(class_qualification, result);
     }
-    else if (IS_CXX11_LANGUAGE && entry->kind == SK_ENUMERATOR)
+    else if (IS_CXX11_LANGUAGE
+            && entry->kind == SK_ENUMERATOR)
     {
         // In C++11 we qualify enumerators that are not members
         scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);
@@ -4662,6 +4667,7 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
                 return result;
         }
 #endif
+
         char prev_is_dependent = 0;
         const char* enum_qualification =
             get_fully_qualified_symbol_name_ex(enum_symbol, decl_context, &prev_is_dependent, max_qualif_level,

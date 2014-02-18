@@ -5408,7 +5408,7 @@ static char class_has_const_copy_assignment_operator(type_t* t)
 
         //    operator=(const T&)
         //    operator=(const volatile T&)
-        if (is_lvalue_reference_to_class_type(first_param_type)
+        if (is_lvalue_reference_type(first_param_type)
                 && is_const_qualified_type(reference_type_get_referenced_type(first_param_type)))
         {
             result = 1;
@@ -5447,7 +5447,7 @@ static char class_has_const_copy_constructor(type_t* t)
         //  A(const volatile A&)
         type_t* first_param_type = function_type_get_parameter_type_num(copy_assig_op->type_information, 0);
 
-        if (is_lvalue_reference_to_class_type(first_param_type)
+        if (is_lvalue_reference_type(first_param_type)
                 && is_const_qualified_type(reference_type_get_referenced_type(first_param_type)))
         {
             result = 1;
@@ -14611,11 +14611,11 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //
         //  operator=(cv T&)
         //  operator=(T)
-        if ((is_lvalue_reference_to_class_type(first_parameter)
-                    && equivalent_types(get_actual_class_type(class_type),
-                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
-                || (is_class_type(first_parameter) 
-                    && equivalent_types(get_actual_class_type(class_type), get_actual_class_type(first_parameter))))
+        if ((is_lvalue_reference_type(first_parameter)
+                    && equivalent_types_in_context(class_type,
+                        get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
+                        entry->decl_context))
+                || (equivalent_types_in_context(class_type, first_parameter, entry->decl_context)))
         {
             return 1;
         }
@@ -14634,9 +14634,10 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
         // Check that its form is either
         //
         //  operator=(cv T&&)
-        if (is_rvalue_reference_to_class_type(first_parameter)
-                && equivalent_types(get_actual_class_type(class_type),
-                    get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
+        if (is_rvalue_reference_type(first_parameter)
+                && equivalent_types_in_context(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
+                    entry->decl_context))
         {
             return 1;
         }
@@ -14659,9 +14660,10 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
         // A(const A&, X = x);
         // A(A&, X = x);
 
-        if (is_lvalue_reference_to_class_type(first_parameter)
-                && equivalent_types(get_actual_class_type(class_type),
-                    get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
+        if (is_lvalue_reference_type(first_parameter)
+                && equivalent_types_in_context(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
+                    entry->decl_context))
         {
             return 1;
         }
@@ -14684,9 +14686,10 @@ static char is_move_constructor(scope_entry_t* entry, type_t* class_type)
         // A(const A&&, X = x);
         // A(A&&, X = x);
 
-        if (is_rvalue_reference_to_class_type(first_parameter)
-                && equivalent_types(get_actual_class_type(class_type),
-                    get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
+        if (is_rvalue_reference_type(first_parameter)
+                && equivalent_types_in_context(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
+                    entry->decl_context))
         {
             return 1;
         }
@@ -14721,9 +14724,9 @@ static char is_virtual_destructor(type_t* class_type)
     return 0;
 }
 
-static void update_member_function_info(AST declarator_name, 
-        char is_constructor, 
-        scope_entry_t* entry, 
+static void update_member_function_info(AST declarator_name,
+        char is_constructor,
+        scope_entry_t* entry,
         type_t* class_type)
 {
     // Update information in the class about this member function
@@ -14766,10 +14769,8 @@ static void update_member_function_info(AST declarator_name,
 
                     CXX11_LANGUAGE()
                     {
-                        if (is_move_constructor(entry, class_type))
-                        {
-                            entry->entity_specs.is_move_constructor = 1;
-                        }
+                        entry->entity_specs.is_move_constructor =
+                            is_move_constructor(entry, class_type);
                     }
                 }
                 break;
@@ -14954,7 +14955,9 @@ static scope_entry_t* build_scope_member_function_definition(
     return entry;
 }
 
-static void build_scope_default_or_delete_member_function_definition(decl_context_t decl_context, AST a,
+static void build_scope_default_or_delete_member_function_definition(
+        decl_context_t decl_context,
+        AST a,
         access_specifier_t current_access, type_t* class_info,
         nodecl_t* nodecl_output)
 {
@@ -14963,7 +14966,6 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
 
     gather_info.inside_class_specifier = 1;
 
-    type_t* class_type = get_actual_class_type(class_info);
     const char* class_name = named_type_get_symbol(class_info)->symbol_name;
 
     AST function_header = ASTSon0(a);
@@ -15017,7 +15019,7 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
 
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol for default/delete", 0);
 
-    update_member_function_info(declarator_name, is_constructor, entry, class_type);
+    update_member_function_info(declarator_name, is_constructor, entry, class_info);
 
     switch (ASTType(a))
     {

@@ -188,8 +188,11 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
             if (updated_template_parameters->arguments[i] == NULL)
             {
-                error_printf("%s: could not instantiate template arguments of template type\n", 
-                        locus_to_str(locus));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: could not instantiate template arguments of template type\n", 
+                            locus_to_str(locus));
+                }
                 return NULL;
             }
         }
@@ -209,6 +212,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 locus,
                 /* instantiation_symbol_map */ NULL,
                 /* pack_index */ -1);
+        if (is_error_type(base_type))
+            return NULL;
     }
 
     scope_entry_t* new_member = new_symbol(new_context_for_template_parameters,
@@ -339,6 +344,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             locus,
                             /* instantiation_symbol_map */ NULL,
                             /* pack_index */ -1);
+
+                    if (is_error_type(new_member->type_information))
+                        return;
                 }
 
                 if (is_named_class_type(new_member->type_information))
@@ -425,6 +433,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         locus,
                         /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
+                if (is_error_type(new_member->type_information))
+                    return;
 
                 DEBUG_CODE()
                 {
@@ -698,6 +708,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             /* instantiation_symbol_map */ NULL,
                             /* pack_index */ -1);
 
+                    if (is_error_type(new_member->type_information))
+                        return;
+
                     new_member->entity_specs.is_non_emitted = 1;
                     new_member->entity_specs.emission_template = member_of_template;
                     new_member->entity_specs.emission_handler = instantiate_emit_member_function;
@@ -782,6 +795,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             NULL,
                             member_of_template->locus);
                 }
+
+                if (entry_list == NULL)
+                    return;
 
                 introduce_using_entities(
                         nodecl_null(),
@@ -885,6 +901,9 @@ static void instantiate_dependent_friend_function(
             context_of_being_instantiated, locus,
             /* instantiation_symbol_map */ NULL,
             /* pack_index */ -1);
+
+    if (is_error_type(new_type))
+        return;
 
     char is_template_id = nodecl_name_ends_in_template_id(friend->value);
     char is_templ_funct_decl =(is_template_specialized_type(friend->type_information) &&
@@ -1172,6 +1191,9 @@ static void instantiate_dependent_friend_function(
                         /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
                 new_type = alineated_type;
+
+                if (is_error_type(alineated_type))
+                    return;
             }
 
             scope_entry_list_t* filtered_entry_list = filter_symbol_kind(candidates_list, SK_TEMPLATE);
@@ -1433,6 +1455,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         locus,
                         /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
+                if (is_error_type(new_type))
+                    return;
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1531,6 +1555,9 @@ static void instantiate_bases(
                 locus,
                 /* instantiation_symbol_map */ NULL,
                 /* pack_index */ -1);
+
+        if (is_error_type(upd_base_class_named_type))
+            continue;
 
         ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
                 print_type_str(upd_base_class_named_type, context_of_being_instantiated));
