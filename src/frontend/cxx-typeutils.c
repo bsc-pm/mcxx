@@ -9338,6 +9338,11 @@ static const char* get_builtin_type_name(type_t* type_info)
                 result = strappend(result, c);
                 break;
             }
+        case STK_TYPE_DEP_EXPR:
+            {
+                result = strappend(result, "< dependent expression type >");
+                break;
+            }
         default :
             {
                 const char* c;

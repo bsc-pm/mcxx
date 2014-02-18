@@ -15496,7 +15496,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (entry->kind == SK_FUNCTION)
                         {
-                            update_member_function_info(declarator_name, is_constructor, entry, class_type);
+                            update_member_function_info(declarator_name, is_constructor, entry, class_info);
 
                             // This function might be hiding using declarations, remove those
                             hide_using_declarations(class_type, entry);

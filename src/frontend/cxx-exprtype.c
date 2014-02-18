@@ -20358,6 +20358,16 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
 static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t expansion = nodecl_get_child(node, 0);
+    nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
+
+    if (nodecl_expr_is_type_dependent(packed_expr))
+    {
+        v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
+                get_pack_type(nodecl_get_type(packed_expr)),
+                nodecl_get_locus(node));
+        nodecl_expr_set_is_type_dependent(v->nodecl_result, 1);
+        return;
+    }
 
     int len = get_length_of_pack_expansion_from_expression(expansion, v->decl_context, nodecl_get_locus(node));
 
