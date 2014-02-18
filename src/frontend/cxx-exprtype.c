@@ -6591,7 +6591,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
 
         if ((entry->decl_context.current_scope->related_entry == NULL ||
                 !symbol_is_parameter_of_function(entry, entry->decl_context.current_scope->related_entry))
-                && is_const_qualified_type(no_ref(entry->type_information))
+                && (is_const_qualified_type(no_ref(entry->type_information)) || entry->entity_specs.is_constexpr)
                 && !nodecl_is_null(entry->value)
                 && nodecl_is_constant(entry->value))
         {
