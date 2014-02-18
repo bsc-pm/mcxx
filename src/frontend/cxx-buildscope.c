@@ -4996,7 +4996,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: invalid enumerator initializer '%s'\n",
+                        error_printf("%s: error: invalid enumerator expression '%s'\n",
                                 ast_location(enumeration_expr),
                                 prettyprint_in_buffer(enumeration_expr));
                     }
@@ -5023,7 +5023,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         if (!checking_ambiguity())
                         {
-                            error_printf("%s: error: expression '%s' is not constant\n",
+                            error_printf("%s: error: enumerator expression '%s' is not constant\n",
                                     ast_location(enumeration_expr),
                                     prettyprint_in_buffer(enumeration_expr));
                         }
@@ -6998,58 +6998,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
        4. X does not have a user-declared destructor, and
        5. the move constructor would not be implicitly defined as deleted.
        */
-    char have_to_emit_implicit_move_constructor =
+    char may_have_to_emit_implicit_move_constructor =
         IS_CXX11_LANGUAGE
         && user_declared_copy_constructors == NULL
         && user_declared_copy_assignment_operators == NULL
         && user_declared_move_assignment_operators == NULL
         && user_declared_destructor == NULL;
 
-    if (have_to_emit_implicit_move_constructor)
+    if (may_have_to_emit_implicit_move_constructor)
     {
-        const char* constructor_name = NULL;
-        if (is_named_class_type(type_info))
-        {
-            uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
-        }
-        else
-        {
-            uniquestr_sprintf(&constructor_name, "%s", "constructor ");
-        }
-
-        scope_entry_t* implicit_move_constructor = new_symbol(class_type_get_inner_context(class_type),
-                class_scope,
-                constructor_name);
-
-        parameter_info_t parameter_info[1];
-        memset(parameter_info, 0, sizeof(parameter_info));
-        parameter_info[0].is_ellipsis = 0;
-        parameter_info[0].type_info = get_rvalue_reference_type(type_info);
-
-        type_t* move_constructor_type = get_new_function_type(
-                NULL, // Constructors do not return anything
-                parameter_info,
-                1, REF_QUALIFIER_NONE);
-
-        implicit_move_constructor->kind = SK_FUNCTION;
-        implicit_move_constructor->locus = locus;
-        implicit_move_constructor->entity_specs.is_member = 1;
-        implicit_move_constructor->entity_specs.access = AS_PUBLIC;
-        implicit_move_constructor->entity_specs.class_type = type_info;
-        implicit_move_constructor->entity_specs.is_constructor = 1;
-        implicit_move_constructor->entity_specs.is_move_constructor = 1;
-        implicit_move_constructor->entity_specs.is_conversor_constructor = 1;
-        implicit_move_constructor->entity_specs.is_inline = 1;
-
-        implicit_move_constructor->type_information = move_constructor_type;
-
-        implicit_move_constructor->defined = 1;
-
-        implicit_move_constructor->entity_specs.num_parameters = 1;
-        implicit_move_constructor->entity_specs.default_argument_info = empty_default_argument_info(1);
-
-        class_type_add_member(class_type, implicit_move_constructor);
-
         /*
            An implicitly-declared copy/move constructor is an inline public member of its class. A defaulted copy-
            /move constructor for a class X is defined as deleted (8.4.3) if X has:
@@ -7172,11 +7129,54 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     || has_member_without_move_constructor_that_cannot_be_trivially_copied
                     || has_base_without_move_constructor_that_cannot_be_trivially_copied)
         {
-            // This move constructor is deleted
-            implicit_move_constructor->entity_specs.is_deleted = 1;
+            // The move constructor is deleted
         }
         else
         {
+            // Add the move constructor
+            const char* constructor_name = NULL;
+            if (is_named_class_type(type_info))
+            {
+                uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            }
+            else
+            {
+                uniquestr_sprintf(&constructor_name, "%s", "constructor ");
+            }
+
+            scope_entry_t* implicit_move_constructor = new_symbol(class_type_get_inner_context(class_type),
+                    class_scope,
+                    constructor_name);
+
+            parameter_info_t parameter_info[1];
+            memset(parameter_info, 0, sizeof(parameter_info));
+            parameter_info[0].is_ellipsis = 0;
+            parameter_info[0].type_info = get_rvalue_reference_type(type_info);
+
+            type_t* move_constructor_type = get_new_function_type(
+                    NULL, // Constructors do not return anything
+                    parameter_info,
+                    1, REF_QUALIFIER_NONE);
+
+            implicit_move_constructor->kind = SK_FUNCTION;
+            implicit_move_constructor->locus = locus;
+            implicit_move_constructor->entity_specs.is_member = 1;
+            implicit_move_constructor->entity_specs.access = AS_PUBLIC;
+            implicit_move_constructor->entity_specs.class_type = type_info;
+            implicit_move_constructor->entity_specs.is_constructor = 1;
+            implicit_move_constructor->entity_specs.is_move_constructor = 1;
+            implicit_move_constructor->entity_specs.is_conversor_constructor = 1;
+            implicit_move_constructor->entity_specs.is_inline = 1;
+
+            implicit_move_constructor->type_information = move_constructor_type;
+
+            implicit_move_constructor->defined = 1;
+
+            implicit_move_constructor->entity_specs.num_parameters = 1;
+            implicit_move_constructor->entity_specs.default_argument_info = empty_default_argument_info(1);
+
+            class_type_add_member(class_type, implicit_move_constructor);
+
             // If it is not deleted we still have to figure if it is trivial
             /*
                A copy/move constructor for class X is trivial if it is neither user-provided nor deleted and if
@@ -7435,48 +7435,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
     }
 
-    char have_to_emit_implicit_move_assignment =
+    char may_have_to_emit_implicit_move_assignment =
         IS_CXX11_LANGUAGE
         && user_declared_move_assignment_operators == NULL
         && user_declared_copy_constructors == NULL
         && user_declared_move_constructors == NULL
         && user_declared_copy_assignment_operators == NULL;
 
-    if (have_to_emit_implicit_move_assignment)
+    if (may_have_to_emit_implicit_move_assignment)
     {
-        parameter_info_t parameter_info[1];
-        memset(parameter_info, 0, sizeof(parameter_info));
-        parameter_info[0].is_ellipsis = 0;
-
-        parameter_info[0].type_info = get_rvalue_reference_type(type_info);
-
-        type_t* move_assignment_type = get_new_function_type(
-                /* returns T& */ get_lvalue_reference_type(type_info), 
-                parameter_info,
-                1, REF_QUALIFIER_NONE);
-
-        scope_entry_t* implicit_move_assignment_function = new_symbol(class_type_get_inner_context(class_type),
-                class_scope,
-                STR_OPERATOR_ASSIGNMENT);
-
-        implicit_move_assignment_function->kind = SK_FUNCTION;
-        implicit_move_assignment_function->locus = locus;
-        implicit_move_assignment_function->entity_specs.is_member = 1;
-        implicit_move_assignment_function->entity_specs.access = AS_PUBLIC;
-        implicit_move_assignment_function->entity_specs.class_type = type_info;
-        implicit_move_assignment_function->entity_specs.is_inline = 1;
-
-        implicit_move_assignment_function->type_information = move_assignment_type;
-
-        implicit_move_assignment_function->defined = 1;
-
-        implicit_move_assignment_function->entity_specs.num_parameters = 1;
-        implicit_move_assignment_function->entity_specs.default_argument_info = empty_default_argument_info(1);
-
-        implicit_move_assignment_function->entity_specs.is_move_assignment_operator = 1;
-
-        class_type_add_member(class_type, implicit_move_assignment_function);
-
         scope_entry_list_iterator_t* it = NULL;
 
         char union_has_member_with_nontrivial_move_assignment = 0;
@@ -7602,10 +7569,43 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 || has_base_without_move_assignment_operator_and_not_trivially_copiable
                 || has_virtual_bases)
         {
-            implicit_move_assignment_function->entity_specs.is_deleted = 1;
+            // The move assignment operator is deleted
         }
         else
         {
+            parameter_info_t parameter_info[1];
+            memset(parameter_info, 0, sizeof(parameter_info));
+            parameter_info[0].is_ellipsis = 0;
+
+            parameter_info[0].type_info = get_rvalue_reference_type(type_info);
+
+            type_t* move_assignment_type = get_new_function_type(
+                    /* returns T& */ get_lvalue_reference_type(type_info), 
+                    parameter_info,
+                    1, REF_QUALIFIER_NONE);
+
+            scope_entry_t* implicit_move_assignment_function = new_symbol(class_type_get_inner_context(class_type),
+                    class_scope,
+                    STR_OPERATOR_ASSIGNMENT);
+
+            implicit_move_assignment_function->kind = SK_FUNCTION;
+            implicit_move_assignment_function->locus = locus;
+            implicit_move_assignment_function->entity_specs.is_member = 1;
+            implicit_move_assignment_function->entity_specs.access = AS_PUBLIC;
+            implicit_move_assignment_function->entity_specs.class_type = type_info;
+            implicit_move_assignment_function->entity_specs.is_inline = 1;
+
+            implicit_move_assignment_function->type_information = move_assignment_type;
+
+            implicit_move_assignment_function->defined = 1;
+
+            implicit_move_assignment_function->entity_specs.num_parameters = 1;
+            implicit_move_assignment_function->entity_specs.default_argument_info = empty_default_argument_info(1);
+
+            implicit_move_assignment_function->entity_specs.is_move_assignment_operator = 1;
+
+            class_type_add_member(class_type, implicit_move_assignment_function);
+
             // If not deleted it may be trivial
             char has_base_classes_with_no_trivial_move_assignment = 0;
 
