@@ -1053,6 +1053,10 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                         const_value_to_str(v));
             }
 
+            if (nodecl_expr_is_type_dependent(*nodecl_output))
+            {
+                fprintf(stderr, " [TYPE DEPENDENT]");
+            }
             if (nodecl_expr_is_value_dependent(*nodecl_output))
             {
                 fprintf(stderr, " [VALUE DEPENDENT]");
@@ -15772,6 +15776,10 @@ char check_initialization(AST initializer,
                 const_value_t* v = nodecl_get_constant(*nodecl_output);
                 fprintf(stderr, " with a constant value '%s'",
                         const_value_to_str(v));
+            }
+            if (nodecl_expr_is_type_dependent(*nodecl_output))
+            {
+                fprintf(stderr, " [TYPE DEPENDENT]");
             }
             if (nodecl_expr_is_value_dependent(*nodecl_output))
             {
