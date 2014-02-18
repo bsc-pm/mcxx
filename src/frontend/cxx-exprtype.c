@@ -19120,17 +19120,24 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     NODECL_WALK(visitor, node);
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Expression '%s' instantiated to expression '%s'. Constant evaluation is %s\n",
+        fprintf(stderr, "EXPRTYPE: Expression '%s' instantiated to expression '%s'. Constant evaluation is %s",
                 codegen_to_str(node, visitor->decl_context),
                 codegen_to_str(visitor->nodecl_result, visitor->decl_context),
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
         if (nodecl_is_constant(visitor->nodecl_result))
         {
-            fprintf(stderr, "EXPRTYPE: Instantiated expression '%s' has constant value '%s'\n",
-                    codegen_to_str(visitor->nodecl_result, visitor->decl_context),
-                    codegen_to_str(const_value_to_nodecl(nodecl_get_constant(visitor->nodecl_result)),
-                        visitor->decl_context));
+            fprintf(stderr, " with a constant value of '%s'",
+                    const_value_to_str(nodecl_get_constant(visitor->nodecl_result)));
         }
+        if (nodecl_expr_is_type_dependent(visitor->nodecl_result))
+        {
+            fprintf(stderr, " [TYPE DEPENDENT]");
+        }
+        if (nodecl_expr_is_value_dependent(visitor->nodecl_result))
+        {
+            fprintf(stderr, " [VALUE DEPENDENT]");
+        }
+        fprintf(stderr, "\n");
     }
     return visitor->nodecl_result;
 }
