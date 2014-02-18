@@ -32,6 +32,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-cexpr.h"
 #include <string.h>
+#include <math.h>
 
 /* Copyright(C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
@@ -433,7 +434,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            parameter_info_t _param_info[1]; \
            memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 1; \
-           _param_info[0].type_info = get_ellipsis_type(); \
+           _param_info[0].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 1, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -451,7 +452,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
            _param_info[1].is_ellipsis = 1; \
-           _param_info[1].type_info = get_ellipsis_type(); \
+           _param_info[1].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 2, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -472,7 +473,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[1].type_info =(__mcxx_builtin_type__##PARAM_TYPE2)(); \
            _param_info[1].type_info = adjust_type_for_parameter_type(_param_info[1].type_info); \
            _param_info[2].is_ellipsis = 1; \
-           _param_info[2].type_info = get_ellipsis_type(); \
+           _param_info[2].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 3, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -496,7 +497,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[2].type_info =(__mcxx_builtin_type__##PARAM_TYPE3)(); \
            _param_info[2].type_info = adjust_type_for_parameter_type(_param_info[2].type_info); \
            _param_info[3].is_ellipsis = 1; \
-           _param_info[3].type_info = get_ellipsis_type(); \
+           _param_info[3].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 4, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -523,7 +524,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[3].type_info =(__mcxx_builtin_type__##PARAM_TYPE4)(); \
            _param_info[3].type_info = adjust_type_for_parameter_type(_param_info[3].type_info); \
            _param_info[4].is_ellipsis = 1; \
-           _param_info[4].type_info = get_ellipsis_type(); \
+           _param_info[4].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 5, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -553,7 +554,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[4].type_info =(__mcxx_builtin_type__##PARAM_TYPE5)(); \
            _param_info[4].type_info = adjust_type_for_parameter_type(_param_info[4].type_info); \
            _param_info[5].is_ellipsis = 1; \
-           _param_info[5].type_info = get_ellipsis_type(); \
+           _param_info[5].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 6, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -586,7 +587,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[5].type_info =(__mcxx_builtin_type__##PARAM_TYPE6)(); \
            _param_info[5].type_info = adjust_type_for_parameter_type(_param_info[5].type_info); \
            _param_info[6].is_ellipsis = 1; \
-           _param_info[6].type_info = get_ellipsis_type(); \
+           _param_info[6].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 7, REF_QUALIFIER_NONE); \
        } \
        return result; \
@@ -622,11 +623,11 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
            _param_info[6].type_info =(__mcxx_builtin_type__##PARAM_TYPE7)(); \
            _param_info[6].type_info = adjust_type_for_parameter_type(_param_info[5].type_info); \
            _param_info[7].is_ellipsis = 1; \
-           _param_info[7].type_info = get_ellipsis_type(); \
+           _param_info[7].type_info = get_generic_type(0); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 8, REF_QUALIFIER_NONE); \
        } \
        return result; \
-   } 
+   }
 
 
 DEF_FUNCTION_TYPE_0 (BT_FN_VOID, BT_VOID)
@@ -1246,6 +1247,19 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 
 #define NO_EXPAND_FUN (0)
 
+#define SIMPLIFY_BUILTIN_FUN0(builtin_name, return_type) \
+static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments UNUSED_PARAMETER) \
+{ \
+    if (num_arguments == 0) \
+    { \
+        return const_value_to_nodecl( \
+                const_value_get_##return_type( \
+                    __builtin_##builtin_name() \
+                    )); \
+    } \
+    return nodecl_null(); \
+}
+
 #define SIMPLIFY_BUILTIN_FUN1(builtin_name, return_type, type_0) \
 static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
 { \
@@ -1264,7 +1278,7 @@ static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, i
 #define SIMPLIFY_BUILTIN_FUN2(builtin_name, return_type, type_0, type_1) \
 static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
 { \
-    if (num_arguments == 1 \
+    if (num_arguments == 2 \
             && nodecl_is_constant(arguments[0]) \
             && nodecl_is_constant(arguments[1])) \
     { \
@@ -1280,10 +1294,36 @@ static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, i
     return nodecl_null(); \
 }
 
+#define SIMPLIFY_BUILTIN_FUN3(builtin_name, return_type, type_0, type_1, type_2) \
+static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
+{ \
+    if (num_arguments == 3 \
+            && nodecl_is_constant(arguments[0]) \
+            && nodecl_is_constant(arguments[1]) \
+            && nodecl_is_constant(arguments[2])) \
+    { \
+        return const_value_to_nodecl( \
+                const_value_get_##return_type( \
+                    __builtin_##builtin_name( \
+                        const_value_cast_to_##type_0( \
+                            nodecl_get_constant(arguments[0])), \
+                        const_value_cast_to_##type_1( \
+                            nodecl_get_constant(arguments[1])), \
+                        const_value_cast_to_##type_2( \
+                            nodecl_get_constant(arguments[2])) \
+                        ))); \
+    } \
+    return nodecl_null(); \
+}
+
 /* Simplification functions */
 SIMPLIFY_BUILTIN_FUN1(clz, signed_int, unsigned_int);
 SIMPLIFY_BUILTIN_FUN1(clzl, signed_int, unsigned_long_int);
 SIMPLIFY_BUILTIN_FUN1(clzll, signed_int, unsigned_long_long_int);
+
+SIMPLIFY_BUILTIN_FUN1(ctz, signed_int, unsigned_int);
+SIMPLIFY_BUILTIN_FUN1(ctzl, signed_int, unsigned_long_int);
+SIMPLIFY_BUILTIN_FUN1(ctzll, signed_int, unsigned_long_long_int);
 
 SIMPLIFY_BUILTIN_FUN1(fabsf, float, float);
 SIMPLIFY_BUILTIN_FUN1(fabs, double, double);
@@ -1369,6 +1409,18 @@ SIMPLIFY_BUILTIN_FUN1(logf, float, float);
 SIMPLIFY_BUILTIN_FUN1(log, double, double);
 SIMPLIFY_BUILTIN_FUN1(logl, long_double, long_double);
 
+SIMPLIFY_BUILTIN_FUN1(log1pf, float, float);
+SIMPLIFY_BUILTIN_FUN1(log1p, double, double);
+SIMPLIFY_BUILTIN_FUN1(log1pl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(log2f, float, float);
+SIMPLIFY_BUILTIN_FUN1(log2, double, double);
+SIMPLIFY_BUILTIN_FUN1(log2l, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(logbf, float, float);
+SIMPLIFY_BUILTIN_FUN1(logb, double, double);
+SIMPLIFY_BUILTIN_FUN1(logbl, long_double, long_double);
+
 SIMPLIFY_BUILTIN_FUN2(powf, float, float, float);
 SIMPLIFY_BUILTIN_FUN2(pow, double, double, double);
 SIMPLIFY_BUILTIN_FUN2(powl, long_double, long_double, long_double);
@@ -1376,6 +1428,476 @@ SIMPLIFY_BUILTIN_FUN2(powl, long_double, long_double, long_double);
 SIMPLIFY_BUILTIN_FUN1(sqrtf, float, float);
 SIMPLIFY_BUILTIN_FUN1(sqrt, double, double);
 SIMPLIFY_BUILTIN_FUN1(sqrtl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(cbrtf, float, float);
+SIMPLIFY_BUILTIN_FUN1(cbrt, double, double);
+SIMPLIFY_BUILTIN_FUN1(cbrtl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(copysignf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(copysign, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(copysignl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(erff, float, float);
+SIMPLIFY_BUILTIN_FUN1(erf, double, double);
+SIMPLIFY_BUILTIN_FUN1(erfl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(erfcf, float, float);
+SIMPLIFY_BUILTIN_FUN1(erfc, double, double);
+SIMPLIFY_BUILTIN_FUN1(erfcl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(exp2f, float, float);
+SIMPLIFY_BUILTIN_FUN1(exp2, double, double);
+SIMPLIFY_BUILTIN_FUN1(exp2l, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(exp10f, float, float);
+SIMPLIFY_BUILTIN_FUN1(exp10, double, double);
+SIMPLIFY_BUILTIN_FUN1(exp10l, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(expm1f, float, float);
+SIMPLIFY_BUILTIN_FUN1(expm1, double, double);
+SIMPLIFY_BUILTIN_FUN1(expm1l, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(fdimf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(fdim, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(fdiml, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN3(fmaf, float, float, float, float);
+SIMPLIFY_BUILTIN_FUN3(fma, double, double, double, double);
+SIMPLIFY_BUILTIN_FUN3(fmal, long_double, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(fmaxf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(fmax, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(fmaxl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(fminf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(fmin, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(fminl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN0(huge_valf, float);
+SIMPLIFY_BUILTIN_FUN0(huge_val, double);
+SIMPLIFY_BUILTIN_FUN0(huge_vall, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(hypotf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(hypot, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(hypotl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(ilogbf, signed_int, float);
+SIMPLIFY_BUILTIN_FUN1(ilogb, signed_int, double);
+SIMPLIFY_BUILTIN_FUN1(ilogbl, signed_int, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(abs, signed_int, signed_int);
+SIMPLIFY_BUILTIN_FUN1(labs, signed_long_int, signed_long_int);
+SIMPLIFY_BUILTIN_FUN1(llabs, signed_long_long_int, signed_long_long_int);
+
+SIMPLIFY_BUILTIN_FUN1(lgammaf, float, float);
+SIMPLIFY_BUILTIN_FUN1(lgamma, double, double);
+SIMPLIFY_BUILTIN_FUN1(lgammal, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(llrintf, signed_long_long_int, float);
+SIMPLIFY_BUILTIN_FUN1(llrint, signed_long_long_int, double);
+SIMPLIFY_BUILTIN_FUN1(llrintl, signed_long_long_int, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(lrintf, signed_long_int, float);
+SIMPLIFY_BUILTIN_FUN1(lrint, signed_long_int, double);
+SIMPLIFY_BUILTIN_FUN1(lrintl, signed_long_int, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(llroundf, signed_long_long_int, float);
+SIMPLIFY_BUILTIN_FUN1(llround, signed_long_long_int, double);
+SIMPLIFY_BUILTIN_FUN1(llroundl, signed_long_long_int, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(lroundf, signed_long_int, float);
+SIMPLIFY_BUILTIN_FUN1(lround, signed_long_int, double);
+SIMPLIFY_BUILTIN_FUN1(lroundl, signed_long_int, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(nearbyintf, float, float);
+SIMPLIFY_BUILTIN_FUN1(nearbyint, double, double);
+SIMPLIFY_BUILTIN_FUN1(nearbyintl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(nextafterf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(nextafter, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(nextafterl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(nexttowardf, float, float, long_double);
+SIMPLIFY_BUILTIN_FUN2(nexttoward, double, double, long_double);
+SIMPLIFY_BUILTIN_FUN2(nexttowardl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(popcount, signed_int, unsigned_int);
+SIMPLIFY_BUILTIN_FUN1(popcountl, signed_int, unsigned_long_int);
+SIMPLIFY_BUILTIN_FUN1(popcountll, signed_int, unsigned_long_long_int);
+
+SIMPLIFY_BUILTIN_FUN2(remainderf, float, float, float);
+SIMPLIFY_BUILTIN_FUN2(remainder, double, double, double);
+SIMPLIFY_BUILTIN_FUN2(remainderl, long_double, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(rintf, float, float);
+SIMPLIFY_BUILTIN_FUN1(rint, double, double);
+SIMPLIFY_BUILTIN_FUN1(rintl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(roundf, float, float);
+SIMPLIFY_BUILTIN_FUN1(round, double, double);
+SIMPLIFY_BUILTIN_FUN1(roundl, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN2(scalbnf, float, float, signed_int);
+SIMPLIFY_BUILTIN_FUN2(scalbn, double, double, signed_int);
+SIMPLIFY_BUILTIN_FUN2(scalbnl, long_double, long_double, signed_int);
+
+SIMPLIFY_BUILTIN_FUN2(scalblnf, float, float, signed_long_int);
+SIMPLIFY_BUILTIN_FUN2(scalbln, double, double, signed_long_int);
+SIMPLIFY_BUILTIN_FUN2(scalblnl, long_double, long_double, signed_long_int);
+
+SIMPLIFY_BUILTIN_FUN1(tgammaf, float, float);
+SIMPLIFY_BUILTIN_FUN1(tgamma, double, double);
+SIMPLIFY_BUILTIN_FUN1(tgammal, long_double, long_double);
+
+SIMPLIFY_BUILTIN_FUN1(truncf, float, float);
+SIMPLIFY_BUILTIN_FUN1(trunc, double, double);
+SIMPLIFY_BUILTIN_FUN1(truncl, long_double, long_double);
+
+static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 6
+            && nodecl_is_constant(arguments[0])
+            && nodecl_is_constant(arguments[1])
+            && nodecl_is_constant(arguments[2])
+            && nodecl_is_constant(arguments[3])
+            && nodecl_is_constant(arguments[4])
+            && nodecl_is_constant(arguments[5])
+            // arguments[5] goes unchecked, so verify that it is a floating point
+            && const_value_is_floating(nodecl_get_constant(arguments[5])))
+    {
+        const_value_t* v = nodecl_get_constant(arguments[5]);
+        if (const_value_is_float(v))
+        {
+            return const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        __builtin_fpclassify(
+                            FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO,
+                            const_value_cast_to_float(v))));
+        }
+        else if (const_value_is_double(v))
+        {
+            return const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        __builtin_fpclassify(
+                            FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO,
+                            const_value_cast_to_double(v))));
+        }
+        else if (const_value_is_long_double(v))
+        {
+            return const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        __builtin_fpclassify(
+                            FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO,
+                            const_value_cast_to_long_double(v))));
+        }
+    }
+    return nodecl_null();
+}
+
+static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_string(nodecl_get_constant(arguments[0])))
+    {
+        return const_value_to_nodecl(
+                const_value_get_double(
+                __builtin_nan(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0])))
+                ));
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_string(nodecl_get_constant(arguments[0])))
+    {
+        return const_value_to_nodecl(
+                const_value_get_float(
+                __builtin_nanf(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0])))
+                ));
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_string(nodecl_get_constant(arguments[0])))
+    {
+        return const_value_to_nodecl(
+                const_value_get_long_double(
+                    __builtin_nanl(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0])))
+                    ));
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_nans(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_string(nodecl_get_constant(arguments[0])))
+    {
+        return const_value_to_nodecl(
+                const_value_get_double(
+                    // GCC does not implement this builtin but for an "" argument
+                    __builtin_nans("")
+                    ));
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_nansf(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_string(nodecl_get_constant(arguments[0])))
+    {
+        return const_value_to_nodecl(
+                const_value_get_float(
+                    // GCC does not implement this builtin but for an "" argument
+                    __builtin_nansf("")
+                    ));
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_nansl(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_string(nodecl_get_constant(arguments[0])))
+    {
+        return const_value_to_nodecl(
+                const_value_get_long_double(
+                    // GCC does not implement this builtin but for an "" argument
+                    __builtin_nansl("")
+                    ));
+    }
+
+    return nodecl_null();
+}
+
+SIMPLIFY_BUILTIN_FUN1(signbitf, signed_int, float);
+SIMPLIFY_BUILTIN_FUN1(signbitl, signed_int, long_double);
+
+static nodecl_t simplify_signbit(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
+{
+    if (num_arguments == 1
+            && nodecl_is_constant(arguments[0])
+            && const_value_is_floating(nodecl_get_constant(arguments[0])))
+    {
+        const_value_t* v = nodecl_get_constant(arguments[0]);
+
+        if (const_value_is_float(v))
+        {
+            return const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        __builtin_signbit(const_value_cast_to_float(v))
+                        ));
+        }
+        else if (const_value_is_double(v))
+        {
+            return const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        __builtin_signbit(const_value_cast_to_double(v))
+                        ));
+        }
+        else if (const_value_is_long_double(v))
+        {
+            return const_value_to_nodecl(
+                    const_value_get_signed_int(
+                        __builtin_signbit(const_value_cast_to_long_double(v))
+                        ));
+        }
+    }
+
+    return nodecl_null();
+}
+
+#define SIMPLIFY_GENERIC_FLOAT_TEST1(builtin_name) \
+static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
+{ \
+    if (num_arguments == 1 \
+            && nodecl_is_constant(arguments[0]) \
+            && const_value_is_floating(nodecl_get_constant(arguments[0]))) \
+    { \
+        const_value_t* v = nodecl_get_constant(arguments[0]); \
+        if (const_value_is_float(v)) \
+        { \
+            return const_value_to_nodecl( \
+                    const_value_get_signed_int( \
+                        __builtin_##builtin_name( \
+                            const_value_cast_to_float(v) \
+                            ))); \
+        } \
+        else if (const_value_is_double(v)) \
+        { \
+            return const_value_to_nodecl( \
+                    const_value_get_signed_int( \
+                        __builtin_##builtin_name( \
+                            const_value_cast_to_double(v) \
+                            ))); \
+        } \
+        else if (const_value_is_long_double(v)) \
+        { \
+            return const_value_to_nodecl( \
+                    const_value_get_signed_int( \
+                        __builtin_##builtin_name( \
+                            const_value_cast_to_long_double(v) \
+                            ))); \
+        } \
+    } \
+ \
+    return nodecl_null(); \
+}
+
+SIMPLIFY_GENERIC_FLOAT_TEST1(isfinite)
+
+SIMPLIFY_GENERIC_FLOAT_TEST1(isnan)
+SIMPLIFY_BUILTIN_FUN1(isnanf, signed_int, float);
+SIMPLIFY_BUILTIN_FUN1(isnanl, signed_int, long_double);
+
+SIMPLIFY_GENERIC_FLOAT_TEST1(isnormal)
+
+SIMPLIFY_GENERIC_FLOAT_TEST1(isinf)
+SIMPLIFY_BUILTIN_FUN1(isinff, signed_int, float);
+SIMPLIFY_BUILTIN_FUN1(isinfl, signed_int, long_double);
+
+#define SIMPLIFY_GENERIC_FLOAT_TEST2(builtin_name) \
+static nodecl_t simplify_##builtin_name(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments) \
+{ \
+    if (num_arguments == 1 \
+            && nodecl_is_constant(arguments[0]) \
+            && nodecl_is_constant(arguments[1]) \
+            && const_value_is_floating(nodecl_get_constant(arguments[0])) \
+            && const_value_is_floating(nodecl_get_constant(arguments[1]))) \
+    { \
+        const_value_t* v0 = nodecl_get_constant(arguments[0]); \
+        const_value_t* v1 = nodecl_get_constant(arguments[1]); \
+        if (const_value_is_float(v0)) \
+        { \
+            if (const_value_is_float(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_float(v0), \
+                                const_value_cast_to_float(v1) \
+                                ) \
+                            )); \
+            } \
+            else if (const_value_is_double(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_float(v0), \
+                                const_value_cast_to_double(v1) \
+                                ) \
+                            )); \
+            } \
+            else if (const_value_is_long_double(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_float(v0), \
+                                const_value_cast_to_long_double(v1) \
+                                ) \
+                            )); \
+            } \
+            else return nodecl_null(); \
+        } \
+        else if (const_value_is_double(v0)) \
+        { \
+            if (const_value_is_float(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_double(v0), \
+                                const_value_cast_to_float(v1) \
+                                ) \
+                            )); \
+            } \
+            else if (const_value_is_double(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_double(v0), \
+                                const_value_cast_to_double(v1) \
+                                ) \
+                            )); \
+            } \
+            else if (const_value_is_long_double(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_double(v0), \
+                                const_value_cast_to_long_double(v1) \
+                                ) \
+                            )); \
+            } \
+            else return nodecl_null(); \
+        } \
+        else if (const_value_is_long_double(v0)) \
+        { \
+            if (const_value_is_float(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_long_double(v0), \
+                                const_value_cast_to_float(v1) \
+                                ) \
+                            )); \
+            } \
+            else if (const_value_is_double(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_long_double(v0), \
+                                const_value_cast_to_double(v1) \
+                                ) \
+                            )); \
+            } \
+            else if (const_value_is_long_double(v1)) \
+            { \
+                return const_value_to_nodecl( \
+                        const_value_get_signed_int( \
+                            __builtin_##builtin_name( \
+                                const_value_cast_to_long_double(v0), \
+                                const_value_cast_to_long_double(v1) \
+                                ) \
+                            )); \
+            } \
+            else return nodecl_null(); \
+        } \
+        else return nodecl_null(); \
+    } \
+ \
+    return nodecl_null(); \
+}
+
+SIMPLIFY_GENERIC_FLOAT_TEST2(isgreater)
+SIMPLIFY_GENERIC_FLOAT_TEST2(isgreaterequal)
+SIMPLIFY_GENERIC_FLOAT_TEST2(isless)
+SIMPLIFY_GENERIC_FLOAT_TEST2(islessequal)
+SIMPLIFY_GENERIC_FLOAT_TEST2(islessgreater)
+SIMPLIFY_GENERIC_FLOAT_TEST2(isunordered)
 
 static void sign_in_sse_builtins(decl_context_t global_context);
 
@@ -1404,15 +1926,15 @@ DEF_C99_BUILTIN        (BUILT_IN_ATANH, "atanh", BT_FN_DOUBLE_DOUBLE, ATTR_MATHF
 DEF_C99_BUILTIN        (BUILT_IN_ATANHF, "atanhf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_atanhf)
 DEF_C99_BUILTIN        (BUILT_IN_ATANHL, "atanhl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_atanhl)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_ATANL, "atanl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, simplify_atanl)
-DEF_C99_BUILTIN        (BUILT_IN_CBRT, "cbrt", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_CBRTF, "cbrtf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_CBRTL, "cbrtl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_CBRT, "cbrt", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, simplify_cbrt)
+DEF_C99_BUILTIN        (BUILT_IN_CBRTF, "cbrtf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, simplify_cbrtf)
+DEF_C99_BUILTIN        (BUILT_IN_CBRTL, "cbrtl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, simplify_cbrtl)
 DEF_LIB_BUILTIN        (BUILT_IN_CEIL, "ceil", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ceil)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_CEILF, "ceilf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ceilf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_CEILL, "ceill", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ceill)
-DEF_C99_BUILTIN        (BUILT_IN_COPYSIGN, "copysign", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_COPYSIGNF, "copysignf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_COPYSIGNL, "copysignl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_COPYSIGN, "copysign", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_copysign)
+DEF_C99_BUILTIN        (BUILT_IN_COPYSIGNF, "copysignf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_copysignf)
+DEF_C99_BUILTIN        (BUILT_IN_COPYSIGNL, "copysignl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_copysignl)
 DEF_LIB_BUILTIN        (BUILT_IN_COS, "cos", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, simplify_cos)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_COSF, "cosf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, simplify_cosf)
 DEF_LIB_BUILTIN        (BUILT_IN_COSH, "cosh", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_cosh)
@@ -1422,42 +1944,42 @@ DEF_C99_C90RES_BUILTIN (BUILT_IN_COSL, "cosl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DREM, "drem", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DREMF, "dremf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DREML, "dreml", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ERF, "erf", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ERFC, "erfc", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ERFCF, "erfcf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ERFCL, "erfcl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ERFF, "erff", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ERFL, "erfl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_ERF, "erf", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, simplify_erf)
+DEF_C99_BUILTIN        (BUILT_IN_ERFC, "erfc", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_erfc)
+DEF_C99_BUILTIN        (BUILT_IN_ERFCF, "erfcf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_erfcf)
+DEF_C99_BUILTIN        (BUILT_IN_ERFCL, "erfcl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_erfcl)
+DEF_C99_BUILTIN        (BUILT_IN_ERFF, "erff", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, simplify_erff)
+DEF_C99_BUILTIN        (BUILT_IN_ERFL, "erfl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, simplify_erfl)
 DEF_LIB_BUILTIN        (BUILT_IN_EXP, "exp", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_EXP10, "exp10", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_EXP10F, "exp10f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_EXP10L, "exp10l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_EXP2, "exp2", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_EXP2F, "exp2f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_EXP2L, "exp2l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_EXP10, "exp10", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp10)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_EXP10F, "exp10f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp10f)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_EXP10L, "exp10l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp10l)
+DEF_C99_BUILTIN        (BUILT_IN_EXP2, "exp2", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp2)
+DEF_C99_BUILTIN        (BUILT_IN_EXP2F, "exp2f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp2f)
+DEF_C99_BUILTIN        (BUILT_IN_EXP2L, "exp2l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_exp2l)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_EXPF, "expf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_expf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_EXPL, "expl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_expl)
-DEF_C99_BUILTIN        (BUILT_IN_EXPM1, "expm1", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_EXPM1F, "expm1f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_EXPM1L, "expm1l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_EXPM1, "expm1", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_expm1)
+DEF_C99_BUILTIN        (BUILT_IN_EXPM1F, "expm1f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_expm1f)
+DEF_C99_BUILTIN        (BUILT_IN_EXPM1L, "expm1l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_expm1l)
 DEF_LIB_BUILTIN        (BUILT_IN_FABS, "fabs", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fabs)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FABSF, "fabsf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fabsf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FABSL, "fabsl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fabsl)
-DEF_C99_BUILTIN        (BUILT_IN_FDIM, "fdim", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FDIMF, "fdimf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FDIML, "fdiml", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_FDIM, "fdim", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_fdim)
+DEF_C99_BUILTIN        (BUILT_IN_FDIMF, "fdimf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_fdimf)
+DEF_C99_BUILTIN        (BUILT_IN_FDIML, "fdiml", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_fdiml)
 DEF_LIB_BUILTIN        (BUILT_IN_FLOOR, "floor", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_floor)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FLOORF, "floorf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_floorf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FLOORL, "floorl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_floorl)
-DEF_C99_BUILTIN        (BUILT_IN_FMA, "fma", BT_FN_DOUBLE_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMAF, "fmaf", BT_FN_FLOAT_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMAL, "fmal", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMAX, "fmax", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMAXF, "fmaxf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMAXL, "fmaxl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMIN, "fmin", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMINF, "fminf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_FMINL, "fminl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_FMA, "fma", BT_FN_DOUBLE_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING, simplify_fma)
+DEF_C99_BUILTIN        (BUILT_IN_FMAF, "fmaf", BT_FN_FLOAT_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, simplify_fmaf)
+DEF_C99_BUILTIN        (BUILT_IN_FMAL, "fmal", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, simplify_fmal)
+DEF_C99_BUILTIN        (BUILT_IN_FMAX, "fmax", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fmax)
+DEF_C99_BUILTIN        (BUILT_IN_FMAXF, "fmaxf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fmaxf)
+DEF_C99_BUILTIN        (BUILT_IN_FMAXL, "fmaxl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fmaxl)
+DEF_C99_BUILTIN        (BUILT_IN_FMIN, "fmin", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fmin)
+DEF_C99_BUILTIN        (BUILT_IN_FMINF, "fminf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fminf)
+DEF_C99_BUILTIN        (BUILT_IN_FMINL, "fminl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_fminl)
 DEF_LIB_BUILTIN        (BUILT_IN_FMOD, "fmod", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_fmod)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FMODF, "fmodf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_fmodf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_FMODL, "fmodl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_fmodl)
@@ -1470,15 +1992,15 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAL, "gammal", BT_FN_LONGDOUBLE_LONGDOUBLE, 
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMA_R, "gamma_r", BT_FN_DOUBLE_DOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAF_R, "gammaf_r", BT_FN_FLOAT_FLOAT_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_GAMMAL_R, "gammal_r", BT_FN_LONGDOUBLE_LONGDOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VAL, "huge_val", BT_FN_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALF, "huge_valf", BT_FN_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALL, "huge_vall", BT_FN_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_HYPOT, "hypot", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_HYPOTF, "hypotf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_HYPOTL, "hypotl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ILOGB, "ilogb", BT_FN_INT_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ILOGBF, "ilogbf", BT_FN_INT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ILOGBL, "ilogbl", BT_FN_INT_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VAL, "huge_val", BT_FN_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_val)
+DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALF, "huge_valf", BT_FN_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_valf)
+DEF_GCC_BUILTIN        (BUILT_IN_HUGE_VALL, "huge_vall", BT_FN_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_huge_vall)
+DEF_C99_BUILTIN        (BUILT_IN_HYPOT, "hypot", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_hypot)
+DEF_C99_BUILTIN        (BUILT_IN_HYPOTF, "hypotf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_hypotf)
+DEF_C99_BUILTIN        (BUILT_IN_HYPOTL, "hypotl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_hypotl)
+DEF_C99_BUILTIN        (BUILT_IN_ILOGB, "ilogb", BT_FN_INT_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_ilogb)
+DEF_C99_BUILTIN        (BUILT_IN_ILOGBF, "ilogbf", BT_FN_INT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_ilogbf)
+DEF_C99_BUILTIN        (BUILT_IN_ILOGBL, "ilogbl", BT_FN_INT_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_ilogbl)
 DEF_GCC_BUILTIN        (BUILT_IN_INF, "inf", BT_FN_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_INFF, "inff", BT_FN_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_INFL, "infl", BT_FN_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
@@ -1503,9 +2025,9 @@ DEF_C99_C90RES_BUILTIN (BUILT_IN_LDEXPL, "ldexpl", BT_FN_LONGDOUBLE_LONGDOUBLE_I
 DEF_GCC_BUILTIN        (BUILT_IN_LFLOOR, "lfloor", BT_FN_LONG_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_LFLOORF, "lfloorf", BT_FN_LONG_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_LFLOORL, "lfloorl", BT_FN_LONG_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LGAMMA, "lgamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LGAMMAF, "lgammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LGAMMAL, "lgammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_LGAMMA, "lgamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_STORE, simplify_lgamma)
+DEF_C99_BUILTIN        (BUILT_IN_LGAMMAF, "lgammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_STORE, simplify_lgammaf)
+DEF_C99_BUILTIN        (BUILT_IN_LGAMMAL, "lgammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_STORE, simplify_lgammal)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_LGAMMA_R, "lgamma_r", BT_FN_DOUBLE_DOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_LGAMMAF_R, "lgammaf_r", BT_FN_FLOAT_FLOAT_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_LGAMMAL_R, "lgammal_r", BT_FN_LONGDOUBLE_LONGDOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
@@ -1515,54 +2037,54 @@ DEF_GCC_BUILTIN        (BUILT_IN_LLCEILL, "llceill", BT_FN_LONGLONG_LONGDOUBLE, 
 DEF_GCC_BUILTIN        (BUILT_IN_LLFLOOR, "llfloor", BT_FN_LONGLONG_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_LLFLOORF, "llfloorf", BT_FN_LONGLONG_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_LLFLOORL, "llfloorl", BT_FN_LONGLONG_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLRINT, "llrint", BT_FN_LONGLONG_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLRINTF, "llrintf", BT_FN_LONGLONG_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLRINTL, "llrintl", BT_FN_LONGLONG_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLROUND, "llround", BT_FN_LONGLONG_DOUBLE, ATTR_MATHFN_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLROUNDF, "llroundf", BT_FN_LONGLONG_FLOAT, ATTR_MATHFN_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLROUNDL, "llroundl", BT_FN_LONGLONG_LONGDOUBLE, ATTR_MATHFN_ERRNO, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_LLRINT, "llrint", BT_FN_LONGLONG_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_llrint)
+DEF_C99_BUILTIN        (BUILT_IN_LLRINTF, "llrintf", BT_FN_LONGLONG_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_llrintf)
+DEF_C99_BUILTIN        (BUILT_IN_LLRINTL, "llrintl", BT_FN_LONGLONG_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_llrintl)
+DEF_C99_BUILTIN        (BUILT_IN_LLROUND, "llround", BT_FN_LONGLONG_DOUBLE, ATTR_MATHFN_ERRNO, simplify_llround)
+DEF_C99_BUILTIN        (BUILT_IN_LLROUNDF, "llroundf", BT_FN_LONGLONG_FLOAT, ATTR_MATHFN_ERRNO, simplify_llroundf)
+DEF_C99_BUILTIN        (BUILT_IN_LLROUNDL, "llroundl", BT_FN_LONGLONG_LONGDOUBLE, ATTR_MATHFN_ERRNO, simplify_llroundl)
 DEF_LIB_BUILTIN        (BUILT_IN_LOG, "log", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log)
 DEF_LIB_BUILTIN        (BUILT_IN_LOG10, "log10", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log10)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_LOG10F, "log10f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log10f)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_LOG10L, "log10l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log10l)
-DEF_C99_BUILTIN        (BUILT_IN_LOG1P, "log1p", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOG1PF, "log1pf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOG1PL, "log1pl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOG2, "log2", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOG2F, "log2f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOG2L, "log2l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOGB, "logb", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOGBF, "logbf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LOGBL, "logbl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_LOG1P, "log1p", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log1p)
+DEF_C99_BUILTIN        (BUILT_IN_LOG1PF, "log1pf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log1pf)
+DEF_C99_BUILTIN        (BUILT_IN_LOG1PL, "log1pl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log1pl)
+DEF_C99_BUILTIN        (BUILT_IN_LOG2, "log2", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log2)
+DEF_C99_BUILTIN        (BUILT_IN_LOG2F, "log2f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log2f)
+DEF_C99_BUILTIN        (BUILT_IN_LOG2L, "log2l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_log2l)
+DEF_C99_BUILTIN        (BUILT_IN_LOGB, "logb", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_logb)
+DEF_C99_BUILTIN        (BUILT_IN_LOGBF, "logbf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_logbf)
+DEF_C99_BUILTIN        (BUILT_IN_LOGBL, "logbl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_logbl)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_LOGF, "logf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_logf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_LOGL, "logl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_logl)
-DEF_C99_BUILTIN        (BUILT_IN_LRINT, "lrint", BT_FN_LONG_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LRINTF, "lrintf", BT_FN_LONG_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LRINTL, "lrintl", BT_FN_LONG_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LROUND, "lround", BT_FN_LONG_DOUBLE, ATTR_MATHFN_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LROUNDF, "lroundf", BT_FN_LONG_FLOAT, ATTR_MATHFN_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LROUNDL, "lroundl", BT_FN_LONG_LONGDOUBLE, ATTR_MATHFN_ERRNO, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_LRINT, "lrint", BT_FN_LONG_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_lrint)
+DEF_C99_BUILTIN        (BUILT_IN_LRINTF, "lrintf", BT_FN_LONG_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_lrintf)
+DEF_C99_BUILTIN        (BUILT_IN_LRINTL, "lrintl", BT_FN_LONG_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_lrintl)
+DEF_C99_BUILTIN        (BUILT_IN_LROUND, "lround", BT_FN_LONG_DOUBLE, ATTR_MATHFN_ERRNO, simplify_lround)
+DEF_C99_BUILTIN        (BUILT_IN_LROUNDF, "lroundf", BT_FN_LONG_FLOAT, ATTR_MATHFN_ERRNO, simplify_lroundf)
+DEF_C99_BUILTIN        (BUILT_IN_LROUNDL, "lroundl", BT_FN_LONG_LONGDOUBLE, ATTR_MATHFN_ERRNO, simplify_lroundl)
 DEF_LIB_BUILTIN        (BUILT_IN_MODF, "modf", BT_FN_DOUBLE_DOUBLE_DOUBLEPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_MODFF, "modff", BT_FN_FLOAT_FLOAT_FLOATPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_MODFL, "modfl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLEPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NAN, "nan", BT_FN_DOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NANF, "nanf", BT_FN_FLOAT_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NANL, "nanl", BT_FN_LONGDOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_NAN, "nan", BT_FN_DOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, simplify_nan)
+DEF_C99_BUILTIN        (BUILT_IN_NANF, "nanf", BT_FN_FLOAT_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, simplify_nanf)
+DEF_C99_BUILTIN        (BUILT_IN_NANL, "nanl", BT_FN_LONGDOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, simplify_nanl)
 DEF_GCC_BUILTIN        (BUILT_IN_NAND32, "nand32", BT_FN_DFLOAT32_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_NAND64, "nand64", BT_FN_DFLOAT64_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_NAND128, "nand128", BT_FN_DFLOAT128_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_NANS, "nans", BT_FN_DOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_NANSF, "nansf", BT_FN_FLOAT_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_NANSL, "nansl", BT_FN_LONGDOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEARBYINT, "nearbyint", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEARBYINTF, "nearbyintf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEARBYINTL, "nearbyintl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEXTAFTER, "nextafter", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEXTAFTERF, "nextafterf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEXTAFTERL, "nextafterl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEXTTOWARD, "nexttoward", BT_FN_DOUBLE_DOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEXTTOWARDF, "nexttowardf", BT_FN_FLOAT_FLOAT_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_NEXTTOWARDL, "nexttowardl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_NANS, "nans", BT_FN_DOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, simplify_nans)
+DEF_GCC_BUILTIN        (BUILT_IN_NANSF, "nansf", BT_FN_FLOAT_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, simplify_nansf)
+DEF_GCC_BUILTIN        (BUILT_IN_NANSL, "nansl", BT_FN_LONGDOUBLE_CONST_STRING, ATTR_CONST_NOTHROW_NONNULL, simplify_nansl)
+DEF_C99_BUILTIN        (BUILT_IN_NEARBYINT, "nearbyint", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_nearbyint)
+DEF_C99_BUILTIN        (BUILT_IN_NEARBYINTF, "nearbyintf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_nearbyintf)
+DEF_C99_BUILTIN        (BUILT_IN_NEARBYINTL, "nearbyintl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_nearbyintl)
+DEF_C99_BUILTIN        (BUILT_IN_NEXTAFTER, "nextafter", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_nextafter)
+DEF_C99_BUILTIN        (BUILT_IN_NEXTAFTERF, "nextafterf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_nextafterf)
+DEF_C99_BUILTIN        (BUILT_IN_NEXTAFTERL, "nextafterl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_nextafterl)
+DEF_C99_BUILTIN        (BUILT_IN_NEXTTOWARD, "nexttoward", BT_FN_DOUBLE_DOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_nexttoward)
+DEF_C99_BUILTIN        (BUILT_IN_NEXTTOWARDF, "nexttowardf", BT_FN_FLOAT_FLOAT_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_nexttowardf)
+DEF_C99_BUILTIN        (BUILT_IN_NEXTTOWARDL, "nexttowardl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_nexttowardl)
 DEF_LIB_BUILTIN        (BUILT_IN_POW, "pow", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_pow)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_POW10, "pow10", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_POW10F, "pow10f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
@@ -1572,30 +2094,30 @@ DEF_GCC_BUILTIN        (BUILT_IN_POWI, "powi", BT_FN_DOUBLE_DOUBLE_INT, ATTR_MAT
 DEF_GCC_BUILTIN        (BUILT_IN_POWIF, "powif", BT_FN_FLOAT_FLOAT_INT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_POWIL, "powil", BT_FN_LONGDOUBLE_LONGDOUBLE_INT, ATTR_MATHFN_FPROUNDING, NO_EXPAND_FUN)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_POWL, "powl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_powl)
-DEF_C99_BUILTIN        (BUILT_IN_REMAINDER, "remainder", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_REMAINDERF, "remainderf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_REMAINDERL, "remainderl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_REMAINDER, "remainder", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_remainder)
+DEF_C99_BUILTIN        (BUILT_IN_REMAINDERF, "remainderf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_remainderf)
+DEF_C99_BUILTIN        (BUILT_IN_REMAINDERL, "remainderl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_remainderl)
 DEF_C99_BUILTIN        (BUILT_IN_REMQUO, "remquo", BT_FN_DOUBLE_DOUBLE_DOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_REMQUOF, "remquof", BT_FN_FLOAT_FLOAT_FLOAT_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
 DEF_C99_BUILTIN        (BUILT_IN_REMQUOL, "remquol", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE_INTPTR, ATTR_MATHFN_FPROUNDING_STORE, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_RINT, "rint", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_RINTF, "rintf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_RINTL, "rintl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ROUND, "round", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ROUNDF, "roundf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_ROUNDL, "roundl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_RINT, "rint", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_rint)
+DEF_C99_BUILTIN        (BUILT_IN_RINTF, "rintf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_rintf)
+DEF_C99_BUILTIN        (BUILT_IN_RINTL, "rintl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_rintl)
+DEF_C99_BUILTIN        (BUILT_IN_ROUND, "round", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_round)
+DEF_C99_BUILTIN        (BUILT_IN_ROUNDF, "roundf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_roundf)
+DEF_C99_BUILTIN        (BUILT_IN_ROUNDL, "roundl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_roundl)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_SCALB, "scalb", BT_FN_DOUBLE_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_SCALBF, "scalbf", BT_FN_FLOAT_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_SCALBL, "scalbl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_SCALBLN, "scalbln", BT_FN_DOUBLE_DOUBLE_LONG, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_SCALBLNF, "scalblnf", BT_FN_FLOAT_FLOAT_LONG, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_SCALBLNL, "scalblnl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONG, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_SCALBN, "scalbn", BT_FN_DOUBLE_DOUBLE_INT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_SCALBNF, "scalbnf", BT_FN_FLOAT_FLOAT_INT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_SCALBNL, "scalbnl", BT_FN_LONGDOUBLE_LONGDOUBLE_INT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBIT, "signbit", BT_FN_INT_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITF, "signbitf", BT_FN_INT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITL, "signbitl", BT_FN_INT_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_SCALBLN, "scalbln", BT_FN_DOUBLE_DOUBLE_LONG, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_scalbln)
+DEF_C99_BUILTIN        (BUILT_IN_SCALBLNF, "scalblnf", BT_FN_FLOAT_FLOAT_LONG, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_scalblnf)
+DEF_C99_BUILTIN        (BUILT_IN_SCALBLNL, "scalblnl", BT_FN_LONGDOUBLE_LONGDOUBLE_LONG, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_scalblnl)
+DEF_C99_BUILTIN        (BUILT_IN_SCALBN, "scalbn", BT_FN_DOUBLE_DOUBLE_INT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_scalbn)
+DEF_C99_BUILTIN        (BUILT_IN_SCALBNF, "scalbnf", BT_FN_FLOAT_FLOAT_INT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_scalbnf)
+DEF_C99_BUILTIN        (BUILT_IN_SCALBNL, "scalbnl", BT_FN_LONGDOUBLE_LONGDOUBLE_INT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_scalbnl)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBIT, "signbit", BT_FN_INT_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_signbit)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITF, "signbitf", BT_FN_INT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_signbitf)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITL, "signbitl", BT_FN_INT_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_signbitl)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITD32, "signbitd32", BT_FN_INT_DFLOAT32, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITD64, "signbitd64", BT_FN_INT_DFLOAT64, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_SIGNBITD128, "signbitd128", BT_FN_INT_DFLOAT128, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
@@ -1620,12 +2142,12 @@ DEF_LIB_BUILTIN        (BUILT_IN_TANH, "tanh", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_
 DEF_C99_C90RES_BUILTIN (BUILT_IN_TANHF, "tanhf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING, simplify_tanhf)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_TANHL, "tanhl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, simplify_tanhl)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_TANL, "tanl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING, simplify_tanl)
-DEF_C99_BUILTIN        (BUILT_IN_TGAMMA, "tgamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_TGAMMAF, "tgammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_TGAMMAL, "tgammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_TRUNC, "trunc", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_TRUNCF, "truncf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_TRUNCL, "truncl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_BUILTIN        (BUILT_IN_TGAMMA, "tgamma", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_tgamma)
+DEF_C99_BUILTIN        (BUILT_IN_TGAMMAF, "tgammaf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_tgammaf)
+DEF_C99_BUILTIN        (BUILT_IN_TGAMMAL, "tgammal", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, simplify_tgammal)
+DEF_C99_BUILTIN        (BUILT_IN_TRUNC, "trunc", BT_FN_DOUBLE_DOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_trunc)
+DEF_C99_BUILTIN        (BUILT_IN_TRUNCF, "truncf", BT_FN_FLOAT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_truncf)
+DEF_C99_BUILTIN        (BUILT_IN_TRUNCL, "truncl", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_truncl)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_Y0, "y0", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_Y0F, "y0f", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_Y0L, "y0l", BT_FN_LONGDOUBLE_LONGDOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO, NO_EXPAND_FUN)
@@ -1810,7 +2332,7 @@ DEF_C94_BUILTIN        (BUILT_IN_TOWUPPER, "towupper", BT_FN_WINT_WINT, ATTR_PUR
 
 /* Category: miscellaneous builtins.  */
 DEF_LIB_BUILTIN        (BUILT_IN_ABORT, "abort", BT_FN_VOID, ATTR_NORETURN_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_LIB_BUILTIN        (BUILT_IN_ABS, "abs", BT_FN_INT_INT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_LIB_BUILTIN        (BUILT_IN_ABS, "abs", BT_FN_INT_INT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_abs)
 DEF_GCC_BUILTIN        (BUILT_IN_AGGREGATE_INCOMING_ADDRESS, "aggregate_incoming_address", BT_FN_PTR_VAR, ATTR_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ALLOCA, "alloca", BT_FN_PTR_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_APPLY, "apply", BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE, ATTR_NULL, NO_EXPAND_FUN)
@@ -1826,10 +2348,10 @@ DEF_GCC_BUILTIN        (BUILT_IN_CLZL, "clzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHR
 DEF_GCC_BUILTIN        (BUILT_IN_CLZLL, "clzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_clzll)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZS, "clzs", BT_FN_INT_UINT16, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_CONSTANT_P, "constant_p", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_CTZ, "ctz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_CTZ, "ctz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctz)
 DEF_GCC_BUILTIN        (BUILT_IN_CTZIMAX, "ctzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_CTZL, "ctzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_CTZLL, "ctzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_CTZL, "ctzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctzl)
+DEF_GCC_BUILTIN        (BUILT_IN_CTZLL, "ctzll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_ctzll)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DCGETTEXT, "dcgettext", BT_FN_STRING_CONST_STRING_CONST_STRING_INT, ATTR_FORMAT_ARG_2, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_DGETTEXT, "dgettext", BT_FN_STRING_CONST_STRING_CONST_STRING, ATTR_FORMAT_ARG_2, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_DWARF_CFA, "dwarf_cfa", BT_FN_PTR, ATTR_NULL, NO_EXPAND_FUN)
@@ -1863,30 +2385,30 @@ DEF_EXT_LIB_BUILTIN    (BUILT_IN_FINITEL, "finitel", BT_FN_INT_LONGDOUBLE, ATTR_
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_FINITED32, "finited32", BT_FN_INT_DFLOAT32, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_FINITED64, "finited64", BT_FN_INT_DFLOAT64, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_FINITED128, "finited128", BT_FN_INT_DFLOAT128, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_FPCLASSIFY, "fpclassify", BT_FN_INT_INT_INT_INT_INT_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISFINITE, "isfinite", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_FPCLASSIFY, "fpclassify", BT_FN_INT_INT_INT_INT_INT_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_fpclassify)
+DEF_GCC_BUILTIN        (BUILT_IN_ISFINITE, "isfinite", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isfinite)
 DEF_GCC_BUILTIN        (BUILT_IN_ISINF_SIGN, "isinf_sign", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_C99_C90RES_BUILTIN (BUILT_IN_ISINF, "isinf", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFF, "isinff", BT_FN_INT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFL, "isinfl", BT_FN_INT_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_C90RES_BUILTIN (BUILT_IN_ISINF, "isinf", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC, simplify_isinf)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFF, "isinff", BT_FN_INT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_isinff)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFL, "isinfl", BT_FN_INT_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_isinfl)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFD32, "isinfd32", BT_FN_INT_DFLOAT32, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFD64, "isinfd64", BT_FN_INT_DFLOAT64, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISINFD128, "isinfd128", BT_FN_INT_DFLOAT128, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_C90RES_BUILTIN (BUILT_IN_ISNAN, "isnan", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNANF, "isnanf", BT_FN_INT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNANL, "isnanl", BT_FN_INT_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_C99_C90RES_BUILTIN (BUILT_IN_ISNAN, "isnan", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isnan)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNANF, "isnanf", BT_FN_INT_FLOAT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_isnanf)
+DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNANL, "isnanl", BT_FN_INT_LONGDOUBLE, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_isnanl)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNAND32, "isnand32", BT_FN_INT_DFLOAT32, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNAND64, "isnand64", BT_FN_INT_DFLOAT64, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_ISNAND128, "isnand128", BT_FN_INT_DFLOAT128, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISNORMAL, "isnormal", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISGREATER, "isgreater", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISGREATEREQUAL, "isgreaterequal", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISLESS, "isless", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISLESSEQUAL, "islessequal", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISLESSGREATER, "islessgreater", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_ISUNORDERED, "isunordered", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, NO_EXPAND_FUN)
-DEF_LIB_BUILTIN        (BUILT_IN_LABS, "labs", BT_FN_LONG_LONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_C99_BUILTIN        (BUILT_IN_LLABS, "llabs", BT_FN_LONGLONG_LONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_ISNORMAL, "isnormal", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isnormal)
+DEF_GCC_BUILTIN        (BUILT_IN_ISGREATER, "isgreater", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isgreater)
+DEF_GCC_BUILTIN        (BUILT_IN_ISGREATEREQUAL, "isgreaterequal", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isgreaterequal)
+DEF_GCC_BUILTIN        (BUILT_IN_ISLESS, "isless", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isless)
+DEF_GCC_BUILTIN        (BUILT_IN_ISLESSEQUAL, "islessequal", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_islessequal)
+DEF_GCC_BUILTIN        (BUILT_IN_ISLESSGREATER, "islessgreater", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_islessgreater)
+DEF_GCC_BUILTIN        (BUILT_IN_ISUNORDERED, "isunordered", BT_FN_INT_VAR, ATTR_CONST_NOTHROW_TYPEGENERIC_LEAF, simplify_isunordered)
+DEF_LIB_BUILTIN        (BUILT_IN_LABS, "labs", BT_FN_LONG_LONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_labs)
+DEF_C99_BUILTIN        (BUILT_IN_LLABS, "llabs", BT_FN_LONGLONG_LONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_llabs)
 DEF_GCC_BUILTIN        (BUILT_IN_LONGJMP, "longjmp", BT_FN_VOID_PTR_INT, ATTR_NORETURN_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_LIB_BUILTIN        (BUILT_IN_MALLOC, "xmalloc", BT_FN_PTR_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_NEXT_ARG, "next_arg", BT_FN_PTR_VAR, ATTR_LEAF_LIST, NO_EXPAND_FUN)
@@ -1894,10 +2416,10 @@ DEF_GCC_BUILTIN        (BUILT_IN_PARITY, "parity", BT_FN_INT_UINT, ATTR_CONST_NO
 DEF_GCC_BUILTIN        (BUILT_IN_PARITYIMAX, "parityimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_PARITYL, "parityl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_PARITYLL, "parityll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNT, "popcount", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNT, "popcount", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_popcount)
 DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTIMAX, "popcountimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTL, "popcountl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTLL, "popcountll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTL, "popcountl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_popcountl)
+DEF_GCC_BUILTIN        (BUILT_IN_POPCOUNTLL, "popcountll", BT_FN_INT_ULONGLONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_popcountll)
 DEF_GCC_BUILTIN        (BUILT_IN_PREFETCH, "prefetch", BT_FN_VOID_CONST_PTR_VAR, ATTR_NOVOPS_LEAF_LIST, NO_EXPAND_FUN)
 DEF_LIB_BUILTIN        (BUILT_IN_REALLOC, "xrealloc", BT_FN_PTR_PTR_SIZE, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_RETURN, "return", BT_FN_VOID_PTR, ATTR_NORETURN_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
