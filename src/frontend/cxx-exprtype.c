@@ -18086,6 +18086,11 @@ static void error_message_overload_failed(candidate_t* candidates,
 
 nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus)
 {
+    ERROR_CONDITION(nodecl_expr_is_type_dependent(expr),
+            "Do not call this function on type dependent expressions", 0);
+    ERROR_CONDITION(is_dependent_type(dest_type),
+            "Do not call this function to convert to dependent types", 0);
+
     char is_value_dep = nodecl_expr_is_value_dependent(expr);
     const_value_t* val = nodecl_get_constant(expr);
 
@@ -20250,9 +20255,16 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
 {
     nodecl_t nodecl_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
 
-    v->nodecl_result = cxx_nodecl_make_conversion(nodecl_expr, 
-            nodecl_get_type(node), 
-            nodecl_get_locus(node));
+    if (nodecl_expr_is_type_dependent(nodecl_expr))
+    {
+        v->nodecl_result = nodecl_expr;
+    }
+    else
+    {
+        v->nodecl_result = cxx_nodecl_make_conversion(nodecl_expr, 
+                nodecl_get_type(node), 
+                nodecl_get_locus(node));
+    }
 }
 
 static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
