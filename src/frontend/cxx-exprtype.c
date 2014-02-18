@@ -19464,22 +19464,20 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     else
     {
         scope_entry_t* mapped_symbol = instantiation_symbol_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
-
         if (mapped_symbol == NULL)
         {
-            result = nodecl_shallow_copy(node);
+            // There is no mapping, use the original symbol and hope for the best
+            mapped_symbol = nodecl_get_symbol(node);
         }
-        else
-        {
-            // FIXME - Can this name be other than a qualified thing?
-            nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
 
-            scope_entry_list_t* entry_list = entry_list_new(mapped_symbol);
+        // FIXME - Can this name be other than an unqualified thing?
+        nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
 
-            cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
+        scope_entry_list_t* entry_list = entry_list_new(mapped_symbol);
 
-            entry_list_free(entry_list);
-        }
+        cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
+
+        entry_list_free(entry_list);
     }
 
     v->nodecl_result = result;
