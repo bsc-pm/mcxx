@@ -992,6 +992,17 @@ namespace TL
                separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
             }
 
+            TL::ObjectList<std::string> input_private_names;
+            input_private_names.append("in_private");
+            input_private_names.append("inprivate");
+            PragmaCustomClause input_private_clause = pragma_line.get_clause(input_private_names);
+            ObjectList<Nodecl::NodeclBase> input_private_arguments;
+            if (input_private_clause.is_defined())
+            {
+                input_private_arguments = input_private_clause.get_arguments_as_expressions(parsing_scope);
+                input_private_arguments = update_clauses(input_private_arguments, function_sym);
+            }
+
             PragmaCustomClause output_clause = pragma_line.get_clause("out",
                     /* deprecated name */ "output");
             ObjectList<Nodecl::NodeclBase> output_arguments;
@@ -1061,6 +1072,11 @@ namespace TL
 
             dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE);
             dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
+
+            dependence_list_check(input_private_arguments, DEP_DIR_IN_PRIVATE);
+            dependence_list.append(input_private_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_IN_PRIVATE))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
 
             dependence_list_check(output_arguments, DEP_DIR_OUT);
             dependence_list.append(output_arguments

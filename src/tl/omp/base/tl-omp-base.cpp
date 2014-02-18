@@ -1737,6 +1737,12 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+                dependences,
+                OpenMP::DEP_DIR_IN_PRIVATE,
+                locus,
+                result_list);
+
         make_dependency_list<Nodecl::OpenMP::DepOut>(
                 dependences,
                 OpenMP::DEP_DIR_OUT,
