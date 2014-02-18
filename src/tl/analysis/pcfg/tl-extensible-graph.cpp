@@ -1253,6 +1253,8 @@ namespace Analysis {
         Node* result = current->get_outer_node( );
         while( result != NULL && !result->is_omp_node( ) )
             result = result->get_outer_node( );
+        if( result != NULL && !result->is_omp_node( ) )
+            result = NULL;
         return result;
     }
     
