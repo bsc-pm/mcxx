@@ -115,10 +115,6 @@ namespace Analysis {
                 {
                     if( current->is_omp_task_node( ) )
                     {
-                        if( container_task != NULL )
-                        {
-                            WARNING_MESSAGE( "Analysis of nested tasks is not properly supported. You might get wrong results\n", 0 );
-                        }
                         container_task = current;
                     }
                     solve_live_equations_rec( current->get_graph_entry_node(), changed, container_task );
