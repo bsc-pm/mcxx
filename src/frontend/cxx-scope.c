@@ -4648,6 +4648,20 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     {
         // In C++11 we qualify enumerators that are not members
         scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);
+#if 0
+        // There is a bug with g++, C++11 and anonymous enumerators
+        char hack_for_anonymous_enumerator_gxx =
+            strncmp(enum_symbol->symbol_name,
+                        "mcc_enum_anon_",
+                        strlen("mcc_enum_anon_")) == 0;
+        if (hack_for_anonymous_enumerator_gxx)
+        {
+            // Get the enclosing symbol (eventually a class or a namespace)
+            enum_symbol = enum_symbol->decl_context.current_scope->related_entry;
+            if (enum_symbol == NULL)
+                return result;
+        }
+#endif
         char prev_is_dependent = 0;
         const char* enum_qualification =
             get_fully_qualified_symbol_name_ex(enum_symbol, decl_context, &prev_is_dependent, max_qualif_level,
