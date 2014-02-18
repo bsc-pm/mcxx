@@ -1324,7 +1324,7 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
             print "nodecl_set_template_parameters(result, template_parameters);"
 
         if may_have_attr("decl_context"):
-            print "nodecl_set_decl_context(n, decl_context);"
+            print "nodecl_set_decl_context(result, decl_context);"
 
         print "       return result;";
         print "       break;"
