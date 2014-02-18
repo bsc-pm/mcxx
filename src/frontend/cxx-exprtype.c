@@ -2979,7 +2979,7 @@ void compute_bin_operator_generic(
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
 
         if (// If the expression can be constant and any of the operands is value dependent, so it is
-                const_value_bin_fun != NULL 
+                const_value_bin_fun != NULL
                 && (nodecl_expr_is_value_dependent(*lhs)
                     || nodecl_expr_is_value_dependent(*rhs)))
         {
@@ -9916,6 +9916,7 @@ static void check_nodecl_function_call_cxx(
 
     // If any in the expression list is type dependent this call is all dependent
     char any_arg_is_type_dependent = 0;
+    char any_arg_is_value_dependent = 0;
     int i, num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
     for (i = 0; i < num_items && !any_arg_is_type_dependent; i++)
@@ -9924,6 +9925,10 @@ static void check_nodecl_function_call_cxx(
         if (nodecl_expr_is_type_dependent(argument))
         {
             any_arg_is_type_dependent = 1;
+        }
+        if (nodecl_expr_is_value_dependent(argument))
+        {
+            any_arg_is_value_dependent = 1;
         }
     }
     xfree(list);
@@ -10017,8 +10022,7 @@ static void check_nodecl_function_call_cxx(
 
     if (!nodecl_is_err_expr(nodecl_called)
             && (any_arg_is_type_dependent
-                || nodecl_expr_is_type_dependent(nodecl_called)
-                || nodecl_expr_is_value_dependent(nodecl_called)))
+                || nodecl_expr_is_type_dependent(nodecl_called)))
     {
         // If the called entity or one of the arguments is dependent, all the
         // call is dependent
@@ -10038,6 +10042,7 @@ static void check_nodecl_function_call_cxx(
                 get_unknown_dependent_type(),
                 locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, any_arg_is_value_dependent);
         return;
     }
 
@@ -18609,8 +18614,12 @@ nodecl_t cxx_nodecl_make_function_call(
     if (called_symbol != orig_called_symbol)
     {
         called = nodecl_make_symbol(called_symbol, locus);
+
         preserve_orig_name = true;
     }
+
+    char any_arg_is_value_dependent = 0;
+    any_arg_is_value_dependent = nodecl_expr_is_value_dependent(called);
 
     // This list will be the same as arg_list but with explicit conversions stored
     nodecl_t converted_arg_list = nodecl_null();
@@ -18661,12 +18670,18 @@ nodecl_t cxx_nodecl_make_function_call(
         // Ignore the first argument as we know it is 'this'
         i = 1;
 
+        any_arg_is_value_dependent = any_arg_is_value_dependent
+            || nodecl_expr_is_value_dependent(list[0]);
+
         converted_arg_list = nodecl_append_to_list(converted_arg_list, list[0]);
         ignore_this = 1;
     }
 
     for (; i < num_items; i++, j++)
     {
+        any_arg_is_value_dependent = any_arg_is_value_dependent
+            || nodecl_expr_is_value_dependent(list[i]);
+
         type_t* arg_type = nodecl_get_type(list[i]);
         if (j < num_parameters)
         {
@@ -18683,6 +18698,7 @@ nodecl_t cxx_nodecl_make_function_call(
         }
         else
         {
+
             if (is_promoting_ellipsis)
             {
                 // We do not emit diagnostic here because it is too late to take any
@@ -18834,10 +18850,13 @@ nodecl_t cxx_nodecl_make_function_call(
                                     && (nodecl_get_kind(nodecl_get_child(called_name, 2))
                                         != NODECL_CXX_DEP_GLOBAL_NAME_NESTED )  ))) )) // x.::A::f()
             {
-                return nodecl_make_virtual_function_call(called,
+                nodecl_t result = nodecl_make_virtual_function_call(called,
                         converted_arg_list,
                         function_form, t,
                         locus);
+
+                nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+                return result;
             }
             else
             {
@@ -18901,13 +18920,14 @@ nodecl_t cxx_nodecl_make_function_call(
                     }
                 }
 
+                nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
                 return result;
             }
         }
         else if (called_symbol->kind == SK_VARIABLE
                 && is_pointer_to_function_type(no_ref(called_symbol->type_information)))
         {
-            return nodecl_make_function_call(
+            nodecl_t result = nodecl_make_function_call(
                     nodecl_make_dereference(called,
                         lvalue_ref(pointer_type_get_pointee_type(called_symbol->type_information)),
                         nodecl_get_locus(called)),
@@ -18916,14 +18936,19 @@ nodecl_t cxx_nodecl_make_function_call(
                     function_form,
                     // A pointer to function cannot have template arguments
                     t, locus);
+
+            nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+            return result;
         }
         else
         {
-            return nodecl_make_function_call(called,
+            nodecl_t result = nodecl_make_function_call(called,
                     converted_arg_list,
                     /* alternate_name */ nodecl_null(),
                     function_form, t,
                     locus);
+            nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+            return result;
         }
     }
     else
@@ -19357,6 +19382,10 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         else if (argument->kind == SK_VARIABLE)
         {
             result = nodecl_shallow_copy(argument->value);
+            if (nodecl_expr_is_type_dependent(result))
+            {
+                nodecl_expr_set_is_value_dependent(result, 1);
+            }
         }
         else if (argument->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
         {
