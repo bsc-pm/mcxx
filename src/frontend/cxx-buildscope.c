@@ -4465,7 +4465,7 @@ static void gather_type_spec_from_dependent_typename(AST a,
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: typename '%s' not found\n", 
+            error_printf("%s: error: typename '%s' not found\n", 
                     ast_location(id_expression),
                     prettyprint_in_buffer(id_expression));
         }
