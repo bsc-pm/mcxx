@@ -69,6 +69,12 @@ namespace OpenMP {
             for( PCFG_Node_list::iterator it = tasks.begin(); it != tasks.end(); it++ )
             {
                 // Automatic storage variables as shared
+                // Example:
+                // {
+                //    int a;
+                //    #pragma omp task shared(a)
+                //       a = 0;
+                // }
                 {
                     Nodecl::List local_vars;
                     if( task_is_locally_bound(*it, local_vars).is_true( ) )
@@ -88,6 +94,10 @@ namespace OpenMP {
                 }
                 
                 // Race conditions
+                // Example:
+                // #pragma omp task
+                //    x++;
+                // printf("x=%d\n", x);
                 {
                     Nodecl::List race_cond_vars;
                     if( task_may_cause_race_condition( graph, *it, race_cond_vars ).is_true( ) )
@@ -99,6 +109,15 @@ namespace OpenMP {
                                      task.get_locus_str().c_str(), race_cond_vars_str.c_str() );
                         
                     }
+                }
+                
+                // Incoherent data-sharing
+                // Example:
+                // #pragma omp task private(x)
+                //    x++;
+                {
+                    std::string task_locus = (*it)->get_graph_related_ast().get_locus_str().c_str();
+                    check_task_incoherent_data_sharing( *it, task_locus );
                 }
             }
         }
@@ -479,9 +498,411 @@ namespace OpenMP {
             
             return result;
         }
-    };
+        
+        TL::Analysis::Node* get_var_last_definition( Nodecl::NodeclBase n, TL::Analysis::Node* task_exit )
+        {
+            TL::Analysis::Node* result = NULL;
+            TL::ObjectList<TL::Analysis::Node*> parents = task_exit->get_parents( );
+            TL::Analysis::Utils::ext_sym_set killed_vars;
+            while( !parents.empty( ) && ( result == NULL ) )
+            {
+                TL::ObjectList<TL::Analysis::Node*> new_parents;
+                for( TL::ObjectList<TL::Analysis::Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+                {
+                    killed_vars = (*it)->get_killed_vars( );
+                    if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( n, killed_vars ) ) {
+                        result = *it;
+                        break;
+                    }
+                    new_parents.insert( (*it)->get_parents( ) );
+                }
+                if( result != NULL && result->is_graph_node( ) )
+                {
+                    parents = result->get_graph_exit_node( )->get_parents( );
+                    result = NULL;
+                }
+                else
+                    parents = new_parents;
+            }
+                
+            return result;
+        }
+        
+        bool var_is_used_in_node_after_definition( TL::Analysis::Node* node, const Nodecl::NodeclBase& n )
+        {
+            bool result = false;
             
+            // Get the last statement in the node that defines 'n'
+            TL::ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
+            WritesVisitor wv;
+            TL::ObjectList<Nodecl::NodeclBase>::iterator it, it2;
+            for( it = stmts.begin( ); it != stmts.end( ); ++it )
+            {
+                wv.walk( *it );
+                ObjectList<Nodecl::NodeclBase> defined_syms = wv.get_defined_symbols( );
+                if( Nodecl::Utils::list_contains_nodecl( defined_syms, n ) )
+                    it2 = it;
+                wv.clear( );
+            }
+            
+            // Check the statements after the last definition to check for uses of the variable
+            it = it2; it++;
+            for( ; it != stmts.end( ) && !result; ++it )
+            {
+                TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
+                if( Nodecl::Utils::list_contains_nodecl( mem_accesses, n ) )
+                    result = true;
+            }
+            
+            return result;
+        }
+        
+        bool var_is_used_between_nodes( TL::Analysis::Node* source, TL::Analysis::Node* target, const Nodecl::NodeclBase& n )
+        {
+            if( ( source == target ) || source->is_exit_node( ) )
+                return false;
+            
+            bool result = false;
+            
+            if( !source->is_visited( ) )
+            {
+                source->set_visited( true );
+                
+                // Treat the current node
+                if( source->is_graph_node( ) )
+                    result = var_is_used_between_nodes( source->get_graph_entry_node( ), target, n );
+                else if( source->has_statements( ) )
+                {
+                    TL::ObjectList<Nodecl::NodeclBase> stmts = source->get_statements( );
+                    for( TL::ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ) && !result; ++it )
+                    {
+                        TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
+                        if( Nodecl::Utils::list_contains_nodecl( mem_accesses, n ) )
+                        {
+                            result = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Treat the children
+                if( !result )
+                {
+                    TL::ObjectList<TL::Analysis::Node*> children = source->get_children( );
+                    for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); ( it != children.end( ) ) && !result; ++it )
+                    {
+                        result = var_is_used_between_nodes( *it, target, n );
+                    }
+                }
+            }
+            
+            return result;
+        }
+        
+        bool var_is_used_in_task_after_definition( const Nodecl::NodeclBase& n, TL::Analysis::Node* task )
+        {
+            bool result = false;
+            
+            TL::Analysis::Node* task_exit = task->get_graph_exit_node( );
+            TL::Analysis::Node* last_definition = get_var_last_definition( n, task_exit );
+            ERROR_CONDITION( last_definition == NULL, 
+                             "Variable '%s' is defined inside task %d, but the definition has not been found\n", 
+                             n.prettyprint( ).c_str( ), task->get_id( ) );
+            
+            // Check is the variable is used in the same node it is defined, after the definition
+            result = var_is_used_in_node_after_definition( last_definition, n );
+            
+            // Check is the variable is used between the node it is defined and the end of the task
+            if( !result )
+            {
+                last_definition->set_visited( true );
+                ObjectList<TL::Analysis::Node*> children = last_definition->get_children( );
+                for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+                {
+                    result = var_is_used_between_nodes( *it, task_exit, n );
+                }
+                TL::Analysis::ExtensibleGraph::clear_visits_backwards( last_definition );
+            }
+            
+            return result;
+        }
+        
+        void check_task_incoherent_data_sharing( TL::Analysis::Node *task, std::string task_locus )
+        {
+            // Collect all symbols/data references appearing in data-sharing clauses
+            Nodecl::List firstprivate_vars, private_vars, all_private_vars, task_scoped_vars;
+            TL::Analysis::PCFGPragmaInfo task_pragma_info = task->get_pragma_node_info( );
+            if( task_pragma_info.has_clause( TL::Analysis::__firstprivate ) )
+            {
+                firstprivate_vars = task_pragma_info.get_clause( TL::Analysis::__firstprivate ).get_args( );
+                all_private_vars.append( firstprivate_vars );
+                task_scoped_vars.append( firstprivate_vars );
+            } 
+            else if( task_pragma_info.has_clause( TL::Analysis::__private ) )
+            {
+                private_vars = task_pragma_info.get_clause( TL::Analysis::__private ).get_args( );
+                all_private_vars.append( private_vars );
+                task_scoped_vars.append( private_vars );
+            } 
+            else if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
+            {
+                Nodecl::List shared_vars = task_pragma_info.get_clause( TL::Analysis::__shared ).get_args( );
+                task_scoped_vars.append( shared_vars );
+            }
+            
+            // Collect usage of variables inside the task
+            TL::Analysis::Utils::ext_sym_set ue_vars = task->get_ue_vars( );
+            TL::Analysis::Utils::ext_sym_set killed_vars = task->get_killed_vars( );
+            TL::Analysis::Utils::ext_sym_set undef_vars = task->get_undefined_behaviour_vars( );
+            
+            TL::Analysis::Utils::ext_sym_set private_ue_vars = task->get_private_ue_vars( );
+            TL::Analysis::Utils::ext_sym_set private_killed_vars = task->get_private_killed_vars( );
+            TL::Analysis::Utils::ext_sym_set private_undef_vars = task->get_private_undefined_behaviour_vars( );
+            
+            // Case1: No variable should be scoped if it is not used at all inside the task 
+            Nodecl::List unnecessarily_scoped_vars;
+            for( Nodecl::List::iterator it = task_scoped_vars.begin( ); it != task_scoped_vars.end( ); ++it )
+            {
+                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, killed_vars ) && 
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, undef_vars ) && 
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) && 
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_killed_vars ) && 
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_undef_vars ) )
+                {
+                    unnecessarily_scoped_vars.append( *it );
+                }
+            }
+            if( !unnecessarily_scoped_vars.empty( ) ) 
+            {
+                warn_printf( "%s: warning: OpenMP task defines the scope of the variables '%s' "
+                             "which are not used at all within the task\n",
+                             task_locus.c_str(), unnecessarily_scoped_vars.prettyprint().c_str() );
+            }
+            
+            // Case2: Any private|firstprivate variable defined within the task must use that definition.
+            // Otherwise the variable should be shared or the statement can be removed because it produces dead code
+            Nodecl::List dead_code_vars;
+            for( Nodecl::List::iterator it = all_private_vars.begin( ); it != all_private_vars.end( ); ++it )
+            {
+                if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, killed_vars ) || 
+                    TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_killed_vars ) )
+                {
+                    if( !var_is_used_in_task_after_definition( *it, task ) )
+                        dead_code_vars.append( *it );
+                }
+            }
+            if( !dead_code_vars.empty( ) )
+            {
+                std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
+                warn_printf( "%s: warning: OpenMP task defines as (first)private the variables '%s' "
+                             "and these variables are written inside the task, but never used.\n" 
+                             "%sConsider defining them as shared or "
+                             "removing the statement writing them because it is dead code.\n",
+                             task_locus.c_str(), dead_code_vars.prettyprint().c_str(), tabulation.c_str() );
+            }
+            
+            // Case3: Private variables must never be read before they are written
+            Nodecl::List incoherent_private_vars;
+            for( Nodecl::List::iterator it = private_vars.begin( ); it != private_vars.end( ); ++it )
+            {
+                if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) || 
+                    TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) )
+                    incoherent_private_vars.append( *it );
+            }
+            if( !incoherent_private_vars.empty( ) )
+            {
+                std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
+                warn_printf( "%s: warning: OpenMP task defines as private the variables '%s' "
+                             "but those variables are upwards exposed.\n"
+                             "%sConsider defining them as firstprivate instead.\n",
+                             task_locus.c_str(), incoherent_private_vars.prettyprint().c_str(), tabulation.c_str() );
+            }
+            
+            // Case4: Firstprivate variables must never be written before they are read
+            Nodecl::List incoherent_firstprivate_vars;
+            for( Nodecl::List::iterator it = firstprivate_vars.begin( ); it != firstprivate_vars.end( ); ++it )
+            {
+                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) )
+                    incoherent_firstprivate_vars.append( *it );
+            }
+            if( !incoherent_firstprivate_vars.empty( ) )
+            {
+                std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
+                warn_printf( "%s: warning: OpenMP task defines as firstprivate the variables '%s' "
+                             "but those variables are not upwards exposed.\n"
+                             "%sConsider defining them as private instead.\n",
+                             task_locus.c_str(), incoherent_firstprivate_vars.prettyprint().c_str(), tabulation.c_str() );
+            }
+        }
+    };
+    
 
+    
+    // ********************************************************************************************* //
+    // ******************************* Visitor for writing statements ****************************** //
+    
+    WritesVisitor::WritesVisitor( )
+        : _defined_vars( ), _define( false )
+    {}
+    
+    ObjectList<Nodecl::NodeclBase> WritesVisitor::get_defined_symbols( )
+    {
+        return _defined_vars;
+    }
+    
+    void WritesVisitor::clear( )
+    {
+        _defined_vars.clear( );
+        _define = false;
+    }
+    
+    void WritesVisitor::visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
+    {
+        _define = true;
+        walk( lhs );
+        _define = false;
+        
+        walk( rhs );
+    }
+    
+    void WritesVisitor::visit_xx_crement( const Nodecl::NodeclBase& rhs )
+    {
+        _define = true;
+        walk( rhs );
+        _define = false;
+    }
+    
+    void WritesVisitor::visit( const Nodecl::AddAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::ArraySubscript& n )
+    {
+        if( _define )
+            _defined_vars.insert( n );
+        
+        walk( n.get_subscripts( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Assignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+        }
+    
+    void WritesVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::ClassMemberAccess& n )
+    {
+        if( _define )
+            _defined_vars.insert( n );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Dereference& n )
+    {
+        if( _define )
+            _defined_vars.insert( n );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::DivAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::MinusAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::ModAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::MulAssignment& n )
+    {
+        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::ObjectInit& n )
+    {
+        if( !n.get_symbol( ).get_value( ).is_null( ) )
+        {
+            Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus( ) );
+            _defined_vars.insert( n_sym );
+        }
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Postdecrement& n )
+    {
+        visit_xx_crement( n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Postincrement& n )
+    {
+        visit_xx_crement( n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Predecrement& n )
+    {
+        visit_xx_crement( n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Preincrement& n )
+    {
+        visit_xx_crement( n.get_rhs( ) );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Reference& n )
+    {
+        if( _define )
+            _defined_vars.insert( n );
+    }
+    
+    void WritesVisitor::visit( const Nodecl::Symbol& n )
+    {
+        if( _define )
+            _defined_vars.insert( n );
+    }
+    
+    // ***************************** END Visitor for writing statements **************************** //
+    // ********************************************************************************************* //
+    
+    
+    
+    // ********************************************************************************************* //
+    // ******************************** OpenMP scope checking phase ******************************** //
+    
     Lint::Lint()
         : _disable_phase("0")
     {
@@ -507,7 +928,9 @@ namespace OpenMP {
 
     void Lint::pre_run(TL::DTO& dto)
     {}
-
+    
+    // ****************************** END OpenMP scope checking phase ****************************** //
+    // ********************************************************************************************* //
 }
 }
 
