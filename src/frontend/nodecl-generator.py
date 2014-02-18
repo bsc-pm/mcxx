@@ -1326,6 +1326,10 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
         if may_have_attr("decl_context"):
             print "nodecl_set_decl_context(result, decl_context);"
 
+        # Extra attributes from expressions
+        print "nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(n));"
+        print "nodecl_expr_set_is_type_dependent(result, nodecl_expr_is_type_dependent(n));"
+
         print "       return result;";
         print "       break;"
         print "       }"
