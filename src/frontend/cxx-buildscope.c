@@ -6261,7 +6261,9 @@ static char is_class_type_or_array_thereof(type_t* t)
 // This function is only for C++
 //
 // FIXME - This function is HUGE
-static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_context_t decl_context,
+static void finish_class_type_cxx(type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
@@ -6552,7 +6554,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         // 1.
         char has_variant_member_with_nontrivial_default_ctor = 0;
-        if (is_union_type(class_type))
+        if (is_union_type(class_type)
+                // This does not apply to anonymous unions
+                && !named_type_get_symbol(type_info)->entity_specs.is_anonymous_union)
         {
             for (it = entry_list_iterator_begin(nonstatic_data_members);
                     !entry_list_iterator_end(it)
@@ -7290,7 +7294,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_copy_assignment_function);
 
         char union_has_member_with_nontrivial_copy_assignment = 0;
-        if (is_union_type(class_type))
+        if (is_union_type(class_type)
+                // This does not apply to anonymous unions
+                && !named_type_get_symbol(type_info)->entity_specs.is_anonymous_union)
         {
             for (it = entry_list_iterator_begin(nonstatic_data_members);
                     !entry_list_iterator_end(it) && union_has_member_with_nontrivial_copy_assignment;
@@ -7447,7 +7453,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         scope_entry_list_iterator_t* it = NULL;
 
         char union_has_member_with_nontrivial_move_assignment = 0;
-        if (is_union_type(class_type))
+        if (is_union_type(class_type)
+                // This does not apply to anonymous unions
+                && !named_type_get_symbol(type_info)->entity_specs.is_anonymous_union)
         {
             for (it = entry_list_iterator_begin(nonstatic_data_members);
                     !entry_list_iterator_end(it) && union_has_member_with_nontrivial_move_assignment;
