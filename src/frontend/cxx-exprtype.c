@@ -1057,6 +1057,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             {
                 fprintf(stderr, " [TYPE DEPENDENT]");
             }
+
             if (nodecl_expr_is_value_dependent(*nodecl_output))
             {
                 fprintf(stderr, " [VALUE DEPENDENT]");
@@ -19340,7 +19341,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         }
         else if (argument->kind == SK_VARIABLE)
         {
-            result = argument->value;
+            result = nodecl_shallow_copy(argument->value);
         }
         else if (argument->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
         {
