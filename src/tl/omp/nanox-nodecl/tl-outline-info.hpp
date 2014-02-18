@@ -77,10 +77,11 @@ namespace TL
                     DEP_IN =   1 << 0,
                     DEP_IN_VALUE =   1 << 1,
                     DEP_IN_ALLOCA =   1 << 2,
-                    DEP_OUT =  1 << 3,
+                    DEP_IN_PRIVATE =   1 << 3,
+                    DEP_OUT =  1 << 4,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 4,
-                    DEP_COMMUTATIVE = 1 << 5
+                    DEP_CONCURRENT = 1 << 5,
+                    DEP_COMMUTATIVE = 1 << 6
                 };
                 struct DependencyItem
                 {
