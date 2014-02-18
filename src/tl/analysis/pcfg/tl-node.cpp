@@ -1128,6 +1128,33 @@ namespace Analysis {
         set_data( _UPPER_EXPOSED, ue_vars );
     }
 
+    Utils::ext_sym_set Node::get_private_ue_vars( )
+    {
+        Utils::ext_sym_set private_ue_vars;
+        if( has_key( _PRIVATE_UPPER_EXPOSED ) )
+            private_ue_vars = get_data<Utils::ext_sym_set>( _PRIVATE_UPPER_EXPOSED );
+        return private_ue_vars;
+    }
+
+    void Node::set_private_ue_var( Utils::ext_sym_set new_private_ue_vars )
+    {
+        Utils::ext_sym_set private_ue_vars = get_private_ue_vars( );
+        Utils::ext_sym_set purged_private_ue_vars;
+        Utils::ext_sym_set::iterator it = new_private_ue_vars.begin( );
+        for( ; it != new_private_ue_vars.end( ); ++it )
+        {
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), private_ue_vars ) )
+            {
+                if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), private_ue_vars ) )
+                    delete_enclosed_var_from_list( *it, private_ue_vars );
+                
+                purged_private_ue_vars.insert( *it );
+            }
+        }
+        private_ue_vars.insert( purged_private_ue_vars.begin( ), purged_private_ue_vars.end( ) );
+        set_data( _PRIVATE_UPPER_EXPOSED, private_ue_vars );
+    }
+
     Utils::ext_sym_set Node::get_killed_vars( )
     {
         Utils::ext_sym_set killed_vars;
@@ -1175,6 +1202,33 @@ namespace Analysis {
         set_data(_KILLED, killed_vars);
     }
 
+    Utils::ext_sym_set Node::get_private_killed_vars( )
+    {
+        Utils::ext_sym_set private_killed_vars;
+        if( has_key( _PRIVATE_KILLED ) )
+            private_killed_vars = get_data<Utils::ext_sym_set>( _PRIVATE_KILLED );
+        return private_killed_vars;
+    }
+    
+    void Node::set_private_killed_var( Utils::ext_sym_set new_private_killed_vars )
+    {
+        Utils::ext_sym_set private_killed_vars = get_private_killed_vars( );
+        Utils::ext_sym_set purged_private_killed_vars;
+        Utils::ext_sym_set::iterator it = new_private_killed_vars.begin( );
+        for( ; it != new_private_killed_vars.end( ); ++it )
+        {
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), private_killed_vars ) )
+            {
+                if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), private_killed_vars ) )
+                    delete_enclosed_var_from_list( *it, private_killed_vars );
+                purged_private_killed_vars.insert( *it );
+            }
+        }
+        
+        private_killed_vars.insert( purged_private_killed_vars.begin( ), purged_private_killed_vars.end( ) );
+        set_data( _PRIVATE_KILLED, private_killed_vars );
+    }
+    
     Utils::ext_sym_set Node::get_undefined_behaviour_vars( )
     {
         Utils::ext_sym_set undef_vars;
@@ -1233,6 +1287,32 @@ namespace Analysis {
         set_data( _UNDEF, undef_vars );
     }
 
+    Utils::ext_sym_set Node::get_private_undefined_behaviour_vars( )
+    {
+        Utils::ext_sym_set private_undef_vars;
+        if( has_key( _PRIVATE_UNDEF ) )
+            private_undef_vars = get_data<Utils::ext_sym_set>( _PRIVATE_UNDEF );
+        return private_undef_vars;
+    }
+    
+    void Node::set_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars )
+    {
+        Utils::ext_sym_set private_undef_vars = get_private_undefined_behaviour_vars( );
+        Utils::ext_sym_set purged_private_undef_vars;
+        Utils::ext_sym_set::iterator it = new_private_undef_vars.begin( );
+        for( ; it != new_private_undef_vars.end( ); ++it )
+        {
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), private_undef_vars ) )
+            {
+                if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), private_undef_vars ) )
+                    delete_enclosed_var_from_list( *it, private_undef_vars );
+                purged_private_undef_vars.insert( *it );
+            }
+        }
+        private_undef_vars.insert( purged_private_undef_vars.begin( ), purged_private_undef_vars.end( ) );
+        set_data( _PRIVATE_UNDEF, private_undef_vars );
+    }
+    
     // ************* END getters and setters for use-definition analysis ************ //
     // ****************************************************************************** //
 

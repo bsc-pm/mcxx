@@ -294,6 +294,8 @@ namespace Analysis {
                 killed_vars = usage[1];
                 undef_vars = usage[2];
 
+                Utils::ext_sym_set private_ue_vars, private_killed_vars, private_undef_vars;
+                
                 if( current->is_omp_loop_node( ) || current->is_omp_sections_node( ) || current->is_omp_single_node( )
                     || current->is_omp_parallel_node( ) || current->is_omp_task_node( ) )
                 {   // Take into account data-sharing clauses in Use-Def Task node computation
@@ -310,13 +312,20 @@ namespace Analysis {
                                 if( Utils::ext_sym_set_contains_nodecl( *it_p, undef_vars ) )
                                 {
                                     undef_vars.erase( Utils::ExtendedSymbol( *it_p ) );
+                                    private_undef_vars.insert( Utils::ExtendedSymbol( *it_p ) );
                                 }
                                 else
                                 {
                                     if( Utils::ext_sym_set_contains_nodecl( *it_p, ue_vars ) )
+                                    {
                                         ue_vars.erase( Utils::ExtendedSymbol( *it_p ) );
+                                        private_ue_vars.insert( Utils::ExtendedSymbol( *it_p ) );
+                                    }
                                     if( Utils::ext_sym_set_contains_nodecl( *it_p, killed_vars ) )
+                                    {
                                         killed_vars.erase( Utils::ExtendedSymbol( *it_p ) );
+                                        private_killed_vars.insert( Utils::ExtendedSymbol( *it_p ) );
+                                    }
                                 }
                             }
                         }
@@ -325,8 +334,16 @@ namespace Analysis {
                             Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
                             for( Nodecl::List::iterator it_fp = firstprivate_syms.begin( ); it_fp != firstprivate_syms.end( ); ++it_fp )
                             {
-                                if( !Utils::ext_sym_set_contains_nodecl( *it_fp, ue_vars ) )
-                                    ue_vars.insert( Utils::ExtendedSymbol( *it_fp ) );
+                                if( Utils::ext_sym_set_contains_nodecl( *it_fp, undef_vars ) )
+                                {
+                                    undef_vars.erase( Utils::ExtendedSymbol( *it_fp ) );
+                                    private_undef_vars.insert( Utils::ExtendedSymbol( *it_fp ) );
+                                }
+                                else if( Utils::ext_sym_set_contains_nodecl( *it_fp, killed_vars ) )
+                                {
+                                    killed_vars.erase( Utils::ExtendedSymbol( *it_fp ) );
+                                    private_killed_vars.insert( Utils::ExtendedSymbol( *it_fp ) );
+                                }
                             }
                         }
                     }
@@ -335,6 +352,10 @@ namespace Analysis {
                 current->set_ue_var( ue_vars );
                 current->set_killed_var( killed_vars );
                 current->set_undefined_behaviour_var( undef_vars );
+                
+                current->set_private_ue_var( private_ue_vars );
+                current->set_private_killed_var( private_killed_vars );
+                current->set_private_undefined_behaviour_var( private_undef_vars );
             }
         }
         else
