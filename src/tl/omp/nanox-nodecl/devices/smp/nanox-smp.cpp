@@ -334,6 +334,7 @@ namespace TL { namespace Nanox {
                                 <<      "}"
                                 <<      "else"
                                 <<      "{"
+                                <<          name_private_copy_bool << " =  0;"
                                 <<          name_private_copy << " = "
                                 <<              "(" << as_type(cast_type) << ") __builtin_alloca(" << as_expression(data_ref.get_sizeof()) << ");"
                                 <<      "}"
