@@ -18267,13 +18267,22 @@ struct map_of_parameters_with_their_arguments_tag
 static map_of_parameters_with_their_arguments_t*
 constexpr_function_get_constants_of_arguments(
         nodecl_t converted_arg_list,
-        scope_entry_t* entry)
+        scope_entry_t* entry,
+        int *num_map_items)
 {
     int i, N = 0;
     nodecl_t* list = nodecl_unpack_list(converted_arg_list, &N);
     map_of_parameters_with_their_arguments_t* result = xcalloc(N, sizeof(*result));
+    *num_map_items = 0;
 
-    for (i = 0; i < N; i++)
+    int num_arguments = N;
+
+    if (function_type_get_has_ellipsis(entry->type_information))
+    {
+        num_arguments = function_type_get_num_parameters(entry->type_information) - 1;
+    }
+
+    for (i = 0; i < num_arguments; i++)
     {
         const_value_t* argument_value = nodecl_get_constant(list[i]);
 
@@ -18323,6 +18332,8 @@ constexpr_function_get_constants_of_arguments(
 
         result[i].parameter = parameter;
         result[i].value = argument_value;
+
+        (*num_map_items)++;
     }
     xfree(list);
 
@@ -18538,8 +18549,50 @@ static const_value_t* evaluate_constexpr_function_call(
     {
         fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n", get_qualified_symbol_name(entry, entry->decl_context));
     }
+
+    if (is_template_specialized_type(entry->type_information))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Called constexpr function is a specialized template\n");
+        }
+
+        ERROR_CONDITION(is_dependent_type(entry->type_information), "We attempt to call something that is dependent", 0);
+
+        if (nodecl_is_null(entry->entity_specs.function_code))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: We have to instantiate the constexpr function '%s'\n",
+                        get_qualified_symbol_name(entry, entry->decl_context));
+            }
+
+            instantiate_template_function(entry, locus);
+
+            // Verify the instantiation (though it is not an error if the function fails to be constexpr)
+            char is_constexpr = check_constexpr_function(entry,
+                    nodecl_get_locus(entry->entity_specs.function_code), /* emit_error */ 0)
+                && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
+
+            entry->entity_specs.is_constexpr = is_constexpr;
+
+            if (!is_constexpr)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: After instantiation of '%s' it has become non constexpr\n",
+                            get_qualified_symbol_name(entry, entry->decl_context));
+                }
+                return NULL;
+            }
+        }
+    }
+
+    int num_map_items = -1;
+
     map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
-        constexpr_function_get_constants_of_arguments(converted_arg_list, entry);
+        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
+
     if (map_of_parameters_and_values == NULL)
     {
         DEBUG_CODE()
@@ -18549,19 +18602,14 @@ static const_value_t* evaluate_constexpr_function_call(
         }
         return NULL;
     }
-    int num_map_items = nodecl_list_length(converted_arg_list);
 
-    if (is_template_specialized_type(entry->type_information))
-    {
-        warn_printf("%s: calls to constexpr template functions not yet implemented", locus_to_str(locus));
-        return NULL;
-    }
+    ERROR_CONDITION(num_map_items < 0, "Invalid number of map items", 0);
 
     if (!entry->defined)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr fails because the function has not been defined");
+            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr fails because the function has not been defined\n");
         }
         return NULL;
     }
@@ -19144,7 +19192,7 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     {
         fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s). Constant evaluation is %s\n",
                 codegen_to_str(node, visitor->decl_context),
-                ast_print_node_type(nodecl_get_kind(node)),
+                !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
 
     }
@@ -19153,7 +19201,7 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     {
         fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s) instantiated to expression '%s' with type '%s'. Constant evaluation is %s",
                 codegen_to_str(node, visitor->decl_context),
-                ast_print_node_type(nodecl_get_kind(node)),
+                !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
                 codegen_to_str(visitor->nodecl_result, visitor->decl_context),
                 print_declarator(nodecl_get_type(visitor->nodecl_result)),
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");

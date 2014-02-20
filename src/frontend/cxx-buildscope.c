@@ -13664,13 +13664,16 @@ static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pre
     return 0;
 }
 
-char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
+char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
+        char emit_error)
 {
     if (entry->entity_specs.is_virtual)
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: a constexpr function cannot be virtual\n",
+            warn_or_error_printf(emit_error,
+                    "%s: %s: a constexpr function cannot be virtual\n",
+                    emit_error ? "error" : "warning",
                     locus_to_str(locus));
         }
         return 0;
@@ -13689,8 +13692,11 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: parameter types of a constexpr function or constructor must be a literal type or "
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: parameter types of a constexpr function or constructor must be a literal type or "
                         "reference to literal type\n",
+                        emit_error ? "error" : "warning",
                         locus_to_str(locus));
             }
             return 0;
@@ -13706,7 +13712,10 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: the return type of a constexpr function must be a literal type or reference to literal type\n",
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the return type of a constexpr function must be a literal type or reference to literal type\n",
+                        emit_error ? "error" : "warning",
                         locus_to_str(locus));
             }
             return 0;
@@ -13716,13 +13725,16 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus)
     return 1;
 }
 
-char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
+static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body,
+        char emit_error)
 {
     if (nodecl_get_kind(nodecl_body) != NODECL_COMPOUND_STATEMENT)
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: the body of a constexpr function or constructor must be a compound-statement\n",
+            warn_or_error_printf(emit_error,
+                    "%s: %s: the body of a constexpr function or constructor must be a compound-statement\n",
+                    emit_error ? "error" : "warning",
                     nodecl_locus_to_str(nodecl_body));
         }
         return 0;
@@ -13736,7 +13748,10 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: the compound-statement of a constexpr constructor must contain no statements\n",
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the compound-statement of a constexpr constructor must contain no statements\n",
+                        emit_error ? "error" : "warning",
                         nodecl_locus_to_str(nodecl_body));
             }
             return 0;
@@ -13775,7 +13790,10 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: the body of a constexpr function must contain a single return-statement\n",
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr function must contain a single return-statement\n",
+                        emit_error ? "error" : "warning",
                         nodecl_locus_to_str(nodecl_body));
             }
             return 0;
@@ -13783,6 +13801,19 @@ char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body)
     }
 
     return 1;
+}
+
+char check_constexpr_function_code(scope_entry_t* entry, nodecl_t nodecl_function_code,
+        char emit_error)
+{
+    nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
+
+    nodecl_t nodecl_list = nodecl_get_child(nodecl_context, 0);
+    ERROR_CONDITION(nodecl_list_length(nodecl_list) != 1, "Invalid function code", 0);
+
+    nodecl_t nodecl_body = nodecl_list_head(nodecl_list);
+
+    return check_constexpr_function_body(entry, nodecl_body, emit_error);
 }
 
 static scope_entry_t* build_scope_function_definition_declarator(
@@ -14305,8 +14336,8 @@ static void build_scope_function_definition_body(
 
     if (entry->entity_specs.is_constexpr)
     {
-        check_constexpr_function(entry, nodecl_get_locus(body_nodecl));
-        check_constexpr_function_body(entry, body_nodecl);
+        check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* emit_error */ 1);
+        check_constexpr_function_body(entry, body_nodecl, /* emit_error */ 1);
     }
 
     // Create nodecl
@@ -18047,14 +18078,14 @@ static nodecl_t instantiate_stmt_walk(nodecl_instantiate_stmt_visitor_t* v, node
     }
     else
     {
-        // DEBUG_CODE()
+        DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Instantiating statement '%s' at %s\n",
                     ast_print_node_type(nodecl_get_kind(node)),
                     nodecl_locus_to_str(node));
         }
         NODECL_WALK(v, node);
-        // DEBUG_CODE()
+        DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Ended instantation of statement '%s' at %s\n",
                     ast_print_node_type(nodecl_get_kind(node)),
@@ -18378,7 +18409,7 @@ nodecl_t instantiate_statement(nodecl_t orig_tree,
     return n;
 }
 
-nodecl_t instantiate_function(nodecl_t orig_tree,
+nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
         scope_entry_t* orig_function_instantiated,

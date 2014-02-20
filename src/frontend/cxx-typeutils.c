@@ -2318,8 +2318,8 @@ static type_t* template_type_get_specialized_type_(
 
     specialized_symbol->locus = locus;
 
-    // Keep information of the entity except for template_is_declared which
-    // must be cleared at this point
+    // Keep information of the entity except for some attributes that
+    // must be cleared
     specialized_symbol->entity_specs = primary_symbol->entity_specs;
     specialized_symbol->entity_specs.is_user_declared = 0;
     specialized_symbol->entity_specs.is_instantiable = 0;
@@ -2354,11 +2354,12 @@ static type_t* template_type_get_specialized_type_(
                    specialized_symbol->entity_specs.num_exceptions,
                    updated_exception_type);
         }
-    }
 
-    // Remove the extra template-scope we got from the primary one
-    // specialized_symbol->decl_context.template_scope = 
-    //     specialized_symbol->decl_context.template_scope->contained_in;
+        // FIXME - noexcept?
+
+        // Do not copy the function code because it must be first instantiated
+        specialized_symbol->entity_specs.function_code = nodecl_null();
+    }
 
     type_t* result = get_user_defined_type(specialized_symbol);
 

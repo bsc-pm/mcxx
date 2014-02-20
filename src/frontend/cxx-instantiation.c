@@ -1774,8 +1774,16 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     }
 }
 
-static void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+static void instantiate_template_function_internal(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
 {
+    ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
+            "Invalid symbol", 0);
+    ERROR_CONDITION(!is_template_specialized_type(entry->type_information),
+            "This is not a specialized function", 0);
+
+    ERROR_CONDITION(!nodecl_is_null(entry->entity_specs.function_code),
+            "Attempting to instantiate a specialized function apparently already instantiated", 0);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s\n",
@@ -1797,26 +1805,41 @@ static void instantiate_template_function(scope_entry_t* entry, const locus_t* l
 
     nodecl_t orig_function_code = primary_specialization_function->entity_specs.function_code;
 
+    ERROR_CONDITION(nodecl_is_null(orig_function_code), "Invalid function code", 0);
+
     // ast_dump_graphviz(nodecl_get_ast(orig_function_code), stderr);
 
-    nodecl_t instantiated_function_code = instantiate_function(
+    nodecl_t instantiated_function_code = instantiate_function_code(
             orig_function_code,
             primary_specialization_function->decl_context,
             entry->decl_context,
             primary_specialization_function,
             entry);
 
-    entry->entity_specs.function_code = instantiated_function_code;
+    ERROR_CONDITION(nodecl_is_null(instantiated_function_code), "Instantiation failed to generate a function code", 0);
 
-    nodecl_instantiation_units = nodecl_append_to_list(
-            nodecl_instantiation_units,
-            instantiated_function_code);
+    entry->entity_specs.function_code = instantiated_function_code;
+    entry->defined = 1;
 
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: ended instantation of function template '%s'\n",
                 print_declarator(template_specialized_type));
     }
+}
+
+static void instantiate_template_function_and_add_to_instantiation_units(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+{
+    instantiate_template_function_internal(entry, locus);
+
+    nodecl_instantiation_units = nodecl_append_to_list(
+            nodecl_instantiation_units,
+            entry->entity_specs.function_code);
+}
+
+void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+{
+    instantiate_template_function_internal(entry, locus);
 }
 
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
@@ -1898,7 +1921,7 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
-    instantiate_template_function(entry, locus);
+    instantiate_template_function_and_add_to_instantiation_units(entry, locus);
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
