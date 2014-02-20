@@ -989,12 +989,12 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         bool is_fortan = IS_FORTRAN_LANGUAGE;
         if (is_fortan)
-            Source::source_language = SourceLanguage::C;
+            SourceLanguage::source_language = SourceLanguage::C;
 
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
 
         if (is_fortan)
-            Source::source_language = SourceLanguage::Fortran;
+            SourceLanguage::source_language = SourceLanguage::Fortran;
 
         fclose(ancillary_file);
 
