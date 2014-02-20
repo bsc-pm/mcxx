@@ -987,14 +987,13 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
         Codegen::CudaGPU* phase = reinterpret_cast<Codegen::CudaGPU*>(configuration->codegen_phase);
 
-        bool is_fortan = IS_FORTRAN_LANGUAGE;
-        if (is_fortan)
-            SourceLanguage::source_language = SourceLanguage::C;
+        if (IS_FORTRAN_LANGUAGE)
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
 
         phase->codegen_top_level(_cuda_file_code, ancillary_file);
 
-        if (is_fortan)
-            SourceLanguage::source_language = SourceLanguage::Fortran;
+        if (IS_FORTRAN_LANGUAGE)
+            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 
         fclose(ancillary_file);
 
