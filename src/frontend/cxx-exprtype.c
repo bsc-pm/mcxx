@@ -6800,6 +6800,13 @@ static void check_nodecl_array_subscript_expression_c(
 {
     const locus_t* locus = nodecl_get_locus(nodecl_subscripted);
 
+    if (nodecl_is_err_expr(nodecl_subscripted)
+            || nodecl_is_err_expr(nodecl_subscript))
+    {
+        *nodecl_output = nodecl_make_err_expr(locus);
+        return;
+    }
+
     type_t* subscript_type = nodecl_get_type(nodecl_subscript);
     type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
 
