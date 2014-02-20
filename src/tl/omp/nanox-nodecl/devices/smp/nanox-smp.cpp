@@ -257,6 +257,8 @@ namespace TL { namespace Nanox {
                 outline_function_body);
         Nodecl::Utils::append_to_top_level_nodecl(outline_function_code);
 
+        TL::Source extra_code_begin, extra_code_end;
+
         // Prepare arguments for the call to the unpack (or forward in Fortran)
         TL::Scope outline_function_scope(outline_function_body.retrieve_context());
         TL::Symbol structure_symbol = outline_function_scope.get_symbol_from_name("args");
@@ -286,6 +288,83 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                     {
                         TL::Type param_type = (*it)->get_in_outline_type();
+
+                        bool is_input_private = false;
+                        Nodecl::NodeclBase expr;
+                        {
+                            TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
+                            for (TL::ObjectList<OutlineDataItem::DependencyItem>::iterator it2 = deps.begin();
+                                    it2 != deps.end() && !is_input_private;
+                                    it2++)
+                            {
+                                if (it2->directionality == OutlineDataItem::DEP_IN_PRIVATE)
+                                  {
+                                    is_input_private = true;
+                                    expr = it2->expression;
+                                  }
+                            }
+                        }
+
+                        if (is_input_private)
+                        {
+                            TL::Type ptr_type = param_type;
+                            if (param_type.is_any_reference())
+                                ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+
+                            TL::Type  cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+
+                            std::string name_private_copy =  "mcc_private_copy_" + (*it)->get_field_name();
+                            std::string name_private_copy_bool =  "mcc_private_copy_" + (*it)->get_field_name() + "_free";
+
+                            TL::DataReference data_ref(expr);
+                            extra_code_begin
+                                << as_type(TL::Type::get_bool_type()) << name_private_copy_bool << ";"
+                                << ptr_type.get_declaration(outline_function_scope, name_private_copy)  << ";"
+                                << "{"
+                                <<      "nanos_err_t err;"
+                                <<      "if ((" << as_expression(data_ref.get_sizeof()) << ") > 4096)"
+                                <<      "{"
+                                <<          name_private_copy_bool << " =  1;"
+                                <<          "err = nanos_malloc("
+                                <<              "(void**) (&" << name_private_copy  << "), "
+                                <<              as_expression(data_ref.get_sizeof()) << ", "
+                                <<              "\"" << original_statements.get_filename() << "\", "
+                                <<              original_statements.get_line() << ");"
+                                <<          "if (err != NANOS_OK) nanos_handle_error (err);"
+                                <<      "}"
+                                <<      "else"
+                                <<      "{"
+                                <<          name_private_copy_bool << " =  0;"
+                                <<          name_private_copy << " = "
+                                <<              "(" << as_type(cast_type) << ") __builtin_alloca(" << as_expression(data_ref.get_sizeof()) << ");"
+                                <<      "}"
+                                <<      "err = nanos_memcpy("
+                                <<         name_private_copy << ", "
+                                <<         "(" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ", "
+                                <<         as_expression(data_ref.get_sizeof()) << ");"
+                                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+
+                                <<  "}"
+                                ;
+
+                            extra_code_end
+                                << "if (" << name_private_copy_bool << ")"
+                                <<  "{"
+                                <<      "nanos_err_t err = nanos_free(" << name_private_copy << ");"
+                                <<  "}"
+                                ;
+
+                            Source argument;
+                            if (param_type.is_any_reference())
+                            {
+                                argument << "*";
+                            }
+                            argument << name_private_copy;
+                            unpacked_arguments.append_with_separator(argument, ", ");
+                            break;
+
+                        }
+
 
                         Source argument;
                         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -367,6 +446,17 @@ namespace TL { namespace Nanox {
             }
         }
 
+
+        if (!extra_code_begin.empty())
+        {
+            extra_code_begin
+                << "{"
+                <<      "nanos_err_t err = nanos_dependence_release_all();"
+                <<      "if (err != NANOS_OK) nanos_handle_error (err);"
+                << "}"
+                ;
+        }
+
         Source outline_src,
                instrument_before,
                instrument_after;
@@ -388,7 +478,9 @@ namespace TL { namespace Nanox {
             outline_src
                 << "{"
                 <<      instrument_before
+                <<      extra_code_begin
                 <<      unpacked_function_call
+                <<      extra_code_end
                 <<      instrument_after
                 <<      cleanup_code
                 << "}"

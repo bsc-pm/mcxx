@@ -154,6 +154,10 @@ namespace TL { namespace OpenMP {
         _core.phase_cleanup(data_flow);
     }
 
+    void Base::phase_cleanup_end_of_pipeline(DTO& data_flow)
+    {
+        _core.phase_cleanup_end_of_pipeline(data_flow);
+    }
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Base::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
@@ -1730,6 +1734,12 @@ namespace TL { namespace OpenMP {
         make_dependency_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
+                locus,
+                result_list);
+
+        make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+                dependences,
+                OpenMP::DEP_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 

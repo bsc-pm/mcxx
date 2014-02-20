@@ -1063,6 +1063,11 @@ namespace TL { namespace Nanox {
                 add_dependences(dep_in_alloca.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_ALLOCA);
             }
 
+            void visit(const Nodecl::OpenMP::DepInPrivate& dep_in_private)
+            {
+                add_dependences(dep_in_private.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_PRIVATE);
+            }
+
             void visit(const Nodecl::OpenMP::DepOut& dep_out)
             {
                 add_dependences(dep_out.get_out_deps().as<Nodecl::List>(), OutlineDataItem::DEP_OUT);

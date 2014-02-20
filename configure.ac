@@ -1587,10 +1587,10 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc-*-linux*)
            default_type_environ="linux-ppc32"
            ;;
-       powerpc64-bgq-linux)
+       powerpc64-bgq-linux*)
            # BlueGeneQ requires extra flags at link time
            default_type_environ="linux-ppc64"
-           NANOX_LDFLAGS="-Wl,-dynamic"
+           NANOX_LDFLAGS="-dynamic"
            ;;
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"

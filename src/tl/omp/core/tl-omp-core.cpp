@@ -45,6 +45,8 @@ namespace TL
         bool Core::_silent_declare_reduction(false);
         bool Core::_already_informed_new_ompss_copy_deps(false);
 
+        Core::reduction_map_info_t Core::reduction_map_info;
+
         Core::Core()
             : PragmaCustomCompilerPhase("omp"),
             _discard_unused_data_sharings(false),
@@ -185,6 +187,11 @@ namespace TL
             _constructs_already_registered = false;
             _reductions_already_registered = false;
             _already_informed_new_ompss_copy_deps = false;
+        }
+
+        void Core::phase_cleanup_end_of_pipeline(DTO& data_flow)
+        {
+            Core::reduction_map_info.clear();
         }
 
         void Core::get_clause_symbols(

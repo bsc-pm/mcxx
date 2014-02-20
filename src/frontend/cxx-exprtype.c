@@ -10294,11 +10294,14 @@ static void check_nodecl_function_call_cxx(
                 {
                     field_path_t field_path;
                     field_path_init(&field_path);
+
+                    enter_test_expression();
                     scope_entry_list_t* extra_query = get_member_of_class_type_nodecl(
                             decl_context,
                             no_ref(get_unqualified_type(class_type)),
                             nodecl_called_name,
                             &field_path);
+                    leave_test_expression();
 
                     // This may not exist if we are calling a static member
                     // function of another non-base class

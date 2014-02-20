@@ -523,22 +523,28 @@ namespace TL
                         it++)
                 {
                     ObjectList<Nodecl::NodeclBase>* p = NULL;
-                    DependencyDirection dir = DependencyDirection(it->get_kind() & DEP_DIR_INOUT);
-                    if (dir == DEP_DIR_IN)
+                    switch (it->get_kind())
                     {
-                        p = &dep_list_in;
-                    }
-                    else if (dir == DEP_DIR_OUT)
-                    {
-                        p = &dep_list_out;
-                    }
-                    else if (dir == DEP_DIR_INOUT)
-                    {
-                        p = &dep_list_inout;
-                    }
-                    else
-                    {
-                        internal_error("Invalid dependency kind", 0);
+                        case DEP_DIR_IN:
+                        case DEP_DIR_IN_PRIVATE:
+                            {
+                                p = &dep_list_in;
+                                break;
+                            }
+                        case DEP_DIR_OUT:
+                            {
+                                p = &dep_list_out;
+                                break;
+                            }
+                        case DEP_DIR_INOUT:
+                            {
+                                p = &dep_list_inout;
+                                break;
+                            }
+                        default:
+                            {
+                                internal_error("Invalid dependency kind", 0);
+                            }
                     }
 
                     p->append(it->get_dependency_expression());

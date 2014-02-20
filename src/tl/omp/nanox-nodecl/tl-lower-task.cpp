@@ -2299,10 +2299,11 @@ void LoweringVisitor::handle_dependency_item(
     bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
     bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
     bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool input_private = ((dir & OutlineDataItem::DEP_IN_PRIVATE) == OutlineDataItem::DEP_IN_PRIVATE);
     bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
     bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-    dependency_flags_in << ( input || input_value || input_alloca || concurrent || commutative);
+    dependency_flags_in << ( input || input_value || input_alloca || input_private || concurrent || commutative);
 
     dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
             || concurrent || commutative);

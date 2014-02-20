@@ -58,6 +58,9 @@ namespace TL
 
         class Core : public TL::PragmaCustomCompilerPhase
         {
+            public:
+                typedef std::map<TL::Symbol, OpenMP::Reduction*> reduction_map_info_t;
+                static reduction_map_info_t reduction_map_info;
             private:
                 void parse_new_udr(const std::string& str);
 
@@ -179,6 +182,7 @@ namespace TL
                 virtual void pre_run(TL::DTO& dto);
 
                 virtual void phase_cleanup(TL::DTO& data_flow);
+                virtual void phase_cleanup_end_of_pipeline(TL::DTO& dto);
 
                 virtual ~Core() { }
 

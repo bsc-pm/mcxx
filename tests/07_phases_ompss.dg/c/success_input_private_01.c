@@ -26,49 +26,25 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
 
-#ifndef EXTSTRUCT_H
-#define EXTSTRUCT_H
+#include<assert.h>
 
-#include <stdlib.h>
-#include "red_black_tree.h"
-
-#ifdef WIN32_BUILD
-  #ifdef LIBEXTSTRUCT_DLL_EXPORT
-    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllexport)
-  #else
-    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllimport)
-  #endif
-#else
-  #define LIBEXTSTRUCT_EXTERN extern
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct extensible_struct_tag
+int main()
 {
-    rb_red_blk_tree* hash;
-};
-
-typedef struct extensible_struct_tag extensible_struct_t;
-
-// Extensible struct operations
-LIBEXTSTRUCT_EXTERN void extensible_struct_init(extensible_struct_t** extensible_struct);
-LIBEXTSTRUCT_EXTERN void extensible_struct_set_field(extensible_struct_t* extensible_struct, 
-        const char* field_name, void *data);
-
-LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field(extensible_struct_t* extensible_struct, 
-        const char* field_name);
-
-LIBEXTSTRUCT_EXTERN void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
-        int *num_fields,
-        const char ***keys,
-        void ***data);
-
-#ifdef __cplusplus
+    int x = 1;
+    int *y = &x;
+    //printf("original_address: %p\n", &x);
+    #pragma omp task inprivate(x) shared(y)
+    {
+        //printf("original_address: %p vs copy_address: %p \n", y, &x);
+        assert(&x != y);
+        x++;
+    }
+    #pragma omp taskwait
+    assert(x == 1);
 }
-#endif
-
-#endif // EXTSTRUCT_H
