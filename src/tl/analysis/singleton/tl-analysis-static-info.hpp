@@ -143,11 +143,11 @@ namespace Analysis {
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
             bool is_simd_aligned_access( const Nodecl::NodeclBase& n, 
-                    const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                     int unroll_factor, int alignment ) const;
 
             bool is_suitable_expression( const Nodecl::NodeclBase& n, 
-                    const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                     int unroll_factor, int alignment, int& vector_size_module ) const;
             
             // *** Queries about Auto-Scoping *** //
@@ -248,12 +248,12 @@ namespace Analysis {
 
             //! Returns true if the given nodecl is aligned to a given value
             virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                         const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                                         const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                          int unroll_factor, int alignment ) const;
             
             //! Returns true if the given nodecl is suitable
             virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                         const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                                         const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                          int unroll_factor, int alignment, int& vector_size_module ) const;
 
 
@@ -326,7 +326,7 @@ namespace Analysis {
     {
     private:
         const ObjectList<Utils::InductionVariableData*> _induction_variables;
-        const TL::ObjectList<Nodecl::NodeclBase>* _suitable_expressions;
+        const TL::ObjectList<Nodecl::NodeclBase> _suitable_expressions;
         const int _unroll_factor;
         const int _type_size;
         const int _alignment;
@@ -338,7 +338,7 @@ namespace Analysis {
     public:
         // *** Constructor *** //
         SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+                                  const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                                   int unroll_factor, int type_size, int alignment );
         
         // *** Visiting methods *** //

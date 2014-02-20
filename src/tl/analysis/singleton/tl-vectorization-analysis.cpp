@@ -154,7 +154,7 @@ namespace Analysis {
     }
         
     bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
             int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -179,7 +179,7 @@ namespace Analysis {
     }
 
     bool NodeclStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
             int unroll_factor, int alignment, int& vector_size_module ) const
     {
         bool result = false;
@@ -191,16 +191,14 @@ namespace Analysis {
         // Remove me!
         printf("ALIGNMENT align %d uf %d: %d\n", alignment, unroll_factor, subscript_alignment);
         printf("SUITABLE LIST: ");
-        if (suitable_expressions != NULL)
+
+        for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions.begin();
+                it != suitable_expressions.end();
+                it ++)
         {
-            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions->begin();
-                    it != suitable_expressions->end();
-                    it ++)
-            {
-                printf("%s ", it->prettyprint().c_str());        
-            }
-            printf("\n");
+            printf("%s ", it->prettyprint().c_str());        
         }
+        printf("\n");
         // End Remove me!
 
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment : 
@@ -220,7 +218,7 @@ namespace Analysis {
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions, int unroll_factor, 
+                                                        const ObjectList<Nodecl::NodeclBase>& suitable_expressions, int unroll_factor, 
                                                         int type_size, int alignment )
         : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
           _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
@@ -246,7 +244,7 @@ namespace Analysis {
             << ". Equals? " << Nodecl::Utils::equal_nodecls(n, _suitable_expressions->front(), true) << std::endl;
         */
         bool result = true;
-        if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
+        if( !Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
             result = false;
         return result;
     }
