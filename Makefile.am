@@ -1377,18 +1377,14 @@ endif
 if BUILD_VECTORIZER
 lib_LTLIBRARIES += src/tl/vectorizer/libtlvectorizer.la
 
-src_tl_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags) -Wall \
-                            -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                            -I $(top_srcdir)/src/tl/analysis/common/ \
-                            -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                            -I $(top_srcdir)/src/tl/optimizations/ \
-                            $(END)
+src_tl_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 
 src_tl_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) -Wall \
                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
                               -I $(top_srcdir)/src/tl/analysis/common/ \
                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                               -I $(top_srcdir)/src/tl/optimizations/ \
+                              -I $(top_srcdir)/src/tl/omp/core \
                               $(END)
 
 src_tl_vectorizer_libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
@@ -2023,18 +2019,14 @@ endif
 if BUILD_VECTORIZER
 lib_LTLIBRARIES += src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la
 
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags) \
-    -I $(top_srcdir)/src/tl/analysis/singleton/ \
-    -I $(top_srcdir)/src/tl/analysis/common/ \
-    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-    -I $(top_srcdir)/src/tl/vectorizer/ \
-    $(END)
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags)
 
 src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
     -I $(top_srcdir)/src/tl/analysis/singleton/ \
     -I $(top_srcdir)/src/tl/analysis/common/ \
     -I $(top_srcdir)/src/tl/analysis/pcfg/ \
     -I $(top_srcdir)/src/tl/vectorizer/ \
+    -I $(top_srcdir)/src/tl/omp/core/ \
     $(END)
 
 src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
@@ -2057,18 +2049,14 @@ endif
 if BUILD_VECTORIZER
 lib_LTLIBRARIES += src/tl/vector-lowering/knc/libtlvector-lowering-knc.la
 
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags) \
-    -I $(top_srcdir)/src/tl/analysis/singleton/ \
-    -I $(top_srcdir)/src/tl/analysis/common/ \
-    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-    -I $(top_srcdir)/src/tl/vectorizer/ \
-    $(END)
+src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags)
 
 src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
     -I $(top_srcdir)/src/tl/analysis/singleton/ \
     -I $(top_srcdir)/src/tl/analysis/common/ \
     -I $(top_srcdir)/src/tl/analysis/pcfg/ \
     -I $(top_srcdir)/src/tl/vectorizer/ \
+    -I $(top_srcdir)/src/tl/omp/core/ \
     $(END)
 
 src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
@@ -2091,19 +2079,7 @@ endif
 if BUILD_VECTOR_LOWERING
 phases_LTLIBRARIES += src/tl/vector-lowering/libtlvector-lowering.la
 
-src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS=$(phases_cflags) \
-                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/backend \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
-                               -I $(top_srcdir)/src/tl/vectorizer/ \
-                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                               -I $(top_srcdir)/src/tl/analysis/common/ \
-                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                               $(END)
+src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_cflags) 
 
 src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cflags)\
                                -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
@@ -2117,6 +2093,7 @@ src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cflags)\
                                -I $(top_srcdir)/src/tl/analysis/singleton/ \
                                -I $(top_srcdir)/src/tl/analysis/common/ \
                                -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+                               -I $(top_srcdir)/src/tl/omp/core/ \
                                $(END)
 
 src_tl_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
