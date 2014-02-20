@@ -1881,6 +1881,12 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
 
     // Note that this is not an lvalue
     nodecl_set_type(*nodecl_output, entry->type_information);
+
+    // This is a constant
+    nodecl_set_constant(*nodecl_output,
+            const_value_get_zero(
+                type_get_size(get_pointer_type(get_void_type())),
+                /* sign */ 0));
 }
 
 static 
