@@ -26,49 +26,22 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+test_compile_fail=yes
+</testinfo>
+*/
 
-#ifndef EXTSTRUCT_H
-#define EXTSTRUCT_H
+struct A { };
+struct B : A { };
+struct C : A { };
+struct D : B, C { };
 
-#include <stdlib.h>
-#include "red_black_tree.h"
+void h(A&);
 
-#ifdef WIN32_BUILD
-  #ifdef LIBEXTSTRUCT_DLL_EXPORT
-    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllexport)
-  #else
-    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllimport)
-  #endif
-#else
-  #define LIBEXTSTRUCT_EXTERN extern
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct extensible_struct_tag
+void g()
 {
-    rb_red_blk_tree* hash;
-};
-
-typedef struct extensible_struct_tag extensible_struct_t;
-
-// Extensible struct operations
-LIBEXTSTRUCT_EXTERN void extensible_struct_init(extensible_struct_t** extensible_struct);
-LIBEXTSTRUCT_EXTERN void extensible_struct_set_field(extensible_struct_t* extensible_struct, 
-        const char* field_name, void *data);
-
-LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field(extensible_struct_t* extensible_struct, 
-        const char* field_name);
-
-LIBEXTSTRUCT_EXTERN void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
-        int *num_fields,
-        const char ***keys,
-        void ***data);
-
-#ifdef __cplusplus
+    D d;
+    h(d);
 }
-#endif
-
-#endif // EXTSTRUCT_H

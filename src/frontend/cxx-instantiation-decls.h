@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,12 +25,9 @@
 --------------------------------------------------------------------*/
 
 
+#ifndef CXX_INSTANTIATION_DECLS_H
+#define CXX_INSTANTIATION_DECLS_H
 
+typedef struct instantiation_symbol_map_tag instantiation_symbol_map_t;
 
-#ifndef CXX_AST_DECLS_H
-#define CXX_AST_DECLS_H
-
-#include "cxx-ast-fwd.h"
-#include "cxx-asttype.h"
-
-#endif // CXX_AST_DECLS_H
+#endif // CXX_INSTANTIATION_DECLS_H

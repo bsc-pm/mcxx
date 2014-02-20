@@ -315,7 +315,7 @@ namespace TL { namespace OpenMP {
             AST declarator_id_expr = ASTSon0(declarator);
             AST id_expr = ASTSon0(declarator_id_expr);
 
-            scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expr);
+            scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expr, NULL);
 
             if (entry_list == NULL)
             {
@@ -748,7 +748,7 @@ namespace TL { namespace OpenMP {
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, internal_name.c_str());
+        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, internal_name.c_str(), NULL);
 
         if (entry_list == NULL)
         {
@@ -757,7 +757,8 @@ namespace TL { namespace OpenMP {
             scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, internal_name.c_str());
             new_red_sym->kind = SK_OTHER;
 
-            extensible_struct_set_field(new_red_sym->extended_data, "udr_info", new_red);
+            OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
+
             new_red->set_symbol(new_red_sym);
         }
         else
@@ -849,7 +850,7 @@ namespace TL { namespace OpenMP {
                 && !disable_koenig)
         {
             // First do normal lookup
-            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl());
+            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl(), NULL);
 
             // If normal lookup did not find a member, attempt a koenig
             if (entry_list == NULL
@@ -867,7 +868,7 @@ namespace TL { namespace OpenMP {
         }
         else
         {
-            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl());
+            entry_list = query_nodecl_name(decl_context, id_expression.get_internal_nodecl(), NULL);
         }
 
         if (entry_list != NULL)
@@ -946,7 +947,7 @@ namespace TL { namespace OpenMP {
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        scope_entry_list_t* entry_list = query_name_str(decl_context, internal_name.c_str());
+        scope_entry_list_t* entry_list = query_name_str(decl_context, internal_name.c_str(), NULL);
 
         if (entry_list == NULL)
         {
@@ -964,9 +965,7 @@ namespace TL { namespace OpenMP {
     {
         scope_entry_t* red_sym = sym.get_internal_symbol();
 
-        Reduction *red = reinterpret_cast<Reduction*>(
-                extensible_struct_get_field(red_sym->extended_data, "udr_info"));
-
+        Reduction *red = OpenMP::Core::reduction_map_info[red_sym];
         return red;
     }
 

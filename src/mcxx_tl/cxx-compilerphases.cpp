@@ -182,7 +182,7 @@ namespace TL
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
                     {
                         // Ideas to improve this are welcome :)
-                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation", 
+                        running_error("Compiler phase '%s' notified that it did not end successfully. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -194,7 +194,7 @@ namespace TL
 
                     if (there_were_errors)
                     {
-                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation", 
+                        running_error("Compiler phase '%s' yielded diagnostic errors. Ending compilation",
                                 phase->get_phase_name().c_str());
                     }
 
@@ -238,6 +238,25 @@ namespace TL
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "COMPILERPHASES: Phase cleanup of phase '%s' finished\n",
+                                phase->get_phase_name().c_str());
+                    }
+                }
+
+                // Run cleanup after the whole pipeline has been run
+                for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                        it != compiler_phases_list.end();
+                        it++)
+                {
+                    TL::CompilerPhase* phase = (*it);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "COMPILERPHASES: Running phase cleanup of phase '%s' at end of pipeline\n",
+                                phase->get_phase_name().c_str());
+                    }
+                    phase->phase_cleanup_end_of_pipeline(dto);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "COMPILERPHASES: Phase cleanup of phase '%s' at end of pipeline finished\n",
                                 phase->get_phase_name().c_str());
                     }
                 }

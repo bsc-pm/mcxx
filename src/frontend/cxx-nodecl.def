@@ -49,6 +49,7 @@ template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [init
 object-init : NODECL_OBJECT_INIT() symbol
 
 mem-init: NODECL_MEMBER_INIT([init_expr]expression) symbol
+          | NODECL_IMPLICIT_MEMBER_INIT([init_expr]expression) symbol
           | cxx-mem-init
 
 
@@ -130,10 +131,10 @@ string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 expression : literal
            | name
            | context
-           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]name-opt, [function_form] function-form-opt) type const-value-opt
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt, [alternate_name]expression-opt, [function_form] function-form-opt) type const-value-opt
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]expression-seq) type const-value-opt
            | NODECL_RANGE([lower] expression-opt, [upper] expression-opt, [stride] expression) type const-value-opt
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_form]member-access-form-opt) type const-value-opt text-opt
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression, [member_literal]cxx-dependent-name-opt) type const-value-opt text-opt
            | NODECL_PLUS([rhs]expression) type const-value-opt
            | NODECL_NEG([rhs]expression) type const-value-opt
            | NODECL_MUL([lhs]expression, [rhs]expression) type const-value-opt
@@ -344,8 +345,10 @@ cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
     | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression)
 
+# a.b
+cxx-dependent-expressions: NODECL_CXX_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type const-value-opt text-opt
 # a->b
-cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type const-value-opt text
+    | NODECL_CXX_ARROW([lhs]expression, [member]expression) type const-value-opt text
 # a.*b
     | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type const-value-opt
 # a->*b
@@ -378,8 +381,6 @@ function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
-
-member-access-form : NODECL_CXX_MEMBER_FORM_QUALIFIED()
 
 type-or-expr : type
              | expression
@@ -525,6 +526,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_ALLOCA([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_VALUE([in_deps]expression-seq)
+                 | NODECL_OPEN_M_P*DEP_IN_PRIVATE([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_INOUT([inout_deps]expression-seq)
                  | NODECL_OPEN_M_P*CONCURRENT([inout_deps]expression-seq)

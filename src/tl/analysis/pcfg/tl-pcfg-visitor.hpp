@@ -212,7 +212,7 @@ namespace Analysis {
          *                       This parameter is used when calling this function from the Singleton interface
          */
         ExtensibleGraph* parallel_control_flow_graph( const Nodecl::NodeclBase& n, 
-                const std::map<Symbol, Nodecl::NodeclBase>& asserted_funcs = std::map<Symbol, Nodecl::NodeclBase>( ) );
+                const std::map<Symbol, Nodecl::NodeclBase>& asserted_funcs = (std::map<Symbol, Nodecl::NodeclBase>( )) );
 
         void set_actual_pcfg(ExtensibleGraph* graph);
 

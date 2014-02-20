@@ -676,7 +676,6 @@ namespace Codegen
 
 #define OPERATOR_TABLE \
     PREFIX_UNARY_EXPRESSION(Plus, " +") \
-    PREFIX_UNARY_EXPRESSION(Neg, " -") \
     PREFIX_UNARY_EXPRESSION(LogicalNot, " .NOT.") \
     BINARY_EXPRESSION(Mul, " * ") \
     BINARY_EXPRESSION(Div, " / ") \
@@ -728,6 +727,29 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 
+
+    void FortranBase::visit(const Nodecl::Neg& node)
+    {
+        Nodecl::NodeclBase rhs = node.get_rhs();
+
+        if (rhs.is<Nodecl::IntegerLiteral>())
+        {
+            // Special case for negative literal values
+            Nodecl::IntegerLiteral negated_node = Nodecl::IntegerLiteral::make(
+                    rhs.get_type(),
+                    const_value_neg(rhs.get_constant()),
+                    rhs.get_locus());
+
+            walk(negated_node);
+
+            nodecl_free(negated_node.get_internal_nodecl());
+        }
+        else
+        {
+            *(file) << " -";
+            walk(rhs);
+        }
+    }
 
     // In a pure fortran example, this node never appear in the tree.
     void FortranBase::visit(const Nodecl::Mod &node)
@@ -3494,7 +3516,7 @@ OPERATOR_TABLE
                 current_context.current_scope = sc_scope;
                 current_context.block_scope = sc_scope;
 
-                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str());
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str(), NULL);
 
                 if (query != NULL
                         && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3512,7 +3534,7 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str());
+        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str(), NULL);
 
         if (query != NULL
                 && entry_list_contains(query, entry.get_internal_symbol()))

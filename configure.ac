@@ -533,12 +533,13 @@ then
    )
 
    AC_ARG_WITH([mic-libs],
-   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
+   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, the ones located in current icc installation will be used,
+    if not found/valid LD_LIBRARY_PATH will have to be passed to the spawned processes]),
    [
       MIC_LIBS="${withval}"
    ],
    [
-      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
+      MIC_LIBS=$ICC/../../compiler/lib/mic/
    ])
    
    if test x$nanox_include = x -o x$nanox_lib = x;
@@ -1584,10 +1585,10 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc-*-linux*)
            default_type_environ="linux-ppc32"
            ;;
-       powerpc64-bgq-linux)
+       powerpc64-bgq-linux*)
            # BlueGeneQ requires extra flags at link time
            default_type_environ="linux-ppc64"
-           NANOX_LDFLAGS="-Wl,-dynamic"
+           NANOX_LDFLAGS="-dynamic"
            ;;
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"

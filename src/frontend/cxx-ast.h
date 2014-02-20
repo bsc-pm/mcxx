@@ -35,10 +35,10 @@
  */
 
 #include "libmcxx-common.h"
-#include "extstruct.h"
 #include "cxx-macros.h"
 #include "cxx-locus.h"
 #include "cxx-ast-decls.h"
+#include "cxx-nodecl-decls.h"
 #include "cxx-asttype.h"
 #include "cxx-type-decls.h"
 #include "cxx-limits.h"
@@ -180,25 +180,8 @@ LIBMCXX_EXTERN AST ast_get_ambiguity(const_AST a, int num);
 // used when solving ambiguities
 LIBMCXX_EXTERN void ast_replace_with_ambiguity(AST a, int num);
 
-// Extensible struct
-LIBMCXX_EXTERN void ast_set_field(AST a, const char* name, void *data);
-LIBMCXX_EXTERN void* ast_get_field(AST a, const char* name);
-
-// Link to children are stored as mangled field names
-// Set a link to a (possibly indirect) child
-LIBMCXX_EXTERN void ast_set_link_to_child(AST a, const char* name, AST child);
-// Get child node
-LIBMCXX_EXTERN AST ast_get_link_to_child(AST a, const char* name);
-
-// Tells if the name of a field is a link to a children
-LIBMCXX_EXTERN char ast_field_name_is_link_to_child(const char* name);
-
-// Returns the extensible struct of this AST
-LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
-
-// The same as ast_get_extensible_struct but ensures that the extended struct
-// is initialized
-LIBMCXX_EXTERN extensible_struct_t* ast_get_initalized_extensible_struct(AST a);
+LIBMCXX_EXTERN struct nodecl_expr_info_tag* ast_get_expr_info(const_AST a);
+LIBMCXX_EXTERN void ast_set_expr_info(AST a, struct nodecl_expr_info_tag*);
 
 /*
  * Macros

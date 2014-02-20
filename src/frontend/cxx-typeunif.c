@@ -1510,6 +1510,9 @@ static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_
     return NOT_SURE;
 }
 
+// Defined in cxx-typededuc.c
+void deduction_set_free(deduction_set_t* deduction_set);
+
 char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree, 
         deduction_flags_t flags)
 {
@@ -1525,7 +1528,7 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
             &deduction_set, flags);
 
     // Free it, it is unused after this
-    xfree(deduction_set);
+    deduction_set_free(deduction_set);
 
     DEBUG_CODE()
     {

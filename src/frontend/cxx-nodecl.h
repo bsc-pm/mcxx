@@ -31,7 +31,11 @@
 #include "cxx-cexpr-fwd.h"
 #include "cxx-scope-fwd.h"
 #include "cxx-nodecl-decls.h"
+#include "cxx-type-decls.h"
+#include "cxx-locus.h"
 #include "cxx-nodecl-deep-copy-fwd.h"
+
+#include <stddef.h>
 
 MCXX_BEGIN_DECLS
 

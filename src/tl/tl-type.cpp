@@ -1417,6 +1417,11 @@ namespace TL
         return ::is_variably_modified_type(_type_info);
     }
 
+    std::string Type::print_declarator()
+    {
+        return ::print_declarator(_type_info);
+    }
+
     TemplateArgument::TemplateArgumentKind TemplateArgument::get_kind() const
     {
         return _tpl_param_value->kind;

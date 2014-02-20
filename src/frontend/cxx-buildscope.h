@@ -35,6 +35,7 @@
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-instantiation-decls.h"
 #include "cxx-driver-decls.h"
 #include "cxx-ast-decls.h"
 #include "cxx-nodecl-output.h"
@@ -43,12 +44,12 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN const char* get_operator_function_name(struct AST_tag* declarator_id);
 LIBMCXX_EXTERN void build_scope_template_parameters(
-        decl_context_t lookup_context, 
-        decl_context_t argument_context, 
-        struct AST_tag* class_head_id, 
+        decl_context_t lookup_context,
+        decl_context_t argument_context,
+        struct AST_tag* class_head_id,
         template_parameter_list_t** template_parameters);
-LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info, 
-        struct type_tag** type_info, 
+LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info,
+        struct type_tag** type_info,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
@@ -64,9 +65,8 @@ LIBMCXX_EXTERN struct AST_tag* get_declarator_name(struct AST_tag* a, decl_conte
 LIBMCXX_EXTERN struct AST_tag* get_declarator_id_expression(struct AST_tag* a, decl_context_t decl_context);
 LIBMCXX_EXTERN struct AST_tag* get_function_declarator_parameter_list(struct AST_tag* funct_declarator, decl_context_t decl_context);
 
-LIBMCXX_EXTERN char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id, 
+LIBMCXX_EXTERN char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id,
         struct type_tag** result_conversion_type);
-LIBMCXX_EXTERN const char *get_operation_function_name(AST operation_tree);
 
 LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t inner_decl_context,
         AST member_specification_tree,
@@ -86,8 +86,8 @@ LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* tran
 LIBMCXX_EXTERN void c_initialize_builtin_symbols(decl_context_t decl_context);
 
 LIBMCXX_EXTERN nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit);
-LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list, 
-        decl_context_t decl_context, 
+LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output_list);
 
 LIBMCXX_EXTERN void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared);
@@ -97,7 +97,7 @@ LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_t
 
 LIBMCXX_EXTERN scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_t decl_context);
 
-LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_tag** type_info, 
+LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_tag** type_info,
         gather_decl_spec_t *gather_info, decl_context_t dctx, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void enter_class_specifier(void);
@@ -107,7 +107,7 @@ LIBMCXX_EXTERN unsigned long long int buildscope_used_memory(void);
 
 LIBMCXX_EXTERN nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context);
 
-LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list, 
+LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list,
         decl_context_t decl_context, decl_context_t *template_context,
         nodecl_t* nodecl_output);
 
@@ -119,20 +119,20 @@ LIBMCXX_EXTERN void insert_members_in_enclosing_nonanonymous_class(
 
 LIBMCXX_EXTERN void introduce_using_entities(
         nodecl_t nodecl_name,
-        scope_entry_list_t* used_entities, 
-        decl_context_t decl_context, 
+        scope_entry_list_t* used_entities,
+        decl_context_t decl_context,
         scope_entry_t* current_class,
-        char is_class_scope, 
+        char is_class_scope,
         access_specifier_t current_access,
         char is_typename,
         const locus_t* locus);
 
 LIBMCXX_EXTERN scope_entry_t* get_function_declaration_proxy(void);
 
-void build_scope_friend_declarator(decl_context_t decl_context, 
+void build_scope_friend_declarator(decl_context_t decl_context,
         gather_decl_spec_t *gather_info,
         type_t* class_type,
-        type_t* member_type, 
+        type_t* member_type,
         AST declarator);
 
 LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);
@@ -140,9 +140,9 @@ LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t d
 LIBMCXX_EXTERN char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type);
 LIBMCXX_EXTERN char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type);
 
-LIBMCXX_EXTERN void set_function_type_for_lambda(type_t** declarator_type,  
+LIBMCXX_EXTERN void set_function_type_for_lambda(type_t** declarator_type,
         gather_decl_spec_t* gather_info,
-        AST parameters_and_qualifiers, 
+        AST parameters_and_qualifiers,
         decl_context_t decl_context,
         decl_context_t *lambda_block_context,
         nodecl_t* nodecl_output);
@@ -156,6 +156,17 @@ LIBMCXX_EXTERN void set_parameters_as_related_symbols(scope_entry_t* entry,
         const locus_t* locus);
 
 LIBMCXX_EXTERN int get_vla_counter(void);
+
+LIBMCXX_EXTERN nodecl_t instantiate_statement(nodecl_t orig_tree,
+        decl_context_t orig_decl_context,
+        decl_context_t new_decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map);
+
+LIBMCXX_EXTERN nodecl_t instantiate_function(nodecl_t orig_tree,
+        decl_context_t orig_decl_context,
+        decl_context_t new_decl_context,
+        scope_entry_t* orig_function_instantiated,
+        scope_entry_t* new_function_instantiated);
 
 MCXX_END_DECLS
 

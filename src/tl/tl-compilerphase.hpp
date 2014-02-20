@@ -135,7 +135,8 @@ namespace TL
               files
 
               You can set the initial state of a phase in this constructor. If you
-              need to reset your state, override CompilerPhase::phase_cleanup(). All
+              need to reset your state, override CompilerPhase::phase_cleanup()
+              or CompilerPhase::phase_cleanup_end_of_pipeline(). All
               information that is not reset will be shared among executions of this
               phase (this allows some sort of interfile/interprocedural information
               processing provided you invoke the compiler with several files at a time)
@@ -165,14 +166,34 @@ namespace TL
 
             //! Phase cleanup
             /*!
-              This function is called after the phase has been run. Override this function
-              to reset all data of the phase that is not meant to last between files.
+              This function is called _after_ the phase has been run. Override
+              this function to reset all data of the phase that is not meant to
+              last after the execution of the phase.
 
               \note If you already do this in the run member function, move
               the code to this function so the compiler can reset your phase,
               even if run is not called.
+
+              \note Do not use this function to clear data that should last during
+              all the pipeline but not between files. Use
+              CompilerPhase::phase_cleanup_end_of_pipeline instead.
+
+              \see CompilerPhase::phase_cleanup_end_of_pipeline
              */
             virtual void phase_cleanup(DTO& data_flow) { }
+
+            //! Phase cleanup after the end of the pipeline
+            /*!
+              This function is called after the all phases have been run for a
+              single file.  Override this function to reset all the data of
+              that is not meant to last between files.
+
+              \note In contrast to CompilerPhase::phase_cleanup this function can
+              be used to clear data that should last between phases but not between files.
+
+              \see CompilerPhase::phase_cleanup
+             */
+            virtual void phase_cleanup_end_of_pipeline(DTO& data_flow) { }
 
             //! Sets the phase name
             /*!

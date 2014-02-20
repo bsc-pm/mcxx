@@ -124,8 +124,7 @@ lib/tpp.o : lib/tpp.c
 #end of tpp
 
 
-lib_LTLIBRARIES += lib/libmcxx-utils.la \
-                   lib/libmcxx-extstruct.la
+lib_LTLIBRARIES += lib/libmcxx-utils.la
 
 lib_libmcxx_utils_la_CFLAGS = -Wall -DLIBUTILS_DLL_EXPORT
 lib_libmcxx_utils_la_SOURCES = \
@@ -145,14 +144,6 @@ lib_libmcxx_utils_la_SOURCES = \
                           $(END)
 
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
-
-lib_libmcxx_extstruct_la_CFLAGS = -Wall -DLIBEXTSTRUCT_DLL_EXPORT
-lib_libmcxx_extstruct_la_SOURCES = \
-                              lib/extstruct.h \
-                              lib/extstruct.c 
-lib_libmcxx_extstruct_la_LDFLAGS=-avoid-version $(no_undefined)
-lib_libmcxx_extstruct_la_LIBADD=lib/libmcxx-utils.la
-
 
 noinst_LIBRARIES += lib/libperish.a
 lib_libperish_a_SOURCES= lib/perish.c
@@ -283,6 +274,7 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-printscope.c \
   src/frontend/cxx-printscope.h \
   src/frontend/cxx-instantiation.h \
+  src/frontend/cxx-instantiation-decls.h \
   src/frontend/cxx-instantiation.c \
   src/frontend/cxx-dyninit.c \
   src/frontend/cxx-dyninit.h \
@@ -324,7 +316,6 @@ src_frontend_libmcxx_la_SOURCES = \
 
 src_frontend_libmcxx_la_LIBADD = \
 					./lib/libmcxx-utils.la \
-					./lib/libmcxx-extstruct.la \
                     ./src/frontend/libmcxx-process.la \
 					$(quadmath_LIBS) \
 					$(END)
@@ -716,7 +707,6 @@ src_frontend_fortran_libmf03_la_SOURCES = \
 
 src_frontend_fortran_libmf03_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
-					$(top_builddir)/lib/libmcxx-extstruct.la \
                     $(top_builddir)/src/frontend/libmcxx-process.la \
                     $(sqlite3_LIBS) \
 					$(END)
@@ -1010,7 +1000,6 @@ src/tl/tl-nodecl-visitor.cpp : $(NODECL_DEPS)
 
 src_tl_libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 src_tl_libtl_la_LIBADD = \
-	$(top_builddir)/lib/libmcxx-extstruct.la \
 	$(top_builddir)/lib/libmcxx-utils.la \
 	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
@@ -2365,7 +2354,6 @@ src_driver_plaincxx_SOURCES = \
 src_driver_plaincxx_LDADD = \
    $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
-   $(top_builddir)/lib/libmcxx-extstruct.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \

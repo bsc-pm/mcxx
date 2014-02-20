@@ -26,11 +26,31 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
 
-#ifndef CXX_AST_DECLS_H
-#define CXX_AST_DECLS_H
+#include<assert.h>
 
-#include "cxx-ast-fwd.h"
-#include "cxx-asttype.h"
-
-#endif // CXX_AST_DECLS_H
+int main()
+{
+    int x[2][2] = {{-1, -1}, {-1, -1}};
+    int (*y)[2] = x;
+    //printf("original_address: %p\n", x);
+    #pragma omp task inprivate(x)
+    {
+        assert(y != x);
+        //printf("original_address: %p vs copy_address: %p \n", y, x);
+        x[0][0]++;
+        x[0][1]++;
+        x[1][0]++;
+        x[1][1]++;
+    }
+    #pragma omp taskwait
+    assert(x[0][0] == -1);
+    assert(x[0][1] == -1);
+    assert(x[1][0] == -1);
+    assert(x[1][1] == -1);
+}

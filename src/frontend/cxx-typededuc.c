@@ -141,6 +141,50 @@ static void print_deduction_set(deduction_set_t* deduction_set)
     }
 }
 
+static void deduction_free(deduction_t* deduction)
+{
+    int i;
+    for (i = 0; i < deduction->num_deduced_parameters; i++)
+    {
+        xfree(deduction->deduced_parameters[i]);
+    }
+
+    xfree(deduction->deduced_parameters);
+    deduction->deduced_parameters = 0;
+
+    deduction->num_deduced_parameters = 0;
+
+    xfree(deduction);
+}
+
+void deduction_set_free(deduction_set_t* deduction_set)
+{
+    if (deduction_set == NULL)
+        return;
+
+    int i;
+    for (i = 0; i < deduction_set->num_deductions; i++)
+    {
+        deduction_free(deduction_set->deduction_list[i]);
+    }
+
+    xfree(deduction_set->deduction_list);
+    deduction_set->deduction_list = 0;
+
+    deduction_set->num_deductions = 0;
+
+    xfree(deduction_set);
+}
+
+static void deduction_set_slots_free(deduction_set_t** deductions, int num_deduction_slots)
+{
+    int i;
+    for (i = 0; i < num_deduction_slots; i++)
+    {
+        deduction_set_free(deductions[i]);
+    }
+}
+
 char deduce_template_arguments_common(
         // These are the template parameters of this function specialization
         template_parameter_list_t* template_parameters,
@@ -294,6 +338,7 @@ char deduce_template_arguments_common(
                             kind_name[ template_parameters->parameters[i_param]->kind ],
                             kind_name[ explicit_template_parameters->arguments[i_arg]->kind ]);
                 }
+                deduction_set_slots_free(deductions, num_deduction_slots);
                 return 0;
             }
 
@@ -468,6 +513,7 @@ char deduce_template_arguments_common(
             {
                 fprintf(stderr, "TYPEDEDUC: Deduction fails because there are too many template arguments for this template function\n");
             }
+            deduction_set_slots_free(deductions, num_deduction_slots);
             return 0;
         }
 
@@ -566,6 +612,7 @@ char deduce_template_arguments_common(
                         fprintf(stderr, " No type was actually computed\n");
                     }
                 }
+                deduction_set_slots_free(deductions, num_deduction_slots);
                 return 0;
             }
 
@@ -676,6 +723,7 @@ char deduce_template_arguments_common(
             fprintf(stderr, "TYPEDEDUC: We deduced more than one value for the same template parameter "
                     "using the same parameter-argument pair\n");
         }
+        deduction_set_slots_free(deductions, num_deduction_slots);
         return 0;
     }
 
@@ -752,6 +800,7 @@ char deduce_template_arguments_common(
                                 "deduced template argument and causes deduction to fail\n",
                                 template_parameters->parameters[i_tpl_parameters]->entry->symbol_name);
                     }
+                    deduction_set_slots_free(deductions, num_deduction_slots);
                     return 0;
                 }
             }
@@ -834,6 +883,7 @@ char deduce_template_arguments_common(
                     {
                         fprintf(stderr, "TYPEDEDUC: Type deduction fails because deduced template arguments are not of the same kind\n");
                     }
+                    deduction_set_slots_free(deductions, num_deduction_slots);
                     return 0;
                 }
 
@@ -856,6 +906,7 @@ char deduce_template_arguments_common(
                                             print_declarator(result_deduced_parameter->type),
                                             print_declarator(current_deduced_parameter->type));
                                 }
+                                deduction_set_slots_free(deductions, num_deduction_slots);
                                 return 0;
                             }
                             break;
@@ -878,6 +929,7 @@ char deduce_template_arguments_common(
                                     fprintf(stderr, "TYPEDEDUC: Type deduction fails because previous "
                                             "deduction for nontype template argument does not match\n");
                                 }
+                                deduction_set_slots_free(deductions, num_deduction_slots);
                                 return 0;
                             }
                             break;
@@ -971,6 +1023,7 @@ char deduce_template_arguments_common(
                                 "%d failed to be updated\n",
                                 i_tpl_parameters);
                     }
+                    deduction_set_slots_free(deductions, num_deduction_slots);
                     return 0;
                 }
 
@@ -1014,6 +1067,7 @@ char deduce_template_arguments_common(
                                     "I expected a list as a value because its type is a sequence, "
                                     "but the value is not a list\n", i_tpl_parameters);
                         }
+                        deduction_set_slots_free(deductions, num_deduction_slots);
                         return 0;
                     }
                 }
@@ -1026,6 +1080,7 @@ char deduce_template_arguments_common(
                                 "the length of the list values and the sequence type associated do not match",
                                 i_tpl_parameters);
                     }
+                    deduction_set_slots_free(deductions, num_deduction_slots);
                     return 0;
                 }
 
@@ -1039,6 +1094,7 @@ char deduce_template_arguments_common(
                                     "%d was deduced a sequence type containing an invalid type '%s'\n",
                                     i_tpl_parameters, print_declarator(sequence_of_types_get_type_num(t, i)));
                         }
+                        deduction_set_slots_free(deductions, num_deduction_slots);
                         return 0;
                     }
                 }
@@ -1051,6 +1107,7 @@ char deduce_template_arguments_common(
                             "%d was deduced an invalid type '%s'\n",
                             i_tpl_parameters, print_declarator(t));
                 }
+                deduction_set_slots_free(deductions, num_deduction_slots);
                 return 0;
             }
         }
@@ -1068,6 +1125,8 @@ char deduce_template_arguments_common(
 
         fprintf(stderr, "TYPEDEDUC: No more deduced template parameters\n");
     }
+
+    deduction_set_slots_free(deductions, num_deduction_slots);
 
     // Seems a fine deduction
     return 1;

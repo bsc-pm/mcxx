@@ -55,9 +55,9 @@ struct nodecl_expr_info_tag
     template_parameter_list_t* template_parameters;
 
     AST* placeholder;
-} nodecl_expr_info_t;
 
-#define LANG_EXPRESSION_INFO "lang.expression_info"
+    decl_context_t* decl_context;
+} nodecl_expr_info_t;
 
 // Nodecl expression routines. 
 // These are implementation only
@@ -66,7 +66,7 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info_noalloc(AST expr)
     if (expr == NULL)
         return NULL;
 
-    nodecl_expr_info_t* p = (nodecl_expr_info_t*)ast_get_field(expr, LANG_EXPRESSION_INFO);
+    nodecl_expr_info_t* p = ast_get_expr_info(expr);
     return p;
 }
 
@@ -100,11 +100,11 @@ char nodecl_expr_is_constant(AST expr)
 
 static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
 {
-    nodecl_expr_info_t* p = (nodecl_expr_info_t*)ast_get_field(expr, LANG_EXPRESSION_INFO);
+    nodecl_expr_info_t* p = ast_get_expr_info(expr);
     if (p == NULL)
     {
         p = xcalloc(1, sizeof(*p));
-        ast_set_field(expr, LANG_EXPRESSION_INFO, p);
+        ast_set_expr_info(expr, p);
     }
     return p;
 }
@@ -446,19 +446,18 @@ void nodecl_set_locus_as(nodecl_t n, nodecl_t loc)
     ast_set_locus(n.tree, nodecl_get_locus(loc));
 }
 
-#define LANG_DECL_CONTEXT "lang.decl_context_t"
-
 decl_context_t nodecl_get_decl_context(nodecl_t n)
 {
     ERROR_CONDITION(nodecl_is_null(n) || 
             (nodecl_get_kind(n) != NODECL_CONTEXT
             && nodecl_get_kind(n) != NODECL_PRAGMA_CONTEXT),
             "This is not a context node", 0);
-    decl_context_t* p = (decl_context_t*)ast_get_field(nodecl_get_ast(n), LANG_DECL_CONTEXT);
 
-    ERROR_CONDITION(p == NULL, "Invalid context", 0);
+    nodecl_expr_info_t* p = ast_get_expr_info(nodecl_get_ast(n));
 
-    return *p;
+    ERROR_CONDITION(p == NULL || p->decl_context == NULL, "Invalid context", 0);
+
+    return *(p->decl_context);
 }
 
 void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
@@ -468,20 +467,12 @@ void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
             && nodecl_get_kind(n) != NODECL_PRAGMA_CONTEXT),
             "This is not a context node", 0);
 
-    decl_context_t* p = (decl_context_t*)ast_get_field(nodecl_get_ast(n), LANG_DECL_CONTEXT);
+    nodecl_expr_info_t* p = nodecl_expr_get_expression_info(n.tree);
 
-    if (p == NULL)
-    {
-        p = xcalloc(1, sizeof(*p));
+    if (p->decl_context == NULL)
+        p->decl_context = xcalloc(1, sizeof(*(p->decl_context)));
 
-        *p = decl_context;
-
-        ast_set_field(nodecl_get_ast(n), LANG_DECL_CONTEXT, p);
-    }
-    else
-    {
-        *p = decl_context;
-    }
+    *(p->decl_context) = decl_context;
 }
 
 nodecl_t nodecl_get_parent(nodecl_t n)

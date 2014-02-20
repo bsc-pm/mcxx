@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,12 +25,19 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+test_CFLAGS=-Werror
+</testinfo>
+*/
 
+void g(const char*, int*);
 
-#ifndef CXX_AST_DECLS_H
-#define CXX_AST_DECLS_H
+void f(void)
+{
+    const char* c = 0;
+    int *p = 0;
 
-#include "cxx-ast-fwd.h"
-#include "cxx-asttype.h"
-
-#endif // CXX_AST_DECLS_H
+    g(c, p);
+}
