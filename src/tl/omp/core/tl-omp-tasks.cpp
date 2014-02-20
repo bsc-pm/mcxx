@@ -1104,13 +1104,13 @@ namespace TL
                 // Create an implicit target for this one
                 _target_context.push(TargetContext());
                 _target_context.top().is_implicit = true;
+
+                common_target_handler_pre(pragma_line,
+                        _target_context.top(),
+                        parsing_scope,
+                        /* is_pragma_task */ true);
             }
             ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
-
-            common_target_handler_pre(pragma_line,
-                    _target_context.top(),
-                    parsing_scope,
-                    /* is_pragma_task */ true);
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
 
@@ -1288,11 +1288,12 @@ namespace TL
                 // Create an implicit target for this one
                 _target_context.push(TargetContext());
                 _target_context.top().is_implicit = true;
+
+                common_target_handler_pre(pragma_line,
+                        _target_context.top(),
+                        scope,
+                        /* is_pragma_task */ true);
             }
-            common_target_handler_pre(pragma_line,
-                    _target_context.top(),
-                    scope,
-                    /* is_pragma_task */ true);
 
             // Target info applies after
             get_target_info(pragma_line, data_sharing);
