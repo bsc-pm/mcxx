@@ -45,9 +45,9 @@ namespace TL
                 const bool prefer_gather_scatter,
                 const bool prefer_mask_gather_scatter,
                 const TL::Type& target_type,
-                const TL::ObjectList<Nodecl::NodeclBase> * suitable_expr_list,
-                const TL::ObjectList<TL::Symbol> * reduction_list,
+                const TL::ObjectList<Nodecl::NodeclBase>& suitable_expr_list,
                 const VectorizerCache& vectorizer_cache,
+                const TL::ObjectList<TL::Symbol> * reduction_list,
                 std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
            _device(device), _vector_length(vector_length), _unroll_factor(vector_length/target_type.get_size()), 
            _support_masking(support_masking), _mask_size(mask_size), _fast_math(fast_math),  

@@ -97,10 +97,10 @@ namespace TL
                 virtual bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                        const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                         int unroll_factor, int alignment );
                 virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                        const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                         int unroll_factor, int alignment, int& vector_size_module );
         };
     }

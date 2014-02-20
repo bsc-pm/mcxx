@@ -448,28 +448,18 @@ namespace TL
 
         bool VectorizerAnalysisStaticInfo::is_simd_aligned_access(const Nodecl::NodeclBase& scope, 
                 const Nodecl::NodeclBase& n, 
-                const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                 int unroll_factor, int alignment) 
         {
             bool result;
 
-            if (suitable_expressions != NULL)
-            {
-                ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
-                    translate_input(*suitable_expressions);
+            ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
+                translate_input(suitable_expressions);
 
-                result = Analysis::AnalysisStaticInfo::is_simd_aligned_access(
-                        translate_input(scope), translate_input(n), 
-                        &translated_suitable_expressions,
-                        unroll_factor, alignment);
-            }
-            else
-            {
-                result = Analysis::AnalysisStaticInfo::is_simd_aligned_access(
-                        translate_input(scope), translate_input(n), 
-                        suitable_expressions,
-                        unroll_factor, alignment);
-            }
+            result = Analysis::AnalysisStaticInfo::is_simd_aligned_access(
+                    translate_input(scope), translate_input(n), 
+                    translated_suitable_expressions,
+                    unroll_factor, alignment);
 
             unregister_nodes();
 
@@ -477,28 +467,18 @@ namespace TL
         }
 
         bool VectorizerAnalysisStaticInfo::is_suitable_expression(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                const ObjectList<Nodecl::NodeclBase>* suitable_expressions,
+                const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                 int unroll_factor, int alignment, int& vector_size_module)
         {
             bool result;
 
-            if (suitable_expressions != NULL)
-            {
-                ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
-                    translate_input(*suitable_expressions);
+            ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
+                translate_input(suitable_expressions);
 
-                result = Analysis::AnalysisStaticInfo::is_suitable_expression(
-                        translate_input(scope), translate_input(n),
-                        &translated_suitable_expressions,
-                        unroll_factor, alignment, vector_size_module);
-            }
-            else
-            {
-                result = Analysis::AnalysisStaticInfo::is_suitable_expression(
-                        translate_input(scope), translate_input(n),
-                        suitable_expressions,
-                        unroll_factor, alignment, vector_size_module);
-            }
+            result = Analysis::AnalysisStaticInfo::is_suitable_expression(
+                    translate_input(scope), translate_input(n),
+                    translated_suitable_expressions,
+                    unroll_factor, alignment, vector_size_module);
 
             unregister_nodes();
 

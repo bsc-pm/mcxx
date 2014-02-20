@@ -283,9 +283,9 @@ namespace TL {
                     _prefer_gather_scatter,
                     _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
-                    &suitable_expressions,
-                    &reductions,
+                    suitable_expressions,
                     vectorizer_cache,
+                    &reductions,
                     &new_external_vector_symbol_map);
 
             // Initialize analysis info
@@ -499,9 +499,9 @@ namespace TL {
                     _prefer_gather_scatter,
                     _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
-                    &suitable_expressions,
-                    &reductions,
+                    suitable_expressions,
                     vectorizer_cache,
+                    &reductions,
                     &new_external_vector_symbol_map);
 
             // Initialize analysis info
@@ -788,9 +788,9 @@ namespace TL {
                     _prefer_mask_gather_scatter,
                     _fast_math_enabled,
                     vectorlengthfor_type,
-                    &suitable_expressions,
-                    NULL,
+                    suitable_expressions,
                     vectorizer_cache,
+                    NULL,
                     NULL);
 
             // Initialize analysis info
