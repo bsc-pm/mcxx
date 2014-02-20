@@ -748,7 +748,7 @@ namespace Analysis {
     }
 
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                                     const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+                                                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                                                      int unroll_factor, int alignment ) const 
     {
         bool result = false;
@@ -771,7 +771,7 @@ namespace Analysis {
     }
 
     bool AnalysisStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
             int unroll_factor, int alignment, int& vector_size_module ) const 
     {
         bool result = false;
