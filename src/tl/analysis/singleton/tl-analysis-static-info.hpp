@@ -31,6 +31,7 @@
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl-visitor.hpp"
 #include "tl-objectlist.hpp"
+#include "tl-omp.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -231,7 +232,7 @@ namespace Analysis {
 
             // *** Queries about OmpSs *** //
             
-            virtual bool is_ompss_reduction( const Nodecl::NodeclBase& n ) const;
+            virtual bool is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const;
 
 
             // *** Queries for Vectorization *** //
