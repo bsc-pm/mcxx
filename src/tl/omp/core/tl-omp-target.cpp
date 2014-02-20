@@ -39,13 +39,13 @@ namespace TL
                 TargetContext& target_ctx,
                 TL::Scope scope,
                 bool is_pragma_task)
-        {            
+        {
             PragmaCustomClause onto = pragma_line.get_clause("onto");
             if (onto.is_defined())
             {
                 target_ctx.onto = onto.get_arguments_as_expressions(scope);
             }
-            
+
             PragmaCustomClause device = pragma_line.get_clause("device");
             if (device.is_defined())
             {
@@ -260,6 +260,7 @@ namespace TL
             }
         }
 
+        // #pragma omp target on top of a #pragma omp task outline
         void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
             PragmaCustomLine pragma_line = ctr.get_pragma_line();
@@ -326,6 +327,7 @@ namespace TL
             }
         }
 
+        // #pragma omp target on top of a #pragma omp task inline
         void Core::target_handler_pre(TL::PragmaCustomStatement ctr)
         {
             Nodecl::NodeclBase nested_pragma = ctr.get_statements();
@@ -335,7 +337,7 @@ namespace TL
                 nested_pragma = nested_pragma.as<Nodecl::List>().front();
             }
 
-            if (nested_pragma.is_null() 
+            if (nested_pragma.is_null()
                     || !PragmaUtils::is_pragma_construct("omp", "task", nested_pragma))
             {
                 warn_printf("%s: warning: '#pragma omp target' must precede a '#pragma omp task' in this context\n",
@@ -357,7 +359,9 @@ namespace TL
                 return;
             }
 
-            common_target_handler_pre(pragma_line, target_ctx, ctr.retrieve_context(),
+            common_target_handler_pre(pragma_line,
+                    target_ctx,
+                    ctr.retrieve_context(),
                     /* is_pragma_task */ false);
 
             _target_context.push(target_ctx);

@@ -1107,7 +1107,9 @@ namespace TL
             }
             ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
-            common_target_handler_pre(pragma_line, _target_context.top(), scope,
+            common_target_handler_pre(pragma_line,
+                    _target_context.top(),
+                    parsing_scope,
                     /* is_pragma_task */ true);
 
             FunctionTaskInfo task_info(function_sym, dependence_list);
@@ -1287,7 +1289,9 @@ namespace TL
                 _target_context.push(TargetContext());
                 _target_context.top().is_implicit = true;
             }
-            common_target_handler_pre(pragma_line, _target_context.top(), scope,
+            common_target_handler_pre(pragma_line,
+                    _target_context.top(),
+                    scope,
                     /* is_pragma_task */ true);
 
             // Target info applies after
