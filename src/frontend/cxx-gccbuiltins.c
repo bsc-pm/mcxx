@@ -130,10 +130,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
         return result; \
     }
 
-// This is required for the sync overloaded functions
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** types, nodecl_t *arguments, int num_arguments, const_value_t** const_value);
-DEF_PRIMITIVE_TYPE(BT_FN_SYNC_OVERLOAD, get_computed_function_type(solve_gcc_sync_builtins_overload_name))
-
 // Basic types
 DEF_PRIMITIVE_TYPE(BT_VOID, get_void_type())
 DEF_PRIMITIVE_TYPE(BT_BOOL, get_bool_type())
@@ -148,7 +144,7 @@ DEF_PRIMITIVE_TYPE(BT_INTMAX, get_signed_long_int_type())
 DEF_PRIMITIVE_TYPE(BT_UINTMAX, get_unsigned_int_type())
 
 // FIXME  using type environment information
-DEF_PRIMITIVE_TYPE(BT_WORD, get_signed_int_type())
+// DEF_PRIMITIVE_TYPE(BT_WORD, get_signed_int_type())
 DEF_PRIMITIVE_TYPE(BT_FLOAT, get_float_type())
 DEF_PRIMITIVE_TYPE(BT_DOUBLE, get_double_type())
 DEF_PRIMITIVE_TYPE(BT_LONGDOUBLE, get_long_double_type())
@@ -165,7 +161,7 @@ DEF_PRIMITIVE_TYPE(BT_DFLOAT128, get_long_double_type())
 // How to define this nicely ?
 DEF_PRIMITIVE_TYPE(BT_FILEPTR, get_pointer_type(get_void_type()))
 DEF_PRIMITIVE_TYPE(BT_CONST_PTR, get_pointer_type(get_const_qualified_type(get_void_type())))
-DEF_PRIMITIVE_TYPE(BT_VOLATILE_PTR, get_pointer_type(get_volatile_qualified_type(get_void_type())))
+// DEF_PRIMITIVE_TYPE(BT_VOLATILE_PTR, get_pointer_type(get_volatile_qualified_type(get_void_type())))
 
 // What is this ? :)
 // DEF_PRIMITIVE_TYPE(BT_PTRMODE,(*lang_hooks.types.type_for_mode)(ptr_mode, 0))
@@ -189,15 +185,15 @@ DEF_PRIMITIVE_TYPE(BT_CONST_STRING, get_pointer_type(get_const_qualified_type(ge
 DEF_PRIMITIVE_TYPE(BT_VALIST_REF, get_gcc_builtin_va_list_type())
 DEF_PRIMITIVE_TYPE(BT_VALIST_ARG, get_gcc_builtin_va_list_type())
 
-DEF_PRIMITIVE_TYPE(BT_I1, get_signed_char_type())
-DEF_PRIMITIVE_TYPE(BT_I2, get_signed_short_int_type())
-DEF_PRIMITIVE_TYPE(BT_I4, get_signed_int_type())
-DEF_PRIMITIVE_TYPE(BT_I8,
-        (CURRENT_CONFIGURATION->type_environment->sizeof_signed_long == 8
-         ?  get_signed_long_int_type()
-         : get_signed_long_long_int_type()))
+// DEF_PRIMITIVE_TYPE(BT_I1, get_signed_char_type())
+// DEF_PRIMITIVE_TYPE(BT_I2, get_signed_short_int_type())
+// DEF_PRIMITIVE_TYPE(BT_I4, get_signed_int_type())
+// DEF_PRIMITIVE_TYPE(BT_I8,
+//         (CURRENT_CONFIGURATION->type_environment->sizeof_signed_long == 8
+//          ?  get_signed_long_int_type()
+//          : get_signed_long_long_int_type()))
 // This may not be available...
-DEF_PRIMITIVE_TYPE(BT_I16, get_signed_long_long_int_type())
+// DEF_PRIMITIVE_TYPE(BT_I16, get_signed_long_long_int_type())
 
 DEF_PRIMITIVE_TYPE(BT_UNWINDWORD, get_signed_int_type())
 
@@ -205,23 +201,23 @@ DEF_POINTER_TYPE (BT_PTR_CONST_STRING, BT_CONST_STRING)
 DEF_POINTER_TYPE (BT_PTR_LONG, BT_LONG)
 DEF_POINTER_TYPE (BT_PTR_ULONGLONG, BT_ULONGLONG)
 DEF_POINTER_TYPE (BT_PTR_PTR, BT_PTR)
-DEF_POINTER_TYPE (BT_PTR_INT, BT_INT)
-DEF_POINTER_TYPE (BT_PTR_I1, BT_I1)
-DEF_POINTER_TYPE (BT_PTR_I2, BT_I2)
-DEF_POINTER_TYPE (BT_PTR_I4, BT_I4)
-DEF_POINTER_TYPE (BT_PTR_I8, BT_I8)
-DEF_POINTER_TYPE (BT_PTR_I16, BT_I16)
+// DEF_POINTER_TYPE (BT_PTR_INT, BT_INT)
+// DEF_POINTER_TYPE (BT_PTR_I1, BT_I1)
+// DEF_POINTER_TYPE (BT_PTR_I2, BT_I2)
+// DEF_POINTER_TYPE (BT_PTR_I4, BT_I4)
+// DEF_POINTER_TYPE (BT_PTR_I8, BT_I8)
+// DEF_POINTER_TYPE (BT_PTR_I16, BT_I16)
 
 DEF_PRIMITIVE_TYPE(BT_UINT16, get_unsigned_short_int_type())
 DEF_PRIMITIVE_TYPE(BT_UINT32, get_unsigned_int_type())
 DEF_PRIMITIVE_TYPE(BT_UINT64, get_unsigned_long_long_int_type())
 
 // Volatile pointers to basic integers (used in sync functions)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I1, BT_VOID)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I2, BT_VOID)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I4, BT_VOID)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I8, BT_VOID)
-DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I16, BT_VOID)
+// DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I1, BT_VOID)
+// DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I2, BT_VOID)
+// DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I4, BT_VOID)
+// DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I8, BT_VOID)
+// DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I16, BT_VOID)
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR_INT, BT_VOID)
 
 static type_t* adjust_type_for_parameter_type(type_t* orig)
@@ -715,14 +711,14 @@ DEF_FUNCTION_TYPE_1 (BT_FN_STRING_CONST_STRING, BT_STRING, BT_CONST_STRING)
 DEF_FUNCTION_TYPE_1 (BT_FN_UNWINDWORD_PTR, BT_UNWINDWORD, BT_PTR)
 DEF_FUNCTION_TYPE_1 (BT_FN_INT_WINT, BT_INT, BT_WINT)
 DEF_FUNCTION_TYPE_1 (BT_FN_WINT_WINT, BT_WINT, BT_WINT)
-DEF_FUNCTION_TYPE_1 (BT_FN_DFLOAT32_DFLOAT32, BT_DFLOAT32, BT_DFLOAT32)
-DEF_FUNCTION_TYPE_1 (BT_FN_DFLOAT64_DFLOAT64, BT_DFLOAT64, BT_DFLOAT64)
-DEF_FUNCTION_TYPE_1 (BT_FN_DFLOAT128_DFLOAT128, BT_DFLOAT128, BT_DFLOAT128)
-DEF_FUNCTION_TYPE_1 (BT_FN_VOID_VPTR, BT_VOID, BT_VOLATILE_PTR)
+// DEF_FUNCTION_TYPE_1 (BT_FN_DFLOAT32_DFLOAT32, BT_DFLOAT32, BT_DFLOAT32)
+// DEF_FUNCTION_TYPE_1 (BT_FN_DFLOAT64_DFLOAT64, BT_DFLOAT64, BT_DFLOAT64)
+// DEF_FUNCTION_TYPE_1 (BT_FN_DFLOAT128_DFLOAT128, BT_DFLOAT128, BT_DFLOAT128)
+// DEF_FUNCTION_TYPE_1 (BT_FN_VOID_VPTR, BT_VOID, BT_VOLATILE_PTR)
 DEF_FUNCTION_TYPE_1 (BT_FN_VOID_PTRPTR, BT_VOID, BT_PTR_PTR)
 DEF_FUNCTION_TYPE_1 (BT_FN_UINT_UINT, BT_UINT, BT_UINT)
-DEF_FUNCTION_TYPE_1 (BT_FN_ULONG_ULONG, BT_ULONG, BT_ULONG)
-DEF_FUNCTION_TYPE_1 (BT_FN_ULONGLONG_ULONGLONG, BT_ULONGLONG, BT_ULONGLONG)
+// DEF_FUNCTION_TYPE_1 (BT_FN_ULONG_ULONG, BT_ULONG, BT_ULONG)
+// DEF_FUNCTION_TYPE_1 (BT_FN_ULONGLONG_ULONGLONG, BT_ULONGLONG, BT_ULONGLONG)
 DEF_FUNCTION_TYPE_1 (BT_FN_UINT32_UINT32, BT_UINT32, BT_UINT32)
 DEF_FUNCTION_TYPE_1 (BT_FN_UINT64_UINT64, BT_UINT64, BT_UINT64)
 
@@ -751,8 +747,8 @@ DEF_FUNCTION_TYPE_2 (BT_FN_VOID_VALIST_REF_VALIST_ARG,
 		     BT_VOID, BT_VALIST_REF, BT_VALIST_ARG)
 DEF_FUNCTION_TYPE_2 (BT_FN_LONG_LONG_LONG,
 		     BT_LONG, BT_LONG, BT_LONG)
-DEF_FUNCTION_TYPE_2 (BT_FN_INT_PTR_CONST_STRING,
-		     BT_INT, BT_PTR, BT_CONST_STRING)
+// DEF_FUNCTION_TYPE_2 (BT_FN_INT_PTR_CONST_STRING,
+// 		     BT_INT, BT_PTR, BT_CONST_STRING)
 DEF_FUNCTION_TYPE_2 (BT_FN_VOID_PTR_SIZE,
 		     BT_VOID, BT_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_2 (BT_FN_FLOAT_FLOAT_FLOAT,
@@ -811,17 +807,6 @@ DEF_FUNCTION_TYPE_2 (BT_FN_VOID_PTR_PTR, BT_VOID, BT_PTR, BT_PTR)
 DEF_FUNCTION_TYPE_2 (BT_FN_INT_CONST_STRING_PTR_CONST_STRING,
 		     BT_INT, BT_CONST_STRING, BT_PTR_CONST_STRING)
 DEF_FUNCTION_TYPE_2 (BT_FN_SIZE_CONST_PTR_INT, BT_SIZE, BT_CONST_PTR, BT_INT)
-DEF_FUNCTION_TYPE_2 (BT_FN_I1_VPTR_I1, BT_I1, BT_VPTR_I1, BT_I1)
-DEF_FUNCTION_TYPE_2 (BT_FN_I2_VPTR_I2, BT_I2, BT_VPTR_I2, BT_I2)
-DEF_FUNCTION_TYPE_2 (BT_FN_I4_VPTR_I4, BT_I4, BT_VPTR_I4, BT_I4)
-DEF_FUNCTION_TYPE_2 (BT_FN_I8_VPTR_I8, BT_I8, BT_VPTR_I8, BT_I8)
-DEF_FUNCTION_TYPE_2 (BT_FN_I16_VPTR_I16, BT_I16, BT_VPTR_I16, BT_I16)
-
-DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I1, BT_VOID, BT_VPTR_I1);
-DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I2, BT_VOID, BT_VPTR_I2);
-DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I4, BT_VOID, BT_VPTR_I4);
-DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I8, BT_VOID, BT_VPTR_I8);
-DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I16, BT_VOID, BT_VPTR_I16);
 
 DEF_FUNCTION_TYPE_2 (BT_FN_BOOL_LONGPTR_LONGPTR,
 		     BT_BOOL, BT_PTR_LONG, BT_PTR_LONG)
@@ -840,8 +825,8 @@ DEF_FUNCTION_TYPE_3 (BT_FN_INT_CONST_PTR_CONST_PTR_SIZE,
 		     BT_INT, BT_CONST_PTR, BT_CONST_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_3 (BT_FN_PTR_PTR_INT_SIZE,
 		     BT_PTR, BT_PTR, BT_INT, BT_SIZE)
-DEF_FUNCTION_TYPE_3 (BT_FN_VOID_PTR_INT_INT,
-		     BT_VOID, BT_PTR, BT_INT, BT_INT)
+// DEF_FUNCTION_TYPE_3 (BT_FN_VOID_PTR_INT_INT,
+// 		     BT_VOID, BT_PTR, BT_INT, BT_INT)
 DEF_FUNCTION_TYPE_3 (BT_FN_VOID_CONST_PTR_PTR_SIZE,
 		     BT_VOID, BT_CONST_PTR, BT_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_3 (BT_FN_INT_STRING_CONST_STRING_VALIST_ARG,
@@ -870,21 +855,11 @@ DEF_FUNCTION_TYPE_3 (BT_FN_VOID_DOUBLE_DOUBLEPTR_DOUBLEPTR,
 		     BT_VOID, BT_DOUBLE, BT_DOUBLE_PTR, BT_DOUBLE_PTR)
 DEF_FUNCTION_TYPE_3 (BT_FN_VOID_LONGDOUBLE_LONGDOUBLEPTR_LONGDOUBLEPTR,
 		     BT_VOID, BT_LONGDOUBLE, BT_LONGDOUBLE_PTR, BT_LONGDOUBLE_PTR)
-DEF_FUNCTION_TYPE_3 (BT_FN_VOID_PTR_PTR_PTR, BT_VOID, BT_PTR, BT_PTR, BT_PTR)
+// DEF_FUNCTION_TYPE_3 (BT_FN_VOID_PTR_PTR_PTR, BT_VOID, BT_PTR, BT_PTR, BT_PTR)
 DEF_FUNCTION_TYPE_3 (BT_FN_INT_CONST_STRING_PTR_CONST_STRING_PTR_CONST_STRING,
 		     BT_INT, BT_CONST_STRING, BT_PTR_CONST_STRING, BT_PTR_CONST_STRING)
 DEF_FUNCTION_TYPE_3 (BT_FN_INT_INT_CONST_STRING_VALIST_ARG,
 		     BT_INT, BT_INT, BT_CONST_STRING, BT_VALIST_ARG)
-DEF_FUNCTION_TYPE_3 (BT_FN_BOOL_VPTR_I1_I1, BT_BOOL, BT_VPTR_I1, BT_I1, BT_I1)
-DEF_FUNCTION_TYPE_3 (BT_FN_BOOL_VPTR_I2_I2, BT_BOOL, BT_VPTR_I2, BT_I2, BT_I2)
-DEF_FUNCTION_TYPE_3 (BT_FN_BOOL_VPTR_I4_I4, BT_BOOL, BT_VPTR_I4, BT_I4, BT_I4)
-DEF_FUNCTION_TYPE_3 (BT_FN_BOOL_VPTR_I8_I8, BT_BOOL, BT_VPTR_I8, BT_I8, BT_I8)
-DEF_FUNCTION_TYPE_3 (BT_FN_BOOL_VPTR_I16_I16, BT_BOOL, BT_VPTR_I16, BT_I16, BT_I16)
-DEF_FUNCTION_TYPE_3 (BT_FN_I1_VPTR_I1_I1, BT_I1, BT_VPTR_I1, BT_I1, BT_I1)
-DEF_FUNCTION_TYPE_3 (BT_FN_I2_VPTR_I2_I2, BT_I2, BT_VPTR_I2, BT_I2, BT_I2)
-DEF_FUNCTION_TYPE_3 (BT_FN_I4_VPTR_I4_I4, BT_I4, BT_VPTR_I4, BT_I4, BT_I4)
-DEF_FUNCTION_TYPE_3 (BT_FN_I8_VPTR_I8_I8, BT_I8, BT_VPTR_I8, BT_I8, BT_I8)
-DEF_FUNCTION_TYPE_3 (BT_FN_I16_VPTR_I16_I16, BT_I16, BT_VPTR_I16, BT_I16, BT_I16)
 DEF_FUNCTION_TYPE_3 (BT_FN_VOID_OMPFN_PTR_UINT, BT_VOID, BT_PTR_FN_VOID_PTR,
 		     BT_PTR, BT_UINT)
 DEF_FUNCTION_TYPE_3 (BT_FN_PTR_CONST_PTR_INT_SIZE, BT_PTR,
@@ -906,8 +881,8 @@ DEF_FUNCTION_TYPE_4 (BT_FN_INT_FILEPTR_INT_CONST_STRING_VALIST_ARG,
 		     BT_INT, BT_FILEPTR, BT_INT, BT_CONST_STRING, BT_VALIST_ARG)
 DEF_FUNCTION_TYPE_4 (BT_FN_VOID_OMPFN_PTR_UINT_UINT,
 		     BT_VOID, BT_PTR_FN_VOID_PTR, BT_PTR, BT_UINT, BT_UINT)
-DEF_FUNCTION_TYPE_4 (BT_FN_VOID_PTR_WORD_WORD_PTR,
-		     BT_VOID, BT_PTR, BT_WORD, BT_WORD, BT_PTR)
+// DEF_FUNCTION_TYPE_4 (BT_FN_VOID_PTR_WORD_WORD_PTR,
+// 		     BT_VOID, BT_PTR, BT_WORD, BT_WORD, BT_PTR)
 
 DEF_FUNCTION_TYPE_5 (BT_FN_INT_STRING_INT_SIZE_CONST_STRING_VALIST_ARG,
 		     BT_INT, BT_STRING, BT_INT, BT_SIZE, BT_CONST_STRING,
@@ -1047,6 +1022,28 @@ DEF_ATOMIC_FUNCTION_TYPE(BT_FN_ATOMIC_OVERLOAD_FETCH_OP, BT_FUN_ATOMIC_BIN_OP)
 
 DEF_POINTER_VOLATILE_TYPE(BT_VPTR, BT_VOID)
 DEF_FUNCTION_TYPE_2(BT_FN_BOOL_SIZE_CONST_VPTR, BT_BOOL, BT_SIZE, BT_VPTR)
+
+// Old sync support
+DEF_FUNCTION_TYPE_2(BT_FN_SYNC_FETCH_AND_OP, BT_GENERIC_0, BT_PTR_GENERIC_0, BT_GENERIC_0)
+DEF_FUNCTION_TYPE_2(BT_FN_SYNC_OP_AND_FETCH, BT_GENERIC_0, BT_PTR_GENERIC_0, BT_GENERIC_0)
+DEF_FUNCTION_TYPE_3(BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, BT_BOOL, BT_PTR_GENERIC_0, BT_GENERIC_0, BT_GENERIC_0)
+DEF_FUNCTION_TYPE_3(BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, BT_GENERIC_0, BT_PTR_GENERIC_0, BT_GENERIC_0, BT_GENERIC_0)
+DEF_FUNCTION_TYPE_2(BT_FN_SYNC_LOCK_TEST_AND_SET, BT_GENERIC_0, BT_PTR_GENERIC_0, BT_GENERIC_0)
+DEF_FUNCTION_TYPE_1(BT_FN_SYNC_LOCK_RELEASE, BT_VOID, BT_PTR_GENERIC_0)
+
+ATOMIC_OVERLOAD_FUN(BT_FN_SYNC_FETCH_AND_OP)
+ATOMIC_OVERLOAD_FUN(BT_FN_SYNC_OP_AND_FETCH)
+ATOMIC_OVERLOAD_FUN(BT_FN_SYNC_COMPARE_AND_SWAP_BOOL)
+ATOMIC_OVERLOAD_FUN(BT_FN_SYNC_COMPARE_AND_SWAP_VALUE)
+ATOMIC_OVERLOAD_FUN(BT_FN_SYNC_LOCK_TEST_AND_SET)
+ATOMIC_OVERLOAD_FUN(BT_FN_SYNC_LOCK_RELEASE)
+
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, BT_FN_SYNC_FETCH_AND_OP)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, BT_FN_SYNC_OP_AND_FETCH)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_COMPARE_AND_SWAP_BOOL_OVERLOAD, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_COMPARE_AND_SWAP_VALUE_OVERLOAD, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_LOCK_TEST_AND_SET_OVERLOAD, BT_FN_SYNC_LOCK_TEST_AND_SET)
+DEF_ATOMIC_FUNCTION_TYPE(BT_FN_SYNC_LOCK_RELEASE_OVERLOAD, BT_FN_SYNC_LOCK_RELEASE)
 
 /*
  * Bultins
@@ -1846,229 +1843,362 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_POINTER, "__builtin_eh_pointer")
 DEF_BUILTIN_STUB (BUILT_IN_EH_FILTER, "__builtin_eh_filter")
 DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values")
 
+// Old __sync_XXX support
+#define REGISTER_SYNC_SPECIALIZATION(generic_name, bytes, def_type, pred, ...) \
+{ \
+    if (pred) \
+    { \
+    scope_entry_list_t* generic_list = query_name_str(global_context, generic_name, NULL); \
+    ERROR_CONDITION(generic_list == NULL, "Generic '" generic_name "' not found", 0); \
+    scope_entry_t* generic = entry_list_head(generic_list); \
+    entry_list_free(generic_list); \
+    type_t *types[] = { __VA_ARGS__ }; \
+    int num_args = sizeof(types) / sizeof(*types); \
+    nodecl_t nodecl_args[num_args]; \
+    int i; \
+    for (i = 0; i < num_args; i++) \
+    { \
+        nodecl_args[i] = nodecl_make_type(types[i], NULL); \
+    } \
+    const_value_t* cval = NULL; \
+    scope_entry_t* specific = solve_gcc_atomic_builtins_overload_name_generic( \
+            generic, types, nodecl_args, num_args, &cval, (__mcxx_builtin_type__##def_type)()); \
+    ERROR_CONDITION(specific == NULL, "Invalid specific symbol for '" generic_name "'", 0); \
+    for (i = 0; i < num_args; i++) \
+    { \
+        nodecl_free(nodecl_args[i]); \
+    } \
+    insert_alias(global_context.current_scope, specific, generic_name "_" #bytes); \
+    } \
+}
+
+#define REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS(generic_name) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_FETCH_AND_OP, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_char_type())), \
+            get_signed_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_FETCH_AND_OP, 1, \
+            get_pointer_type((get_unsigned_char_type())), \
+            get_unsigned_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_FETCH_AND_OP, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_short_int_type())), \
+            get_signed_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_FETCH_AND_OP, 1, \
+            get_pointer_type((get_unsigned_short_int_type())), \
+            get_unsigned_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_FETCH_AND_OP, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_int_type())), \
+            get_signed_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_FETCH_AND_OP, 1, \
+            get_pointer_type((get_unsigned_int_type())), \
+            get_unsigned_int_type()) \
+    if (type_get_size(get_signed_long_int_type()) == 4) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_FETCH_AND_OP, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_long_int_type())), \
+            get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_FETCH_AND_OP, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type()) \
+    } else if (type_get_size(get_signed_long_int_type()) == 8) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_FETCH_AND_OP, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_long_int_type())), \
+            get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_FETCH_AND_OP, 1, \
+            get_pointer_type((get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type()) \
+    } else internal_error("Code unreachable", 0); \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_FETCH_AND_OP, \
+            IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_long_long_int_type())), \
+            get_signed_long_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_FETCH_AND_OP, \
+            IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
+            get_pointer_type((get_unsigned_long_long_int_type())), \
+            get_unsigned_long_long_int_type())
+
 DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_ADD_N, "__sync_fetch_and_add",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_ADD_1, "__sync_fetch_and_add_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_ADD_2, "__sync_fetch_and_add_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_ADD_4, "__sync_fetch_and_add_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_ADD_8, "__sync_fetch_and_add_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_ADD_16, "__sync_fetch_and_add_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS("__sync_fetch_and_add")
 
 DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_SUB_N, "__sync_fetch_and_sub",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_SUB_1, "__sync_fetch_and_sub_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_SUB_2, "__sync_fetch_and_sub_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_SUB_4, "__sync_fetch_and_sub_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_SUB_8, "__sync_fetch_and_sub_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_SUB_16, "__sync_fetch_and_sub_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS("__sync_fetch_and_sub")
 
 DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_OR_N, "__sync_fetch_and_or",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_OR_1, "__sync_fetch_and_or_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_OR_2, "__sync_fetch_and_or_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_OR_4, "__sync_fetch_and_or_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_OR_8, "__sync_fetch_and_or_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_OR_16, "__sync_fetch_and_or_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS("__sync_fetch_and_or")
 
 DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_AND_N, "__sync_fetch_and_and",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_AND_1, "__sync_fetch_and_and_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_AND_2, "__sync_fetch_and_and_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_AND_4, "__sync_fetch_and_and_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_AND_8, "__sync_fetch_and_and_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_AND_16, "__sync_fetch_and_and_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS("__sync_fetch_and_and")
 
 DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_XOR_N, "__sync_fetch_and_xor",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_XOR_1, "__sync_fetch_and_xor_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_XOR_2, "__sync_fetch_and_xor_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_XOR_4, "__sync_fetch_and_xor_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_XOR_8, "__sync_fetch_and_xor_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_XOR_16, "__sync_fetch_and_xor_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS("__sync_fetch_and_xor")
 
 DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_NAND_N, "__sync_fetch_and_nand",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_NAND_1, "__sync_fetch_and_nand_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_NAND_2, "__sync_fetch_and_nand_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_NAND_4, "__sync_fetch_and_nand_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_NAND_8, "__sync_fetch_and_nand_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_FETCH_AND_NAND_16, "__sync_fetch_and_nand_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_FETCH_AND_OP_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_FETCH_AND_OP_SPECIALIZATIONS("__sync_fetch_and_nand")
+
+#define REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS(generic_name) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_OP_AND_FETCH, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_char_type())), \
+            get_signed_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_OP_AND_FETCH, 1, \
+            get_pointer_type((get_unsigned_char_type())), \
+            get_unsigned_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_OP_AND_FETCH, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_short_int_type())), \
+            get_signed_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_OP_AND_FETCH, 1, \
+            get_pointer_type((get_unsigned_short_int_type())), \
+            get_unsigned_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_OP_AND_FETCH, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_int_type())), \
+            get_signed_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_OP_AND_FETCH, 1, \
+            get_pointer_type((get_unsigned_int_type())), \
+            get_unsigned_int_type()) \
+    if (type_get_size(get_signed_long_int_type()) == 4) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_OP_AND_FETCH, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_long_int_type())), \
+            get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_OP_AND_FETCH, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type()) \
+    } else if (type_get_size(get_signed_long_int_type()) == 8) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_OP_AND_FETCH, IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_long_int_type())), \
+            get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_OP_AND_FETCH, 1, \
+            get_pointer_type((get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type()) \
+    } else internal_error("Code unreachable", 0); \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_OP_AND_FETCH, \
+            IS_CXX_LANGUAGE, \
+            get_pointer_type((get_signed_long_long_int_type())), \
+            get_signed_long_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_OP_AND_FETCH, \
+            IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
+            get_pointer_type((get_unsigned_long_long_int_type())), \
+            get_unsigned_long_long_int_type())
 
 DEF_SYNC_BUILTIN (BUILT_IN_ADD_AND_FETCH_N, "__sync_add_and_fetch",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_ADD_AND_FETCH_1, "__sync_add_and_fetch_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_ADD_AND_FETCH_2, "__sync_add_and_fetch_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_ADD_AND_FETCH_4, "__sync_add_and_fetch_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_ADD_AND_FETCH_8, "__sync_add_and_fetch_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_ADD_AND_FETCH_16, "__sync_add_and_fetch_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS("__sync_add_and_fetch")
 
 DEF_SYNC_BUILTIN (BUILT_IN_SUB_AND_FETCH_N, "__sync_sub_and_fetch",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_SUB_AND_FETCH_1, "__sync_sub_and_fetch_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_SUB_AND_FETCH_2, "__sync_sub_and_fetch_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_SUB_AND_FETCH_4, "__sync_sub_and_fetch_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_SUB_AND_FETCH_8, "__sync_sub_and_fetch_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_SUB_AND_FETCH_16, "__sync_sub_and_fetch_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS("__sync_sub_and_fetch")
 
 DEF_SYNC_BUILTIN (BUILT_IN_OR_AND_FETCH_N, "__sync_or_and_fetch",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_OR_AND_FETCH_1, "__sync_or_and_fetch_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_OR_AND_FETCH_2, "__sync_or_and_fetch_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_OR_AND_FETCH_4, "__sync_or_and_fetch_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_OR_AND_FETCH_8, "__sync_or_and_fetch_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_OR_AND_FETCH_16, "__sync_or_and_fetch_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS("__sync_or_and_fetch")
 
 DEF_SYNC_BUILTIN (BUILT_IN_AND_AND_FETCH_N, "__sync_and_and_fetch",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_AND_AND_FETCH_1, "__sync_and_and_fetch_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_AND_AND_FETCH_2, "__sync_and_and_fetch_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_AND_AND_FETCH_4, "__sync_and_and_fetch_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_AND_AND_FETCH_8, "__sync_and_and_fetch_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_AND_AND_FETCH_16, "__sync_and_and_fetch_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS("__sync_and_and_fetch")
 
 DEF_SYNC_BUILTIN (BUILT_IN_XOR_AND_FETCH_N, "__sync_xor_and_fetch",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_XOR_AND_FETCH_1, "__sync_xor_and_fetch_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_XOR_AND_FETCH_2, "__sync_xor_and_fetch_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_XOR_AND_FETCH_4, "__sync_xor_and_fetch_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_XOR_AND_FETCH_8, "__sync_xor_and_fetch_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_XOR_AND_FETCH_16, "__sync_xor_and_fetch_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS("__sync_xor_and_fetch")
 
 DEF_SYNC_BUILTIN (BUILT_IN_NAND_AND_FETCH_N, "__sync_nand_and_fetch",
-		  BT_FN_VOID_VAR, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_NAND_AND_FETCH_1, "__sync_nand_and_fetch_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_NAND_AND_FETCH_2, "__sync_nand_and_fetch_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_NAND_AND_FETCH_4, "__sync_nand_and_fetch_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_NAND_AND_FETCH_8, "__sync_nand_and_fetch_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_NAND_AND_FETCH_16, "__sync_nand_and_fetch_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_OP_AND_FETCH_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_OP_AND_FETCH_SPECIALIZATIONS("__sync_nand_and_fetch")
+
+#define REGISTER_SYNC_COMPARE_AND_SWAP_BOOL_SPECIALIZATIONS(generic_name) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_char_type())), \
+            get_signed_char_type(), get_signed_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_char_type())), \
+            get_unsigned_char_type(), get_unsigned_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_short_int_type())), \
+            get_signed_short_int_type(), get_signed_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_short_int_type())), \
+            get_unsigned_short_int_type(), get_unsigned_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_int_type())), \
+            get_signed_int_type(), get_signed_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_int_type())), \
+            get_unsigned_int_type(), get_unsigned_int_type()) \
+    if (type_get_size(get_signed_long_int_type()) == 4) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type())), \
+            get_signed_long_int_type(), get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type(), get_unsigned_long_int_type()) \
+    } else if (type_get_size(get_signed_long_int_type()) == 8) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type())), \
+            get_signed_long_int_type(), get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type(), get_unsigned_long_int_type()) \
+    } else internal_error("Code unreachable", 0); \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, \
+            IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_long_int_type())), \
+            get_signed_long_long_int_type(), get_signed_long_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_BOOL, \
+            IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_long_int_type())), \
+            get_unsigned_long_long_int_type(), get_unsigned_long_long_int_type())
 
 DEF_SYNC_BUILTIN (BUILT_IN_BOOL_COMPARE_AND_SWAP_N,
 		  "__sync_bool_compare_and_swap",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_BOOL_COMPARE_AND_SWAP_1,
-		  "__sync_bool_compare_and_swap_1",
-		  BT_FN_BOOL_VPTR_I1_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_BOOL_COMPARE_AND_SWAP_2,
-		  "__sync_bool_compare_and_swap_2",
-		  BT_FN_BOOL_VPTR_I2_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_BOOL_COMPARE_AND_SWAP_4,
-		  "__sync_bool_compare_and_swap_4",
-		  BT_FN_BOOL_VPTR_I4_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_BOOL_COMPARE_AND_SWAP_8,
-		  "__sync_bool_compare_and_swap_8",
-		  BT_FN_BOOL_VPTR_I8_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_BOOL_COMPARE_AND_SWAP_16,
-		  "__sync_bool_compare_and_swap_16",
-		  BT_FN_BOOL_VPTR_I16_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_COMPARE_AND_SWAP_BOOL_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_COMPARE_AND_SWAP_BOOL_SPECIALIZATIONS("__sync_bool_compare_and_swap")
+
+#define REGISTER_SYNC_COMPARE_AND_SWAP_VALUE_SPECIALIZATIONS(generic_name) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_char_type())), \
+            get_signed_char_type(), get_signed_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_char_type())), \
+            get_unsigned_char_type(), get_unsigned_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_short_int_type())), \
+            get_signed_short_int_type(), get_signed_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_short_int_type())), \
+            get_unsigned_short_int_type(), get_unsigned_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_int_type())), \
+            get_signed_int_type(), get_signed_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_int_type())), \
+            get_unsigned_int_type(), get_unsigned_int_type()) \
+    if (type_get_size(get_signed_long_int_type()) == 4) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type())), \
+            get_signed_long_int_type(), get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type(), get_unsigned_long_int_type()) \
+    } else if (type_get_size(get_signed_long_int_type()) == 8) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type())), \
+            get_signed_long_int_type(), get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type(), get_unsigned_long_int_type()) \
+    } else internal_error("Code unreachable", 0); \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, \
+            IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_long_int_type())), \
+            get_signed_long_long_int_type(), get_signed_long_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_COMPARE_AND_SWAP_VALUE, \
+            IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_long_int_type())), \
+            get_unsigned_long_long_int_type(), get_unsigned_long_long_int_type())
 
 DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_N,
 		  "__sync_val_compare_and_swap",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_1,
-		  "__sync_val_compare_and_swap_1",
-		  BT_FN_I1_VPTR_I1_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_2,
-		  "__sync_val_compare_and_swap_2",
-		  BT_FN_I2_VPTR_I2_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_4,
-		  "__sync_val_compare_and_swap_4",
-		  BT_FN_I4_VPTR_I4_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_8,
-		  "__sync_val_compare_and_swap_8",
-		  BT_FN_I8_VPTR_I8_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_VAL_COMPARE_AND_SWAP_16,
-		  "__sync_val_compare_and_swap_16",
-		  BT_FN_I16_VPTR_I16_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_COMPARE_AND_SWAP_VALUE_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_COMPARE_AND_SWAP_VALUE_SPECIALIZATIONS("__sync_val_compare_and_swap")
+
+#define REGISTER_SYNC_LOCK_TEST_AND_SET_SPECIALIZATIONS(generic_name) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_LOCK_TEST_AND_SET, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_char_type())), \
+            get_signed_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_LOCK_TEST_AND_SET, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_char_type())), \
+            get_unsigned_char_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_LOCK_TEST_AND_SET, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_short_int_type())), \
+            get_signed_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_LOCK_TEST_AND_SET, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_short_int_type())), \
+            get_unsigned_short_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_TEST_AND_SET, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_int_type())), \
+            get_signed_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_TEST_AND_SET, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_int_type())), \
+            get_unsigned_int_type()) \
+    if (type_get_size(get_signed_long_int_type()) == 4) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_TEST_AND_SET, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type())), \
+            get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_TEST_AND_SET, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type()) \
+    } else if (type_get_size(get_signed_long_int_type()) == 8) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_TEST_AND_SET, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type())), \
+            get_signed_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_TEST_AND_SET, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type())), \
+            get_unsigned_long_int_type()) \
+    } else internal_error("Code unreachable", 0); \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_TEST_AND_SET, \
+            IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_long_int_type())), \
+            get_signed_long_long_int_type()) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_TEST_AND_SET, \
+            IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_long_int_type())), \
+            get_unsigned_long_long_int_type())
 
 DEF_SYNC_BUILTIN (BUILT_IN_LOCK_TEST_AND_SET_N, "__sync_lock_test_and_set",
-		  BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_TEST_AND_SET_1, "__sync_lock_test_and_set_1",
-		  BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_TEST_AND_SET_2, "__sync_lock_test_and_set_2",
-		  BT_FN_I2_VPTR_I2, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_TEST_AND_SET_4, "__sync_lock_test_and_set_4",
-		  BT_FN_I4_VPTR_I4, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_TEST_AND_SET_8, "__sync_lock_test_and_set_8",
-		  BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_TEST_AND_SET_16, "__sync_lock_test_and_set_16",
-		  BT_FN_I16_VPTR_I16, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_LOCK_TEST_AND_SET_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_LOCK_TEST_AND_SET_SPECIALIZATIONS("__sync_lock_test_and_set")
+
+#define REGISTER_SYNC_LOCK_RELEASE_SPECIALIZATIONS(generic_name) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_LOCK_RELEASE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_char_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 1, BT_FN_SYNC_LOCK_RELEASE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_char_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_LOCK_RELEASE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_short_int_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 2, BT_FN_SYNC_LOCK_RELEASE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_short_int_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_RELEASE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_int_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_RELEASE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_int_type()))) \
+    if (type_get_size(get_signed_long_int_type()) == 4) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_RELEASE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 4, BT_FN_SYNC_LOCK_RELEASE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type()))) \
+    } else if (type_get_size(get_signed_long_int_type()) == 8) \
+    { \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_RELEASE, IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_int_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_RELEASE, 1, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_int_type()))) \
+    } else internal_error("Code unreachable", 0); \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_RELEASE, \
+            IS_CXX_LANGUAGE, \
+            get_pointer_type(get_volatile_qualified_type(get_signed_long_long_int_type()))) \
+    REGISTER_SYNC_SPECIALIZATION(generic_name, 8, BT_FN_SYNC_LOCK_RELEASE, \
+            IS_CXX_LANGUAGE || type_get_size(get_signed_long_int_type()) == 4, \
+            get_pointer_type(get_volatile_qualified_type(get_unsigned_long_long_int_type())))
 
 DEF_SYNC_BUILTIN (BUILT_IN_LOCK_RELEASE_N, "__sync_lock_release",
-		  BT_FN_VOID_VPTR, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_RELEASE_1, "__sync_lock_release_1",
-		  BT_FN_VOID_VPTR, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_RELEASE_2, "__sync_lock_release_2",
-		  BT_FN_VOID_VPTR, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_RELEASE_4, "__sync_lock_release_4",
-		  BT_FN_VOID_VPTR, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_RELEASE_8, "__sync_lock_release_8",
-		  BT_FN_VOID_VPTR, ATTR_NOTHROW_LEAF_LIST)
-DEF_SYNC_BUILTIN (BUILT_IN_LOCK_RELEASE_16, "__sync_lock_release_16",
-		  BT_FN_VOID_VPTR, ATTR_NOTHROW_LEAF_LIST)
+		  BT_FN_SYNC_LOCK_RELEASE_OVERLOAD, ATTR_NOTHROW_LEAF_LIST)
+REGISTER_SYNC_LOCK_RELEASE_SPECIALIZATIONS("__sync_lock_release")
 
 DEF_SYNC_BUILTIN (BUILT_IN_SYNCHRONIZE, "__sync_synchronize",
 		  BT_FN_VOID, ATTR_NOTHROW_LEAF_LIST)
-    
+
 // GNU OMP
 DEF_GOMP_BUILTIN (BUILT_IN_OMP_GET_THREAD_NUM, "omp_get_thread_num",
 		  BT_FN_INT, ATTR_CONST_NOTHROW_LEAF_LIST)
@@ -2346,128 +2476,6 @@ DEF_SYNC_BUILTIN (BUILT_IN_ATOMIC_SIGNAL_FENCE,
 sign_in_sse_builtins(global_context);
 }
 
-// Old __sync_XXX
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(
-        scope_entry_t* overloaded_function,
-        type_t** types,
-        nodecl_t *arguments UNUSED_PARAMETER,
-        int num_arguments,
-        const_value_t** const_value UNUSED_PARAMETER)
-{
-    // Why people insists on having overload in C?
-    char name[MCXX_MAX_C_OVERLOADS];
-
-    // We will iterate from 1 to 32
-    const int max_valid_overloads = 5;
-
-    char found_match = 0;
-    scope_entry_t* result = NULL;
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "GCC-BUILTIN: Trying to figure out the exact version of '%s' given the following %d types\n",
-                overloaded_function->symbol_name,
-                num_arguments);
-        int j;
-        for (j = 0; j < num_arguments; j++)
-        {
-            if (types[j] != NULL)
-            {
-                fprintf(stderr, "GCC-BUILTIN:     [%d] %s\n", j,
-                        print_declarator(types[j]));
-            }
-            else
-            {
-                fprintf(stderr, "GCC-BUILTIN:     [%d] <<NULL>>\n", j);
-            }
-        }
-    }
-
-    int i;
-    int current_byte_size = 1;
-    for (i = 0; (i < max_valid_overloads) && !found_match; i++)
-    {
-        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_byte_size);
-        name[255] = '\0';
-        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name, NULL);
-
-        // Let's assume no more overloads have been defined
-        if (entry_list == NULL)
-        {
-            break;
-        }
-
-        scope_entry_t* current_entry = entry_list_head(entry_list);
-        entry_list_free(entry_list);
-
-        type_t* current_function_type = current_entry->type_information;
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "GCC-BUILTIN: Checking with builtin '%s' of type '%s'\n",
-                    current_entry->symbol_name,
-                    print_declarator(current_function_type));
-        }
-
-        if (!is_function_type(current_function_type))
-        {
-            internal_error("gcc builtin '%s' without function type\n", current_entry);
-        }
-
-        if (num_arguments != function_type_get_num_parameters(current_function_type))
-        {
-            // Ignore this case
-            continue;
-        }
-
-        int j;
-        char all_arguments_matched = 1;
-        for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
-        {
-            type_t* argument_type = types[j];
-            type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
-
-            if (is_pointer_to_void_type(parameter_type)
-                    && is_pointer_type(argument_type))
-            {
-                argument_type = pointer_type_get_pointee_type(argument_type);
-                all_arguments_matched = (type_get_size(argument_type) == (unsigned int)current_byte_size);
-            }
-            else
-            {
-                // Allow conversions here
-                standard_conversion_t scs;
-                all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
-            }
-        }
-
-        if (all_arguments_matched)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "GCC-BUILTIN: Builtin '%s' of type '%s' matched!\n",
-                        current_entry->symbol_name,
-                        print_declarator(current_function_type));
-            }
-            result = current_entry;
-            found_match = 1;
-        }
-        else
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "GCC-BUILTIN: Builtin '%s' of type '%s' DOES NOT match!\n",
-                        current_entry->symbol_name,
-                        print_declarator(current_function_type));
-            }
-        }
-
-        current_byte_size = 2*current_byte_size;
-    }
-
-    return result;
-}
-
 static type_t* replace_generic_0_with_type(type_t* t, type_t* replacement)
 {
     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
@@ -2556,16 +2564,17 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             type_t* argument_type = types[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
-            if (is_pointer_type(argument_type)
+            if (is_pointer_type(no_ref(argument_type))
                     && is_pointer_type(parameter_type))
             {
                 // Use sizes instead of types
-                argument_type = pointer_type_get_pointee_type(argument_type);
+                argument_type = pointer_type_get_pointee_type(no_ref(argument_type));
                 parameter_type = pointer_type_get_pointee_type(parameter_type);
 
                 all_arguments_matched = is_integral_type(argument_type)
                     && is_integral_type(parameter_type)
-                    && (type_get_size(argument_type) == type_get_size(parameter_type));
+                    && equivalent_types(get_unqualified_type(argument_type),
+                            get_unqualified_type(parameter_type));
             }
             else
             {
