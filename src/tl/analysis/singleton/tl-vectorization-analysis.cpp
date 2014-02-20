@@ -393,8 +393,6 @@ namespace Analysis {
             // Add adjacent dimension
             alignment += it_alignment;
             
-            free(dimension_sizes);
-            
             _nesting_level--;
             
             free( dimension_sizes );

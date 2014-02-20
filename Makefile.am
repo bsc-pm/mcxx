@@ -1388,18 +1388,14 @@ endif
 if BUILD_VECTORIZER
 phases_LTLIBRARIES += src/tl/vectorizer/libtlvectorizer.la
 
-src_tl_vectorizer_libtlvectorizer_la_CFLAGS = $(phases_cflags) -Wall \
-                            -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                            -I $(top_srcdir)/src/tl/analysis/common/ \
-                            -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                            -I $(top_srcdir)/src/tl/optimizations/ \
-                            $(END)
+src_tl_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 
 src_tl_vectorizer_libtlvectorizer_la_CXXFLAGS = $(phases_cflags) -Wall \
                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
                               -I $(top_srcdir)/src/tl/analysis/common/ \
                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
                               -I $(top_srcdir)/src/tl/optimizations/ \
+                              -I $(top_srcdir)/src/tl/omp/core \
                               $(END)
 
 src_tl_vectorizer_libtlvectorizer_la_LDFLAGS = $(phases_ldflags)
@@ -2061,14 +2057,35 @@ src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
   	 $(END)
 endif
 
-# We used to (wrongly) install this library in $(libdir) so we make sure it is
-# not in the installation anymore (otherwise it is likely that Mercurium will
-# load the old/wrong one)
-#
-# See ticket #1807
-vector-lowering-sse-install-exec-hook:
-	rm -f ${libdir}/libtlvector-lowering-sse.la
-	rm -f ${libdir}/libtlvector-lowering-sse.so
+##########################################################################
+# src/tl/vector-lowering/avx2
+##########################################################################
+
+if BUILD_VECTORIZER
+lib_LTLIBRARIES += src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags)
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
+    -I $(top_srcdir)/src/tl/analysis/singleton/ \
+    -I $(top_srcdir)/src/tl/analysis/common/ \
+    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+    -I $(top_srcdir)/src/tl/vectorizer/ \
+    -I $(top_srcdir)/src/tl/omp/core/ \
+    $(END)
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
+	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+$(END)
+
+src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
+     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp \
+     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp \
+     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp \
+     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp \
+     $(END)
+endif
 
 ##########################################################################
 # src/tl/vector-lowering/knc
@@ -2077,18 +2094,14 @@ vector-lowering-sse-install-exec-hook:
 if BUILD_VECTORIZER
 phases_LTLIBRARIES += src/tl/vector-lowering/knc/libtlvector-lowering-knc.la
 
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags) \
-    -I $(top_srcdir)/src/tl/analysis/singleton/ \
-    -I $(top_srcdir)/src/tl/analysis/common/ \
-    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-    -I $(top_srcdir)/src/tl/vectorizer/ \
-    $(END)
+src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags)
 
 src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
     -I $(top_srcdir)/src/tl/analysis/singleton/ \
     -I $(top_srcdir)/src/tl/analysis/common/ \
     -I $(top_srcdir)/src/tl/analysis/pcfg/ \
     -I $(top_srcdir)/src/tl/vectorizer/ \
+    -I $(top_srcdir)/src/tl/omp/core/ \
     $(END)
 
 src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
@@ -2101,6 +2114,45 @@ src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_SOURCES = \
      src/tl/vector-lowering/knc/tl-vector-lowering-knc.cpp \
      $(END)
 endif
+
+##########################################################################
+# src/tl/vector-lowering
+##########################################################################
+
+if BUILD_VECTOR_LOWERING
+phases_LTLIBRARIES += src/tl/vector-lowering/libtlvector-lowering.la
+
+src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_cflags) 
+
+src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cflags)\
+                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/legalization \
+                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/backend \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
+                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
+                               -I $(top_srcdir)/src/tl/vectorizer/ \
+                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
+                               -I $(top_srcdir)/src/tl/analysis/common/ \
+                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+                               -I $(top_srcdir)/src/tl/omp/core/ \
+                               $(END)
+
+src_tl_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
+
+src_tl_vector_lowering_libtlvector_lowering_la_SOURCES = \
+    src/tl/vector-lowering/tl-vector-lowering.cpp \
+    src/tl/vector-lowering/tl-vector-lowering.hpp \
+	$(END)
+
+src_tl_vector_lowering_libtlvector_lowering_la_LIBADD = \
+    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
+    $(top_builddir)/src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la \
+    $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
+    $(END)
+endif
+
 
 ##########################################################################
 # src/tl/codegen
