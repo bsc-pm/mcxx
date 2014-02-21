@@ -2388,6 +2388,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     // At this point, we mark the function as defined. It must be done here to
     // avoid the useless declaration of the function being defined and other
     // related problems.
+    codegen_status_t old_status = get_codegen_status(symbol);
     set_codegen_status(symbol, CODEGEN_STATUS_DEFINED);
 
     C_LANGUAGE()
@@ -2581,13 +2582,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     if (!symbol.is_member()
-            && asm_specification != "")
+            && asm_specification != ""
+            // Only emit this extra declaration if we were not declared earlier at all
+            && old_status == CODEGEN_STATUS_NONE)
     {
         // gcc does not like asm specifications appear in the
         // function-definition so emit a declaration before the definition
         indent();
-        *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
-            << exception_spec << asm_specification << trailing_type_specifier << ";\n";
+        if (CURRENT_CONFIGURATION->xl_compatibility)
+        {
+            // IBM XL is very picky regarding attribute location
+            *(file) << gcc_extension << decl_spec_seq << declarator
+                << exception_spec << " " << gcc_attributes << " " << asm_specification << trailing_type_specifier << ";\n";
+        }
+        else
+        {
+            *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
+                << exception_spec << asm_specification << trailing_type_specifier << ";\n";
+        }
     }
 
     indent();
@@ -5652,7 +5664,14 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
 
     if (symbol.has_gcc_attributes())
     {
-        gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+        if (CURRENT_CONFIGURATION->xl_compatibility)
+        {
+            gcc_attributes = " " + gcc_attributes_to_str(symbol);
+        }
+        else
+        {
+            gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+        }
     }
 
     std::string gcc_extension;
@@ -5671,7 +5690,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     }
 
     std::string virt_specifiers;
-    *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << virt_specifiers << bit_field;
 
     if (symbol.is_member())
     {
@@ -5683,6 +5701,16 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         {
             virt_specifiers += " final";
         }
+    }
+
+    if (CURRENT_CONFIGURATION->xl_compatibility)
+    {
+        // IBM XL C/C++ only understands attributes before the initializer...
+        *(file) << gcc_extension << decl_specifiers << declarator << gcc_attributes << virt_specifiers << bit_field;
+    }
+    else
+    {
+        *(file) << gcc_extension << decl_specifiers << gcc_attributes << declarator << virt_specifiers << bit_field;
     }
 
     define_or_declare_variable_emit_initializer(symbol, is_definition);
@@ -6327,8 +6355,18 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         indent();
-        *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
-            << pure_spec << asm_specification << gcc_attributes << trailing_type_specifier << ";\n";
+        if (CURRENT_CONFIGURATION->xl_compatibility)
+        {
+            // IBM XL requires asm_specification after the attributes, just the opposite
+            // as GCC
+            *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
+                << pure_spec << gcc_attributes << asm_specification << trailing_type_specifier << ";\n";
+        }
+        else
+        {
+            *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
+                << pure_spec << asm_specification << gcc_attributes << trailing_type_specifier << ";\n";
+        }
 
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
