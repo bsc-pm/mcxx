@@ -147,6 +147,16 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
 
+    if (!sign
+            && (num_bytes < sizeof(value)))
+    {
+        // Make sure higher bits are set to zero if this value is unsigned
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
+        mask >>= (8 * num_bytes);
+        mask <<= (8 * num_bytes);
+        value &= ~mask;
+    }
+
     int bucket_index = value % CVAL_HASH_SIZE;
 
     int pool = 2 * num_bytes + !!sign;
@@ -165,7 +175,7 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     if (bucket == NULL)
     {
         bucket = xcalloc(1, sizeof(*bucket));
-        
+
         bucket->constant_value = xcalloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->kind = CVK_INTEGER;
         bucket->constant_value->value.i = value;
