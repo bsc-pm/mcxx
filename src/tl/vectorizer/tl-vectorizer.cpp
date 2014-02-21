@@ -115,12 +115,15 @@ namespace TL
         {
         }
 
-        void Vectorizer::preprocess_code(Nodecl::NodeclBase& n)
+        void Vectorizer::preprocess_code(const Nodecl::NodeclBase& n,
+                const VectorizerEnvironment& environment)
         {
             VectorizerVisitorPreprocessor vectorizer_preproc;
             vectorizer_preproc.walk(n);
 
             TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
+            TL::Optimizations::canonicalize_and_fold(environment._suitable_expr_list,
+                    _fast_math_enabled);
         }
 
         void Vectorizer::load_environment(const Nodecl::ForStatement& for_statement,

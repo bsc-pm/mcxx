@@ -133,7 +133,8 @@ namespace TL
 
                 ~Vectorizer();
 
-                void preprocess_code(Nodecl::NodeclBase& n);
+                void preprocess_code(const Nodecl::NodeclBase& n, 
+                        const VectorizerEnvironment& environment);
 
                 void load_environment(const Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment);

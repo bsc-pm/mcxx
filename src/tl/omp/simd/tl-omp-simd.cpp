@@ -264,16 +264,7 @@ namespace TL {
                     reductions, new_external_vector_symbol_map,
                     for_statement);
 
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(for_statement);
-
-            // Add epilog before vectorization
-            Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
-                    simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
-
-            simd_node.append_sibling(simd_node_epilog);
-
-            // VECTORIZE FOR
+            // Vectorizer Environment
             VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length, 
@@ -287,6 +278,15 @@ namespace TL {
                     vectorizer_cache,
                     &reductions,
                     &new_external_vector_symbol_map);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(for_statement, for_environment);
+
+            // Add epilog before vectorization
+            Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
+                    simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
+
+            simd_node.append_sibling(simd_node_epilog);
 
             // Initialize analysis info
             Nodecl::NodeclBase enclosing_func = 
@@ -480,16 +480,7 @@ namespace TL {
                         reductions, new_external_vector_symbol_map,
                         for_statement);
 
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(for_statement);
-
-            // Add epilog before vectorization
-            Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
-                    simd_node, simd_node).as<Nodecl::OpenMP::SimdFor>();
-
-            simd_node.append_sibling(simd_node_epilog);
-
-            // For Environment
+            // Vectorizer Environment
             VectorizerEnvironment for_environment(
                     _device_name,
                     _vector_length,
@@ -503,6 +494,15 @@ namespace TL {
                     vectorizer_cache,
                     &reductions,
                     &new_external_vector_symbol_map);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(for_statement, for_environment);
+
+            // Add epilog before vectorization
+            Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
+                    simd_node, simd_node).as<Nodecl::OpenMP::SimdFor>();
+
+            simd_node.append_sibling(simd_node_epilog);
 
             // Initialize analysis info
             Nodecl::NodeclBase enclosing_func = 
@@ -710,9 +710,6 @@ namespace TL {
                 running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             } 
 
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(function_code);
-
             // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
@@ -736,6 +733,24 @@ namespace TL {
                 const VectorizerCache& vectorizer_cache,
                 const bool masked_version)
         {
+            // Vectorizer Environment
+            VectorizerEnvironment function_environment(
+                    _device_name,
+                    _vector_length, 
+                    _support_masking,
+                    _mask_size,
+                    _prefer_gather_scatter,
+                    _prefer_mask_gather_scatter,
+                    _fast_math_enabled,
+                    vectorlengthfor_type,
+                    suitable_expressions,
+                    vectorizer_cache,
+                    NULL,
+                    NULL);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(function_code, function_environment);
+
             TL::Symbol func_sym = function_code.get_symbol();
             std::string orig_func_name = func_sym.get_name();
 
@@ -778,25 +793,10 @@ namespace TL {
             // Append vectorized function code to scalar function
             simd_node.append_sibling(vector_func_code);
 
-            // Vectorize function
-            VectorizerEnvironment _environment(
-                    _device_name,
-                    _vector_length, 
-                    _support_masking,
-                    _mask_size,
-                    _prefer_gather_scatter,
-                    _prefer_mask_gather_scatter,
-                    _fast_math_enabled,
-                    vectorlengthfor_type,
-                    suitable_expressions,
-                    vectorizer_cache,
-                    NULL,
-                    NULL);
-
             // Initialize analysis info
             _vectorizer.initialize_analysis(vector_func_code);
 
-            _vectorizer.vectorize(vector_func_code, _environment, masked_version); 
+            _vectorizer.vectorize(vector_func_code, function_environment, masked_version); 
 
             // Free analysis
             _vectorizer.finalize_analysis();
