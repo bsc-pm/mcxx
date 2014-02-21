@@ -267,7 +267,7 @@ namespace TL { namespace Nanox {
                 <<      "__oldval = (" << lhs << ");"
                 <<      "__newval = __oldval " << op << " (" << rhs << ");"
                 <<      "__sync_synchronize();"
-                <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "( (volatile void*)&(" << lhs << ") ,"
+                <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "( &(" << lhs << ") ,"
                 <<                 "*(" << proper_int_type << "*)&__oldval,"
                 <<                 "*(" << proper_int_type << "*)&__newval ));"
                 << "}"
@@ -444,7 +444,7 @@ namespace TL { namespace Nanox {
                     << "{"
                     << as_type(expr.as<Nodecl::AddAssignment>().get_rhs().get_type()) << "__tmp = "
                         << as_expression(expr.as<Nodecl::AddAssignment>().get_rhs()) << ";"
-                    << intrinsic_function_name << "_" << op_size << "((volatile void*)&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
+                    << intrinsic_function_name << "_" << op_size << "(&(" << as_expression(expr.as<Nodecl::AddAssignment>().get_lhs()) << "), __tmp);"
                     << "}"
                     ;
             }
