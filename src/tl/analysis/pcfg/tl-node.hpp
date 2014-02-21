@@ -31,6 +31,7 @@
 
 #include <map>
 
+#include "tl-analysis-utils.hpp"
 #include "tl-builtin.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
@@ -630,6 +631,35 @@ namespace Analysis {
             bool is_stride_node( Node* loop );
 
             // ***************** END getters and setters for loops analysis ***************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ******************* Getters and setters for range analysis ******************* //
+            
+            //! Returns the constraints associated to a given variable in the node
+            ObjectList<Utils::Constraint> get_constraints( const Nodecl::NodeclBase& var );
+            
+            //! Returns the map of variables and their range values associated 
+            //! at the entry point of the node
+            Utils::RangeValuesMap get_ranges_in( );
+            
+            //! Set a pair of variable and range value to the RangeValue map 
+            //! related to the entry point of the node
+            void set_range_in( const Nodecl::NodeclBase& var, 
+                               const ObjectList<Utils::RangeValue_tag>& values );
+            
+            //! Returns the map of variables and their range values associated 
+            //! at the exit point of the node
+            Utils::RangeValuesMap get_ranges_out( );
+            
+            //! Set a pair of variable and range value to the RangeValue map 
+            //! related to the exit point of the node
+            void set_range_out( const Nodecl::NodeclBase& var, 
+                                const ObjectList<Utils::RangeValue_tag>& values );            
+            
+            // ***************** END getters and setters for range analysis ***************** //
             // ****************************************************************************** //
 
 

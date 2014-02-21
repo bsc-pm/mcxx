@@ -346,7 +346,7 @@ namespace Analysis {
 
         //! Build a DOT file that represents the CFG
         void print_graph_to_dot( bool usage = false, bool liveness = false, 
-                                 bool reaching_defs = false, bool induction_vars = false, 
+                                 bool reaching_defs = false, bool induction_vars = false, bool ranges = false,
                                  bool auto_scoping = false, bool auto_deps = false );
 
 

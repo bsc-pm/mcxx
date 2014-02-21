@@ -397,6 +397,27 @@ namespace Analysis {
     #define _INDUCTION_VARS                 "induction_vars"
     
     
+    // Range Analysis
+    /////////////////
+    /*! \def _CONSTRAINTS
+     * Map of variables and the related constraints computed during Range Analysis
+     * Available in all simple nodes (Mandatory after Range Analysis is performed)
+     */
+    #define _CONSTRAINTS                    "constraints"
+    
+    /*! \def _RANGES_IN
+     * Map containing range of values assigned to a value at the entry point of a node
+     * Available in all nodes (Mandatory after Range Analysis is performed).
+     */
+    #define _RANGES_IN                      "ranges_in"
+
+    /*! \def _RANGES_OUT
+     * Map containing range of values assigned to a value at the exit point of a node
+     * Available in all nodes (Mandatory after Range Analysis is performed).
+     */
+    #define _RANGES_OUT                     "ranges_out"
+    
+    
     // Auto-scoping attributes
     //////////////////////////
     

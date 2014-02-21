@@ -29,6 +29,7 @@
 
 #include "tl-extended-symbol.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-range-analysis-utils.hpp"
 
 #define VERBOSE ( CURRENT_CONFIGURATION->debug_options.analysis_verbose || \
                   CURRENT_CONFIGURATION->debug_options.enable_debug_code )
@@ -126,18 +127,6 @@ namespace Utils {
     
     
     // ******************************************************************************************* //
-    // ************************************ Printing methods ************************************* //
-    
-    void makeup_dot_block( std::string& str );
-    std::string prettyprint_ext_sym_set( Utils::ext_sym_set s, bool print_in_dot );
-    std::string prettyprint_ext_sym_map( Utils::ext_sym_map s, bool print_in_dot );
-    
-    // ********************************** END printing methods *********************************** //
-    // ******************************************************************************************* //
-    
-    
-    
-    // ******************************************************************************************* //
     // **************************** Class defining the types of usage **************************** //
     
     struct UsageKind {
@@ -168,6 +157,20 @@ namespace Utils {
     
     // ************************** END class defining the types of usage ************************** //
     // ******************************************************************************************* //
+    
+    
+    
+    // ******************************************************************************************* //
+    // ************************************ Printing methods ************************************* //
+    
+    void makeup_dot_block( std::string& str );
+    std::string prettyprint_ext_sym_set( Utils::ext_sym_set s, bool print_in_dot );
+    std::string prettyprint_ext_sym_map( Utils::ext_sym_map s, bool print_in_dot );
+    std::string prettyprint_range_values_map( Utils::RangeValuesMap s, bool print_in_dot  );
+    
+    // ********************************** END printing methods *********************************** //
+    // ******************************************************************************************* //
+    
 }
 }
 }

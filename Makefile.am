@@ -1129,23 +1129,27 @@ if BUILD_ANALYSIS
 lib_LTLIBRARIES += src/tl/analysis/common/libanalysis_utils.la
 
 src_tl_analysis_common_libanalysis_utils_la_CFLAGS = $(tl_cflags)
-src_tl_analysis_common_libanalysis_utils_la_CXXFLAGS = $(tl_cflags)
+src_tl_analysis_common_libanalysis_utils_la_CXXFLAGS = $(tl_cflags) \
+				-I$(top_srcdir)/src/tl/optimizations
 src_tl_analysis_common_libanalysis_utils_la_LDFLAGS = $(tl_ldflags)
-src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.la
+src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
+				src/tl/optimizations/libtloptimizations.la
 
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
-                              src/tl/analysis/common/tl-rename-visitor.hpp \
-                              src/tl/analysis/common/tl-rename-visitor.cpp \
-                              src/tl/analysis/common/tl-extended-symbol.hpp \
-                              src/tl/analysis/common/tl-extended-symbol.cpp \
-                              src/tl/analysis/common/tl-extended-symbol-utils.hpp \
-                              src/tl/analysis/common/tl-extended-symbol-utils.cpp \
-                              src/tl/analysis/common/tl-analysis-utils.hpp \
-                              src/tl/analysis/common/tl-analysis-utils.cpp \
-                              src/tl/analysis/common/tl-induction-variables-data.hpp \
-                              src/tl/analysis/common/tl-induction-variables-data.cpp \
-                              src/tl/analysis/common/tl-tribool.hpp \
-                              $(END)
+				src/tl/analysis/common/tl-rename-visitor.hpp \
+				src/tl/analysis/common/tl-rename-visitor.cpp \
+				src/tl/analysis/common/tl-extended-symbol.hpp \
+				src/tl/analysis/common/tl-extended-symbol.cpp \
+				src/tl/analysis/common/tl-extended-symbol-utils.hpp \
+				src/tl/analysis/common/tl-extended-symbol-utils.cpp \
+				src/tl/analysis/common/tl-analysis-utils.hpp \
+				src/tl/analysis/common/tl-analysis-utils.cpp \
+				src/tl/analysis/common/tl-induction-variables-data.hpp \
+				src/tl/analysis/common/tl-induction-variables-data.cpp \
+				src/tl/analysis/common/tl-range-analysis-utils.hpp \
+				src/tl/analysis/common/tl-range-analysis-utils.cpp \
+				src/tl/analysis/common/tl-tribool.hpp \
+				$(END)
 
 ##########################################################################
 # src/tl/analysis/pcfg
@@ -1281,6 +1285,22 @@ src_tl_analysis_auto_scope_libauto_scope_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/analysis/range
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/range/librange.la
+
+src_tl_analysis_range_librange_la_CFLAGS = $(tl_cflags)
+src_tl_analysis_range_librange_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
+src_tl_analysis_range_librange_la_LDFLAGS = $(tl_ldflags)
+src_tl_analysis_range_librange_la_LIBADD = $(tl_libadd) $(ANALYSIS_LIBADD)
+
+src_tl_analysis_range_librange_la_SOURCES = \
+                               src/tl/analysis/range/tl-range-analysis.hpp \
+                               src/tl/analysis/range/tl-range-analysis.cpp \
+                               $(END)
+
+##########################################################################
 # src/tl/analysis/singleton
 ##########################################################################
 
@@ -1298,6 +1318,7 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/analysis/reach_defs \
 				-I$(srcdir)/src/tl/analysis/loops \
 				-I$(srcdir)/src/tl/analysis/auto-scope \
+				-I$(srcdir)/src/tl/analysis/range \
 				-I$(srcdir)/src/tl/omp/core \
 				$(END)
 
@@ -1313,9 +1334,11 @@ src_tl_analysis_singleton_libanalysis_singleton_la_LIBADD= \
 				src/tl/analysis/reach_defs/libreaching_definitions.la \
 				src/tl/analysis/loops/libloops_analysis.la \
 				src/tl/analysis/auto-scope/libauto_scope.la \
+				src/tl/analysis/range/librange.la \
 				$(END)
 
-src_tl_analysis_singleton_libanalysis_singleton_la_SOURCES= src/tl/analysis/singleton/tl-analysis-static-info.cpp \
+src_tl_analysis_singleton_libanalysis_singleton_la_SOURCES= \
+                                  src/tl/analysis/singleton/tl-analysis-static-info.cpp \
                                   src/tl/analysis/singleton/tl-analysis-static-info.hpp \
                                   src/tl/analysis/singleton/tl-vectorization-analysis.cpp \
                                   src/tl/analysis/singleton/tl-analysis-singleton.hpp \
@@ -1998,46 +2021,6 @@ src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
       src/tl/hlt/hlt-pragma.hpp \
       $(END)
 
-endif
-
-##########################################################################
-# src/tl/vector-lowering
-##########################################################################
-
-if BUILD_VECTOR_LOWERING
-phases_LTLIBRARIES += src/tl/vector-lowering/libtlvector-lowering.la
-
-src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS=$(tl_cflags) \
-							   -Wall \
-                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
-                               -I $(top_srcdir)/src/tl/vectorizer/ \
-                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                               -I $(top_srcdir)/src/tl/analysis/common/ \
-                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                               $(END)
-
-src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(tl_cflags)\
-							    -Wall \
-                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
-                               -I $(top_srcdir)/src/tl/vectorizer/ \
-                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                               -I $(top_srcdir)/src/tl/analysis/common/ \
-                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                               $(END)
-
-src_tl_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(tl_ldflags)
-
-src_tl_vector_lowering_libtlvector_lowering_la_SOURCES = \
-    src/tl/vector-lowering/tl-vector-lowering.cpp \
-    src/tl/vector-lowering/tl-vector-lowering.hpp \
-	$(END)
-
-src_tl_vector_lowering_libtlvector_lowering_la_LIBADD = \
-    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
-    $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
-    $(END)
 endif
 
 ##########################################################################
@@ -2995,8 +2978,7 @@ support/mpi/openmpi/mpi.mf03 : $(srcdir)/support/mpi/openmpi/attr_fn-f90-interfa
 # Hooks
 ##########################################################################
 
-install-exec-hook : driver-install-exec-hook \
-	                vector-lowering-sse-install-exec-hook
+install-exec-hook : driver-install-exec-hook
 
 uninstall-local : driver-uninstall-local
 

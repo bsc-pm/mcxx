@@ -383,7 +383,7 @@ namespace {
                 if( usage_in_task._usage_type & Utils::UsageKind::DEFINED )
                 {
                     std::set<Symbol> global_vars = _graph->get_global_variables( );
-                    Symbol sym( Utils::ExtendedSymbol::get_nodecl_base( ei.get_nodecl( ) ).get_symbol( ) );
+                    Symbol sym( Utils::get_nodecl_base( ei.get_nodecl( ) ).get_symbol( ) );
                     ERROR_CONDITION( !sym.is_valid( ), 
                                      "An ExtendedSymbol must have a symbol associated to it base nodecl, but %s does not have one", 
                                      ei.get_nodecl( ).prettyprint( ).c_str( ) );
