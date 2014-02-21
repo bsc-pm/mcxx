@@ -1395,35 +1395,35 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
             ast_get_locus(expr));
 }
 
-#define check_range_of_floating(expr, text, value, typename) \
+#define check_range_of_floating(expr, text, value, typename, huge) \
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
-            error_printf("%s: error: value '%s' underflows %s\n", \
+            warn_printf("%s: warning: value '%s' underflows %s\n", \
                     ast_location(expr), text, typename); \
             value = 0.0; \
         } \
         else if (isinf(value)) \
         { \
-            error_printf("%s: error: value '%s' overflows %s\n", \
+            warn_printf("%s: warning: value '%s' overflows %s\n", \
                     ast_location(expr), text, typename); \
-            value = 0.0; \
+            value = huge; \
         } \
     } while (0)
 
-#define check_range_of_floating_extended(expr, text, value, typename, isinf_fun) \
+#define check_range_of_floating_extended(expr, text, value, typename, isinf_fun, huge) \
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
-            error_printf("%s: error: value '%s' underflows %s\n", \
+            warn_printf("%s: warning: value '%s' underflows %s\n", \
                     ast_location(expr), text, typename); \
             value = 0.0; \
         } \
         else if (isinf_fun(value)) \
         { \
-            error_printf("%s: error: value '%s' overflows %s\n", \
+            warn_printf("%s: warning: value '%s' overflows %s\n", \
                     ast_location(expr), text, typename); \
-            value = 0.0; \
+            value = huge; \
         } \
     } while (0)
 
@@ -1478,7 +1478,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
             errno = 0;
             __float128 f128 = strtoflt128(literal, NULL);
-            check_range_of_floating_extended(expr, literal, f128, "__float128", isinfq);
+            check_range_of_floating_extended(expr, literal, f128, "__float128", isinfq, HUGE_VALQ);
 
             value = const_value_get_float128(f128);
 
@@ -1497,7 +1497,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
         errno = 0;
         long double ld = strtold(literal, NULL);
-        check_range_of_floating(expr, literal, ld, "long double");
+        check_range_of_floating(expr, literal, ld, "long double", HUGE_VALL);
 
         value = const_value_get_long_double(ld);
 
@@ -1510,7 +1510,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
         errno = 0;
         float f = strtof(literal, NULL);
-        check_range_of_floating(expr, literal, f, "float");
+        check_range_of_floating(expr, literal, f, "float", HUGE_VALF);
 
         value = const_value_get_float(f);
 
@@ -1523,7 +1523,7 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
         errno = 0;
         double d = strtod(literal, NULL);
-        check_range_of_floating(expr, literal, d, "double");
+        check_range_of_floating(expr, literal, d, "double", HUGE_VAL);
 
         value = const_value_get_double(d);
 
