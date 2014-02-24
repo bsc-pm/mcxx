@@ -612,17 +612,16 @@ interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
                     | NODECL_ANALYSIS*PLUS_INFINITY()
                     | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
                     | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*EMPTY_RANGE()
                     | expression
-
-constraint_expression : NODECL_ANALYSIS*OPEN_INTERVAL([lower] interval_expression, [upper] interval_expression) type
-                      | NODECL_ANALYSIS*LEFT_OPEN_INTERVAL([lower] interval_expression, [upper] interval_expression) type
-                      | NODECL_ANALYSIS*RIGHT_OPEN_INTERVAL([lower] interval_expression, [upper] interval_expression) type
-                      | NODECL_ANALYSIS*CLOSED_INTERVAL([lower] interval_expression, [upper] interval_expression) type
+                    
+constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
                       | interval_expression
          
 constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_SUB( [lhs] constraint_expression, [rhs] constraint_expression ) type
 
 constraint : constraint_expression
            | constraint_operation
