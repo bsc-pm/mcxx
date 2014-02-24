@@ -402,6 +402,8 @@ namespace Analysis {
         static Node* get_omp_enclosing_node( Node* current );
         static Edge* get_edge_between_nodes( Node* source, Node* target );
         static Node* get_enclosing_context( Node* n );
+        static Node* get_enclosing_task( Node* n );
+        static bool task_encloses_task( Node* container, Node* contained );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

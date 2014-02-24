@@ -1290,6 +1290,28 @@ namespace Analysis {
         return sc;
     }
     
+    Node* ExtensibleGraph::get_enclosing_task( Node* n )
+    {
+        Node* result = NULL;
+        Node* current = ( n->is_omp_task_node( ) ? n->get_parents( )[0] : n );
+        while( result == NULL && current != NULL )
+        {
+            if( current->is_omp_task_node( ) )
+                result = current;
+            else
+                current = current->get_outer_node( );
+        }
+        return result;
+    }
+    
+    bool ExtensibleGraph::task_encloses_task( Node* container, Node* contained )
+    {
+        Node* enclosing_task = get_enclosing_task( contained );
+        while( ( enclosing_task != NULL ) && ( enclosing_task != container ) )
+            enclosing_task = get_enclosing_task( enclosing_task );
+        return ( enclosing_task == NULL ? false : true );
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
