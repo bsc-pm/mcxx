@@ -24,8 +24,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
+#include "cxx-exprtype.h"
+#include "cxx-instantiation.h"
+
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
@@ -192,11 +194,73 @@ namespace TL { namespace OpenMP {
                 }
             }
 
+            FunctionTaskInfo task_info;
+            bool valid_task_info = false;
             if (_function_task_set->is_function_task(sym))
             {
-                FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
+                // Usual case
+                task_info = _function_task_set->get_function_task(sym);
+                valid_task_info = true;
+            }
+            else if (sym.get_type().is_template_specialized_type()
+                    && _function_task_set->is_function_task(sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
+            {
+                // Note that the pragma of the current task is written in terms of the primary symbol
+                TL::Symbol primary_sym  = sym.get_type().get_related_template_type().get_primary_template().get_symbol();
 
+                // This map will be used to instantiate the function task info
+                instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(/* parent */ NULL);
+
+                TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
+                prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
+
+                TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
+                TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();
+                ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "", 0);
+
+                int num_params = primary_params.size();
+
+                // Create the related symbols of the new specialization, using the parameter types of the specialization function type
+                // FIXME: I'm not sure, but maybe the instantiation phase should provided the related symbols of the specialization
+                TL::ObjectList<TL::Symbol> spec_related_symbols;
+                for (int i = 0; i < num_params; ++i)
+                {
+                    TL::Symbol prim_param_sym = primary_params[i];
+                    TL::Type spec_param_type =  spec_param_types[i];
+
+                    TL::Symbol spec_param_sym = prototype_scope.new_symbol(prim_param_sym.get_name());
+
+                    spec_param_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    spec_param_sym.get_internal_symbol()->type_information = update_type(
+                            spec_param_type.get_internal_type(),
+                            sym.get_scope().get_decl_context(),
+                            call.get_locus());
+
+                    spec_param_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+                    spec_related_symbols.append(spec_param_sym);
+
+                    symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(), sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
+                    instantiation_symbol_map_add(instantiation_symbol_map, prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
+                }
+
+                sym.set_related_symbols(spec_related_symbols);
+
+                FunctionTaskInfo template_task_info = _function_task_set->get_function_task(primary_sym);
+
+                task_info = template_task_info.instantiate_function_task_info(sym, prototype_scope, instantiation_symbol_map);
+                valid_task_info = true;
+
+                // We update the function task set with the new specialized task info. Note that
+                // future calls to the same specialization will use the same FunctionTaskInfo
+                _function_task_set->add_function_task(sym, task_info);
+            }
+
+
+            if (valid_task_info)
+            {
                 Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
+
                 Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
 
                 Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
