@@ -13499,15 +13499,42 @@ void get_packs_in_type(type_t* pack_type,
     }
 }
 
+typedef
+struct class_path_tag
+{
+    int length;
+    type_t** class_type;
+    char* is_virtual;
+} class_path_t;
+
 static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
         type_t* base_class,
-        int *num_subobjects,
-        int *num_virtual_subobjects)
+        class_path_t *base_class_path,
+        char *base_found,
+        char *is_ambiguous)
 {
     int i;
     int num_bases = class_type_get_num_bases(derived_class);
+
+    class_path_t class_path[num_bases + 1];
+    memset(class_path, 0, sizeof(class_path));
+
+    char found[num_bases + 1];
+    memset(found, 0, sizeof(found));
+
+    // Check every base
     for (i = 0; i < num_bases; i++)
     {
+        if (base_class_path != NULL)
+        {
+            // Duplicate paths
+            class_path[i].length = base_class_path->length;
+            class_path[i].class_type = xcalloc(base_class_path->length,
+                    sizeof(*(class_path[i].class_type)));
+            memcpy(class_path[i].class_type, base_class_path->class_type,
+                    sizeof(*(class_path[i].class_type)) * base_class_path->length);
+        }
+
         char is_virtual = 0;
         char is_dependent = 0;
         char is_expansion = 0;
@@ -13522,19 +13549,120 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
         if (is_dependent || is_expansion)
             continue;
 
-        if (equivalent_types(get_actual_class_type(current_base->type_information),
+        // We add the current base and its virtual flag in the ith-path
+        // P_LIST_ADD modifies its second argument
+        int n = class_path[i].length;
+        P_LIST_ADD(class_path[i].is_virtual, n, is_virtual);
+        P_LIST_ADD(class_path[i].class_type, class_path[i].length, get_actual_class_type(base_class));
+
+        if (equivalent_types(
+                    get_actual_class_type(current_base->type_information),
                     get_actual_class_type(base_class)))
         {
-            if (is_virtual)
-                (*num_virtual_subobjects) = 1; // Only one
-            else
-                (*num_subobjects)++;
+            found[i] = 1;
         }
         else
         {
-            class_type_is_ambiguous_base_of_class_aux(current_base->type_information,
-                    base_class, num_subobjects, num_virtual_subobjects);
+            class_type_is_ambiguous_base_of_class_aux(
+                    current_base->type_information,
+                    base_class,
+                    &(class_path[i]),
+                    &found[i],
+                    is_ambiguous);
         }
+    }
+
+    // Note if already determined to be ambiguous, do nothing
+    if (!(*is_ambiguous))
+    {
+        // Count the number of paths that found the base and remember the last
+        // one
+        int num_found = 0, last_found = -1;
+        for (i = 0; i < num_bases; i++)
+        {
+            if (found[i])
+            {
+                last_found = i;
+                num_found++;
+            }
+        }
+
+        // If at least one has been found, check all paths
+        if (num_found >= 1)
+        {
+            char found_to_be_ambiguous = 0;
+            for (i = 0; i < num_bases && !found_to_be_ambiguous; i++)
+            {
+                if (!found[i])
+                    continue;
+
+                int j;
+                for (j = i + 1; j < num_bases && !found_to_be_ambiguous; j++)
+                {
+                    if (!found[j])
+                        continue;
+
+                    int path_i = class_path[i].length - 1;
+                    int path_j = class_path[j].length - 1;
+
+                    char different_subobjects = 1;
+                    while (path_i > 0
+                            && path_j > 0)
+                    {
+                        if (equivalent_types(
+                                    class_path[i].class_type[path_i],
+                                    class_path[j].class_type[path_j]))
+                        {
+                            if (class_path[i].is_virtual[path_i]
+                                    && class_path[j].is_virtual[path_j])
+                            {
+                                different_subobjects = 0;
+                            }
+                        }
+
+                        path_i--;
+                        path_j--;
+                    }
+
+                    if (different_subobjects)
+                    {
+                        found_to_be_ambiguous = 1;
+                    }
+                }
+            }
+
+            if (found_to_be_ambiguous)
+            {
+                *is_ambiguous = 1;
+            }
+            else
+            {
+                if (base_class_path != NULL)
+                {
+                    // Update the base class path. Any path should be as OK as
+                    // any other, keep the last
+                    for (i = 0; i < class_path[last_found].length; i++)
+                    {
+                        int n = base_class_path->length;
+                        P_LIST_ADD(base_class_path->is_virtual,
+                                n,
+                                class_path[last_found].is_virtual[i]);
+                        P_LIST_ADD(base_class_path->class_type,
+                                base_class_path->length,
+                                class_path[last_found].class_type[i]);
+                    }
+                }
+
+                *base_found = 1;
+            }
+        }
+    }
+
+    // Cleanup
+    for (i = 0; i < num_bases; i++)
+    {
+        xfree(class_path[i].class_type);
+        xfree(class_path[i].is_virtual);
     }
 }
 
@@ -13543,11 +13671,20 @@ char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* d
     ERROR_CONDITION(!is_class_type(base_class), "This is not a class type", 0);
     ERROR_CONDITION(!is_class_type(derived_class), "This is not a class type", 0);
 
-    int num_subobjects = 0;
-    int num_virtual_subobjects = 0;
+    if (equivalent_types(
+                get_actual_class_type(base_class),
+                get_actual_class_type(derived_class)))
+    {
+        // This is a degenerate case we do not want to handle further
+        return 0;
+    }
 
-    class_type_is_ambiguous_base_of_class_aux(derived_class, base_class, &num_subobjects, &num_virtual_subobjects);
+    char base_found = 0;
+    char is_ambiguous = 0;
 
-    return (num_subobjects > 1)
-        || (num_subobjects == 1 && num_virtual_subobjects != 0);
+    class_type_is_ambiguous_base_of_class_aux(derived_class, base_class, NULL, &base_found, &is_ambiguous);
+
+    ERROR_CONDITION(!base_found, "Should not happen", 0);
+
+    return is_ambiguous;
 }
