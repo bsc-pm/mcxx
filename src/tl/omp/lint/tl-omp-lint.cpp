@@ -329,8 +329,8 @@ namespace OpenMP {
                     {
                         // If the variable #*it or a subpart/superpart have some usage, we add it to the map
                         if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, accessed_vars ) || 
-                            TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( *it, accessed_vars ) || 
-                            TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, accessed_vars ) )
+                            !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( *it, accessed_vars ).is_null( ) || 
+                            !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, accessed_vars ).is_null( ) )
                         {
                             if( concurrently_used_vars.find( *it ) != concurrently_used_vars.end( ) )
                                 concurrently_used_vars[*it].insert( source );
@@ -453,12 +453,12 @@ namespace OpenMP {
                 }
                 if( ( !task_defs.empty( ) &&
                       ( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, task_defs ) || 
-                        TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, task_defs ) || 
-                        TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, task_defs ) ) ) || 
+                        !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, task_defs ).is_null( ) || 
+                        !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, task_defs ).is_null( ) ) ) || 
                     ( !node_defs.empty( ) &&
                       ( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, node_defs ) || 
-                        TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, node_defs ) || 
-                        TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, node_defs ) ) ) )
+                        !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, node_defs ).is_null( ) || 
+                        !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, node_defs ).is_null( ) ) ) )
                 {   // If all accesses are protected in a critical/atomic construct, then there is no race condition
                     // 1. Check accesses in the concurrent nodes
                     for( TL::ObjectList<TL::Analysis::Node*>::iterator it2 = it->second.begin( ); it2 != it->second.end( ); ++it2 )

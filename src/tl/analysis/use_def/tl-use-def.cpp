@@ -146,14 +146,14 @@ namespace Analysis {
     static Utils::ext_sym_set insert_var_in_list( Nodecl::NodeclBase var, Utils::ext_sym_set list )
     {
         Utils::ext_sym_set new_list;
-        if( !Utils::ext_sym_set_contains_enclosing_nodecl( var, list ) )
+        if( Utils::ext_sym_set_contains_enclosing_nodecl( var, list ).is_null( ) )
         {
             // Create a new list with the elements of 'list' that are not enclosed by 'var'
             Utils::ext_sym_set aux_list;
             aux_list.insert( Utils::ExtendedSymbol( var ) );
             for( Utils::ext_sym_set::iterator it = list.begin( ); it != list.end( ); ++it )
             {
-                if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), aux_list ) )
+                if( Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), aux_list ).is_null( ) )
                 {
                     new_list.insert( *it );
                 }
@@ -182,7 +182,7 @@ namespace Analysis {
         for( Utils::ext_sym_set::iterator it = l.begin( ); it != l.end( ); ++it )
         {
             Nodecl::NodeclBase var = it->get_nodecl( );
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( var, killed ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( var, killed ).is_null( ) )
             {   // No enclosing variable in the avoiding list 1
                 // Look for variables in avoiding list 1 enclosed by 'var'
                 Utils::ext_sym_set aux_set;
@@ -190,7 +190,7 @@ namespace Analysis {
                 Utils::ext_sym_set::iterator itk = killed.begin( );
                 for( ; itk != killed.end( ); ++itk )
                 {
-                    if( Utils::ext_sym_set_contains_enclosing_nodecl(itk->get_nodecl( ), aux_set) )
+                    if( !Utils::ext_sym_set_contains_enclosing_nodecl(itk->get_nodecl( ), aux_set).is_null( ) )
                     {   // Delete from 'var' the enclosed part of (*itk) and put the result in 'var'
                         // TODO
                         WARNING_MESSAGE( "Part of nodecl '%s' found in the current var must be avoided. " \
@@ -206,14 +206,14 @@ namespace Analysis {
                     }
                 }
 
-                if( !Utils::ext_sym_set_contains_enclosing_nodecl( var, undef ) )
+                if( Utils::ext_sym_set_contains_enclosing_nodecl( var, undef ).is_null( ) )
                 {   // No enclosing variable in the avoiding list 2
                     // Look for variables in avoiding list 2 enclosed by 'var'
                     Utils::ext_sym_set aux_set_2; aux_set_2.insert( *it );
                     Utils::ext_sym_set::iterator itu = undef.begin( );
                     for( ; itu != undef.end( ); ++itu )
                     {
-                        if( Utils::ext_sym_set_contains_enclosing_nodecl( itu->get_nodecl( ), aux_set_2 ) )
+                        if( !Utils::ext_sym_set_contains_enclosing_nodecl( itu->get_nodecl( ), aux_set_2 ).is_null( ) )
                         {   // Delete from var the enclosed part of (*itu) and put the result in 'var'
                             // TODO
                             WARNING_MESSAGE( "Part of nodecl found in the current var must be avoided. "\
@@ -981,8 +981,8 @@ namespace Analysis {
                             for( sym_to_nodecl_map::iterator it = ref_params.begin( ); it != ref_params.end( ); ++it )
                             {
                                 if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) && 
-                                    !Utils::ext_sym_set_contains_enclosing_nodecl( it->second, killed ) && 
-                                    !Utils::ext_sym_set_contains_enclosed_nodecl( it->second, killed ) )
+                                    Utils::ext_sym_set_contains_enclosing_nodecl( it->second, killed ).is_null( ) && 
+                                    Utils::ext_sym_set_contains_enclosed_nodecl( it->second, killed ).is_null( ) )
                                 {
                                     _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
                                         Utils::ExtendedSymbol( it->second ) );
@@ -996,10 +996,10 @@ namespace Analysis {
                                 ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
                                 for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
                                 {
-                                    if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->second, killed ) && 
-                                        !Utils::ext_sym_set_contains_enclosed_nodecl( it->second, killed ) && 
-                                        !Utils::ext_sym_set_contains_enclosing_nodecl( it->second, undef ) &&
-                                        !Utils::ext_sym_set_contains_enclosed_nodecl( it->second, undef ) )
+                                    if( Utils::ext_sym_set_contains_enclosing_nodecl( it->second, killed ).is_null( ) && 
+                                        Utils::ext_sym_set_contains_enclosed_nodecl( it->second, killed ).is_null( ) && 
+                                        Utils::ext_sym_set_contains_enclosing_nodecl( it->second, undef ).is_null( ) &&
+                                        Utils::ext_sym_set_contains_enclosed_nodecl( it->second, undef ).is_null( ) )
                                     {
                                         _node->set_ue_var( Utils::ExtendedSymbol( *it_o ) );
                                     }
@@ -1012,8 +1012,8 @@ namespace Analysis {
                                  it != _global_vars->end( ); ++it )
                             {
                                 Nodecl::NodeclBase sym = Nodecl::Symbol::make( it->first );
-                                if( !Utils::ext_sym_set_contains_enclosing_nodecl( sym, killed ) && 
-                                    !Utils::ext_sym_set_contains_enclosed_nodecl( sym, killed ) )
+                                if( Utils::ext_sym_set_contains_enclosing_nodecl( sym, killed ).is_null( ) && 
+                                    Utils::ext_sym_set_contains_enclosed_nodecl( sym, killed ).is_null( ) )
                                 {
                                     _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets( Utils::ExtendedSymbol( sym ) );
                                     it->second._usage_type = Utils::UsageKind::UNDEFINED;
@@ -1031,8 +1031,8 @@ namespace Analysis {
             Utils::ext_sym_set killed = _node->get_killed_vars( );
             for( Nodecl::List::iterator it = arguments.begin( ); it != arguments.end( ); ++it )
             {
-                if( !Utils::ext_sym_set_contains_enclosing_nodecl( *it, killed ) && 
-                    !Utils::ext_sym_set_contains_enclosed_nodecl( *it, killed ) )
+                if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, killed ).is_null( ) && 
+                    Utils::ext_sym_set_contains_enclosed_nodecl( *it, killed ).is_null( ) )
                 {
                     _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( *it ) );
                 }
@@ -1041,8 +1041,8 @@ namespace Analysis {
             for( std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin( ); it != _global_vars->end( ); ++it )
             {
                 Nodecl::NodeclBase sym = Nodecl::Symbol::make( it->first );
-                if( !Utils::ext_sym_set_contains_enclosing_nodecl( sym, killed ) && 
-                    !Utils::ext_sym_set_contains_enclosed_nodecl( sym, killed ) )
+                if( Utils::ext_sym_set_contains_enclosing_nodecl( sym, killed ).is_null( ) && 
+                    Utils::ext_sym_set_contains_enclosed_nodecl( sym, killed ).is_null( ) )
                 {
                     _node->set_undefined_behaviour_var_and_recompute_use_and_killed_sets( Utils::ExtendedSymbol( sym ) );
                     it->second._usage_type = Utils::UsageKind::UNDEFINED;
