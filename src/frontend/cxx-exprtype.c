@@ -1411,15 +1411,17 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
-            warn_printf("%s: warning: value '%s' underflows %s\n", \
+            warn_printf("%s: warning: value '%s' underflows '%s'\n", \
                     ast_location(expr), text, typename); \
             value = 0.0; \
+            generate_text_node = 1; \
         } \
         else if (isinf(value)) \
         { \
-            warn_printf("%s: warning: value '%s' overflows %s\n", \
+            warn_printf("%s: warning: value '%s' overflows '%s'\n", \
                     ast_location(expr), text, typename); \
             value = huge; \
+            generate_text_node = 1; \
         } \
     } while (0)
 
@@ -1427,15 +1429,17 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     do { \
         if (value == 0 && errno == ERANGE) \
         { \
-            warn_printf("%s: warning: value '%s' underflows %s\n", \
+            warn_printf("%s: warning: value '%s' underflows '%s'\n", \
                     ast_location(expr), text, typename); \
             value = 0.0; \
+            generate_text_node = 1; \
         } \
         else if (isinf_fun(value)) \
         { \
-            warn_printf("%s: warning: value '%s' overflows %s\n", \
+            warn_printf("%s: warning: value '%s' overflows '%s'\n", \
                     ast_location(expr), text, typename); \
             value = huge; \
+            generate_text_node = 1; \
         } \
     } while (0)
 
@@ -1481,6 +1485,13 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
 
     type_t* result = NULL;
     const_value_t* zero = NULL;
+
+    // Sometimes we cannot express a meaningful literal from what we got,
+    // in this case we generate a text node (with a constant value)
+    //
+    // This variable is set to 1 in the overflow/underflow branches of
+    // check_range_of_floating and check_range_of_floating_extended macros
+    char generate_text_node = 0;
 
     if (is_float128)
     {
@@ -1548,15 +1559,30 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_complex_type(result);
         const_value_t* imag_value = value;
         value = const_value_make_complex(zero, imag_value);
-        *nodecl_output =
-            nodecl_make_complex_literal(
-                    result,
-                    value,
-                    ast_get_locus(expr));
+    }
+
+    if (!generate_text_node)
+    {
+        if (is_complex)
+        {
+            *nodecl_output =
+                nodecl_make_complex_literal(
+                        result,
+                        value,
+                        ast_get_locus(expr));
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_floating_literal(result, value, ast_get_locus(expr));
+        }
     }
     else
     {
-        *nodecl_output = nodecl_make_floating_literal(result, value, ast_get_locus(expr));
+        // Unusual path where we keep the literal text because we will not
+        // be able to express this floating point otherwise
+        *nodecl_output = nodecl_make_text(literal, ast_get_locus(expr));
+        nodecl_set_type(*nodecl_output, result);
+        nodecl_set_constant(*nodecl_output, value);
     }
 }
 
