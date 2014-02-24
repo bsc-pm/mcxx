@@ -39,12 +39,12 @@ namespace Utils {
     // ******************************************************************************************* //
     // ********************************** Intervals arithmetic *********************************** //
     
-    Nodecl::NodeclBase interval_add( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
-    Nodecl::NodeclBase interval_sub( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
-    Nodecl::NodeclBase range_mul( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
-    Nodecl::NodeclBase range_div( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
-    Nodecl::NodeclBase range_intersection( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
-    Nodecl::NodeclBase range_union( const Nodecl::Analysis::ClosedInterval& i, const Nodecl::Analysis::ClosedInterval& j );
+    bool is_empty_range( const Nodecl::Analysis::Range& r );
+    Nodecl::Analysis::Range get_empty_range( const TL::Type& t );
+    
+    Nodecl::NodeclBase range_sub( const Nodecl::Analysis::Range& r1, const Nodecl::Analysis::Range& r2 );
+    Nodecl::NodeclBase range_intersection( const Nodecl::Analysis::Range& r, const Nodecl::Analysis::Range& r2 );
+    Nodecl::NodeclBase range_union( const Nodecl::Analysis::Range& r1, const Nodecl::Analysis::Range& r2 );
 
     // ******************************** END Intervals arithmetic ********************************* //
     // ******************************************************************************************* //
