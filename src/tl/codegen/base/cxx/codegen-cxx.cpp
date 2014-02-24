@@ -5542,6 +5542,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     std::string declarator;
     std::string bit_field;
 
+    move_to_namespace_of_symbol(symbol);
+
     bool requires_extern_linkage = false;
     if (IS_CXX_LANGUAGE
             || cuda_emit_always_extern_linkage())
@@ -5615,7 +5617,6 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
     }
     emit_declarations_of_initializer(symbol);
 
-    move_to_namespace_of_symbol(symbol);
 
     // Generate the template headers if needed
     CXX_LANGUAGE()
