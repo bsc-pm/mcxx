@@ -3233,7 +3233,6 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 static char is_dependent_class_scope(decl_context_t decl_context)
 {
     return (decl_context.class_scope != NULL 
-            && is_template_specialized_type(decl_context.class_scope->related_entry->type_information)
             && is_dependent_type(decl_context.class_scope->related_entry->type_information));  
 }
 
@@ -11274,7 +11273,8 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
         decl_context_t decl_context,
         scope_entry_t** result_entry)
 {
-    ERROR_CONDITION(!(gather_info->is_friend && is_dependent_class_scope(decl_context)),
+    ERROR_CONDITION(!(gather_info->is_friend
+                && is_dependent_class_scope(decl_context)),
             "this is not a depedent friend function", 0);
 
     // We should create a new dependent friend function, but first we need to
