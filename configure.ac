@@ -328,7 +328,7 @@ then
     dnl XL (gcc driver)
     AC_PATH_TARGET_TOOL([XLC], [xlc], [$XLC])
     dnl XL (g++ driver)
-    AC_PATH_TARGET_TOOL([XLCXX], [xlc], [$XLCXX])
+    AC_PATH_TARGET_TOOL([XLCXX], [xlC], [$XLCXX])
 else
     XLC=
     XLCXX=
