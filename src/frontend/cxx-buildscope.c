@@ -18126,6 +18126,7 @@ static void instantiate_template_function_code(
 
     v->new_function_instantiated->entity_specs.num_related_symbols = 0;
     xfree(v->new_function_instantiated->entity_specs.related_symbols);
+    v->new_function_instantiated->entity_specs.related_symbols = 0;
 
     v->instantiation_symbol_map = instantiation_symbol_map_push(v->instantiation_symbol_map);
 
@@ -18154,6 +18155,9 @@ static void instantiate_template_function_code(
 
         // WARNING - This is a usual source of issues
         new_parameter->entity_specs = orig_parameter->entity_specs;
+        // Clear these
+        new_parameter->entity_specs.num_function_parameter_info = 0;
+        new_parameter->entity_specs.function_parameter_info = 0;
 
         P_LIST_ADD(
                 v->new_function_instantiated->entity_specs.related_symbols,
