@@ -2223,9 +2223,13 @@ static type_t* template_type_get_specialized_type_(
         }
         else
         {
-            // Share the type of the existing_spec
+            // Use the type of the existing_spec
             specialized_type = named_type_get_symbol(existing_spec)->type_information;
         }
+
+        // Now duplicate the type node as there are some bits that cannot be
+        // shared with the obtained specialized type. This may happen when updating
+        specialized_type = copy_type_for_variant(specialized_type);
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
