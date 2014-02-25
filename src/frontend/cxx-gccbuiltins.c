@@ -2526,6 +2526,10 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
         nodecl_free(nodecl_args[i]); \
     } \
     insert_alias(global_context.current_scope, specific, generic_name "_" #bytes); \
+    if (!CURRENT_CONFIGURATION->xl_compatibility) \
+    { /* We use the specific name always, except under XL compatibility */ \
+        specific->symbol_name = uniquestr(generic_name "_" #bytes); \
+    } \
     } \
 }
 
