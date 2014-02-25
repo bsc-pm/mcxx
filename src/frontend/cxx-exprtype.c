@@ -19542,9 +19542,17 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
 
         cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, NULL, &result);
     }
+    else if (sym->kind == SK_VARIABLE
+            && sym->symbol_name != NULL
+            && strcmp(sym->symbol_name, "nullptr") == 0)
+    {
+        // nullptr is special
+        pointer_literal_type(nodecl_get_ast(node), v->decl_context, &result);
+    }
     else
     {
         scope_entry_t* mapped_symbol = instantiation_symbol_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
+
         if (mapped_symbol == NULL)
         {
             // There is no mapping, use the original symbol and hope for the best
