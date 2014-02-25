@@ -6,6 +6,8 @@ options = --vector-flavor=altivec
 options = --xl-compat
 preprocessor_name = @XLC@
 preprocessor_uses_stdout = yes
+# Hide annoying messages produced when XL finds a Nanos++ pragma
+preprocessor_options = -qsuppress=1506-224
 compiler_name = @XLC@
 linker_name = @XLC@
 #cuda
