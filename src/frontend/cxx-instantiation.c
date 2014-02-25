@@ -1042,7 +1042,7 @@ static void instantiate_dependent_friend_function(
 
             // 1.2 It's a qualified/unqualified name -> refers to a nontemplate function
             scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(candidates_list);
+            for (it = entry_list_iterator_begin(filtered_entry_list);
                     !entry_list_iterator_end(it) && new_friend == NULL;
                     entry_list_iterator_next(it))
             {
@@ -1199,7 +1199,7 @@ static void instantiate_dependent_friend_function(
             scope_entry_list_t* filtered_entry_list = filter_symbol_kind(candidates_list, SK_TEMPLATE);
 
             scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(candidates_list);
+            for (it = entry_list_iterator_begin(filtered_entry_list);
                     !entry_list_iterator_end(it) && new_friend == NULL;
                     entry_list_iterator_next(it))
             {
