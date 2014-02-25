@@ -74,8 +74,6 @@ namespace TL { namespace OpenMP {
 
             Nodecl::NodeclBase instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call);
 
-            Nodecl::NodeclBase update_join_task(const Nodecl::NodeclBase& enclosing_stmt);
-
             Nodecl::OpenMP::Task generate_join_task(const Nodecl::NodeclBase& enclosing_stmt);
 
             Nodecl::List generate_sequential_code(
