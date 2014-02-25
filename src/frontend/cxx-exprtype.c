@@ -9467,7 +9467,8 @@ static type_t* compute_default_argument_conversion(type_t* arg_type,
         // float -> double
         result_type = get_double_type();
     }
-    else if (is_pointer_type(result_type))
+    else if (is_pointer_type(result_type)
+            || is_nullptr_type(result_type))
     {
         // T* -> intptr_t (we use size_t)
         result_type = (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
