@@ -1157,7 +1157,7 @@ static void instantiate_dependent_friend_function(
             // match with the template parameters of ::foo.
             //
             // Idea: We duplicate the template parameter list and
-            // replace all SK_TEMPLATE_TYPE_PARAMETER by a new symbol with
+            // replace all SK_TEMPLATE_{TYPE,NONTYPE,TEMPLATE}_PARAMETER by a new symbol with
             // template_parameter_nesting = 1. Later, we update the new_type
             // with this new list of template parameters
 
@@ -1169,7 +1169,9 @@ static void instantiate_dependent_friend_function(
             {
                 template_parameter_t* current_temp_param = alineated_temp_params->parameters[i];
                 if (current_temp_param->entry != NULL
-                        && current_temp_param->entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                        && (current_temp_param->entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                        || current_temp_param->entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+                        || current_temp_param->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
                 {
                     something_has_changed = 1;
 
@@ -1177,7 +1179,6 @@ static void instantiate_dependent_friend_function(
                     memcpy(new_entry, current_temp_param->entry, sizeof(*current_temp_param->entry));
                     new_entry->entity_specs.template_parameter_nesting = 1;
                     current_temp_param->entry = new_entry;
-
                 }
             }
 
