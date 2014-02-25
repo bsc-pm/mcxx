@@ -3901,7 +3901,19 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
             type_t* dest_type = result->arguments[i]->type;
 
-            if (!nodecl_expr_is_value_dependent(result->arguments[i]->value))
+            if (!nodecl_expr_is_value_dependent(result->arguments[i]->value)
+                    // Sometimes it may happen that the argument itself is not dependent
+                    // but the updated type is.
+                    //
+                    // template <typename T, T N>
+                    // struct A { };
+                    // template <typename T>
+                    // void f()
+                    // {
+                    //   A<T, 10> a; // 10 is not value dependent but the type
+                    //               // of its parameter is dependent (T)
+                    // }
+                    && !is_dependent_type(result->arguments[i]->type))
             {
                 type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
                 if (is_unresolved_overloaded_type(arg_type))
