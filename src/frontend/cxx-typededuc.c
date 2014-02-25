@@ -776,8 +776,17 @@ char deduce_template_arguments_common(
                 // Check if the primary has a default template argument
                 if (type_template_parameters->arguments[i_tpl_parameters] != NULL)
                 {
-                    ERROR_CONDITION(!type_template_parameters->arguments[i_tpl_parameters]->is_default,
-                            "Invalid non default template argument for template parameter in function", 0);
+                    if (!type_template_parameters->arguments[i_tpl_parameters]->is_default)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEDEDUC: But nondeduced template parameter %d "
+                                    "does not have a default template argument "
+                                    "(probably due to another error elsewhere)\n", i_tpl_parameters);
+                        }
+                        deduction_set_slots_free(deductions, num_deduction_slots);
+                        return 0;
+                    }
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: But nondeduced template parameter %d "

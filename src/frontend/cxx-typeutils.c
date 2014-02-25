@@ -10989,6 +10989,7 @@ char is_error_type(type_t* t)
 {
     // We do not allow a NULL type here at the moment
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    t = advance_over_typedefs(t);
     return (_error_type != NULL && t == _error_type);
 }
 
