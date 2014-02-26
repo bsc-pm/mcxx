@@ -4875,7 +4875,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
                     {
                         value->entry->kind = SK_VARIABLE_PACK;
                         value->entry->type_information = value->type;
-                        value->entry->value = value->value;;
+                        value->entry->value = value->value;
                         break;
                     }
                 case TPK_TYPE_PACK:
