@@ -1190,12 +1190,13 @@ void unificate_two_expressions(deduction_set_t **deduction_set,
 }
 
 
-static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tree, 
+static char equivalent_nodecl_expressions(nodecl_t left_tree,
+        nodecl_t right_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags);
 
-static char equivalent_dependent_expressions(nodecl_t left_tree, 
-        nodecl_t right_tree, 
+static char equivalent_dependent_expressions(nodecl_t left_tree,
+        nodecl_t right_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags)
 {
@@ -1410,7 +1411,9 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
         return nodecl_is_null(left_tree)
             && nodecl_is_null(right_tree);
 
-    if (nodecl_get_kind(left_tree) == NODECL_CXX_VALUE_PACK)
+    if (nodecl_get_kind(left_tree) == NODECL_CXX_VALUE_PACK
+            && nodecl_get_kind(right_tree) != NODECL_CXX_VALUE_PACK
+            && nodecl_is_list(right_tree))
     {
         // This case
         //
@@ -1423,29 +1426,22 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
 
         nodecl_t pack_expr = nodecl_get_child(left_tree, 0);
 
-        if (nodecl_is_list(right_tree))
+        int num_items = 0;
+        char result = 1;
+        nodecl_t* list = nodecl_unpack_list(right_tree, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
         {
-            int num_items = 0;
-            char result = 1;
-            nodecl_t* list = nodecl_unpack_list(right_tree, &num_items);
+            deduction_set_t *current_unif_set = counted_xcalloc(1, sizeof(*current_unif_set), &_bytes_typeunif);
 
-            int i;
-            for (i = 0; i < num_items; i++)
-            {
-                deduction_set_t *current_unif_set = counted_xcalloc(1, sizeof(*current_unif_set), &_bytes_typeunif);
+            if (!equivalent_dependent_expressions(pack_expr, list[i], &current_unif_set, flags))
+                result = 0;
 
-                if (!equivalent_dependent_expressions(pack_expr, list[i], &current_unif_set, flags))
-                    result = 0;
-
-                merge_deduction_set(unif_set, current_unif_set, flags);
-            }
-
-            return result;
+            merge_deduction_set(unif_set, current_unif_set, flags);
         }
-        else
-        {
-            return equivalent_dependent_expressions(pack_expr, right_tree, unif_set, flags);
-        }
+
+        return result;
     }
 
     if (nodecl_get_kind(left_tree) != nodecl_get_kind(right_tree))
