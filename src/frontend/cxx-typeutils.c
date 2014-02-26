@@ -1709,13 +1709,15 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
                 {
                     nodecl_t sym_ref =
                             nodecl_make_symbol(param->entry, param->entry->locus);
-                    nodecl_set_type(sym_ref, get_pack_type(param->entry->type_information));
+                    type_t* pack_type = get_pack_type(param->entry->type_information);
+                    nodecl_set_type(sym_ref, pack_type);
 
                     nodecl_t n = nodecl_make_cxx_value_pack(
                             sym_ref,
                             param->entry->type_information,
                             param->entry->locus
                             );
+                    nodecl_expr_set_is_type_dependent(n, is_dependent_type(pack_type));
                     nodecl_expr_set_is_value_dependent(n, 1);
 
                     // Do we have to handle the following case in any special way?

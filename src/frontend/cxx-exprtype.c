@@ -6743,6 +6743,9 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         // This should always be type dependent as one cannot type
         // void f(int ... x)
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+
+        // This is always value dependent
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
     else
     {
@@ -11603,9 +11606,11 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
         return;
     }
 
-    // This is always type dependent
-    *nodecl_output = nodecl_make_cxx_value_pack(pack, get_pack_type(nodecl_get_type(pack)), locus);
-    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+    // This is always type and value dependent
+    type_t* pack_type = get_pack_type(nodecl_get_type(pack));
+    *nodecl_output = nodecl_make_cxx_value_pack(pack, pack_type, locus);
+    nodecl_expr_set_is_type_dependent(*nodecl_output, is_dependent_type(pack_type));
+    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
 }
 
 static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -20445,10 +20450,12 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
 
     if (nodecl_expr_is_value_dependent(packed_expr))
     {
+        type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
         v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
-                get_pack_type(nodecl_get_type(packed_expr)),
+                pack_type,
                 nodecl_get_locus(node));
-        nodecl_expr_set_is_type_dependent(v->nodecl_result, 1);
+        nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
+        nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
         return;
     }
 

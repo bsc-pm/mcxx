@@ -3565,6 +3565,9 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                             nodecl_expr,
                             nodecl_get_type(nodecl_expr),
                             nodecl_get_locus(nodecl_expr));
+                    nodecl_expr_set_is_type_dependent(nodecl_expr,
+                            is_dependent_type(nodecl_get_type(nodecl_expr)));
+                    nodecl_expr_set_is_value_dependent(nodecl_expr, 1);
                 }
 
                 t_argument->kind = TPK_NONTYPE;
