@@ -8863,6 +8863,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
     keep_ms_declspecs_in_symbol(class_entry, gather_info);
 
+    // Keep class-virt-specifiers
+    class_entry->entity_specs.is_explicit = gather_info->is_explicit;
+    class_entry->entity_specs.is_final = gather_info->is_final;
+
     // Propagate the __extension__ attribute to the symbol
     class_entry->entity_specs.gcc_extension = gcc_extension;
 
@@ -15149,6 +15153,12 @@ static void gather_single_virt_specifier(AST item,
                     }
                     return;
                 }
+    
+                if (IS_CXX03_LANGUAGE)
+                {
+                    warn_printf("%s: warning: virt-specifiers are a C+11 feature\n",
+                            ast_location(item));
+                }
 
                 if (strcmp(spec, "final") == 0)
                 {
@@ -15170,6 +15180,7 @@ static void gather_single_virt_specifier(AST item,
                 {
                     internal_error("Unhandled valid keyword '%s' at %s\n", spec, ast_location(item));
                 }
+
                 break;
             }
         default:

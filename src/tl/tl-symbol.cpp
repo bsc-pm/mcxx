@@ -530,6 +530,11 @@ namespace TL
         return (_symbol->entity_specs.is_explicit);
     }
 
+    bool Symbol::is_explicit_class() const
+    {
+        return (_symbol->entity_specs.is_explicit);
+    }
+
     bool Symbol::is_friend_declared() const
     {
         return (_symbol->entity_specs.is_friend_declared);
