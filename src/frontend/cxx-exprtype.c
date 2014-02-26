@@ -13637,7 +13637,21 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         nodecl_t init_list_output = nodecl_null();
 
         type_t* initializer_type = declared_type;
-        if (!nodecl_is_null(initializer_clause_list))
+        if (nodecl_is_null(initializer_clause_list)
+                && is_array_type(declared_type)
+                && array_type_is_unknown_size(declared_type))
+        {
+            // GCC extension
+            // int c[] = { };
+            nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get_unsigned_int(0),
+                    locus);
+
+            initializer_type = get_array_type(
+                    array_type_get_element_type(declared_type),
+                    length, decl_context);
+        }
+        else
         {
             if (!is_array_type(declared_type)
                     && !is_class_type(declared_type)
@@ -13658,26 +13672,29 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             //   char a[] = { "hello" };
 
             // The expression list has only one element of kind expression and this element is an array of chars o wchars
-            type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
-            if (nodecl_list_length(initializer_clause_list) == 1
-                    && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
-                    && (is_array_type(no_ref(type_element))
-                        && (is_char_type(array_type_get_element_type(no_ref(type_element)))
-                            || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
-                           )
-                       )
-               )
+            if (!nodecl_is_null(initializer_clause_list))
             {
-                // Attempt an interpretation like char a[] = "hello";
-                enter_test_expression();
-                check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
-                        decl_context,
-                        declared_type,
-                        nodecl_output);
-                leave_test_expression();
+                type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
+                if (nodecl_list_length(initializer_clause_list) == 1
+                        && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
+                        && (is_array_type(no_ref(type_element))
+                            && (is_char_type(array_type_get_element_type(no_ref(type_element)))
+                                || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
+                               )
+                           )
+                   )
+                {
+                    // Attempt an interpretation like char a[] = "hello";
+                    enter_test_expression();
+                    check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
+                            decl_context,
+                            declared_type,
+                            nodecl_output);
+                    leave_test_expression();
 
-                if (!nodecl_is_err_expr(*nodecl_output))
-                    return;
+                    if (!nodecl_is_err_expr(*nodecl_output))
+                        return;
+                }
             }
 
             struct type_init_stack_t type_stack[MCXX_MAX_UNBRACED_AGGREGATES];
@@ -13975,18 +13992,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         array_type_get_element_type(declared_type),
                         length, decl_context);
             }
-        }
-        else
-        {
-            // GCC extension
-            // int c[] = { };
-            nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
-                    const_value_get_unsigned_int(0),
-                    locus);
-
-            initializer_type = get_array_type(
-                    array_type_get_element_type(declared_type),
-                    length, decl_context);
         }
 
         *nodecl_output = nodecl_make_structured_value(init_list_output, initializer_type, locus);
