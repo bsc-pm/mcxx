@@ -20443,7 +20443,7 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
     nodecl_t expansion = nodecl_get_child(node, 0);
     nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
 
-    if (nodecl_expr_is_type_dependent(packed_expr))
+    if (nodecl_expr_is_value_dependent(packed_expr))
     {
         v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
                 get_pack_type(nodecl_get_type(packed_expr)),
