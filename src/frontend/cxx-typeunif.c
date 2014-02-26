@@ -1519,13 +1519,20 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: Checking whether '%s' and '%s' are functionally equivalent\n",
-                codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
-                codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)));
+                nodecl_is_null(left_tree) ? "<<NULL>>" : codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
+                nodecl_is_null(right_tree) ? "<<NULL>>" : codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)));
     }
     deduction_set_t* deduction_set = counted_xcalloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
-    char c = equivalent_dependent_expressions(left_tree, right_tree,  
-            &deduction_set, flags);
+    char c = 0;
+   
+    // We do not compare trees if any of them is null
+    if (!nodecl_is_null(left_tree)
+            && !nodecl_is_null(right_tree))
+    {
+        c = equivalent_dependent_expressions(left_tree, right_tree,  
+                &deduction_set, flags);
+    }
 
     // Free it, it is unused after this
     deduction_set_free(deduction_set);
@@ -1533,8 +1540,8 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: '%s' and '%s' %s functionally equivalent\n",
-                codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
-                codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)),
+                nodecl_is_null(left_tree) ? "<<NULL>>" : codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
+                nodecl_is_null(right_tree) ? "<<NULL>>" : codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)),
                 c ? "ARE" : "are NOT");
     }
 
