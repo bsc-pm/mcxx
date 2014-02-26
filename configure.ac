@@ -326,13 +326,13 @@ fi
 
 if test x$disable_xlc = xno;
 then
-   dnl XL (gcc driver)
-   AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
-   dnl XL (g++ driver)
-   AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
+    dnl XL (gcc driver)
+    AC_PATH_TARGET_TOOL([XLC], [xlc], [$XLC])
+    dnl XL (g++ driver)
+    AC_PATH_TARGET_TOOL([XLCXX], [xlC], [$XLCXX])
 else
-    GXLC=
-    GXLCXX=
+    XLC=
+    XLCXX=
 fi
 
 dnl Check Intel Fortran
@@ -346,7 +346,7 @@ fi
 dnl IBM Fortran
 if test x$disable_xlf = xno;
 then
-    AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+    AC_PATH_TARGET_TOOL([XLF], [xlf95], [$XLF])
 else
     XLF=
 fi
@@ -439,7 +439,8 @@ nanox_mic_include=""
 nanox__mic_lib=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
-NANOX_LDFLAGS=""
+NANOX_GNU_LDFLAGS=""
+NANOX_IBM_LDFLAGS=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
 nanox_mic_enabled=no
@@ -589,7 +590,8 @@ fi
 
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
-AC_SUBST([NANOX_LDFLAGS])
+AC_SUBST([NANOX_GNU_LDFLAGS])
+AC_SUBST([NANOX_IBM_LDFLAGS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 AC_SUBST([NANOX_MIC_INCLUDES])
 AC_SUBST([NANOX_MIC_LIBS])
@@ -1139,16 +1141,16 @@ then
    fi
 
    # IBM XL C/C++ + Nanos++
-   if test x$GXLC != x;
+   if test x$XLC != x;
    then
       COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
    fi
-   if test x$GXLCXX != x;
+   if test x$XLCXX != x;
    then
       COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
    fi
 
-   if test x$GXLC != x -o x$GXLCXX != x;
+   if test x$XLC != x -o x$XLCXX != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
    fi
@@ -1377,8 +1379,8 @@ AC_ARG_VAR([NVCC], [nVidia CUDA compiler])
 AC_ARG_VAR([ICC], [Intel C compiler])
 AC_ARG_VAR([ICPC], [Intel C++ compiler])
 AC_ARG_VAR([IFORT], [Intel Fortran])
-AC_ARG_VAR([GXLC], [IBM XL C compiler])
-AC_ARG_VAR([GXLCXX], [IBM XL C++ compiler])
+AC_ARG_VAR([XLC], [IBM XL C compiler])
+AC_ARG_VAR([XLCXX], [IBM XL C++ compiler])
 AC_ARG_VAR([XLF], [IBM XL Fortran compiler])
 AC_ARG_VAR([GPERF], [GNU gperf])
 AC_ARG_VAR([GIT], [git content tracker])
@@ -1588,7 +1590,8 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc64-bgq-linux*)
            # BlueGeneQ requires extra flags at link time
            default_type_environ="linux-ppc64"
-           NANOX_LDFLAGS="-dynamic"
+           NANOX_GNU_LDFLAGS="-dynamic"
+           NANOX_IBM_LDFLAGS="-qnostaticlink"
            ;;
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"
@@ -1895,8 +1898,8 @@ print_tool "Intel C compiler" "$ICC"
 print_tool "Intel C++ compiler" "$ICPC"
 print_tool "Intel Fortran compiler" "$IFORT"
 
-print_tool "IBM XL C compiler " "$GXLC"
-print_tool "IBM XL C++ compiler " "$GXLCXX"
+print_tool "IBM XL C compiler " "$XLC"
+print_tool "IBM XL C++ compiler " "$XLCXX"
 print_tool "IBM XL Fortran compiler " "$XLF"
 
 echo ""

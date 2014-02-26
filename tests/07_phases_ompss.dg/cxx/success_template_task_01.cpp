@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,23 +24,33 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CXX_DIAGNOSTIC_H
-#define CXX_DIAGNOSTIC_H
 
-#include "cxx-macros.h"
 
-MCXX_BEGIN_DECLS
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include<assert.h>
 
-void diagnostics_reset(void);
-int diagnostics_get_error_count(void);
-int diagnostics_get_warn_count(void);
+#pragma omp task out(*x)
+template < typename T >
+void producer(T* x)
+{
+    *x = (T) 2;
+}
 
-void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
-void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
-void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
+#pragma omp task in(*x)
+template < typename T >
+void consumer(T* x)
+{
+}
 
-void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINTF(2,3);
-
-MCXX_END_DECLS
-
-#endif // CXX_DIAGNOSTIC_H
+int main()
+{
+    int x = -1;
+    producer(&x);
+    consumer(&x);
+#pragma omp taskwait
+    assert(x == 2);
+}

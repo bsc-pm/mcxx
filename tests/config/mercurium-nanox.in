@@ -68,7 +68,7 @@ test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib -lperish"
 EOF
   fi
 
-  if [ ! -z "@GXLC@" ];
+  if [ ! -z "@XLC@" ];
   then
 cat <<EOF
 XLMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcc --config-dir=@abs_top_builddir@/config --verbose"
@@ -93,7 +93,7 @@ test_LDFLAGS_nanox_imcxx="-L@abs_top_builddir@/lib -lperish"
 EOF
   fi
 
-  if [ ! -z "@GXLCXX@" ];
+  if [ ! -z "@XLCXX@" ];
   then
 cat <<EOF
 XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose"

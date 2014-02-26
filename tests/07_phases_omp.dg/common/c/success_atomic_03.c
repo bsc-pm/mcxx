@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,23 +24,26 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CXX_DIAGNOSTIC_H
-#define CXX_DIAGNOSTIC_H
 
-#include "cxx-macros.h"
 
-MCXX_BEGIN_DECLS
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 
-void diagnostics_reset(void);
-int diagnostics_get_error_count(void);
-int diagnostics_get_warn_count(void);
+#include <stdlib.h>
+#include <math.h>
 
-void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
-void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
-void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
+int main(int argc, char *argv[])
+{
+    double d = 1.0;
 
-void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINTF(2,3);
+#pragma omp atomic
+    d += 3.0;
 
-MCXX_END_DECLS
+    if (fabs(d - 4.0) > 1e-9)
+        abort();
 
-#endif // CXX_DIAGNOSTIC_H
+    return 0;
+}

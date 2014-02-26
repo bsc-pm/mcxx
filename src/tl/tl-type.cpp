@@ -379,7 +379,7 @@ namespace TL
         {
             num_parameters++;
             parameters_list[i].is_ellipsis = 1;
-            parameters_list[i].type_info = NULL;
+            parameters_list[i].type_info = get_ellipsis_type();
             parameters_list[i].nonadjusted_type_info = NULL;
         }
 

@@ -3155,6 +3155,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             parameter_info_t parameter_info;
             memset(&parameter_info, 0, sizeof(parameter_info));
             parameter_info.is_ellipsis = 1;
+            parameter_info.type_info = get_ellipsis_type();
 
             P_LIST_ADD(unpacked_parameter_types, num_unpacked_parameter_types, parameter_info);
         }
@@ -3512,8 +3513,12 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     if (result == NULL)
     {
-        running_error("%s: error: type '%s' rendered invalid during instantiation\n",
-                locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
+        // if (!checking_ambiguity())
+        {
+            error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
+                    locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
+        }
+        result = get_error_type();
     }
 
     DEBUG_CODE()
@@ -3896,7 +3901,19 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
             type_t* dest_type = result->arguments[i]->type;
 
-            if (!nodecl_expr_is_value_dependent(result->arguments[i]->value))
+            if (!nodecl_expr_is_value_dependent(result->arguments[i]->value)
+                    // Sometimes it may happen that the argument itself is not dependent
+                    // but the updated type is.
+                    //
+                    // template <typename T, T N>
+                    // struct A { };
+                    // template <typename T>
+                    // void f()
+                    // {
+                    //   A<T, 10> a; // 10 is not value dependent but the type
+                    //               // of its parameter is dependent (T)
+                    // }
+                    && !is_dependent_type(result->arguments[i]->type))
             {
                 type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
                 if (is_unresolved_overloaded_type(arg_type))
@@ -4643,10 +4660,26 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         result = strappend(class_qualification, result);
     }
-    else if (IS_CXX11_LANGUAGE && entry->kind == SK_ENUMERATOR)
+    else if (IS_CXX11_LANGUAGE
+            && entry->kind == SK_ENUMERATOR)
     {
         // In C++11 we qualify enumerators that are not members
         scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);
+#if 0
+        // There is a bug with g++, C++11 and anonymous enumerators
+        char hack_for_anonymous_enumerator_gxx =
+            strncmp(enum_symbol->symbol_name,
+                        "mcc_enum_anon_",
+                        strlen("mcc_enum_anon_")) == 0;
+        if (hack_for_anonymous_enumerator_gxx)
+        {
+            // Get the enclosing symbol (eventually a class or a namespace)
+            enum_symbol = enum_symbol->decl_context.current_scope->related_entry;
+            if (enum_symbol == NULL)
+                return result;
+        }
+#endif
+
         char prev_is_dependent = 0;
         const char* enum_qualification =
             get_fully_qualified_symbol_name_ex(enum_symbol, decl_context, &prev_is_dependent, max_qualif_level,

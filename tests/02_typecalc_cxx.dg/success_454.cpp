@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,23 +24,42 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CXX_DIAGNOSTIC_H
-#define CXX_DIAGNOSTIC_H
 
-#include "cxx-macros.h"
 
-MCXX_BEGIN_DECLS
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-void diagnostics_reset(void);
-int diagnostics_get_error_count(void);
-int diagnostics_get_warn_count(void);
+template <typename T>
+struct A
+{
+    template <typename S>
+    struct B
+    {
+        friend bool foo(const B& b1, const B& b2)
+        {
+            return true;
+        }
 
-void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
-void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
-void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
+        template <int R>
+            friend bool foo(int (&a)[R])
+            {
+                return true;
+            }
+    };
+};
 
-void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINTF(2,3);
+void g()
+{
+    A<int>::B<float> a;
+    // This introduces
+    //     bool foo(const A<int>::B&, const A<int>::B&)
+    //     bool foo<R>(int (&)[R])
+    // in the global scope
+    foo(a, a);
 
-MCXX_END_DECLS
-
-#endif // CXX_DIAGNOSTIC_H
+    int pi[10];
+    foo(pi);
+}

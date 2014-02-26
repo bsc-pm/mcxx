@@ -166,8 +166,8 @@ struct decl_context_tag
     SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER_PACK, "template template parameter pack name") \
     SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
-    SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend function") \
-    SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend class") \
+    SYMBOL_KIND(SK_DEPENDENT_FRIEND_CLASS, "dependent friend class") \
+    SYMBOL_KIND(SK_DEPENDENT_FRIEND_FUNCTION, "dependent friend function") \
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_USING_TYPENAME, "using typename declared name") \
     SYMBOL_KIND(SK_LAMBDA, "lambda-expression") \
