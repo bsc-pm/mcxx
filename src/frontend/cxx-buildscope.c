@@ -3345,8 +3345,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
     entry_list_free(entry_list);
 
-    if (entry == NULL &&
-            is_qualified_id_expression(id_expression))
+    if (entry == NULL
+            // In theses cases the name must exist
+            && (ASTType(id_expression) == AST_TEMPLATE_ID
+                || is_qualified_id_expression(id_expression)))
     {
         if (!checking_ambiguity())
         {
@@ -3942,8 +3944,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
             new_class->locus = ast_get_locus(id_expression);
-
-            new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
             if ((!class_gather_info.is_template
                         || !class_gather_info.no_declarators)
