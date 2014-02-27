@@ -278,6 +278,15 @@ static void build_scope_member_template_alias_declaration(decl_context_t decl_co
         char is_explicit_specialization,
         nodecl_t* nodecl_output);
 
+
+static void common_defaulted_or_deleted(AST a, decl_context_t decl_context, 
+        void (*check)(const locus_t*, scope_entry_t*, decl_context_t),
+        void (*set)(scope_entry_t*, decl_context_t),
+        char is_template,
+        char is_explicit_specialization,
+        scope_entry_list_t** declared_symbols,
+        nodecl_t* nodecl_output);
+
 static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -292,6 +301,14 @@ static void build_scope_template_function_definition(AST a, decl_context_t decl_
         char is_explicit_specialization, 
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols, 
+        gather_decl_spec_list_t* gather_decl_spec_list);
+
+static void build_scope_template_deleted_function_definition(
+        AST function_declaration,
+        decl_context_t decl_context,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
 
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -12178,6 +12195,63 @@ static void build_scope_linkage_specifier_declaration(AST a,
     linkage_pop();
 }
 
+static void set_deleted(scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    entry->entity_specs.is_deleted = 1;
+    entry->defined = 1;
+}
+
+static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    common_defaulted_or_deleted(a, decl_context, /* check */ NULL, set_deleted,
+            /* is_template */ 0,
+            /* is_explicit_specialization */ 0,
+            /* declared_symbols */ NULL,
+            nodecl_output);
+}
+
+static void set_defaulted(scope_entry_t* entry, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    entry->entity_specs.is_defaulted = 1;
+    entry->defined = 1;
+}
+
+static void check_defaulted(
+        const locus_t* locus,
+        scope_entry_t* entry,
+        decl_context_t decl_context)
+{
+    if (!entry->entity_specs.is_default_constructor
+            && !entry->entity_specs.is_copy_constructor
+            && !entry->entity_specs.is_move_constructor
+            && !entry->entity_specs.is_copy_assignment_operator
+            && !entry->entity_specs.is_move_assignment_operator
+            && !entry->entity_specs.is_destructor)
+    {
+        const char* qualified_name = get_qualified_symbol_name(entry, decl_context);
+
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: function '%s' cannot be defaulted\n",
+                    locus_to_str(locus),
+                    print_decl_type_str(entry->type_information,
+                        decl_context,
+                        qualified_name));
+        }
+        return;
+    }
+}
+
+static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted,
+            /* is_template */ 0,
+            /* is_explicit_specialization */ 0,
+            /* declared_symbols */ NULL,
+            nodecl_output);
+}
+
 /*
  * This function registers a template declaration
  */
@@ -12249,6 +12323,13 @@ static void build_scope_template_declaration(AST a,
         case AST_ALIAS_DECLARATION:
             {
                 build_scope_template_alias_declaration(templated_decl, template_context, nodecl_output);
+                break;
+            }
+        case AST_DELETED_FUNCTION_DEFINITION:
+            {
+                build_scope_template_deleted_function_definition(templated_decl, template_context,
+                        /* is_explicit_specialization */ 0, nodecl_output,
+                        declared_symbols, gather_decl_spec_list);
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
@@ -12440,6 +12521,21 @@ static void build_scope_template_function_definition(
             decl_context,
             /* is_template */ 1, is_explicit_specialization, nodecl_output, 
             declared_symbols, gather_decl_spec_list);
+}
+
+static void build_scope_template_deleted_function_definition(
+        AST function_declaration,
+        decl_context_t decl_context,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols,
+        gather_decl_spec_list_t* gather_decl_spec_list UNUSED_PARAMETER)
+{
+    common_defaulted_or_deleted(function_declaration, decl_context, NULL, set_deleted,
+            /* is_template */ 1,
+            is_explicit_specialization,
+            declared_symbols,
+            nodecl_output);
 }
 
 static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context,
@@ -13488,8 +13584,11 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 }
 
 static void common_defaulted_or_deleted(AST a, decl_context_t decl_context, 
-        void (*check)(AST, scope_entry_t*, decl_context_t),
-        void (*set)(AST, scope_entry_t*, decl_context_t),
+        void (*check)(const locus_t*, scope_entry_t*, decl_context_t),
+        void (*set)(scope_entry_t*, decl_context_t),
+        char is_template,
+        char is_explicit_specialization,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     AST function_header = ASTSon0(a);
@@ -13501,10 +13600,14 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     AST decl_spec_seq = ASTSon0(function_header);
     AST function_declarator = ASTSon1(function_header);
-    /* AST attributes = ASTSon2(a); */
+    /* AST attributes = ASTSon2(function_header); */
 
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_info.is_template = is_template;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
+
     type_t* type_info = NULL;
 
     char is_constructor = 0;
@@ -13517,7 +13620,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     if (type_info == NULL)
     {
-        if (is_constructor_declarator(ASTSon1(a)))
+        if (is_constructor_declarator(function_declarator))
         {
             is_constructor = 1;
         }
@@ -13535,10 +13638,12 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     compute_declarator_type(function_declarator, &gather_info, type_info,
             &declarator_type, new_decl_context, nodecl_output);
-    entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context);
+    entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, new_decl_context);
+
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
 
     if (check)
-        check(a, entry, decl_context);
+        check(ast_get_locus(a), entry, decl_context);
 
     if (entry->defined)
     {
@@ -13556,57 +13661,19 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
     keep_gcc_attributes_in_symbol(entry, &gather_info);
     keep_ms_declspecs_in_symbol(entry, &gather_info);
 
-    set(a, entry, decl_context);
-}
+    set(entry, decl_context);
 
-static void set_deleted(AST a UNUSED_PARAMETER, scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER)
-{
-    entry->entity_specs.is_deleted = 1;
-    entry->defined = 1;
-}
-
-static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
-{
-    common_defaulted_or_deleted(a, decl_context, /* check */ NULL, set_deleted, nodecl_output);
-}
-
-static void check_defaulted(AST a, 
-        scope_entry_t* entry, 
-        decl_context_t decl_context) 
-{ 
-    if (!entry->entity_specs.is_default_constructor
-            && !entry->entity_specs.is_copy_constructor
-            && !entry->entity_specs.is_move_constructor
-            && !entry->entity_specs.is_copy_assignment_operator
-            && !entry->entity_specs.is_move_assignment_operator
-            && !entry->entity_specs.is_destructor)
+    if (declared_symbols != NULL)
     {
-        const char* qualified_name = get_qualified_symbol_name(entry, decl_context);
-
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: function '%s' cannot be defaulted\n",
-                    ast_location(a),
-                    print_decl_type_str(entry->type_information, 
-                        decl_context,
-                        qualified_name));
-        }
-        return;
+        *declared_symbols = entry_list_add(*declared_symbols, entry);
     }
+
+    *nodecl_output = nodecl_append_to_list(*nodecl_output,
+            nodecl_make_cxx_decl(nodecl_null(),
+                entry,
+                ast_get_locus(a)));
 }
 
-static void set_defaulted(AST a UNUSED_PARAMETER, 
-        scope_entry_t* entry, 
-        decl_context_t decl_context UNUSED_PARAMETER)
-{
-    entry->entity_specs.is_defaulted = 1;
-    entry->defined = 1;
-}
-
-static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
-{
-    common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted, nodecl_output);
-}
 
 void set_parameters_as_related_symbols(scope_entry_t* entry,
         gather_decl_spec_t* gather_info,
@@ -15094,13 +15161,13 @@ static void build_scope_default_or_delete_member_function_definition(
     {
         case AST_DEFAULTED_FUNCTION_DEFINITION :
             {
-                check_defaulted(a, entry, decl_context);
-                set_defaulted(a, entry, decl_context);
+                check_defaulted(ast_get_locus(a), entry, decl_context);
+                set_defaulted(entry, decl_context);
                 break;
             }
         case AST_DELETED_FUNCTION_DEFINITION :
             {
-                set_deleted(a, entry, decl_context);
+                set_deleted(entry, decl_context);
                 break;
             }
         default:

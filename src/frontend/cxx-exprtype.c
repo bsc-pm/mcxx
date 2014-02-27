@@ -2410,10 +2410,13 @@ static char filter_only_nonmembers(scope_entry_t* e, void* p UNUSED_PARAMETER)
 
 static void error_message_delete_call(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
 {
-    error_printf("%s: error: call to deleted function '%s'\n",
-            locus_to_str(locus),
-            print_decl_type_str(entry->type_information, decl_context,
-                get_qualified_symbol_name(entry, decl_context)));
+    if (!checking_ambiguity())
+    {
+        error_printf("%s: error: call to deleted function '%s'\n",
+                locus_to_str(locus),
+                print_decl_type_str(entry->type_information, decl_context,
+                    get_qualified_symbol_name(entry, decl_context)));
+    }
 }
 
 char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
