@@ -27,9 +27,12 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium
+test_generator=config/mercurium-cxx11
 </testinfo>
 */
+
+
+
 struct A1 final
 {
     int x;
