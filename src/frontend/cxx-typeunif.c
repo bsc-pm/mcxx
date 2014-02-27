@@ -1360,6 +1360,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         // If both a parameters of a function, check if they might mean the same entity
         else if (left_symbol->kind == SK_VARIABLE
                 && symbol_is_parameter_of_function(left_symbol, get_function_declaration_proxy())
+                && right_symbol != NULL
                 && right_symbol->kind == SK_VARIABLE
                 && symbol_is_parameter_of_function(right_symbol, get_function_declaration_proxy()))
         {
