@@ -687,6 +687,13 @@ namespace TL
             }
             else if(lhs.is<Nodecl::ArraySubscript>())
             {
+                Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(
+                        lhs.as<Nodecl::ArraySubscript>().get_subscripted());
+                ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
+                        "Vectorizer: ArraySubscript form not supported yet: %s", lhs.prettyprint().c_str());
+
+                Nodecl::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>(); 
+
                 walk(rhs);
 
                 // Vector Store
@@ -727,24 +734,51 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._unroll_factor * assignment_type.get_size()))
                     {
-                        //DEBUG_CODE()
+                        if(Nodecl::Utils::list_contains_nodecl(_environment._nontemporal_expr_list,
+                                    subscripted_symbol) &&
+                                mask.is_null()) // So far, only supported without masks
                         {
-                            fprintf(stderr, "VECTORIZER: Store access '%s' is ALIGNED\n",
-                                lhs.prettyprint().c_str());
+                            //DEBUG_CODE()
+                            {
+                                fprintf(stderr, "VECTORIZER: Stream Store access '%s' is ALIGNED\n",
+                                        lhs.prettyprint().c_str());
+                            }
+
+                            const Nodecl::VectorStreamStore vector_stream_store =
+                                Nodecl::VectorStreamStore::make(
+                                        Nodecl::Reference::make(
+                                            lhs.shallow_copy(),
+                                            basic_type.get_pointer_to(),
+                                            n.get_locus()),
+                                        rhs.shallow_copy(),
+                                        mask,
+                                        vector_type,
+                                        n.get_locus());
+
+                            n.replace(vector_stream_store);
                         }
+                        else
+                        {
+                            std::cerr << subscripted_symbol.prettyprint() << std::endl;
+                            //DEBUG_CODE()
+                            {
+                                fprintf(stderr, "VECTORIZER: Store access '%s' is ALIGNED\n",
+                                        lhs.prettyprint().c_str());
+                            }
 
-                        const Nodecl::VectorStore vector_store =
-                            Nodecl::VectorStore::make(
-                                    Nodecl::Reference::make(
-                                        lhs.shallow_copy(),
-                                        basic_type.get_pointer_to(),
-                                        n.get_locus()),
-                                    rhs.shallow_copy(),
-                                    mask,
-                                    vector_type,
-                                    n.get_locus());
+                            const Nodecl::VectorStore vector_store =
+                                Nodecl::VectorStore::make(
+                                        Nodecl::Reference::make(
+                                            lhs.shallow_copy(),
+                                            basic_type.get_pointer_to(),
+                                            n.get_locus()),
+                                        rhs.shallow_copy(),
+                                        mask,
+                                        vector_type,
+                                        n.get_locus());
 
-                        n.replace(vector_store);
+                            n.replace(vector_store);
+                        }
                     }
                     else // Unaligned
                     {

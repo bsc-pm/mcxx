@@ -131,6 +131,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLoad& node);
                 virtual void visit(const Nodecl::UnalignedVectorLoad& node);
                 virtual void visit(const Nodecl::VectorStore& node);
+                virtual void visit(const Nodecl::VectorStreamStore& node);
                 virtual void visit(const Nodecl::UnalignedVectorStore& node);
                 virtual void visit(const Nodecl::VectorGather& node);
                 virtual void visit(const Nodecl::VectorScatter& node);

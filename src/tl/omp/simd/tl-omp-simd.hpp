@@ -87,6 +87,8 @@ namespace TL
 
                 void process_suitable_clause(const Nodecl::List& environment,
                         TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions);
+                void process_nontemporal_clause(const Nodecl::List& environment,
+                        TL::ObjectList<Nodecl::NodeclBase>& nontemporal_expressions);
                 int process_unroll_clause(const Nodecl::List& environment);
                 int process_unroll_and_jam_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment, 
@@ -109,9 +111,7 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
                 virtual void common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
                         const Nodecl::FunctionCode& function_code,
-                        const TL::ObjectList<Nodecl::NodeclBase>& suitable_expresions,
-                        const TL::Type& vectorlengthfor_type,
-                        const Vectorization::VectorizerCache& vectorizer_cache,
+                        Vectorization::VectorizerEnvironment& function_environment,
                         const bool masked_version);
         };
 

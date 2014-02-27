@@ -1011,6 +1011,84 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    void Base::process_common_simd_clauses(const Nodecl::NodeclBase& stmt,
+            const TL::PragmaCustomLine& pragma_line,
+            Nodecl::List& environment)
+    {
+        // Suitable
+        PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
+
+        if (suitable_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Suitable::make(
+                        Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
+                        stmt.get_locus()));
+        }
+
+        // Cache
+        PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
+        if (cache_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Cache::make(
+                        Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
+                        stmt.get_locus()));
+        }
+
+        // Unroll
+        PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
+
+        if (unroll_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Unroll::make(
+                        Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                            unroll_clause.get_arguments_as_expressions().front().get_constant()),
+                        stmt.get_locus()));
+        }
+
+        // Unroll and Jam
+        PragmaCustomClause unroll_and_jam_clause = pragma_line.get_clause("unroll_and_jam");
+
+        if (unroll_and_jam_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::UnrollAndJam::make(
+                        Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                            unroll_and_jam_clause.get_arguments_as_expressions().front().get_constant()),
+                        stmt.get_locus()));
+        }
+
+        // VectorLengthFor
+        PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
+
+        if (vectorlengthfor_clause.is_defined())
+        {
+            TL::Source target_type_src;
+
+            target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
+
+            TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
+
+            environment.append(
+                    Nodecl::OpenMP::VectorLengthFor::make(
+                        target_type,
+                        stmt.get_locus()));
+        }
+
+        // Non-temporal (Stream stores)
+        PragmaCustomClause nontemporal_clause = pragma_line.get_clause("nontemporal");
+
+        if (nontemporal_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Nontemporal::make(
+                        Nodecl::List::make(nontemporal_clause.get_arguments_as_expressions()),
+                        stmt.get_locus()));
+        }
+    }
+
     // SIMD Statement
     void Base::simd_handler_pre(TL::PragmaCustomStatement) { }
     void Base::simd_handler_post(TL::PragmaCustomStatement stmt)
@@ -1023,67 +1101,7 @@ namespace TL { namespace OpenMP {
             OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(stmt);
             Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
-            // Suitable
-            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
-            
-            if (suitable_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Suitable::make(
-                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
-                            stmt.get_locus()));
-            }
-
-            // Cache
-            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
-            if (cache_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Cache::make(
-                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
-                            stmt.get_locus()));
-            }
-
-            // Unroll
-            PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
-            
-            if (unroll_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Unroll::make(
-                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                unroll_clause.get_arguments_as_expressions().front().get_constant()),
-                            stmt.get_locus()));
-            }
-
-            // Unroll and Jam
-            PragmaCustomClause unroll_and_jam_clause = pragma_line.get_clause("unroll_and_jam");
-            
-            if (unroll_and_jam_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::UnrollAndJam::make(
-                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                unroll_and_jam_clause.get_arguments_as_expressions().front().get_constant()),
-                            stmt.get_locus()));
-            }
-
-            // VectorLengthFor
-            PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
-
-            if (vectorlengthfor_clause.is_defined())
-            {
-                TL::Source target_type_src;
-
-                target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
-
-                TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
-
-                environment.append(
-                        Nodecl::OpenMP::VectorLengthFor::make(
-                            target_type,
-                            stmt.get_locus()));
-            }
+            process_common_simd_clauses(stmt, pragma_line, environment);
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase statements = stmt.get_statements();
@@ -1137,26 +1155,7 @@ namespace TL { namespace OpenMP {
             OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(decl);
             Nodecl::List environment = this->make_execution_environment(ds, pragma_line) ;
 
-            // Suitable
-            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
-            
-            if (suitable_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Suitable::make(
-                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
-                            decl.get_locus()));
-            }
-
-            // Cache
-            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
-            if (cache_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Cache::make(
-                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
-                            decl.get_locus()));
-            }
+            process_common_simd_clauses(decl, pragma_line, environment);
 
             // Mask
             PragmaCustomClause mask_clause = pragma_line.get_clause("mask");
@@ -1175,6 +1174,7 @@ namespace TL { namespace OpenMP {
                 environment.append(
                         Nodecl::OpenMP::NoMask::make(decl.get_locus()));
             }
+
             ERROR_CONDITION(!decl.has_symbol(), "Expecting a function definition here (1)", 0);
 
             TL::Symbol sym = decl.get_symbol();
@@ -1211,66 +1211,7 @@ namespace TL { namespace OpenMP {
             PragmaCustomLine pragma_line = stmt.get_pragma_line();
             Nodecl::List environment;
 
-            // Suitable
-            PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
-            if (suitable_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Suitable::make(
-                            Nodecl::List::make(suitable_clause.get_arguments_as_expressions()),
-                            stmt.get_locus()));
-            }
-
-            // VectorLengthFor
-            PragmaCustomClause vectorlengthfor_clause = pragma_line.get_clause("vectorlengthfor");
-
-            if (vectorlengthfor_clause.is_defined())
-            {
-                TL::Source target_type_src;
-
-                target_type_src << vectorlengthfor_clause.get_raw_arguments().front();
-
-                TL::Type target_type = target_type_src.parse_c_type_id(stmt.retrieve_context());
-
-                environment.append(
-                        Nodecl::OpenMP::VectorLengthFor::make(
-                            target_type,
-                            stmt.get_locus()));
-            }
-
-            // Cache
-            PragmaCustomClause cache_clause = pragma_line.get_clause("cache");
-            if (cache_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Cache::make(
-                            Nodecl::List::make(cache_clause.get_arguments_as_expressions()),
-                            stmt.get_locus()));
-            }
-
-            // Unroll
-            PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
-            
-            if (unroll_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::Unroll::make(
-                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                unroll_clause.get_arguments_as_expressions().front().get_constant()),
-                            stmt.get_locus()));
-            }
-
-            // Unroll and Jam
-            PragmaCustomClause unroll_and_jam_clause = pragma_line.get_clause("unroll_and_jam");
-            
-            if (unroll_and_jam_clause.is_defined())
-            {
-                environment.append(
-                        Nodecl::OpenMP::UnrollAndJam::make(
-                            Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
-                                unroll_and_jam_clause.get_arguments_as_expressions().front().get_constant()),
-                            stmt.get_locus()));
-            }
+            process_common_simd_clauses(stmt, pragma_line, environment);
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase statements = stmt.get_statements();

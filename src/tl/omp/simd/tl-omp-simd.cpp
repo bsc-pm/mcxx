@@ -245,6 +245,10 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(simd_environment, suitable_expressions);
 
+            // Nontemporal clause
+            TL::ObjectList<Nodecl::NodeclBase> nontemporal_expressions;
+            process_nontemporal_clause(simd_environment, nontemporal_expressions);
+
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
             process_vectorlengthfor_clause(simd_environment, vectorlengthfor_type);
@@ -275,6 +279,7 @@ namespace TL {
                     _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
                     suitable_expressions,
+                    nontemporal_expressions,
                     vectorizer_cache,
                     &reductions,
                     &new_external_vector_symbol_map);
@@ -461,6 +466,10 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
+            // Nontemporal clause
+            TL::ObjectList<Nodecl::NodeclBase> nontemporal_expressions;
+            process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
+
             // Cache clause
             TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
             process_cache_clause(omp_simd_for_environment, cached_expressions);
@@ -491,6 +500,7 @@ namespace TL {
                     _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
                     suitable_expressions,
+                    nontemporal_expressions,
                     vectorizer_cache,
                     &reductions,
                     &new_external_vector_symbol_map);
@@ -687,6 +697,10 @@ namespace TL {
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
 
+            // Nontemporal clause
+            TL::ObjectList<Nodecl::NodeclBase> nontemporal_expressions;
+            process_nontemporal_clause(omp_environment, nontemporal_expressions);
+
             // Cache clause
             TL::ObjectList<Nodecl::NodeclBase> cached_expressions;
             process_cache_clause(omp_environment, cached_expressions);
@@ -710,29 +724,6 @@ namespace TL {
                 running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             } 
 
-            // Mask Version
-            if (_support_masking && omp_nomask.is_null())
-            {
-                common_simd_function(simd_node, function_code, 
-                        suitable_expressions, vectorlengthfor_type, 
-                        vectorizer_cache, true);
-            }
-            // Nomask Version
-            if (omp_mask.is_null())
-            {
-                common_simd_function(simd_node, function_code, 
-                        suitable_expressions, vectorlengthfor_type,
-                        vectorizer_cache, false);
-            }
-        }
-
-        void SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
-                const Nodecl::FunctionCode& function_code,
-                const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                const TL::Type& vectorlengthfor_type,
-                const VectorizerCache& vectorizer_cache,
-                const bool masked_version)
-        {
             // Vectorizer Environment
             VectorizerEnvironment function_environment(
                     _device_name,
@@ -744,10 +735,34 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     suitable_expressions,
+                    nontemporal_expressions,
                     vectorizer_cache,
                     NULL,
                     NULL);
 
+            // Mask Version
+            if (_support_masking && omp_nomask.is_null())
+            {
+                common_simd_function(simd_node, 
+                        function_code, 
+                        function_environment, 
+                        true);
+            }
+            // Nomask Version
+            if (omp_mask.is_null())
+            {
+                common_simd_function(simd_node, 
+                        function_code,
+                        function_environment,
+                        false);
+            }
+        }
+
+        void SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+                const Nodecl::FunctionCode& function_code,
+                Vectorization::VectorizerEnvironment& function_environment,
+                const bool masked_version)
+        {
             // Get code ready for vectorisation
             _vectorizer.preprocess_code(function_code, function_environment);
 
@@ -815,6 +830,19 @@ namespace TL {
             if(!omp_suitable.is_null())
             {
                 suitable_expressions = omp_suitable.get_suitable_expressions().
+                    as<Nodecl::List>().to_object_list();
+            }
+        }
+
+        void SimdVisitor::process_nontemporal_clause(const Nodecl::List& environment,
+                TL::ObjectList<Nodecl::NodeclBase>& nontemporal_expressions)
+        {
+            Nodecl::OpenMP::Nontemporal omp_nontemporal = 
+                environment.find_first<Nodecl::OpenMP::Nontemporal>();
+
+            if(!omp_nontemporal.is_null())
+            {
+                nontemporal_expressions = omp_nontemporal.get_nontemporal_expressions().
                     as<Nodecl::List>().to_object_list();
             }
         }

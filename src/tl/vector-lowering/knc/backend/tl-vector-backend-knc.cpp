@@ -1792,6 +1792,86 @@ namespace TL
             node.replace(function_call);
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorStreamStore& node) 
+        {
+            Nodecl::NodeclBase lhs = node.get_lhs();
+            Nodecl::NodeclBase rhs = node.get_rhs();
+            Nodecl::NodeclBase mask = node.get_mask();
+
+            TL::Type type = node.get_lhs().get_type().basic_type();
+
+            TL::Source stream_store_src, cache_evict_src, intrin_src, intrin_name,
+                intrin_op_name, args,intrin_type_suffix, mask_prefix, mask_args;
+
+            stream_store_src
+                << "({"
+                << intrin_src << ";"
+                << cache_evict_src << ";"
+                << "})"
+                ;
+
+            intrin_src << intrin_name
+                << "("
+                << args
+                << ")"
+                ;
+
+            intrin_name << KNC_INTRIN_PREFIX
+                << mask_prefix
+                << "_"
+                << intrin_op_name
+                << "_"
+                << intrin_type_suffix
+                ;
+
+            process_mask_component(mask, mask_prefix, mask_args, type, 
+                    KNCConfigMaskProcessing::ONLY_MASK );
+
+            intrin_op_name << "storenrngo";
+
+            if (type.is_float()) 
+            { 
+                intrin_type_suffix << "ps"; 
+            } 
+            else if (type.is_double()) 
+            { 
+                intrin_type_suffix << "pd"; 
+            } 
+            else if (type.is_integral_type()) 
+            { 
+                intrin_type_suffix << "epi32";
+           } 
+            else
+            {
+                internal_error("KNC Lowering: Node %s at %s has an unsupported type.", 
+                        ast_print_node_type(node.get_kind()),
+                        locus_to_str(node.get_locus()));
+            }
+
+            walk(lhs);
+            walk(rhs);
+
+            args << "(" 
+                << get_casting_to_scalar_pointer(
+                        TL::Type::get_void_type())
+                << as_expression(lhs)
+                << ")"
+                << ", "
+                << mask_args
+                << as_expression(rhs)
+                ;
+
+            cache_evict_src << "_mm_clevict("
+                << as_expression(lhs)
+                << ", 1)"
+                ;
+
+            Nodecl::NodeclBase function_call =
+                stream_store_src.parse_expression(node.retrieve_context());
+
+            node.replace(function_call);
+        }
+
         void KNCVectorLowering::visit(const Nodecl::UnalignedVectorStore& node) 
         { 
             Nodecl::NodeclBase lhs = node.get_lhs();
