@@ -311,6 +311,14 @@ static void build_scope_template_deleted_function_definition(
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
 
+static void build_scope_template_defaulted_function_definition(
+        AST function_declaration,
+        decl_context_t decl_context,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols,
+        gather_decl_spec_list_t* gather_decl_spec_list);
+
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
@@ -12332,6 +12340,13 @@ static void build_scope_template_declaration(AST a,
                         declared_symbols, gather_decl_spec_list);
                 break;
             }
+        case AST_DEFAULTED_FUNCTION_DEFINITION:
+            {
+                build_scope_template_defaulted_function_definition(templated_decl, template_context,
+                        /* is_explicit_specialization */ 0, nodecl_output,
+                        declared_symbols, gather_decl_spec_list);
+                break;
+            }
         case AST_TEMPLATE_DECLARATION :
             {
                 build_scope_template_declaration(templated_decl, top_template_decl, template_context, nodecl_output,
@@ -12478,6 +12493,20 @@ static void build_scope_explicit_template_specialization(AST a,
                         declared_symbols, gather_decl_spec_list);
                 break;
             }
+        case AST_DELETED_FUNCTION_DEFINITION:
+            {
+                build_scope_template_deleted_function_definition(ASTSon0(a), template_context,
+                        /* is_explicit_specialization */ 1, nodecl_output,
+                        declared_symbols, gather_decl_spec_list);
+                break;
+            }
+        case AST_DEFAULTED_FUNCTION_DEFINITION:
+            {
+                build_scope_template_defaulted_function_definition(ASTSon0(a), template_context,
+                        /* is_explicit_specialization */ 1, nodecl_output,
+                        declared_symbols, gather_decl_spec_list);
+                break;
+            }
         case AST_EXPLICIT_SPECIALIZATION :
             {
                 build_scope_explicit_template_specialization(ASTSon0(a), template_context,
@@ -12531,7 +12560,24 @@ static void build_scope_template_deleted_function_definition(
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list UNUSED_PARAMETER)
 {
-    common_defaulted_or_deleted(function_declaration, decl_context, NULL, set_deleted,
+    common_defaulted_or_deleted(function_declaration, decl_context,
+            NULL, set_deleted,
+            /* is_template */ 1,
+            is_explicit_specialization,
+            declared_symbols,
+            nodecl_output);
+}
+
+static void build_scope_template_defaulted_function_definition(
+        AST function_declaration,
+        decl_context_t decl_context,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols,
+        gather_decl_spec_list_t* gather_decl_spec_list UNUSED_PARAMETER)
+{
+    common_defaulted_or_deleted(function_declaration, decl_context,
+            check_defaulted, set_defaulted,
             /* is_template */ 1,
             is_explicit_specialization,
             declared_symbols,
@@ -13591,6 +13637,12 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
+    CXX03_LANGUAGE()
+    {
+        warn_printf("%s: warning: default/delete functions are a C++11 feature\n",
+                ast_location(a));
+    }
+
     AST function_header = ASTSon0(a);
 
     if (ASTType(function_header) == AST_AMBIGUITY)
@@ -13669,7 +13721,11 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
     }
 
     *nodecl_output = nodecl_append_to_list(*nodecl_output,
-            nodecl_make_cxx_decl(nodecl_null(),
+            nodecl_make_cxx_decl(
+                nodecl_make_context(
+                    nodecl_null(),
+                    decl_context,
+                    ast_get_locus(a)),
                 entry,
                 ast_get_locus(a)));
 }
@@ -15097,6 +15153,12 @@ static void build_scope_default_or_delete_member_function_definition(
         access_specifier_t current_access, type_t* class_info,
         nodecl_t* nodecl_output)
 {
+    CXX03_LANGUAGE()
+    {
+        warn_printf("%s: warning: default/delete functions are a C++11 feature\n",
+                ast_location(a));
+    }
+
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 

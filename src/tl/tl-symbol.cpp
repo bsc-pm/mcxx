@@ -441,6 +441,16 @@ namespace TL
         return (_symbol->entity_specs.is_override);
     }
 
+    bool Symbol::is_deleted() const
+    {
+        return (_symbol->entity_specs.is_deleted);
+    }
+
+    bool Symbol::is_defaulted() const
+    {
+        return (_symbol->entity_specs.is_defaulted);
+    }
+
     bool Symbol::is_hides_member() const
     {
         return (_symbol->entity_specs.is_hides_member);

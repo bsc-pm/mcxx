@@ -6347,6 +6347,14 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             pure_spec += " = 0 ";
         }
+        else if (symbol.is_deleted())
+        {
+            pure_spec += " = delete ";
+        }
+        else if (symbol.is_defaulted())
+        {
+            pure_spec += " = default ";
+        }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
 
