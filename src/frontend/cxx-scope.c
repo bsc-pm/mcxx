@@ -6946,7 +6946,58 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
 
-                if (is_dependent_type(new_class_type))
+                if (is_dependent_typename_type(new_class_type))
+                {
+                    // We are updating the base entry (T) of a dependent typename
+                    // [T]::T1 with another dependent typename [S]::S2
+                    // so the updated type should be [S]::S2::T1
+                    scope_entry_t* new_class_dependent_entry = NULL;
+                    nodecl_t new_class_dependent_parts = nodecl_null();
+                    dependent_typename_get_components(new_class_type,
+                            &new_class_dependent_entry, &new_class_dependent_parts);
+
+                    // Now append the dependent parts of this type
+                    nodecl_t appended_dependent_parts = nodecl_null();
+
+                    int num_items = 0;
+                    nodecl_t* list = NULL;
+                    int i;
+
+                    ERROR_CONDITION(nodecl_get_kind(new_class_dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
+
+                    list = nodecl_unpack_list(nodecl_get_child(new_class_dependent_parts, 0), &num_items);
+                    for (i = 0; i < num_items; i++)
+                    {
+                        appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
+                    }
+                    xfree(list);
+
+                    ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
+
+                    list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_items);
+                    for (i = 0; i < num_items; i++)
+                    {
+                        appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
+                    }
+                    xfree(list);
+
+                    dependent_parts = nodecl_make_cxx_dep_name_nested(
+                            appended_dependent_parts,
+                            nodecl_get_locus(dependent_parts));
+
+                    scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                    new_sym->kind = SK_DEPENDENT_ENTITY;
+                    new_sym->locus = locus;
+                    new_sym->symbol_name = new_class_dependent_entry->symbol_name;
+                    new_sym->decl_context = decl_context;
+                    new_sym->type_information = get_dependent_typename_type_from_parts(
+                            new_class_dependent_entry,
+                            dependent_parts);
+
+                    return entry_list_new(new_sym);
+                }
+                else if (is_named_type(new_class_type)
+                        && is_dependent_type(new_class_type))
                 {
                     scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
                     new_sym->kind = SK_DEPENDENT_ENTITY;
