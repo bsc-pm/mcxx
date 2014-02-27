@@ -2273,7 +2273,10 @@ static type_t* update_dependent_typename(
 
     scope_entry_t* current_member = dependent_entry;
 
-    instantiate_template_class_if_needed(current_member, current_member->decl_context, locus);
+    char possible = instantiate_template_class_if_possible(current_member, current_member->decl_context, locus);
+
+    if (!possible)
+        return NULL;
 
     nodecl_t new_dependent_parts = update_dependent_typename_dependent_parts(dependent_parts, decl_context, locus,
             pack_index);

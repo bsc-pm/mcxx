@@ -1693,10 +1693,10 @@ void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t d
 
 // Used in overload as it temptatively tries to instantiate classes lest they
 // were a based or a derived class of another
-void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+char instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
 {
     if (!template_class_needs_to_be_instantiated(entry))
-        return;
+        return 1;
 
     // Try to see if it can actually be instantiated
     template_parameter_list_t* deduced_template_arguments = NULL;
@@ -1706,9 +1706,11 @@ void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t
     // No specialized template is eligible for it, give up
     if (selected_template == NULL
         || is_incomplete_type(selected_template))
-        return;
+        return 0;
 
     instantiate_template_class(entry, decl_context, selected_template, deduced_template_arguments, locus);
+
+    return 1;
 }
 
 static nodecl_t nodecl_instantiation_units;
