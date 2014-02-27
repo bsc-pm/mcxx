@@ -186,6 +186,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                     locus,
                     /* pack_index */ -1);
 
+
             if (updated_template_parameters->arguments[i] == NULL)
             {
                 if (!checking_ambiguity())
@@ -194,6 +195,13 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                             locus_to_str(locus));
                 }
                 return NULL;
+            }
+
+            // Preserve default parameters of template functions
+            if (!is_class)
+            {
+                updated_template_parameters->arguments[i]->is_default = 
+                    template_parameters->arguments[i]->is_default;
             }
         }
     }
