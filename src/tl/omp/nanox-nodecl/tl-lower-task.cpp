@@ -432,17 +432,16 @@ void LoweringVisitor::emit_async_common(
            copy_imm_setup,
            translation_function,
            const_wd_info,
-           dynamic_wd_info;
+           dynamic_wd_info,
+           dependences_info;
 
     TL::Symbol xlate_function_symbol;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
-    Source fill_outline_arguments,
-           fill_dependences_outline;
+    Source fill_outline_arguments;
 
     Nodecl::NodeclBase fill_immediate_arguments_tree;
-    Source fill_immediate_arguments,
-           fill_dependences_immediate;
+    Source fill_immediate_arguments;
 
     bool is_function_task = called_task.is_valid();
 
@@ -687,11 +686,11 @@ void LoweringVisitor::emit_async_common(
         <<     if_condition_end_opt
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
+        <<     dependences_info
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<        statement_placeholder(fill_outline_arguments_tree)
-        <<        fill_dependences_outline
         <<        copy_ol_setup
         <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", dependences, (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -700,7 +699,6 @@ void LoweringVisitor::emit_async_common(
         <<     "{"
                     // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<          statement_placeholder(fill_immediate_arguments_tree)
-        <<          fill_dependences_immediate
         <<          copy_imm_setup
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", "
@@ -757,14 +755,7 @@ void LoweringVisitor::emit_async_common(
             ;
     }
 
-    fill_dependences(construct, 
-            outline_info, 
-            /* accessor */ Source("ol_args->"),
-            fill_dependences_outline);
-    fill_dependences(construct, 
-            outline_info, 
-            /* accessor */ Source("imm_args."),
-            fill_dependences_immediate);
+    fill_dependences(construct, outline_info, dependences_info);
 
     FORTRAN_LANGUAGE()
     {
@@ -2221,12 +2212,10 @@ void LoweringVisitor::emit_translation_function_region(
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
-        Source arguments_accessor,
         // out
-        Source& result_src
-        )
+        Source& result_src)
 {
-    fill_dependences_internal(ctr, outline_info, arguments_accessor, /* on_wait */ false, result_src);
+    fill_dependences_internal(ctr, outline_info, /* on_wait */ false, result_src);
 }
 
 void LoweringVisitor::handle_dependency_item(
@@ -2510,11 +2499,9 @@ void LoweringVisitor::handle_dependency_item(
 void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
-        Source arguments_accessor,
         bool on_wait,
         // out
-        Source& result_src
-        )
+        Source& result_src)
 {
     Source dependency_init;
 
