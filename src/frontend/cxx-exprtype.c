@@ -388,6 +388,8 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
 static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void resolve_this_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 // Typechecking functions
 static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -605,34 +607,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_THIS_VARIABLE :
             {
-                scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
-
-                if (entry_list != NULL)
-                {
-                    scope_entry_t *entry = entry_list_head(entry_list);
-
-                    if (is_pointer_to_class_type(entry->type_information))
-                    {
-                        *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(expression));
-                        // Note that 'this' is an rvalue!
-                        nodecl_set_type(*nodecl_output, entry->type_information);
-                        if (is_dependent_type(entry->type_information))
-                        {
-                            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-                        }
-                    }
-                }
-                else
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: 'this' cannot be used in this context\n",
-                                ast_location(expression));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
-                }
-                entry_list_free(entry_list);
-
+                resolve_this_symbol(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_SYMBOL :
@@ -1913,6 +1888,53 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
             const_value_get_zero(
                 type_get_size(get_pointer_type(get_void_type())),
                 /* sign */ 0));
+}
+
+static void resolve_this_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    scope_entry_t *this_symbol = NULL;
+    if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        // Lookup a symbol 'this' as usual
+        scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
+        if (entry_list != NULL)
+        {
+            this_symbol = entry_list_head(entry_list);
+        }
+        entry_list_free(entry_list);
+    }
+    // We are not in block scope but lexically nested in a class scope, use the 'this' of the class
+    else if (decl_context.class_scope != NULL)
+    {
+        scope_entry_t* class_symbol = decl_context.class_scope->related_entry;
+        ERROR_CONDITION(class_symbol == NULL, "Invalid symbol", 0);
+
+        ERROR_CONDITION(class_symbol->entity_specs.num_related_symbols == 0
+                || class_symbol->entity_specs.related_symbols[0] == NULL,
+                "Invalid related symbol for class", 0);
+
+        this_symbol = class_symbol->entity_specs.related_symbols[0];
+    }
+
+    if (this_symbol == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: 'this' cannot be used in this context\n",
+                    ast_location(expression));
+        }
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_symbol(this_symbol, ast_get_locus(expression));
+        // Note that 'this' is an rvalue!
+        nodecl_set_type(*nodecl_output, this_symbol->type_information);
+        if (is_dependent_type(this_symbol->type_information))
+        {
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
+    }
 }
 
 static 

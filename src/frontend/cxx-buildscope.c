@@ -7893,21 +7893,8 @@ static void build_scope_delayed_member_declarator_initializers(void)
         scope_entry_t* entry = _delayed_member_initializer[i].entry;
         AST initializer = _delayed_member_initializer[i].initializer;
 
-        /* Create a new block context where we will register 'this' */
-        decl_context_t block_context = new_block_context(entry->decl_context);
-        type_t* pointed_this = entry->entity_specs.class_type;
-        type_t* this_type = get_pointer_type(pointed_this);
-
-        scope_entry_t* this_symbol = new_symbol(block_context, block_context.current_scope, "this");
-
-        this_symbol->locus = entry->locus;
-        this_symbol->kind = SK_VARIABLE;
-        this_symbol->type_information = this_type;
-        this_symbol->defined = 1;
-        this_symbol->do_not_print = 1;
-
         check_initialization(initializer,
-                block_context,
+                entry->decl_context,
                 entry,
                 get_unqualified_type(entry->type_information),
                 &nodecl_init,
@@ -8858,6 +8845,28 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             injected_symbol->entity_specs.is_injected_class_name = 1;
         }
+
+
+        // Create a 'this' only used for class-scope lexical scopes
+        type_t* pointed_this = get_user_defined_type(class_entry);
+        type_t* this_type = get_pointer_type(pointed_this);
+        this_type = get_cv_qualified_type(this_type, CV_CONST);
+
+        // This symbol must be detached because we do not want it be found
+        // through any sort of lookup. It will be accessible throgh
+        // the related_symbols of the class symbol
+        scope_entry_t* this_symbol = xcalloc(1, sizeof(*this_symbol));
+        this_symbol->symbol_name = uniquestr("this");
+        this_symbol->decl_context = inner_decl_context;
+        this_symbol->locus = ast_get_locus(a);
+        this_symbol->kind = SK_VARIABLE;
+        this_symbol->type_information = this_type;
+        this_symbol->defined = 1;
+        this_symbol->do_not_print = 1;
+
+        P_LIST_ADD(class_entry->entity_specs.related_symbols,
+                class_entry->entity_specs.num_related_symbols,
+                this_symbol);
     }
 
     access_specifier_t current_access;
@@ -9032,6 +9041,30 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
             /* prototype_context */ NULL, nodecl_output);
 }
 
+static void register_this_symbol(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid class", 0);
+
+    // Early registration of 'this' to be used in the declarator Its exact type
+    // will be updated prior analyzing the body of the function (e.g. when the
+    // function is const)
+    type_t* pointed_this = get_user_defined_type(class_symbol);
+    type_t* this_type = get_pointer_type(pointed_this);
+    // It is a constant pointer, so qualify like it is
+    this_type = get_cv_qualified_type(this_type, CV_CONST);
+
+    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, "this");
+
+    this_symbol->locus = locus;
+
+    this_symbol->kind = SK_VARIABLE;
+    this_symbol->type_information = this_type;
+    this_symbol->defined = 1;
+    this_symbol->do_not_print = 1;
+}
+
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
@@ -9144,20 +9177,33 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     return;
                 }
 
+                scope_entry_t* first_symbol = entry_list_head(symbols);
+                entry_list_free(symbols);
+
                 // Update the entity context, inheriting the template_scope
-                entity_context = entry_list_head(symbols)->decl_context;
+                entity_context = first_symbol->decl_context;
                 entity_context.template_parameters = decl_context.template_parameters;
 
                 if (prototype_context != NULL)
                 {
-                    prototype_context->current_scope->contained_in = entry_list_head(symbols)->decl_context.current_scope;
-                    prototype_context->namespace_scope = entry_list_head(symbols)->decl_context.namespace_scope;
-                    prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
+                    prototype_context->current_scope->contained_in = first_symbol->decl_context.current_scope;
+                    prototype_context->namespace_scope = first_symbol->decl_context.namespace_scope;
+                    prototype_context->class_scope = first_symbol->decl_context.class_scope;
+
                 }
-
-                entry_list_free(symbols);
             }
+        }
 
+        // Register 'this' for a successful parsing of the declarator
+        if (prototype_context != NULL
+                && prototype_context->current_scope->kind == BLOCK_SCOPE)
+        {
+            if (entity_context.current_scope->kind == CLASS_SCOPE)
+            {
+                register_this_symbol(*prototype_context,
+                        entity_context.current_scope->related_entry,
+                        ast_get_locus(a));
+            }
         }
 
         // Second traversal, here we build the type
@@ -14087,7 +14133,12 @@ static scope_entry_t* build_scope_function_definition_declarator(
         }
     }
 
-    // declarator
+    // block context
+    *block_context = new_block_context(decl_context);
+    // This does not modify block_context.current_scope, it simply adds a function_scope to the context
+    *block_context = new_function_context(*block_context);
+
+    // declarator type
     type_t* declarator_type = NULL;
     scope_entry_t* entry = NULL;
 
@@ -14096,10 +14147,6 @@ static scope_entry_t* build_scope_function_definition_declarator(
     {
         new_decl_context.decl_flags |= DF_CONSTRUCTOR;
     }
-
-    *block_context = new_block_context(decl_context);
-    // This does not modify block_context.current_scope, it simply adds a function_scope to the context
-    *block_context = new_function_context(*block_context);
 
     // block-context will be updated for qualified-id to reflect the exact context
     build_scope_declarator_with_parameter_context(function_declarator, gather_info, type_info, &declarator_type,
@@ -14239,6 +14286,7 @@ static void build_scope_function_definition_body(
     AST function_body = ASTSon2(function_definition);
     AST statement = ASTSon0(function_body);
 
+    // Here we update the type of 'this'
     if (entry->entity_specs.is_member)
     {
         // If is a member function sign up additional information
@@ -14256,14 +14304,13 @@ static void build_scope_function_definition_body(
             // It is a constant pointer, so qualify like it is
             this_type = get_cv_qualified_type(this_type, CV_CONST);
 
-            scope_entry_t* this_symbol = new_symbol(block_context, block_context.current_scope, "this");
+            scope_entry_list_t* entry_list = query_name_str(block_context, "this", NULL);
+            // If the function is defined inside the class specifier, build_scope_function_definition_declarator
+            ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
+            scope_entry_t *this_symbol = entry_list_head(entry_list);
+            entry_list_free(entry_list);
 
-            this_symbol->locus = ast_get_locus(function_definition);
-
-            this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
-            this_symbol->defined = 1;
-            this_symbol->do_not_print = 1;
         }
     }
 
