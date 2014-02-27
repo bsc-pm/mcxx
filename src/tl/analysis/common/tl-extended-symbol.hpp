@@ -41,7 +41,7 @@ namespace Utils {
     //! Returns all nodecl bases of a given nodecl
     ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
     
-    //!Returns the nodecl base of a nodecl when it only has one ( a nodecl base has always a related symbol)
+    //!Returns the nodecl base of a nodecl when it only has one (a nodecl base has always a related symbol)
     Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
     
     /*!This class is used to store l-values

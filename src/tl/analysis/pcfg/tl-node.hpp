@@ -492,60 +492,72 @@ namespace Analysis {
             Utils::ext_sym_set get_ue_vars( );
 
             //! Adds a new upward exposed variable to the node
-            void set_ue_var( Utils::ExtendedSymbol new_ue_var );
+            void add_ue_var( Utils::ExtendedSymbol new_ue_var );
 
             //! Adds a new set of upward exposed variable to the node
-            void set_ue_var( Utils::ext_sym_set new_ue_vars );
+            void add_ue_var( Utils::ext_sym_set new_ue_vars );
 
+            //! Sets a new set of upward exposed variables to the node
+            void set_ue_var( Utils::ext_sym_set new_ue_vars );
+            
             //! Deletes an old upward exposed variable from the node
-            void unset_ue_var( Utils::ExtendedSymbol old_ue_var );
+            void remove_ue_var( Utils::ExtendedSymbol old_ue_var );
 
             //! Returns the list of private upward exposed variables of the node
             Utils::ext_sym_set get_private_ue_vars( );
             
             //! Adds a new set of private upward exposed variable to the node
-            void set_private_ue_var( Utils::ext_sym_set new_private_ue_vars );
+            void add_private_ue_var( Utils::ext_sym_set new_private_ue_vars );
             
             //! Returns the list of killed variables of the node
             Utils::ext_sym_set get_killed_vars( );
 
             //! Adds a new killed variable to the node
-            void set_killed_var( Utils::ExtendedSymbol new_killed_var );
+            void add_killed_var( Utils::ExtendedSymbol new_killed_var );
 
             //! Adds a new set of killed variables to the node
-            void set_killed_var( Utils::ext_sym_set new_killed_vars );
+            void add_killed_var( Utils::ext_sym_set new_killed_vars );
 
+            //! Sets a new set of killed variables to the node
+            void set_killed_var( Utils::ext_sym_set new_killed_vars );
+            
             //! Deletes an old killed variable from the node
-            void unset_killed_var( Utils::ExtendedSymbol old_killed_var );
+            void remove_killed_var( Utils::ExtendedSymbol old_killed_var );
 
             //! Returns the list of private killed variables of the node
             Utils::ext_sym_set get_private_killed_vars( );
             
             //! Adds a new private killed variable to the node
-            void set_private_killed_var( Utils::ext_sym_set new_private_killed_vars );
+            void add_private_killed_var( Utils::ext_sym_set new_private_killed_vars );
             
             //! Returns the list of undefined behaviour variables of the node
             Utils::ext_sym_set get_undefined_behaviour_vars( );
 
             //! Adds a new undefined behaviour variable to the node
-            void set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
+            void add_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
 
             //! Adds a set of undefined behaviour variables to the node
-            void set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+            void add_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
 
             //! Adds a new undefined behaviour variable and deletes this variable from them
             //! upward exposed and killed sets of the node
-            void set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+            void add_undefined_behaviour_var_and_recompute_use_and_killed_sets(
                     Utils::ExtendedSymbol new_undef_var );
 
+            //! Sets a new undefined behaviour variable to the node
+            void set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
+            
+            //! Sets a new set of undefined behaviour variables to the node
+            void set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+            
             //! Deletes an old undefined behaviour variable from the node
-            void unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var );
+            void remove_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var );
 
             //! Returns the list of private undefined behaviour variables of the node
             Utils::ext_sym_set get_private_undefined_behaviour_vars( );
             
             //! Adds a new private undefined behaviour variable to the node
-            void set_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars );
+            void add_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars );
             
             // ************* END getters and setters for use-definition analysis ************ //
             // ****************************************************************************** //

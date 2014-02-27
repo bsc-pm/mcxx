@@ -1089,10 +1089,10 @@ namespace Analysis {
         return ue_vars;
     }
 
-    void Node::set_ue_var( Utils::ExtendedSymbol new_ue_var )
+    void Node::add_ue_var( Utils::ExtendedSymbol new_ue_var )
     {
         Utils::ext_sym_set ue_vars = get_ue_vars( );
-        if( Utils::ext_sym_set_contains_enclosing_nodecl(new_ue_var.get_nodecl( ), ue_vars).is_null( ) )
+        if( Utils::ext_sym_set_contains_enclosing_nodecl( new_ue_var.get_nodecl( ), ue_vars).is_null( ) )
         {
             if( !Utils::ext_sym_set_contains_enclosed_nodecl( new_ue_var.get_nodecl( ), ue_vars ).is_null( ) )
                 delete_enclosed_var_from_list( new_ue_var, ue_vars );
@@ -1102,7 +1102,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_ue_var( Utils::ext_sym_set new_ue_vars )
+    void Node::add_ue_var( Utils::ext_sym_set new_ue_vars )
     {
         Utils::ext_sym_set ue_vars = get_ue_vars( );
         Utils::ext_sym_set purged_ue_vars;
@@ -1121,7 +1121,12 @@ namespace Analysis {
         set_data( _UPPER_EXPOSED, ue_vars );
     }
 
-    void Node::unset_ue_var( Utils::ExtendedSymbol old_ue_var )
+    void Node::set_ue_var( Utils::ext_sym_set new_ue_vars )
+    {
+        set_data(_UPPER_EXPOSED, new_ue_vars);
+    }
+    
+    void Node::remove_ue_var( Utils::ExtendedSymbol old_ue_var )
     {
         Utils::ext_sym_set ue_vars = get_ue_vars( );
         ue_vars.erase( old_ue_var );
@@ -1136,7 +1141,7 @@ namespace Analysis {
         return private_ue_vars;
     }
 
-    void Node::set_private_ue_var( Utils::ext_sym_set new_private_ue_vars )
+    void Node::add_private_ue_var( Utils::ext_sym_set new_private_ue_vars )
     {
         Utils::ext_sym_set private_ue_vars = get_private_ue_vars( );
         Utils::ext_sym_set purged_private_ue_vars;
@@ -1163,7 +1168,7 @@ namespace Analysis {
         return killed_vars;
     }
 
-    void Node::set_killed_var( Utils::ExtendedSymbol new_killed_var )
+    void Node::add_killed_var( Utils::ExtendedSymbol new_killed_var )
     {
         Utils::ext_sym_set killed_vars = get_killed_vars( );
         if( Utils::ext_sym_set_contains_enclosing_nodecl( new_killed_var.get_nodecl( ), killed_vars ).is_null( ) )
@@ -1176,7 +1181,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_killed_var( Utils::ext_sym_set new_killed_vars )
+    void Node::add_killed_var( Utils::ext_sym_set new_killed_vars )
     {
         Utils::ext_sym_set killed_vars = get_killed_vars( );
         Utils::ext_sym_set purged_killed_vars;
@@ -1195,11 +1200,16 @@ namespace Analysis {
         set_data( _KILLED, killed_vars );
     }
 
-    void Node::unset_killed_var( Utils::ExtendedSymbol old_killed_var )
+    void Node::set_killed_var( Utils::ext_sym_set new_killed_vars )
+    {
+        set_data( _KILLED, new_killed_vars );
+    }
+    
+    void Node::remove_killed_var( Utils::ExtendedSymbol old_killed_var )
     {
         Utils::ext_sym_set killed_vars = get_killed_vars( );
         killed_vars.erase( old_killed_var );
-        set_data(_KILLED, killed_vars);
+        set_data( _KILLED, killed_vars );
     }
 
     Utils::ext_sym_set Node::get_private_killed_vars( )
@@ -1210,7 +1220,7 @@ namespace Analysis {
         return private_killed_vars;
     }
     
-    void Node::set_private_killed_var( Utils::ext_sym_set new_private_killed_vars )
+    void Node::add_private_killed_var( Utils::ext_sym_set new_private_killed_vars )
     {
         Utils::ext_sym_set private_killed_vars = get_private_killed_vars( );
         Utils::ext_sym_set purged_private_killed_vars;
@@ -1237,7 +1247,7 @@ namespace Analysis {
         return undef_vars;
     }
 
-    void Node::set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var )
+    void Node::add_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var )
     {
         Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars( );
         if( Utils::ext_sym_set_contains_enclosing_nodecl( new_undef_var.get_nodecl( ), undef_vars ).is_null( ) )
@@ -1249,7 +1259,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars )
+    void Node::add_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars )
     {
         Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars( );
         Utils::ext_sym_set purged_undef_vars;
@@ -1267,20 +1277,32 @@ namespace Analysis {
         set_data( _UNDEF, undef_vars );
     }
 
-    void Node::set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+    void Node::add_undefined_behaviour_var_and_recompute_use_and_killed_sets(
         Utils::ExtendedSymbol new_undef_var )
     {
         // Conservatively, delete the reference argument of UE and KILL sets
         if( has_key( _UPPER_EXPOSED ) )
-            unset_ue_var( new_undef_var );
+            remove_ue_var( new_undef_var );
         if( has_key( _KILLED ) )
-            unset_killed_var( new_undef_var );
+            remove_killed_var( new_undef_var );
 
         // Add the global variable to the UNDEF list
-        set_undefined_behaviour_var( new_undef_var );
+        add_undefined_behaviour_var( new_undef_var );
     }
 
-    void Node::unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
+    void Node::set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var )
+    {
+        Utils::ext_sym_set new_undef_var_set;
+        new_undef_var_set.insert( new_undef_var );
+        set_data( _UNDEF, new_undef_var_set );
+    }
+    
+    void Node::set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars )
+    {
+        set_data( _UNDEF, new_undef_vars );
+    }
+        
+    void Node::remove_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var )
     {
         Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars( );
         undef_vars.erase( old_undef_var );
@@ -1295,7 +1317,7 @@ namespace Analysis {
         return private_undef_vars;
     }
     
-    void Node::set_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars )
+    void Node::add_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars )
     {
         Utils::ext_sym_set private_undef_vars = get_private_undefined_behaviour_vars( );
         Utils::ext_sym_set purged_private_undef_vars;

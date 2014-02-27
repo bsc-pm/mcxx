@@ -69,8 +69,13 @@ namespace Analysis {
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def( Node* graph_node );
 
-        //!Propagate the Use-Def information from tasks to its task_creation nodes
         void propagate_usage_over_task_creation( Node* task_creation );
+        
+        void merge_children_usage( Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars, 
+                                   Utils::ext_sym_set& undef_vars, int node_id );
+        
+        //!Propagate the Use-Def information from tasks to the graph
+        void propagate_tasks_usage_to_graph( Node* graph_node, Node* current, Node* last_sync );
 
     public:
         //! Constructor
@@ -159,6 +164,15 @@ namespace Analysis {
         //!Prevents copy construction.
         UsageVisitor( const UsageVisitor& v );
 
+        /*!Method that computs the usage of a node taking into account the previous usage in the same node
+         * For nodes that has a part of an object that is upwards exposed and a part of an object that is killed,
+         * this method computes the different parts
+         */
+        void set_var_usage_to_node( const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind );
+        
+        //! Overloaded method to compute a nodes usage for a set of extended symbols instead of a single symbol
+        void set_var_usage_to_node( const Utils::ext_sym_set& var_set, Utils::UsageKind usage_kind );
+        
         // Methods to parse the file containing C function definitions useful for Use-Def analysis
         void parse_parameter( std::string current_param, const Nodecl::NodeclBase& arg );
         bool parse_c_functions_file( Symbol func_sym, const Nodecl::List& args );
