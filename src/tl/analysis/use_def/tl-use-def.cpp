@@ -500,15 +500,19 @@ namespace {
                 // Use-def info is computed from inner nodes to outer nodes
                 compute_usage_rec( current->get_graph_entry_node( ) );
 
+                // We need to do this here because in order to propagate the tasks usage 
+                // to the outer nodes where they are created,
+                // all children of the task_creation node must have the use-def computed
+                ObjectList<Node*> inner_tasks;
+                if( ExtensibleGraph::node_contains_tasks( current, current, inner_tasks ) )
+                    // This set is traversed from end to start because the tasks are ordered from top to bottom and
+                    // we need later tasks to be analyzed before its ancestor tasks are analyzed
+                    for( ObjectList<Node*>::reverse_iterator it = inner_tasks.rbegin(); it != inner_tasks.rend(); ++it )
+                        propagate_task_usage_to_task_creation_node(*it);
+                
                 // Propagate usage info from inner to outer nodes
                 ExtensibleGraph::clear_visits( current );
                 set_graph_node_use_def( current );
-                
-                if( current->is_omp_task_node( ) )
-                {   // Propagate usage to its task creation node
-                    Node* task_creation = current->get_parents( )[0];
-                    propagate_usage_over_task_creation( task_creation );
-                }
             }
             else
             {
@@ -528,27 +532,62 @@ namespace {
         }
     }
     
-    void UseDef::propagate_usage_over_task_creation( Node* task_creation )
+    void UseDef::propagate_task_usage_to_task_creation_node( Node* task_creation )
     {
-        // Propagate current created task usage
         // Task creation children may be: created task, task synchronization, another task creation
+        Utils::ext_sym_set ue_vars = task_creation->get_ue_vars( );
+        Utils::ext_sym_set killed_vars = task_creation->get_killed_vars( );
+        Utils::ext_sym_set undef_vars = task_creation->get_undefined_behaviour_vars( );
+        Utils::ext_sym_set child_ue_vars, child_killed_vars, child_undef_vars;
+        
         ObjectList<Node*> children = task_creation->get_children( );
         for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
         {
-            task_creation->add_ue_var( ( *it )->get_ue_vars( ) );
-            task_creation->add_killed_var( ( *it )->get_killed_vars( ) );
-            task_creation->add_undefined_behaviour_var( ( *it )->get_undefined_behaviour_vars( ) );
+            child_ue_vars = (*it)->get_ue_vars( );
+            child_killed_vars = (*it)->get_killed_vars( );
+            child_undef_vars = (*it)->get_undefined_behaviour_vars( );
+            
+            ue_vars.insert( child_ue_vars.begin(), child_ue_vars.end() );
+            killed_vars.insert( child_killed_vars.begin(), child_killed_vars.end() );
+            undef_vars.insert( child_undef_vars.begin(), child_undef_vars.end() );
         }
         
-        // Keep propagating to parents if they still are task creation nodes
-        ObjectList<Node*> parents = task_creation->get_parents( );
-        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+        // Purge the sets: 
+        // 1.- When the same variable appears in all three sets UE, KILLED, UNDEF
+        Utils::ext_sym_set::iterator it = undef_vars.begin();
+        while( it != undef_vars.end( ) )
         {
-            if( ( *it )->is_omp_task_creation_node( ) )
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), ue_vars ).is_null() && 
+                !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), killed_vars ).is_null() )
             {
-                propagate_usage_over_task_creation( *it );
+                undef_vars.erase( it++ );
             }
+            else
+                ++it;
         }
+        // 2.- When a variable is UNDEF and it is either UE or KILLED, it must remain as UNDEF only
+        it = ue_vars.begin();
+        while( it != ue_vars.end( ) )
+        {
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), undef_vars ).is_null() && 
+                Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), killed_vars ).is_null() )
+                ue_vars.erase( it++ );
+            else
+                ++it;
+        }
+        it = killed_vars.begin();
+        while( it != killed_vars.end( ) )
+        {
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), undef_vars ).is_null() && 
+                Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), ue_vars ).is_null() )
+                killed_vars.erase( it++ );
+            else
+                ++it;
+        }
+        // 3.- Set the purged sets as usage information of the task creation node
+        task_creation->set_ue_var( ue_vars );
+        task_creation->set_killed_var( killed_vars );
+        task_creation->set_undefined_behaviour_var( undef_vars );
     }
     
     ObjectList<Utils::ext_sym_set> UseDef::get_use_def_over_nodes( Node* current )
@@ -559,6 +598,7 @@ namespace {
         {
             current->set_visited( true );
 
+            // Task nodes information has already been propagated to its corresponding task_creation node
             if( !current->is_omp_task_node( ) )
             {
                 // Use-Def in current node
@@ -572,55 +612,23 @@ namespace {
                 Utils::ext_sym_set ue_task_children, killed_task_children, undef_task_children;
                 for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 {
-                    // Usage information about tasks is computer lately
-                    if( !(*it)->is_omp_task_creation_node( ) )
+                    use_def_aux = get_use_def_over_nodes( *it );
+                    if( !use_def_aux.empty( ) )
                     {
-                        use_def_aux = get_use_def_over_nodes( *it );
-                        if( !use_def_aux.empty( ) )
-                        {
-                            ue_children = ext_sym_set_union( ue_children, use_def_aux[0] );
-                            killed_children = ext_sym_set_union( killed_children, use_def_aux[1] );
-                            undef_children = ext_sym_set_union( undef_children, use_def_aux[2] );
-                        }
-                    }
-                    else
-                    {
-                        // 1.- We first collect the task creation nodes and concatenate the usage information
-                        Node* task_creation = *it;
-                        ObjectList<Node*> tmp;
-                        while( task_creation->is_omp_task_creation_node( ) )
-                        {
-                            task_creation->set_visited( true );
-                            ue_children = ext_sym_set_union( ue_children, task_creation->get_ue_vars( ) );
-                            killed_children = ext_sym_set_union( killed_children, task_creation->get_killed_vars( ) );
-                            undef_children = ext_sym_set_union( undef_children, task_creation->get_undefined_behaviour_vars( ) );
-                            
-                            tmp = task_creation->get_children( );
-                            if( tmp[0]->is_omp_task_node( ) )
-                                task_creation = tmp[1];
-                            else
-                                task_creation = tmp[0];
-                        }
-                        
-                        // 2.- Afterwards we traverse the children of the possible chain of TC nodes and
-                        //     concatenate the usage information
-                        use_def_aux = get_use_def_over_nodes( task_creation );
-                        if( !use_def_aux.empty( ) )
-                        {
-                            ue_children = ext_sym_set_union( ue_children, use_def_aux[0] );
-                            killed_children = ext_sym_set_union( killed_children, use_def_aux[1] );
-                            undef_children = ext_sym_set_union( undef_children, use_def_aux[2] );
-                        }
+                        ue_children = ext_sym_set_union( ue_children, use_def_aux[0] );
+                        killed_children = ext_sym_set_union( killed_children, use_def_aux[1] );
+                        undef_children = ext_sym_set_union( undef_children, use_def_aux[2] );
                     }
                 }
                 
                 // Merge children 
                 merge_children_usage( ue_children, killed_children, undef_children, current->get_id( ) );
                 
-                // Append to current node info from children
+                // Merge current node and its children usage information
                 propagate_usage_to_ancestors( ue_vars, killed_vars, undef_vars, 
                                               ue_children, killed_children, undef_children );
 
+                // Set the new usage information to the current node
                 if( !ue_vars.empty( ) || !killed_vars.empty( ) || !undef_vars.empty( ) )
                 {
                     use_def.append( ue_vars );

@@ -1312,6 +1312,38 @@ namespace Analysis {
         return ( enclosing_task == NULL ? false : true );
     }
     
+    bool ExtensibleGraph::node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks )
+    {
+        bool result = false;
+        if( !current->is_visited_extgraph( ) )
+        {
+            current->set_visited_extgraph( true );
+            if( current != graph_node->get_graph_exit_node( ) )
+            {
+                // Insert current in the list of tasks if it is a task node
+                if( current->is_omp_task_creation_node( ) )
+                {
+                    result = true;
+                    tasks.insert( current );
+                }
+                    
+                if( current->is_graph_node( ) )
+                    result = node_contains_tasks( graph_node, current->get_graph_entry_node( ), tasks ) || result;
+                
+                if( current != graph_node )
+                {
+                    ObjectList<Node*> children = current->get_children( );
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                        if( !(*it)->is_omp_task_node( ) )
+                            result = node_contains_tasks( graph_node, *it, tasks ) || result;
+                }
+            }
+            else
+                ExtensibleGraph::clear_visits_extgraph( graph_node );
+        }
+        return result;
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;

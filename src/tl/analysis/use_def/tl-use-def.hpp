@@ -68,14 +68,12 @@ namespace Analysis {
 
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def( Node* graph_node );
-
-        void propagate_usage_over_task_creation( Node* task_creation );
+        
+        //! Propagate the use-def of the children of a task creation to the task_creation node
+        void propagate_task_usage_to_task_creation_node( Node* task_creation );
         
         void merge_children_usage( Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars, 
                                    Utils::ext_sym_set& undef_vars, int node_id );
-        
-        //!Propagate the Use-Def information from tasks to the graph
-        void propagate_tasks_usage_to_graph( Node* graph_node, Node* current, Node* last_sync );
 
     public:
         //! Constructor

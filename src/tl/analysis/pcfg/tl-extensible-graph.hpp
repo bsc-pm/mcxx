@@ -404,6 +404,7 @@ namespace Analysis {
         static Node* get_enclosing_context( Node* n );
         static Node* get_enclosing_task( Node* n );
         static bool task_encloses_task( Node* container, Node* contained );
+        static bool node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
