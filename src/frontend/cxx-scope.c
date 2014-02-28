@@ -4143,6 +4143,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 }
             }
 
+            result->parameters[last_argument_index]
+                = primary_template_parameters->parameters[last_argument_index];
             result->arguments[last_argument_index] = folded_value;
             result->num_parameters = last_argument_index + 1;
         }
