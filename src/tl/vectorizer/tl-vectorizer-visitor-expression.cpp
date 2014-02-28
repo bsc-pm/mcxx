@@ -730,6 +730,7 @@ namespace TL
                     if(Vectorizer::_analysis_info->is_simd_aligned_access(
                             _environment._analysis_simd_scope,
                             lhs,
+                            _environment._aligned_expr_map,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
                             _environment._unroll_factor * assignment_type.get_size()))
@@ -1027,6 +1028,7 @@ namespace TL
                 if(Vectorizer::_analysis_info->is_simd_aligned_access(
                             _environment._analysis_simd_scope,
                             n,
+                            _environment._aligned_expr_map,
                             _environment._suitable_expr_list,
                             _environment._unroll_factor,
                             _environment._vector_length))

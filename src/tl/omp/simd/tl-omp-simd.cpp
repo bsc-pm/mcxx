@@ -241,6 +241,10 @@ namespace TL {
             Nodecl::ForStatement for_statement = simd_node.get_statement().as<Nodecl::ForStatement>();
             Nodecl::List simd_environment = simd_node.get_environment().as<Nodecl::List>();
 
+            // Aligned clause
+            std::map<TL::Symbol, int> aligned_expressions;
+            process_aligned_clause(simd_environment, aligned_expressions);
+
             // Suitable clause
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(simd_environment, suitable_expressions);
@@ -278,6 +282,7 @@ namespace TL {
                     _prefer_gather_scatter,
                     _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
+                    aligned_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -462,6 +467,10 @@ namespace TL {
 
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
+            // Aligned clause
+            std::map<TL::Symbol, int> aligned_expressions;
+            process_aligned_clause(omp_simd_for_environment, aligned_expressions);
+
             // Suitable clause
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
@@ -499,6 +508,7 @@ namespace TL {
                     _prefer_gather_scatter,
                     _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
+                    aligned_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -693,6 +703,10 @@ namespace TL {
             // Remove SimdFunction node
             simd_node.replace(function_code);
 
+            // Aligned clause
+            std::map<TL::Symbol, int> aligned_expressions;
+            process_aligned_clause(omp_environment, aligned_expressions);
+
             // Suitable clause
             TL::ObjectList<Nodecl::NodeclBase> suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
@@ -734,6 +748,7 @@ namespace TL {
                     _prefer_mask_gather_scatter,
                     _fast_math_enabled,
                     vectorlengthfor_type,
+                    aligned_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -821,10 +836,45 @@ namespace TL {
 //            TL::Optimizations::strength_reduce(vector_func_code, _fast_math_enabled);
         }
 
+        void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
+                std::map<TL::Symbol, int>& aligned_expressions_map)
+        {
+            TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list = 
+                environment.find_all<Nodecl::OpenMP::Aligned>();
+
+            for(TL::ObjectList<Nodecl::OpenMP::Aligned>::iterator it = omp_aligned_list.begin();
+                    it != omp_aligned_list.end();
+                    it++)
+            {
+                Nodecl::OpenMP::Aligned& omp_aligned = *it;
+
+                if(!omp_aligned.is_null())
+                {
+                    TL::ObjectList<Nodecl::NodeclBase> aligned_expressions_list = 
+                        omp_aligned.get_aligned_expressions().as<Nodecl::List>().to_object_list();
+
+                    int alignment = const_value_cast_to_signed_int(
+                            omp_aligned.get_alignment().as<Nodecl::IntegerLiteral>().get_constant());
+
+                    for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = aligned_expressions_list.begin();
+                            it != aligned_expressions_list.end();
+                            it++)
+                    {
+
+                        if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
+                                        it->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
+                        {
+                            running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
+                        }
+                    }
+                }
+            }
+        }
+
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,
                 TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions)
         {
-            Nodecl::OpenMP::Suitable omp_suitable = 
+            Nodecl::OpenMP::Suitable omp_suitable =
                 environment.find_first<Nodecl::OpenMP::Suitable>();
 
             if(!omp_suitable.is_null())

@@ -45,8 +45,6 @@ namespace TL
                     it != _orig_to_copy_nodes.end();
                     it ++)
             {
-                //std::cerr << "-> " << it->first.prettyprint() << ": " << &(it->first) << std::endl;
-
                 std::pair<Nodecl::Utils::NodeclDeepCopyMap::const_iterator, bool> ret_insert = 
                     _copy_to_orig_nodes.insert(
                             std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(it->second, it->first));
@@ -94,7 +92,7 @@ namespace TL
 
             if (it == _orig_to_copy_nodes.end())
             {
-                std::cerr << "From O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
+                //std::cerr << "From O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
 
                 Nodecl::Utils::NodeclDeepCopyMap::const_iterator it2 = _copy_to_orig_nodes.find(n);
                 if (it2 != _copy_to_orig_nodes.end())
@@ -107,6 +105,7 @@ namespace TL
 
                 //internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
             }
+            //std::cerr << "Translation from O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
 
             return it->second;
         }
@@ -138,13 +137,31 @@ namespace TL
             return it->second;
         }
 
+        std::map<TL::Symbol, int> VectorizerAnalysisStaticInfo::translate_input(
+                const std::map<TL::Symbol, int>& map) 
+        {
+            std::map<TL::Symbol, int> result_map;
+
+            for(std::map<TL::Symbol, int>::const_iterator it = map.begin();
+                    it != map.end();
+                    it++)
+            {
+                std::pair<TL::Symbol, int> it_pair(translate_input(it->first),
+                        it->second);
+
+                result_map.insert(it_pair);
+            }
+
+            return result_map;
+        }
+
         Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translate_output(const Nodecl::NodeclBase& n) const
         {
             Nodecl::Utils::NodeclDeepCopyMap::const_iterator it = _copy_to_orig_nodes.find(n);
 
             if (it == _copy_to_orig_nodes.end())
             {
-                std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
+                //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
                 internal_error("VectorizerAnalysis: Error translating Nodecl from copy to origin", 0);
                 return n;
             }
@@ -152,7 +169,8 @@ namespace TL
             return it->second;
         }
 
-        TL::ObjectList<Nodecl::NodeclBase> VectorizerAnalysisStaticInfo::translate_output(const TL::ObjectList<Nodecl::NodeclBase>& list) const
+        TL::ObjectList<Nodecl::NodeclBase> VectorizerAnalysisStaticInfo::translate_output(
+                const TL::ObjectList<Nodecl::NodeclBase>& list) const
         {
             TL::ObjectList<Nodecl::NodeclBase> result_list;
 
@@ -239,7 +257,7 @@ namespace TL
             // Shallow copy it and insert the new copy
             if (it != _orig_to_copy_nodes.end())
             {
-                std::cerr << "Shallow copy " << n.prettyprint() << std::endl;
+                //std::cerr << "Shallow copy " << n.prettyprint() << std::endl;
 
                 Nodecl::NodeclBase sc_copy = it->second.shallow_copy();
 
@@ -252,7 +270,7 @@ namespace TL
             // Insert it and create a "translated copy" of it and its children
             else
             {
-                std::cerr << "Making up " << n.prettyprint() << std::endl;
+                //std::cerr << "Making up " << n.prettyprint() << std::endl;
                 Nodecl::NodeclBase translated_n = get_translated_copy(n);
 
                 _orig_to_copy_nodes.insert(
@@ -279,7 +297,7 @@ namespace TL
         // unregistered_node from the _registered_nodes list
         void VectorizerAnalysisStaticInfo::unregister_node(const Nodecl::NodeclBase& n)
         {
-            std::cerr << "Delete " << n.prettyprint() << std::endl;
+            //std::cerr << "Delete " << n.prettyprint() << std::endl;
 
             Nodecl::Utils::NodeclDeepCopyMap::iterator it = _orig_to_copy_nodes.find(n);
             Nodecl::Utils::NodeclDeepCopyMap::iterator it2 = _copy_to_orig_nodes.find(it->second);
@@ -403,8 +421,6 @@ namespace TL
         ObjectList<Analysis::Utils::InductionVariableData*> VectorizerAnalysisStaticInfo::get_induction_variables(
                 const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) 
         {
-            std::cerr << "INDUCTIONVARIABLEDATA" << std::endl;
-
             ObjectList<Analysis::Utils::InductionVariableData*> result = 
                 Analysis::AnalysisStaticInfo::get_induction_variables(
                         translate_input(scope), translate_input(n));
@@ -448,16 +464,21 @@ namespace TL
 
         bool VectorizerAnalysisStaticInfo::is_simd_aligned_access(const Nodecl::NodeclBase& scope, 
                 const Nodecl::NodeclBase& n, 
+                const std::map<TL::Symbol, int>& aligned_expressions,
                 const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                 int unroll_factor, int alignment) 
         {
             bool result;
+
+            std::map<TL::Symbol, int> translated_aligned_expressions =
+                translate_input(aligned_expressions);
 
             ObjectList<Nodecl::NodeclBase> translated_suitable_expressions =
                 translate_input(suitable_expressions);
 
             result = Analysis::AnalysisStaticInfo::is_simd_aligned_access(
                     translate_input(scope), translate_input(n), 
+                    translated_aligned_expressions,
                     translated_suitable_expressions,
                     unroll_factor, alignment);
 

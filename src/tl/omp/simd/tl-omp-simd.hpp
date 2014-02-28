@@ -85,6 +85,8 @@ namespace TL
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
 
+                void process_aligned_clause(const Nodecl::List& environment,
+                        std::map<TL::Symbol, int>& aligned_expressions_map);
                 void process_suitable_clause(const Nodecl::List& environment,
                         TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions);
                 void process_nontemporal_clause(const Nodecl::List& environment,

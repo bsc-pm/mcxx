@@ -56,6 +56,7 @@ namespace TL
                 const bool _prefer_gather_scatter;
                 const bool _prefer_mask_gather_scatter;
                 const TL::Type& _target_type;
+                const std::map<TL::Symbol, int>& _aligned_expr_map;
                 const TL::ObjectList<Nodecl::NodeclBase>& _suitable_expr_list;
                 const TL::ObjectList<Nodecl::NodeclBase>& _nontemporal_expr_list;
                 const VectorizerCache& _vectorizer_cache;
@@ -83,6 +84,7 @@ namespace TL
                         const bool prefer_gather_scatter,
                         const bool prefer_mask_gather_scatter,
                         const TL::Type& target_type,
+                        const std::map<TL::Symbol, int>& aligned_expr_map,
                         const TL::ObjectList<Nodecl::NodeclBase>& suitable_expr_list,
                         const TL::ObjectList<Nodecl::NodeclBase>& nontemporal_expr_list,
                         const VectorizerCache& vectorizer_cache,

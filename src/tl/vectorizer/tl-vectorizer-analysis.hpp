@@ -59,7 +59,9 @@ namespace TL
 
                 Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n);
                 TL::ObjectList<Nodecl::NodeclBase> translate_input(const TL::ObjectList<Nodecl::NodeclBase>& list);
+ 
                 TL::Symbol translate_input(const TL::Symbol& n) const;
+                std::map<TL::Symbol, int> translate_input(const std::map<TL::Symbol, int>& map);
 
                 Nodecl::NodeclBase translate_output(const Nodecl::NodeclBase& n) const;
                 TL::ObjectList<Nodecl::NodeclBase> translate_output(const TL::ObjectList<Nodecl::NodeclBase>& list) const;
@@ -79,7 +81,6 @@ namespace TL
 
                 virtual ~VectorizerAnalysisStaticInfo(){};
 
-
                 virtual bool is_constant(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n);
                 virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
                         const Nodecl::NodeclBase& s );
@@ -97,6 +98,7 @@ namespace TL
                 virtual bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n );
                 virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                        const std::map<TL::Symbol, int>& aligned_expressions,
                         const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                         int unroll_factor, int alignment );
                 virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
