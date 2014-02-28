@@ -628,12 +628,13 @@ namespace Nodecl
         return res;
     }
 
-    bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2)
+    bool Utils::equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2)
     {
         return equal_nodecls(n1, n2, false);
     }
 
-    bool Utils::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, bool skip_conversion_nodes)
+    bool Utils::equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
+            const bool skip_conversion_nodes)
     {
         nodecl_t n1_ = n1.get_internal_nodecl();
         nodecl_t n2_ = n2.get_internal_nodecl();
@@ -1375,6 +1376,30 @@ namespace Nodecl
         return false;
     }
     
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_strings_as_expressions(
+            const TL::ObjectList<std::string>& string_list,
+            const Nodecl::NodeclBase& ref_scope)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> nodecl_list;
+
+        for (TL::ObjectList<std::string>::const_iterator it = string_list.begin();
+                it != string_list.end();
+                it++)
+        {
+            const std::string &variable(*it);
+            TL::Source src;
+            src
+                << "#line " << ref_scope.get_line() << " \"" << ref_scope.get_filename() << "\"\n"
+                << variable
+                ;
+
+            Nodecl::NodeclBase var_tree = src.parse_expression(ref_scope.retrieve_context());
+
+            nodecl_list.append(var_tree);
+        }
+
+        return nodecl_list;
+    }
     
     // ********************************************************************************* //
     // *************** Visitor looking for a nodecl contained in a scope *************** //

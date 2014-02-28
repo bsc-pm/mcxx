@@ -544,6 +544,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
                  | NODECL_OPEN_M_P*TASK_LABEL() text
                  | NODECL_OPEN_M_P*NO_FLUSH()
+                 | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression) 
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)

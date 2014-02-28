@@ -748,6 +748,7 @@ namespace Analysis {
     }
 
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                                     const std::map<TL::Symbol, int>& aligned_expressions, 
                                                      const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                                                      int unroll_factor, int alignment ) const 
     {
@@ -764,7 +765,8 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
 
-            result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
+            result = current_info.is_simd_aligned_access( n, aligned_expressions, 
+                    suitable_expressions, unroll_factor, alignment );
         }
         
         return result;
@@ -789,8 +791,6 @@ namespace Analysis {
             result = current_info.is_suitable_expression( n, suitable_expressions, unroll_factor, alignment, vector_size_module );
         }
        
-        std::cerr << "EXP: " << n.prettyprint() << std::endl;
-
         return result;
     }
     

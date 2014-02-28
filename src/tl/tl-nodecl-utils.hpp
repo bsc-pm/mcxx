@@ -66,9 +66,9 @@ namespace Nodecl
         bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool stmtexpr_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
-        bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2);
-        bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2, 
-                bool skip_conversion_nodecls);
+        bool equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2);
+        bool equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2, 
+                const bool skip_conversion_nodecls);
         int cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                         bool skip_conversion_nodecls = false);
         struct Nodecl_hash {
@@ -266,6 +266,10 @@ namespace Nodecl
 
         bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, 
                 const NodeclBase& containee);
+
+        TL::ObjectList<Nodecl::NodeclBase> get_strings_as_expressions(
+                const TL::ObjectList<std::string>& string_list,
+                const Nodecl::NodeclBase& ref_scope);
         
         class LIBTL_CLASS ExprFinderVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
