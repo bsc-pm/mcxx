@@ -2768,8 +2768,9 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
             else
             {
-                internal_error("Wrong pair template-argument/template-parameter %s != %s",
-                        symbol_kind_name(entry), symbol_kind_name(argument));
+                internal_error("Wrong pair template-parameter = %s vs template-argument = %s",
+                        symbol_kind_name(entry),
+                        symbol_kind_name(argument));
             }
         }
         else if (entry->kind == SK_TEMPLATE)
@@ -3846,7 +3847,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 P_LIST_ADD(result->parameters,
                         num_parameters,
                         primary_template_parameters->parameters[i]);
-                template_parameter_value_t* v = update_template_parameter_value_of_template_class(primary_template_parameters->arguments[i],
+                template_parameter_value_t* v = update_template_parameter_value_of_template_class(
+                        primary_template_parameters->arguments[i],
                         new_template_context,
                         locus, /* pack_index */ -1);
 

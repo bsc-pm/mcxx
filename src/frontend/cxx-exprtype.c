@@ -19572,19 +19572,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
 
-        if (entry_list != NULL
-                && entry_list_head(entry_list)->kind == SK_DEPENDENT_ENTITY)
-        {
-            scope_entry_t* dep_entity = entry_list_head(entry_list);
-
-            dependent_typename_get_components(dep_entity->type_information,
-                    &dependent_entry,
-                    &dependent_parts);
-        }
-        else
-        {
-            dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
-        }
+        dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
         complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,

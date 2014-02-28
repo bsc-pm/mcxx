@@ -7693,7 +7693,10 @@ void CxxBase::codegen_template_header(
                     case TPK_NONTYPE:
                         {
                             push_scope(symbol.get_scope());
+                            bool old_nontype_template_arguments_needs_parentheses = state.nontype_template_argument_needs_parentheses;
+                            state.nontype_template_argument_needs_parentheses = 1;
                             walk(temp_arg.get_value());
+                            state.nontype_template_argument_needs_parentheses = old_nontype_template_arguments_needs_parentheses;
                             pop_scope();
                             break;
                         }
