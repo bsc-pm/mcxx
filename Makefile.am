@@ -1508,14 +1508,16 @@ src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                           $(END)
 
 src_tl_omp_base_libtlomp_base_la_LDFLAGS = $(phases_ldflags)
-src_tl_omp_base_libtlomp_base_la_LIBADD = $(phases_libadd) src/tl/omp/core/libtlomp-core.la
+src_tl_omp_base_libtlomp_base_la_LIBADD = $(phases_libadd) \
+                            $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
+                            $(END)
 
 if BUILD_ANALYSIS
 src_tl_omp_base_libtlomp_base_la_LIBADD += $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la
 endif
 
 if BUILD_VECTORIZER
-src_tl_omp_base_libtlomp_base_la_LIBADD += src/tl/vectorizer/libtlvectorizer.la
+src_tl_omp_base_libtlomp_base_la_LIBADD += $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la
 endif
 
 src_tl_omp_base_libtlomp_base_la_SOURCES = \

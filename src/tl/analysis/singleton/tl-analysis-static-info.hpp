@@ -143,6 +143,7 @@ namespace Analysis {
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
             bool is_simd_aligned_access( const Nodecl::NodeclBase& n, 
+                    const std::map<TL::Symbol, int>& aligned_expressions, 
                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                     int unroll_factor, int alignment ) const;
 
@@ -248,6 +249,7 @@ namespace Analysis {
 
             //! Returns true if the given nodecl is aligned to a given value
             virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+                                         const std::map<TL::Symbol, int>& aligned_expressions, 
                                          const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                          int unroll_factor, int alignment ) const;
             
@@ -330,7 +332,6 @@ namespace Analysis {
         const int _unroll_factor;
         const int _type_size;
         const int _alignment;
-        int _nesting_level;
         
         bool is_suitable_expression( Nodecl::NodeclBase n );
         bool is_suitable_constant( int n );
@@ -343,6 +344,8 @@ namespace Analysis {
         
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
+        bool is_aligned_access( const Nodecl::ArraySubscript& n,
+                const std::map<TL::Symbol, int> aligned_expressions );
         
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::ArraySubscript& n );
