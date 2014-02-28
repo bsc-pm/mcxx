@@ -10,7 +10,7 @@ struct A { };
 template <typename ...S>
 struct B
 {
-    void f(A<S>&...);
+    void f(A<S>&...) { }
 };
 
 int main(int argc, char *argv[])
