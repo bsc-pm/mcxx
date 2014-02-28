@@ -19562,16 +19562,31 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
-        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym,
+        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context,
+                sym,
                 NULL,
                 nodecl_get_locus(node));
 
+        nodecl_t complete_nodecl_name = nodecl_null();
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
-        dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
+
+        if (entry_list != NULL
+                && entry_list_head(entry_list)->kind == SK_DEPENDENT_ENTITY)
+        {
+            scope_entry_t* dep_entity = entry_list_head(entry_list);
+
+            dependent_typename_get_components(dep_entity->type_information,
+                    &dependent_entry,
+                    &dependent_parts);
+        }
+        else
+        {
+            dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
+        }
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
+        complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
                 list_of_dependent_parts,
                 v->decl_context,
                 v->pack_index);
