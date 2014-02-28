@@ -19564,6 +19564,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     {
         scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context,
                 sym,
+                v->pack_index,
                 NULL,
                 nodecl_get_locus(node));
 

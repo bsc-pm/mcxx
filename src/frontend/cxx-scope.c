@@ -1996,10 +1996,8 @@ static nodecl_t update_nodecl_template_argument_expression(
 
     nodecl_t nodecl_output = nodecl_null();
 
-    ERROR_CONDITION(!(pack_index < 0), "Pack expansion inside expressions not yet implemented", 0);
-
     nodecl_t nodecl_inst = instantiate_expression(nodecl, decl_context,
-            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+            /* instantiation_symbol_map */ NULL, /* pack_index */ pack_index);
 
     if (nodecl_is_list(nodecl_inst))
     {
@@ -6926,6 +6924,7 @@ scope_entry_list_t* class_context_lookup(decl_context_t decl_context,
 scope_entry_list_t* query_dependent_entity_in_context(
         decl_context_t decl_context,
         scope_entry_t* dependent_entity,
+        int pack_index,
         field_path_t* field_path,
         const locus_t* locus)
 {
@@ -6946,7 +6945,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         get_user_defined_type(dependent_entry),
                         decl_context, locus,
                         /* instantiation_symbol_map */ NULL,
-                        /* pack_index */ -1);
+                        pack_index);
 
                 if (is_dependent_typename_type(new_class_type))
                 {
@@ -7034,7 +7033,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         nodecl_t update_dependent_parts = update_dependent_typename_dependent_parts(
                                 dependent_parts,
                                 decl_context,
-                                locus, /* pack_index */ -1);
+                                locus, pack_index);
 
                         ERROR_CONDITION(nodecl_get_kind(update_dependent_parts) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
                                 "This is not possible here", 0);

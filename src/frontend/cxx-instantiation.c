@@ -800,6 +800,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     entry_list = query_dependent_entity_in_context(context_of_being_instantiated,
                             entry,
+                            /* pack_index */ -1,
                             NULL,
                             member_of_template->locus);
                 }
@@ -937,7 +938,9 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                        context_of_being_instantiated, sym, NULL, locus);
+                        context_of_being_instantiated, sym,
+                        /* pack_index */ -1,
+                        NULL, locus);
             }
         }
 
@@ -1031,7 +1034,8 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                            context_of_being_instantiated, sym, NULL, locus);
+                            context_of_being_instantiated, sym,
+                            /* pack_index */ -1, NULL, locus);
             }
         }
 

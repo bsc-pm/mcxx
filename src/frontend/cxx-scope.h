@@ -266,6 +266,7 @@ LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
 LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(
         decl_context_t decl_context,
         scope_entry_t* dependent_entity,
+        int pack_index,
         field_path_t* field_path,
         const locus_t* locus);
 
