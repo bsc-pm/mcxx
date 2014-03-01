@@ -1082,10 +1082,63 @@ namespace TL { namespace OpenMP {
 
         if (nontemporal_clause.is_defined())
         {
-            environment.append(
-                    Nodecl::OpenMP::Nontemporal::make(
-                        Nodecl::List::make(nontemporal_clause.get_arguments_as_expressions()),
-                        stmt.get_locus()));
+            TL::ObjectList<std::string> arg_clauses_list = nontemporal_clause.get_raw_arguments();
+
+            TL::ExpressionTokenizerTrim colon_tokenizer(':');
+            TL::ExpressionTokenizerTrim comma_tokenizer(',');
+
+            for(TL::ObjectList<std::string>::iterator it = arg_clauses_list.begin();
+                    it != arg_clauses_list.end();
+                    it++)
+            {
+                TL::ObjectList<std::string> colon_splited_list = colon_tokenizer.tokenize(*it);
+
+                int colon_splited_list_size = colon_splited_list.size();
+
+                ERROR_CONDITION((colon_splited_list_size <= 0) ||
+                        (colon_splited_list_size > 2),
+                        "'nontemporal' clause has a wrong format", 0);
+
+                //Nodecl::IntegerLiteral alignment = const_value_to_nodecl(const_value_get_zero(4, 1));
+
+                TL::ObjectList<std::string> comma_splited_list;
+
+                if (colon_splited_list_size == 2)
+                {
+                    comma_splited_list = comma_tokenizer.tokenize(colon_splited_list.back());
+
+                    for(ObjectList<std::string>::iterator comma_it = comma_splited_list.begin();
+                            comma_it != comma_splited_list.end();
+                            comma_it++)
+                    {
+                        if ((*comma_it) == "relaxed")
+                        {
+                            printf("Relaxed!\n");
+                        }
+                        else if((*comma_it) == "evict")
+                        {
+                            printf("Evict!\n");
+                        }
+                        else
+                        {
+                            printf("%s\n", comma_it->c_str());
+                            running_error("Neither 'relaxed' nor 'evict'");
+                        }
+                    }
+                }
+
+                comma_splited_list = comma_tokenizer.tokenize(
+                        colon_splited_list.front());
+
+                Nodecl::List nontemporal_variables =
+                    Nodecl::List::make(Nodecl::Utils::get_strings_as_expressions(
+                                comma_splited_list, pragma_line));
+
+                environment.append(
+                        Nodecl::OpenMP::Nontemporal::make(
+                            nontemporal_variables,
+                            stmt.get_locus()));
+            }
         }
 
         // Aligned
@@ -1106,7 +1159,7 @@ namespace TL { namespace OpenMP {
 
                 int colon_splited_list_size = colon_splited_list.size();
 
-                ERROR_CONDITION((colon_splited_list_size <= 0) || 
+                ERROR_CONDITION((colon_splited_list_size <= 0) ||
                         (colon_splited_list_size > 2),
                         "'aligned' clause has a wrong format", 0);
 
