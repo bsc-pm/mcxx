@@ -741,7 +741,7 @@ namespace TL
                         {
                             //DEBUG_CODE()
                             {
-                                fprintf(stderr, "VECTORIZER: Stream Store access '%s' is ALIGNED\n",
+                                fprintf(stderr, "VECTORIZER: Aligned stream store '%s'\n",
                                         lhs.prettyprint().c_str());
                             }
 
@@ -760,10 +760,9 @@ namespace TL
                         }
                         else
                         {
-                            std::cerr << subscripted_symbol.prettyprint() << std::endl;
                             //DEBUG_CODE()
                             {
-                                fprintf(stderr, "VECTORIZER: Store access '%s' is ALIGNED\n",
+                                fprintf(stderr, "VECTORIZER: Aligned store  '%s'\n",
                                         lhs.prettyprint().c_str());
                             }
 
@@ -788,7 +787,7 @@ namespace TL
                         {
                             //DEBUG_CODE()
                             {
-                                fprintf(stderr, "VECTORIZER: Scatter access '%s' is UNALIGNED\n",
+                                fprintf(stderr, "VECTORIZER: Unaligned store (Scatter used) '%s'\n",
                                         lhs.prettyprint().c_str());
                             }
 
@@ -819,7 +818,7 @@ namespace TL
                         {
                             //DEBUG_CODE()
                             {
-                                fprintf(stderr, "VECTORIZER: Store access '%s' is UNALIGNED\n",
+                                fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
                                         lhs.prettyprint().c_str());
                             }
 
@@ -1035,7 +1034,7 @@ namespace TL
                 {
                     //DEBUG_CODE()
                     {
-                        fprintf(stderr, "VECTORIZER: Load access '%s' is ALIGNED\n",
+                        fprintf(stderr, "VECTORIZER: Aligned load   '%s'\n",
                             n.prettyprint().c_str());
                     }
 
@@ -1060,7 +1059,7 @@ namespace TL
                     {
                         //DEBUG_CODE()
                         {
-                            fprintf(stderr, "VECTORIZER: Gather access '%s' is UNALIGNED\n",
+                            fprintf(stderr, "VECTORIZER: Unaligned load (gather used) '%s'\n",
                                     n.prettyprint().c_str());
                         }
 
@@ -1090,7 +1089,7 @@ namespace TL
                     {
                         //DEBUG_CODE()
                         {
-                            fprintf(stderr, "VECTORIZER: Load access '%s' is UNALIGNED\n",
+                            fprintf(stderr, "VECTORIZER: Unaligned load '%s'\n",
                                     n.prettyprint().c_str());
                         }
 
