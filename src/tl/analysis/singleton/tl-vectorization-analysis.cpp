@@ -193,7 +193,7 @@ namespace Analysis {
                 it != suitable_expressions.end();
                 it ++)
         {
-            printf("%s ", it->prettyprint().c_str());        
+            printf("%s ", it->prettyprint().c_str());
         }
         printf("\n");
         // End Remove me!
@@ -372,7 +372,7 @@ namespace Analysis {
 
         if( (alignment % _alignment) == 0 )
             return true;
-        
+
         return false;
     }
 
@@ -391,7 +391,7 @@ namespace Analysis {
         else
             return false;
     }
- 
+
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
         if (is_suitable_expression(n))
@@ -401,13 +401,13 @@ namespace Analysis {
 
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
-        
+
         if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
             return lhs_mod + rhs_mod;
-        
+
         return -1;
     }
-    
+
     int SuitableAlignmentVisitor::visit( const Nodecl::ArraySubscript& n ) 
     {
         /* This nesting_level == 1 or == 0 behaviour is not correct.
@@ -477,20 +477,20 @@ namespace Analysis {
                 }
                 if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
-                
+
                 dimension_sizes[i] = dimension_size;
             }
-            
+
             int it_alignment = -1;
             Nodecl::List::iterator it = subscripts.begin( );
             // Multiply dimension sizes by indexes
             for( i=0; it != subscripts.end( ); i++ )
             {
                 it_alignment = walk( *it );
-                
+
                 it++;
                 if( it == subscripts.end( ) ) break; // Last dimmension does not have to be multiplied
-                
+
                 // a[i][j][k] -> i -> i*J*K
                 for( int j = i; j < (num_subscripts-1); j++ )
                 {
@@ -500,7 +500,7 @@ namespace Analysis {
 //                        it_alignment = 0;
 //                    }
 //                    else
-                    
+
 //                    if( ( dimension_sizes[j] == -1 ) || ( it_alignment == -1 ) )
                     if( ( dimension_sizes[j] != -1 ) )
                     {
@@ -514,16 +514,16 @@ namespace Analysis {
                         it_alignment = -1;
                     }
                 }
-                
+
                 if( it_alignment == -1 )
                 {
                     free( dimension_sizes );
                     return -1;
                 }
-                
+
                 alignment += it_alignment;
             }
-            
+
             if( it_alignment == -1 )
             {
                 free( dimension_sizes );
@@ -532,9 +532,9 @@ namespace Analysis {
 
             // Add adjacent dimension
             alignment += it_alignment;
-            
+
             _nesting_level--;
-            
+
             free( dimension_sizes );
             return alignment;
         }
@@ -545,7 +545,7 @@ namespace Analysis {
             {
                 return _alignment;
             }
-            
+
             return -1;
         }
         */
@@ -557,17 +557,17 @@ namespace Analysis {
 
         return -1;
     }
-    
+
     int SuitableAlignmentVisitor::visit( const Nodecl::BitwiseShl& n )
     {
         if (is_suitable_expression(n))
         {
             return _alignment;
         }
-        
+
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
-        
+
         // Something suitable multiplied by anything is suitable
         if (rhs_mod > 0)
         {
@@ -627,20 +627,20 @@ namespace Analysis {
         }
 
         int rhs_mod = walk( n.get_rhs( ) );
-        
+
         if( rhs_mod != -1 )
         {
-            int result = rhs_mod;
+            int result = -rhs_mod;
             if (result < 0)
                 result = _alignment + result;
 
             return result;
         }
-        
+
         return -1;
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n )
     {
         if (is_suitable_expression(n))
         {
@@ -649,16 +649,16 @@ namespace Analysis {
 
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
-        
+
         if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
         {
             return lhs_mod - rhs_mod;
         }
-        
+
         return -1;
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n )
     {
         if (is_suitable_expression(n))
         {
@@ -669,7 +669,7 @@ namespace Analysis {
         int rhs_mod = walk( n.get_rhs( ) );
 
        // Something suitable multiplied by anything is suitable
-        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) ))
             return _alignment;
         else if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
             return lhs_mod * rhs_mod;
@@ -677,7 +677,7 @@ namespace Analysis {
         return -1;
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n )
     {
         if (is_suitable_expression(n))
         {
@@ -687,7 +687,7 @@ namespace Analysis {
         return walk(n.get_nest());
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::Symbol& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::Symbol& n )
     {
         if (is_suitable_expression(n))
         {
@@ -701,7 +701,7 @@ namespace Analysis {
         {
             Utils::InductionVariableData* iv = Utils::get_induction_variable_from_list( _induction_variables, n );
             Optimizations::ReduceExpressionVisitor v;
-            
+
             Nodecl::NodeclBase lb = iv->get_lb( ).shallow_copy( );
             v.walk( lb );
             if( lb.is_constant( ) )
@@ -960,23 +960,23 @@ namespace Analysis {
     {
         return _is_adjacent_access;
     }
-    
+
     bool ArrayAccessInfoVisitor::depends_on_induction_vars( )
     {
         return !_ivs.empty( );
     }
-    
+
     bool ArrayAccessInfoVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         WARNING_MESSAGE( "Unhandled node while parsing Array Subscript '%s' of type '%s'", 
                          n.prettyprint( ).c_str( ), ast_print_node_type( n.get_kind( ) ) );
         return false;
     }
-    
+
     bool ArrayAccessInfoVisitor::join_list( ObjectList<bool>& list )
     {
         _is_adjacent_access = false;
-        
+
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -984,33 +984,33 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool ArrayAccessInfoVisitor::visit( const Nodecl::Add& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
-        
+
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
-        
+
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
                            || ( lhs_is_const && rhs_is_adjacent_access );
-                           
+
         return ( rhs_is_const && lhs_is_const );
     }
-    
+
     bool ArrayAccessInfoVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         // Collect information about the induction variables contained in the node
         bool n_is_iv = variable_is_iv( n );
         walk( n.get_subscripted( ) );
         walk( n.get_subscripts( ) );
-       
+
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
        
         return !Utils::ext_sym_set_contains_nodecl( n, _killed );
