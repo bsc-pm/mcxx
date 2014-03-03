@@ -509,6 +509,9 @@ typedef struct compilation_configuration_tag
     // Do not make an extra pass to resolve externall calls to functions in the
     // same file
     char fortran_no_whole_file;
+
+    // Enable IBM XL compatibility
+    char xl_compatibility;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

@@ -879,6 +879,8 @@ namespace TL
 
             //! Concenience function that returns an 'auto' type specifier
             static Type get_auto_type();
+
+            std::string print_declarator();
     };
 
     //! @}

@@ -323,41 +323,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                     ast_dump_graphviz_rec(ASTChild(a, i), f, current_node, i);
                 }
             }
-
-            // Now print all extended trees referenced here
-            // First get all TL_AST in 'orig' that point to its childrens
-
-            extensible_struct_t* extended_data = ast_get_extensible_struct(a);
-
-            if (extended_data != NULL)
-            {
-                int num_fields = 0;
-                const char** keys = NULL;
-                void** values = NULL;
-
-                extensible_struct_get_all_data(extended_data, &num_fields, &keys, &values);
-
-                for (i = 0; i < num_fields; i++)
-                {
-                    const char* field_name = keys[i];
-                    void *data = values[i];
-
-                    if (ast_field_name_is_link_to_child(field_name))
-                    {
-                        AST child = data;
-                        if (child != a)
-                        {
-                            ast_dump_graphviz_rec(child, f, /* parent_node */ 0, /* position */ 0);
-                        }
-
-                        // Add an edge
-                        fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%s\"]\n",
-                                current_node,
-                                (size_t)(child),
-                                field_name);
-                    }
-                }
-            }
         }
         else if (ASTType(a) == AST_AMBIGUITY)
         {

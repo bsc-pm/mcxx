@@ -124,8 +124,7 @@ lib/tpp.o : lib/tpp.c
 #end of tpp
 
 
-lib_LTLIBRARIES += lib/libmcxx-utils.la \
-                   lib/libmcxx-extstruct.la
+lib_LTLIBRARIES += lib/libmcxx-utils.la
 
 lib_libmcxx_utils_la_CFLAGS = -Wall -DLIBUTILS_DLL_EXPORT
 lib_libmcxx_utils_la_SOURCES = \
@@ -145,14 +144,6 @@ lib_libmcxx_utils_la_SOURCES = \
                           $(END)
 
 lib_libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
-
-lib_libmcxx_extstruct_la_CFLAGS = -Wall -DLIBEXTSTRUCT_DLL_EXPORT
-lib_libmcxx_extstruct_la_SOURCES = \
-                              lib/extstruct.h \
-                              lib/extstruct.c 
-lib_libmcxx_extstruct_la_LDFLAGS=-avoid-version $(no_undefined)
-lib_libmcxx_extstruct_la_LIBADD=lib/libmcxx-utils.la
-
 
 noinst_LIBRARIES += lib/libperish.a
 lib_libperish_a_SOURCES= lib/perish.c
@@ -325,7 +316,6 @@ src_frontend_libmcxx_la_SOURCES = \
 
 src_frontend_libmcxx_la_LIBADD = \
 					./lib/libmcxx-utils.la \
-					./lib/libmcxx-extstruct.la \
                     ./src/frontend/libmcxx-process.la \
 					$(quadmath_LIBS) \
 					$(END)
@@ -717,7 +707,6 @@ src_frontend_fortran_libmf03_la_SOURCES = \
 
 src_frontend_fortran_libmf03_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
-					$(top_builddir)/lib/libmcxx-extstruct.la \
                     $(top_builddir)/src/frontend/libmcxx-process.la \
                     $(sqlite3_LIBS) \
 					$(END)
@@ -1011,7 +1000,6 @@ src/tl/tl-nodecl-visitor.cpp : $(NODECL_DEPS)
 
 src_tl_libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 src_tl_libtl_la_LIBADD = \
-	$(top_builddir)/lib/libmcxx-extstruct.la \
 	$(top_builddir)/lib/libmcxx-utils.la \
 	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
@@ -2360,7 +2348,6 @@ src_driver_plaincxx_SOURCES = \
 src_driver_plaincxx_LDADD = \
    $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
-   $(top_builddir)/lib/libmcxx-extstruct.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
@@ -2650,7 +2637,8 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
-     -e 's|@NANOX_LDFLAGS[@]|$(NANOX_LDFLAGS)|g' \
+     -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
+     -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
@@ -2678,8 +2666,8 @@ config_edit = \
      -e 's|@ICC[@]|$(ICC)|g' \
      -e 's|@ICPC[@]|$(ICPC)|g' \
      -e 's|@IFORT[@]|$(IFORT)|g' \
-     -e 's|@GXLC[@]|$(GXLC)|g' \
-     -e 's|@GXLCXX[@]|$(GXLCXX)|g' \
+     -e 's|@XLC[@]|$(XLC)|g' \
+     -e 's|@XLCXX[@]|$(XLCXX)|g' \
      -e 's|@XLF[@]|$(XLF)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \

@@ -1,12 +1,43 @@
 # IBM XL
-[xlmcc : mcc]
-preprocessor_name = @GXLC@
+[xlmcc : omp-base-ibm]
+language = C
+options = -qlanglvl=extc99
+options = --vector-flavor=altivec
+options = --xl-compat
+preprocessor_name = @XLC@
 preprocessor_uses_stdout = yes
-compiler_name = @GXLC@
-linker_name = @GXLC@
+# Hide annoying messages produced when XL finds a Nanos++ pragma
+preprocessor_options = -qsuppress=1506-224
+compiler_name = @XLC@
+linker_name = @XLC@
+#cuda
+@DISABLE_CUDA@options = --cuda
+@DISABLE_CUDA@{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+@DISABLE_CUDA@{openmp} linker_options = -lnanox-gpu-api
+@DISABLE_CUDA@{openmp} compiler_phase = libtlnanox-cuda.so
+#opencl
+@DISABLE_OPENCL@options = --opencl
+@DISABLE_OPENCL@{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+@DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
+@DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
 
-[xlmcxx : mcxx]
-preprocessor_name = @GXLCXX@
+[xlmcxx : omp-base-ibm]
+language = C++
+{openmp} preprocessor_options = -qinclude=new
+options = --vector-flavor=altivec
+options = --xl-compat
+
+preprocessor_name = @XLCXX@
 preprocessor_uses_stdout = yes
-compiler_name = @GXLCXX@
-linker_name = @GXLCXX@
+compiler_name = @XLCXX@
+linker_name = @XLCXX@
+#cuda
+@DISABLE_CUDA@options = --cuda
+@DISABLE_CUDA@{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -qinclude=nanos-gpu.h
+@DISABLE_CUDA@{openmp} linker_options = -lnanox-gpu-api
+@DISABLE_CUDA@{openmp} compiler_phase = libtlnanox-cuda.so
+#opencl
+@DISABLE_OPENCL@options = --opencl
+@DISABLE_OPENCL@{openmp} preprocessor_options = -qinclude=nanos-opencl.h -D_MERCURIUM_OPENCL_
+@DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
+@DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api

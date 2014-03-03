@@ -51,6 +51,8 @@ LIBMCXX_EXTERN nodecl_t instantiation_instantiate_pending_functions(void);
 LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const locus_t* locus);
 
+LIBMCXX_EXTERN void instantiate_template_function(scope_entry_t* entry, const locus_t* locus);
+
 // Instantiation map
 LIBMCXX_EXTERN scope_entry_t* instantiation_symbol_map(instantiation_symbol_map_t* map, scope_entry_t* orig);
 LIBMCXX_EXTERN void instantiation_symbol_map_add(instantiation_symbol_map_t* map, scope_entry_t* orig, scope_entry_t* new_sym);

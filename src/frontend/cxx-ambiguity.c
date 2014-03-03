@@ -29,7 +29,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "extstruct.h"
 #include "cxx-ast.h"
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
@@ -349,9 +348,95 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
     return current_valid;
 }
 
+static char simple_declaration_is_elaborated_class_specifier_and_one_declarator_named_class_virtspec(
+        AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
+    AST decl_specifier_seq = ASTSon0(a);
+    if (decl_specifier_seq == NULL)
+        return 0;
+    AST type_spec = ASTSon1(decl_specifier_seq);
+
+    if (type_spec == NULL)
+        return 0;
+
+    if (ASTType(type_spec) != AST_ELABORATED_TYPE_CLASS_SPEC)
+        return 0;
+
+    AST init_declarator_list = ASTSon1(a);
+    if (init_declarator_list == NULL)
+        return 0;
+
+    // Not a single item list
+    if (ASTSon0(init_declarator_list) != NULL)
+        return 0;
+
+    AST init_declarator_first = ASTSon1(init_declarator_list);
+    AST declarator = ASTSon0(init_declarator_first);
+
+    AST declarator_name = get_declarator_name(declarator, decl_context);
+    if (declarator_name == NULL)
+        return 0;
+
+    const char* name = ASTText(declarator_name);
+    if (name == NULL)
+        return 0;
+
+    if (strcmp(name, "final") != 0)
+        return 0;
+
+    return 1;
+}
+
+static char simple_declaration_is_class_specifier_without_declarators(AST a)
+{
+    ERROR_CONDITION(ASTType(a) != AST_SIMPLE_DECLARATION, "Invalid node", 0);
+    AST decl_specifier_seq = ASTSon0(a);
+    if (decl_specifier_seq == NULL)
+        return 0;
+    AST type_spec = ASTSon1(decl_specifier_seq);
+
+    if (type_spec == NULL)
+        return 0;
+
+    if (ASTType(type_spec) != AST_CLASS_SPECIFIER)
+        return 0;
+
+    AST init_declarator_list = ASTSon1(a);
+    if (init_declarator_list != NULL)
+        return 0;
+
+    return 1;
+}
+
+static int solve_ambiguous_declaration_choose_interpretation(
+        AST current,
+        AST previous,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void* info UNUSED_PARAMETER)
+{
+    if (simple_declaration_is_class_specifier_without_declarators(current)
+            && simple_declaration_is_elaborated_class_specifier_and_one_declarator_named_class_virtspec(
+                previous, decl_context))
+    {
+        return -1;
+    }
+    else if (simple_declaration_is_class_specifier_without_declarators(previous)
+            && simple_declaration_is_elaborated_class_specifier_and_one_declarator_named_class_virtspec(
+                current, decl_context))
+    {
+        return 1;
+    }
+    return 0;
+}
+
 void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 {
-    solve_ambiguity_generic(a, decl_context, NULL, solve_ambiguous_declaration_check_interpretation, NULL, NULL);
+    solve_ambiguity_generic(a, decl_context,
+            NULL,
+            solve_ambiguous_declaration_check_interpretation,
+            solve_ambiguous_declaration_choose_interpretation,
+            NULL);
 }
 
 // Checks for old-styled functions

@@ -26,49 +26,24 @@
 
 
 
-
-#ifndef EXTSTRUCT_H
-#define EXTSTRUCT_H
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 
 #include <stdlib.h>
-#include "red_black_tree.h"
+#include <math.h>
 
-#ifdef WIN32_BUILD
-  #ifdef LIBEXTSTRUCT_DLL_EXPORT
-    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllexport)
-  #else
-    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllimport)
-  #endif
-#else
-  #define LIBEXTSTRUCT_EXTERN extern
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct extensible_struct_tag
+int main(int argc, char *argv[])
 {
-    rb_red_blk_tree* hash;
-};
+    double d = 1.0;
 
-typedef struct extensible_struct_tag extensible_struct_t;
+#pragma omp atomic
+    d += 3.0;
 
-// Extensible struct operations
-LIBEXTSTRUCT_EXTERN void extensible_struct_init(extensible_struct_t** extensible_struct);
-LIBEXTSTRUCT_EXTERN void extensible_struct_set_field(extensible_struct_t* extensible_struct, 
-        const char* field_name, void *data);
+    if (fabs(d - 4.0) > 1e-9)
+        abort();
 
-LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field(extensible_struct_t* extensible_struct, 
-        const char* field_name);
-
-LIBEXTSTRUCT_EXTERN void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
-        int *num_fields,
-        const char ***keys,
-        void ***data);
-
-#ifdef __cplusplus
+    return 0;
 }
-#endif
-
-#endif // EXTSTRUCT_H

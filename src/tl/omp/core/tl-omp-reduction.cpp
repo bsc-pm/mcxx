@@ -757,7 +757,8 @@ namespace TL { namespace OpenMP {
             scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, internal_name.c_str());
             new_red_sym->kind = SK_OTHER;
 
-            extensible_struct_set_field(new_red_sym->extended_data, "udr_info", new_red);
+            OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
+
             new_red->set_symbol(new_red_sym);
         }
         else
@@ -964,9 +965,7 @@ namespace TL { namespace OpenMP {
     {
         scope_entry_t* red_sym = sym.get_internal_symbol();
 
-        Reduction *red = reinterpret_cast<Reduction*>(
-                extensible_struct_get_field(red_sym->extended_data, "udr_info"));
-
+        Reduction *red = OpenMP::Core::reduction_map_info[red_sym];
         return red;
     }
 

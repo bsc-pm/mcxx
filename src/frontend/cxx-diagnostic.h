@@ -39,6 +39,8 @@ void error_printf(const char* format, ...) CHECK_PRINTF(1,2);
 void warn_printf(const char* format, ...)  CHECK_PRINTF(1,2);
 void info_printf(const char* format, ...)  CHECK_PRINTF(1,2);
 
+void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINTF(2,3);
+
 MCXX_END_DECLS
 
 #endif // CXX_DIAGNOSTIC_H

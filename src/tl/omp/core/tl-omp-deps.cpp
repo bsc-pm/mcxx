@@ -160,7 +160,11 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause input_clause = construct.get_clause("in",
                 /* deprecated */ "input");
         get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN, default_data_attr);
-        
+
+        TL::ObjectList<std::string> input_private_names;
+        PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
+        get_dependences_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE, default_data_attr);
+
         PragmaCustomClause output_clause = construct.get_clause("out",
                 /* deprecated */ "output");
         get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT, default_data_attr);

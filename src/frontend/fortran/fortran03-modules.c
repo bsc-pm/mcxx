@@ -2094,9 +2094,6 @@ static int get_symbol(void *datum,
     (*result)->kind = symbol_kind;
     (*result)->locus = make_locus(filename, line, 0);
 
-    (*result)->extended_data = xcalloc(1, sizeof(*((*result)->extended_data)));
-    extensible_struct_init(&(*result)->extended_data);
-
     // static int level = 0;
     // {
     //     scope_entry_t* sym = *result;
@@ -3165,11 +3162,11 @@ static int get_module_extra_name(void *data,
 
     sqlite3_free(query);
 
-    fortran_modules_data_set_t* extra_info_attr = (fortran_modules_data_set_t*)extensible_struct_get_field(p->module->extended_data, ".extra_module_info");
+    fortran_modules_data_set_t* extra_info_attr = p->module->entity_specs.module_extra_info;
     if (extra_info_attr == NULL)
     {
         extra_info_attr = xcalloc(1, sizeof(*extra_info_attr));
-        extensible_struct_set_field(p->module->extended_data, ".extra_module_info", extra_info_attr);
+        p->module->entity_specs.module_extra_info = extra_info_attr;
     }
 
     P_LIST_ADD(extra_info_attr->data, extra_info_attr->num_data, module_data);

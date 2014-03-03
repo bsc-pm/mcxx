@@ -757,6 +757,7 @@ static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_standard_layout(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t);
 static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_final(type_t*, type_t*, decl_context_t);
 
 /*
    __has_nothrow_assign (type)
@@ -1246,6 +1247,14 @@ static char eval_type_trait__is_union(type_t* first_type,
     return is_union_type(first_type);
 }
 
+static char eval_type_trait__is_final(type_t* first_type, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return is_named_class_type(first_type)
+        && named_type_get_symbol(first_type)->entity_specs.is_final;
+}
+
 typedef
 struct gxx_type_traits_fun_type_tag
 {
@@ -1276,6 +1285,7 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     { "__is_standard_layout", eval_type_trait__is_standard_layout },
     { "__is_trivial", eval_type_trait__is_trivial },
     { "__is_union", eval_type_trait__is_union },
+    { "__is_final", eval_type_trait__is_final },
     // Sentinel
     {NULL, NULL},
 };

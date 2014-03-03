@@ -162,11 +162,20 @@ LIBMCXX_EXTERN nodecl_t instantiate_statement(nodecl_t orig_tree,
         decl_context_t new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map);
 
-LIBMCXX_EXTERN nodecl_t instantiate_function(nodecl_t orig_tree,
+// Only to be called from cxx-instantiation.c
+nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
         scope_entry_t* orig_function_instantiated,
         scope_entry_t* new_function_instantiated);
+
+// Only to be called from cxx-exprtype.c
+char check_constexpr_function(scope_entry_t* entry,
+        const locus_t* locus,
+        char emit_error);
+char check_constexpr_function_code(scope_entry_t* entry,
+        nodecl_t nodecl_body,
+        char emit_error);
 
 MCXX_END_DECLS
 

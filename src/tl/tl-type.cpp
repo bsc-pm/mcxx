@@ -379,7 +379,7 @@ namespace TL
         {
             num_parameters++;
             parameters_list[i].is_ellipsis = 1;
-            parameters_list[i].type_info = NULL;
+            parameters_list[i].type_info = get_ellipsis_type();
             parameters_list[i].nonadjusted_type_info = NULL;
         }
 
@@ -1415,6 +1415,11 @@ namespace TL
     bool Type::is_variably_modified() const
     {
         return ::is_variably_modified_type(_type_info);
+    }
+
+    std::string Type::print_declarator()
+    {
+        return ::print_declarator(_type_info);
     }
 
     TemplateArgument::TemplateArgumentKind TemplateArgument::get_kind() const
