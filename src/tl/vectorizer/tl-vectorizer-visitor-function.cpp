@@ -61,10 +61,10 @@ namespace TL
             TL::ObjectList<TL::Type> parameters_type = func_type.parameters();
 
             TL::ObjectList<TL::Type> parameters_vector_type;
-            
+
             TL::ObjectList<TL::Type>::iterator it_type;
             TL::ObjectList<TL::Symbol>::iterator it_param_sym;
-            
+
             for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
@@ -86,7 +86,7 @@ namespace TL
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
-               
+
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(), 
                         vect_func_sym.get_internal_symbol(),
                         /*nesting*/ 0, parameters.size());
@@ -154,9 +154,11 @@ namespace TL
                     .front().as<Nodecl::CompoundStatement>().get_statements()
                     .as<Nodecl::List>().append(return_stmt);
             }
-            
+
             _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
+            _environment._local_scope_list.pop_back();
+            _environment._function_return = TL::Symbol();
         }
  
         Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 
