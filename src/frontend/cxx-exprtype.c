@@ -11562,7 +11562,8 @@ void get_packs_in_expression(nodecl_t nodecl,
 
     scope_entry_t* entry = nodecl_get_symbol(nodecl);
     if (entry != NULL
-            && entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+            && (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                || entry->kind == SK_VARIABLE_PACK))
     {
         P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, entry);
         return;
@@ -19586,6 +19587,15 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             result = nodecl_make_symbol(argument, nodecl_get_locus(node));
             nodecl_set_type(result, nodecl_get_type(node));
             nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+        }
+        // Special case when we are using a nontype template pack inside a pack expansion.
+        else if (argument->kind == SK_VARIABLE)
+        {
+            result = nodecl_shallow_copy(argument->value);
+            if (nodecl_expr_is_type_dependent(result))
+            {
+                nodecl_expr_set_is_value_dependent(result, 1);
+            }
         }
         else
         {

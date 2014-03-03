@@ -2696,6 +2696,28 @@ static type_t* update_type_aux_(type_t* orig_type,
                 return get_user_defined_type(argument);
             }
             else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    && argument->kind == SK_TYPEDEF)
+            {
+                // This happens when the template pack is used as a type-name _inside_
+                // a pack expansion.
+                //
+                // template <typename T, typename M = T*>
+                // struct B { };
+                //
+                // template <typename ...S>
+                // struct A
+                // {
+                //      void f(B<S>...);
+                // };
+                //
+                // B<S>... has to expand into B<S, S*>... but note that the argument S is a pack
+                // while M is a typedef (the type of which is T*)
+
+                cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
+                cv_qualif |= get_cv_qualifier(argument->type_information);
+                return get_cv_qualified_type(argument->type_information, cv_qualif);
+            }
+            else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
                     && argument->kind == SK_TYPEDEF_PACK)
             {
                 if (is_named_type(argument->type_information)
@@ -2724,17 +2746,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                     }
                 }
             }
-            // else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            //         && argument->kind == SK_TYPEDEF_PACK)
-            // {
-            //     // This happens when a type template argument expansion is being
-            //     // used where a (nonpack) template type is expected. For this to be valid
-            //     // the sequence should be of length 1, but it is the caller who sould
-            //     // check this
-            //     //
-            //     // We return the whole sequence and let the caller deal with it
-            //     return argument->type_information;
-            // }
             else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                     && argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
             {
