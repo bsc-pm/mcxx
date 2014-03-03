@@ -34,7 +34,7 @@ namespace Analysis {
 
     TestAnalysisPhase::TestAnalysisPhase( )
         : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ),
-            _reaching_defs_enabled( false ), _induction_vars_enabled( false )
+            _reaching_defs_enabled( false ), _induction_vars_enabled( false ), _range_analysis_enabled( false )
     {
         set_phase_name("Experimental phase for testing compiler analysis");
         set_phase_description("This is a temporal phase called with code testing purposes.");
@@ -63,6 +63,11 @@ namespace Analysis {
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _induction_vars_enabled_str,
                             "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
+
+        register_parameter("range_analysis_enabled",
+                            "If set to '1' enables range analysis, otherwise it is disabled",
+                            _range_analysis_enabled_str,
+                            "0").connect(functor(&TestAnalysisPhase::set_range_analsysis, *this));
     }
 
     void TestAnalysisPhase::run( TL::DTO& dto )
@@ -78,58 +83,67 @@ namespace Analysis {
         if( _pcfg_enabled )
         {
             if( VERBOSE )
-                std::cerr << "=========  Testing PCFG creation  =========" << std::endl;
+                std::cerr << "====================  Testing PCFG creation  =================" << std::endl;
             pcfgs = analysis.parallel_control_flow_graph( memento, ast );
             if( VERBOSE )
-                std::cerr << "=========  Testing PCFG creation done =========" << std::endl;
+                std::cerr << "================  Testing PCFG creation done  ================" << std::endl;
         }
 
         if( _use_def_enabled )
         {
             if( VERBOSE )
-                std::cerr << "=========  Testing Use-Definition analysis =========" << std::endl;
+                std::cerr << "==============  Testing Use-Definition analysis  ==============" << std::endl;
             pcfgs = analysis.use_def( memento, ast );
             if( VERBOSE )
-                std::cerr << "=========  Testing Use-Definition analysis done =========" << std::endl;
+                std::cerr << "===========  Testing Use-Definition analysis done  ============" << std::endl;
         }
 
         if( _liveness_enabled )
         {
             if( VERBOSE )
-                std::cerr << "=========  Testing Liveness analysis =========" << std::endl;
+                std::cerr << "=================  Testing Liveness analysis  ==================" << std::endl;
             pcfgs = analysis.liveness( memento, ast );
             if( VERBOSE )
-                std::cerr << "=========  Testing Liveness analysis done =========" << std::endl;
+                std::cerr << "===============  Testing Liveness analysis done  ===============" << std::endl;
         }
 
         if( _reaching_defs_enabled )
         {
             if( VERBOSE )
-                std::cerr << "=========  Testing Reaching Definitions analysis =========" << std::endl;
+                std::cerr << "===========  Testing Reaching Definitions analysis  ============" << std::endl;
             pcfgs = analysis.reaching_definitions( memento, ast );
             if( VERBOSE )
-                std::cerr << "=========  Testing Reaching Definitions analysis done =========" << std::endl;
+                std::cerr << "=========  Testing Reaching Definitions analysis done  =========" << std::endl;
         }
 
         if( _induction_vars_enabled )
         {
             if( VERBOSE )
-                std::cerr << "=========  Testing Induction Variables analysis =========" << std::endl;
+                std::cerr << "============  Testing Induction Variables analysis  =============" << std::endl;
             pcfgs = analysis.induction_variables( memento, ast );
             if( VERBOSE )
-                std::cerr << "=========  Testing Induction Variables analysis done =========" << std::endl;
+                std::cerr << "==========  Testing Induction Variables analysis done  ==========" << std::endl;
+        }
+        
+        if( _range_analysis_enabled )
+        {
+            if( VERBOSE )
+                std::cerr << "====================  Testing Range analysis ====================" << std::endl;
+            pcfgs = analysis.range_analysis( memento, ast );
+            if( VERBOSE )
+                std::cerr << "==========  Testing Induction Variables analysis done ===========" << std::endl;
         }
         
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
         {
             if( VERBOSE )
-                std::cerr << "=========  Printing PCFG to dot file  =========" << std::endl;
+                std::cerr << "===================  Printing PCFG to dot file  ==================" << std::endl;
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
             {
                 analysis.print_pcfg( memento, (*it)->get_name( ) );
             }
             if( VERBOSE )
-                std::cerr << "=========  Printing PCFG to dot file done =========" << std::endl;
+                std::cerr << "================  Printing PCFG to dot file done =================" << std::endl;
         }
     }
 
@@ -163,6 +177,12 @@ namespace Analysis {
             _induction_vars_enabled = true;
     }
 
+    void TestAnalysisPhase::set_range_analsysis( const std::string& range_analysis_enabled_str )
+    {
+        if( range_analysis_enabled_str == "1" )
+            _range_analysis_enabled = true;
+    }
+    
 }
 }
 

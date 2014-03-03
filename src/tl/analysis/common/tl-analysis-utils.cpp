@@ -189,6 +189,58 @@ namespace Utils {
     
     
     // ******************************************************************************************* //
+    // ************************ Class defining the range analysis values ************************* //
+    
+    bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1, 
+                           std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair2 )
+    {
+        bool result = false;
+        
+        // Check the keys
+        if( Nodecl::Utils::equal_nodecls( pair1.first, pair2.first ) )
+        {
+            // Check the values
+            if( pair1.second.size( ) == pair2.second.size( ) )
+            {
+                result = true;
+                ObjectList<RangeValue_tag>::iterator it1 = pair1.second.begin( );
+                ObjectList<RangeValue_tag>::iterator it2 = pair2.second.begin( );
+                for( ; it1 != pair1.second.end( ); it1++, it2++ )
+                {
+                    if( !it1->n->is_null( ) && !it2->n->is_null( ) )
+                    {
+                        if( !Nodecl::Utils::equal_nodecls( *it1->n, *it2->n ) )
+                        {
+                            result = false;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if( !Nodecl::Utils::equal_nodecls( it1->iv->get_variable( ).get_nodecl( ), 
+                                                           it2->iv->get_variable( ).get_nodecl( ) ) || 
+                            !Nodecl::Utils::equal_nodecls( it1->iv->get_lb( ), it2->iv->get_lb( ) ) || 
+                            !Nodecl::Utils::equal_nodecls( it1->iv->get_ub( ), it2->iv->get_ub( ) ) || 
+                            !Nodecl::Utils::equal_nodecls( it1->iv->get_increment( ), it2->iv->get_increment( ) ) || 
+                            ( it1->iv->is_basic( ) == it2->iv->is_basic( ) ) )
+                        {
+                            result = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    // ********************** END class defining the range analysis values *********************** //
+    // ******************************************************************************************* //
+    
+    
+    
+    // ******************************************************************************************* //
     // ************************************ Printing methods ************************************* //
     
     void makeup_dot_block( std::string& str )
@@ -324,6 +376,58 @@ namespace Utils {
                 if( line_size > 100 )
                     result += "$$";
             }
+        }
+        
+        if( !result.empty( ) )
+        {
+            result = result.substr( 0, result.size( ) - 2 );
+            if( print_in_dot )
+                makeup_dot_block(result);
+        }
+        
+        return result;
+    }
+    
+    std::string prettyprint_range_values_map( Utils::RangeValuesMap s, bool print_in_dot  )
+    {
+        std::string result = "";
+        int line_size = 0;
+        for( Utils::RangeValuesMap::iterator it = s.begin( ); it != s.end( ); ++it )
+        {
+            std::string it_str = it->first.prettyprint( ) + "= {";
+                ObjectList<Utils::RangeValue_tag> values = it->second;
+                for( ObjectList<Utils::RangeValue_tag>::iterator itv = values.begin( ); itv != values.end( ); )
+                {
+                    if( !itv->n->is_null( ) )
+                        it_str += itv->n->prettyprint( );
+                    else
+                    {
+                        Nodecl::NodeclBase lb = itv->iv->get_lb( );
+                        Nodecl::NodeclBase ub = itv->iv->get_ub( );
+                        Nodecl::NodeclBase incr = itv->iv->get_increment( );
+                        
+                        it_str += "[ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
+                                + ":"  + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
+                                + ":"  + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
+                                + ":"   + itv->iv->get_type_as_string( ) + " ]";
+                    }
+                    
+                    ++itv;
+                    if( itv != values.end( ) )
+                        it_str += ", ";
+                }
+                it_str += "}; ";
+                
+                if( line_size + it_str.size( ) > 100 )
+                {
+                    result += "$$";
+                    line_size = it_str.size( );
+                }
+                else
+                    line_size += it_str.size( );
+                result += it_str;
+                if( line_size > 100 )
+                    result += "$$";
         }
         
         if( !result.empty( ) )

@@ -618,6 +618,26 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 # ANALYSIS                   #
 ##############################
 
+# Used for range analysis
+interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
+                    | NODECL_ANALYSIS*PLUS_INFINITY()
+                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*EMPTY_RANGE()
+                    | expression
+                    
+constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
+                      | interval_expression
+         
+constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_SUB( [lhs] constraint_expression, [rhs] constraint_expression ) type
+
+constraint : constraint_expression
+           | constraint_operation
+        
+
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
 

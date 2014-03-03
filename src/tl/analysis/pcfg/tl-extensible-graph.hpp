@@ -346,7 +346,7 @@ namespace Analysis {
 
         //! Build a DOT file that represents the CFG
         void print_graph_to_dot( bool usage = false, bool liveness = false, 
-                                 bool reaching_defs = false, bool induction_vars = false, 
+                                 bool reaching_defs = false, bool induction_vars = false, bool ranges = false,
                                  bool auto_scoping = false, bool auto_deps = false );
 
 
@@ -402,6 +402,9 @@ namespace Analysis {
         static Node* get_omp_enclosing_node( Node* current );
         static Edge* get_edge_between_nodes( Node* source, Node* target );
         static Node* get_enclosing_context( Node* n );
+        static Node* get_enclosing_task( Node* n );
+        static bool task_encloses_task( Node* container, Node* contained );
+        static bool node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

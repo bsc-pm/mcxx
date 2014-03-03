@@ -55,7 +55,7 @@ namespace Analysis {
 
         bool _computing_limits;
 
-        // *** Auxiliar methods *** //
+        // *** Auxiliary methods *** //
 
         nodecl_t create_nodecl_list(ObjectList<Nodecl::NodeclBase> list);
 

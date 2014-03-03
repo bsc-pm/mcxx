@@ -13,6 +13,7 @@ texinfo.tex
 install-sh
 ltmain.sh
 missing
+.dirstamp
 .*.swp
 *.info
 m4/libtool.m4
@@ -57,7 +58,6 @@ doc/doxygen_tl
 doc/html/
 lib/tpp
 libtool
-src/driver/.dirstamp
 src/driver/cxx-configfile-lexer.c
 src/driver/cxx-configfile-parser-internal.h
 src/driver/cxx-configfile-parser.c

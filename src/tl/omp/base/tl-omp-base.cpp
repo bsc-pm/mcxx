@@ -1623,7 +1623,7 @@ namespace TL { namespace OpenMP {
             {
                 return Nodecl::OpenMP::ReductionItem::make(
                         /* reductor */ Nodecl::Symbol::make(arg.get_reduction()->get_symbol(), _locus),
-                        /* reduced symbol */ Nodecl::Symbol::make(arg.get_symbol(), _locus),
+                        /* reduced symbol */ arg.get_symbol().make_nodecl(/* set_ref_type */ true, _locus),
                         /* reduction type */ Nodecl::Type::make(arg.get_reduction_type(), _locus),
                         _locus);
             }

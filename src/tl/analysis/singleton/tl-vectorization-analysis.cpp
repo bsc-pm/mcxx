@@ -494,7 +494,6 @@ namespace Analysis {
                 // a[i][j][k] -> i -> i*J*K
                 for( int j = i; j < (num_subscripts-1); j++ )
                 {
-
 //                    if( ( is_suitable_constant( dimension_sizes[j] ) ) || is_suitable_constant( it_alignment ) )
 //                    {
 //                        it_alignment = 0;

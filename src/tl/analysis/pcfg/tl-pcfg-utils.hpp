@@ -321,9 +321,26 @@ namespace Analysis {
      */
     #define _UNDEF                          "undefined_behaviour_vars"
     
+    /*! \def _PRIVATE_UPPER_EXPOSED
+     * Set of private upper exposed variables within a node (after purging based on OpenMP variables scope).
+     * Available in all nodes (Mandatory once the UseDef analysis is performed).
+     */
+    #define _PRIVATE_UPPER_EXPOSED          "private_ue_vars"
+    
+    /*! \def _PRIVATE_KILLED
+     * Set of killed variables within a node (after purging based on OpenMP variables scope).
+     * Available in all nodes (Mandatory once the UseDef analysis is performed).
+     */
+    #define _PRIVATE_KILLED                 "private_killed_vars"
+    
+    /*! \def _PRIVATE_UNDEF
+     * Set of variables within a node that we cannot define the behaviour (after purging based on OpenMP variables scope).
+     * Available in all nodes (Mandatory once the UseDef analysis is performed).
+     */
+    #define _PRIVATE_UNDEF                  "private_undefined_behaviour_vars"
     
     // Liveness attributes
-    ///////////**/////////
+    //////////////////////
     
     /*! \def _LIVE_IN
      * Set of variables that are alive at the entry point of a node.
@@ -378,6 +395,27 @@ namespace Analysis {
      * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
      */
     #define _INDUCTION_VARS                 "induction_vars"
+    
+    
+    // Range Analysis
+    /////////////////
+    /*! \def _CONSTRAINTS
+     * Map of variables and the related constraints computed during Range Analysis
+     * Available in all simple nodes (Mandatory after Range Analysis is performed)
+     */
+    #define _CONSTRAINTS                    "constraints"
+    
+    /*! \def _RANGES_IN
+     * Map containing range of values assigned to a value at the entry point of a node
+     * Available in all nodes (Mandatory after Range Analysis is performed).
+     */
+    #define _RANGES_IN                      "ranges_in"
+
+    /*! \def _RANGES_OUT
+     * Map containing range of values assigned to a value at the exit point of a node
+     * Available in all nodes (Mandatory after Range Analysis is performed).
+     */
+    #define _RANGES_OUT                     "ranges_out"
     
     
     // Auto-scoping attributes
