@@ -19424,16 +19424,15 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
         scope_entry_t* dependent_entry,
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
+        char dependent_entry_already_updated,
         int pack_index)
 {
     // This may be left null if the dependent_entry is not a SK_DEPENDENT_ENTITY
     nodecl_t nodecl_already_updated_extended_parts = nodecl_null();
     nodecl_t nodecl_extended_parts = nodecl_null();
 
-    char dependent_entry_already_updated = 0;
     if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
     {
-        dependent_entry_already_updated = 1;
         dependent_typename_get_components(
                 dependent_entry->type_information,
                 &dependent_entry,
@@ -19447,16 +19446,24 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
 
     // The dependent entry itself
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, make_locus("", 0, 0));
-    if (!dependent_entry_already_updated
-            && is_template_specialized_type(dependent_entry->type_information))
+    if (is_template_specialized_type(dependent_entry->type_information))
     {
-        nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
-                /* template_tag */ "",
+        template_parameter_list_t* argument_list =
+            template_specialized_type_get_template_arguments(dependent_entry->type_information);
+
+        if (!dependent_entry_already_updated)
+        {
+            argument_list =
                 update_template_argument_list(
-                    decl_context,
-                    template_specialized_type_get_template_arguments(dependent_entry->type_information),
-                    make_locus("", 0, 0),
-                    pack_index),
+                        decl_context,
+                        template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                        make_locus("", 0, 0),
+                        pack_index);
+        }
+
+        nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
+                /* template tag */ "",
+                argument_list,
                 make_locus("", 0, 0));
     }
 
@@ -19617,22 +19624,33 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
 
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
-        if (entry_list != NULL
-                && entry_list_head(entry_list)->kind == SK_DEPENDENT_ENTITY)
+        char dependent_entry_already_updated = 0;
+        if (entry_list != NULL)
         {
-            nodecl_t nodecl_dummy = nodecl_null();
-            dependent_typename_get_components(
-                    entry_list_head(entry_list)->type_information,
-                    &dependent_entry,
-                    // We cannot update these, let
-                    // complete_nodecl_name_of_dependent_entity do that for us
-                    &nodecl_dummy);
+            scope_entry_t* updated_symbol = entry_list_head(entry_list);
+            if (updated_symbol->kind == SK_DEPENDENT_ENTITY)
+            {
+                nodecl_t nodecl_dummy = nodecl_null();
+                dependent_typename_get_components(
+                        updated_symbol->type_information,
+                        &dependent_entry,
+                        // We cannot update these, let
+                        // complete_nodecl_name_of_dependent_entity do that for us
+                        &nodecl_dummy);
+                dependent_entry_already_updated = 1;
+            }
+            else if (updated_symbol->kind == SK_CLASS
+                    || updated_symbol->kind == SK_ENUM)
+            {
+                dependent_entry_already_updated = 1;
+            }
         }
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
         complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
                 list_of_dependent_parts,
                 v->decl_context,
+                dependent_entry_already_updated,
                 v->pack_index);
 
         cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, NULL, &result);
