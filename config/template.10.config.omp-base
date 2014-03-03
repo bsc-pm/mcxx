@@ -64,7 +64,7 @@ linker_options = -Xlinker --enable-new-dtags
 linker_options = -Wl,--add-needed
 #nanos++
 {openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -qinclude=nanos.h -qinclude=nanos_omp.h
-inker_options = -Wl,--enable-new-dtags
+linker_options = -Wl,--enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
 {openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
 {openmp,!(omp-dry-run|openmp-dry-run),!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
