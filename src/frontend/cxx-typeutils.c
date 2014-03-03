@@ -13443,6 +13443,15 @@ void get_packs_in_type(type_t* pack_type,
                 {
                     get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
                 }
+                else if (k == TPK_NONTYPE)
+                {
+                    get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                    get_packs_in_expression(v->value, packs_to_expand, num_packs_to_expand);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
             }
         }
     }

@@ -11543,6 +11543,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     }
 }
 
+// Used in cxx-typeutils.c
 void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand)
