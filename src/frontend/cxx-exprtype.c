@@ -19418,13 +19418,25 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
 // So we fully qualify the symbol lest it was a dependent entity again. Note
 // that this could bring problems if the symbol is the operand of a reference (&)
 // operator.
-static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
-        dependent_entry, 
+static nodecl_t complete_nodecl_name_of_dependent_entity(
+        scope_entry_t* dependent_entry,
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
         int pack_index)
 {
+    // This may be left null if the dependent_entry is not a SK_DEPENDENT_ENTITY
+    nodecl_t nodecl_already_updated_extended_parts = nodecl_null();
     nodecl_t nodecl_extended_parts = nodecl_null();
+
+    char dependent_entry_already_updated = 0;
+    if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        dependent_entry_already_updated = 1;
+        dependent_typename_get_components(
+                dependent_entry->type_information,
+                &dependent_entry,
+                &nodecl_already_updated_extended_parts);
+    }
 
     add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts);
 
@@ -19433,7 +19445,8 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
 
     // The dependent entry itself
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, make_locus("", 0, 0));
-    if (is_template_specialized_type(dependent_entry->type_information))
+    if (!dependent_entry_already_updated
+            && is_template_specialized_type(dependent_entry->type_information))
     {
         nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
                 /* template_tag */ "",
@@ -19444,7 +19457,14 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
                     pack_index),
                 make_locus("", 0, 0));
     }
+
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
+
+    if (!nodecl_is_null(nodecl_already_updated_extended_parts))
+    {
+        nodecl_extended_parts = nodecl_concat_lists(nodecl_extended_parts,
+                nodecl_already_updated_extended_parts);
+    }
 
     // Concat with the existing parts but make sure we update the template arguments as well
     int i;
@@ -19469,8 +19489,20 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
     }
     xfree(rest_of_parts);
 
+    nodecl_t (*nodecl_make_cxx_dep_fun_name)(nodecl_t, const locus_t*) = nodecl_make_cxx_dep_global_name_nested;
+    if (dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+    {
+        // Do not globally qualify these cases
+        nodecl_make_cxx_dep_fun_name = nodecl_make_cxx_dep_name_nested;
+    }
+
     nodecl_t result =
-        nodecl_make_cxx_dep_global_name_nested(nodecl_extended_parts, make_locus("", 0, 0));
+        nodecl_make_cxx_dep_fun_name(nodecl_extended_parts, make_locus("", 0, 0));
 
     return result;
 }
@@ -19573,6 +19605,18 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         nodecl_t dependent_parts = nodecl_null();
 
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
+
+        if (entry_list != NULL
+                && entry_list_head(entry_list)->kind == SK_DEPENDENT_ENTITY)
+        {
+            nodecl_t nodecl_dummy = nodecl_null();
+            dependent_typename_get_components(
+                    entry_list_head(entry_list)->type_information,
+                    &dependent_entry,
+                    // We cannot update these, let
+                    // complete_nodecl_name_of_dependent_entity do that for us
+                    &nodecl_dummy);
+        }
 
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
         complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
