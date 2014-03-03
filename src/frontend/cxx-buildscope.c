@@ -3259,7 +3259,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     AST class_key = ASTSon0(a);
 
     enum type_tag_t class_kind = TT_INVALID;
-    const char *class_kind_name = NULL;
     decl_flags_t class_kind_flag = DF_NONE;
     switch (ASTType(class_key))
     {
@@ -3267,21 +3266,18 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             {
                 class_kind = TT_CLASS;
                 class_kind_flag = DF_CLASS;
-                class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = TT_STRUCT;
                 class_kind_flag = DF_STRUCT;
-                class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = TT_UNION;
                 class_kind_flag = DF_UNION;
-                class_kind_name = "union";
                 break;
             }
         default:
@@ -3332,20 +3328,8 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
         decl_context_query.current_scope = decl_context.current_scope->contained_in;
     }
 
-    char is_friend_class_declaration =
-        (gather_info->no_declarators && gather_info->is_friend);
-
-    CXX_LANGUAGE()
-    {
-        result_list = query_id_expression_flags(decl_context_query,
-                id_expression, NULL, decl_flags | DF_DEPENDENT_TYPENAME);
-    }
-    C_LANGUAGE()
-    {
-        const char* class_name = ASTText(id_expression);
-        class_name = strappend(class_kind_name, strappend(" ", class_name));
-        result_list = query_name_str(decl_context_query, class_name, NULL);
-    }
+    result_list = query_id_expression_flags(decl_context_query,
+            id_expression, NULL, decl_flags | DF_DEPENDENT_TYPENAME);
 
     enum cxx_symbol_kind filter_classes[] =
     {
@@ -3361,8 +3345,10 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
     entry_list_free(entry_list);
 
-    if (entry == NULL &&
-            is_qualified_id_expression(id_expression))
+    if (entry == NULL
+            // In theses cases the name must exist
+            && (ASTType(id_expression) == AST_TEMPLATE_ID
+                || is_qualified_id_expression(id_expression)))
     {
         if (!checking_ambiguity())
         {
@@ -3408,14 +3394,63 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
             }
     }
 
-    C_LANGUAGE()
-    {
-        class_name = strappend(class_kind_name, strappend(" ", class_name));
-    }
-
     class_entry = entry;
     if (entry != NULL)
     {
+        if (entry->entity_specs.is_injected_class_name)
+        {
+            if (gather_info->is_template
+                    && is_template_specialized_type(entry->type_information))
+            {
+                /*
+                   It may happen that we find the injected class name like in the following case
+
+                   template <typename T>
+                   struct A;
+
+                   template <typename T>
+                   struct A<T*>
+                   {
+                       template <typename S>
+                       friend struct A;
+                   };
+                 */
+                // Get the template-name instead
+                entry = template_type_get_related_symbol(
+                            template_specialized_type_get_related_template_type(entry->type_information)
+                            );
+            }
+            else
+            {
+                entry = named_type_get_symbol(entry->entity_specs.class_type);
+            }
+        }
+
+        if (gather_info->is_template
+                && entry->kind == SK_CLASS
+                && is_template_specialized_type(entry->type_information)
+                && is_dependent_type(entry->type_information)
+                && !equivalent_types(
+                    get_user_defined_type(entry),
+                    template_type_get_primary_type(
+                        template_specialized_type_get_related_template_type(entry->type_information)
+                        )))
+        {
+            // The user is attempting something like this
+            /*
+               struct B
+               {
+                   template <typename S>
+                   friend struct A<S*>;
+               };
+
+             */
+            // If this dependent specialized type is not the primary we are
+            // attempting to be friends with a partial specialization
+            error_printf("%s: error: cannot declare as friend a partial specialization\n",
+                    ast_location(id_expression));
+        }
+
         scope_entry_t* alias_to_entry = class_entry;
         if (gather_info->is_template
                 || ASTType(id_expression) == AST_TEMPLATE_ID
@@ -3449,13 +3484,14 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
     }
     else
     {
+        // Note that entry can be NULL only if the class-name is unqualified
         if (is_dependent_type(class_symbol->type_information))
         {
             class_entry = counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
             class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
             class_entry->locus = ast_get_locus(a);
 
-            if(gather_info->is_template)
+            if (gather_info->is_template)
             {
                 class_entry->kind = SK_TEMPLATE;
                 class_entry->type_information = get_new_template_type(decl_context.template_parameters,
@@ -3495,7 +3531,7 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
                 // The new symbol will be created in a BLOCK_SCOPE
                 decl_context.current_scope = decl_context.current_scope->contained_in;
             }
-            else if (is_friend_class_declaration)
+            else
             {
                 decl_context.current_scope = decl_context.namespace_scope;
             }
@@ -3908,8 +3944,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
             new_class->locus = ast_get_locus(id_expression);
-
-            new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
             if ((!class_gather_info.is_template
                         || !class_gather_info.no_declarators)
@@ -8862,6 +8896,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     keep_gcc_attributes_in_symbol(class_entry, gather_info);
     keep_ms_declspecs_in_symbol(class_entry, gather_info);
+
+    // Keep class-virt-specifiers
+    class_entry->entity_specs.is_explicit = gather_info->is_explicit;
+    class_entry->entity_specs.is_final = gather_info->is_final;
 
     // Propagate the __extension__ attribute to the symbol
     class_entry->entity_specs.gcc_extension = gcc_extension;
@@ -15149,6 +15187,12 @@ static void gather_single_virt_specifier(AST item,
                     }
                     return;
                 }
+    
+                if (IS_CXX03_LANGUAGE)
+                {
+                    warn_printf("%s: warning: virt-specifiers are a C+11 feature\n",
+                            ast_location(item));
+                }
 
                 if (strcmp(spec, "final") == 0)
                 {
@@ -15170,6 +15214,7 @@ static void gather_single_virt_specifier(AST item,
                 {
                     internal_error("Unhandled valid keyword '%s' at %s\n", spec, ast_location(item));
                 }
+
                 break;
             }
         default:

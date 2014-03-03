@@ -45,7 +45,6 @@ struct nodecl_expr_info_tag
 {
     char is_value_dependent:1;
     char is_type_dependent_expression:1;
-    int _reserved0;
 
     type_t* type_info;
 

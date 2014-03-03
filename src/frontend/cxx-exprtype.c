@@ -6743,6 +6743,9 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         // This should always be type dependent as one cannot type
         // void f(int ... x)
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+
+        // This is always value dependent
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
     else
     {
@@ -10075,6 +10078,7 @@ static void check_nodecl_function_call_cxx(
                 get_unknown_dependent_type(),
                 locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        // FIXME - What if the nodecl_called is value dependent?
         nodecl_expr_set_is_value_dependent(*nodecl_output, any_arg_is_value_dependent);
         return;
     }
@@ -11603,9 +11607,11 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
         return;
     }
 
-    // This is always type dependent
-    *nodecl_output = nodecl_make_cxx_value_pack(pack, get_pack_type(nodecl_get_type(pack)), locus);
-    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+    // This is always type and value dependent
+    type_t* pack_type = get_pack_type(nodecl_get_type(pack));
+    *nodecl_output = nodecl_make_cxx_value_pack(pack, pack_type, locus);
+    nodecl_expr_set_is_type_dependent(*nodecl_output, is_dependent_type(pack_type));
+    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
 }
 
 static void check_initializer_clause_pack_expansion(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -13637,7 +13643,21 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         nodecl_t init_list_output = nodecl_null();
 
         type_t* initializer_type = declared_type;
-        if (!nodecl_is_null(initializer_clause_list))
+        if (nodecl_is_null(initializer_clause_list)
+                && is_array_type(declared_type)
+                && array_type_is_unknown_size(declared_type))
+        {
+            // GCC extension
+            // int c[] = { };
+            nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get_unsigned_int(0),
+                    locus);
+
+            initializer_type = get_array_type(
+                    array_type_get_element_type(declared_type),
+                    length, decl_context);
+        }
+        else
         {
             if (!is_array_type(declared_type)
                     && !is_class_type(declared_type)
@@ -13658,26 +13678,29 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             //   char a[] = { "hello" };
 
             // The expression list has only one element of kind expression and this element is an array of chars o wchars
-            type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
-            if (nodecl_list_length(initializer_clause_list) == 1
-                    && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
-                    && (is_array_type(no_ref(type_element))
-                        && (is_char_type(array_type_get_element_type(no_ref(type_element)))
-                            || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
-                           )
-                       )
-               )
+            if (!nodecl_is_null(initializer_clause_list))
             {
-                // Attempt an interpretation like char a[] = "hello";
-                enter_test_expression();
-                check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
-                        decl_context,
-                        declared_type,
-                        nodecl_output);
-                leave_test_expression();
+                type_t * type_element = nodecl_get_type(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0));
+                if (nodecl_list_length(initializer_clause_list) == 1
+                        && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
+                        && (is_array_type(no_ref(type_element))
+                            && (is_char_type(array_type_get_element_type(no_ref(type_element)))
+                                || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
+                               )
+                           )
+                   )
+                {
+                    // Attempt an interpretation like char a[] = "hello";
+                    enter_test_expression();
+                    check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
+                            decl_context,
+                            declared_type,
+                            nodecl_output);
+                    leave_test_expression();
 
-                if (!nodecl_is_err_expr(*nodecl_output))
-                    return;
+                    if (!nodecl_is_err_expr(*nodecl_output))
+                        return;
+                }
             }
 
             struct type_init_stack_t type_stack[MCXX_MAX_UNBRACED_AGGREGATES];
@@ -13975,18 +13998,6 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         array_type_get_element_type(declared_type),
                         length, decl_context);
             }
-        }
-        else
-        {
-            // GCC extension
-            // int c[] = { };
-            nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
-                    const_value_get_unsigned_int(0),
-                    locus);
-
-            initializer_type = get_array_type(
-                    array_type_get_element_type(declared_type),
-                    length, decl_context);
         }
 
         *nodecl_output = nodecl_make_structured_value(init_list_output, initializer_type, locus);
@@ -20438,12 +20449,14 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
     nodecl_t expansion = nodecl_get_child(node, 0);
     nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
 
-    if (nodecl_expr_is_type_dependent(packed_expr))
+    if (nodecl_expr_is_value_dependent(packed_expr))
     {
+        type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
         v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
-                get_pack_type(nodecl_get_type(packed_expr)),
+                pack_type,
                 nodecl_get_locus(node));
-        nodecl_expr_set_is_type_dependent(v->nodecl_result, 1);
+        nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
+        nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
         return;
     }
 

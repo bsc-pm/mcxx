@@ -4496,6 +4496,16 @@ void CxxBase::define_class_symbol_aux(TL::Symbol symbol,
             *(file) << " " << qualified_name;
         }
 
+        // class-virt-specifier
+        if (symbol.is_final())
+        {
+            (*file) << " final";
+        }
+        else if (symbol.is_explicit_class())
+        {
+            (*file) << " explicit";
+        }
+
         TL::ObjectList<TL::Type::BaseInfo> bases = symbol_type.get_bases();
         if (!bases.empty())
         {
