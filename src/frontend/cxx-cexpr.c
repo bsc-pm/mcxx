@@ -3756,17 +3756,17 @@ const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
     }
     else
     {
-        if (neg)
-        {
-            result[len] = '-';
-            len++;
-        }
-
         while (i > 0)
         {
             result[len] = digits[i % 10];
             len++;
             i /= 10;
+        }
+
+        if (neg)
+        {
+            result[len] = '-';
+            len++;
         }
 
         // Now reverse the string
@@ -3779,6 +3779,7 @@ const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
             result[begin] = result[end];
             result[end] = t;
         }
+
     }
 
     ERROR_CONDITION(len >= MAX_DIGITS, "Too many digits", 0);
