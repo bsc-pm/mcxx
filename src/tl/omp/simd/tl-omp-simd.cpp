@@ -856,13 +856,13 @@ namespace TL {
                     int alignment = const_value_cast_to_signed_int(
                             omp_aligned.get_alignment().as<Nodecl::IntegerLiteral>().get_constant());
 
-                    for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = aligned_expressions_list.begin();
-                            it != aligned_expressions_list.end();
-                            it++)
+                    for(TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = aligned_expressions_list.begin();
+                            it2 != aligned_expressions_list.end();
+                            it2++)
                     {
 
                         if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
-                                        it->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
+                                        it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
                         {
                             running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
                         }
