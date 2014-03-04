@@ -110,7 +110,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 
         private_symbols.insert(tmp);
         reduction_symbols.insert(tmp);
-#warning
         all_shared_symbols.insert(tmp);
     }
 
@@ -151,10 +150,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     TL::Symbol ident_symbol = Intel::new_global_ident_symbol(construct);
 
     Nodecl::NodeclBase outline_function_code, outline_function_stmt;
-
-#warning I use a list instead of a Nodecl
     Nodecl::List reduction_code_list;
-
     SymbolUtils::build_empty_body_for_function(outline_function,
             outline_function_code,
             outline_function_stmt);
