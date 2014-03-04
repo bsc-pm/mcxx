@@ -9244,11 +9244,8 @@ static void build_scope_declarator_with_parameter_context(AST a,
                         *declarator_type = get_new_function_type(conversion_function_type, 
                                 /*parameter_info*/ NULL, /*num_parameters=*/0, REF_QUALIFIER_NONE);
 
-                        // Keep the const-qualification in the crafted type
-                        if ((cv_qualif & CV_CONST) == CV_CONST)
-                        {
-                            *declarator_type = get_const_qualified_type(*declarator_type);
-                        }
+                        // Keep the cv-qualification in the crafted type
+                        *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
                     }
                 }
                 else if (ASTType(declarator_name) == AST_DESTRUCTOR_ID
