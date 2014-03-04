@@ -58,6 +58,9 @@ namespace TL
 
         class Core : public TL::PragmaCustomCompilerPhase
         {
+            public:
+                typedef std::map<TL::Symbol, OpenMP::Reduction*> reduction_map_info_t;
+                static reduction_map_info_t reduction_map_info;
             private:
                 void parse_new_udr(const std::string& str);
 
@@ -84,6 +87,7 @@ namespace TL
 
                 static bool _constructs_already_registered;
                 static bool _reductions_already_registered;
+                static bool _already_informed_new_ompss_copy_deps;
 
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
@@ -92,7 +96,8 @@ namespace TL
 
                 void common_target_handler_pre(TL::PragmaCustomLine pragma_line, 
                         TargetContext& target_ctx,
-                        TL::Scope scope);
+                        TL::Scope scope,
+                        bool is_pragma_task);
 
                 void task_function_handler_pre(TL::PragmaCustomDeclaration construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
@@ -169,6 +174,7 @@ namespace TL
                 bool _discard_unused_data_sharings;
                 bool _allow_shared_without_copies;
                 bool _allow_array_reductions;
+                bool _ompss_mode;
             public:
                 Core();
 
@@ -176,6 +182,7 @@ namespace TL
                 virtual void pre_run(TL::DTO& dto);
 
                 virtual void phase_cleanup(TL::DTO& data_flow);
+                virtual void phase_cleanup_end_of_pipeline(TL::DTO& dto);
 
                 virtual ~Core() { }
 
@@ -189,6 +196,13 @@ namespace TL
                 void set_allow_shared_without_copies(bool b) { _allow_shared_without_copies = b; }
 
                 void set_allow_array_reductions(bool b) { _allow_array_reductions = b; }
+
+                void set_ompss_mode(bool b) { _ompss_mode = b; }
+
+                bool in_ompss_mode() const
+                {
+                    return _ompss_mode;
+                }
         };
 
         // OpenMP core is a one shot phase, so even if it is in the compiler

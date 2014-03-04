@@ -90,6 +90,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
     { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
+    { "__is_final", GXX_IS_FINAL },
     { "__underlying_type", GXX_UNDERLYING_TYPE },
     // Sentinel
     { NULL, 0 },
@@ -1044,7 +1045,9 @@ type {
 "operator"      { parse_token_text(); return OPERATOR; } 
 "operator[ \t\n]+\"\""  { parse_token_text(); return OPERATOR_LITERAL; } 
 "new"           { parse_token_text(); return TOKEN_NEW; } 
+"new"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); return TOKEN_NEW_ARRAY; }
 "delete"        { parse_token_text(); return TOKEN_DELETE; }
+"delete"[ \t\n]*"["[ \t\n]*"]" { parse_token_text(); return TOKEN_DELETE_ARRAY; }
 "typename"      { parse_token_text(); return TYPENAME; } 
 "export"        { parse_token_text(); return EXPORT; } 
 "class"         { parse_token_text(); return CLASS; }
@@ -1065,7 +1068,9 @@ type {
 
 "constexpr"     { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_CONSTEXPR; else return IDENTIFIER; }
 "thread_local"  { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_THREAD_LOCAL; else return IDENTIFIER; }
-"noexcept"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT; else return IDENTIFIER; }
+"noexcept"/[ \t\n]*[(] {
+                  parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT; else return IDENTIFIER; }
+"noexcept"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NOEXCEPT_ALONE; else return IDENTIFIER; }
 "nullptr"       { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_NULLPTR; else return IDENTIFIER; }
  /*!endif*/
 
@@ -1175,6 +1180,7 @@ type {
 "__is_standard_layout" |
 "__is_trivial" |
 "__is_union" |
+"__is_final" |
 "__underlying_type" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }

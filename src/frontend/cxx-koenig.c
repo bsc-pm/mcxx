@@ -90,6 +90,7 @@ scope_entry_list_t* koenig_lookup(
     // First do normal lookup, filtering non-visible function friend declaration
     result = query_name_str_flags(normal_decl_context, 
             nodecl_get_text(nodecl_simple_name), 
+            NULL,
             DF_IGNORE_FRIEND_DECL);
 
     // For every associated scope
@@ -111,6 +112,7 @@ scope_entry_list_t* koenig_lookup(
 
         scope_entry_list_t* current_result = query_nodecl_name_flags(current_context, 
                 nodecl_simple_name, 
+                NULL,
                 DF_ONLY_CURRENT_SCOPE);
 
         scope_entry_list_t* filtered_friends = NULL;
@@ -243,7 +245,13 @@ static void add_associated_class(koenig_lookup_info_t* koenig_info, scope_entry_
         class_symbol = named_type_get_symbol(advanced_type);
     }
 
-    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Symbol must be a class", 0);
+    if (class_symbol->kind == SK_TEMPLATE_ALIAS)
+    {
+        class_symbol = named_type_get_symbol(class_symbol->type_information);
+    }
+
+    ERROR_CONDITION(class_symbol == NULL
+            || class_symbol->kind != SK_CLASS, "Symbol must be a class", 0);
 
     int i;
     for (i = 0; i < koenig_info->num_associated_classes; i++)

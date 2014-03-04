@@ -82,6 +82,7 @@ namespace Codegen
             Ret visit(const Nodecl::Context &);
             Ret visit(const Nodecl::ContinueStatement &);
             Ret visit(const Nodecl::Conversion &);
+            Ret visit(const Nodecl::CxxClassMemberAccess &);
             Ret visit(const Nodecl::CxxArrow &);
             Ret visit(const Nodecl::CxxArrowPtrMember& node);
             Ret visit(const Nodecl::CxxDotPtrMember& node);

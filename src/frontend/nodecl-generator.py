@@ -1324,7 +1324,11 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
             print "nodecl_set_template_parameters(result, template_parameters);"
 
         if may_have_attr("decl_context"):
-            print "nodecl_set_decl_context(n, decl_context);"
+            print "nodecl_set_decl_context(result, decl_context);"
+
+        # Extra attributes from expressions
+        print "nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(n));"
+        print "nodecl_expr_set_is_type_dependent(result, nodecl_expr_is_type_dependent(n));"
 
         print "       return result;";
         print "       break;"
@@ -1405,11 +1409,15 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         print "       {"
 
         if node[0] == "NODECL_CONTEXT":
-            print "          return nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          result = nodecl_deep_copy_context(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);"
+            print "          return result;"
             print "       }"
             continue
         elif node[0] == "NODECL_FUNCTION_CODE":
-            print "return nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          result = nodecl_deep_copy_function_code(n, new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
+            print "          nodecl_deep_copy_map_add(nodecl_deep_copy_map, n, result);"
+            print "          return result;"
             print "       }"
             continue
 
@@ -1432,7 +1440,7 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         # FIXME - The type may have to be regenerated as well
         if has_attr("type"):
             print "type_t* type = nodecl_get_type(n);"
-            print "type = type_deep_copy(type, new_decl_context, symbol_map);"
+            print "type = type_deep_copy_compute_maps(type, new_decl_context, symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);"
         if needs_attr("type"):
             factory_arguments.append("type")
 

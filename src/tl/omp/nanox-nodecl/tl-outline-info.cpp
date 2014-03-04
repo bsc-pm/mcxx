@@ -36,6 +36,9 @@
 #include "fortran03-typeutils.h"
 #include "tl-target-information.hpp"
 #include "tl-counters.hpp"
+#include "fortran03-typeutils.h"
+#include "fortran03-typeenviron.h"
+#include "tl-nanox-ptr.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -126,6 +129,96 @@ namespace TL { namespace Nanox {
             outline_info.set_in_outline_type(in_outline_type);
 
             _outline_info.move_at_end(outline_info);
+        }
+    }
+
+    void OutlineInfoRegisterEntities::add_shared_opaque_and_captured_array_descriptor(Symbol sym)
+    {
+        ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This function is only for Fortran", 0);
+
+        bool is_new = false;
+        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym, is_new);
+
+        outline_info.set_sharing(OutlineDataItem::SHARING_SHARED);
+
+        Type t = sym.get_type();
+        if (t.is_any_reference())
+        {
+            t = t.references_to();
+        }
+
+        TL::Type void_pointer = TL::Type::get_void_type().get_pointer_to();
+        outline_info.set_field_type(void_pointer);
+
+        // Finalize this entity
+        if (is_new)
+        {
+            TL::Type in_outline_type = t.get_lvalue_reference_to();
+            in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
+
+            outline_info.set_in_outline_type(in_outline_type);
+
+            _outline_info.move_at_end(outline_info);
+
+            // Capture the descriptor
+            TL::Type array_type = sym.get_type().no_ref();
+            if (array_type.is_pointer())
+            {
+                array_type = array_type.points_to();
+            }
+
+            ERROR_CONDITION(!array_type.is_fortran_array(), "Invalid type", 0);
+
+            TL::Type suitable_integer = fortran_choose_int_type_from_kind(void_pointer.get_size());
+
+            size_t size_of_array_descriptor = fortran_size_of_array_descriptor(
+                    fortran_get_rank0_type(array_type.get_internal_type()),
+                    fortran_get_rank_of_type(array_type.get_internal_type()));
+
+            ERROR_CONDITION((size_of_array_descriptor % suitable_integer.get_size()) != 0,
+                    "The size of the descriptor is not a multiple of the integer type", 0);
+
+            int num_items = size_of_array_descriptor / suitable_integer.get_size();
+
+            Counter& counter = CounterManager::get_counter("array-descriptor-copies");
+            std::stringstream ss;
+            ss << outline_info.get_field_name() << "_descriptor_" << (int)counter;
+            counter++;
+
+            TL::Symbol captured_array_descriptor = _sc.new_symbol(ss.str());
+            captured_array_descriptor.get_internal_symbol()->kind = SK_VARIABLE;
+            captured_array_descriptor.get_internal_symbol()->type_information =
+                get_array_type_bounds(suitable_integer.get_internal_type(),
+                        const_value_to_nodecl(const_value_get_signed_int(1)),
+                        const_value_to_nodecl(const_value_get_signed_int(num_items)),
+                        _sc.get_decl_context());
+
+            TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
+
+            Source src;
+            src 
+                << "{"
+                << "nanos_err_t err;"
+                << "err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
+                <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
+                <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
+                <<     size_of_array_descriptor
+                << ");"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
+                ;
+
+            Source::source_language = SourceLanguage::C;
+            Nodecl::NodeclBase prepare_capture = src.parse_statement(_sc);
+            Source::source_language = SourceLanguage::Fortran;
+
+            this->add_capture(captured_array_descriptor);
+            OutlineDataItem &captured_array_descriptor_info = _outline_info.get_entity_for_symbol(captured_array_descriptor);
+            captured_array_descriptor_info.set_prepare_capture_code(prepare_capture);
+            captured_array_descriptor_info.set_in_outline_type(outline_info.get_in_outline_type());
+            captured_array_descriptor_info.set_is_copy_of_array_descriptor_allocatable(sym.is_allocatable());
+
+            outline_info.set_copy_of_array_descriptor(&captured_array_descriptor_info);
         }
     }
 
@@ -625,7 +718,6 @@ namespace TL { namespace Nanox {
                                     sym.get_name().c_str());
                         }
                     }
-                    make_allocatable = false;
                 }
             }
             else if (upper.is<Nodecl::Symbol>()
@@ -644,6 +736,14 @@ namespace TL { namespace Nanox {
             }
 
             TL::Type res = add_extra_dimensions_rec(sym, t.array_element(), outline_data_item, make_allocatable, conditional_bound);
+
+            if (upper.is_null()
+                    && !t.array_requires_descriptor())
+            {
+                // This array is an assumed size, do not use a descriptor for it
+                make_allocatable = false;
+            }
+
             if (make_allocatable)
             {
                 res = res.get_array_to_with_descriptor(result_lower, result_upper, _sc);
@@ -686,7 +786,18 @@ namespace TL { namespace Nanox {
             {
                 if (IS_FORTRAN_LANGUAGE)
                 {
-                    add_shared_opaque(sym);
+                    // For ALLOCATABLE and shared pointers, copy the descriptor
+                    if ((sym.is_allocatable()
+                            && sym.get_type().no_ref().is_fortran_array())
+                            || (sym.get_type().no_ref().is_pointer()
+                                && sym.get_type().no_ref().points_to().is_fortran_array()))
+                    {
+                        add_shared_opaque_and_captured_array_descriptor(sym);
+                    }
+                    else
+                    {
+                        add_shared_opaque(sym);
+                    }
                 }
                 else if (data_ref.is<Nodecl::Symbol>())
                 {
@@ -863,13 +974,6 @@ namespace TL { namespace Nanox {
         outline_info.set_private_type(reduction_type);
     }
 
-    void OutlineInfoRegisterEntities::set_taskwait_on_after_wd_creation(TL::Symbol symbol,
-            OutlineDataItem::TaskwaitOnNode* taskwait_on)
-    {
-        OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(symbol);
-        outline_info.set_taskwait_on_after_wd_creation(taskwait_on);
-    }
-
     void OutlineInfoRegisterEntities::add_copy_of_outline_data_item(const OutlineDataItem& data_item)
     {
         _outline_info.add_copy_of_outline_data_item(data_item);
@@ -957,6 +1061,11 @@ namespace TL { namespace Nanox {
             void visit(const Nodecl::OpenMP::DepInAlloca& dep_in_alloca)
             {
                 add_dependences(dep_in_alloca.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_ALLOCA);
+            }
+
+            void visit(const Nodecl::OpenMP::DepInPrivate& dep_in_private)
+            {
+                add_dependences(dep_in_private.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_PRIVATE);
             }
 
             void visit(const Nodecl::OpenMP::DepOut& dep_out)
@@ -1136,6 +1245,18 @@ namespace TL { namespace Nanox {
 
         OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
+
+        reset_array_counters();
+    }
+
+    void OutlineInfo::reset_array_counters()
+    {
+        Counter& counter_allocatable = CounterManager::get_counter("array-allocatable");
+        counter_allocatable = 0;
+        Counter& counter_upper_boundaries = CounterManager::get_counter("array-upper-boundaries");
+        counter_upper_boundaries = 0;
+        Counter& counter_lower_boundaries = CounterManager::get_counter("array-lower-boundaries");
+        counter_lower_boundaries = 0;
     }
 
     ObjectList<OutlineDataItem*> OutlineInfo::get_data_items()

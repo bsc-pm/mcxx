@@ -33,6 +33,7 @@
 #include "libmcxx-common.h"
 #include "cxx-ast-decls.h"
 #include "cxx-exprtype-decls.h"
+#include "cxx-instantiation-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-typeutils.h"
@@ -165,9 +166,9 @@ void get_packs_in_expression(nodecl_t nodecl,
         int *num_packs_to_expand);
 
 // Instantiation of expressions
-nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context);
-nodecl_t instantiate_expression_with_pack_index(nodecl_t nodecl_expr, decl_context_t decl_context, int pack_index);
-
+nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index);
 
 MCXX_END_DECLS
 

@@ -55,7 +55,7 @@ void LoweringVisitor::fill_dependences_taskwait(
         Source& result_src
         )
 {
-    fill_dependences_internal(ctr, outline_info, Source(""), /* on_wait */ true, result_src);
+    fill_dependences_internal(ctr, outline_info, /* on_wait */ true, result_src);
 }
 
 void LoweringVisitor::emit_wait_async(Nodecl::NodeclBase construct,

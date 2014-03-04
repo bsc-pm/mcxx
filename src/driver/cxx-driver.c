@@ -273,6 +273,9 @@
 "                           support locking at file level. This \n" \
 "                           option is incompatible with parallel\n" \
 "                           compilation\n" \
+"  --xl-compat              Enables compatibility features with\n" \
+"                           IBM XL C/C++/Fortran. This flag may be\n" \
+"                           required when using such compiler.\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -381,6 +384,7 @@ typedef enum
     OPTION_NO_WHOLE_FILE,
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DISABLE_FILE_LOCKING,
+    OPTION_XL_COMPATIBILITY,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -461,6 +465,7 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
+    {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1504,6 +1509,11 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->disable_locking = 1;
                         break;
                     }
+                case OPTION_XL_COMPATIBILITY:
+                    {
+                        CURRENT_CONFIGURATION->xl_compatibility = 1;
+                        break;
+                    }
                 default:
                     {
                         const char* unhandled_flag = "<<<unknown!>>>";
@@ -1795,8 +1805,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
-            // IBM XL Compiler Optimization Flags
-        case 'q':
+        case 'q': // IBM XL Compiler Optimization Flags
             {
                 char hide_parameter = 0;
                 if (!dry_run)
@@ -2328,7 +2337,44 @@ static void parse_subcommand_arguments(const char* arguments)
     p++;
 
     int num_parameters = 0;
-    const char** parameters = comma_separate_values(p, &num_parameters);
+    const char** parameters = NULL;
+    if (*p == '"' || *p == '\'')
+    {
+        char delimiter = *p;
+        // --Wx:profile:n,"literal text"
+        char* literal_text = xstrdup(p + 1);
+        char* q = literal_text;
+        char delim_found = 0;
+        while (*q != '\0')
+        {
+            if (*q == delimiter)
+            {
+                *q = '\0';
+                delim_found = 1;
+                q++;
+                break;
+            }
+            q++;
+        }
+
+        if (delim_found && *q != '\0')
+        {
+            fprintf(stderr, "Warning: Ignoring trailing '%s' in parameter '--W%s'\n",
+                    q, arguments);
+        }
+        else if (!delim_found)
+        {
+            fprintf(stderr, "Warning: Parameter '--W%s' is missing a delimiter\n",
+                    arguments);
+        }
+
+        num_parameters = 1;
+        parameters = (const char**)&literal_text;
+    }
+    else
+    {
+        parameters = comma_separate_values(p, &num_parameters);
+    }
 
     if (prepro_flag)
     {

@@ -27,8 +27,8 @@
 #ifndef TL_STRENGTH_REDUCE_HPP
 #define TL_STRENGTH_REDUCE_HPP
 
-#include<tl-nodecl.hpp>
-#include<tl-nodecl-visitor.hpp>
+#include "tl-nodecl.hpp"
+#include "tl-nodecl-visitor.hpp"
 
 namespace TL
 {
@@ -44,15 +44,15 @@ namespace TL
 
                 virtual void visit(const Nodecl::ObjectInit& n);
 
-                virtual void visit(const Nodecl::Add& n);
-                virtual void visit(const Nodecl::Minus& n);
                 virtual void visit(const Nodecl::Mul& n);
                 virtual void visit(const Nodecl::Div& n);
+                virtual void visit(const Nodecl::Mod& n);
+                virtual void visit(const Nodecl::VectorAdd& n);
+                virtual void visit(const Nodecl::VectorMinus& n);
+                virtual void visit(const Nodecl::VectorMul& n);
                 virtual void visit(const Nodecl::VectorDiv& n);
+                virtual void visit(const Nodecl::VectorMod& n);
         };
-
-        void strength_reduce(Nodecl::NodeclBase& node, bool fast_math);
-        void canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math);
     }
 }
 

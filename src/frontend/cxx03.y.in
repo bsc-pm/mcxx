@@ -96,6 +96,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> DECIMAL_LITERAL "decimal-literal"
 %token<token_atrib> DEFAULT "default"
 %token<token_atrib> TOKEN_DELETE "delete"
+%token<token_atrib> TOKEN_DELETE_ARRAY "delete []"
 %token<token_atrib> DIV_ASSIGN "/="
 %token<token_atrib> DO "do"
 %token<token_atrib> TWO_COLONS "::"
@@ -131,6 +132,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> MUTABLE "mutable"
 %token<token_atrib> NAMESPACE "namespace"
 %token<token_atrib> TOKEN_NEW "new"
+%token<token_atrib> TOKEN_NEW_ARRAY "new []"
 %token<token_atrib> NOT_EQUAL "!="
 %token<token_atrib> OCTAL_LITERAL "octal-literal"
 %token<token_atrib> OPERATOR "operator"
@@ -204,6 +206,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> GXX_IS_STANDARD_LAYOUT "__is_standard_layout"
 %token<token_atrib> GXX_IS_TRIVIAL "__is_trivial"
 %token<token_atrib> GXX_IS_UNION "__is_union"
+%token<token_atrib> GXX_IS_FINAL "__is_final"
 %token<token_atrib> GXX_UNDERLYING_TYPE "__underlying_type"
 
 // Lexical symbols
@@ -250,7 +253,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> TOKEN_CONSTEXPR "constexpr"
 %token<token_atrib> TOKEN_THREAD_LOCAL "thread_local"
 %token<token_atrib> TOKEN_NULLPTR "nullptr"
-%token<token_atrib> TOKEN_NOEXCEPT "noexcept"
+%token<token_atrib> TOKEN_NOEXCEPT "noexcept "
+%token<token_atrib> TOKEN_NOEXCEPT_ALONE "noexcept"
 
 // Tokens implemented with grammar
 %type<token_atrib> right_token
@@ -392,6 +396,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> handler
 %type<ast> handler_seq
 %type<ast> id_expression
+%type<ast> id_expression_of_template_id
 %type<ast> id_type_expr
 %type<ast> if_statement
 %type<ast> inclusive_or_expression
@@ -462,6 +467,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_specifier_SUSL
 %type<ast> operator
 %type<ast> operator_function_id
+%type<ast> operator_function_id_name
+%type<ast> operator_function_id_name_and_template_args
 %type<ast> parameter_declaration
 %type<ast> parameters_and_qualifiers
 %type<ast> ref_qualifier_opt
@@ -475,11 +482,13 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> ptr_operator
 %type<ast> qualified_id
 %type<ast> qualified_id_globals
-%type<ast> qualified_id_globals_no_template
-%type<ast> qualified_id_globals_operator
-%type<ast> qualified_id_globals_template
-%type<ast> qualified_id_no_template
-%type<ast> qualified_id_template
+%type<ast> global_qualified_id_no_template
+%type<ast> global_qualified_id_operator
+%type<ast> global_qualified_id_template
+%type<ast> global_qualified_operator_function_id_name_and_template_args
+%type<ast> nonglobal_qualified_id_no_template
+%type<ast> nonglobal_qualified_id_template
+%type<ast> nonglobal_qualified_operator_function_id_name_and_template_args
 %type<ast> qualified_id_type_name
 %type<ast> qualified_id_type_expr
 %type<ast> unqualified_id_funct
@@ -1791,7 +1800,7 @@ nonglobal_non_functional_declarator_not_started_with_attributes : nonglobal_non_
 }
 ;
 
-nonglobal_non_functional_direct_declarator : nonglobal_declarator_id %dprec 2
+nonglobal_non_functional_direct_declarator : nonglobal_declarator_id
 {
 	$$ = $1;
 }
@@ -1799,7 +1808,7 @@ nonglobal_non_functional_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| nonglobal_non_functional_direct_declarator '[' ']' %dprec 1
+| nonglobal_non_functional_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -1983,7 +1992,7 @@ non_functional_main_declarator : non_functional_direct_declarator
 }
 ;
 
-non_functional_direct_declarator : declarator_id %dprec 2
+non_functional_direct_declarator : declarator_id
 {
 	$$ = $1;
 }
@@ -1991,7 +2000,7 @@ non_functional_direct_declarator : declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| non_functional_direct_declarator '[' ']' %dprec 1
+| non_functional_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -2084,7 +2093,7 @@ ref_qualifier : '&'
 }
 ;
 
-functional_direct_declarator : functional_declarator_id %dprec 2
+functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
@@ -2131,7 +2140,7 @@ nonglobal_functional_main_declarator_not_started_with_attributes : nonglobal_fun
 }
 ;
 
-nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id %dprec 2
+nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id
 {
 	$$ = $1;
 }
@@ -2139,7 +2148,7 @@ nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id %dpr
 {
 	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
 }
-| nonglobal_functional_direct_declarator '[' constant_expression_opt ']' %dprec 1
+| nonglobal_functional_direct_declarator '[' constant_expression_opt ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
@@ -2217,7 +2226,7 @@ cv_qualifier : TOKEN_CONST
 }
 ;
 
-nonglobal_direct_declarator : nonglobal_declarator_id %dprec 2
+nonglobal_direct_declarator : nonglobal_declarator_id
 {
 	$$ = $1;
 }
@@ -2229,7 +2238,7 @@ nonglobal_direct_declarator : nonglobal_declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| nonglobal_direct_declarator '[' ']' %dprec 1
+| nonglobal_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -2253,7 +2262,7 @@ nonglobal_declarator_id : nonglobal_id_expression std_attribute_specifier_seq_op
 }
 ;
 
-direct_declarator : declarator_id %dprec 2
+direct_declarator : declarator_id
 {
 	$$ = $1;
 }
@@ -2265,7 +2274,7 @@ direct_declarator : declarator_id %dprec 2
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
-| direct_declarator '[' ']' %dprec 1
+| direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ast_get_locus($1), NULL);
 }
@@ -4051,6 +4060,10 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
 {
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
+| GXX_IS_FINAL '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 ;
 
 /* GNU extension */
@@ -4084,15 +4097,41 @@ id_expression : qualified_id
 }
 ;
 
+id_expression_of_template_id : template_id
+{
+    $$ = $1;
+}
+| global_qualified_id_template
+{
+    $$ = $1;
+}
+| nonglobal_qualified_id_template
+{
+    $$ = $1;
+}
+| operator_function_id_name_and_template_args
+{
+    $$ = $1;
+}
+| global_qualified_operator_function_id_name_and_template_args
+{
+    $$ = $1;
+}
+| nonglobal_qualified_operator_function_id_name_and_template_args
+{
+    $$ = $1;
+}
+;
+
 nonglobal_id_expression : unqualified_id
 {
     $$ = $1;
 }
-| qualified_id_no_template
+| nonglobal_qualified_id_no_template
 {
     $$ = $1;
 }
-| qualified_id_template
+| nonglobal_qualified_id_template
 {
     $$ = $1;
 }
@@ -4106,17 +4145,21 @@ id_type_expr : qualified_id_type_name
 {
     $$ = $1;
 }
-| qualified_id_template
+| nonglobal_qualified_id_template
+{
+    $$ = $1;
+}
+| global_qualified_id_template
 {
     $$ = $1;
 }
 ;
 
-nonglobal_id_type_expr: qualified_id_no_template
+nonglobal_id_type_expr: nonglobal_qualified_id_no_template
 {
     $$ = $1;
 }
-| qualified_id_template
+| nonglobal_qualified_id_template
 {
     $$ = $1;
 }
@@ -4130,17 +4173,17 @@ qualified_id_type_expr : qualified_id_type_name
 {
     $$ = $1;
 }
-| qualified_id_template
+| nonglobal_qualified_id_template
 {
     $$ = $1;
 }
-| qualified_id_globals_template
+| global_qualified_id_template
 {
     $$ = $1;
 }
 ;
 
-qualified_id : qualified_id_no_template
+qualified_id : nonglobal_qualified_id_no_template
 {
     $$ = $1;
 }
@@ -4148,37 +4191,37 @@ qualified_id : qualified_id_no_template
 {
     $$ = $1;
 }
-| qualified_id_template
+| nonglobal_qualified_id_template
 {
     $$ = $1;
 }
 ;
 
-qualified_id_globals : qualified_id_globals_no_template
+qualified_id_globals : global_qualified_id_no_template
 {
     $$ = $1;
 }
-| qualified_id_globals_template
+| global_qualified_id_template
 {
     $$ = $1;
 }
-| qualified_id_globals_operator
-{
-    $$ = $1;
-}
-;
-
-qualified_id_type_name : qualified_id_globals_no_template
-{
-    $$ = $1;
-}
-| qualified_id_no_template
+| global_qualified_id_operator
 {
     $$ = $1;
 }
 ;
 
-qualified_id_globals_no_template : TWO_COLONS nested_name_specifier unqualified_id
+qualified_id_type_name : global_qualified_id_no_template
+{
+    $$ = $1;
+}
+| nonglobal_qualified_id_no_template
+{
+    $$ = $1;
+}
+;
+
+global_qualified_id_no_template : TWO_COLONS nested_name_specifier unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
@@ -4191,6 +4234,24 @@ qualified_id_globals_no_template : TWO_COLONS nested_name_specifier unqualified_
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
+;
+
+global_qualified_id_operator : TWO_COLONS operator_function_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+global_qualified_id_template : TWO_COLONS nested_name_specifier TEMPLATE template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+
+    ast_set_text($4, "template ");
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
 | TWO_COLONS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
@@ -4199,31 +4260,13 @@ qualified_id_globals_no_template : TWO_COLONS nested_name_specifier unqualified_
 }
 ;
 
-qualified_id_globals_operator : TWO_COLONS operator_function_id 
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
-	
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-;
-
-qualified_id_globals_template : TWO_COLONS nested_name_specifier TEMPLATE template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
-
-    ast_set_text($4, "template ");
-
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-;
-
-qualified_id_no_template : nested_name_specifier unqualified_id
+nonglobal_qualified_id_no_template : nested_name_specifier unqualified_id
 {
 	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
-qualified_id_template : nested_name_specifier TEMPLATE template_id
+nonglobal_qualified_id_template : nested_name_specifier TEMPLATE template_id
 {
     ast_set_text($3, "template ");
 
@@ -4390,7 +4433,7 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake2(AST_CLASS_MEMBER_ACCESS, $1, $3, ast_get_locus($1), NULL);
 }
-| postfix_expression '.' TEMPLATE id_expression
+| postfix_expression '.' TEMPLATE id_expression_of_template_id
 {
 	$$ = ASTMake2(AST_CLASS_TEMPLATE_MEMBER_ACCESS, $1, $4, ast_get_locus($1), NULL);
 }
@@ -4398,7 +4441,7 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake2(AST_POINTER_CLASS_MEMBER_ACCESS, $1, $3, ast_get_locus($1), NULL);
 }
-| postfix_expression PTR_OP TEMPLATE id_expression 
+| postfix_expression PTR_OP TEMPLATE id_expression_of_template_id
 {
 	$$ = ASTMake2(AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS, $1, $4, ast_get_locus($1), NULL);
 }
@@ -4702,25 +4745,25 @@ new_initializer : parent_initializer_ctor
 }
 ;
 
-delete_expression : TOKEN_DELETE cast_expression 
+delete_expression : TOKEN_DELETE cast_expression
 {
 	$$ = ASTMake2(AST_DELETE_EXPR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOKEN_DELETE '[' ']' cast_expression
+| TOKEN_DELETE_ARRAY cast_expression
 {
-	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TWO_COLONS TOKEN_DELETE cast_expression 
+| TWO_COLONS TOKEN_DELETE cast_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
 	$$ = ASTMake2(AST_DELETE_EXPR, global_op, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TWO_COLONS TOKEN_DELETE '[' ']' cast_expression
+| TWO_COLONS TOKEN_DELETE_ARRAY cast_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
-	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, global_op, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, global_op, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
 ;
 
@@ -5143,11 +5186,29 @@ literal : DECIMAL_LITERAL
 // A.11 - Overloading
 // *********************************************************
 
-operator_function_id : OPERATOR operator
+operator_function_id : operator_function_id_name
+{
+    $$ = $1;
+}
+| operator_function_id_name_and_template_args
+{
+    $$ = $1;
+}
+;
+
+operator_function_id_name : OPERATOR operator
 {
 	$$ = ASTMake1(AST_OPERATOR_FUNCTION_ID, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| OPERATOR operator '<' template_argument_list '>'
+| OPERATOR_LITERAL IDENTIFIER
+{
+    $$ = ASTMake1(AST_LITERAL_OPERATOR_ID,
+            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
+            make_locus($2.token_file, $2.token_line, 0), NULL);
+}
+;
+
+operator_function_id_name_and_template_args : OPERATOR operator '<' template_argument_list '>'
 {
 	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -5155,25 +5216,33 @@ operator_function_id : OPERATOR operator
 {
 	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| OPERATOR_LITERAL IDENTIFIER
-{
-    $$ = ASTMake1(AST_LITERAL_OPERATOR_ID, 
-            ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
-            make_locus($2.token_file, $2.token_line, 0), NULL);
-}
 | OPERATOR_LITERAL IDENTIFIER '<' '>'
 {
-    $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE, 
+    $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE,
             ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
             NULL,
             make_locus($2.token_file, $2.token_line, 0), NULL);
 }
 | OPERATOR_LITERAL IDENTIFIER '<' template_argument_list '>'
 {
-    $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE, 
+    $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE,
             ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
             $4,
             make_locus($2.token_file, $2.token_line, 0), NULL);
+}
+;
+
+global_qualified_operator_function_id_name_and_template_args : TWO_COLONS nested_name_specifier operator_function_id_name_and_template_args
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
+
+nonglobal_qualified_operator_function_id_name_and_template_args : nested_name_specifier operator_function_id_name_and_template_args
+{
+	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ast_get_locus($1), NULL);
 }
 ;
 
@@ -5185,11 +5254,11 @@ operator : TOKEN_NEW
 {
 	$$ = ASTLeaf(AST_DELETE_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOKEN_NEW '[' ']'
+| TOKEN_NEW_ARRAY
 {
 	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TOKEN_DELETE '[' ']'
+| TOKEN_DELETE_ARRAY
 {
 	$$ = ASTLeaf(AST_DELETE_ARRAY_OPERATOR, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -5891,7 +5960,7 @@ throw_type_id_list : type_id
 }
 ;
 
-noexcept_specification : TOKEN_NOEXCEPT
+noexcept_specification : TOKEN_NOEXCEPT_ALONE
 {
     $$ = ASTMake1(AST_NOEXCEPT_SPECIFICATION, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }

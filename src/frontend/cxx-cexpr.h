@@ -99,6 +99,13 @@ LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold);
 
 LIBMCXX_EXTERN int const_value_cast_to_signed_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned int const_value_cast_to_unsigned_int(const_value_t* val);
+
+LIBMCXX_EXTERN long int const_value_cast_to_signed_long_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned long int const_value_cast_to_unsigned_long_int(const_value_t* val);
+
+LIBMCXX_EXTERN long long int const_value_cast_to_signed_long_long_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned long long int const_value_cast_to_unsigned_long_long_int(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 
@@ -254,6 +261,8 @@ LIBMCXX_EXTERN const_value_t* const_value_sqrt(const_value_t* val);
 // Fortran module support
 LIBMCXX_EXTERN size_t const_value_get_raw_data_size(void);
 LIBMCXX_EXTERN const_value_t* const_value_build_from_raw_data(const char*);
+
+LIBMCXX_EXTERN const char* const_value_to_str(const_value_t*);
 
 MCXX_END_DECLS
 

@@ -44,7 +44,7 @@ namespace Utils {
         _n = n;
     }
 
-    ObjectList<Nodecl::NodeclBase> ExtendedSymbol::get_nodecls_base( const Nodecl::NodeclBase& n )
+    ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n )
     {
         if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>() || n.is<Nodecl::FunctionCall>())
         {
@@ -131,7 +131,7 @@ namespace Utils {
         return Nodecl::Utils::get_all_symbols( _n );
     }
 
-    Nodecl::NodeclBase ExtendedSymbol::get_nodecl_base( const Nodecl::NodeclBase& n )
+    Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n )
     {
         Nodecl::NodeclBase nodecl;
         if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::PointerToMember>( ) || n.is<Nodecl::ObjectInit>( ) )

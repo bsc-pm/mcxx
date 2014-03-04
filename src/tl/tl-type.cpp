@@ -357,15 +357,6 @@ namespace TL
         return Type(array_to);
     }
 
-    Type Type::get_array_to(const std::string& str)
-    {
-        type_t* result_type = this->_type_info;
-
-        type_t* array_to = get_array_type_str(result_type, uniquestr(str.c_str()));
-
-        return Type(array_to);
-    }
-
     Type Type::get_function_returning(const ObjectList<Type>& type_list,
             const ObjectList<Type>& nonadjusted_type_list,
             bool has_ellipsis,
@@ -388,7 +379,7 @@ namespace TL
         {
             num_parameters++;
             parameters_list[i].is_ellipsis = 1;
-            parameters_list[i].type_info = NULL;
+            parameters_list[i].type_info = get_ellipsis_type();
             parameters_list[i].nonadjusted_type_info = NULL;
         }
 
@@ -1424,6 +1415,11 @@ namespace TL
     bool Type::is_variably_modified() const
     {
         return ::is_variably_modified_type(_type_info);
+    }
+
+    std::string Type::print_declarator()
+    {
+        return ::print_declarator(_type_info);
     }
 
     TemplateArgument::TemplateArgumentKind TemplateArgument::get_kind() const

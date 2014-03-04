@@ -30,6 +30,7 @@
 #include "tl-nanos.hpp"
 #include "tl-multifile.hpp"
 #include "tl-compilerpipeline.hpp"
+#include "tl-nanox-ptr.hpp"
 
 #include "cxx-profile.h"
 #include "codegen-phase.hpp"
@@ -72,38 +73,38 @@ static void preprocess_datasharing(TL::ObjectList<OutlineDataItem*>& data_items)
 //            if (*it2!="mpi" || *it2!="MPI") check_for_incompatibility=true;
 //        }
 //    }
-    if (IS_FORTRAN_LANGUAGE){
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
-        {
-            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
-                continue;
-            }
-             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
-            if ((*it)->get_symbol().is_allocatable()){
-                if ((*it)->get_symbol().is_from_module()){  
-//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_ALLOCA);
-                    (*it)->get_copies().clear();
-                } else {
-//                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-                    (*it)->get_copies().clear();
-                }
-            } else {
-               if ((*it)->get_symbol().is_from_module()) {
-//                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
-                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
-               } else {            
-                    if ((*it)->get_copies().empty()){
-//                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
-                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
-                    }
-               }
-            }
-        }
-    }
+//    if (IS_FORTRAN_LANGUAGE){
+//        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+//                it != data_items.end();
+//                it++)
+//        {
+//            if ((*it)->get_sharing()==OutlineDataItem::SHARING_CAPTURE){
+//                continue;
+//            }
+//             //std::cout << (*it)->get_symbol().get_name() << " es " << (*it)->get_sharing() << " con copias " << !(*it)->get_copies().empty() << " \n";
+//            if ((*it)->get_symbol().is_allocatable()){
+//                if ((*it)->get_symbol().is_from_module()){  
+////                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
+//                    (*it)->set_sharing(OutlineDataItem::SHARING_ALLOCA);
+//                    (*it)->get_copies().clear();
+//                } else {
+////                    is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
+//                    (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
+//                    (*it)->get_copies().clear();
+//                }
+//            } else {
+//               if ((*it)->get_symbol().is_from_module()) {
+////                   is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_SHARED;
+//                   (*it)->set_sharing(OutlineDataItem::SHARING_SHARED);
+//               } else {            
+//                    if ((*it)->get_copies().empty()){
+////                      is_incompatible = check_for_incompatibility && (*it)->get_sharing()!=OutlineDataItem::SHARING_PRIVATE;
+//                      (*it)->set_sharing(OutlineDataItem::SHARING_PRIVATE);
+//                    }
+//               }
+//            }
+//        }
+//    }
         
 //    if (is_incompatible) std::cerr << "warning: error in MPI task, do not mix MPI device tasks with other devices (implements or multi-device)"
 //            " in this situation " << std::endl;
@@ -172,24 +173,20 @@ void DeviceMPI::generate_additional_mpi_code(
         host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
         host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
-        host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        //host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
 
         //Recv datastruct from parent (rank will be ignored by nanox)
         device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
 
         for (int i = 0; i < num_params; ++i) { 
-            //parameter_call.append_with_separator("args." + parameters_called[i].get_name(),",");
             std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
-            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
-                --count_params;
-                continue;
-            }
-            //if (!IS_FORTRAN_LANGUAGE){
-            //    displ_src.append_with_separator("((size_t) ( (char *)&((" + struct_args.get_name() + " *)0)->" + parameters_called[i].get_name() + " - (char *)0 ))", ",");
-            //} else {
-            //This seems to work correctly in both "languages"
+            //TODO: Check if this is not needed
+//            if (!parameters_called[i].is_from_module() && parameters_called[i].is_allocatable()){
+//                --count_params;
+//                continue;
+//            }
+            
             displ_src.append_with_separator("(( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
-            //}
             if (parameters_called[i].get_type().is_pointer()) {
                 typelist_src.append_with_separator(ompss_get_mpi_type  + "(\"__mpitype_ompss_unsigned_long_long\")", ",");
 
@@ -220,7 +217,7 @@ void DeviceMPI::generate_additional_mpi_code(
     } else {
         code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
         code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
-        code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
+        //code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
     
     if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
@@ -273,6 +270,14 @@ void DeviceMPI::generate_additional_mpi_code(
             }
         }
     }
+    //Insert implicit #taskwait noflush after task
+    code_device_post << "nanos_err_t tskwait_err;"
+                     << " nanos_wd_t nanos_wd_ = nanos_current_wd(); "
+                     << " tskwait_err = nanos_wg_wait_completion(nanos_wd_, 1); "
+                     << " if (tskwait_err != NANOS_OK) "
+                     << "  { "
+                     << "    nanos_handle_error(tskwait_err); "
+                     << "  } ";
     code_device_post << "int ompss_id_func=" << _currTaskId << ";";
     //Send taskEnd to parent (rank will be ignored by nanox)
     code_device_post << "offload_err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
@@ -454,6 +459,22 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 {  
                     //If is from module(fort)/common (fort)/global (C) and is sharing ca or sharing shared (no sharing capture)
                     //copy address and data
+                    if ((*it)->get_symbol().is_allocatable() && (*it)->get_copy_of_array_descriptor()!=NULL){  
+                        std::string symbol_name=(*it)->get_symbol().get_name();
+                        std::string descriptor_name=(*it)->get_copy_of_array_descriptor()->get_symbol().get_name();
+                        
+                        data_input_global << "args." << symbol_name <<"= &(args." << descriptor_name << ");"; 
+                        //data_input_global << "void* " << descriptor_name << "_ptr = &(args." << descriptor_name << ");";
+                        //data_input_global << "offload_err = nanos_memcpy(&args." << symbol_name <<" ,&"<<descriptor_name<<"_ptr,sizeof("<<descriptor_name<<"_ptr));";
+                        if ((*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
+                            ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){
+                            TL::Symbol ptr_of_sym = get_function_ptr_of((*it)->get_symbol(),
+                                    info._original_statements.retrieve_context());
+
+                            data_input_global << "offload_err =  nanos_memcpy(" << ptr_of_sym.get_name() << "(" << symbol_name <<"),&(args."<< descriptor_name << "),sizeof(args." << descriptor_name << "));"; 
+                        }
+                    }
+                    
                     if (!(*it)->get_symbol().is_allocatable() && (*it)->get_sharing() != OutlineDataItem::SHARING_CAPTURE &&
                             ((*it)->get_symbol().is_fortran_common() || (*it)->get_symbol().is_from_module() || (*it)->get_symbol().get_scope().is_namespace_scope())){  
                         std::string symbol_name=(*it)->get_symbol().get_name();
@@ -802,14 +823,14 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
     
     if (instrumentation_enabled())
     {
-//        get_instrumentation_code(
-//                info._called_task,
-//                device_function,
-//                device_function_body,
-//                info._task_label,
-//                original_statements.get_locus(),
-//                instrument_before_dev,
-//                instrument_after_dev); 
+        get_instrumentation_code(
+                info._called_task,
+                device_function,
+                device_function_body,
+                info._task_label,
+                original_statements.get_locus(),
+                instrument_before_dev,
+                instrument_after_dev); 
     } 
     
     Nodecl::NodeclBase new_device_body;
@@ -1140,6 +1161,7 @@ void DeviceMPI::run(DTO& dto) {
 
 std::string DeviceMPI::get_ompss_mpi_type(Type type) {
     std::string result = "ompss_get_mpi_type(\"__mpitype_ompss_";
+    type=type.basic_type();
     if (type.is_char()) {
         result += "char";
     } else if (type.is_signed_short_int()) {

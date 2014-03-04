@@ -31,15 +31,16 @@
 
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
+#include "tl-auto-scope.hpp"
+#include "tl-iv-analysis.hpp"
+#include "tl-liveness.hpp"
+#include "tl-loop-analysis.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-reaching-definitions.hpp"
+#include "tl-range-analysis.hpp"
 #include "tl-task-sync.hpp"
 #include "tl-use-def.hpp"
-#include "tl-liveness.hpp"
-#include "tl-reaching-definitions.hpp"
-#include "tl-iv-analysis.hpp"
-#include "tl-loop-analysis.hpp"
 #include "tl-task-syncs-tune.hpp"
-#include "tl-auto-scope.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -51,7 +52,7 @@ namespace Analysis {
         : _pcfgs( ), _tdgs( ), 
           _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
-          _tune_task_syncs( false ), _auto_scoping( false ), _auto_deps( false ), _tdg( false )
+          _tune_task_syncs( false ), _range( false ), _auto_scoping( false ), _auto_deps( false ), _tdg( false )
     {}
 
     ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
@@ -168,6 +169,16 @@ namespace Analysis {
     void PCFGAnalysis_memento::set_tune_task_synchronizations( )
     {
         _tune_task_syncs = true;
+    }
+    
+    bool PCFGAnalysis_memento::is_range_analysis_computed( ) const
+    {
+        return _range;
+    }
+    
+    void PCFGAnalysis_memento::set_range_analysis_computed( )
+    {
+        _range = true;
     }
     
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
@@ -603,6 +614,28 @@ namespace Analysis {
         return pcfgs;
     }
     
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
+        
+        if( !memento.is_range_analysis_computed( ) )
+        {
+            memento.set_range_analysis_computed( );
+            
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
+                if( VERBOSE )
+                    printf( "Range Analysis of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                
+                // Compute the induction variables of all loops of each PCFG
+                RangeAnalysis ra( *it );
+                ra.compute_range_analysis( );
+            }
+        }
+        
+        return pcfgs;
+    }
+    
     ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations( memento, ast );
@@ -674,6 +707,7 @@ namespace Analysis {
         pcfg->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
                                   memento.is_reaching_definitions_computed( ),
                                   memento.is_induction_variables_computed( ),
+                                  memento.is_range_analysis_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
     }
     
@@ -687,6 +721,7 @@ namespace Analysis {
             ( *it )->print_graph_to_dot( memento.is_usage_computed( ), memento.is_liveness_computed( ),
                                          memento.is_reaching_definitions_computed( ),
                                          memento.is_induction_variables_computed( ),
+                                         memento.is_range_analysis_computed( ),
                                          memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
         }
     }

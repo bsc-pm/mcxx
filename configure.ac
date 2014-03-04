@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.0],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.1],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -325,13 +325,13 @@ fi
 
 if test x$disable_xlc = xno;
 then
-   dnl XL (gcc driver)
-   AC_PATH_PROG([GXLC], [gxlc], [$GXLC])
-   dnl XL (g++ driver)
-   AC_PATH_PROG([GXLCXX], [gxlc++], [$GXLCXX])
+    dnl XL (gcc driver)
+    AC_PATH_TARGET_TOOL([XLC], [xlc], [$XLC])
+    dnl XL (g++ driver)
+    AC_PATH_TARGET_TOOL([XLCXX], [xlC], [$XLCXX])
 else
-    GXLC=
-    GXLCXX=
+    XLC=
+    XLCXX=
 fi
 
 dnl Check Intel Fortran
@@ -345,7 +345,7 @@ fi
 dnl IBM Fortran
 if test x$disable_xlf = xno;
 then
-    AC_PATH_PROGS([XLF], [xlf95_r xlf95], [])
+    AC_PATH_TARGET_TOOL([XLF], [xlf95], [$XLF])
 else
     XLF=
 fi
@@ -438,6 +438,8 @@ nanox_mic_include=""
 nanox__mic_lib=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
+NANOX_GNU_LDFLAGS=""
+NANOX_IBM_LDFLAGS=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
 nanox_mic_enabled=no
@@ -531,12 +533,13 @@ then
    )
 
    AC_ARG_WITH([mic-libs],
-   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, LD_LIBRARY_PATH will have to be passed to the spawned processes]),
+   AS_HELP_STRING([--with-mic-libs=dir], [Location of MIC libraries. If not specified, the ones located in current icc installation will be used,
+    if not found/valid LD_LIBRARY_PATH will have to be passed to the spawned processes]),
    [
       MIC_LIBS="${withval}"
    ],
    [
-      MIC_LIBS=/apps/intel/composer_xe_2013_sp1.0.080/compiler/lib/mic/
+      MIC_LIBS=$ICC/../../compiler/lib/mic/
    ])
    
    if test x$nanox_include = x -o x$nanox_lib = x;
@@ -586,6 +589,8 @@ fi
 
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
+AC_SUBST([NANOX_GNU_LDFLAGS])
+AC_SUBST([NANOX_IBM_LDFLAGS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 AC_SUBST([NANOX_MIC_INCLUDES])
 AC_SUBST([NANOX_MIC_LIBS])
@@ -761,7 +766,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 if test x$cuda_enabled = xyes ; then
     if test -d "$CUDADIR" ;
     then
-        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
+        AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
         if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
             cuda_valid=no
@@ -1131,16 +1136,16 @@ then
    fi
 
    # IBM XL C/C++ + Nanos++
-   if test x$GXLC != x;
+   if test x$XLC != x;
    then
       COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
    fi
-   if test x$GXLCXX != x;
+   if test x$XLCXX != x;
    then
       COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
    fi
 
-   if test x$GXLC != x -o x$GXLCXX != x;
+   if test x$XLC != x -o x$XLCXX != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
    fi
@@ -1373,8 +1378,8 @@ AC_ARG_VAR([NVCC], [nVidia CUDA compiler])
 AC_ARG_VAR([ICC], [Intel C compiler])
 AC_ARG_VAR([ICPC], [Intel C++ compiler])
 AC_ARG_VAR([IFORT], [Intel Fortran])
-AC_ARG_VAR([GXLC], [IBM XL C compiler])
-AC_ARG_VAR([GXLCXX], [IBM XL C++ compiler])
+AC_ARG_VAR([XLC], [IBM XL C compiler])
+AC_ARG_VAR([XLCXX], [IBM XL C++ compiler])
 AC_ARG_VAR([XLF], [IBM XL Fortran compiler])
 AC_ARG_VAR([GPERF], [GNU gperf])
 AC_ARG_VAR([GIT], [git content tracker])
@@ -1581,6 +1586,12 @@ dnl We try to figure a sensible default environment based on the configure envir
        powerpc-*-linux*)
            default_type_environ="linux-ppc32"
            ;;
+       powerpc64-bgq-linux*)
+           # BlueGeneQ requires extra flags at link time
+           default_type_environ="linux-ppc64"
+           NANOX_GNU_LDFLAGS="-dynamic"
+           NANOX_IBM_LDFLAGS="-qnostaticlink"
+           ;;
        powerpc64-*-linux*)
            default_type_environ="linux-ppc64"
            ;;
@@ -1592,8 +1603,8 @@ dnl We try to figure a sensible default environment based on the configure envir
            default_type_environ="linux-ia64"
            ;;
        sparc-sun-solaris*)
-            RPATH_PARAMETER="-R"
             default_type_environ="solaris-sparcv9"
+            RPATH_PARAMETER="-R"
             ;;
        arm*-*-linux-gnueabi|arm*-*-linux-gnueabihf)
             default_type_environ="linux-arm"
@@ -1884,8 +1895,8 @@ print_tool "Intel C compiler" "$ICC"
 print_tool "Intel C++ compiler" "$ICPC"
 print_tool "Intel Fortran compiler" "$IFORT"
 
-print_tool "IBM XL C compiler " "$GXLC"
-print_tool "IBM XL C++ compiler " "$GXLCXX"
+print_tool "IBM XL C compiler " "$XLC"
+print_tool "IBM XL C++ compiler " "$XLCXX"
 print_tool "IBM XL Fortran compiler " "$XLF"
 
 echo ""

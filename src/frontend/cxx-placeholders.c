@@ -26,6 +26,7 @@
 
 #include "cxx-placeholders.h"
 #include "cxx-process.h"
+#include "cxx-ast.h"
 
 #include <string.h>
 #include <stdio.h>

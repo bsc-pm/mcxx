@@ -303,7 +303,7 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
 scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)
 {
     scope_entry_t* entry = NULL;
-    scope_entry_list_t* entry_list = class_context_lookup(class_context, DF_NONE, strtolower(name));
+    scope_entry_list_t* entry_list = class_context_lookup(class_context, NULL, DF_NONE, strtolower(name));
     if (entry_list != NULL)
     {
         entry = entry_list_head(entry_list);
@@ -390,7 +390,7 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
             && current_scope != NULL)
     {
         current_decl_context.current_scope = current_scope;
-        scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));    
+        scope_entry_list_t* result_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name), NULL);    
         if (result_list != NULL)
         {
             if (entry_list_size(result_list) > 1
@@ -456,7 +456,7 @@ scope_entry_t* fortran_query_intrinsic_name_str(decl_context_t decl_context, con
 {
     decl_context_t global_context = fortran_get_context_of_intrinsics(decl_context);
 
-    scope_entry_list_t* global_list = query_in_scope_str(global_context, strtolower(unqualified_name));
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, strtolower(unqualified_name), NULL);
 
     scope_entry_list_t* result_list = filter_symbol_using_predicate(global_list,
             symbol_is_intrinsic_function_not_from_module, NULL);
@@ -560,7 +560,7 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
             && current_scope != NULL)
     {
         current_decl_context.current_scope = current_scope;
-        scope_entry_list_t* entry_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name));
+        scope_entry_list_t* entry_list = query_in_scope_str(current_decl_context, strtolower(unqualified_name), NULL);
         if (entry_list != NULL)
         {
             // If we find more than one name but not all are generic specifiers

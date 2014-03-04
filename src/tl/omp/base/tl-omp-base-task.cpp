@@ -25,10 +25,14 @@
 --------------------------------------------------------------------*/
 
 #include "cxx-diagnostic.h"
+#include "cxx-exprtype.h"
+#include "cxx-instantiation.h"
+
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-analysis-static-info.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -191,11 +195,73 @@ namespace TL { namespace OpenMP {
                 }
             }
 
+            FunctionTaskInfo task_info;
+            bool valid_task_info = false;
             if (_function_task_set->is_function_task(sym))
             {
-                FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
+                // Usual case
+                task_info = _function_task_set->get_function_task(sym);
+                valid_task_info = true;
+            }
+            else if (sym.get_type().is_template_specialized_type()
+                    && _function_task_set->is_function_task(sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
+            {
+                // Note that the pragma of the current task is written in terms of the primary symbol
+                TL::Symbol primary_sym  = sym.get_type().get_related_template_type().get_primary_template().get_symbol();
 
+                // This map will be used to instantiate the function task info
+                instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(/* parent */ NULL);
+
+                TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
+                prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
+
+                TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
+                TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();
+                ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "", 0);
+
+                int num_params = primary_params.size();
+
+                // Create the related symbols of the new specialization, using the parameter types of the specialization function type
+                // FIXME: I'm not sure, but maybe the instantiation phase should provided the related symbols of the specialization
+                TL::ObjectList<TL::Symbol> spec_related_symbols;
+                for (int i = 0; i < num_params; ++i)
+                {
+                    TL::Symbol prim_param_sym = primary_params[i];
+                    TL::Type spec_param_type =  spec_param_types[i];
+
+                    TL::Symbol spec_param_sym = prototype_scope.new_symbol(prim_param_sym.get_name());
+
+                    spec_param_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                    spec_param_sym.get_internal_symbol()->type_information = update_type(
+                            spec_param_type.get_internal_type(),
+                            sym.get_scope().get_decl_context(),
+                            call.get_locus());
+
+                    spec_param_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+
+                    spec_related_symbols.append(spec_param_sym);
+
+                    symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(), sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
+                    instantiation_symbol_map_add(instantiation_symbol_map, prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
+                }
+
+                sym.set_related_symbols(spec_related_symbols);
+
+                FunctionTaskInfo template_task_info = _function_task_set->get_function_task(primary_sym);
+
+                task_info = template_task_info.instantiate_function_task_info(sym, prototype_scope, instantiation_symbol_map);
+                valid_task_info = true;
+
+                // We update the function task set with the new specialized task info. Note that
+                // future calls to the same specialization will use the same FunctionTaskInfo
+                _function_task_set->add_function_task(sym, task_info);
+            }
+
+
+            if (valid_task_info)
+            {
                 Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
+
                 Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
 
                 Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
@@ -245,10 +311,13 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase join_task;
             if (enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().is<Nodecl::OpenMP::TaskCall>())
             {
-                // The inline task is not necessarily because the enclosing statement is already a task
-                //join_task = enclosing_stmt.shallow_copy();
+                Nodecl::OpenMP::TaskCall task_call =
+                    enclosing_stmt.as<Nodecl::ExpressionStatement>().get_nest().as<Nodecl::OpenMP::TaskCall>();
 
-                join_task = update_join_task(enclosing_stmt);
+                Nodecl::FunctionCall function_call = task_call.get_call().as<Nodecl::FunctionCall>();
+                internal_error("%s: unsupported case: the function task '%s' cannot have return tasks as arguments yet\n",
+                        enclosing_stmt.get_locus_str().c_str(),
+                        function_call.get_called().as<Nodecl::Symbol>().get_symbol().get_name().c_str());
             }
             else
             {
@@ -285,6 +354,12 @@ namespace TL { namespace OpenMP {
         make_dependency_list<Nodecl::OpenMP::DepIn>(
                 task_dependences,
                 OpenMP::DEP_DIR_IN,
+                locus,
+                result_list);
+
+        make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+                task_dependences,
+                OpenMP::DEP_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
@@ -645,107 +720,6 @@ namespace TL { namespace OpenMP {
         return result;
     }
 
-    Nodecl::NodeclBase FunctionCallVisitor::update_join_task(const Nodecl::NodeclBase& enclosing_stmt)
-    {
-        Nodecl::NodeclBase new_enclosing_stmt = enclosing_stmt.shallow_copy();
-
-        ERROR_CONDITION(!new_enclosing_stmt.is<Nodecl::ExpressionStatement>(),
-                "Unexepected node %d\n",
-                ast_print_node_type(new_enclosing_stmt.get_kind()));
-
-        Nodecl::ExpressionStatement expr_stmt = new_enclosing_stmt.as<Nodecl::ExpressionStatement>();
-
-        ERROR_CONDITION(!expr_stmt.get_nest().is<Nodecl::OpenMP::TaskCall>(),
-                "Unexepected node %d\n",
-                ast_print_node_type(expr_stmt.get_nest().get_kind()));
-
-        Nodecl::OpenMP::TaskCall task_call = expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
-
-        Nodecl::List environment = task_call.get_environment().as<Nodecl::List>();
-
-        TL::ObjectList<Nodecl::NodeclBase>  in_alloca_deps, alloca_exprs;
-
-        // Obtain the nonlocal symbols from the right expression
-        std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
-
-        Nodecl::List new_environment = environment;
-
-        TL::ObjectList<Nodecl::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(task_call);
-        for (TL::ObjectList<Nodecl::Symbol>::iterator it2 = nonlocal_symbols.begin();
-                it2 != nonlocal_symbols.end();
-                ++it2)
-        {
-            TL::Symbol sym = it2->get_symbol();
-
-            if (!sym.is_variable()
-                    || (sym.is_member()
-                        && !sym.is_static()))
-                continue;
-
-            std::set<TL::Symbol>::iterator it_sym = return_arguments.find(sym);
-            if (it_sym == return_arguments.end())
-                continue;
-
-            // The return arguments present in the enclosing statement are added as alloca input dependences
-            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-            sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
-
-            in_alloca_deps.append(
-                    Nodecl::Dereference::make(
-                        sym_nodecl,
-                        sym.get_type().points_to().get_lvalue_reference_to(),
-                        make_locus("", 0, 0)));
-
-            // FIXME: What happens with copies?
-            // copy_in.append(
-            //         Nodecl::Dereference::make(
-            //             sym_nodecl.shallow_copy(),
-            //             sym.get_type().points_to().get_lvalue_reference_to(),
-            //             make_locus("", 0, 0)));
-
-            // Remove this item from the return arguments set!
-            return_arguments.erase(it_sym);
-        }
-
-        // The resting return arguments are added as alloca expressions (i. e. they need to be allocated in the
-        // join task but they should not generate any dependence)
-        for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
-                it2 != return_arguments.end();
-                ++it2)
-        {
-            TL::Symbol sym = *it2;
-
-            Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
-            sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
-
-            alloca_exprs.append(
-                    Nodecl::Dereference::make(
-                        sym_nodecl,
-                        sym.get_type().points_to().get_lvalue_reference_to(),
-                        make_locus("", 0, 0)));
-        }
-
-        if (!alloca_exprs.empty())
-        {
-            new_environment.append(
-                    Nodecl::OpenMP::Alloca::make(
-                        Nodecl::List::make(alloca_exprs),
-                        make_locus("", 0, 0)));
-        }
-
-        if (!in_alloca_deps.empty())
-        {
-            new_environment.append(
-                    Nodecl::OpenMP::DepInAlloca::make(
-                        Nodecl::List::make(in_alloca_deps),
-                        make_locus("", 0, 0)));
-        }
-
-        task_call.set_environment(new_environment);
-
-        return new_enclosing_stmt;
-    }
-
     bool expression_stmt_is_compound_assignment(Nodecl::NodeclBase expr_stmt)
     {
         ERROR_CONDITION(!expr_stmt.is<Nodecl::ExpressionStatement>(),
@@ -796,26 +770,31 @@ namespace TL { namespace OpenMP {
         return found;
     }
 
-    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr)
+    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
 
-        // FIXME: How to know if a expression is a reduction will be implemented by
-        // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
-        Nodecl::NodeclBase lhs_expr, rhs_expr;
-        decompose_expression_statement(expr, lhs_expr, rhs_expr);
+        TL::Analysis::AnalysisStaticInfo a;
+        bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
+        std::cerr << "expr: " << expr.prettyprint() << " is_reduction? " << is_reduc << std::endl;
+        return is_reduc;
 
-        // If the expression does not have a left-hand-side expression, this is not a reduction
-        if (lhs_expr.is_null())
-            return false;
+        // // FIXME: How to know if a expression is a reduction will be implemented by
+        // // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
+        // Nodecl::NodeclBase lhs_expr, rhs_expr;
+        // decompose_expression_statement(expr, lhs_expr, rhs_expr);
 
-        // If the expression is a compound assignment, this is a reduction
-        if (expression_stmt_is_compound_assignment(expr))
-            return true;
+        // // If the expression does not have a left-hand-side expression, this is not a reduction
+        // if (lhs_expr.is_null())
+        //     return false;
 
-        // Detect this kind of reductions: x = foo(i) + x;
-        return is_a_subexpression_of(lhs_expr, rhs_expr);
+        // // If the expression is a compound assignment, this is a reduction
+        // if (expression_stmt_is_compound_assignment(expr))
+        //     return true;
+
+        // // Detect this kind of reductions: x = foo(i) + x;
+        // return is_a_subexpression_of(lhs_expr, rhs_expr);
     }
 
     Nodecl::OpenMP::Task FunctionCallVisitor::generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
@@ -831,7 +810,7 @@ namespace TL { namespace OpenMP {
         decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
 
         // Create the output depedence if needed
-        bool is_reduction = expression_stmt_is_a_reduction(enclosing_stmt);
+        bool is_reduction = expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set);
         if (!lhs_expr.is_null())
         {
             if (is_reduction)
@@ -1184,7 +1163,7 @@ namespace TL { namespace OpenMP {
         // Optimization: Do not create two tasks if there is only a task
         // involved in the task expression
         if ( !_task_expr_optim_disabled
-                && expression_stmt_is_a_reduction(enclosing_stmt)
+                && expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set)
                 && only_one_task_is_involved_in_this_stmt(enclosing_stmt))
         {
             std::cerr << locus_to_str(enclosing_stmt.get_locus())

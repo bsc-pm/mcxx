@@ -29,6 +29,7 @@
 #include "cxx-process.h"
 #include "cxx-utils.h"
 
+#include "tl-expression-reduction.hpp"
 #include "tl-renaming-visitor.hpp"
 #include "tl-loop-analysis.hpp"
 
@@ -133,7 +134,7 @@ namespace Analysis {
 
     void LoopAnalysis::get_loop_limits( Nodecl::NodeclBase cond, int loop_id )
     {
-        Nodecl::Utils::ReduceExpressionVisitor v;
+        Optimizations::ReduceExpressionVisitor v;
 
         if( cond.is<Nodecl::Symbol>( ) )
         {   // No limits to be computed
@@ -424,14 +425,14 @@ namespace Analysis {
 // //                     std::cerr << "Renaming performed: " << nodecl.prettyprint() << " --> " << renamed[0].prettyprint() << std::endl;
 //                 if (use_type == '0')
 //                 {
-//                     node->unset_ue_var(ExtendedSymbol(nodecl));
-//                     node->set_ue_var(ExtendedSymbol(renamed[0]));
+//                     node->remove_ue_var(ExtendedSymbol(nodecl));
+//                     node->add_ue_var(ExtendedSymbol(renamed[0]));
 //                     renamed_nodecl = renamed[0];
 //                 }
 //                 else if (use_type == '1')
 //                 {
-//                     node->unset_killed_var(ExtendedSymbol(nodecl));
-//                     node->set_killed_var(ExtendedSymbol(renamed[0]));
+//                     node->remove_killed_var(ExtendedSymbol(nodecl));
+//                     node->add_killed_var(ExtendedSymbol(renamed[0]));
 //                     renamed_nodecl = renamed[0];
 //                 }
 //                 else if (use_type == '2' || use_type == '3')
@@ -468,8 +469,8 @@ namespace Analysis {
 //                 }
 //                 else if (use_type == '4')
 //                 {
-//                     node->unset_undefined_behaviour_var(ExtendedSymbol(nodecl));
-//                     node->set_undefined_behaviour_var(ExtendedSymbol(renamed[0]));
+//                     node->remove_undefined_behaviour_var(ExtendedSymbol(nodecl));
+//                     node->add_undefined_behaviour_var(ExtendedSymbol(renamed[0]));
 //                     renamed_nodecl = renamed[0];
 //                 }
 //                 else

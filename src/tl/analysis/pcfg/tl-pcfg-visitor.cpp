@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "cxx-cexpr.h"
 #include "cxx-process.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
@@ -1126,7 +1126,8 @@ namespace Analysis {
                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                 Nodecl::ClassMemberAccess new_lhs = 
                     Nodecl::ClassMemberAccess::make( n.get_field( ).shallow_copy( ), fd.get_field( ).shallow_copy( ), 
-                                                     Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
+                                                     /* member-form */ Nodecl::NodeclBase::null( ),
+                                                     t, n.get_locus( ) );
                 Nodecl::Assignment new_assign = 
                     Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
                 node_to_modify->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
@@ -1754,7 +1755,8 @@ namespace Analysis {
                                 Nodecl::Assignment ass = stmts[0].as<Nodecl::Assignment>( );
                                 Nodecl::ClassMemberAccess new_lhs = 
                                     Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ), 
-                                                                    Nodecl::NodeclBase::null( ), ass.get_type( ), n.get_locus( ) );
+                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    ass.get_type( ), n.get_locus( ) );
                                 Nodecl::NodeclBase new_assign = 
                                     Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
                                 exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
@@ -1765,7 +1767,8 @@ namespace Analysis {
                                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                                 Nodecl::ClassMemberAccess new_lhs = 
                                     Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ), 
-                                                                    Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
+                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    t, n.get_locus( ) );
                                 Nodecl::NodeclBase new_assign = 
                                     Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
                                 exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
@@ -1790,7 +1793,8 @@ namespace Analysis {
                                 Nodecl::Assignment ass = it_expr[0].as<Nodecl::Assignment>( );
                                 Nodecl::ClassMemberAccess new_lhs = 
                                     Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ), 
-                                                                    Nodecl::NodeclBase::null( ), ass.get_type( ), n.get_locus( ) );
+                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    ass.get_type( ), n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
                             }
                             else if( it_expr[0].is<Nodecl::FieldDesignator>( ) )
@@ -1800,7 +1804,8 @@ namespace Analysis {
                                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                                 Nodecl::ClassMemberAccess new_lhs = 
                                     Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ), 
-                                                                    Nodecl::NodeclBase::null( ), t, n.get_locus( ) );
+                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    t, n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
                             }
                             else

@@ -2940,7 +2940,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
             && (fortran_get_rank_of_type(t1) == 0)
             && (common_type_of_equality_operation(fortran_get_rank0_type(t0), t1) != NULL)
             && (t2 == NULL || is_integer_type(t2))
-            && (t3 == NULL || (is_bool_type(fortran_get_rank0_type(t3)) && fortran_are_conformable_types(t0, t3)))
+            && (t3 == NULL || (is_bool_type(fortran_get_rank0_type(t3)) && fortran_type_is_conformable_to(t3, t0)))
             && opt_valid_kind_expr(kind, &di)
             && (t5 == NULL || is_bool_type(t5)))
     {
@@ -3315,7 +3315,7 @@ scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(fortran_get_rank0_type(t0))
             && is_integer_type(t1)
             && (t2 == NULL
-                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -3384,7 +3384,7 @@ scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
             && is_integer_type(fortran_get_rank0_type(t0))
             && is_integer_type(t1)
             && (t2 == NULL
-                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -3604,7 +3604,7 @@ scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETE
             && is_integer_type(fortran_get_rank0_type(t0))
             && is_integer_type(t1)
             && (t2 == NULL
-                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+                || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -4273,7 +4273,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_integer_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0)))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0)))
             && opt_valid_kind_expr(kind, &di)
             && (t4 == NULL || is_bool_type(t4)))
     {
@@ -4331,7 +4331,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_floating_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         if (t1 == NULL)
         {
@@ -4512,7 +4512,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_integer_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0)))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0)))
             && opt_valid_kind_expr(kind, &di)
             && (t4 == NULL || is_bool_type(t4)))
     {
@@ -4570,7 +4570,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
                 || is_floating_type(fortran_get_rank0_type(t0))
                 || fortran_is_character_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         if (t1 == NULL)
         {
@@ -4836,14 +4836,14 @@ scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t2 = no_ref(argument_types[2]);
 
     if (fortran_is_array_type(t0)
-            && is_bool_type(fortran_get_rank0_type(t1)) 
-            && fortran_are_conformable_types(t0, t1)
-            && (t2 == NULL || 
+                    && is_bool_type(fortran_get_rank0_type(t1))
+                    && fortran_type_is_conformable_to(t1, t0)
+            && (t2 == NULL ||
                 (equivalent_types(get_unqualified_type(fortran_get_rank0_type(t0)),
                                   get_unqualified_type(fortran_get_rank0_type(t2)))
                  && fortran_get_rank_of_type(t2) == 1)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "pack", 
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "pack",
                 t2 == NULL ? fortran_get_n_ranked_type(fortran_get_rank0_type(t0), 1, symbol->decl_context) : t2,
                 t0,
                 t1,
@@ -4955,7 +4955,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
                 || is_floating_type(fortran_get_rank0_type(t0)) 
                 || is_complex_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -5447,13 +5447,13 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
 
     if (fortran_is_character_type(t0)
             && fortran_is_character_type(t1)
-            && (t2 == NULL || is_bool_type(t1))
+            && (t2 == NULL || is_bool_type(t2))
             && opt_valid_kind_expr(argument_expressions[3], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL(symbol, "scan", 
+        return GET_INTRINSIC_ELEMENTAL(symbol, "scan",
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
-                t1, 
+                t1,
                 t2 == NULL ? fortran_get_default_logical_type() : t2,
                 fortran_get_default_integer_type());
     }
@@ -5803,7 +5803,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
                 || is_floating_type(fortran_get_rank0_type(t0)) 
                 || is_complex_type(fortran_get_rank0_type(t0)))
             && (t1 == NULL || is_integer_type(t1))
-            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_are_conformable_types(t2, t0))))
+            && (t2 == NULL || (is_bool_type(fortran_get_rank0_type(t2)) && fortran_type_is_conformable_to(t2, t0))))
     {
         type_t* return_type = fortran_get_rank0_type(t0);
         if (t1 != NULL)
@@ -6093,9 +6093,9 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
             && fortran_is_array_type(t1)
             && is_bool_type(fortran_get_rank0_type(t1))
             && equivalent_types(
-                get_unqualified_type(fortran_get_rank0_type(t2)), 
+                get_unqualified_type(fortran_get_rank0_type(t2)),
                 get_unqualified_type(fortran_get_rank0_type(t0)))
-            && fortran_are_conformable_types(t2, t0))
+            && fortran_type_is_conformable_to(t2, t0))
     {
         type_t* result = fortran_get_n_ranked_type(fortran_get_rank0_type(t0),
                 fortran_get_rank_of_type(t1), CURRENT_COMPILED_FILE->global_decl_context);
@@ -7761,7 +7761,7 @@ decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
     decl_context_t global_context = decl_context;
     global_context.current_scope = decl_context.global_scope;
 
-    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics");
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics", NULL);
 
     ERROR_CONDITION(global_list == NULL, "Fortran intrinsics context was requested but it is missing", 0);
 

@@ -147,6 +147,16 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
 
+    if (!sign
+            && (num_bytes < (int)sizeof(value)))
+    {
+        // Make sure higher bits are set to zero if this value is unsigned
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
+        mask >>= (8 * num_bytes);
+        mask <<= (8 * num_bytes);
+        value &= ~mask;
+    }
+
     int bucket_index = value % CVAL_HASH_SIZE;
 
     int pool = 2 * num_bytes + !!sign;
@@ -165,7 +175,7 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     if (bucket == NULL)
     {
         bucket = xcalloc(1, sizeof(*bucket));
-        
+
         bucket->constant_value = xcalloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->kind = CVK_INTEGER;
         bucket->constant_value->value.i = value;
@@ -259,6 +269,23 @@ case _bytes:  \
         break; \
     }
 
+#ifdef HAVE_INT128
+#define CAST_TO_INT128(_field) \
+case 128: \
+    { \
+        if (sign) \
+        { \
+            return const_value_get_integer((signed __int128)val->value._field, 16, 1); \
+        } \
+        else \
+        { \
+            return const_value_get_integer((unsigned __int128)val->value._field, 16, 0); \
+        } \
+        break; \
+    }
+#else
+#define CAST_TO_INT128(_field)
+#endif
 
 #define CAST_FLOAT_POINT_TO_INT(_field) \
 { \
@@ -269,6 +296,7 @@ case _bytes:  \
         CAST_TO_INTX(16, _field) \
         CAST_TO_INTX(32, _field) \
         CAST_TO_INTX(64, _field) \
+        CAST_TO_INT128(_field) \
         default: { internal_error("Cannot perform conversion of floating point to integer of %d bytes\n", bytes); } \
     } \
 }
@@ -771,25 +799,38 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     }
 }
 
-int const_value_cast_to_signed_int(const_value_t* val)
-{
-    switch (val->kind)
-    {
-        case CVK_INTEGER:
-            return val->value.i;
-        case CVK_FLOAT:
-            return val->value.f;
-        case CVK_DOUBLE:
-            return val->value.d;
-        case CVK_LONG_DOUBLE:
-            return val->value.ld;
-#ifdef HAVE_QUADMATH_H
-        case CVK_FLOAT128:
+#ifdef HAVE_QUADMATH_H 
+#define CONST_VALUE_CAST_FROM_FLOAT_128 \
+        case CVK_FLOAT128: \
             return val->value.f128;
+#else
+#define CONST_VALUE_CAST_FROM_FLOAT_128
 #endif
-        OTHER_KIND;
-    }
+
+#define CONST_VALUE_CAST_TO_TYPE(type, typename) \
+type const_value_cast_to_##typename(const_value_t* val) \
+{ \
+    switch (val->kind) \
+    { \
+        case CVK_INTEGER: \
+            return val->value.i; \
+        case CVK_FLOAT: \
+            return val->value.f; \
+        case CVK_DOUBLE: \
+            return val->value.d; \
+        case CVK_LONG_DOUBLE: \
+            return val->value.ld; \
+        CONST_VALUE_CAST_FROM_FLOAT_128 \
+        OTHER_KIND; \
+    } \
 }
+
+CONST_VALUE_CAST_TO_TYPE(int, signed_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned int, unsigned_int)
+CONST_VALUE_CAST_TO_TYPE(long int, signed_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long int, unsigned_long_int)
+CONST_VALUE_CAST_TO_TYPE(long long int, signed_long_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long long int, unsigned_long_long_int)
 
 #ifdef HAVE_QUADMATH_H
   #define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE || kind == CVK_FLOAT128)
@@ -1065,7 +1106,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 }
                 else
                 {
-                    return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
+                    if (const_value_is_zero(v)
+                            || const_value_is_positive(v))
+                    {
+                        return nodecl_make_integer_literal(t, v, make_locus("", 0, 0));
+                    }
+                    else
+                    {
+                        // We cannot directly represent a negative integer literal in nodecl,
+                        // so use a negated value instead
+                        nodecl_t nodecl_result = nodecl_make_neg(
+                                nodecl_make_integer_literal(t, const_value_neg(v), make_locus("", 0, 0)),
+                                t, make_locus("", 0, 0));
+                        nodecl_set_constant(nodecl_result, v);
+
+                        return nodecl_result;
+                    }
                 }
                 break;
             }
@@ -1076,7 +1132,22 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 type_t* t = basic_type;
                 if (t == NULL)
                     t = get_suitable_floating_type(v);
-                return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
+                if (const_value_is_zero(v)
+                        || const_value_is_positive(v))
+                {
+                    return nodecl_make_floating_literal(t, v, make_locus("", 0, 0));
+                }
+                else
+                {
+                    // We cannot directly represent a negative floating literal in nodecl,
+                    // so use a negated value instead
+                    nodecl_t nodecl_result = nodecl_make_neg(
+                            nodecl_make_floating_literal(t, const_value_neg(v), make_locus("", 0, 0)),
+                            t, make_locus("", 0, 0));
+                    nodecl_set_constant(nodecl_result, v);
+
+                    return nodecl_result;
+                }
                 break;
             }
         case CVK_STRING:
@@ -1125,7 +1196,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
             {
                 nodecl_t list = nodecl_null();
 
-                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(basic_type);
+                type_t* t = v->value.m->struct_type;
+
+                scope_entry_list_t* data_members = class_type_get_nonstatic_data_members(t);
 
                 int i;
                 scope_entry_list_iterator_t* it_member = NULL;
@@ -1142,8 +1215,6 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 entry_list_iterator_free(it_member);
 
                 entry_list_free(data_members);
-
-                type_t* t = v->value.m->struct_type;
 
                 nodecl_t result = nodecl_make_structured_value(
                         list, t,
@@ -3665,4 +3736,219 @@ static const_value_t* reduce_different_values_or_length(
     }
 
     return const_value_get_signed_int(0);
+}
+
+#ifdef HAVE_INT128
+#define MAX_DIGITS 41
+static char digits[] = "0123456789";
+
+// AFAIK there is no library support for int128
+const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
+{
+    // No number will have more than 40 decimal digits
+    char result[MAX_DIGITS];
+    int len = 0;
+
+    if (i == 0)
+    {
+        result[len] = '0';
+        len++;
+    }
+    else
+    {
+        if (neg)
+        {
+            result[len] = '-';
+            len++;
+        }
+
+        while (i > 0)
+        {
+            result[len] = digits[i % 10];
+            len++;
+            i /= 10;
+        }
+
+        // Now reverse the string
+        int begin, end;
+        for (begin = 0, end = len - 1;
+             begin < (len / 2);
+             begin++, end--)
+        {
+            char t = result[begin];
+            result[begin] = result[end];
+            result[end] = t;
+        }
+    }
+
+    ERROR_CONDITION(len >= MAX_DIGITS, "Too many digits", 0);
+    result[len] = '\0';
+
+    return uniquestr(result);
+}
+
+const char* signed_int128_to_str(signed __int128 i)
+{
+    if (i < 0)
+    {
+        return unsigned_int128_to_str(-i, 1);
+    }
+    else
+    {
+        return unsigned_int128_to_str(i, 0);
+    }
+}
+#endif
+
+const char* const_value_to_str(const_value_t* cval)
+{
+    const char* result = NULL;
+    switch (cval->kind)
+    {
+        case CVK_INTEGER:
+            {
+#ifdef HAVE_INT128
+                if (cval->sign)
+                {
+                    result = signed_int128_to_str(cval->value.si);
+                }
+                else
+                {
+                    result = unsigned_int128_to_str(cval->value.i, 0);
+                }
+#else
+                if (cval->sign)
+                {
+                    uniquestr_sprintf(&result, "%lld", cval->value.si);
+                }
+                else
+                {
+                    uniquestr_sprintf(&result, "%llu", cval->value.i);
+                }
+#endif
+                break;
+            }
+        case CVK_FLOAT:
+            {
+                uniquestr_sprintf(&result, "%f", cval->value.f);
+                break;
+            }
+        case CVK_DOUBLE:
+            {
+                uniquestr_sprintf(&result, "%f", cval->value.d);
+                break;
+            }
+        case CVK_LONG_DOUBLE:
+            {
+                uniquestr_sprintf(&result, "%Lf", cval->value.ld);
+                break;
+            }
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            {
+                char c[256];
+                quadmath_snprintf (c, 256, "%Q", cval->value.f128);
+                c[255] = '\0';
+                result = uniquestr(c);
+                break;
+            }
+#endif
+        case CVK_ARRAY:
+            {
+                result = "{array: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_VECTOR:
+            {
+                result = "{vector: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_STRUCT:
+            {
+                uniquestr_sprintf(&result, "{struct:%s: [",
+                        cval->value.m->struct_type != NULL ?
+                        named_type_get_symbol(cval->value.m->struct_type)->symbol_name
+                        : "<<unknown-struct>>");
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_STRING:
+            {
+                result = "{string: [";
+
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_RANGE:
+            {
+                result = "{range: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_MASK:
+            {
+                uniquestr_sprintf(&result, "{mask%d: %llx}",
+                        cval->num_bytes,
+                        (unsigned long long)cval->value.i);
+                break;
+            }
+        default:
+            internal_error("Unexpected constant kind %d", cval->kind);
+            break;
+    }
+
+    return result;
 }

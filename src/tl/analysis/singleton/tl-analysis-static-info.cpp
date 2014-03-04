@@ -27,6 +27,7 @@
 #include "cxx-process.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
+#include "tl-expression-reduction.hpp"
 #include "tl-use-def.hpp"
 
 namespace TL  {
@@ -348,6 +349,10 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
+    AnalysisStaticInfo::AnalysisStaticInfo( )
+        : _node( Nodecl::NodeclBase::null( ) ), _static_info_map( )
+    {}
+    
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                             WhereAnalysis nested_analysis_mask, int nesting_level )
     {
@@ -590,6 +595,79 @@ namespace Analysis {
         return result;
     }                                                                          
     
+    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    {
+        if( n.is_null( ) )
+            return false;
+        
+        bool result = false;
+        
+        // Check the current node
+        if( n.is<Nodecl::FunctionCall>( ) )
+        {
+            Symbol s( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) );
+            if( s.is_valid( ) && function_tasks->is_function_task( s ) )
+                result = true;
+        }
+        
+        // Check its children
+        ObjectList<Nodecl::NodeclBase> children = n.children( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        {
+            result = nodecl_calls_outline_task( *it, function_tasks );
+        }
+        
+        return result;
+    }
+    
+    static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs, 
+                                              RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    {
+        if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) || 
+            ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) || 
+                                                 !function_tasks->is_function_task( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) ) ) ) )
+            return false;
+        
+        // Check the current node
+        if( Nodecl::Utils::equal_nodecls( n, lhs, /*skip conversion nodes*/ true ) )
+            return true;
+        
+        // Check the children
+        bool result = false;
+        ObjectList<Nodecl::NodeclBase> children = n.children( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        {
+            result = ompss_reduction_rhs_uses_lhs( *it, lhs, function_tasks );
+        }
+        return result;
+    }
+    
+    bool AnalysisStaticInfo::is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const
+    {
+        bool result = false;
+        
+        if( n.is<Nodecl::Assignment>( ) || 
+            n.is<Nodecl::AddAssignment>( ) || n.is<Nodecl::MinusAssignment>( ) || 
+            n.is<Nodecl::DivAssignment>( ) || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( ) ||
+            n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( ) || n.is<Nodecl::ArithmeticShrAssignment>( ) || 
+            n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
+        {
+            Nodecl::Assignment n_assig = n.as<Nodecl::Assignment>( );
+            result = nodecl_calls_outline_task( n_assig.get_rhs( ), function_tasks );
+            
+            if( result && n.is<Nodecl::Assignment>( ) )
+            {   // Check also if the LHS also contains the RHS
+                Nodecl::NodeclBase rhs_c = n_assig.get_rhs( ).shallow_copy( );
+                Optimizations::ReduceExpressionVisitor rev;
+                rev.walk( rhs_c );
+                if( !ompss_reduction_rhs_uses_lhs( rhs_c, n_assig.get_lhs( ), function_tasks ) )
+                    result = false;
+            }
+        }
+        
+        return result;
+    }
+    
     bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -670,7 +748,8 @@ namespace Analysis {
     }
 
     bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                                     const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+                                                     const std::map<TL::Symbol, int>& aligned_expressions, 
+                                                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
                                                      int unroll_factor, int alignment ) const 
     {
         bool result = false;
@@ -686,14 +765,15 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
 
-            result = current_info.is_simd_aligned_access( n, suitable_expressions, unroll_factor, alignment );
+            result = current_info.is_simd_aligned_access( n, aligned_expressions, 
+                    suitable_expressions, unroll_factor, alignment );
         }
         
         return result;
     }
 
     bool AnalysisStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
             int unroll_factor, int alignment, int& vector_size_module ) const 
     {
         bool result = false;
@@ -711,8 +791,6 @@ namespace Analysis {
             result = current_info.is_suitable_expression( n, suitable_expressions, unroll_factor, alignment, vector_size_module );
         }
        
-        std::cerr << "EXP: " << n.prettyprint() << std::endl;
-
         return result;
     }
     

@@ -71,11 +71,6 @@ namespace TL
             {
             }
 
-            //! Implements the access to extended attributes of a Symbol
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const;
-            //! Implements the access to extended attributes of a Symbol
-            virtual bool set_extended_attribute(const std::string&, const tl_type_t &data);
-
             //! Constructs a Symbol after a reference to Object
             Symbol(RefPtr<Object> obj)
             {
@@ -481,6 +476,9 @@ namespace TL
 
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
+
+            // Class marked as explicit
+            bool is_explicit_class() const;
 
             //! States whether symbol exists just because was mentioned in a friend declaration
             /*!

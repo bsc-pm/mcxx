@@ -24,9 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-lowering-visitor.hpp"
+#include "tl-nanox-ptr.hpp"
+#include "tl-nanox-nodecl.hpp"
 
 #include "tl-scope.hpp"
+#include "tl-symbol-utils.hpp"
+
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
@@ -42,105 +45,7 @@
 
 namespace TL { namespace Nanox {
 
-    // FIXME - Move this to a SymbolKit
-    static TL::Symbol new_function_symbol(Scope sc,
-            const std::string& name,
-            const std::string& return_symbol_name,
-            TL::Type return_type,
-            ObjectList<std::string> parameter_names,
-            ObjectList<TL::Type> parameter_types,
-
-            /* out */
-            ObjectList<TL::Symbol>& parameter_symbols)
-    {
-        // FIXME - Wrap
-        decl_context_t decl_context = sc.get_decl_context();
-
-        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, name.c_str());
-        entry->entity_specs.is_user_declared = 1;
-
-        entry->kind = SK_FUNCTION;
-        entry->locus = make_locus("", 0, 0);
-
-        ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
-
-        decl_context_t function_context ;
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            function_context = new_program_unit_context(decl_context);
-        }
-        else
-        {
-            function_context = new_function_context(decl_context);
-            function_context = new_block_context(function_context);
-        }
-        function_context.function_scope->related_entry = entry;
-        function_context.block_scope->related_entry = entry;
-
-        entry->related_decl_context = function_context;
-
-        parameter_info_t* p_types = new parameter_info_t[parameter_types.size()];
-
-        parameter_info_t* it_ptypes = &(p_types[0]);
-        ObjectList<TL::Type>::iterator type_it = parameter_types.begin();
-        for (ObjectList<std::string>::iterator it = parameter_names.begin();
-                it != parameter_names.end();
-                it++, it_ptypes++, type_it++)
-        {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
-            param->entity_specs.is_user_declared = 1;
-            param->kind = SK_VARIABLE;
-            param->locus = make_locus("", 0, 0);
-
-            param->defined = 1;
-
-            symbol_set_as_parameter_of_function(param, entry,
-                    /* nesting */ 0,
-                    /* position */ entry->entity_specs.num_related_symbols);
-
-            param->type_information = get_unqualified_type(type_it->get_internal_type());
-
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    param);
-
-            it_ptypes->is_ellipsis = 0;
-            it_ptypes->nonadjusted_type_info = NULL;
-            it_ptypes->type_info = get_indirect_type(param);
-
-            parameter_symbols.append(param);
-        }
-
-        // Return symbol
-        scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, return_symbol_name.c_str());
-        return_sym->entity_specs.is_user_declared = 1;
-        return_sym->kind = SK_VARIABLE;
-        return_sym->locus = make_locus("", 0, 0);
-
-        return_sym->defined = 1;
-
-        return_sym->entity_specs.is_result_var = 1;
-
-        return_sym->type_information = get_unqualified_type(return_type.get_internal_type());
-
-        parameter_symbols.append(return_sym);
-
-        entry->entity_specs.result_var = return_sym;
-
-        // Type of the function
-        type_t *function_type = get_new_function_type(
-                return_type.get_internal_type(),
-                p_types, parameter_types.size(),
-                REF_QUALIFIER_NONE);
-
-        entry->type_information = function_type;
-
-        delete[] p_types;
-
-        return entry;
-    }
-
-    namespace 
+    namespace
     {
         TL::Type get_fake_explicit_shape_array(TL::Type t)
         {
@@ -173,113 +78,146 @@ namespace TL { namespace Nanox {
             }
         }
 
-    }
-
-    // This is for Fortran only
-    TL::Symbol LoweringVisitor::get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope)
-    {
-        static int num = 0;
-
-        // FIXME - Avoid creating functions twice for a same t
-        std::stringstream ss;
-        ss << "nanox_ptr_of_" 
-            << std::hex 
-            << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
-            << std::dec
-            << "_" 
-            << num;
-
-        num++;
-
-        if (t.is_any_reference())
-            t = t.references_to();
-
-        bool assumed_shape = ((!sym.is_valid() 
-                    || !sym.is_allocatable())
-                && t.is_array()
-                && t.array_requires_descriptor());
-
-        TL::Type return_type = TL::Type::get_void_type().get_pointer_to();
-
-        ObjectList<std::string> parameter_names;
-        parameter_names.append("nanox_target_phony");
-
-        TL::Type argument_type = t;
-
-        if (t.is_pointer())
+        // This is for Fortran only
+        TL::Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope)
         {
-            // Do nothing. Use the original type
-        }
-        else if (t.is_array())
-        {
-            argument_type = get_fake_explicit_shape_array(t);
-        }
+            static int num = 0;
 
-        argument_type = argument_type.get_lvalue_reference_to();
+            // FIXME - Avoid creating functions twice for a same t
+            std::stringstream ss;
+            ss << "nanox_ptr_of_" 
+                << std::hex 
+                << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
+                << std::dec
+                << "_" 
+                << num;
 
-        ObjectList<TL::Type> parameter_types;
-        parameter_types.append(argument_type);
+            num++;
 
-        ObjectList<TL::Symbol> parameters;
-        TL::Symbol result = new_function_symbol(
-                CURRENT_COMPILED_FILE->global_decl_context,
-                ss.str(),
-                /* return_name */ "nanox_pointer_phony",
-                return_type,
-                parameter_names,
-                parameter_types,
-                /* out */
-                parameters);
+            if (t.is_any_reference())
+                t = t.references_to();
 
-        // Propagate ALLOCATABLE attribute
-        parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
+            TL::Type return_type = TL::Type::get_void_type().get_pointer_to();
 
-        Source src;
-        if (!assumed_shape)
-        {
+            ObjectList<std::string> parameter_names;
+            parameter_names.append("nanox_target_phony");
+
+            TL::Type argument_type = t;
+
+            if (t.is_pointer())
+            {
+                // Do nothing. Use the original type
+            }
+            else if (t.is_array())
+            {
+                argument_type = get_fake_explicit_shape_array(t);
+            }
+
+            argument_type = argument_type.get_lvalue_reference_to();
+
+            ObjectList<TL::Type> parameter_types;
+            parameter_types.append(argument_type);
+
+            TL::Symbol result = SymbolUtils::new_function_symbol(
+                    CURRENT_COMPILED_FILE->global_decl_context,
+                    ss.str(),
+                    /* has_return */ true,
+                    /* return_name */ "nanox_pointer_phony",
+                    return_type,
+                    parameter_names,
+                    parameter_types);
+
+            ObjectList<TL::Symbol> parameters = result.get_related_symbols();
+            // Propagate ALLOCATABLE attribute
+            parameters[0].get_internal_symbol()->entity_specs.is_allocatable = sym.is_valid() && sym.is_allocatable();
+
+            // Make sure we have a proper module info in the context of the parameter
+            scope_entry_t* new_used_modules_info =
+                ::get_or_create_used_modules_symbol_info(parameters[0].get_scope().get_decl_context());
+
+            type_t* basic_type = no_ref(parameters[0].get_internal_symbol()->type_information);
+
+            while (is_pointer_type(basic_type)
+                    || fortran_is_array_type(basic_type))
+            {
+                if (is_pointer_type(basic_type))
+                    basic_type = pointer_type_get_pointee_type(basic_type);
+                else if (fortran_is_array_type(basic_type))
+                    basic_type = array_type_get_element_type(basic_type);
+            }
+
+            // The type may come from a module, emit a USE
+            if (is_named_class_type(basic_type)
+                    && (named_type_get_symbol(basic_type)->entity_specs.in_module
+                        || named_type_get_symbol(basic_type)->entity_specs.from_module))
+            {
+                scope_entry_t* orig_symbol =
+                        named_type_get_symbol(basic_type);
+
+                scope_entry_t* module =
+                    orig_symbol->entity_specs.from_module;
+                if (module == NULL)
+                    module = orig_symbol->entity_specs.in_module;
+
+                // Insert the symbol from the module in the local scope
+                scope_entry_t* used_symbol = insert_symbol_from_module(
+                        orig_symbol,
+                        parameters[0].get_scope().get_decl_context(),
+                        orig_symbol->symbol_name,
+                        orig_symbol->entity_specs.in_module,
+                        NULL);
+
+                // Update the type to refer to the USEd one and not the original
+                // from the module
+                parameters[0].get_internal_symbol()->type_information =
+                    fortran_update_basic_type_with_type(
+                            parameters[0].get_internal_symbol()->type_information,
+                            get_user_defined_type(used_symbol));
+
+                // Add an explicit USE statement
+                new_used_modules_info->value = nodecl_make_list_1(
+                        nodecl_make_fortran_use_only(
+                            nodecl_make_symbol(orig_symbol->entity_specs.in_module, NULL),
+                            nodecl_make_list_1(
+                                nodecl_make_symbol(used_symbol, NULL)),
+                            NULL));
+
+            }
+
+            Source src;
             src << "extern void* " << ss.str() << "_ (void*p)"
                 << "{"
                 << "   return p;"
                 << "}"
                 ;
-        }
-        else
-        {
-            // Copy the descriptor
-            size_t size_of_array_descriptor = type_get_size(t.get_internal_type());
-            src
-                << "extern void* " << ss.str() << "_(void *p) "
-                << "{"
-                << "    void* result;"
-                << "    nanos_err_t v = nanos_malloc(&result, " << size_of_array_descriptor << ", \"\", 0);"
-                << "    if (v != NANOS_OK) nanos_handle_error(v);"
-                << "    nanos_memcpy(result, p, " <<  size_of_array_descriptor << " );"
-                << "    return result;"
-                << "}"
-                ;
+
+            // Parse as C
+            Source::source_language = SourceLanguage::C;
+            Nodecl::List n = src.parse_global(original_scope).as<Nodecl::List>();
+            Source::source_language = SourceLanguage::Current;
+
+            Nodecl::List& extra_c_code = Lowering::get_extra_c_code();
+
+            extra_c_code.append(n);
+
+
+            return result;
         }
 
-        // Parse as C
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
-        Nodecl::List n = src.parse_global(original_scope).as<Nodecl::List>();
-        CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
-
-        Nodecl::List& extra_c_code = _lowering->get_extra_c_code();
-
-        extra_c_code.append(n);
-
-        return result;
-    }
-
-    TL::Symbol LoweringVisitor::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
-    {
-        return get_function_ptr_of_impl(sym, sym.get_type(), original_scope);
-    }
-
-    TL::Symbol LoweringVisitor::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
-    {
-        return get_function_ptr_of_impl(Symbol(NULL), t, original_scope);
     }
 
 } }
+
+namespace TL {
+
+        TL::Symbol Nanox::get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
+        {
+            return get_function_ptr_of_impl(sym, sym.get_type(), original_scope);
+        }
+
+        TL::Symbol Nanox::get_function_ptr_of(TL::Type t, TL::Scope original_scope)
+        {
+            return get_function_ptr_of_impl(Symbol(NULL), t, original_scope);
+        }
+} 
 

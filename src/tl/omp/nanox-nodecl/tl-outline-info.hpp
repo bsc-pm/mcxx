@@ -77,10 +77,11 @@ namespace TL
                     DEP_IN =   1 << 0,
                     DEP_IN_VALUE =   1 << 1,
                     DEP_IN_ALLOCA =   1 << 2,
-                    DEP_OUT =  1 << 3,
+                    DEP_IN_PRIVATE =   1 << 3,
+                    DEP_OUT =  1 << 4,
                     DEP_INOUT = DEP_IN | DEP_OUT,
-                    DEP_CONCURRENT = 1 << 4,
-                    DEP_COMMUTATIVE = 1 << 5
+                    DEP_CONCURRENT = 1 << 5,
+                    DEP_COMMUTATIVE = 1 << 6
                 };
                 struct DependencyItem
                 {
@@ -106,26 +107,6 @@ namespace TL
 
                     CopyItem(Nodecl::NodeclBase expr_, CopyDirectionality dir_)
                         : expression(expr_), directionality(dir_) { }
-                };
-
-                // The first level of TaskwaitOnNode does not generate taskwaits!
-                struct TaskwaitOnNode
-                {
-                    Nodecl::NodeclBase expression;
-                    TL::ObjectList<TaskwaitOnNode*> depends_on;
-
-                    TaskwaitOnNode(Nodecl::NodeclBase expr_)
-                        : expression(expr_) { }
-
-                    ~TaskwaitOnNode()
-                    {
-                        for (TL::ObjectList<TaskwaitOnNode*>::iterator it = depends_on.begin();
-                                it != depends_on.end();
-                                it++)
-                        {
-                            delete (*it);
-                        }
-                    }
                 };
 
                 enum AllocationPolicyFlags
@@ -172,6 +153,16 @@ namespace TL
 
                 AllocationPolicyFlags _allocation_policy_flags;
 
+                // Code run prior capturing some variable
+                Nodecl::NodeclBase _prepare_capture_code;
+
+                // Descriptor
+                OutlineDataItem* _copy_of_array_descriptor;
+
+                // This is a copy_of_array_descriptor
+                // referring to refers to an ALLOCATABLE array
+                bool _is_copy_of_array_descriptor_allocatable;
+
                 // Captured value
                 Nodecl::NodeclBase _captured_value;
                 // If not null, used to capture a value only under some conditions
@@ -179,8 +170,6 @@ namespace TL
 
                 // Base symbol of the argument in Fortran
                 TL::Symbol _base_symbol_of_argument;
-
-                TaskwaitOnNode* _taskwait_on_after_wd_creation;
 
                 bool _is_lastprivate;
 
@@ -202,16 +191,12 @@ namespace TL
                     _basic_reduction_function(),
                     _shared_symbol_in_outline(),
                     _allocation_policy_flags(),
+                    _copy_of_array_descriptor(NULL),
+                    _is_copy_of_array_descriptor_allocatable(false),
                     _base_symbol_of_argument(),
-                    _taskwait_on_after_wd_creation(NULL),
                     _is_lastprivate(),
                     _is_cxx_this(false)
                 {
-                }
-
-                ~OutlineDataItem()
-                {
-                    delete _taskwait_on_after_wd_creation;
                 }
 
                 //! Returns the symbol of this item
@@ -370,6 +355,16 @@ namespace TL
                     _shared_symbol_in_outline = sym;
                 }
 
+                void set_prepare_capture_code(Nodecl::NodeclBase prepare_capture_code)
+                {
+                    _prepare_capture_code = prepare_capture_code;
+                }
+
+                Nodecl::NodeclBase get_prepare_capture_code() const
+                {
+                    return _prepare_capture_code;
+                }
+
                 void set_captured_value(Nodecl::NodeclBase captured_value)
                 {
                     _captured_value = captured_value;
@@ -424,16 +419,6 @@ namespace TL
                     return has_input_value;
                 }
 
-                TaskwaitOnNode* get_taskwait_on_after_wd_creation() const
-                {
-                    return _taskwait_on_after_wd_creation;
-                }
-
-                void set_taskwait_on_after_wd_creation(TaskwaitOnNode* taskwait_on)
-                {
-                    _taskwait_on_after_wd_creation = taskwait_on;
-                }
-
                 void set_is_cxx_this(bool b)
                 {
                     _is_cxx_this = b;
@@ -442,6 +427,26 @@ namespace TL
                 bool get_is_cxx_this() const
                 {
                     return _is_cxx_this;
+                }
+
+                void set_copy_of_array_descriptor(OutlineDataItem* copy_of_array_descriptor)
+                {
+                    _copy_of_array_descriptor = copy_of_array_descriptor;
+                }
+
+                OutlineDataItem* get_copy_of_array_descriptor() const
+                {
+                    return _copy_of_array_descriptor;
+                }
+
+                bool is_copy_of_array_descriptor_allocatable() const
+                {
+                    return _is_copy_of_array_descriptor_allocatable;
+                }
+
+                void set_is_copy_of_array_descriptor_allocatable(bool b)
+                {
+                    _is_copy_of_array_descriptor_allocatable = b;
                 }
         };
 
@@ -476,6 +481,8 @@ namespace TL
                         RefPtr<OpenMP::FunctionTaskSet> function_task_set=RefPtr<OpenMP::FunctionTaskSet>());
 
                 ~OutlineInfo();
+
+                void reset_array_counters();
 
                 //! Get new or retrieve existing OutlineDataItem for symbol
                 /*!
@@ -543,6 +550,7 @@ namespace TL
                 void add_shared(Symbol sym);
                 void add_shared_with_private_storage(Symbol sym, bool captured);
                 void add_shared_opaque(Symbol sym);
+                void add_shared_opaque_and_captured_array_descriptor(Symbol sym);
                 void add_shared_with_capture(Symbol sym);
                 void add_shared_alloca(Symbol sym);
                 void add_alloca(Symbol sym, TL::DataReference& data_ref);
@@ -561,8 +569,6 @@ namespace TL
                         OutlineDataItem* outline_data_item,
                         bool &make_allocatable,
                         Nodecl::NodeclBase &conditional_bound);
-
-                void set_taskwait_on_after_wd_creation(TL::Symbol symbol, OutlineDataItem::TaskwaitOnNode* taskwait_on);
 
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
         };

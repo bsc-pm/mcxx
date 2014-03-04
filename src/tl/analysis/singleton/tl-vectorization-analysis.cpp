@@ -26,6 +26,7 @@
 
 #include "tl-analysis-utils.hpp"
 #include "tl-analysis-static-info.hpp"
+#include "tl-expression-reduction.hpp"
 #include <algorithm>
 
 namespace TL  {
@@ -61,7 +62,7 @@ namespace Analysis {
                 }
                 else
                 {
-                    Nodecl::Utils::ReduceExpressionVisitor v;
+                    TL::Optimizations::ReduceExpressionVisitor v;
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
                     
@@ -82,7 +83,7 @@ namespace Analysis {
         
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
-            Nodecl::Utils::ReduceExpressionVisitor v;
+            Optimizations::ReduceExpressionVisitor v;
             Nodecl::NodeclBase s = n.shallow_copy( );
             v.walk( s );
 
@@ -153,7 +154,8 @@ namespace Analysis {
     }
         
     bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            const std::map<TL::Symbol, int>& aligned_expressions, 
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
             int unroll_factor, int alignment ) const
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
@@ -163,22 +165,18 @@ namespace Analysis {
             return false;
         }
         
-        bool result = false;
-        
-        Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>( ).get_subscripted( );
+        Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
+       
+        Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
         int type_size = subscripted.get_type().basic_type().get_size();
 
         SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
-        int subscript_alignment = sa_v.walk( n );
-        
-        if( (subscript_alignment % alignment) == 0 )
-            result = true;
-        
-        return result;
+
+        return sa_v.is_aligned_access( array_subscript, aligned_expressions );
     }
 
     bool NodeclStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>* suitable_expressions, 
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
             int unroll_factor, int alignment, int& vector_size_module ) const
     {
         bool result = false;
@@ -188,18 +186,16 @@ namespace Analysis {
         int subscript_alignment = sa_v.walk( n );
 
         // Remove me!
-        printf("SUBSCRIPT ALIGNMENT %d\n", subscript_alignment);
+        printf("ALIGNMENT align %d uf %d: %d\n", alignment, unroll_factor, subscript_alignment);
         printf("SUITABLE LIST: ");
-        if (suitable_expressions != NULL)
+
+        for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions.begin();
+                it != suitable_expressions.end();
+                it ++)
         {
-            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions->begin();
-                    it != suitable_expressions->end();
-                    it ++)
-            {
-                printf("%s ", it->prettyprint().c_str());        
-            }
-            printf("\n");
+            printf("%s ", it->prettyprint().c_str());
         }
+        printf("\n");
         // End Remove me!
 
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment : 
@@ -219,12 +215,11 @@ namespace Analysis {
     // ************************ Visitor retrieving suitable simd alignment ************************* //
     
     SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
-                                                        const ObjectList<Nodecl::NodeclBase>* suitable_expressions, int unroll_factor, 
+                                                        const ObjectList<Nodecl::NodeclBase>& suitable_expressions, int unroll_factor, 
                                                         int type_size, int alignment )
         : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ), 
           _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
     {
-        _nesting_level = 0;
     }
     
     int SuitableAlignmentVisitor::join_list( ObjectList<int>& list ) 
@@ -237,14 +232,154 @@ namespace Analysis {
         return result;
     }
 
+    bool SuitableAlignmentVisitor::is_aligned_access( const Nodecl::ArraySubscript& n,
+            const std::map<TL::Symbol, int> aligned_expressions) 
+    {
+        int i;
+        int alignment;
+
+        Nodecl::NodeclBase subscripted = n.get_subscripted( );
+        TL::Type element_type = subscripted.get_type( );
+
+        subscripted = Nodecl::Utils::advance_conversions(subscripted);
+        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(), "Subscripted is not a Nodecl::Symbol", 0);
+
+        std::map<TL::Symbol, int>::const_iterator alignment_info = aligned_expressions.find(
+                subscripted.as<Nodecl::Symbol>().get_symbol());
+
+        if(alignment_info == aligned_expressions.end())
+        {
+            // There is no alignment info about the subscripted symbol
+            // Assume unaligned
+            return false;
+        }
+        else
+        {
+            // Get the alignment info of subscripted symbol
+            alignment = alignment_info->second;
+        }
+
+        Nodecl::List subscripts = n.get_subscripts( ).as<Nodecl::List>( );
+        int num_subscripts = subscripts.size( );
+
+        // Get dimension sizes
+        int *dimension_sizes = (int *)malloc( ( num_subscripts-1 ) * sizeof( int ) );
+
+        for( i = 0; i < (num_subscripts-1); i++ ) // Skip the first one. It does not have size
+        {
+            // Iterate on array subscript type
+            if( element_type.is_array( ) )
+            {
+                element_type = element_type.array_element( );
+            }
+            else if( element_type.is_pointer( ) )
+            {
+                element_type = element_type.points_to( );
+            }
+            else
+            {
+                WARNING_MESSAGE( "Array subscript does not have array type or pointer to array type", 0 );
+                free( dimension_sizes );
+                return false;
+            }
+
+            if( !element_type.array_has_size( ) )
+            {
+                WARNING_MESSAGE( "Array type does not have size", 0 );
+                free( dimension_sizes );
+                return false;
+            }
+
+            // Compute dimension alignment 
+            Nodecl::NodeclBase dimension_size_node = element_type.array_get_size( );
+
+            // If VLA, get the actual size
+            if(dimension_size_node.is<Nodecl::Symbol>() &&
+                    dimension_size_node.get_symbol().is_saved_expression())
+            {
+                dimension_size_node = dimension_size_node.get_symbol().get_value();
+            }
+
+            int dimension_size = -1;
+            if( dimension_size_node.is_constant( ) )
+            {
+                dimension_size = const_value_cast_to_signed_int( dimension_size_node.get_constant( ) ) * _type_size;
+            }
+            // If dimension size is suitable
+            else if( is_suitable_expression( dimension_size_node ) )
+            {
+                dimension_size = _alignment;
+            }
+            if( VERBOSE )
+                printf( "Dim %d, size %d\n", i, dimension_size );
+
+            dimension_sizes[i] = dimension_size;
+        }
+
+        int it_alignment = -1;
+        Nodecl::List::iterator it = subscripts.begin( );
+        // Multiply dimension sizes by indexes
+        for( i=0; it != subscripts.end( ); i++ )
+        {
+            it_alignment = walk( *it );
+
+            it++;
+            if( it == subscripts.end( ) ) break; // Last dimmension does not have to be multiplied
+
+            // a[i][j][k] -> i -> i*J*K
+            for( int j = i; j < (num_subscripts-1); j++ )
+            {
+                /*
+                   if( ( is_suitable_constant( dimension_sizes[j] ) ) || is_suitable_constant( it_alignment ) )
+                   {
+                   it_alignment = 0;
+                   }
+                   else
+                 */                    
+                //                    if( ( dimension_sizes[j] == -1 ) || ( it_alignment == -1 ) )
+                if( ( dimension_sizes[j] != -1 ) )
+                {
+                    if (it_alignment == -1)
+                        it_alignment = dimension_sizes[j];
+                    else
+                        it_alignment *= dimension_sizes[j];
+                }
+                else
+                {
+                    it_alignment = -1;
+                }
+            }
+
+            if( it_alignment == -1 )
+            {
+                free( dimension_sizes );
+                return false;
+            }
+
+            alignment += it_alignment;
+        }
+
+        if( it_alignment == -1 )
+        {
+            free( dimension_sizes );
+            return false;
+        }
+
+        // Add adjacent dimension
+        alignment += it_alignment;
+
+        free( dimension_sizes );
+
+        if( (alignment % _alignment) == 0 )
+            return true;
+
+        return false;
+    }
+
     bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
-        /*
-        std::cerr << &n << " of " << n.prettyprint() << " and " << &(_suitable_expressions->front()) << " of " << _suitable_expressions->front().prettyprint() 
-            << Nodecl::Utils::equal_nodecls(n, _suitable_expressions->front(), true) << std::endl;
-        */
         bool result = true;
-        if( ( _suitable_expressions == NULL ) || !Nodecl::Utils::list_contains_nodecl( *_suitable_expressions, n ) )
+        if( !Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
             result = false;
         return result;
     }
@@ -256,25 +391,28 @@ namespace Analysis {
         else
             return false;
     }
- 
+
     int SuitableAlignmentVisitor::visit( const Nodecl::Add& n )
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
-        
-        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+
+        if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
             return lhs_mod + rhs_mod;
-        
+
         return -1;
     }
-    
+
     int SuitableAlignmentVisitor::visit( const Nodecl::ArraySubscript& n ) 
     {
+        /* This nesting_level == 1 or == 0 behaviour is not correct.
+           nesting_level == 0 has been moved to a new query of the visitor.
+
         if( _nesting_level == 0 )  // Target access
         {
             _nesting_level++;
@@ -306,12 +444,14 @@ namespace Analysis {
                 else
                 {
                     WARNING_MESSAGE( "Array subscript does not have array type or pointer to array type", 0 );
+                    free( dimension_sizes );
                     return -1;
                 }
                 
                 if( !element_type.array_has_size( ) )
                 {
                     WARNING_MESSAGE( "Array type does not have size", 0 );
+                    free( dimension_sizes );
                     return -1;
                 }
                 
@@ -328,40 +468,40 @@ namespace Analysis {
                 int dimension_size = -1;
                 if( dimension_size_node.is_constant( ) )
                 {
-                    dimension_size = const_value_cast_to_signed_int( dimension_size_node.get_constant( ) );
-                    
-                    if( is_suitable_constant( dimension_size * _type_size ) )
-                        dimension_size = 0;
+                    dimension_size = const_value_cast_to_signed_int( dimension_size_node.get_constant( ) ) * _type_size;
                 }
                 // If dimension size is suitable
                 else if( is_suitable_expression( dimension_size_node ) )
                 {
-                    dimension_size = 0;
+                    dimension_size = _alignment;
                 }
                 if( VERBOSE )
                     printf( "Dim %d, size %d\n", i, dimension_size );
-                
+
                 dimension_sizes[i] = dimension_size;
             }
-            
+
             int it_alignment = -1;
             Nodecl::List::iterator it = subscripts.begin( );
             // Multiply dimension sizes by indexes
             for( i=0; it != subscripts.end( ); i++ )
             {
                 it_alignment = walk( *it );
-                
+
                 it++;
                 if( it == subscripts.end( ) ) break; // Last dimmension does not have to be multiplied
-                
+
                 // a[i][j][k] -> i -> i*J*K
                 for( int j = i; j < (num_subscripts-1); j++ )
                 {
-                    if( ( dimension_sizes[j] == 0 ) || ( it_alignment == 0 ) )
-                    {
-                        it_alignment = 0;
-                    }
-                    else if( ( dimension_sizes[j] < 0 ) || ( it_alignment < 0 ) )
+//                    if( ( is_suitable_constant( dimension_sizes[j] ) ) || is_suitable_constant( it_alignment ) )
+//                    {
+//                        it_alignment = 0;
+//                    }
+//                    else
+
+//                    if( ( dimension_sizes[j] == -1 ) || ( it_alignment == -1 ) )
+                    if( ( dimension_sizes[j] != -1 ) )
                     {
                         it_alignment = -1;
                     }
@@ -370,27 +510,28 @@ namespace Analysis {
                         it_alignment *= dimension_sizes[j];
                     }
                 }
-                
-                if( it_alignment < 0 )
+
+                if( it_alignment == -1 )
                 {
+                    free( dimension_sizes );
                     return -1;
                 }
-                
+
                 alignment += it_alignment;
             }
-            
-            if( it_alignment < 0 )
+
+            if( it_alignment == -1 )
             {
+                free( dimension_sizes );
                 return -1;
             }
 
             // Add adjacent dimension
             alignment += it_alignment;
-            
-            free(dimension_sizes);
-            
+
             _nesting_level--;
-            
+
+            free( dimension_sizes );
             return alignment;
         }
         // Nested array subscript
@@ -398,30 +539,38 @@ namespace Analysis {
         {
             if (is_suitable_expression(n))
             {
-                return 0;
+                return _alignment;
             }
-            
+
             return -1;
         }
+        */
+
+        if (is_suitable_expression(n))
+        {
+            return _alignment;
+        }
+
+        return -1;
     }
-    
+
     int SuitableAlignmentVisitor::visit( const Nodecl::BitwiseShl& n )
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
-        
+
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
-        
+
         // Something suitable multiplied by anything is suitable
         if (rhs_mod > 0)
         {
             // Because a << const is: a * (1 << const)
             if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(1 << rhs_mod) )) 
                 return 0;
-            else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+            else if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
                 return lhs_mod << rhs_mod;
         }
 
@@ -432,7 +581,7 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         
         int lhs_mod = walk( n.get_lhs( ) );
@@ -455,7 +604,7 @@ namespace Analysis {
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         
         return walk(n.get_nest());
@@ -463,80 +612,92 @@ namespace Analysis {
     
     int SuitableAlignmentVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
-        return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
+        return const_value_cast_to_signed_int( n.get_constant( ) ) * _type_size;
     }
-    
-    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n ) 
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::Neg& n ) 
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
-        int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
-        
-        if( ( lhs_mod >= 0 ) && ( rhs_mod >= 0 ) )
+
+        if( rhs_mod != -1 )
         {
-            int result = lhs_mod - rhs_mod;
+            int result = -rhs_mod;
             if (result < 0)
                 result = _alignment + result;
 
             return result;
         }
-        
+
         return -1;
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::Minus& n )
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
+        }
+
+        int lhs_mod = walk( n.get_lhs( ) );
+        int rhs_mod = walk( n.get_rhs( ) );
+
+        if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
+        {
+            return lhs_mod - rhs_mod;
+        }
+
+        return -1;
+    }
+
+    int SuitableAlignmentVisitor::visit( const Nodecl::Mul& n )
+    {
+        if (is_suitable_expression(n))
+        {
+            return _alignment;
         }
 
         int lhs_mod = walk( n.get_lhs( ) );
         int rhs_mod = walk( n.get_rhs( ) );
 
        // Something suitable multiplied by anything is suitable
-        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) )) 
-            return 0;
-        else if( ( lhs_mod > 0 ) && ( rhs_mod > 0 ) )
+        if( (is_suitable_constant(lhs_mod)) || (is_suitable_constant(rhs_mod) ))
+            return _alignment;
+        else if( ( lhs_mod != -1 ) && ( rhs_mod != -1 ) )
             return lhs_mod * rhs_mod;
 
         return -1;
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::ParenthesizedExpression& n )
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
 
         return walk(n.get_nest());
     }
 
-    int SuitableAlignmentVisitor::visit( const Nodecl::Symbol& n ) 
+    int SuitableAlignmentVisitor::visit( const Nodecl::Symbol& n )
     {
         if (is_suitable_expression(n))
         {
-            return 0;
+            return _alignment;
         }
         else if( n.is_constant( ) )
         {
-            int value = const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
-
-            if(is_suitable_constant(value))
-                return 0;
-            else
-                return value;
+            return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
             Utils::InductionVariableData* iv = Utils::get_induction_variable_from_list( _induction_variables, n );
-            Nodecl::Utils::ReduceExpressionVisitor v;
-            
+            Optimizations::ReduceExpressionVisitor v;
+
             Nodecl::NodeclBase lb = iv->get_lb( ).shallow_copy( );
             v.walk( lb );
             if( lb.is_constant( ) )
@@ -638,7 +799,7 @@ namespace Analysis {
     
     bool ArrayAccessInfoVisitor::definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node )
     {
-        bool result;
+        bool result = false;
         for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
              it != _induction_variables.end( ) && !result; ++it )
         {   // Check whether the expression used to modify it depends on an induction variable
@@ -682,7 +843,6 @@ namespace Analysis {
             
             if( visit_node )
             {
-            
                 // Treat the current node
                 Utils::ext_sym_set killed = current->get_killed_vars( );
                 if( killed.find( n ) != killed.end( ) )
@@ -794,23 +954,23 @@ namespace Analysis {
     {
         return _is_adjacent_access;
     }
-    
+
     bool ArrayAccessInfoVisitor::depends_on_induction_vars( )
     {
         return !_ivs.empty( );
     }
-    
+
     bool ArrayAccessInfoVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         WARNING_MESSAGE( "Unhandled node while parsing Array Subscript '%s' of type '%s'", 
                          n.prettyprint( ).c_str( ), ast_print_node_type( n.get_kind( ) ) );
         return false;
     }
-    
+
     bool ArrayAccessInfoVisitor::join_list( ObjectList<bool>& list )
     {
         _is_adjacent_access = false;
-        
+
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -818,33 +978,33 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool ArrayAccessInfoVisitor::visit( const Nodecl::Add& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
-        
+
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
-        
+
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
                            || ( lhs_is_const && rhs_is_adjacent_access );
-                           
+
         return ( rhs_is_const && lhs_is_const );
     }
-    
+
     bool ArrayAccessInfoVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         // Collect information about the induction variables contained in the node
         bool n_is_iv = variable_is_iv( n );
         walk( n.get_subscripted( ) );
         walk( n.get_subscripts( ) );
-       
+
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
        
         return !Utils::ext_sym_set_contains_nodecl( n, _killed );

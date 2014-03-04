@@ -1190,12 +1190,13 @@ void unificate_two_expressions(deduction_set_t **deduction_set,
 }
 
 
-static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tree, 
+static char equivalent_nodecl_expressions(nodecl_t left_tree,
+        nodecl_t right_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags);
 
-static char equivalent_dependent_expressions(nodecl_t left_tree, 
-        nodecl_t right_tree, 
+static char equivalent_dependent_expressions(nodecl_t left_tree,
+        nodecl_t right_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags)
 {
@@ -1410,7 +1411,9 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
         return nodecl_is_null(left_tree)
             && nodecl_is_null(right_tree);
 
-    if (nodecl_get_kind(left_tree) == NODECL_CXX_VALUE_PACK)
+    if (nodecl_get_kind(left_tree) == NODECL_CXX_VALUE_PACK
+            && nodecl_get_kind(right_tree) != NODECL_CXX_VALUE_PACK
+            && nodecl_is_list(right_tree))
     {
         // This case
         //
@@ -1423,29 +1426,22 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
 
         nodecl_t pack_expr = nodecl_get_child(left_tree, 0);
 
-        if (nodecl_is_list(right_tree))
+        int num_items = 0;
+        char result = 1;
+        nodecl_t* list = nodecl_unpack_list(right_tree, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
         {
-            int num_items = 0;
-            char result = 1;
-            nodecl_t* list = nodecl_unpack_list(right_tree, &num_items);
+            deduction_set_t *current_unif_set = counted_xcalloc(1, sizeof(*current_unif_set), &_bytes_typeunif);
 
-            int i;
-            for (i = 0; i < num_items; i++)
-            {
-                deduction_set_t *current_unif_set = counted_xcalloc(1, sizeof(*current_unif_set), &_bytes_typeunif);
+            if (!equivalent_dependent_expressions(pack_expr, list[i], &current_unif_set, flags))
+                result = 0;
 
-                if (!equivalent_dependent_expressions(pack_expr, list[i], &current_unif_set, flags))
-                    result = 0;
-
-                merge_deduction_set(unif_set, current_unif_set, flags);
-            }
-
-            return result;
+            merge_deduction_set(unif_set, current_unif_set, flags);
         }
-        else
-        {
-            return equivalent_dependent_expressions(pack_expr, right_tree, unif_set, flags);
-        }
+
+        return result;
     }
 
     if (nodecl_get_kind(left_tree) != nodecl_get_kind(right_tree))
@@ -1510,28 +1506,38 @@ static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_
     return NOT_SURE;
 }
 
+// Defined in cxx-typededuc.c
+void deduction_set_free(deduction_set_t* deduction_set);
+
 char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree, 
         deduction_flags_t flags)
 {
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: Checking whether '%s' and '%s' are functionally equivalent\n",
-                codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
-                codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)));
+                nodecl_is_null(left_tree) ? "<<NULL>>" : codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
+                nodecl_is_null(right_tree) ? "<<NULL>>" : codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)));
     }
     deduction_set_t* deduction_set = counted_xcalloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
-    char c = equivalent_dependent_expressions(left_tree, right_tree,  
-            &deduction_set, flags);
+    char c = 0;
+   
+    // We do not compare trees if any of them is null
+    if (!nodecl_is_null(left_tree)
+            && !nodecl_is_null(right_tree))
+    {
+        c = equivalent_dependent_expressions(left_tree, right_tree,  
+                &deduction_set, flags);
+    }
 
     // Free it, it is unused after this
-    xfree(deduction_set);
+    deduction_set_free(deduction_set);
 
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: '%s' and '%s' %s functionally equivalent\n",
-                codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
-                codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)),
+                nodecl_is_null(left_tree) ? "<<NULL>>" : codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)),
+                nodecl_is_null(right_tree) ? "<<NULL>>" : codegen_to_str(right_tree, nodecl_retrieve_context(right_tree)),
                 c ? "ARE" : "are NOT");
     }
 
@@ -1569,7 +1575,14 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         {
             fprintf(stderr, "TYPEUNIF: The overloaded set contains one or more templates, not using it for deduction\n");
         }
+        entry_list_free(overloaded_set);
         return;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUNIF: There are %d overloads\n",
+                entry_list_size(overloaded_set));
     }
 
     // template_parameter_list_t* explicit_template_parameters 
@@ -1591,42 +1604,6 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         {
             function_type = entry->type_information;
         }
-        // else if (entry->kind == SK_TEMPLATE)
-        // {
-        //     // Try to deduce it with what we are given
-        //     template_parameter_list_t* type_template_parameters = 
-        //         template_type_get_template_parameters(entry->type_information);
-        //     type_t* specialization_type = template_type_get_primary_type(entry->type_information);
-        //     scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
-        //     type_t* specialized_function_type = specialization_symbol->type_information;
-
-        //     template_parameter_list_t* template_parameters = 
-        //         template_specialized_type_get_template_arguments(specialized_function_type);
-
-        //     template_parameter_list_t* deduced_template_arguments = NULL;
-        //     if (deduce_arguments_from_call_to_specific_template_function(/* no arguments */ NULL,
-        //                 /* num_arguments */ 0, specialization_type, 
-        //                 template_parameters, type_template_parameters,
-        //                 decl_context, &deduced_template_arguments, locus, 
-        //                 explicit_template_parameters))
-        //     {
-        //         // Now get a specialized template type for this
-        //         // function (this will sign it in if it does not exist)
-        //         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-        //                 deduced_template_arguments, decl_context, locus);
-
-        //         // Update entry and its function type
-        //         entry = named_type_get_symbol(named_specialization_type);
-        //         function_type = entry->type_information;
-
-        //         is_template = 1;
-        //     }
-        //     else
-        //     {
-        //         // Ignore this one
-        //         continue;
-        //     }
-        // }
         else
         {
             internal_error("Code unreachable", 0);

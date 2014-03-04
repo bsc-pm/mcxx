@@ -81,8 +81,7 @@ namespace TL { namespace Nanox {
             TL::Symbol new_class_symbol,
             Nodecl::NodeclBase construct)
     {
-        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE
-                || outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_ALLOCA)
+        if (outline_data_item.get_sharing() == OutlineDataItem::SHARING_SHARED_ALLOCA)
         {
             add_field_internal(
                     outline_data_item.get_field_name() + "_storage",

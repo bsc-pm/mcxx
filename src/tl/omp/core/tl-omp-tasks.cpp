@@ -24,12 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "cxx-diagnostic.h"
+#include "cxx-exprtype.h"
 
 #include "tl-omp-core.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-modules.hpp"
-#include "cxx-diagnostic.h"
 #include "tl-predicateutils.hpp"
 
 namespace TL
@@ -132,6 +132,85 @@ namespace TL
             {
                 _onto.append(Nodecl::Utils::deep_copy(*it, target_info._target_symbol.get_scope(), translation_map));
             }
+        }
+
+        TargetInfo TargetInfo::instantiate_target_info(
+                TL::Scope context_of_being_instantiated,
+                instantiation_symbol_map_t* instantiation_symbol_map)
+        {
+            TargetInfo new_target_info;
+
+            new_target_info._target_symbol = _target_symbol; //FIXME: should be the same?
+            new_target_info._device_list = _device_list;
+            new_target_info._file = _file;
+            new_target_info._name = _name;
+            new_target_info._copy_deps = _copy_deps;
+
+            decl_context_t instantiation_context = context_of_being_instantiated.get_decl_context();
+            for (TL::ObjectList<CopyItem>::const_iterator it = _copy_in.begin();
+                    it != _copy_in.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr =
+                    instantiate_expression(data_ref.get_internal_nodecl(), instantiation_context, instantiation_symbol_map, /* pack index*/ -1);
+
+                DataReference updated_data_ref(updated_expr);
+                new_target_info._copy_in.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for (TL::ObjectList<CopyItem>::const_iterator it = _copy_out.begin();
+                    it != _copy_out.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr =
+                    instantiate_expression(data_ref.get_internal_nodecl(), instantiation_context, instantiation_symbol_map, /* pack index*/ -1);
+
+                DataReference updated_data_ref(updated_expr);
+                new_target_info._copy_out.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for (TL::ObjectList<CopyItem>::const_iterator it = _copy_inout.begin();
+                    it != _copy_inout.end();
+                    it++)
+            {
+                CopyItem item = *it;
+                CopyDirection dir = item.get_kind();
+                DataReference data_ref = item.get_copy_expression();
+
+                Nodecl::NodeclBase updated_expr =
+                    instantiate_expression(data_ref.get_internal_nodecl(), instantiation_context, instantiation_symbol_map, /* pack index*/ -1);
+
+                DataReference updated_data_ref(updated_expr);
+                new_target_info._copy_inout.append(CopyItem(updated_data_ref, dir));
+            }
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = _ndrange.begin();
+                    it != _ndrange.end();
+                    it++)
+            {
+                Nodecl::NodeclBase updated_expr =
+                    instantiate_expression(it->get_internal_nodecl(), instantiation_context, instantiation_symbol_map, /* pack index */-1);
+                new_target_info._ndrange.append(updated_expr);
+            }
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = _onto.begin();
+                    it != _onto.end();
+                    it++)
+            {
+                Nodecl::NodeclBase updated_expr =
+                    instantiate_expression(it->get_internal_nodecl(), instantiation_context, instantiation_symbol_map, /* pack index */-1);
+                new_target_info._onto.append(updated_expr);
+            }
+
+            return new_target_info;
         }
 
         bool TargetInfo::can_be_ommitted()
@@ -377,6 +456,83 @@ namespace TL
                    task_info._task_label, task_info._sym.get_scope(), translation_map);
 
            _parsing_scope = task_info._parsing_scope;
+        }
+
+
+        FunctionTaskInfo FunctionTaskInfo::instantiate_function_task_info(
+                TL::Symbol specialized_function,
+                TL::Scope context_of_being_instantiated,
+                instantiation_symbol_map_t* instantiation_symbol_map)
+        {
+            FunctionTaskInfo new_function_task_info;
+
+            decl_context_t instantiation_context = context_of_being_instantiated.get_decl_context();
+
+            // First, set the function symbol related to this function task info, locus and the untied attribute
+            new_function_task_info._sym = specialized_function;
+            new_function_task_info._locus = _locus;
+            new_function_task_info._untied = _untied;
+
+            // Second, instantiate all the dependences
+            for (TL::ObjectList<FunctionTaskDependency>::iterator it = _parameters.begin();
+                    it != _parameters.end();
+                    ++it)
+            {
+                FunctionTaskDependency dep = *it;
+                DependencyDirection dir = dep.get_direction();
+                DataReference data_ref = dep.get_data_reference();
+
+                // Update the dependence expression
+                Nodecl::NodeclBase new_expr = instantiate_expression(data_ref.get_internal_nodecl(),
+                        instantiation_context, instantiation_symbol_map, /* pack index */ -1);
+
+                new_function_task_info.add_function_task_dependency(FunctionTaskDependency(new_expr, dir));
+            }
+
+
+            // Third, instantiate the if clause, the final clause and the priority clause
+            if (!_if_clause_cond_expr.is_null())
+            {
+                Nodecl::NodeclBase updated_if_clause = instantiate_expression(
+                        _if_clause_cond_expr.get_internal_nodecl(),
+                        instantiation_context,
+                        instantiation_symbol_map,
+                        /* pack index */ -1);
+
+                new_function_task_info._if_clause_cond_expr = updated_if_clause;
+            }
+
+            if (!_final_clause_cond_expr.is_null())
+            {
+                Nodecl::NodeclBase updated_final_clause = instantiate_expression(
+                        _final_clause_cond_expr.get_internal_nodecl(),
+                        instantiation_context,
+                        instantiation_symbol_map,
+                        /* pack index */ -1);
+
+                new_function_task_info._final_clause_cond_expr = updated_final_clause;
+            }
+
+            if (!_priority_clause_expr.is_null())
+            {
+                Nodecl::NodeclBase updated_priority_clause = instantiate_expression(
+                        _priority_clause_expr.get_internal_nodecl(),
+                        instantiation_context,
+                        instantiation_symbol_map,
+                        /* pack index */ -1);
+
+                new_function_task_info._priority_clause_expr = updated_priority_clause;
+            }
+
+            // Fourth, instantiate the target info
+            new_function_task_info._target_info =
+                _target_info.instantiate_target_info(context_of_being_instantiated, instantiation_symbol_map);
+
+
+            // Fifth, set the parsing scope of the new function task info
+            new_function_task_info._parsing_scope = context_of_being_instantiated;
+
+            return new_function_task_info;
         }
 
         Symbol FunctionTaskInfo::get_symbol() const
@@ -910,7 +1066,8 @@ namespace TL
                     it++)
             {
                 Nodecl::NodeclBase input_argument = *it;
-                if (input_argument.is<Nodecl::Symbol>())
+                if ((IS_CXX_LANGUAGE || IS_C_LANGUAGE)
+                        && input_argument.is<Nodecl::Symbol>())
                 {
                     Symbol sym = input_argument.get_symbol();
                     if (sym.is_parameter()
@@ -991,6 +1148,17 @@ namespace TL
                separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
             }
 
+            TL::ObjectList<std::string> input_private_names;
+            input_private_names.append("in_private");
+            input_private_names.append("inprivate");
+            PragmaCustomClause input_private_clause = pragma_line.get_clause(input_private_names);
+            ObjectList<Nodecl::NodeclBase> input_private_arguments;
+            if (input_private_clause.is_defined())
+            {
+                input_private_arguments = input_private_clause.get_arguments_as_expressions(parsing_scope);
+                input_private_arguments = update_clauses(input_private_arguments, function_sym);
+            }
+
             PragmaCustomClause output_clause = pragma_line.get_clause("out",
                     /* deprecated name */ "output");
             ObjectList<Nodecl::NodeclBase> output_arguments;
@@ -1061,6 +1229,11 @@ namespace TL
             dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE);
             dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
 
+            dependence_list_check(input_private_arguments, DEP_DIR_IN_PRIVATE);
+            dependence_list.append(input_private_arguments
+                    .map(FunctionTaskDependencyGenerator(DEP_DIR_IN_PRIVATE))
+                    .filter(predicate(&FunctionTaskDependency::is_valid)));
+
             dependence_list_check(output_arguments, DEP_DIR_OUT);
             dependence_list.append(output_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
@@ -1081,11 +1254,25 @@ namespace TL
                     .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
+            // Target-style clauses
+            if (_target_context.empty())
+            {
+                // Create an implicit target for this one
+                _target_context.push(TargetContext());
+                _target_context.top().is_implicit = true;
+
+                common_target_handler_pre(pragma_line,
+                        _target_context.top(),
+                        parsing_scope,
+                        /* is_pragma_task */ true);
+            }
+            ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
+
             FunctionTaskInfo task_info(function_sym, dependence_list);
 
             // Now gather target information
             TargetInfo target_info;
-            if (!_target_context.empty())
+
             {
                 target_info.set_target_symbol(function_sym);
                 TargetContext& target_context = _target_context.top();
@@ -1100,6 +1287,11 @@ namespace TL
                     target_ctx_copy_in.append(input_arguments);
                     target_ctx_copy_out.append(output_arguments);
                     target_ctx_copy_inout.append(inout_arguments);
+
+                    // Concurrent/Commutative deps with target attribute 'copy_deps'
+                    // should generate copy_inout information
+                    target_ctx_copy_inout.append(concurrent_arguments);
+                    target_ctx_copy_inout.append(commutative_arguments);
                 }
 
                 ObjectList<CopyItem> copy_in = target_ctx_copy_in.map(FunctionCopyItemGenerator(
@@ -1246,6 +1438,18 @@ namespace TL
             get_dependences_info(pragma_line, data_sharing, default_data_attr);
 
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            if (_target_context.empty())
+            {
+                // Create an implicit target for this one
+                _target_context.push(TargetContext());
+                _target_context.top().is_implicit = true;
+
+                common_target_handler_pre(pragma_line,
+                        _target_context.top(),
+                        scope,
+                        /* is_pragma_task */ true);
+            }
 
             // Target info applies after
             get_target_info(pragma_line, data_sharing);

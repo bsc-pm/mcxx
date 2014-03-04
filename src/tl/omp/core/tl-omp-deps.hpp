@@ -40,13 +40,15 @@ enum DependencyDirection
     DEP_DIR_IN = BITMAP(1),
     // Input dependence in a parameter passed by value
     DEP_DIR_IN_VALUE = BITMAP(2),
+    // Input dependence with firstprivate storage
+    DEP_DIR_IN_PRIVATE = BITMAP(3),
     // Output dependence
-    DEP_DIR_OUT = BITMAP(3),
+    DEP_DIR_OUT = BITMAP(4),
     // Inout dependence
     DEP_DIR_INOUT = DEP_DIR_IN | DEP_DIR_OUT,
     // Concurrent dependences
-    DEP_CONCURRENT = BITMAP(4),
-    DEP_COMMUTATIVE = BITMAP(5),
+    DEP_CONCURRENT = BITMAP(5),
+    DEP_COMMUTATIVE = BITMAP(6),
 };
 
 std::string get_dependency_direction_name(DependencyDirection d);

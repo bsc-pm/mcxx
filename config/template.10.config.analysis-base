@@ -17,6 +17,7 @@ options = --openmp
 {reaching-defs} options = --variable=reaching_defs_enabled:1
 {induction-vars} options = --variable=induction_vars_enabled:1
 {task-sync-tune} options = --variable=task_sync_tune_enabled:1
+{range} options = --variable=range_analysis_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
 {tdg} options = --variable=tdg_enabled:1
@@ -45,6 +46,7 @@ options = --openmp
 {reaching-defs} options = --variable=reaching_defs_enabled:1
 {induction-vars} options = --variable=induction_vars_enabled:1
 {task-sync-tune} options = --variable=task_sync_tune_enabled:1
+{range} options = --variable=range_analysis_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
 {tdg} options = --variable=tdg_enabled:1
@@ -77,6 +79,7 @@ preprocessor_options = -E
 {liveness} options = --variable=liveness_enabled:1
 {reaching-defs} options = --variable=reaching_defs_enabled:1
 {induction-vars} options = --variable=induction_vars_enabled:1
+{range} options = --variable=range_analysis_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
 {tdg} options = --variable=tdg_enabled:1

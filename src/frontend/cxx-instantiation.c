@@ -47,8 +47,6 @@
 
 #include "cxx-printscope.h"
 
-AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
-
 static scope_entry_t* add_duplicate_member_to_class(
         decl_context_t context_of_being_instantiated,
         type_t* being_instantiated,
@@ -96,7 +94,9 @@ static scope_entry_t* add_duplicate_member_to_class(
         {
             nodecl_t aligned_value = instantiate_expression(
                     nodecl_list_head(new_member->entity_specs.gcc_attributes[i].expression_list),
-                    context_of_being_instantiated);
+                    context_of_being_instantiated,
+                    /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+
             if (!nodecl_is_constant(aligned_value))
             {
                 error_printf("%s: error: after instantiation, 'aligned' attribute of member '%s' is not constant\n",
@@ -174,7 +174,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     decl_context_t new_context_for_template_parameters = context_of_being_instantiated;
     new_context_for_template_parameters.template_parameters = updated_template_parameters;
 
-        
     // Update the template parameters
     int i;
     for (i = 0; i < updated_template_parameters->num_parameters; i++)
@@ -189,8 +188,11 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
             if (updated_template_parameters->arguments[i] == NULL)
             {
-                error_printf("%s: could not instantiate template arguments of template type\n", 
-                        locus_to_str(locus));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: could not instantiate template arguments of template type\n", 
+                            locus_to_str(locus));
+                }
                 return NULL;
             }
         }
@@ -208,20 +210,36 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 member_of_template->type_information,
                 new_context_for_template_parameters,
                 locus,
+                /* instantiation_symbol_map */ NULL,
                 /* pack_index */ -1);
+        if (is_error_type(base_type))
+            return NULL;
     }
 
-    scope_entry_t* new_member = new_symbol(new_context_for_template_parameters, 
+    scope_entry_t* new_member = new_symbol(new_context_for_template_parameters,
             new_context_for_template_parameters.current_scope,
             member_of_template->symbol_name);
 
     new_member->kind = SK_TEMPLATE;
-    new_member->type_information = 
-        get_new_template_type(updated_template_parameters,
-                base_type,
-                new_member->symbol_name,
-                new_context_for_template_parameters,
-                member_of_template->locus);
+
+    if (member_of_template->kind == SK_TEMPLATE_ALIAS)
+    {
+        new_member->type_information =
+            get_new_template_alias_type(updated_template_parameters,
+                    base_type,
+                    new_member->symbol_name,
+                    new_context_for_template_parameters,
+                    member_of_template->locus);
+    }
+    else
+    {
+        new_member->type_information =
+            get_new_template_type(updated_template_parameters,
+                    base_type,
+                    new_member->symbol_name,
+                    new_context_for_template_parameters,
+                    member_of_template->locus);
+    }
 
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.class_type = being_instantiated;
@@ -324,7 +342,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->type_information,
                             context_of_being_instantiated,
                             locus,
+                            /* instantiation_symbol_map */ NULL,
                             /* pack_index */ -1);
+
+                    if (is_error_type(new_member->type_information))
+                        return;
                 }
 
                 if (is_named_class_type(new_member->type_information))
@@ -363,7 +385,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 if (!nodecl_is_null(member_of_template->value))
                 {
-                    nodecl_t new_expr = instantiate_expression(member_of_template->value, context_of_being_instantiated);
+                    nodecl_t new_expr = instantiate_expression(member_of_template->value,
+                            context_of_being_instantiated,
+                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
 
                     // Update the value of the new instantiated member
                     new_member->value = new_expr;
@@ -407,7 +431,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         new_member->type_information,
                         context_of_being_instantiated,
                         locus,
+                        /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
+                if (is_error_type(new_member->type_information))
+                    return;
 
                 DEBUG_CODE()
                 {
@@ -480,7 +507,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 ERROR_CONDITION(nodecl_is_null(member_of_template->value),
                         "An enumerator always has a related expression", 0);
 
-                new_member->value = instantiate_expression(member_of_template->value, context_of_being_instantiated);
+                new_member->value = instantiate_expression(member_of_template->value, context_of_being_instantiated,
+                        /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
 
                 enum_type_add_enumerator(new_type, new_member);
 
@@ -641,8 +669,25 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 }
                 break;
             }
+        case SK_TEMPLATE_ALIAS:
+            {
+                type_t* template_type = template_specialized_type_get_related_template_type(member_of_template->type_information);
+                // type_t* primary_template = template_type_get_primary_type(template_type);
+
+                scope_entry_t* new_member = instantiate_template_type_member(template_type,
+                        context_of_being_instantiated,
+                        member_of_template,
+                        being_instantiated,
+                        /* is_class */ 0,
+                        locus,
+                        template_map, num_items_template_map);
+                if (new_member == NULL)
+                    return;
+                break;
+            }
         case SK_TEMPLATE:
             {
+                // We do not keep these as class members, always their specializations
                 internal_error("Code unreachable\n", 0);
                 break;
             }
@@ -660,7 +705,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->type_information,
                             context_of_being_instantiated,
                             locus,
+                            /* instantiation_symbol_map */ NULL,
                             /* pack_index */ -1);
+
+                    if (is_error_type(new_member->type_information))
+                        return;
 
                     new_member->entity_specs.is_non_emitted = 1;
                     new_member->entity_specs.emission_template = member_of_template;
@@ -743,8 +792,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     entry_list = query_dependent_entity_in_context(context_of_being_instantiated,
                             entry,
+                            NULL,
                             member_of_template->locus);
                 }
+
+                if (entry_list == NULL)
+                    return;
 
                 introduce_using_entities(
                         nodecl_null(),
@@ -845,7 +898,12 @@ static void instantiate_dependent_friend_function(
     scope_entry_t* new_friend = NULL;
 
     type_t* new_type = update_type_for_instantiation(friend->type_information,
-            context_of_being_instantiated, locus, /* pack_index */ -1);
+            context_of_being_instantiated, locus,
+            /* instantiation_symbol_map */ NULL,
+            /* pack_index */ -1);
+
+    if (is_error_type(new_type))
+        return;
 
     char is_template_id = nodecl_name_ends_in_template_id(friend->value);
     char is_templ_funct_decl =(is_template_specialized_type(friend->type_information) &&
@@ -871,14 +929,15 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                        context_of_being_instantiated, sym, locus);
+                        context_of_being_instantiated, sym, NULL, locus);
             }
         }
 
         if (candidates_list != NULL)
         {
             template_parameter_list_t* explicit_temp_params = NULL;
-            nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
+            nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated,
+                    /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
 
             if (nodecl_name_ends_in_template_id(new_name))
             {
@@ -951,7 +1010,7 @@ static void instantiate_dependent_friend_function(
         lookup_context.current_scope = lookup_context.namespace_scope;
 
         scope_entry_list_t* candidates_list =
-            query_nodecl_name_flags(lookup_context, friend->value, decl_flags);
+            query_nodecl_name_flags(lookup_context, friend->value, NULL, decl_flags);
 
         // Does candidates list contain a SK_DEPENDENT_ENTITY?
         if (candidates_list != NULL)
@@ -964,7 +1023,7 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                            context_of_being_instantiated, sym, locus);
+                            context_of_being_instantiated, sym, NULL, locus);
             }
         }
 
@@ -983,7 +1042,7 @@ static void instantiate_dependent_friend_function(
 
             // 1.2 It's a qualified/unqualified name -> refers to a nontemplate function
             scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(candidates_list);
+            for (it = entry_list_iterator_begin(filtered_entry_list);
                     !entry_list_iterator_end(it) && new_friend == NULL;
                     entry_list_iterator_next(it))
             {
@@ -1000,7 +1059,8 @@ static void instantiate_dependent_friend_function(
             //  refers to a matching specialization of a template function
             if (new_friend == NULL && is_qualified)
             {
-                nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated);
+                nodecl_t new_name = instantiate_expression(friend->value, context_of_being_instantiated,
+                        /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
 
                 // We may need to update the explicit template argument list
                 template_parameter_list_t* expl_templ_param = NULL;
@@ -1097,7 +1157,7 @@ static void instantiate_dependent_friend_function(
             // match with the template parameters of ::foo.
             //
             // Idea: We duplicate the template parameter list and
-            // replace all SK_TEMPLATE_TYPE_PARAMETER by a new symbol with
+            // replace all SK_TEMPLATE_{TYPE,NONTYPE,TEMPLATE}_PARAMETER by a new symbol with
             // template_parameter_nesting = 1. Later, we update the new_type
             // with this new list of template parameters
 
@@ -1109,7 +1169,9 @@ static void instantiate_dependent_friend_function(
             {
                 template_parameter_t* current_temp_param = alineated_temp_params->parameters[i];
                 if (current_temp_param->entry != NULL
-                        && current_temp_param->entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                        && (current_temp_param->entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                        || current_temp_param->entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+                        || current_temp_param->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
                 {
                     something_has_changed = 1;
 
@@ -1117,7 +1179,6 @@ static void instantiate_dependent_friend_function(
                     memcpy(new_entry, current_temp_param->entry, sizeof(*current_temp_param->entry));
                     new_entry->entity_specs.template_parameter_nesting = 1;
                     current_temp_param->entry = new_entry;
-
                 }
             }
 
@@ -1125,15 +1186,21 @@ static void instantiate_dependent_friend_function(
             {
                 decl_context_t new_context = context_of_being_instantiated;
                 new_context.template_parameters = alineated_temp_params;
-                type_t* alineated_type = update_type_for_instantiation(new_type, new_context, locus,
+                type_t* alineated_type = update_type_for_instantiation(new_type,
+                        new_context,
+                        locus,
+                        /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
                 new_type = alineated_type;
+
+                if (is_error_type(alineated_type))
+                    return;
             }
 
             scope_entry_list_t* filtered_entry_list = filter_symbol_kind(candidates_list, SK_TEMPLATE);
 
             scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(candidates_list);
+            for (it = entry_list_iterator_begin(filtered_entry_list);
                     !entry_list_iterator_end(it) && new_friend == NULL;
                     entry_list_iterator_next(it))
             {
@@ -1386,7 +1453,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             {
                 type_t* new_type = update_type_for_instantiation(get_user_defined_type(friend),
                         inner_decl_context,
-                        locus, /* pack_index */ -1);
+                        locus,
+                        /* instantiation_symbol_map */ NULL,
+                        /* pack_index */ -1);
+                if (is_error_type(new_type))
+                    return;
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1482,7 +1553,12 @@ static void instantiate_bases(
 
         type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
-                locus, /* pack_index */ -1);
+                locus,
+                /* instantiation_symbol_map */ NULL,
+                /* pack_index */ -1);
+
+        if (is_error_type(upd_base_class_named_type))
+            continue;
 
         ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
                 print_type_str(upd_base_class_named_type, context_of_being_instantiated));
@@ -1650,31 +1726,27 @@ static void instantiate_every_symbol(scope_entry_t* entry,
 
 nodecl_t instantiation_instantiate_pending_functions(void)
 {
-    int tmp_num_symbols_to_instantiate = num_symbols_to_instantiate;
-    instantiation_item_t** tmp_symbols_to_instantiate = symbols_to_instantiate;
-
-    num_symbols_to_instantiate = 0;
-    symbols_to_instantiate = NULL;
-
-    int i;
-    for (i = 0; i < tmp_num_symbols_to_instantiate; i++)
+    while (num_symbols_to_instantiate > 0)
     {
-        instantiate_every_symbol(
-                tmp_symbols_to_instantiate[i]->symbol,
-                tmp_symbols_to_instantiate[i]->locus);
+        int tmp_num_symbols_to_instantiate = num_symbols_to_instantiate;
+        instantiation_item_t** tmp_symbols_to_instantiate = symbols_to_instantiate;
 
-        xfree(tmp_symbols_to_instantiate[i]);
-    }
-    xfree(tmp_symbols_to_instantiate);
+        num_symbols_to_instantiate = 0;
+        symbols_to_instantiate = NULL;
 
-    if (num_symbols_to_instantiate != 0)
-    {
-        return instantiation_instantiate_pending_functions();
+        int i;
+        for (i = 0; i < tmp_num_symbols_to_instantiate; i++)
+        {
+            instantiate_every_symbol(
+                    tmp_symbols_to_instantiate[i]->symbol,
+                    tmp_symbols_to_instantiate[i]->locus);
+
+            xfree(tmp_symbols_to_instantiate[i]);
+        }
+        xfree(tmp_symbols_to_instantiate);
     }
-    else
-    {
-        return nodecl_instantiation_units;
-    }
+
+    return nodecl_instantiation_units;
 }
 
 static char compare_instantiate_items(instantiation_item_t* current_item, instantiation_item_t* new_item)
@@ -1691,9 +1763,9 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
 
     int old_num = num_symbols_to_instantiate;
 
-    P_LIST_ADD_ONCE_FUN(symbols_to_instantiate, 
-            num_symbols_to_instantiate, 
-            item, 
+    P_LIST_ADD_ONCE_FUN(symbols_to_instantiate,
+            num_symbols_to_instantiate,
+            item,
             compare_instantiate_items);
 
     // Crummy way to know if it was added
@@ -1703,8 +1775,16 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     }
 }
 
-static void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+static void instantiate_template_function_internal(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
 {
+    ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
+            "Invalid symbol", 0);
+    ERROR_CONDITION(!is_template_specialized_type(entry->type_information),
+            "This is not a specialized function", 0);
+
+    ERROR_CONDITION(!nodecl_is_null(entry->entity_specs.function_code),
+            "Attempting to instantiate a specialized function apparently already instantiated", 0);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s\n",
@@ -1713,10 +1793,7 @@ static void instantiate_template_function(scope_entry_t* entry, const locus_t* l
                 locus_to_str(entry->locus));
     }
 
-#if 0
-    // Update to the instantiation point
-    entry->file = filename;
-    entry->line = line;
+    entry->locus = locus;
 
     type_t* template_specialized_type = entry->type_information;
 
@@ -1726,45 +1803,44 @@ static void instantiate_template_function(scope_entry_t* entry, const locus_t* l
     // The primary specialization is a named type, even if the named type is a function!
     type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
-    // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
 
-    // nodecl_t orig_function_definition = primary_specialization_function->entity_specs.function_code;
+    nodecl_t orig_function_code = primary_specialization_function->entity_specs.function_code;
 
-    // ast_dump_graphviz(nodecl_get_ast(orig_function_definition), stderr);
+    ERROR_CONDITION(nodecl_is_null(orig_function_code), "Invalid function code", 0);
 
-    // 
-    // // Remove dependent types
-    // AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
+    // ast_dump_graphviz(nodecl_get_ast(orig_function_code), stderr);
 
-    // // Why do we do this?
-    // // Temporarily disable ambiguity testing
-    // char old_test_status = get_test_expression_status();
-    // set_test_expression_status(0);
+    nodecl_t instantiated_function_code = instantiate_function_code(
+            orig_function_code,
+            primary_specialization_function->decl_context,
+            entry->decl_context,
+            primary_specialization_function,
+            entry);
 
-    // decl_context_t instantiation_context = entry->decl_context;
+    ERROR_CONDITION(nodecl_is_null(instantiated_function_code), "Instantiation failed to generate a function code", 0);
 
-    // nodecl_t nodecl_function_code = nodecl_null();
-    // build_scope_function_definition(dupl_function_definition, 
-    //         entry, 
-    //         instantiation_context, 
-    //         // This is not entirely true
-    //         /* is_template */ 1,
-    //         /* is_explicit_specialization */ 1,
-    //         &nodecl_function_code);
-
-    // entry->entity_specs.definition_tree = dupl_function_definition;
-
-    // nodecl_instantiation_units = nodecl_concat_lists(nodecl_instantiation_units,
-    //         nodecl_function_code);
-
-    // set_test_expression_status(old_test_status);
+    entry->entity_specs.function_code = instantiated_function_code;
+    entry->defined = 1;
 
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: ended instantation of function template '%s'\n",
                 print_declarator(template_specialized_type));
     }
-#endif
+}
+
+static void instantiate_template_function_and_add_to_instantiation_units(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+{
+    instantiate_template_function_internal(entry, locus);
+
+    nodecl_instantiation_units = nodecl_append_to_list(
+            nodecl_instantiation_units,
+            entry->entity_specs.function_code);
+}
+
+void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+{
+    instantiate_template_function_internal(entry, locus);
 }
 
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
@@ -1802,7 +1878,7 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t
 
     type_t* template_type = template_specialized_type_get_related_template_type(template_specialized_type);
     scope_entry_t* template_symbol = template_type_get_related_symbol(template_type);
-    
+
     // The primary specialization is a named type, even if the named type is a function!
     type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
@@ -1846,7 +1922,7 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
-    instantiate_template_function(entry, locus);
+    instantiate_template_function_and_add_to_instantiation_units(entry, locus);
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
@@ -1855,118 +1931,11 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t
 UNUSED_PARAMETER static void instantiate_default_arguments_of_function(scope_entry_t* entry UNUSED_PARAMETER)
 {
     internal_error("Not yet implemented", 0);
-#if 0
-    // decl_context_t instantiation_context = entry->decl_context;
-    // Update the default arguments if any
-    if (entry->entity_specs.default_argument_info != NULL)
-    {
-        int i;
-        for (i = 0; i < entry->entity_specs.num_parameters; i++)
-        {
-            // default_argument_info_t* argument_info = entry->entity_specs.default_argument_info[i];
-
-            if (argument_info != NULL
-                    && !nodecl_is_null(argument_info->argument)
-                    && nodecl_is_cxx_dependent_expr(argument_info->argument))
-            {
-                decl_context_t dummy;
-                AST expr = nodecl_unwrap_cxx_dependent_expr(argument_info->argument, &dummy);
-                expr = ast_copy_for_instantiation(expr);
-
-                nodecl_t new_nodecl = nodecl_null();
-                char c = check_expression(expr, instantiation_context, &new_nodecl);
-
-                // Do not update anything on error
-                if (!c)
-                    continue;
-
-                ERROR_CONDITION(nodecl_is_cxx_dependent_expr(new_nodecl), "Invalid dependent nodecl when updating default argument %d", i);
-
-                argument_info->argument = new_nodecl;
-                argument_info->context = instantiation_context;
-            }
-        }
-    }
-#endif
 }
 
 static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
-    // Do nothing
-#if 0
-    ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid function", 0);
-
-    ERROR_CONDITION(!entry->entity_specs.is_non_emitted, "Invalid function is not yet nonemitted", 0);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Instantiation request of non-emitted (non template) function '%s' at '%s:%d\n",
-                print_decl_type_str(entry->type_information, entry->decl_context, 
-                    get_qualified_symbol_name(entry, entry->decl_context)),
-                locus);
-    }
-
-    instantiate_default_arguments_of_function(entry);
-
-    scope_entry_t* emission_template = entry->entity_specs.emission_template;
-    ERROR_CONDITION(emission_template == NULL, "Invalid emission template\n", 0);
-
-    if (!emission_template->defined)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "INSTANTIATION: Function not defined, do not emit\n");
-        }
-        return;
-    }
-    entry->defined = 0;
-
-    int i;
-    for (i = 0; i < num_being_instantiated_now; i++)
-    {
-        if (being_instantiated_now[i] == entry)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "INSTANTIATION: This function is currently being emitted\n");
-            }
-            return;
-        }
-    }
-
-    being_instantiated_now[num_being_instantiated_now] = entry;
-    num_being_instantiated_now++;
-
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-    entry->entity_specs.emission_template = NULL;
-
-    // Remove dependent types
-    AST dupl_function_definition = ast_copy_for_instantiation(emission_template->entity_specs.definition_tree);
-
-    nodecl_t nodecl_function_code = nodecl_null();
-    build_scope_function_definition(dupl_function_definition, 
-            entry, 
-            entry->decl_context, 
-            // FIXME - This is not entirely true
-            /* is_template */ 1,
-            /* is_explicit_specialization */ 1,
-            &nodecl_function_code);
-
-    entry->entity_specs.definition_tree = dupl_function_definition;
-
-    nodecl_instantiation_units = nodecl_concat_lists(nodecl_instantiation_units,
-            nodecl_function_code);
-
-    num_being_instantiated_now--;
-    being_instantiated_now[num_being_instantiated_now] = NULL;
-#endif
-}
-
-AST instantiate_tree(AST orig_tree UNUSED_PARAMETER, 
-        decl_context_t context_of_being_instantiated UNUSED_PARAMETER)
-{
-    internal_error("Not supported anymore", 0);
+    internal_error("Not yet implemented", 0);
 }
 
 static void instantiate_every_symbol(scope_entry_t* entry,
@@ -1977,8 +1946,7 @@ static void instantiate_every_symbol(scope_entry_t* entry,
     {
         if (is_template_specialized_type(entry->type_information))
         {
-            instantiate_template_function_if_needed(entry, 
-                    locus);
+            instantiate_template_function_if_needed(entry, locus);
         }
         else if (entry->entity_specs.is_non_emitted)
         {
@@ -1987,3 +1955,68 @@ static void instantiate_every_symbol(scope_entry_t* entry,
     }
 }
 
+
+// Instantiation map
+struct instantiation_symbol_map_tag
+{
+    struct instantiation_symbol_map_tag *parent;
+
+    rb_red_blk_tree *tree;
+};
+
+scope_entry_t* instantiation_symbol_map(instantiation_symbol_map_t* map, scope_entry_t* orig)
+{
+    if (map == NULL)
+        return NULL;
+
+    rb_red_blk_node *n = rb_tree_query(map->tree, orig);
+    if (n == NULL)
+    {
+        return instantiation_symbol_map(map->parent, orig);
+    }
+    else
+    {
+        scope_entry_t* result = (scope_entry_t*)rb_node_get_info(n);
+        return result;
+    }
+}
+
+void instantiation_symbol_map_add(instantiation_symbol_map_t* map, scope_entry_t* orig, scope_entry_t* new_sym)
+{
+    ERROR_CONDITION(map == NULL || map->tree == NULL, "Missing map", 0);
+
+    rb_tree_insert(map->tree, orig, new_sym);
+}
+
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
+instantiation_symbol_map_t* instantiation_symbol_map_push(instantiation_symbol_map_t* parent)
+{
+    instantiation_symbol_map_t* result = xcalloc(1, sizeof(*result));
+
+    result->parent = parent;
+    result->tree = rb_tree_create(intptr_t_comp, NULL, NULL);
+
+    return result;
+}
+
+instantiation_symbol_map_t* instantiation_symbol_map_pop(instantiation_symbol_map_t* map)
+{
+    instantiation_symbol_map_t* result = map->parent;
+
+    rb_tree_destroy(map->tree);
+    xfree(map);
+
+    return result;
+}

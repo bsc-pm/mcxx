@@ -158,11 +158,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                Source arguments_accessor,
                 bool on_wait,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void handle_dependency_item(
                 Nodecl::NodeclBase ctr,
@@ -176,27 +174,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                Source arguments_accessor,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void fill_dependences_taskwait(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
-                Source& result_src
-                );
-
-        void check_pendant_writes_on_subexpressions(
-                OutlineDataItem::TaskwaitOnNode* c,
-                // out
-                TL::Source& code);
-
-        void generate_mandatory_taskwaits(
-                OutlineInfo& outline_info,
-                // out
-                TL::Source& taskwait_on_after_wd_creation_opt);
+                Source& result_src);
 
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,
@@ -338,9 +323,11 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
 
         Source update_lastprivates(OutlineInfo& outline_info, const std::string& loop_descriptor_name);
 
-        Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope);
-        Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope);
-        Symbol get_function_ptr_of_impl(TL::Symbol sym, TL::Type t, TL::Scope original_scope);
+        Symbol get_function_modify_array_descriptor(
+                std::string name,
+                TL::Type field_type,
+                TL::Scope original_scope);
+
 
         void add_field(OutlineDataItem& outline_data_item, 
                 TL::Type new_class_type,

@@ -514,7 +514,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             if ((equivalent_types(no_ref(orig), no_ref(dest))
                         || (is_class_type(no_ref(orig))
                             && is_class_type(no_ref(dest))
-                            && class_type_is_base(no_ref(dest), no_ref(orig))))
+                            && class_type_is_base(no_ref(dest), no_ref(orig))
+                            && !class_type_is_ambiguous_base_of_derived_class(no_ref(dest), no_ref(orig))))
                     && (!is_const_qualified_type(no_ref(orig))
                         || is_const_qualified_type(no_ref(dest))))
             {
@@ -1111,6 +1112,14 @@ enum standard_conversion_rank_tag
     SCR_CONVERSION
 } standard_conversion_rank_t;
 
+static char is_pointer_conversion(standard_conversion_item_t sci)
+{
+    return sci == SCI_POINTER_TO_VOID_CONVERSION
+        || sci == SCI_ZERO_TO_POINTER_CONVERSION
+        || sci == SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION
+        || sci == SCI_NULLPTR_TO_POINTER_CONVERSION;
+}
+
 static standard_conversion_rank_t standard_conversion_get_rank(standard_conversion_t scs)
 {
     standard_conversion_rank_t result = SCR_INVALID;
@@ -1145,8 +1154,11 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
     if (scs.conv[1] == SCI_INTEGRAL_CONVERSION
             || scs.conv[1] == SCI_FLOATING_CONVERSION
             || scs.conv[1] == SCI_FLOATING_INTEGRAL_CONVERSION
-            || scs.conv[1] == SCI_POINTER_CONVERSION
-            || scs.conv[1] == SCI_POINTER_TO_MEMBER_CONVERSION
+            || scs.conv[1] == SCI_INTEGRAL_TO_COMPLEX_CONVERSION
+            || scs.conv[1] == SCI_COMPLEX_TO_INTEGRAL_CONVERSION
+            || scs.conv[1] == SCI_INTEGRAL_FLOATING_CONVERSION
+            || is_pointer_conversion(scs.conv[1])
+            || scs.conv[1] == SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION
             || scs.conv[1] == SCI_BOOLEAN_CONVERSION)
     {
         result = SCR_CONVERSION;
@@ -1398,8 +1410,10 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
     if ((scs1.conv[0] == scs2.conv[0])
             && (scs1.conv[1] == scs2.conv[1])
             && (scs1.conv[2] == scs2.conv[2])
-            && (scs1.conv[2] == SCI_POINTER_CONVERSION))
+            && is_pointer_conversion(scs1.conv[2]))
     {
+        // XXX - I think this branch is never executed
+
         // FIXME - What about the deprecated literal string conversion?
         cv_qualifier_t cv_qualif_1 = CV_NONE;
         /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);
@@ -2119,7 +2133,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             fprintf(stderr, "OVERLOAD: List of called conversors\n");
         }
         int i;
-        for (i = 0; i < best_viable->candidate->num_args; i++)
+        for (i = 0; i < best_viable->num_ics_arguments; i++)
         {
             if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
             {

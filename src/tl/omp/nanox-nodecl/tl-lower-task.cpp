@@ -38,6 +38,7 @@
 #include "tl-compilerpipeline.hpp"
 
 #include "tl-lower-task-common.hpp"
+#include "tl-nanox-ptr.hpp"
 
 using TL::Source;
 
@@ -155,95 +156,6 @@ TL::Symbol LoweringVisitor::declare_const_wd_type(int num_implementations, Nodec
     }
 }
 
-void LoweringVisitor::check_pendant_writes_on_subexpressions(OutlineDataItem::TaskwaitOnNode* c, TL::Source& code)
-{
-    if (c != NULL)
-    {
-        for (unsigned int i = 0; i < c->depends_on.size(); ++i)
-        {
-            check_pendant_writes_on_subexpressions(c->depends_on[i], code);
-
-            TL::Source dependency_regions, dependency_init, dependence;
-            code
-                << "err = nanos_dependence_pendant_writes(&result, (void *) &(" << c->depends_on[i]->expression.prettyprint() <<  "));"
-                << "if (err != NANOS_OK) nanos_handle_error(err);"
-                << "if (result)"
-                << "{"
-                <<     dependence
-                <<     "nanos_err_t err = nanos_wait_on(1, dependences);"
-                <<     "if (err != NANOS_OK) nanos_handle_error(err);"
-                << "}"
-                ;
-
-            dependence
-                << dependency_regions
-                << "nanos_data_access_t dependences[1]"
-                ;
-
-            if (IS_C_LANGUAGE
-                    || IS_CXX_LANGUAGE)
-            {
-                dependence << " = {"
-                    << dependency_init
-                    << "};"
-                    ;
-            }
-
-            dependence << ";"
-                ;
-
-            TL::DataReference dep_expr(c->depends_on[i]->expression);
-            handle_dependency_item(c->depends_on[i]->expression, dep_expr,
-                    OutlineDataItem::DEP_IN, 0, dependency_regions, dependency_init, dependence);
-        }
-    }
-}
-
-void LoweringVisitor::generate_mandatory_taskwaits(
-        OutlineInfo& outline_info,
-        TL::Source& taskwait_on_after_wd_creation_opt)
-{
-    taskwait_on_after_wd_creation_opt << comment("Check pendant writes on subexpressions");
-
-    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-            it != data_items.end();
-            it++)
-    {
-        if (!(*it)->get_symbol().is_valid())
-            continue;
-
-        TL::Source lvalue_subexpressions_code;
-        OutlineDataItem::TaskwaitOnNode* toplevel_lvalue = (*it)->get_taskwait_on_after_wd_creation();
-        if (toplevel_lvalue != NULL)
-        {
-            check_pendant_writes_on_subexpressions(toplevel_lvalue, lvalue_subexpressions_code);
-            TL::Source update_outline_data_item;
-            taskwait_on_after_wd_creation_opt
-                <<"{"
-                <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
-                <<      "nanos_err_t err;"
-                <<      lvalue_subexpressions_code
-                <<      update_outline_data_item
-                <<"}"
-                ;
-
-            if ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED_WITH_CAPTURE)
-            {
-                update_outline_data_item
-                    << as_symbol((*it)->get_symbol()) << " = &(" << toplevel_lvalue->expression.prettyprint() << ");";
-            }
-            else
-            {
-                update_outline_data_item
-                    << as_symbol((*it)->get_symbol()) << " = " << toplevel_lvalue->expression.prettyprint() << ";";
-            }
-        }
-    }
-    taskwait_on_after_wd_creation_opt << comment("End check pendant writes on subexpressions");
-}
-
-
 Source LoweringVisitor::fill_const_wd_info(
         Source &struct_arg_type_name,
         bool is_untied,
@@ -312,21 +224,18 @@ Source LoweringVisitor::fill_const_wd_info(
 
     if (Nanos::Version::interface_is_at_least("master", 5022))
     {
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        if (_lowering->instrumentation_enabled()
+                && (IS_C_LANGUAGE || IS_CXX_LANGUAGE))
         {
             result
                 << /* ".description = " */ "\"" << wd_description << "\",\n"
                 ;
         }
-        else if (IS_FORTRAN_LANGUAGE)
+        else
         {
             result
                 << /* ".description = " */ "0,\n"
                 ;
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
         }
     }
 
@@ -524,17 +433,15 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           taskwait_on_after_wd_creation_opt;
+           dependences_info;
 
     TL::Symbol xlate_function_symbol;
 
     Nodecl::NodeclBase fill_outline_arguments_tree;
-    Source fill_outline_arguments,
-           fill_dependences_outline;
+    Source fill_outline_arguments;
 
     Nodecl::NodeclBase fill_immediate_arguments_tree;
-    Source fill_immediate_arguments,
-           fill_dependences_immediate;
+    Source fill_immediate_arguments;
 
     bool is_function_task = called_task.is_valid();
 
@@ -585,8 +492,19 @@ void LoweringVisitor::emit_async_common(
         }
     }
 
-    std::string wd_description  = (is_function_task) ?
-        called_task.get_name() : current_function.get_name();
+    std::string wd_description;
+    if (!task_label.is_null())
+    {
+        wd_description = task_label.get_text();
+    }
+    else if (is_function_task)
+    {
+        wd_description = called_task.get_name();
+    }
+    else
+    {
+        wd_description = current_function.get_name();
+    }
 
     const_wd_info << fill_const_wd_info(
             struct_arg_type_name,
@@ -768,12 +686,11 @@ void LoweringVisitor::emit_async_common(
         <<     if_condition_end_opt
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
-        <<     taskwait_on_after_wd_creation_opt
+        <<     dependences_info
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<        statement_placeholder(fill_outline_arguments_tree)
-        <<        fill_dependences_outline
         <<        copy_ol_setup
         <<        err_name << " = nanos_submit(nanos_wd_, " << num_dependences << ", dependences, (nanos_team_t)0);"
         <<        "if (" << err_name << " != NANOS_OK) nanos_handle_error (" << err_name << ");"
@@ -782,7 +699,6 @@ void LoweringVisitor::emit_async_common(
         <<     "{"
                     // This is a placeholder because arguments are filled using the base language (possibly Fortran)
         <<          statement_placeholder(fill_immediate_arguments_tree)
-        <<          fill_dependences_immediate
         <<          copy_imm_setup
         <<          err_name << " = nanos_create_wd_and_run_compact(&(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                  struct_size << ", "
@@ -794,8 +710,6 @@ void LoweringVisitor::emit_async_common(
         <<     "}"
         << "}"
         ;
-
-    generate_mandatory_taskwaits(outline_info, taskwait_on_after_wd_creation_opt);
 
     // Fill arguments
     fill_arguments(construct, outline_info, fill_outline_arguments, fill_immediate_arguments);
@@ -841,14 +755,7 @@ void LoweringVisitor::emit_async_common(
             ;
     }
 
-    fill_dependences(construct, 
-            outline_info, 
-            /* accessor */ Source("ol_args->"),
-            fill_dependences_outline);
-    fill_dependences(construct, 
-            outline_info, 
-            /* accessor */ Source("imm_args."),
-            fill_dependences_immediate);
+    fill_dependences(construct, outline_info, dependences_info);
 
     FORTRAN_LANGUAGE()
     {
@@ -1167,45 +1074,12 @@ void LoweringVisitor::fill_arguments(
 
                  case OutlineDataItem::SHARING_SHARED_WITH_CAPTURE:
                     {
-                        OutlineDataItem::TaskwaitOnNode* toplevel_lvalue = (*it)->get_taskwait_on_after_wd_creation();
-                        TL::Source common_code;
-                        common_code
-                            <<      as_type(TL::Type::get_bool_type()) << " result = 0;"
-                            <<      "nanos_err_t err;"
-                            <<      "err = nanos_dependence_pendant_writes(&result, (void *) &(" << toplevel_lvalue->expression.prettyprint() <<  "));"
-                            <<      "if (err != NANOS_OK) nanos_handle_error(err);"
-                            ;
-
                         fill_outline_arguments
-                            << "{"
-                            <<      common_code
-                            <<      "if (result)"
-                            <<      "{"
-                            <<           "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                            <<      "}"
-                            <<      "else"
-                            <<      "{"
-                            <<           "ol_args->" << (*it)->get_field_name() << " = &(ol_args->" << (*it)->get_field_name() << "_storage);"
-                            <<           "ol_args->" << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
-                            //  If the value can be captured safely, we should remove the dependence. See nanox ticket #818
-                            <<           as_symbol((*it)->get_symbol()) << " = 0;"
-                            <<      "}"
-                            << "}"
+                            << "ol_args->" << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
                             ;
 
                         fill_immediate_arguments
-                            << "{"
-                            <<      common_code
-                            <<      "if (result)"
-                            <<      "{"
-                            <<           "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
-                            <<      "}"
-                            <<      "else"
-                            <<      "{"
-                            <<           "imm_args." << (*it)->get_field_name() << " = &(imm_args." << (*it)->get_field_name() << "_storage);"
-                            <<           "imm_args." << (*it)->get_field_name() << "_storage = *(" << as_symbol((*it)->get_symbol()) << ");"
-                            <<      "}"
-                            << "}"
+                            << "imm_args." << (*it)->get_field_name() << " = " << as_symbol((*it)->get_symbol()) << ";"
                             ;
                         break;
                     }
@@ -1306,6 +1180,13 @@ void LoweringVisitor::fill_arguments(
                         TL::Type t = sym.get_type();
                         if (t.is_any_reference())
                             t = t.references_to();
+
+                        if (!(*it)->get_prepare_capture_code().is_null())
+                        {
+                            Nodecl::NodeclBase capture_code = (*it)->get_prepare_capture_code();
+                            fill_outline_arguments << as_statement(capture_code.shallow_copy());
+                            fill_immediate_arguments << as_statement(capture_code.shallow_copy());
+                        }
 
                         if ((*it)->get_captured_value().is_null())
                         {
@@ -2281,9 +2162,34 @@ void LoweringVisitor::emit_translation_function_region(
             << "device_base_address = 0;"
             << "err = nanos_get_addr(" << copy_num << ", &device_base_address, wd);"
             << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-            << "}"
             ;
+
+        if ((*it)->get_symbol().is_allocatable()
+                || ((*it)->get_symbol().get_type().is_pointer()
+                    && (*it)->get_symbol().get_type().points_to().is_array()
+                    && (*it)->get_symbol().get_type().points_to().array_requires_descriptor()))
+        {
+            TL::Symbol new_function = get_function_modify_array_descriptor(
+                    (*it)->get_field_name(),
+                    (*it)->get_field_type(),
+                    ctr.retrieve_context());
+
+            ERROR_CONDITION((*it)->get_copy_of_array_descriptor() == NULL, "This needs a copy of the array descriptor", 0);
+
+            translations
+                //<<  new_function.get_name() << "(arg." << (*it)->get_field_name() << ", device_base_address);"
+                <<  new_function.get_name() << "(arg." <<
+                        (*it)->get_copy_of_array_descriptor()->get_field_name() << ", device_base_address);"
+                << "}"
+                ;
+        }
+        else
+        {
+            translations
+                << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+                << "}"
+                ;
+        }
 
         copy_num += copies.size();
     }
@@ -2306,12 +2212,10 @@ void LoweringVisitor::emit_translation_function_region(
 void LoweringVisitor::fill_dependences(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
-        Source arguments_accessor,
         // out
-        Source& result_src
-        )
+        Source& result_src)
 {
-    fill_dependences_internal(ctr, outline_info, arguments_accessor, /* on_wait */ false, result_src);
+    fill_dependences_internal(ctr, outline_info, /* on_wait */ false, result_src);
 }
 
 void LoweringVisitor::handle_dependency_item(
@@ -2384,10 +2288,11 @@ void LoweringVisitor::handle_dependency_item(
     bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
     bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
     bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool input_private = ((dir & OutlineDataItem::DEP_IN_PRIVATE) == OutlineDataItem::DEP_IN_PRIVATE);
     bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
     bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
-    dependency_flags_in << ( input || input_value || input_alloca || concurrent || commutative);
+    dependency_flags_in << ( input || input_value || input_alloca || input_private || concurrent || commutative);
 
     dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
             || concurrent || commutative);
@@ -2594,11 +2499,9 @@ void LoweringVisitor::handle_dependency_item(
 void LoweringVisitor::fill_dependences_internal(
         Nodecl::NodeclBase ctr,
         OutlineInfo& outline_info,
-        Source arguments_accessor,
         bool on_wait,
         // out
-        Source& result_src
-        )
+        Source& result_src)
 {
     Source dependency_init;
 

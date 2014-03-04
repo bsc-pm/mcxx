@@ -1084,6 +1084,10 @@ namespace {
         
         // Compute the regions of code that can be simultaneous with the current tasks
         compute_concurrent_tasks( task );
+        
+        // Clean up temporary values for future calls to this method
+        _last_sync.clear( );
+        _next_sync.clear( );
     }
     
     void TaskConcurrency::define_concurrent_regions_limits( Node* task )
@@ -1181,6 +1185,8 @@ namespace {
                             ExtensibleGraph::clear_visits_aux( parent );
                         }
                     }
+                    else
+                        keep_looking_for_syncs = false;
                 }
                 else if( parent->is_graph_node( ) )
                 {

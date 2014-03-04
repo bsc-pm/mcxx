@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-omp-intel.hpp"
+#include "tl-cache-rtl-calls.hpp"
 #include "tl-lowering-visitor.hpp"
 #include "tl-lowering-utils.hpp"
 
@@ -58,6 +59,9 @@ namespace TL { namespace Intel {
         Nodecl::NodeclBase n = dto["nodecl"];
         LoweringVisitor lowering_visitor(this);
         lowering_visitor.walk(n);
+
+        CacheRTLCalls cache_calls_visitor(this);
+        cache_calls_visitor.walk(n);
     }
 
     void Lowering::set_instrumentation(const std::string& str)

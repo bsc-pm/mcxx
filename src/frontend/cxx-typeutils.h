@@ -102,12 +102,18 @@ LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_hollerith_type(void);
 LIBMCXX_EXTERN char is_hollerith_type(type_t* t);
 
-LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_dependent_type(nodecl_t nodecl_expr, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_typeof_expr_dependent_type(nodecl_t nodecl_expr,
+        decl_context_t decl_context,
+        char is_decltype,
+        char is_removed_reference);
 
-LIBMCXX_EXTERN nodecl_t gcc_typeof_expr_type_get_expression(type_t* t);
-LIBMCXX_EXTERN decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t);
+LIBMCXX_EXTERN nodecl_t typeof_expr_type_get_expression(type_t* t);
+LIBMCXX_EXTERN decl_context_t typeof_expr_type_get_expression_context(type_t* t);
 
-LIBMCXX_EXTERN char is_gcc_typeof_expr(type_t* t);
+LIBMCXX_EXTERN char typeof_expr_type_is_removed_reference(type_t* t);
+LIBMCXX_EXTERN char typeof_expr_type_is_decltype(type_t* t);
+
+LIBMCXX_EXTERN char is_typeof_expr(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 
@@ -231,8 +237,6 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*,
         decl_context_t decl_context,
         nodecl_t region, 
         decl_context_t decl_context_region);
-
-LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
 
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t,
         parameter_info_t* parameter_info, int num_parameters,
@@ -488,7 +492,7 @@ LIBMCXX_EXTERN ref_qualifier_t function_type_get_ref_qualifier(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
-LIBMCXX_EXTERN char function_type_same_parameter_types(type_t* t1, type_t* t2);
+LIBMCXX_EXTERN char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2);
 
 LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_return);
 LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
@@ -568,6 +572,8 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_destructor(type_t* t);
 LIBMCXX_EXTERN decl_context_t class_type_get_context(type_t* t);
 LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
 
+LIBMCXX_EXTERN decl_context_t class_or_enum_type_get_inner_context(type_t* class_or_enum_type);
+
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_friends(type_t* class_type);
@@ -629,6 +635,8 @@ LIBMCXX_EXTERN char class_type_is_base(type_t* possible_base, type_t* possible_d
 LIBMCXX_EXTERN char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(type_t* possible_derived, type_t* possible_base);
 LIBMCXX_EXTERN char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base);
+
+LIBMCXX_EXTERN char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class);
 
 LIBMCXX_EXTERN char is_pointer_to_void_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);
@@ -741,6 +749,8 @@ LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);
 LIBMCXX_EXTERN long long unsigned int type_system_used_memory(void);
 
+LIBMCXX_EXTERN const char* sci_conversion_to_str(standard_conversion_item_t e);
+
 /* Only for type environment routines in cxx-typeenviron.c. 
    Do not use them anywhere else */
 LIBMCXX_EXTERN void type_set_size(type_t* t, _size_t size);
@@ -787,6 +797,12 @@ LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context
 LIBMCXX_EXTERN type_t* type_deep_copy(type_t* orig,
         decl_context_t new_decl_context,
         symbol_map_t* symbol_map);
+
+LIBMCXX_EXTERN type_t* type_deep_copy_compute_maps(type_t* orig,
+        decl_context_t new_decl_context,
+        symbol_map_t* symbol_map,
+        nodecl_deep_copy_map_t* nodecl_deep_copy_map,
+        symbol_deep_copy_map_t* symbol_deep_copy_map);
 
 LIBMCXX_EXTERN type_t* get_variant_type_interoperable(type_t* t);
 LIBMCXX_EXTERN char variant_type_is_interoperable(type_t* t);
