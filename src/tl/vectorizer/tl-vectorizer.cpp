@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -33,7 +33,7 @@
 #include "tl-optimizations.hpp"
 #include "cxx-cexpr.h"
 
-namespace TL 
+namespace TL
 {
     namespace Vectorization
     {
@@ -45,24 +45,24 @@ namespace TL
                 const bool prefer_gather_scatter,
                 const bool prefer_mask_gather_scatter,
                 const TL::Type& target_type,
-                const std::map<TL::Symbol, int>& aligned_expr_map,
-                const TL::ObjectList<Nodecl::NodeclBase>& suitable_expr_list,
-                const TL::ObjectList<Nodecl::NodeclBase>& nontemporal_expr_list,
+                const aligned_expr_map_t& aligned_expr_map,
+                const objectlist_nodecl_t& suitable_expr_list,
+                const nontemporal_expr_map_t& nontemporal_expr_list,
                 const VectorizerCache& vectorizer_cache,
-                const TL::ObjectList<TL::Symbol> * reduction_list,
-                std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) : 
-           _device(device), _vector_length(vector_length), 
-           _unroll_factor(vector_length/target_type.get_size()), 
-           _support_masking(support_masking), 
-           _mask_size(mask_size), 
-           _fast_math(fast_math),  
-           _prefer_gather_scatter(prefer_gather_scatter), 
+                const objectlist_tlsymbol_t * reduction_list,
+                std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
+           _device(device), _vector_length(vector_length),
+           _unroll_factor(vector_length/target_type.get_size()),
+           _support_masking(support_masking),
+           _mask_size(mask_size),
+           _fast_math(fast_math),
+           _prefer_gather_scatter(prefer_gather_scatter),
            _prefer_mask_gather_scatter(prefer_mask_gather_scatter),
            _target_type(target_type),
            _aligned_expr_map(aligned_expr_map),
-           _suitable_expr_list(suitable_expr_list), 
-           _nontemporal_expr_list(nontemporal_expr_list),
-           _vectorizer_cache(vectorizer_cache), 
+           _suitable_expr_list(suitable_expr_list),
+           _nontemporal_expr_map(nontemporal_expr_list),
+           _vectorizer_cache(vectorizer_cache),
            _reduction_list(reduction_list),
            _new_external_vector_symbol_map(new_external_vector_symbol_map)
         {
@@ -72,7 +72,7 @@ namespace TL
             _inside_inner_masked_bb.push_back(false);
             _mask_check_bb_cost.push_back(0);
         }
- 
+
         VectorizerEnvironment::~VectorizerEnvironment()
         {
             _inside_inner_masked_bb.pop_back();
@@ -117,7 +117,7 @@ namespace TL
         }
 
         Vectorizer::Vectorizer() : _avx2_enabled(false), _knc_enabled(false),
-        _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false), 
+        _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false),
         _fast_math_enabled(false)
         {
         }
@@ -186,14 +186,14 @@ namespace TL
             TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
         }
 
-        void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement, 
+        void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement,
                 VectorizerEnvironment& environment,
                 Nodecl::NodeclBase& net_epilog_node,
                 int epilog_iterations,
                 bool only_epilog,
                 bool is_parallel_loop)
         {
-            VectorizerVisitorForEpilog visitor_epilog(environment, 
+            VectorizerVisitorForEpilog visitor_epilog(environment,
                     epilog_iterations, only_epilog, is_parallel_loop);
             visitor_epilog.visit(for_statement, net_epilog_node);
 
@@ -250,14 +250,14 @@ namespace TL
                     environment._analysis_simd_scope = for_statement;
                     environment._analysis_scopes.push_back(for_statement);
 
-                    // Suitable LB 
+                    // Suitable LB
                     lb_is_suitable = _analysis_info->is_suitable_expression(for_statement, lb,
                             environment._suitable_expr_list, environment._unroll_factor,
                             environment._vector_length, lb_vector_size_module);
 
                     environment._analysis_scopes.pop_back();
 
-                    // LB 
+                    // LB
                     if (lb_is_suitable)
                     {
                         printf("SUITABLE LB\n");

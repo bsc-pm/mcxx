@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -36,10 +36,15 @@
 #include "tl-vectorizer-cache.hpp"
 #include "tl-vectorizer-analysis.hpp"
 
-namespace TL 
-{ 
+namespace TL
+{
     namespace Vectorization
     {
+        typedef std::map<TL::Symbol, int> aligned_expr_map_t;
+        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontemporal_expr_map_t;
+        typedef TL::ObjectList<Nodecl::NodeclBase> objectlist_nodecl_t;
+        typedef TL::ObjectList<TL::Symbol> objectlist_tlsymbol_t;
+
         enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
 
         class VectorizerCache;
@@ -56,12 +61,12 @@ namespace TL
                 const bool _prefer_gather_scatter;
                 const bool _prefer_mask_gather_scatter;
                 const TL::Type& _target_type;
-                const std::map<TL::Symbol, int>& _aligned_expr_map;
-                const TL::ObjectList<Nodecl::NodeclBase>& _suitable_expr_list;
-                const TL::ObjectList<Nodecl::NodeclBase>& _nontemporal_expr_list;
+                const aligned_expr_map_t& _aligned_expr_map;
+                const objectlist_nodecl_t& _suitable_expr_list;
+                const nontemporal_expr_map_t& _nontemporal_expr_map;
                 const VectorizerCache& _vectorizer_cache;
 
-                const TL::ObjectList<TL::Symbol>* _reduction_list;
+                const objectlist_tlsymbol_t* _reduction_list;
                 std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
 
                 TL::Scope _external_scope;                      // Enclosing scope of the SIMD region (to add reduction symbols)
@@ -84,11 +89,11 @@ namespace TL
                         const bool prefer_gather_scatter,
                         const bool prefer_mask_gather_scatter,
                         const TL::Type& target_type,
-                        const std::map<TL::Symbol, int>& aligned_expr_map,
-                        const TL::ObjectList<Nodecl::NodeclBase>& suitable_expr_list,
-                        const TL::ObjectList<Nodecl::NodeclBase>& nontemporal_expr_list,
+                        const aligned_expr_map_t& aligned_expr_map,
+                        const objectlist_nodecl_t& suitable_expr_list,
+                        const nontemporal_expr_map_t& nontemporal_expr_map,
                         const VectorizerCache& vectorizer_cache,
-                        const TL::ObjectList<TL::Symbol>* reduction_list,
+                        const objectlist_tlsymbol_t* reduction_list,
                         std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
                 ~VectorizerEnvironment();
@@ -137,20 +142,20 @@ namespace TL
 
                 ~Vectorizer();
 
-                void preprocess_code(const Nodecl::NodeclBase& n, 
+                void preprocess_code(const Nodecl::NodeclBase& n,
                         const VectorizerEnvironment& environment);
 
                 void load_environment(const Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment);
                 void unload_environment(VectorizerEnvironment& environment);
 
-                void vectorize(Nodecl::ForStatement& for_statement, 
+                void vectorize(Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment);
                 void vectorize(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
- 
-                void process_epilog(Nodecl::ForStatement& for_statement, 
+
+                void process_epilog(Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment,
                         Nodecl::NodeclBase& net_epilog_node,
                         int epilog_iterations,
@@ -173,15 +178,15 @@ namespace TL
                         Nodecl::List& pre_nodecls,
                         Nodecl::List& post_nodecls);
 
-                void add_vector_function_version(const std::string& func_name, 
-                        const Nodecl::NodeclBase& func_version, const std::string& device, 
-                        const unsigned int vector_length, const TL::Type& target_type, 
+                void add_vector_function_version(const std::string& func_name,
+                        const Nodecl::NodeclBase& func_version, const std::string& device,
+                        const unsigned int vector_length, const TL::Type& target_type,
                         const bool masked, const FunctionPriority priority,
                         bool const is_svml_function);
-                bool is_svml_function(const std::string& func_name, 
-                        const std::string& device, 
-                        const unsigned int vector_length, 
-                        const TL::Type& target_type, 
+                bool is_svml_function(const std::string& func_name,
+                        const std::string& device,
+                        const unsigned int vector_length,
+                        const TL::Type& target_type,
                         const bool masked) const;
 
                 void enable_svml_sse();

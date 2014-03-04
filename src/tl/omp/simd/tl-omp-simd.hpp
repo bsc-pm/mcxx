@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -35,7 +35,7 @@ namespace TL
 {
     namespace OpenMP
     {
-        //! This class transforms 
+        //! This class transforms
         class Simd : public TL::PragmaCustomCompilerPhase
         {
             public:
@@ -86,17 +86,17 @@ namespace TL
                 bool _prefer_mask_gather_scatter;
 
                 void process_aligned_clause(const Nodecl::List& environment,
-                        std::map<TL::Symbol, int>& aligned_expressions_map);
+                        TL::Vectorization::aligned_expr_map_t& aligned_expressions_map);
                 void process_suitable_clause(const Nodecl::List& environment,
-                        TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions);
+                        TL::Vectorization::objectlist_nodecl_t& suitable_expressions);
                 void process_nontemporal_clause(const Nodecl::List& environment,
-                        TL::ObjectList<Nodecl::NodeclBase>& nontemporal_expressions);
+                        TL::Vectorization::nontemporal_expr_map_t& nontemporal_expressions);
                 int process_unroll_clause(const Nodecl::List& environment);
                 int process_unroll_and_jam_clause(const Nodecl::List& environment);
-                void process_vectorlengthfor_clause(const Nodecl::List& environment, 
+                void process_vectorlengthfor_clause(const Nodecl::List& environment,
                         TL::Type& vectorlengthfor_type);
                 void process_cache_clause(const Nodecl::List& environment,
-                        TL::ObjectList<Nodecl::NodeclBase>& cached_expressions);
+                        TL::Vectorization::objectlist_nodecl_t& cached_expressions);
 
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,
@@ -104,8 +104,8 @@ namespace TL
                         const Nodecl::ForStatement& for_statement);
 
             public:
-                SimdVisitor(Vectorization::SIMDInstructionSet simd_isa, 
-                        bool fast_math_enabled, bool svml_enabled,  
+                SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
+                        bool fast_math_enabled, bool svml_enabled,
                         bool prefer_gather_scatter, bool prefer_mask_gather_scatter);
 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
@@ -126,7 +126,7 @@ namespace TL
             public:
                 FunctionDeepCopyFixVisitor(const TL::Symbol& orig_symbol,
                         const TL::Symbol& new_symbol);
-                
+
                 virtual void visit(const Nodecl::Symbol& n);
         };
     }

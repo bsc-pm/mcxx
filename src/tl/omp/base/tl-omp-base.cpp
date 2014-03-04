@@ -1102,6 +1102,7 @@ namespace TL { namespace OpenMP {
                 //Nodecl::IntegerLiteral alignment = const_value_to_nodecl(const_value_get_zero(4, 1));
 
                 TL::ObjectList<std::string> comma_splited_list;
+                TL::ObjectList<Nodecl::NodeclBase> nontemporal_flags_obj_list;
 
                 if (colon_splited_list_size == 2)
                 {
@@ -1113,10 +1114,12 @@ namespace TL { namespace OpenMP {
                     {
                         if ((*comma_it) == "relaxed")
                         {
+                            nontemporal_flags_obj_list.insert(Nodecl::RelaxedFlag::make());
                             printf("Relaxed!\n");
                         }
                         else if((*comma_it) == "evict")
                         {
+                            nontemporal_flags_obj_list.insert(Nodecl::EvictFlag::make());
                             printf("Evict!\n");
                         }
                         else
@@ -1134,9 +1137,13 @@ namespace TL { namespace OpenMP {
                     Nodecl::List::make(Nodecl::Utils::get_strings_as_expressions(
                                 comma_splited_list, pragma_line));
 
+                Nodecl::List nontemporal_flags =
+                    Nodecl::List::make(nontemporal_flags_obj_list);
+
                 environment.append(
                         Nodecl::OpenMP::Nontemporal::make(
                             nontemporal_variables,
+                            nontemporal_flags,
                             stmt.get_locus()));
             }
         }
