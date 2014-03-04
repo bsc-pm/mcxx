@@ -86,21 +86,35 @@ namespace TL
                 // *******
                 // IF Mask
                 // *******
-                // New symbol mask
-                Nodecl::NodeclBase if_mask_nodecl = Utils::get_new_mask_symbol(
-                        scope, _environment._unroll_factor, true); 
+
+                // Condition mask
+                Nodecl::NodeclBase mask_condition_symbol = Utils::get_new_mask_symbol(
+                        scope, _environment._unroll_factor, true /*ref_type*/);
+
+                Nodecl::ExpressionStatement mask_condition_exp =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorMaskAssignment::make(mask_condition_symbol.shallow_copy(),
+                                condition.shallow_copy(),
+                                mask_condition_symbol.get_type(),
+                                n.get_locus()));
+
+                list.append(mask_condition_exp);
+
+                // If mask symbol
+                Nodecl::NodeclBase if_mask_symbol = Utils::get_new_mask_symbol(
+                        scope, _environment._unroll_factor, true /*ref_type*/);
 
                 // Mask value
                 Nodecl::NodeclBase if_mask_value;
                 if (Utils::is_all_one_mask(prev_mask)) // mask = if_cond
                 {
-                    if_mask_value = condition.shallow_copy();
+                    if_mask_value = mask_condition_symbol.shallow_copy();
                 }
                 else // mask = prev_mask & if_cond
                 {
                     if_mask_value = Nodecl::VectorMaskAnd::make(
                             prev_mask.shallow_copy(),
-                            condition.shallow_copy(),
+                            mask_condition_symbol.shallow_copy(), //condition.shallow_copy(),
                             prev_mask.get_type(),
                             n.get_locus());
                 }
@@ -109,23 +123,23 @@ namespace TL
                 Nodecl::ExpressionStatement if_mask_exp;
 
                 // Mask types have the same type
-                if(if_mask_nodecl.get_type().no_ref().is_same_type(if_mask_value.get_type().no_ref()))
+                if(if_mask_symbol.get_type().no_ref().is_same_type(if_mask_value.get_type().no_ref()))
                 {
                     if_mask_exp =
                         Nodecl::ExpressionStatement::make(
-                                Nodecl::VectorMaskAssignment::make(if_mask_nodecl.shallow_copy(), 
+                                Nodecl::VectorMaskAssignment::make(if_mask_symbol.shallow_copy(), 
                                     if_mask_value.shallow_copy(),
-                                    if_mask_nodecl.get_type(),
+                                    if_mask_symbol.get_type(),
                                     n.get_locus()));
                 }
                 else
                 {
-                    std::cerr << "warning: Masks have different type. This is not implemented yet." << std::endl;
+                    std::cerr << "warning: Masks have different type. Unsupported." << std::endl;
                 }
 
                 // Add masks to the source code
                 list.append(if_mask_exp);
- 
+
                 // ***********
                 // "Else" Mask: It will always exists! With or without real 'else statement'
                 // ***********
@@ -138,15 +152,15 @@ namespace TL
                 if (Utils::is_all_one_mask(prev_mask)) // mask = !if_cond
                 {
                     else_mask_value = Nodecl::VectorMaskNot::make(
-                            if_mask_nodecl.shallow_copy(),
-                            if_mask_nodecl.get_type(),
+                            if_mask_symbol.shallow_copy(),
+                            if_mask_symbol.get_type(),
                             n.get_locus());
                 }
                 else // mask = prev_mask & !if_cond
                 {
                     else_mask_value = Nodecl::VectorMaskAnd2Not::make(
                             prev_mask.shallow_copy(),
-                            condition.shallow_copy(),
+                            mask_condition_symbol.shallow_copy(),
                             prev_mask.get_type(),
                             n.get_locus());
                 }
@@ -173,7 +187,7 @@ namespace TL
                             prev_mask_cost, MASK_CHECK_THRESHOLD);
 
                 _environment._inside_inner_masked_bb.push_back(true);
-                _environment._mask_list.push_back(if_mask_nodecl);
+                _environment._mask_list.push_back(if_mask_symbol);
                 _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
                         front().retrieve_context());
                 _environment._mask_check_bb_cost.push_back(mask_check_cost_if);
@@ -186,7 +200,7 @@ namespace TL
                 {
                     // Create IF to check if if_mask is all zero
                     Nodecl::NodeclBase if_check = 
-                        Vectorization::Utils::get_if_mask_is_not_zero_nodecl(if_mask_nodecl,
+                        Vectorization::Utils::get_if_mask_is_not_zero_nodecl(if_mask_symbol,
                                 n.get_then().shallow_copy());
 
                     list.append(if_check);
@@ -200,7 +214,7 @@ namespace TL
                 _environment._mask_check_bb_cost.pop_back();
                 _environment._local_scope_list.pop_back();
                 // Update if_mask after visiting. It could have changed.
-                if_mask_nodecl = _environment._mask_list.back();
+                if_mask_symbol = _environment._mask_list.back();
 
                 _environment._mask_list.pop_back();
                 _environment._inside_inner_masked_bb.pop_back();
@@ -240,7 +254,7 @@ namespace TL
                         list.append(n.get_else());
                     }
 
-                    _environment._mask_check_bb_cost.pop_back();                        
+                    _environment._mask_check_bb_cost.pop_back();
                     _environment._local_scope_list.pop_back();
                     // Update else_mask after visiting. It could have changed.
                     else_mask_nodecl = _environment._mask_list.back();
@@ -257,7 +271,7 @@ namespace TL
                     _environment._mask_list.pop_back();
 
                     ObjectList<Nodecl::NodeclBase> bb_predecessor_masks;
-                    bb_predecessor_masks.push_back(if_mask_nodecl);
+                    bb_predecessor_masks.push_back(if_mask_symbol);
                     bb_predecessor_masks.push_back(else_mask_nodecl);
 
                     Nodecl::NodeclBase new_exit_mask = Utils::emit_disjunction_mask(bb_predecessor_masks,
