@@ -1,13 +1,12 @@
 ! <testinfo>
-! test_ignore=yes
+! test_generator=config/mercurium-fortran
 ! </testinfo>
 PROGRAM P
     TYPE T
         INTEGER, POINTER :: X
     END TYPE T
 
-    ! This turned to be not valid Fortran
-    TYPE(T), PARAMETER :: A = T(NULL())
+    TYPE(T) :: A = T(NULL())
 
     PRINT *, A % X
 END PROGRAM P
