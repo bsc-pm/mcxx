@@ -128,6 +128,9 @@ literal : NODECL_INTEGER_LITERAL() type const-value
 
 string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
+stream-store-flags: NODECL_RELAXED_FLAG()
+    | NODECL_EVICT_FLAG()
+
 expression : literal
            | name
            | context
@@ -165,61 +168,62 @@ expression : literal
            | NODECL_DEREFERENCE([rhs]expression) type const-value-opt
            | NODECL_CAST([rhs]expression) type text const-value-opt
            | NODECL_COMPOUND_EXPRESSION([nest]context) type const-value-opt
-           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_FMADD([first_op]expression, [second_op]expression, [third_op]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_FMMINUS([first_mul_op]expression, [second_mul_op]expression, [minus_op]expression-opt, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_RSQRT([rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_DIFFERENT([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_GREATER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LOGICAL_NOT([rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LOGICAL_AND([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LOGICAL_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_NOT([rhs]expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_SHL([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_SHL_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_ADD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FMADD([first_op]expression, [second_op]expression, [third_op]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MINUS([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FMMINUS([first_mul_op]expression, [second_mul_op]expression, [minus_op]expression-opt, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MUL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_DIV([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MOD([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_NEG([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_SQRT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_RSQRT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_ADD([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_MINUS([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_REDUCTION_MUL([scalar_dst]expression, [vector_src]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_EQUAL([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_DIFFERENT([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOWER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_GREATER_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOGICAL_NOT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOGICAL_AND([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOGICAL_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_NOT([rhs]expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_AND([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_OR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_XOR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHL([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHL_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ARITHMETIC_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ARITHMETIC_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_BITWISE_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_BITWISE_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_CONVERSION([nest] expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_BITWISE_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_BITWISE_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] stream-store-flags-seq-opt) type const-value-opt
+           | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_CONVERSION([nest] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_CAST([rhs]expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_FABS([argument] argument, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_SINCOS([source] argument, [sin_pointer] argument, [cos_pointer] argument, [mask]expression-opt) type const-value-opt 
-           | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_CONVERSION([nest] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_OR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_XOR([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt 
-           | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt 
+           | NODECL_VECTOR_FUNCTION_CALL([function_call] expression, [scalar_symbol] name, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_FABS([argument] argument, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_SINCOS([source] argument, [sin_pointer] argument, [cos_pointer] argument, [mask]expression-opt) type const-value-opt
+           | NODECL_VECTOR_MASK_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_CONVERSION([nest] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_NOT([rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_AND([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_OR([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_XOR([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_AND_1_NOT([lhs] expression, [rhs] expression) type const-value-opt
+           | NODECL_VECTOR_MASK_AND_2_NOT([lhs] expression, [rhs] expression) type const-value-opt
            | c-cxx-expressions
            | fortran-expressions
            | object-init
@@ -288,7 +292,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
-                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt 
+                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | cxx-expr-dependent-nodecls
@@ -521,6 +525,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
+                 | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]reduction-item-seq)
                  | NODECL_OPEN_M_P*ALLOCA([alloca_expressions]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_ALLOCA([in_deps]expression-seq)
@@ -542,10 +547,13 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
                  | NODECL_OPEN_M_P*TASK_LABEL() text
                  | NODECL_OPEN_M_P*NO_FLUSH()
+                 | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
+                 | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
+                 | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] stream-store-flags-seq-opt)
                  | NODECL_OPEN_M_P*MASK()
                  | NODECL_OPEN_M_P*NO_MASK()
                  | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
@@ -593,7 +601,7 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
-# SIMD    
+# SIMD
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
@@ -612,6 +620,26 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 # ANALYSIS                   #
 ##############################
+
+# Used for range analysis
+interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
+                    | NODECL_ANALYSIS*PLUS_INFINITY()
+                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*EMPTY_RANGE()
+                    | expression
+
+constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
+                      | interval_expression
+
+constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
+                     | NODECL_ANALYSIS*RANGE_SUB( [lhs] constraint_expression, [rhs] constraint_expression ) type
+
+constraint : constraint_expression
+           | constraint_operation
+
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
