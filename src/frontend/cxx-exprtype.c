@@ -12976,7 +12976,7 @@ static void check_postoperator(AST operator,
     type_t* operated_type = nodecl_get_type(postoperated_expr);
 
     char requires_overload = 0;
-    
+
     CXX_LANGUAGE()
     {
         requires_overload = is_class_type(no_ref(operated_type))
@@ -12988,12 +12988,32 @@ static void check_postoperator(AST operator,
         if (is_pointer_type(no_ref(operated_type))
                 || is_arithmetic_type(no_ref(operated_type)))
         {
-            // Should be a lvalue
+            // Should be an lvalue
             if (!is_lvalue_reference_type(operated_type))
             {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
+                            nodecl_locus_to_str(postoperated_expr),
+                            codegen_to_str(postoperated_expr, decl_context),
+                            is_decrement ? "postdecrement" : "postincrement");
+                }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
                 return;
             }
+            if (is_const_qualified_type(no_ref(operated_type)))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: operand '%s' of %s is read-only\n",
+                            nodecl_locus_to_str(postoperated_expr),
+                            codegen_to_str(postoperated_expr, decl_context),
+                            is_decrement ? "postdecrement" : "postincrement");
+                }
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                return;
+            }
+
             operated_type = reference_type_get_referenced_type(operated_type);
 
             *nodecl_output = nodecl_fun(postoperated_expr,
@@ -13003,6 +13023,13 @@ static void check_postoperator(AST operator,
         }
         else
         {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: type '%s' is not valid for %s operator\n",
+                        nodecl_locus_to_str(postoperated_expr),
+                        print_type_str(no_ref(operated_type), decl_context),
+                        is_decrement ? "postdecrement" : "postincrement");
+            }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
             return;
         }
@@ -13086,12 +13113,27 @@ static void check_preoperator(AST operator,
     if (is_pointer_type(no_ref(operated_type))
             || is_arithmetic_type(no_ref(operated_type)))
     {
+        // Should be an lvalue
         if (!is_lvalue_reference_type(operated_type))
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: %s operand is not a lvalue\n",
+                error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
                         nodecl_locus_to_str(preoperated_expr),
+                        codegen_to_str(preoperated_expr, decl_context),
+                        is_decrement ? "predecrement" : "preincrement");
+            }
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            return;
+        }
+
+        if (is_const_qualified_type(no_ref(operated_type)))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: operand '%s' of %s is read-only\n",
+                        nodecl_locus_to_str(preoperated_expr),
+                        codegen_to_str(preoperated_expr, decl_context),
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
@@ -13109,7 +13151,7 @@ static void check_preoperator(AST operator,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: type %s is not valid for %s operator\n",
+                error_printf("%s: error: type '%s' is not valid for %s operator\n",
                         nodecl_locus_to_str(preoperated_expr),
                         print_type_str(no_ref(operated_type), decl_context),
                         is_decrement ? "predecrement" : "preincrement");
