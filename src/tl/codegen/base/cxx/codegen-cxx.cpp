@@ -2164,10 +2164,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         real_type = ::get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
         if (symbol.is_conversion_function())
         {
-            if (symbol.get_type().is_const())
-            {
-                real_type = real_type.get_const_type();
-            }
+            real_type = real_type.get_as_qualified_as(symbol.get_type());
         }
     }
     else
@@ -2547,10 +2544,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
 
         if (symbol.is_conversion_function())
         {
-            if (symbol.get_type().is_const())
-            {
-                real_type = real_type.get_const_type();
-            }
+            real_type = real_type.get_as_qualified_as(symbol.get_type());
         }
     }
     else
@@ -3948,15 +3942,11 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (sym.is_conversion_function()
                 || sym.is_destructor())
         {
-            // FIXME
+            // FIXME - Use TL::Type to build this type
             real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
-
             if (sym.is_conversion_function())
             {
-                if (sym.get_type().is_const())
-                {
-                    real_type = real_type.get_const_type();
-                }
+                real_type = real_type.get_as_qualified_as(sym.get_type());
             }
         }
 
@@ -5080,6 +5070,7 @@ void CxxBase::declare_friend_symbol(TL::Symbol friend_symbol, TL::Symbol class_s
         TL::Type real_type = friend_type;
         if (class_symbol.is_conversion_function())
         {
+            // ??? - What about the qualifier?
             real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
         }
 
@@ -6286,15 +6277,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         if (symbol.is_conversion_function()
                 || symbol.is_destructor())
         {
-            // FIXME
+            // FIXME - Use TL::Type to build this type
             real_type = get_new_function_type(NULL, NULL, 0, REF_QUALIFIER_NONE);
 
             if (symbol.is_conversion_function())
             {
-                if (symbol.get_type().is_const())
-                {
-                    real_type = real_type.get_const_type();
-                }
+                real_type = real_type.get_as_qualified_as(symbol.get_type());
             }
         }
 
@@ -6346,6 +6334,14 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 && symbol.is_pure())
         {
             pure_spec += " = 0 ";
+        }
+        else if (symbol.is_deleted())
+        {
+            pure_spec += " = delete ";
+        }
+        else if (symbol.is_defaulted())
+        {
+            pure_spec += " = default ";
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
@@ -7685,7 +7681,10 @@ void CxxBase::codegen_template_header(
                     case TPK_NONTYPE:
                         {
                             push_scope(symbol.get_scope());
+                            bool old_nontype_template_arguments_needs_parentheses = state.nontype_template_argument_needs_parentheses;
+                            state.nontype_template_argument_needs_parentheses = 1;
                             walk(temp_arg.get_value());
+                            state.nontype_template_argument_needs_parentheses = old_nontype_template_arguments_needs_parentheses;
                             pop_scope();
                             break;
                         }

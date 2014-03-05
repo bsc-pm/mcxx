@@ -128,8 +128,8 @@ literal : NODECL_INTEGER_LITERAL() type const-value
 
 string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
-stream-store-flags: NODECL_RELAXED_FLAG() 
-    | NODECL_EVICT_FLAG() 
+stream-store-flags: NODECL_RELAXED_FLAG()
+    | NODECL_EVICT_FLAG()
 
 expression : literal
            | name
@@ -200,7 +200,7 @@ expression : literal
            | NODECL_VECTOR_ARITHMETIC_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_SHR([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_BITWISE_SHR_I([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
-           | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt 
+           | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
@@ -292,7 +292,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
                   | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
-                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt 
+                  | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
                   | cxx-expr-dependent-nodecls
@@ -547,7 +547,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
                  | NODECL_OPEN_M_P*TASK_LABEL() text
                  | NODECL_OPEN_M_P*NO_FLUSH()
-                 | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression) 
+                 | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
@@ -601,7 +601,7 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
-# SIMD    
+# SIMD
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
@@ -628,10 +628,10 @@ interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
                     | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
                     | NODECL_ANALYSIS*EMPTY_RANGE()
                     | expression
-                    
+
 constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
                       | interval_expression
-         
+
 constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
                      | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
                      | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
@@ -639,7 +639,6 @@ constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] c
 
 constraint : constraint_expression
            | constraint_operation
-        
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
